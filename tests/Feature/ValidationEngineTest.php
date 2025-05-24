@@ -131,7 +131,7 @@ class ValidationEngineTest extends TestCase
 
         Cache::shouldHaveReceived('remember')
             ->once()
-            ->with('validation_rules_wound_care_specialty_CA', 30, \Mockery::type('Closure'));
+            ->with('validation_rules_wound_care_specialty_CA', 30, Mockery::type('Closure'));
 
         $this->assertIsArray($rules);
     }

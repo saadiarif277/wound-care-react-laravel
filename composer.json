@@ -60,7 +60,7 @@
             "@php artisan key:generate --ansi"
         ],
         "compile": [
-            "@php artisan migrate:fresh --seed"
+            "npm run build"
         ]
     },
     "extra": {
