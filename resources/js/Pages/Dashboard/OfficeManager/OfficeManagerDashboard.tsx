@@ -65,12 +65,12 @@ const adminTasks = [
   },
   {
     id: 'AT-002',
-    type: 'workflow_coordination',
-    title: 'Coordinate New Provider Onboarding',
-    description: 'Setup workflow for new wound care specialist',
+    type: 'facility_management',
+    title: 'Setup New Provider Office Space',
+    description: 'Prepare office and equipment for new wound care specialist',
     priority: 'high',
     dueDate: '2024-01-22',
-    assignedTo: 'HR Department'
+    assignedTo: 'Facilities Team'
   },
   {
     id: 'AT-003',
@@ -246,7 +246,7 @@ export default function OfficeManagerDashboard({ user }: OfficeManagerDashboardP
                 </div>
                 <div className="ml-3">
                   <h2 className="text-xl font-semibold text-gray-900">Administrative Tasks</h2>
-                  <p className="text-sm text-gray-600 mt-1">Facility management and coordination tasks</p>
+                  <p className="text-sm text-gray-600 mt-1">Facility management and operational tasks</p>
                 </div>
               </div>
               <Link
@@ -293,7 +293,7 @@ export default function OfficeManagerDashboard({ user }: OfficeManagerDashboardP
       {/* Quick Administrative Actions */}
       <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Administrative Actions</h2>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/providers/manage"
             className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
@@ -325,15 +325,7 @@ export default function OfficeManagerDashboard({ user }: OfficeManagerDashboardP
             <span className="text-sm font-medium text-gray-900">Facility Settings</span>
           </Link>
 
-          <Link
-            href="/workflow/coordination"
-            className="flex flex-col items-center p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-200 group"
-          >
-            <svg className="h-8 w-8 text-gray-400 group-hover:text-indigo-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <span className="text-sm font-medium text-gray-900">Workflow Coordination</span>
-          </Link>
+
         </div>
       </div>
 
