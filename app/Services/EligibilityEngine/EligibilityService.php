@@ -12,8 +12,8 @@ use Carbon\Carbon;
 class EligibilityService
 {
     private string $apiBaseUrl;
-    private string $clientId;
-    private string $clientSecret;
+    private ?string $clientId;
+    private ?string $clientSecret;
     private ?string $accessToken = null;
 
     public function __construct()
@@ -328,6 +328,10 @@ class EligibilityService
     {
         if ($this->accessToken) {
             return $this->accessToken;
+        }
+
+        if (!$this->clientId || !$this->clientSecret) {
+            throw new \Exception('Optum API credentials not configured. Please set OPTUM_CLIENT_ID and OPTUM_CLIENT_SECRET environment variables.');
         }
 
         $scopes = implode(' ', config('eligibility.scopes', ['create_txn', 'read_txn']));

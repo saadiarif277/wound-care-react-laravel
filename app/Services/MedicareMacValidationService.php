@@ -4,11 +4,16 @@ namespace App\Services;
 
 use App\Models\Order;
 use App\Models\MedicareMacValidation;
+use App\Services\ValidationBuilderEngine;
+use App\Services\CmsCoverageApiService;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
 class MedicareMacValidationService
 {
+    private ValidationBuilderEngine $validationEngine;
+    private CmsCoverageApiService $cmsService;
+
     /**
      * MAC Contractor mappings by state/region
      */
@@ -38,8 +43,7 @@ class MedicareMacValidationService
         'WI' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
 
         // MAC Jurisdiction J8 (J8)
-        'IN' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J8'],
-        'MI' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J8'],
+        // Note: J8 covers specific DME jurisdictions
 
         // MAC Jurisdiction JH (JH)
         'NY' => ['contractor' => 'CGS Administrators', 'jurisdiction' => 'JH'],
@@ -84,6 +88,14 @@ class MedicareMacValidationService
         '35571' => ['description' => 'Bypass graft, popliteal-tibial', 'prior_auth_required' => true, 'requires_documentation' => ['angiography', 'tissue_loss']],
     ];
 
+    public function __construct(
+        ValidationBuilderEngine $validationEngine,
+        CmsCoverageApiService $cmsService
+    ) {
+        $this->validationEngine = $validationEngine;
+        $this->cmsService = $cmsService;
+    }
+
     /**
      * Validate Medicare compliance for an order
      */
@@ -116,12 +128,25 @@ class MedicareMacValidationService
         // Set MAC contractor based on facility location
         $this->setMacContractor($validation, $order);
 
-        // Set specialty-specific requirements
+        // Get live CMS coverage data for the specialty
+        $state = $validation->mac_region;
+        $cmsLcds = $this->cmsService->getLCDsBySpecialty($specialty, $state);
+        $cmsNcds = $this->cmsService->getNCDsBySpecialty($specialty);
+
+        // Use ValidationBuilderEngine for comprehensive validation
+        $validationResults = $this->validationEngine->validateOrder($order, $specialty);
+
+        // Set specialty-specific requirements enhanced with CMS data
+        $specialtyRequirements = $this->getSpecialtyRequirements($specialty, $validationType);
+        $specialtyRequirements['cms_lcds'] = $cmsLcds;
+        $specialtyRequirements['cms_ncds'] = $cmsNcds;
+        $specialtyRequirements['validation_results'] = $validationResults;
+
         $validation->update([
-            'specialty_requirements' => $this->getSpecialtyRequirements($specialty, $validationType)
+            'specialty_requirements' => $specialtyRequirements
         ]);
 
-        // Perform validation checks
+        // Perform validation checks (enhanced with CMS data)
         $this->validateCoverage($validation, $order);
         $this->validateDocumentation($validation, $order);
         $this->validateFrequency($validation, $order);
@@ -129,13 +154,19 @@ class MedicareMacValidationService
         $this->validatePriorAuthorization($validation, $order);
         $this->validateBilling($validation, $order);
 
+        // Add CMS-specific validations
+        $this->validateCmsCompliance($validation, $order, $cmsLcds, $cmsNcds);
+
         // Update overall status
         $this->updateValidationStatus($validation);
 
         // Add audit entry
         $validation->addAuditEntry('validation_completed', [
             'validation_type' => $validationType,
-            'compliance_score' => $validation->getComplianceScore()
+            'compliance_score' => $validation->getComplianceScore(),
+            'cms_lcds_found' => count($cmsLcds),
+            'cms_ncds_found' => count($cmsNcds),
+            'validation_engine_results' => $validationResults
         ]);
 
         return $validation;
@@ -368,6 +399,173 @@ class MedicareMacValidationService
     }
 
     /**
+     * Validate compliance with CMS LCDs and NCDs
+     */
+    private function validateCmsCompliance(MedicareMacValidation $validation, Order $order, array $lcds, array $ncds): void
+    {
+        $complianceMet = true;
+        $complianceNotes = [];
+        $applicablePolicies = [];
+
+        // Check LCD compliance
+        foreach ($lcds as $lcd) {
+            $applicable = $this->isLcdApplicableToOrder($lcd, $order);
+            if ($applicable) {
+                $applicablePolicies[] = [
+                    'type' => 'LCD',
+                    'document_id' => $lcd['documentId'] ?? 'unknown',
+                    'title' => $lcd['documentTitle'] ?? 'Unknown LCD'
+                ];
+
+                // Get detailed LCD information
+                $lcdDetails = $this->cmsService->getLCDDetails($lcd['documentId'] ?? '');
+                if ($lcdDetails) {
+                    $complianceCheck = $this->checkLcdCompliance($order, $lcdDetails);
+                    if (!$complianceCheck['compliant']) {
+                        $complianceMet = false;
+                        $complianceNotes = array_merge($complianceNotes, $complianceCheck['issues']);
+                    }
+                }
+            }
+        }
+
+        // Check NCD compliance
+        foreach ($ncds as $ncd) {
+            $applicable = $this->isNcdApplicableToOrder($ncd, $order);
+            if ($applicable) {
+                $applicablePolicies[] = [
+                    'type' => 'NCD',
+                    'document_id' => $ncd['documentId'] ?? 'unknown',
+                    'title' => $ncd['documentTitle'] ?? 'Unknown NCD'
+                ];
+
+                // Get detailed NCD information
+                $ncdDetails = $this->cmsService->getNCDDetails($ncd['documentId'] ?? '');
+                if ($ncdDetails) {
+                    $complianceCheck = $this->checkNcdCompliance($order, $ncdDetails);
+                    if (!$complianceCheck['compliant']) {
+                        $complianceMet = false;
+                        $complianceNotes = array_merge($complianceNotes, $complianceCheck['issues']);
+                    }
+                }
+            }
+        }
+
+        // Update validation with CMS compliance results
+        $validation->update([
+            'cms_compliance_met' => $complianceMet,
+            'cms_compliance_notes' => implode('; ', $complianceNotes),
+            'applicable_cms_policies' => $applicablePolicies
+        ]);
+    }
+
+    /**
+     * Check if LCD is applicable to the order
+     */
+    private function isLcdApplicableToOrder(array $lcd, Order $order): bool
+    {
+        // Check if LCD contains relevant CPT codes or product categories
+        $lcdTitle = strtolower($lcd['documentTitle'] ?? '');
+        $orderItems = $order->orderItems;
+
+        foreach ($orderItems as $item) {
+            $product = $item->product;
+            if (!$product) continue;
+
+            // Check for wound care related products
+            if ($this->isWoundCareProduct($product)) {
+                if (str_contains($lcdTitle, 'wound') ||
+                    str_contains($lcdTitle, 'ulcer') ||
+                    str_contains($lcdTitle, 'skin substitute') ||
+                    str_contains($lcdTitle, 'cellular')) {
+                    return true;
+                }
+            }
+
+            // Check CPT codes
+            if ($product->cpt_code && str_contains($lcdTitle, $product->cpt_code)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if NCD is applicable to the order
+     */
+    private function isNcdApplicableToOrder(array $ncd, Order $order): bool
+    {
+        // Similar logic to LCD but for national policies
+        $ncdTitle = strtolower($ncd['documentTitle'] ?? '');
+        $orderItems = $order->orderItems;
+
+        foreach ($orderItems as $item) {
+            $product = $item->product;
+            if (!$product) continue;
+
+            if ($this->isWoundCareProduct($product)) {
+                if (str_contains($ncdTitle, 'wound') ||
+                    str_contains($ncdTitle, 'ulcer') ||
+                    str_contains($ncdTitle, 'skin substitute')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Check LCD compliance for order
+     */
+    private function checkLcdCompliance(Order $order, array $lcdDetails): array
+    {
+        $compliant = true;
+        $issues = [];
+
+        // Basic compliance check - would be enhanced with actual LCD parsing
+        // This is a simplified version that can be expanded
+
+        if (!$this->hasChronicWoundDocumentation($order)) {
+            $compliant = false;
+            $issues[] = 'Chronic wound documentation required per LCD';
+        }
+
+        if (!$this->hasDiagnosisSupport($order)) {
+            $compliant = false;
+            $issues[] = 'Supporting diagnosis documentation required per LCD';
+        }
+
+        return [
+            'compliant' => $compliant,
+            'issues' => $issues
+        ];
+    }
+
+    /**
+     * Check NCD compliance for order
+     */
+    private function checkNcdCompliance(Order $order, array $ncdDetails): array
+    {
+        $compliant = true;
+        $issues = [];
+
+        // Basic NCD compliance check
+        // This would be enhanced with actual NCD parsing logic
+
+        if (!$this->hasWoundProgressionDocumentation($order)) {
+            $compliant = false;
+            $issues[] = 'Wound progression documentation required per NCD';
+        }
+
+        return [
+            'compliant' => $compliant,
+            'issues' => $issues
+        ];
+    }
+
+    /**
      * Update overall validation status
      */
     private function updateValidationStatus(MedicareMacValidation $validation): void
@@ -596,7 +794,7 @@ class MedicareMacValidationService
         };
     }
 
-        /**
+    /**
      * Infer specialty from facility type
      */
     private function inferSpecialtyFromFacilityType(string $facilityType): ?string

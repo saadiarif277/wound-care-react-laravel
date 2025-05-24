@@ -9,8 +9,8 @@ use Carbon\Carbon;
 
 class FhirService
 {
-    private string $azureFhirEndpoint;
-    private string $azureAccessToken;
+    private ?string $azureFhirEndpoint;
+    private ?string $azureAccessToken;
 
     public function __construct()
     {
@@ -387,16 +387,25 @@ class FhirService
     /**
      * Get Azure access token for FHIR API
      */
-    private function getAzureAccessToken(): string
+    private function getAzureAccessToken(): ?string
     {
+        $tenantId = config('services.azure.tenant_id');
+        $clientId = config('services.azure.client_id');
+        $clientSecret = config('services.azure.client_secret');
+
+        if (!$tenantId || !$clientId || !$clientSecret || !$this->azureFhirEndpoint) {
+            Log::warning('Azure FHIR configuration not complete. FHIR service will be disabled.');
+            return null;
+        }
+
         // Cache the token for 50 minutes (Azure tokens typically last 1 hour)
-        return Cache::remember('azure_fhir_token', 3000, function () {
+        return Cache::remember('azure_fhir_token', 3000, function () use ($tenantId, $clientId, $clientSecret) {
             try {
-                $response = Http::asForm()->post('https://login.microsoftonline.com/' . config('services.azure.tenant_id') . '/oauth2/v2.0/token', [
+                $response = Http::asForm()->post('https://login.microsoftonline.com/' . $tenantId . '/oauth2/v2.0/token', [
                     'grant_type' => 'client_credentials',
-                    'client_id' => config('services.azure.client_id'),
-                    'client_secret' => config('services.azure.client_secret'),
-                    'scope' => config('services.azure.fhir_endpoint') . '/.default'
+                    'client_id' => $clientId,
+                    'client_secret' => $clientSecret,
+                    'scope' => $this->azureFhirEndpoint . '/.default'
                 ]);
 
                 if (!$response->successful()) {
