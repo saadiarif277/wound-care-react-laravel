@@ -30,6 +30,7 @@ class MedicareMacValidationController extends Controller
         try {
             $request->validate([
                 'validation_type' => ['required', Rule::in(['vascular_wound_care', 'wound_care_only', 'vascular_only'])],
+                'provider_specialty' => 'sometimes|string|in:vascular_surgery,interventional_radiology,cardiology,wound_care_specialty,podiatry,plastic_surgery',
                 'enable_daily_monitoring' => 'sometimes|boolean',
             ]);
 
@@ -37,7 +38,8 @@ class MedicareMacValidationController extends Controller
 
             $validation = $this->validationService->validateOrder(
                 $order,
-                $request->input('validation_type', 'wound_care_only')
+                $request->input('validation_type', 'wound_care_only'),
+                $request->input('provider_specialty')
             );
 
             // Enable daily monitoring if requested

@@ -17,7 +17,7 @@ return new class extends Migration
 
             // Related entities
             $table->foreignId('order_id')->constrained('orders')->onDelete('cascade');
-            $table->foreignId('patient_id')->nullable()->constrained('patients')->onDelete('set null');
+            $table->string('patient_fhir_id')->nullable(); // FHIR patient identifier
             $table->foreignId('facility_id')->constrained('facilities')->onDelete('cascade');
 
             // Medicare MAC Information
@@ -85,6 +85,11 @@ return new class extends Migration
 
             $table->timestamps();
 
+            // Provider/Specialty Information
+            $table->string('provider_specialty')->nullable(); // e.g., 'vascular_surgery', 'interventional_radiology', 'cardiology'
+            $table->string('provider_npi')->nullable(); // Provider NPI for validation
+            $table->json('specialty_requirements')->nullable(); // Specialty-specific requirements
+
             // Indexes for performance
             $table->index(['order_id', 'validation_status']);
             $table->index(['facility_id', 'validation_type']);
@@ -92,6 +97,7 @@ return new class extends Migration
             $table->index(['validation_status', 'validated_at']);
             $table->index(['next_validation_due']);
             $table->index(['daily_monitoring_enabled', 'last_monitored_at']);
+            $table->index(['provider_specialty', 'validation_type']);
         });
     }
 

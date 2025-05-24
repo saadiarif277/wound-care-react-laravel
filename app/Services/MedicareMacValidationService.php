@@ -87,9 +87,17 @@ class MedicareMacValidationService
     /**
      * Validate Medicare compliance for an order
      */
-    public function validateOrder(Order $order, string $validationType = 'wound_care_only'): MedicareMacValidation
+    public function validateOrder(Order $order, string $validationType = 'wound_care_only', ?string $providerSpecialty = null): MedicareMacValidation
     {
-        Log::info('Starting Medicare MAC validation', ['order_id' => $order->id, 'validation_type' => $validationType]);
+        Log::info('Starting Medicare MAC validation', [
+            'order_id' => $order->id,
+            'validation_type' => $validationType,
+            'provider_specialty' => $providerSpecialty
+        ]);
+
+        // Determine provider specialty from order or facility
+        $specialty = $this->determineProviderSpecialty($order, $providerSpecialty);
+        $providerNpi = $this->getProviderNpi($order);
 
         // Get or create validation record
         $validation = MedicareMacValidation::firstOrCreate(
@@ -97,14 +105,21 @@ class MedicareMacValidationService
             [
                 'validation_type' => $validationType,
                 'facility_id' => $order->facility_id,
-                'patient_id' => $order->patient_id ?? null,
+                'patient_fhir_id' => $order->patient_fhir_id,
                 'validation_status' => 'pending',
                 'daily_monitoring_enabled' => true,
+                'provider_specialty' => $specialty,
+                'provider_npi' => $providerNpi,
             ]
         );
 
         // Set MAC contractor based on facility location
         $this->setMacContractor($validation, $order);
+
+        // Set specialty-specific requirements
+        $validation->update([
+            'specialty_requirements' => $this->getSpecialtyRequirements($specialty, $validationType)
+        ]);
 
         // Perform validation checks
         $this->validateCoverage($validation, $order);
@@ -518,5 +533,225 @@ class MedicareMacValidationService
         ];
 
         return $estimates[$code] ?? 0;
+    }
+
+    /**
+     * Determine provider specialty from order or explicit parameter
+     */
+    private function determineProviderSpecialty(Order $order, ?string $explicitSpecialty): ?string
+    {
+        if ($explicitSpecialty) {
+            return $explicitSpecialty;
+        }
+
+        // Try to get specialty from facility users
+        $facilityUsers = $order->facility->users ?? collect();
+        foreach ($facilityUsers as $user) {
+            // Check credentials JSON for specialty information
+            $credentials = $user->credentials ?? [];
+            if (isset($credentials['specialty'])) {
+                return $this->normalizeSpecialty($credentials['specialty']);
+            }
+        }
+
+        // Fallback to facility type
+        $facilityType = $order->facility->facility_type ?? '';
+        return $this->inferSpecialtyFromFacilityType($facilityType);
+    }
+
+    /**
+     * Get provider NPI from order
+     */
+    private function getProviderNpi(Order $order): ?string
+    {
+        // Try to get from facility users with primary relationship
+        $facilityUsers = $order->facility->users ?? collect();
+        foreach ($facilityUsers as $user) {
+            if ($user->pivot->is_primary ?? false) {
+                return $user->npi_number;
+            }
+        }
+
+        // Fallback to facility NPI
+        return $order->facility->npi;
+    }
+
+    /**
+     * Normalize specialty names to standard values
+     */
+    private function normalizeSpecialty(?string $specialty): ?string
+    {
+        if (!$specialty) return null;
+
+        $specialty = strtolower(trim($specialty));
+
+        return match(true) {
+            str_contains($specialty, 'vascular') && str_contains($specialty, 'surgery') => 'vascular_surgery',
+            str_contains($specialty, 'interventional') && str_contains($specialty, 'radiology') => 'interventional_radiology',
+            str_contains($specialty, 'cardiology') => 'cardiology',
+            str_contains($specialty, 'wound') => 'wound_care_specialty',
+            str_contains($specialty, 'podiatry') => 'podiatry',
+            str_contains($specialty, 'plastic') && str_contains($specialty, 'surgery') => 'plastic_surgery',
+            default => $specialty
+        };
+    }
+
+        /**
+     * Infer specialty from facility type
+     */
+    private function inferSpecialtyFromFacilityType(string $facilityType): ?string
+    {
+        $facilityType = strtolower($facilityType);
+
+        return match(true) {
+            str_contains($facilityType, 'vascular') => 'vascular_surgery',
+            str_contains($facilityType, 'cardiology') => 'cardiology',
+            str_contains($facilityType, 'wound') => 'wound_care_specialty',
+            str_contains($facilityType, 'surgery') => 'surgery_general',
+            default => null
+        };
+    }
+
+    /**
+     * Get specialty-specific requirements based on your vascular questionnaire
+     */
+    private function getSpecialtyRequirements(?string $specialty, string $validationType): array
+    {
+        return match($specialty) {
+            'vascular_surgery' => [
+                'patient_info_required' => [
+                    'primary_diagnosis_icd10',
+                    'secondary_diagnoses',
+                    'insurance_verification',
+                    'advance_beneficiary_notice'
+                ],
+                'facility_info_required' => [
+                    'facility_npi',
+                    'facility_type',
+                    'treating_vascular_specialist',
+                    'provider_specialty_verification'
+                ],
+                'medical_history_assessment' => [
+                    'diabetes_status',
+                    'hypertension',
+                    'coronary_artery_disease',
+                    'current_medications',
+                    'functional_status',
+                    'previous_vascular_procedures'
+                ],
+                'vascular_assessment_required' => [
+                    'symptoms_documentation',
+                    'pulse_examination',
+                    'abi_measurements',
+                    'rutherford_classification',
+                    'ceap_classification'
+                ],
+                'diagnostic_studies' => [
+                    'duplex_ultrasound',
+                    'ct_angiography',
+                    'digital_subtraction_angiography',
+                    'tcpo2_measurements'
+                ],
+                'laboratory_values' => [
+                    'hemoglobin',
+                    'platelet_count',
+                    'coagulation_studies',
+                    'renal_function',
+                    'hba1c_for_diabetics'
+                ],
+                'procedure_specific_requirements' => $this->getVascularProcedureRequirements(),
+                'mac_coverage_verification' => [
+                    'mac_jurisdiction_check',
+                    'lcd_documentation_requirements',
+                    'prior_authorization_determination',
+                    'cpt_hcpcs_validation'
+                ],
+                'monitoring_frequency' => 'daily',
+                'compliance_thresholds' => [
+                    'documentation_completeness' => 95,
+                    'prior_auth_compliance' => 100,
+                    'billing_accuracy' => 98
+                ]
+            ],
+            'interventional_radiology' => [
+                'required_documentation' => [
+                    'diagnostic_imaging_reports',
+                    'contrast_allergy_screening',
+                    'renal_function_clearance',
+                    'radiation_safety_protocols'
+                ],
+                'procedure_categories' => ['imaging_guided_procedures', 'vascular_interventions'],
+                'monitoring_frequency' => 'per_procedure',
+                'prior_auth_threshold' => 'high_complexity'
+            ],
+            'cardiology' => [
+                'required_documentation' => [
+                    'ecg_results',
+                    'echocardiogram',
+                    'stress_test_results',
+                    'cardiac_catheterization_reports'
+                ],
+                'procedure_categories' => ['cardiac_interventions'],
+                'monitoring_frequency' => 'per_procedure'
+            ],
+            'wound_care_specialty' => [
+                'wound_documentation_required' => [
+                    'wound_type_classification',
+                    'wound_measurements',
+                    'wound_photography',
+                    'treatment_history',
+                    'healing_progression'
+                ],
+                'procedure_categories' => ['wound_care_only'],
+                'monitoring_frequency' => 'weekly'
+            ],
+            default => [
+                'required_documentation' => ['physician_orders', 'patient_assessment'],
+                'procedure_categories' => ['general'],
+                'monitoring_frequency' => 'monthly'
+            ]
+        };
+    }
+
+    /**
+     * Get vascular procedure-specific requirements from your questionnaire
+     */
+    private function getVascularProcedureRequirements(): array
+    {
+        return [
+            'peripheral_vascular_angioplasty' => [
+                'target_vessel_documentation',
+                'lesion_length_measurement',
+                'stenosis_percentage',
+                'calcification_assessment',
+                'prior_intervention_history'
+            ],
+            'carotid_endarterectomy' => [
+                'stenosis_percentage_verification',
+                'symptomatic_status',
+                'contralateral_assessment'
+            ],
+            'aaa_repair' => [
+                'aneurysm_size_measurement',
+                'anatomical_suitability',
+                'approach_justification'
+            ],
+            'arteriovenous_fistula' => [
+                'vein_mapping_results',
+                'allen_test_documentation',
+                'access_site_planning'
+            ],
+            'varicose_vein_treatment' => [
+                'conservative_therapy_documentation',
+                'reflux_measurements',
+                'symptom_severity_assessment'
+            ],
+            'vascular_wound_care' => [
+                'wound_etiology_classification',
+                'wound_measurements',
+                'previous_treatment_documentation',
+                'healing_potential_assessment'
+            ]
+        ];
     }
 }

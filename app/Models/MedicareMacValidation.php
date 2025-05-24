@@ -16,7 +16,7 @@ class MedicareMacValidation extends Model
     protected $fillable = [
         'validation_id',
         'order_id',
-        'patient_id',
+        'patient_fhir_id',
         'facility_id',
         'mac_contractor',
         'mac_jurisdiction',
@@ -59,6 +59,9 @@ class MedicareMacValidation extends Model
         'last_monitored_at',
         'validation_count',
         'audit_trail',
+        'provider_specialty',
+        'provider_npi',
+        'specialty_requirements',
     ];
 
     protected $casts = [
@@ -91,6 +94,7 @@ class MedicareMacValidation extends Model
         'last_monitored_at' => 'datetime',
         'validation_count' => 'integer',
         'audit_trail' => 'array',
+        'specialty_requirements' => 'array',
     ];
 
     /**
@@ -116,11 +120,11 @@ class MedicareMacValidation extends Model
     }
 
     /**
-     * The patient this validation belongs to
+     * Get the patient FHIR ID for this validation
      */
-    public function patient(): BelongsTo
+    public function getPatientFhirId(): ?string
     {
-        return $this->belongsTo(Patient::class);
+        return $this->patient_fhir_id ?? $this->order->patient_fhir_id;
     }
 
     /**
@@ -210,6 +214,38 @@ class MedicareMacValidation extends Model
     public function scopeWoundCareOnly($query)
     {
         return $query->where('validation_type', 'wound_care_only');
+    }
+
+    /**
+     * Scope to get validations by provider specialty
+     */
+    public function scopeBySpecialty($query, $specialty)
+    {
+        return $query->where('provider_specialty', $specialty);
+    }
+
+    /**
+     * Scope to get vascular surgery validations
+     */
+    public function scopeVascularSurgery($query)
+    {
+        return $query->where('provider_specialty', 'vascular_surgery');
+    }
+
+    /**
+     * Scope to get interventional radiology validations
+     */
+    public function scopeInterventionalRadiology($query)
+    {
+        return $query->where('provider_specialty', 'interventional_radiology');
+    }
+
+    /**
+     * Scope to get cardiology validations
+     */
+    public function scopeCardiology($query)
+    {
+        return $query->where('provider_specialty', 'cardiology');
     }
 
     /**
@@ -315,5 +351,79 @@ class MedicareMacValidation extends Model
         ];
 
         $this->update(['audit_trail' => $auditTrail]);
+    }
+
+    /**
+     * Get specialty-specific validation requirements
+     */
+    public function getSpecialtyRequirements(): array
+    {
+        $requirements = $this->specialty_requirements ?? [];
+
+        // Add default requirements based on specialty
+        $defaultRequirements = $this->getDefaultSpecialtyRequirements($this->provider_specialty);
+
+        return array_merge($defaultRequirements, $requirements);
+    }
+
+    /**
+     * Get default requirements for a specialty
+     */
+    private function getDefaultSpecialtyRequirements(?string $specialty): array
+    {
+        return match($specialty) {
+            'vascular_surgery' => [
+                'required_documentation' => [
+                    'angiography',
+                    'abi_measurements',
+                    'vascular_assessment',
+                    'physician_orders',
+                    'failed_conservative_treatment'
+                ],
+                'procedure_categories' => ['vascular_interventions', 'wound_care'],
+                'frequency_monitoring' => 'daily',
+                'prior_auth_threshold' => 'medium_complexity'
+            ],
+            'interventional_radiology' => [
+                'required_documentation' => [
+                    'diagnostic_imaging',
+                    'contrast_allergy_screening',
+                    'renal_function_assessment',
+                    'physician_orders'
+                ],
+                'procedure_categories' => ['imaging_guided_procedures', 'vascular_interventions'],
+                'frequency_monitoring' => 'per_procedure',
+                'prior_auth_threshold' => 'high_complexity'
+            ],
+            'cardiology' => [
+                'required_documentation' => [
+                    'ecg',
+                    'echo_results',
+                    'cardiac_catheterization',
+                    'physician_orders'
+                ],
+                'procedure_categories' => ['cardiac_interventions'],
+                'frequency_monitoring' => 'per_procedure',
+                'prior_auth_threshold' => 'high_complexity'
+            ],
+            'wound_care_specialty' => [
+                'required_documentation' => [
+                    'wound_assessment',
+                    'wound_measurement',
+                    'photography',
+                    'treatment_plan',
+                    'physician_orders'
+                ],
+                'procedure_categories' => ['wound_care_only'],
+                'frequency_monitoring' => 'weekly',
+                'prior_auth_threshold' => 'low_complexity'
+            ],
+            default => [
+                'required_documentation' => ['physician_orders', 'patient_assessment'],
+                'procedure_categories' => ['general'],
+                'frequency_monitoring' => 'monthly',
+                'prior_auth_threshold' => 'standard'
+            ]
+        };
     }
 }
