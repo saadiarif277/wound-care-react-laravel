@@ -94,7 +94,7 @@ class ProductRequestController extends Controller
 
             // Step 3: Product Selection
             'selected_products' => 'nullable|array',
-            'selected_products.*.product_id' => 'required_with:selected_products|exists:products,id',
+            'selected_products.*.product_id' => 'required_with:selected_products|exists:msc_products,id',
             'selected_products.*.quantity' => 'required_with:selected_products|integer|min:1',
             'selected_products.*.size' => 'nullable|string',
         ]);

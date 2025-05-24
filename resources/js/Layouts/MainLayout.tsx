@@ -1,8 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
+import RoleTestSwitcher from '@/Components/RoleTestSwitcher';
 import { UserRole } from '@/types/roles';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FiLogOut,
   FiMenu,
@@ -23,12 +24,37 @@ interface PageProps extends Record<string, unknown> {
 
 export default function MainLayout({ title, children }: MainLayoutProps) {
   const { props } = usePage<PageProps>();
-  const userRole = props.userRole || 'provider';
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(props.userRole || 'provider');
 
   // Get current path to determine active menu item
   const currentPath = window.location.pathname;
+
+  // Check for test role in URL params or localStorage on mount
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const testRole = urlParams.get('test_role') as UserRole;
+    const savedRole = localStorage.getItem('dev_test_role') as UserRole;
+
+    // Priority: URL param > localStorage > props.userRole > default
+    const effectiveRole = testRole || savedRole || props.userRole || 'provider';
+
+    // Validate role
+    const validRoles: UserRole[] = ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin', 'superadmin'];
+    if (validRoles.includes(effectiveRole)) {
+      setCurrentUserRole(effectiveRole);
+
+      // Save to localStorage if it came from URL
+      if (testRole) {
+        localStorage.setItem('dev_test_role', testRole);
+      }
+    }
+  }, [props.userRole]);
+
+  const handleRoleChange = (newRole: UserRole) => {
+    setCurrentUserRole(newRole);
+  };
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -98,7 +124,7 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
 
             {/* Navigation Menu */}
             <RoleBasedNavigation
-              userRole={userRole}
+              userRole={currentUserRole}
               currentPath={currentPath}
               isCollapsed={isCollapsed}
             />
@@ -191,6 +217,14 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
             </div>
           </main>
         </div>
+
+        {/* Global Role Test Switcher (Development Only) */}
+        {process.env.NODE_ENV === 'development' && (
+          <RoleTestSwitcher
+            currentRole={currentUserRole}
+            onRoleChange={handleRoleChange}
+          />
+        )}
       </div>
     </>
   );

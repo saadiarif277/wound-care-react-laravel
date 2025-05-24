@@ -2,13 +2,20 @@ import { Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import React from 'react';
 import { UserRole, UserWithRole } from '@/types/roles';
-import RoleTestSwitcher from '@/Components/RoleTestSwitcher';
 import {
   getDashboardTitle,
   getDashboardDescription,
   getFeatureFlags,
   hasPermission
 } from '@/lib/roleUtils';
+
+// Import role-specific dashboards
+import ProviderDashboard from './Provider/ProviderDashboard';
+import OfficeManagerDashboard from './OfficeManager/OfficeManagerDashboard';
+import MscAdminDashboard from './Admin/MscAdminDashboard';
+import SuperAdminDashboard from './Admin/SuperAdminDashboard';
+import MscRepDashboard from './Sales/MscRepDashboard';
+import MscSubrepDashboard from './Sales/MscSubrepDashboard';
 
 // Define the types
 interface Verification {
@@ -60,7 +67,6 @@ interface Request {
 interface DashboardProps {
   userRole?: UserRole;
   user?: UserWithRole;
-  showRoleTestSwitcher?: boolean;
 }
 
 // Create dummy data
@@ -219,16 +225,55 @@ const dummyRecentRequests: Request[] = [
   }
 ];
 
-function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = false }: DashboardProps) {
-  // Use the dummy data directly
-  const verifications = dummyVerifications;
-  const results = dummyResults;
-  const actionItems = dummyActionItems;
-  const clinicalOpportunities = dummyClinicalOpportunities;
-  const recentRequests = dummyRecentRequests;
+function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
+  // Get effective role from URL params, localStorage, or prop
+  const getEffectiveRole = (): UserRole => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const testRole = urlParams.get('test_role') as UserRole;
+      const savedRole = localStorage.getItem('dev_test_role') as UserRole;
 
-  // Get role-based feature flags
-  const featureFlags = getFeatureFlags(userRole);
+      const validRoles: UserRole[] = ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin', 'superadmin'];
+      const effectiveRole = testRole || savedRole || userRole;
+
+      return validRoles.includes(effectiveRole) ? effectiveRole : userRole;
+    }
+    return userRole;
+  };
+
+  const effectiveUserRole = getEffectiveRole();
+
+  // Route to specific role-based dashboards
+  const renderRoleSpecificDashboard = () => {
+    switch (effectiveUserRole) {
+      case 'provider':
+        return <ProviderDashboard user={user} />;
+      case 'office_manager':
+        return <OfficeManagerDashboard user={user} />;
+      case 'msc_admin':
+        return <MscAdminDashboard user={user} />;
+      case 'superadmin':
+        return <SuperAdminDashboard user={user} />;
+      case 'msc_rep':
+        return <MscRepDashboard user={user} />;
+      case 'msc_subrep':
+        return <MscSubrepDashboard user={user} />;
+      default:
+        // Fall back to the existing generic dashboard for unrecognized roles
+        return renderGenericDashboard();
+    }
+  };
+
+  const renderGenericDashboard = () => {
+    // Use the dummy data directly
+    const verifications = dummyVerifications;
+    const results = dummyResults;
+    const actionItems = dummyActionItems;
+    const clinicalOpportunities = dummyClinicalOpportunities;
+    const recentRequests = dummyRecentRequests;
+
+    // Get role-based feature flags
+    const featureFlags = getFeatureFlags(effectiveUserRole);
 
   // Calculate status counts
   const getTotalsByStatus = () => {
@@ -256,8 +301,8 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
 
   // Get role-specific dashboard content using utility functions
   const dashboardContent = {
-    title: getDashboardTitle(userRole),
-    description: getDashboardDescription(userRole)
+    title: getDashboardTitle(effectiveUserRole),
+    description: getDashboardDescription(effectiveUserRole)
   };
 
   // Get priority action items (top 3)
@@ -412,7 +457,7 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
       </div>
 
       {/* Clinical Opportunities Widget */}
-      {userRole === 'provider' && clinicalOpportunities.length > 0 && (
+      {effectiveUserRole === 'provider' && clinicalOpportunities.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200 bg-blue-50">
             <div className="flex items-center">
@@ -549,7 +594,7 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
 
       {/* Role-specific Quick Links */}
       <div className="grid gap-6 md:grid-cols-3">
-        {(userRole === 'msc_admin' || userRole === 'superadmin') && (
+        {(effectiveUserRole === 'msc_admin' || effectiveUserRole === 'superadmin') && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">System Management</h3>
@@ -593,7 +638,7 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
           </>
         )}
 
-        {userRole === 'provider' && (
+        {effectiveUserRole === 'provider' && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Product Catalog</h3>
@@ -636,7 +681,7 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
           </>
         )}
 
-        {userRole === 'office_manager' && (
+        {effectiveUserRole === 'office_manager' && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Facility Management</h3>
@@ -680,14 +725,14 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
           </>
         )}
 
-        {(userRole === 'msc_rep' || userRole === 'msc_subrep') && (
+        {(effectiveUserRole === 'msc_rep' || effectiveUserRole === 'msc_subrep') && (
           <>
                         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Commission Tracking' : 'Limited Commission Access'}
+                {effectiveUserRole === 'msc_rep' ? 'Commission Tracking' : 'Limited Commission Access'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {effectiveUserRole === 'msc_rep'
                   ? 'View your commission statements and team performance.'
                   : 'Track your limited commission access and activities.'
                 }
@@ -702,10 +747,10 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Customer Management' : 'Customer Support'}
+                {effectiveUserRole === 'msc_rep' ? 'Customer Management' : 'Customer Support'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {effectiveUserRole === 'msc_rep'
                   ? 'Manage customer relationships and territory oversight.'
                   : 'Assist with customer interactions and territory support.'
                 }
@@ -715,35 +760,38 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
                 className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white transition-all duration-200 hover:shadow-md"
                 style={{ backgroundColor: '#1822cf' }}
               >
-                {userRole === 'msc_rep' ? 'Manage Customers' : 'Customer Support'}
+                {effectiveUserRole === 'msc_rep' ? 'Manage Customers' : 'Customer Support'}
               </Link>
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Territory & Analytics' : 'Sub-Rep Activities'}
+                {effectiveUserRole === 'msc_rep' ? 'Territory & Analytics' : 'Sub-Rep Activities'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {effectiveUserRole === 'msc_rep'
                   ? 'Track sales performance and manage sub-representatives.'
                   : 'Report activities and coordinate with primary MSC Rep.'
                 }
               </p>
               <Link
-                href={userRole === 'msc_rep' ? '/sales/analytics' : '/sales/subrep-activities'}
+                href={effectiveUserRole === 'msc_rep' ? '/sales/analytics' : '/sales/subrep-activities'}
                 className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white transition-all duration-200 hover:shadow-md"
                 style={{ backgroundColor: '#1822cf' }}
               >
-                {userRole === 'msc_rep' ? 'View Analytics' : 'My Activities'}
+                {effectiveUserRole === 'msc_rep' ? 'View Analytics' : 'My Activities'}
               </Link>
             </div>
           </>
         )}
       </div>
 
-      {/* Role Test Switcher (Development Only) */}
-      {showRoleTestSwitcher && (
-        <RoleTestSwitcher currentRole={userRole} />
-      )}
+    </div>
+    );
+  };
+
+  return (
+    <div>
+      {renderRoleSpecificDashboard()}
     </div>
   );
 }
