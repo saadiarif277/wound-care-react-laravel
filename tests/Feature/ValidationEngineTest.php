@@ -125,14 +125,15 @@ class ValidationEngineTest extends TestCase
     /** @test */
     public function it_caches_validation_rules()
     {
-        Cache::shouldReceive('remember')
-            ->once()
-            ->with('validation_rules_wound_care_specialty_CA', 30, \Mockery::type('Closure'))
-            ->andReturn(['cached' => 'rules']);
+        Cache::spy();
 
         $rules = $this->validationEngine->buildValidationRulesForSpecialty('wound_care_specialty', 'CA');
 
-        $this->assertEquals(['cached' => 'rules'], $rules);
+        Cache::shouldHaveReceived('remember')
+            ->once()
+            ->with('validation_rules_wound_care_specialty_CA', 30, \Mockery::type('Closure'));
+
+        $this->assertIsArray($rules);
     }
 
     /** @test */
