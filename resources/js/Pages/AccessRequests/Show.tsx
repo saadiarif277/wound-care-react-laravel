@@ -12,7 +12,7 @@ import {
   FiClock,
   FiFileText,
   FiMapPin,
-  FiBuilding,
+  FiHome,
   FiAlertCircle,
   FiCheckCircle,
   FiSend
@@ -219,7 +219,7 @@ export default function AccessRequestShow({ accessRequest, roleSpecificFields }:
                 <div className="bg-white shadow-sm rounded-lg border border-gray-200">
                   <div className="px-6 py-4 border-b border-gray-200">
                     <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                      <FiBuilding className="mr-2 h-5 w-5 text-blue-600" />
+                      <FiHome className="mr-2 h-5 w-5 text-blue-600" />
                       {getRoleDisplayName(accessRequest.requested_role)} Details
                     </h3>
                   </div>
