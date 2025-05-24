@@ -140,7 +140,16 @@ class ValidationEngineMonitoring
 
         try {
             // Check if we're using Redis cache driver
-            if (config('cache.default') === 'redis') {
+            $isRedis = false;
+            try {
+                // Try to detect Redis by attempting to get the Redis connection
+                $isRedis = Cache::getStore() instanceof \Illuminate\Cache\RedisStore;
+            } catch (Exception $e) {
+                // Not Redis or cache not available, use fallback
+                $isRedis = false;
+            }
+
+            if ($isRedis) {
                 // For Redis cache stores, try to get keys with pattern
                 $redis = Cache::connection()->getRedis();
                 $keys = $redis->keys('*validation_performance_*');
@@ -170,7 +179,7 @@ class ValidationEngineMonitoring
                     }
                 }
             }
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::warning('Failed to retrieve validation performance metrics', [
                 'error' => $e->getMessage()
             ]);
@@ -187,7 +196,7 @@ class ValidationEngineMonitoring
                         $totalCalls += $data['total_calls'] ?? 0;
                         $successfulCalls += $data['successful_calls'] ?? 0;
                         $avgDuration += $data['total_duration'] ?? 0;
-                    } catch (\Exception $fallbackError) {
+                    } catch (Exception $fallbackError) {
                         // Silent fallback - metrics will show zero if cache is completely unavailable
                     }
                 }
