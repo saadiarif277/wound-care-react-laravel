@@ -223,6 +223,63 @@ class ProductController extends Controller
     }
 
     /**
+     * API endpoint to get all products for selection interfaces
+     */
+    public function getAll(Request $request)
+    {
+        $query = Product::active();
+
+        // Apply search filter
+        if ($request->filled('q')) {
+            $query->search($request->q);
+        }
+
+        // Apply category filter
+        if ($request->filled('category')) {
+            $query->byCategory($request->category);
+        }
+
+        // Apply manufacturer filter
+        if ($request->filled('manufacturer')) {
+            $query->byManufacturer($request->manufacturer);
+        }
+
+        $products = $query
+            ->select([
+                'id', 'name', 'sku', 'q_code', 'manufacturer', 'category',
+                'description', 'price_per_sq_cm', 'available_sizes',
+                'image_url', 'commission_rate'
+            ])
+            ->orderBy('name')
+            ->get()
+            ->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'q_code' => $product->q_code,
+                    'manufacturer' => $product->manufacturer,
+                    'category' => $product->category,
+                    'description' => $product->description,
+                    'price_per_sq_cm' => $product->price_per_sq_cm,
+                    'msc_price' => $product->msc_price,
+                    'available_sizes' => $product->available_sizes ?? [],
+                    'image_url' => $product->image_url,
+                    'commission_rate' => $product->commission_rate,
+                ];
+            });
+
+        $categories = Product::getCategories();
+        $manufacturers = Product::getManufacturers();
+
+        return response()->json([
+            'products' => $products,
+            'categories' => $categories,
+            'manufacturers' => $manufacturers,
+        ]);
+    }
+
+    /**
      * API endpoint to get product recommendations based on clinical data
      */
     public function recommendations(Request $request)

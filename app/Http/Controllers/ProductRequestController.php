@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\ProductRequest;
-use App\Models\Patient;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\Facility;
+use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
@@ -13,6 +14,13 @@ use Inertia\Inertia;
 
 class ProductRequestController extends Controller
 {
+    protected PatientService $patientService;
+
+    public function __construct(PatientService $patientService)
+    {
+        $this->patientService = $patientService;
+    }
+
     public function index()
     {
         return Inertia::render('ProductRequest/Index', [
@@ -22,87 +30,106 @@ class ProductRequestController extends Controller
                 ->when(request('search'), function ($query, $search) {
                     $query->where(function ($query) use ($search) {
                         $query->where('request_number', 'like', "%{$search}%")
-                            ->orWhereHas('patient', function ($query) use ($search) {
-                                $query->where('first_name', 'like', "%{$search}%")
-                                    ->orWhere('last_name', 'like', "%{$search}%")
-                                    ->orWhere('member_id', 'like', "%{$search}%");
-                            });
+                            ->orWhere('patient_fhir_id', 'like', "%{$search}%")
+                            ->orWhere('patient_display_id', 'like', "%{$search}%");
                     });
                 })
                 ->when(request('status'), function ($query, $status) {
-                    $query->where('status', $status);
+                    $query->where('order_status', $status);
                 })
-                ->with(['patient', 'products'])
+                ->with(['products', 'facility'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(10)
                 ->withQueryString()
                 ->through(fn ($request) => [
                     'id' => $request->id,
                     'request_number' => $request->request_number,
-                    'patient' => [
-                        'name' => $request->patient->first_name . ' ' . $request->patient->last_name,
-                        'member_id' => $request->patient->member_id,
-                        'dob' => $request->patient->date_of_birth,
-                    ],
-                    'status' => $request->status,
+                    'patient_display' => $request->formatPatientDisplay(),
+                    'patient_fhir_id' => $request->patient_fhir_id,
+                    'order_status' => $request->order_status,
+                    'step' => $request->step,
+                    'step_description' => $request->step_description,
+                    'facility_name' => $request->facility->name ?? 'No facility',
                     'created_at' => $request->created_at->format('M j, Y'),
                     'total_products' => $request->products->count(),
-                    'total_amount' => $request->total_amount,
+                    'total_amount' => $request->total_order_value,
                 ])
         ]);
     }
 
     public function create()
     {
+        $user = Auth::user();
+
         return Inertia::render('ProductRequest/Create', [
-            'patients' => Patient::query()
-                ->where('organization_id', Auth::user()->organization_id)
-                ->select('id', 'first_name', 'last_name', 'member_id', 'date_of_birth', 'insurance_plan')
-                ->get(),
-            'woundTypes' => [
-                'DFU' => 'Diabetic Foot Ulcer',
-                'VLU' => 'Venous Leg Ulcer',
-                'ALU' => 'Arterial Leg Ulcer',
-                'PI' => 'Pressure Injury',
-                'SWI' => 'Surgical Wound Infection',
-                'OTHER' => 'Other'
-            ]
+            'woundTypes' => ProductRequest::getWoundTypeDescriptions(),
+            'facilities' => Facility::where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'address'])
+                ->toArray(),
+            'userFacilityId' => $user->facility_id ?? null,
         ]);
     }
 
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'patient_id' => 'required|exists:patients,id',
-            'expected_service_date' => 'required|date',
-            'wound_type' => 'required|string',
-            'clinical_data' => 'required|array',
-            'selected_products' => 'required|array',
-            'selected_products.*.product_id' => 'required|exists:products,id',
-            'selected_products.*.quantity' => 'required|integer|min:1',
+            // Step 1: Patient Information
+            'patient_api_input' => 'required|array',
+            'patient_api_input.first_name' => 'required|string|max:255',
+            'patient_api_input.last_name' => 'required|string|max:255',
+            'patient_api_input.dob' => 'required|date',
+            'patient_api_input.gender' => 'required|string|in:male,female,other',
+            'patient_api_input.member_id' => 'required|string|max:255',
+
+            'facility_id' => 'required|exists:facilities,id',
+            'expected_service_date' => 'required|date|after:today',
+            'payer_name' => 'required|string|max:255',
+            'payer_id' => 'nullable|string|max:255',
+            'wound_type' => 'required|string|in:DFU,VLU,PU,TW,AU,OTHER',
+
+            // Step 2: Clinical Assessment (will be processed separately)
+            'clinical_data' => 'nullable|array',
+
+            // Step 3: Product Selection
+            'selected_products' => 'nullable|array',
+            'selected_products.*.product_id' => 'required_with:selected_products|exists:products,id',
+            'selected_products.*.quantity' => 'required_with:selected_products|integer|min:1',
             'selected_products.*.size' => 'nullable|string',
         ]);
 
+        // Step 1: Process PHI and create patient record using PatientService
+        $patientIdentifiers = $this->patientService->createPatientRecord(
+            $validated['patient_api_input'],
+            $validated['facility_id']
+        );
+
+        // Create product request with non-PHI data only
         $productRequest = ProductRequest::create([
             'request_number' => 'PR-' . strtoupper(uniqid()),
             'provider_id' => Auth::id(),
-            'patient_id' => $validated['patient_id'],
+            'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+            'patient_display_id' => $patientIdentifiers['patient_display_id'], // "JoSm001" format
+            'facility_id' => $validated['facility_id'],
+            'payer_name_submitted' => $validated['payer_name'],
+            'payer_id' => $validated['payer_id'],
             'expected_service_date' => $validated['expected_service_date'],
             'wound_type' => $validated['wound_type'],
-            'clinical_data' => $validated['clinical_data'],
-            'status' => 'draft',
+            'order_status' => 'draft',
             'step' => 1,
         ]);
 
-        // Attach products
-        foreach ($validated['selected_products'] as $productData) {
-            $product = Product::find($productData['product_id']);
-            $productRequest->products()->attach($productData['product_id'], [
-                'quantity' => $productData['quantity'],
-                'size' => $productData['size'] ?? null,
-                'unit_price' => $product->price ?? 0,
-                'total_price' => ($product->price ?? 0) * $productData['quantity'],
-            ]);
+        // Attach products if provided
+        if (!empty($validated['selected_products'])) {
+            foreach ($validated['selected_products'] as $productData) {
+                $product = Product::find($productData['product_id']);
+                $productRequest->products()->attach($productData['product_id'], [
+                    'quantity' => $productData['quantity'],
+                    'size' => $productData['size'] ?? null,
+                    'unit_price' => $product->price ?? 0,
+                    'total_price' => ($product->price ?? 0) * $productData['quantity'],
+                ]);
+            }
         }
 
         return Redirect::route('product-requests.show', $productRequest)
@@ -120,23 +147,27 @@ class ProductRequestController extends Controller
             'request' => [
                 'id' => $productRequest->id,
                 'request_number' => $productRequest->request_number,
-                'status' => $productRequest->status,
+                'order_status' => $productRequest->order_status,
                 'step' => $productRequest->step,
+                'step_description' => $productRequest->step_description,
                 'wound_type' => $productRequest->wound_type,
                 'expected_service_date' => $productRequest->expected_service_date,
-                'clinical_data' => $productRequest->clinical_data,
+                'patient_display' => $productRequest->formatPatientDisplay(),
+                'patient_fhir_id' => $productRequest->patient_fhir_id,
+                'facility' => $productRequest->facility ? [
+                    'id' => $productRequest->facility->id,
+                    'name' => $productRequest->facility->name,
+                ] : null,
+                'payer_name' => $productRequest->payer_name_submitted,
+                'clinical_summary' => $productRequest->clinical_summary,
                 'mac_validation_results' => $productRequest->mac_validation_results,
+                'mac_validation_status' => $productRequest->mac_validation_status,
                 'eligibility_results' => $productRequest->eligibility_results,
+                'eligibility_status' => $productRequest->eligibility_status,
+                'pre_auth_required' => $productRequest->isPriorAuthRequired(),
                 'clinical_opportunities' => $productRequest->clinical_opportunities,
-                'total_amount' => $productRequest->total_amount,
+                'total_amount' => $productRequest->total_order_value,
                 'created_at' => $productRequest->created_at->format('M j, Y'),
-                'patient' => [
-                    'id' => $productRequest->patient->id,
-                    'name' => $productRequest->patient->first_name . ' ' . $productRequest->patient->last_name,
-                    'member_id' => $productRequest->patient->member_id,
-                    'dob' => $productRequest->patient->date_of_birth,
-                    'insurance_plan' => $productRequest->patient->insurance_plan,
-                ],
                 'products' => $productRequest->products->map(fn ($product) => [
                     'id' => $product->id,
                     'name' => $product->name,
@@ -149,9 +180,29 @@ class ProductRequestController extends Controller
                 ]),
                 'provider' => [
                     'name' => $productRequest->provider->first_name . ' ' . $productRequest->provider->last_name,
-                    'organization' => $productRequest->provider->organization->name ?? null,
+                    'facility' => $productRequest->facility->name ?? null,
                 ]
             ]
+        ]);
+    }
+
+    /**
+     * API endpoint for searching patients by display ID.
+     */
+    public function searchPatients(Request $request)
+    {
+        $validated = $request->validate([
+            'search' => 'required|string|min:1|max:10',
+            'facility_id' => 'required|exists:facilities,id',
+        ]);
+
+        $patients = $this->patientService->searchPatientsByDisplayId(
+            $validated['search'],
+            $validated['facility_id']
+        );
+
+        return response()->json([
+            'patients' => $patients
         ]);
     }
 
@@ -167,14 +218,35 @@ class ProductRequestController extends Controller
             'step_data' => 'required|array',
         ]);
 
-        $productRequest->update([
-            'step' => $validated['step'],
-            'clinical_data' => array_merge($productRequest->clinical_data ?? [], $validated['step_data']),
-        ]);
+        // Process step-specific data
+        $updateData = ['step' => $validated['step']];
+
+        switch ($validated['step']) {
+            case 2: // Clinical Assessment
+                $azureFhirId = $this->storeClinicalDataInAzure($validated['step_data'], $productRequest);
+                $updateData['azure_order_checklist_fhir_id'] = $azureFhirId;
+                $updateData['clinical_summary'] = $this->generateClinicalSummary($validated['step_data']);
+                break;
+
+            case 3: // Product Selection
+                $this->updateProductSelection($productRequest, $validated['step_data']);
+                break;
+
+            case 4: // Validation & Eligibility (Automated)
+                $this->runAutomatedValidation($productRequest);
+                break;
+
+            case 5: // Clinical Opportunities
+                $this->scanClinicalOpportunities($productRequest);
+                break;
+        }
+
+        $productRequest->update($updateData);
 
         return response()->json([
             'success' => true,
             'step' => $productRequest->step,
+            'step_description' => $productRequest->step_description,
         ]);
     }
 
@@ -185,27 +257,8 @@ class ProductRequestController extends Controller
             abort(403);
         }
 
-        // Mock MAC validation logic - replace with actual implementation
-        $macResults = [
-            'overall_status' => 'warning',
-            'validations' => [
-                [
-                    'rule' => 'Wound documentation',
-                    'status' => 'passed',
-                    'message' => 'Wound measurements and assessment documented'
-                ],
-                [
-                    'rule' => 'Conservative care',
-                    'status' => 'warning',
-                    'message' => 'Consider adding more conservative care documentation'
-                ],
-                [
-                    'rule' => 'Medical necessity',
-                    'status' => 'passed',
-                    'message' => 'Medical necessity clearly documented'
-                ]
-            ]
-        ];
+        // MAC Validation Engine - implement actual validation logic
+        $macResults = $this->performMacValidation($productRequest);
 
         $productRequest->update([
             'mac_validation_results' => $macResults,
@@ -225,20 +278,13 @@ class ProductRequestController extends Controller
             abort(403);
         }
 
-        // Mock eligibility check - replace with actual implementation
-        $eligibilityResults = [
-            'status' => 'eligible',
-            'coverage_percentage' => 80,
-            'copay_amount' => 25.00,
-            'deductible_remaining' => 150.00,
-            'prior_auth_required' => false,
-            'effective_date' => now()->toDateString(),
-            'expiration_date' => now()->addYear()->toDateString(),
-        ];
+        // Eligibility Engine - implement actual eligibility checking
+        $eligibilityResults = $this->performEligibilityCheck($productRequest);
 
         $productRequest->update([
             'eligibility_results' => $eligibilityResults,
             'eligibility_status' => $eligibilityResults['status'],
+            'pre_auth_required_determination' => $eligibilityResults['prior_auth_required'] ? 'required' : 'not_required',
         ]);
 
         return response()->json([
@@ -254,12 +300,140 @@ class ProductRequestController extends Controller
             abort(403);
         }
 
+        if (!$productRequest->canBeSubmitted()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Request cannot be submitted at this time.',
+            ], 400);
+        }
+
         $productRequest->update([
-            'status' => 'submitted',
+            'order_status' => 'submitted',
             'submitted_at' => now(),
         ]);
 
-        return Redirect::route('product-requests.show', $productRequest)
-            ->with('success', 'Product request submitted successfully.');
+        return response()->json([
+            'success' => true,
+            'message' => 'Product request submitted successfully.',
+        ]);
+    }
+
+    // Private helper methods for MSC-MVP implementation
+
+    private function storeClinicalDataInAzure(array $clinicalData, ProductRequest $productRequest): string
+    {
+        // TODO: Implement actual clinical data storage in Azure HDS as FHIR resources
+        // This should create Condition, Observation, and DocumentReference resources
+        return 'DocumentReference/' . uniqid();
+    }
+
+    private function generateClinicalSummary(array $clinicalData): array
+    {
+        // Generate non-PHI summary for UI display
+        return [
+            'wound_characteristics' => $clinicalData['wound_details'] ?? [],
+            'conservative_care_provided' => $clinicalData['conservative_care'] ?? [],
+            'assessment_complete' => true,
+        ];
+    }
+
+    private function updateProductSelection(ProductRequest $productRequest, array $productData): void
+    {
+        // Update product selection and pricing
+        $productRequest->products()->detach();
+
+        if (!empty($productData['selected_products'])) {
+            foreach ($productData['selected_products'] as $item) {
+                $product = Product::find($item['product_id']);
+                $productRequest->products()->attach($item['product_id'], [
+                    'quantity' => $item['quantity'],
+                    'size' => $item['size'] ?? null,
+                    'unit_price' => $product->price ?? 0,
+                    'total_price' => ($product->price ?? 0) * $item['quantity'],
+                ]);
+            }
+        }
+    }
+
+    private function runAutomatedValidation(ProductRequest $productRequest): void
+    {
+        // Run both MAC validation and eligibility check automatically
+        $macResults = $this->performMacValidation($productRequest);
+        $eligibilityResults = $this->performEligibilityCheck($productRequest);
+
+        $productRequest->update([
+            'mac_validation_results' => $macResults,
+            'mac_validation_status' => $macResults['overall_status'],
+            'eligibility_results' => $eligibilityResults,
+            'eligibility_status' => $eligibilityResults['status'],
+            'pre_auth_required_determination' => $eligibilityResults['prior_auth_required'] ? 'required' : 'not_required',
+        ]);
+    }
+
+    private function scanClinicalOpportunities(ProductRequest $productRequest): void
+    {
+        // Clinical Opportunity Engine - scan for additional billable services
+        $opportunities = $this->performClinicalOpportunityScanning($productRequest);
+
+        $productRequest->update([
+            'clinical_opportunities' => $opportunities,
+        ]);
+    }
+
+    private function performMacValidation(ProductRequest $productRequest): array
+    {
+        // TODO: Implement actual MAC validation engine
+        return [
+            'overall_status' => 'passed',
+            'validations' => [
+                [
+                    'rule' => 'Wound documentation',
+                    'status' => 'passed',
+                    'message' => 'Wound measurements and assessment documented'
+                ],
+                [
+                    'rule' => 'Conservative care',
+                    'status' => 'passed',
+                    'message' => 'Conservative care adequately documented'
+                ],
+                [
+                    'rule' => 'Medical necessity',
+                    'status' => 'passed',
+                    'message' => 'Medical necessity clearly documented'
+                ]
+            ]
+        ];
+    }
+
+    private function performEligibilityCheck(ProductRequest $productRequest): array
+    {
+        // TODO: Implement actual eligibility checking with payer APIs
+        return [
+            'status' => 'eligible',
+            'coverage_details' => [
+                'plan_type' => 'Medicare Part B',
+                'active' => true,
+                'effective_date' => '2024-01-01'
+            ],
+            'prior_auth_required' => false,
+            'copay_amount' => 20.00,
+        ];
+    }
+
+    private function performClinicalOpportunityScanning(ProductRequest $productRequest): array
+    {
+        // TODO: Implement Clinical Opportunity Engine (COE)
+        return [
+            'opportunities' => [
+                [
+                    'service_type' => 'Debridement',
+                    'cpt_code' => '11042',
+                    'clinical_rationale' => 'Wound shows signs of necrotic tissue',
+                    'estimated_revenue' => 125.00,
+                    'recommended' => true,
+                ]
+            ],
+            'total_potential_revenue' => 125.00,
+        ];
     }
 }

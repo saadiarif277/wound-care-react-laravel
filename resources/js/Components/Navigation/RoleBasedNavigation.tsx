@@ -18,7 +18,8 @@ import {
   FiTrendingUp,
   FiBarChart,
   FiTarget,
-  FiUserCheck
+  FiUserCheck,
+  FiEdit
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 import { filterNavigationByRole } from '@/lib/roleUtils';
@@ -76,6 +77,26 @@ const baseMenuItems: MenuItem[] = [
     href: '/mac-validation',
     icon: FiShield,
     roles: ['provider', 'office_manager', 'msc_admin', 'superadmin']
+  },
+  {
+    name: 'Product Requests',
+    href: '/product-requests',
+    icon: FiEdit,
+    roles: ['provider', 'office_manager'],
+    children: [
+      {
+        name: 'My Requests',
+        href: '/product-requests',
+        icon: FiClipboard,
+        roles: ['provider', 'office_manager']
+      },
+      {
+        name: 'New Request',
+        href: '/product-requests/create',
+        icon: FiPlus,
+        roles: ['provider', 'office_manager']
+      }
+    ]
   },
   {
     name: 'Form Assistant',

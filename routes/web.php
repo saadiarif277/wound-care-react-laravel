@@ -12,6 +12,7 @@ use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
 use App\Http\Controllers\CommissionController;use App\Http\Controllers\CommissionRuleController;use App\Http\Controllers\CommissionRecordController;use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\ProductRequestController;
 
 use Illuminate\Support\Facades\Route;
 
@@ -222,5 +223,30 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
         Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
         Route::get('/payouts', [CommissionPayoutController::class, 'index'])->name('commission-payouts.index');
+    });
+
+    // Product Request Routes
+    Route::prefix('product-requests')->group(function () {
+        Route::get('/', [ProductRequestController::class, 'index'])->name('product-requests.index');
+        Route::get('/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
+        Route::post('/', [ProductRequestController::class, 'store'])->name('product-requests.store');
+        Route::get('/{productRequest}', [ProductRequestController::class, 'show'])->name('product-requests.show');
+        Route::post('/{productRequest}/update-step', [ProductRequestController::class, 'updateStep'])->name('product-requests.update-step');
+        Route::post('/{productRequest}/mac-validation', [ProductRequestController::class, 'runMacValidation'])->name('product-requests.mac-validation');
+        Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])->name('product-requests.eligibility-check');
+        Route::post('/{productRequest}/submit-prior-auth', [ProductRequestController::class, 'submitPriorAuth'])->name('product-requests.submit-prior-auth');
+        Route::post('/{productRequest}/check-prior-auth-status', [ProductRequestController::class, 'checkPriorAuthStatus'])->name('product-requests.check-prior-auth-status');
+        Route::post('/{productRequest}/submit', [ProductRequestController::class, 'submit'])->name('product-requests.submit');
+    });
+
+    // Product Request API Routes
+    Route::prefix('api/product-requests')->group(function () {
+        Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
+    });
+
+    // Product API Routes
+    Route::prefix('api/products')->group(function () {
+        Route::get('/search', [ProductController::class, 'getAll'])->name('api.products.search');
+        Route::get('/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
     });
 });
