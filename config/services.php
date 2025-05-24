@@ -44,4 +44,16 @@ return [
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
     ],
 
+    'ecw' => [
+        'client_id' => env('ECW_CLIENT_ID'),
+        'client_secret' => env('ECW_CLIENT_SECRET'),
+        'sandbox_endpoint' => env('ECW_SANDBOX_ENDPOINT', 'https://fhir.eclinicalworks.com/ecwopendev/fhir'),
+        'production_endpoint' => env('ECW_PRODUCTION_ENDPOINT'),
+        'environment' => env('ECW_ENVIRONMENT', 'sandbox'), // sandbox or production
+        'application_id' => env('ECW_APPLICATION_ID'),
+        'redirect_uri' => env('ECW_REDIRECT_URI'),
+        'scope' => env('ECW_SCOPE', 'patient/Patient.read patient/Observation.read patient/DocumentReference.read'),
+        'api_version' => env('ECW_API_VERSION', 'R4'),
+    ],
+
 ];
