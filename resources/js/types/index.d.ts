@@ -22,22 +22,7 @@ export interface Account {
   updated_at: string;
 }
 
-export interface Contact {
-  id: number;
-  name: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  region: string;
-  country: string;
-  postal_code: string;
-  deleted_at: string;
-  organization_id: number;
-  organization: Organization;
-}
+
 
 export interface Organization {
   id: number;
@@ -50,7 +35,7 @@ export interface Organization {
   country: string;
   postal_code: string;
   deleted_at: string;
-  contacts: Contact[];
+
 }
 
 export type PaginatedData<T> = {

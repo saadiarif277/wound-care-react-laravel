@@ -146,4 +146,28 @@ class PatientService
             'display_name' => $patientDisplayId, // No age information for better privacy
         ];
     }
+
+    /**
+     * Get patient clinical factors for recommendations (non-PHI aggregated data).
+     */
+    public function getPatientClinicalFactors(string $patientFhirId, int $facilityId): array
+    {
+        // TODO: Implement actual clinical data retrieval from Azure HDS
+        // This should aggregate clinical data without exposing PHI
+        // Return generalized clinical factors useful for product recommendations
+
+        return [
+            'age_range' => 'unknown', // e.g., '65-74', '75-84', etc.
+            'gender' => 'unknown',
+            'diabetes_type' => null, // 'type1', 'type2', or null
+            'hba1c_level' => null, // 'controlled', 'poor_control', etc.
+            'comorbidities' => [], // array of condition codes
+            'medications' => [], // array of relevant medication classes
+            'allergies' => [], // array of allergy categories
+            'mobility_status' => 'unknown', // 'ambulatory', 'wheelchair', 'bedbound'
+            'nutrition_status' => 'unknown', // 'normal', 'malnourished', 'obese'
+            'smoking_status' => 'unknown', // 'never', 'former', 'current'
+            'immunocompromised' => false
+        ];
+    }
 }

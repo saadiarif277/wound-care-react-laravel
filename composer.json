@@ -60,7 +60,9 @@
             "@php artisan key:generate --ansi"
         ],
         "compile": [
-            "@php artisan migrate:fresh --seed"
+            "rm -rf node_modules package-lock.json",
+            "npm install --ignore-optional",
+            "npm run prod"
         ]
     },
     "extra": {

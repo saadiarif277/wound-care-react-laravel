@@ -18,12 +18,12 @@ use Exception;
  */
 class EcwFhirService
 {
-    private string $baseEndpoint;
-    private string $clientId;
-    private string $clientSecret;
-    private string $redirectUri;
-    private string $scope;
-    private string $environment;
+    private ?string $baseEndpoint;
+    private ?string $clientId;
+    private ?string $clientSecret;
+    private ?string $redirectUri;
+    private ?string $scope;
+    private ?string $environment;
 
     public function __construct()
     {
@@ -33,12 +33,26 @@ class EcwFhirService
         $this->scope = config('services.ecw.scope');
         $this->environment = config('services.ecw.environment');
 
+        // Validate required configuration
+        if (!$this->clientId || !$this->clientSecret) {
+            throw new \InvalidArgumentException('eCW client ID and client secret are required');
+        }
+
+        if (!$this->redirectUri) {
+            throw new \InvalidArgumentException('eCW redirect URI is required');
+        }
+
         $this->baseEndpoint = $this->environment === 'production'
             ? config('services.ecw.production_endpoint')
             : config('services.ecw.sandbox_endpoint');
 
         if (!$this->baseEndpoint) {
-            throw new Exception('eCW FHIR endpoint not configured');
+            throw new \InvalidArgumentException('eCW FHIR endpoint not configured');
+        }
+
+        // Validate endpoint format
+        if (!filter_var($this->baseEndpoint, FILTER_VALIDATE_URL)) {
+            throw new \InvalidArgumentException('Invalid eCW FHIR endpoint URL format');
         }
     }
 
@@ -384,19 +398,30 @@ class EcwFhirService
      *
      * @param string $patientId Patient ID or 'multiple' for searches
      * @param string $action Action performed (read, search, etc.)
-     * @param int $userId User performing the action
+     * @param int|null $userId User performing the action
      * @param array $metadata Additional metadata
      */
     private function logPatientAccess(string $patientId, string $action, ?int $userId, array $metadata = []): void
     {
         try {
+            // Validate inputs
+            if (empty($patientId) || empty($action)) {
+                Log::warning('Invalid audit log parameters', ['patient_id' => $patientId, 'action' => $action]);
+                return;
+            }
+
+            // Use safe defaults for nullable values
+            $safeUserId = $userId ?? 0; // Use 0 for system/anonymous access
+            $safeIpAddress = request()?->ip() ?? 'unknown';
+            $safeUserAgent = request()?->userAgent() ?? 'unknown';
+
             DB::table('ecw_audit_log')->insert([
-                'patient_id' => $patientId,
-                'action' => $action,
-                'user_id' => $userId,
+                'patient_id' => substr($patientId, 0, 255), // Prevent oversized data
+                'action' => substr($action, 0, 100),
+                'user_id' => $safeUserId,
                 'metadata' => json_encode($metadata),
-                'ip_address' => request()->ip(),
-                'user_agent' => request()->userAgent(),
+                'ip_address' => substr($safeIpAddress, 0, 45), // IPv6 max length
+                'user_agent' => substr($safeUserAgent, 0, 500),
                 'created_at' => now(),
             ]);
         } catch (Exception $e) {
@@ -476,5 +501,26 @@ class EcwFhirService
     public function hasValidToken(int $userId): bool
     {
         return $this->getUserToken($userId) !== null;
+    }
+
+    /**
+     * Validate API response and content type
+     */
+    private function validateApiResponse($response, string $expectedContentType = 'application/fhir+json'): void
+    {
+        if (!$response->successful()) {
+            throw new Exception("eCW API error: HTTP {$response->status()} - " . $response->body());
+        }
+
+        $contentType = $response->header('Content-Type');
+        if ($contentType && !str_contains($contentType, $expectedContentType) && !str_contains($contentType, 'application/json')) {
+            throw new Exception("Unexpected content type: {$contentType}. Expected: {$expectedContentType}");
+        }
+
+        // Validate JSON structure
+        $data = $response->json();
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new Exception("Invalid JSON response: " . json_last_error_msg());
+        }
     }
 }

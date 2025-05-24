@@ -39,10 +39,7 @@ class Organization extends Model
         return $this->belongsTo(Account::class);
     }
 
-    public function contacts(): HasMany
-    {
-        return $this->hasMany(Contact::class);
-    }
+
 
     public function scopeFilter($query, array $filters)
     {

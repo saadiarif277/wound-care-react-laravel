@@ -42,7 +42,7 @@ const securityAlerts = [
 const systemHealthComponents = [
   {
     id: 'SH-001',
-    component: 'Laravel Application',
+    component: 'Web Application',
     status: 'healthy',
     responseTime: 180,
     uptime: 99.9,

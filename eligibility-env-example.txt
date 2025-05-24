@@ -1,0 +1,42 @@
+# Optum Enhanced Eligibility API Configuration
+# Copy these variables to your .env file and update with your actual values
+
+# API Base URLs
+OPTUM_API_BASE_URL=https://sandbox-apigw.optum.com
+# For production: https://apigw.optum.com
+
+# OAuth2 Credentials (from Optum)
+OPTUM_CLIENT_ID=your_client_id_here
+OPTUM_CLIENT_SECRET=your_client_secret_here
+OPTUM_TENANT_ID=your_tenant_id_here
+
+# Provider Information (MSC Wound Care)
+ELIGIBILITY_PROVIDER_NAME="MSC Wound Care"
+ELIGIBILITY_PROVIDER_NPI=1234567890
+ELIGIBILITY_PROVIDER_SERVICE_NUMBER=MSC001
+ELIGIBILITY_PROVIDER_CODE=AT
+ELIGIBILITY_PROVIDER_TAX_ID=123456789
+
+# Trading Partner Information
+ELIGIBILITY_TRADING_PARTNER_SERVICE_ID=CIGNA
+ELIGIBILITY_TRADING_PARTNER_NAME="Cigna Health Plan"
+
+# API Settings
+ELIGIBILITY_API_TIMEOUT=30
+ELIGIBILITY_MAX_RETRIES=3
+
+# Coverage Discovery Settings
+ELIGIBILITY_COVERAGE_DISCOVERY_ENABLED=false
+ELIGIBILITY_COVERAGE_DISCOVERY_DRY_RUN=true
+ELIGIBILITY_CALLBACK_URL=https://your-domain.com/api/v1/eligibility/preauth/callback
+ELIGIBILITY_POLLING_INTERVAL=30
+ELIGIBILITY_MAX_POLLING_ATTEMPTS=120
+
+# Request Tracking
+ELIGIBILITY_CORRELATION_ID_PREFIX=MSC
+
+# Logging
+ELIGIBILITY_LOGGING_ENABLED=true
+ELIGIBILITY_LOG_REQUESTS=true
+ELIGIBILITY_LOG_RESPONSES=true
+ELIGIBILITY_LOG_CHANNEL=daily
