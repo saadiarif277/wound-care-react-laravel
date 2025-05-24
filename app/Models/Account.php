@@ -7,6 +7,15 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Account extends Model
 {
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var array<int, string>
+     */
+    protected $fillable = [
+        'name',
+    ];
+
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
@@ -17,8 +26,5 @@ class Account extends Model
         return $this->hasMany(Organization::class);
     }
 
-    public function contacts(): HasMany
-    {
-        return $this->hasMany(Contact::class);
-    }
+
 }

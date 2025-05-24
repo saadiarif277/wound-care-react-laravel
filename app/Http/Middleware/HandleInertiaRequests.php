@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Http\Resources\UserResource;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
 
 class HandleInertiaRequests extends Middleware
@@ -36,8 +37,29 @@ class HandleInertiaRequests extends Middleware
     {
         return array_merge(parent::share($request), [
             'auth' => function () {
+                $user = Auth::check() ? Auth::user()->load('account') : null;
                 return [
-                    'user' => auth()->check() ? new UserResource(auth()->user()->load('account')) : null,
+                    'user' => $user ? new UserResource($user) : null,
+                ];
+            },
+            'userRole' => function () {
+                return Auth::check() ? Auth::user()->role->name ?? 'provider' : null;
+            },
+            'roleRestrictions' => function () use ($request) {
+                if (!Auth::check() || !Auth::user()->role) {
+                    return null;
+                }
+
+                $role = Auth::user()->role;
+                return [
+                    'can_view_financials' => $role->canAccessFinancials(),
+                    'can_see_discounts' => $role->canSeeDiscounts(),
+                    'can_see_msc_pricing' => $role->canSeeMscPricing(),
+                    'can_see_order_totals' => $role->canSeeOrderTotals(),
+                    'pricing_access_level' => $role->getPricingAccessLevel(),
+                    'customer_data_restrictions' => $role->hasCustomerDataRestrictions(),
+                    'can_view_phi' => $role->canViewPhi(),
+                    'commission_access_level' => $role->getCommissionAccessLevel(),
                 ];
             },
             'flash' => function () use ($request) {

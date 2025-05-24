@@ -9,6 +9,8 @@ use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
+use App\Services\CmsCoverageApiService;
+use App\Services\ValidationBuilderEngine;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -27,6 +29,35 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         Model::unguard();
+
+        // Register CMS Coverage API Service
+        $this->app->singleton(CmsCoverageApiService::class, function ($app) {
+            return new CmsCoverageApiService();
+        });
+
+        // Register Wound Care Validation Engine
+        $this->app->singleton(\App\Services\WoundCareValidationEngine::class, function ($app) {
+            return new \App\Services\WoundCareValidationEngine(
+                $app->make(CmsCoverageApiService::class)
+            );
+        });
+
+        // Register Pulmonology + Wound Care Validation Engine
+        $this->app->singleton(\App\Services\PulmonologyWoundCareValidationEngine::class, function ($app) {
+            return new \App\Services\PulmonologyWoundCareValidationEngine(
+                $app->make(CmsCoverageApiService::class),
+                $app->make(\App\Services\WoundCareValidationEngine::class)
+            );
+        });
+
+        // Register Validation Builder Engine (factory/coordinator)
+        $this->app->singleton(ValidationBuilderEngine::class, function ($app) {
+            return new ValidationBuilderEngine(
+                $app->make(CmsCoverageApiService::class),
+                $app->make(\App\Services\WoundCareValidationEngine::class),
+                $app->make(\App\Services\PulmonologyWoundCareValidationEngine::class)
+            );
+        });
     }
 
     /**

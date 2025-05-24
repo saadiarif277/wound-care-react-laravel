@@ -8,6 +8,6 @@ class UserOrganizationCollection extends ResourceCollection
 {
     public function toArray($request)
     {
-        return $this->collection->map->only('id', 'name');
+        return $this->collection->map->only(['id', 'name'])->toArray();
     }
 }
