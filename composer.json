@@ -60,7 +60,7 @@
             "@php artisan key:generate --ansi"
         ],
         "compile": [
-            "npm run build"
+            "npm run prod"
         ]
     },
     "extra": {

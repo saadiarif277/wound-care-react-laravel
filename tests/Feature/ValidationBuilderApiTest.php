@@ -18,7 +18,7 @@ class ValidationBuilderApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->user = User::factory()->create([
             'credentials' => ['specialty' => 'wound_care_specialty']
         ]);
@@ -336,6 +336,7 @@ class ValidationBuilderApiTest extends TestCase
     /** @test */
     public function it_supports_pulmonology_wound_care_specialty()
     {
+        /** @var User $pulmonaryUser */
         $pulmonaryUser = User::factory()->create([
             'credentials' => ['specialty' => 'pulmonology_wound_care']
         ]);
@@ -399,4 +400,4 @@ class ValidationBuilderApiTest extends TestCase
                 ]
             ]);
     }
-} 
+}
