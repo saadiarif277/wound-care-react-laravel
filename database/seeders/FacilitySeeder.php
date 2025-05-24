@@ -16,12 +16,12 @@ class FacilitySeeder extends Seeder
     public function run(): void
     {
         // First create an account since organizations require one
-        $account = \App\Models\Account::firstOrCreate([
+        $account = Account::firstOrCreate([
             'name' => 'Test Healthcare Account',
         ]);
 
         // Then create an organization since facilities require one
-        $organization = \App\Models\Organization::firstOrCreate([
+        $organization = Organization::firstOrCreate([
             'name' => 'Test Healthcare Network',
             'account_id' => $account->id,
         ], [

@@ -1,9 +1,8 @@
 import React from 'react';
 import { Link, usePage } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
-import SearchFilter from '@/Components/FilterBar/SearchFilter';
+import MainLayout from '@/Layouts/MainLayout';
+import FilterBar from '@/Components/FilterBar/FilterBar';
 import Pagination from '@/Components/Pagination/Pagination';
-import { PlusIcon, EyeIcon } from '@heroicons/react/24/outline';
 
 interface ProductRequest {
   id: number;
@@ -58,7 +57,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
   };
 
   return (
-    <Layout title="Product Requests">
+    <MainLayout title="Product Requests">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-gray-900">Product Requests</h1>
@@ -70,35 +69,13 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
           href="/product-requests/create"
           className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150"
         >
-          <PlusIcon className="w-4 h-4 mr-2" />
-          New Product Request
+          + New Product Request
         </Link>
       </div>
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <SearchFilter
-            filters={filters}
-            placeholder="Search by request number, patient display ID..."
-            additionalFilters={[
-              {
-                name: 'status',
-                label: 'Status',
-                type: 'select',
-                options: [
-                  { value: '', label: 'All Statuses' },
-                  { value: 'draft', label: 'Draft' },
-                  { value: 'submitted', label: 'Submitted' },
-                  { value: 'processing', label: 'Processing' },
-                  { value: 'approved', label: 'Approved' },
-                  { value: 'rejected', label: 'Rejected' },
-                  { value: 'shipped', label: 'Shipped' },
-                  { value: 'delivered', label: 'Delivered' },
-                  { value: 'cancelled', label: 'Cancelled' },
-                ]
-              }
-            ]}
-          />
+          <FilterBar />
         </div>
 
         <div className="overflow-x-auto">
@@ -142,8 +119,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
                         href="/product-requests/create"
                         className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
                       >
-                        <PlusIcon className="w-4 h-4 mr-2" />
-                        New Product Request
+                        + New Product Request
                       </Link>
                     </div>
                   </td>
@@ -200,8 +176,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
                         href={`/product-requests/${request.id}`}
                         className="text-blue-600 hover:text-blue-900 inline-flex items-center"
                       >
-                        <EyeIcon className="w-4 h-4 mr-1" />
-                        View
+                        👁 View
                       </Link>
                     </td>
                   </tr>
@@ -234,7 +209,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
           </div>
         </div>
       </div>
-    </Layout>
+    </MainLayout>
   );
 };
 
