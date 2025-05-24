@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import MainLayout from '@/Layouts/MainLayout';
 import { Button } from '@/Components/Button';
 import { Modal } from '@/Components/Modal';
 import { Input } from '@/Components/Input';
@@ -52,10 +52,7 @@ export default function Index({ auth, payouts }) {
     };
 
     return (
-        <AuthenticatedLayout
-            user={auth.user}
-            header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Commission Payouts</h2>}
-        >
+        <MainLayout title="Commission Payouts">
             <Head title="Commission Payouts" />
 
             <div className="py-12">
@@ -63,7 +60,7 @@ export default function Index({ auth, payouts }) {
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 bg-white border-b border-gray-200">
                             <div className="flex justify-between mb-6">
-                                <h3 className="text-lg font-medium">Commission Payouts</h3>
+                                <h2 className="font-semibold text-xl text-gray-800 leading-tight">Commission Payouts</h2>
                                 <Button onClick={() => setShowGenerateModal(true)}>
                                     Generate Payouts
                                 </Button>
@@ -223,6 +220,6 @@ export default function Index({ auth, payouts }) {
                     </div>
                 </form>
             </Modal>
-        </AuthenticatedLayout>
+        </MainLayout>
     );
 }
