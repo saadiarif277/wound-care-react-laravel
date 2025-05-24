@@ -1,8 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
+import RoleTestSwitcher from '@/Components/RoleTestSwitcher';
 import { UserRole } from '@/types/roles';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   FiLogOut,
   FiMenu,

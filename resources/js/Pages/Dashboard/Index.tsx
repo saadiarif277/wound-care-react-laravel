@@ -10,6 +10,14 @@ import {
   hasPermission
 } from '@/lib/roleUtils';
 
+// Import role-specific dashboards
+import ProviderDashboard from './Provider/ProviderDashboard';
+import OfficeManagerDashboard from './OfficeManager/OfficeManagerDashboard';
+import MscAdminDashboard from './Admin/MscAdminDashboard';
+import SuperAdminDashboard from './Admin/SuperAdminDashboard';
+import MscRepDashboard from './Sales/MscRepDashboard';
+import MscSubrepDashboard from './Sales/MscSubrepDashboard';
+
 // Define the types
 interface Verification {
   id: string;
@@ -220,15 +228,37 @@ const dummyRecentRequests: Request[] = [
 ];
 
 function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = false }: DashboardProps) {
-  // Use the dummy data directly
-  const verifications = dummyVerifications;
-  const results = dummyResults;
-  const actionItems = dummyActionItems;
-  const clinicalOpportunities = dummyClinicalOpportunities;
-  const recentRequests = dummyRecentRequests;
+  // Route to specific role-based dashboards
+  const renderRoleSpecificDashboard = () => {
+    switch (userRole) {
+      case 'provider':
+        return <ProviderDashboard user={user} />;
+      case 'office_manager':
+        return <OfficeManagerDashboard user={user} />;
+      case 'msc_admin':
+        return <MscAdminDashboard user={user} />;
+      case 'superadmin':
+        return <SuperAdminDashboard user={user} />;
+      case 'msc_rep':
+        return <MscRepDashboard user={user} />;
+      case 'msc_subrep':
+        return <MscSubrepDashboard user={user} />;
+      default:
+        // Fall back to the existing generic dashboard for unrecognized roles
+        return renderGenericDashboard();
+    }
+  };
 
-  // Get role-based feature flags
-  const featureFlags = getFeatureFlags(userRole);
+  const renderGenericDashboard = () => {
+    // Use the dummy data directly
+    const verifications = dummyVerifications;
+    const results = dummyResults;
+    const actionItems = dummyActionItems;
+    const clinicalOpportunities = dummyClinicalOpportunities;
+    const recentRequests = dummyRecentRequests;
+
+    // Get role-based feature flags
+    const featureFlags = getFeatureFlags(userRole);
 
   // Calculate status counts
   const getTotalsByStatus = () => {
@@ -739,6 +769,18 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
           </>
         )}
       </div>
+
+      {/* Role Test Switcher (Development Only) */}
+      {showRoleTestSwitcher && (
+        <RoleTestSwitcher currentRole={userRole} />
+      )}
+    </div>
+    );
+  };
+
+  return (
+    <div>
+      {renderRoleSpecificDashboard()}
 
       {/* Role Test Switcher (Development Only) */}
       {showRoleTestSwitcher && (
