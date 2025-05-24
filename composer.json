@@ -60,6 +60,8 @@
             "@php artisan key:generate --ansi"
         ],
         "compile": [
+            "rm -rf node_modules package-lock.json",
+            "npm install --ignore-optional",
             "npm run prod"
         ]
     },
