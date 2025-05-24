@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\AccessRequestController;
 use App\Http\Controllers\ContactsController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImagesController;
@@ -39,6 +40,37 @@ Route::post('login', [LoginController::class, 'store'])
 
 Route::delete('logout', [LoginController::class, 'destroy'])
     ->name('logout');
+
+// Access Requests (public routes)
+
+Route::get('request-access', [AccessRequestController::class, 'create'])
+    ->name('access-requests.create')
+    ->middleware('guest');
+
+Route::post('request-access', [AccessRequestController::class, 'store'])
+    ->name('access-requests.store')
+    ->middleware('guest');
+
+Route::get('api/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])
+    ->name('api.access-requests.role-fields');
+
+// Access Request Management (protected routes)
+
+Route::get('access-requests', [AccessRequestController::class, 'index'])
+    ->name('access-requests.index')
+    ->middleware('auth');
+
+Route::get('access-requests/{accessRequest}', [AccessRequestController::class, 'show'])
+    ->name('access-requests.show')
+    ->middleware('auth');
+
+Route::post('access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])
+    ->name('access-requests.approve')
+    ->middleware('auth');
+
+Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])
+    ->name('access-requests.deny')
+    ->middleware('auth');
 
 // Dashboard
 
