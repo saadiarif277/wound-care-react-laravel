@@ -23,7 +23,7 @@ class OrderCommissionProcessorService
             DB::beginTransaction();
 
             // Get the sales rep for this order
-            $rep = MscSalesRep::find($order->sales_rep_id);
+            $rep = MscSalesRep::where('id', $order->sales_rep_id)->first();
             if (!$rep) {
                 throw new \Exception("No sales rep found for order #{$order->id}");
             }

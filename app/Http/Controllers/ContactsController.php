@@ -20,12 +20,12 @@ class ContactsController extends Controller
     public function index(): Response
     {
         return Inertia::render('Contacts/Index', [
-            'filters' => Request::all('search', 'trashed'),
+            'filters' => Request::only(['search', 'trashed']),
             'contacts' => new ContactCollection(
                 Auth::user()->account->contacts()
                     ->with('organization')
                     ->orderByName()
-                    ->filter(Request::only('search', 'trashed'))
+                    ->filter(Request::only(['search', 'trashed']))
                     ->paginate()
                     ->appends(Request::all())
             ),
