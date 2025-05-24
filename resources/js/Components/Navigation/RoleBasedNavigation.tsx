@@ -51,22 +51,22 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
   switch (role) {
     case 'provider':
       return [
-        {
-          name: 'Dashboard',
+  {
+    name: 'Dashboard',
           href: '/dashboard',
-          icon: FiHome,
+    icon: FiHome,
           roles: ['provider']
-        },
-        {
+  },
+  {
           name: 'Product Requests',
           href: '/product-requests',
           icon: FiClipboard,
           roles: ['provider'],
-          children: [
-            {
+    children: [
+      {
               name: 'New Request',
               href: '/product-requests/create',
-              icon: FiPlus,
+        icon: FiPlus,
               roles: ['provider']
             },
             {
@@ -74,25 +74,25 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/product-requests',
               icon: FiClipboard,
               roles: ['provider']
-            },
-            {
+      },
+      {
               name: 'Status',
               href: '/product-requests/status',
               icon: FiActivity,
               roles: ['provider']
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'MAC/Eligibility/PA',
-          href: '/eligibility',
-          icon: FiCheckCircle,
+    href: '/eligibility',
+    icon: FiCheckCircle,
           roles: ['provider'],
           children: [
-            {
-              name: 'MAC Validation',
-              href: '/mac-validation',
-              icon: FiShield,
+  {
+    name: 'MAC Validation',
+    href: '/mac-validation',
+    icon: FiShield,
               roles: ['provider']
             },
             {
@@ -124,14 +124,14 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/dashboard',
           icon: FiHome,
           roles: ['office_manager']
-        },
-        {
-          name: 'Product Requests',
-          href: '/product-requests',
+  },
+  {
+    name: 'Product Requests',
+    href: '/product-requests',
           icon: FiClipboard,
           roles: ['office_manager'],
-          children: [
-            {
+    children: [
+      {
               name: 'New',
               href: '/product-requests/create',
               icon: FiPlus,
@@ -140,18 +140,18 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             {
               name: 'Facility Requests',
               href: '/product-requests/facility',
-              icon: FiClipboard,
+        icon: FiClipboard,
               roles: ['office_manager']
-            },
-            {
+      },
+      {
               name: 'Provider Requests',
               href: '/product-requests/providers',
               icon: FiUsers,
               roles: ['office_manager']
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'MAC/Eligibility/PA',
           href: '/eligibility',
           icon: FiCheckCircle,
@@ -176,14 +176,14 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['office_manager']
             }
           ]
-        },
-        {
-          name: 'Product Catalog',
-          href: '/products',
-          icon: FiPackage,
+  },
+  {
+    name: 'Product Catalog',
+    href: '/products',
+    icon: FiPackage,
           roles: ['office_manager']
         },
-        {
+      {
           name: 'Provider Management',
           href: '/providers',
           icon: FiUsers,
@@ -198,52 +198,52 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/dashboard',
           icon: FiHome,
           roles: ['msc_rep']
-        },
-        {
+      },
+      {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
           roles: ['msc_rep']
-        },
-        {
+  },
+  {
           name: 'Commissions',
-          href: '/commission',
-          icon: FiDollarSign,
+    href: '/commission',
+    icon: FiDollarSign,
           roles: ['msc_rep'],
-          children: [
-            {
+    children: [
+      {
               name: 'My Earnings',
               href: '/commission/earnings',
-              icon: FiDollarSign,
+        icon: FiDollarSign,
               roles: ['msc_rep']
-            },
-            {
+      },
+      {
               name: 'History',
               href: '/commission/history',
               icon: FiBarChart,
               roles: ['msc_rep']
-            },
-            {
-              name: 'Payouts',
-              href: '/commission/payouts',
-              icon: FiTrendingUp,
+      },
+      {
+        name: 'Payouts',
+        href: '/commission/payouts',
+        icon: FiTrendingUp,
               roles: ['msc_rep']
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'My Customers',
           href: '/customers',
           icon: FiUsers,
           roles: ['msc_rep'],
-          children: [
-            {
+    children: [
+      {
               name: 'Customer List',
               href: '/customers',
-              icon: FiUsers,
+        icon: FiUsers,
               roles: ['msc_rep']
-            },
-            {
+      },
+      {
               name: 'My Team',
               href: '/customers/team',
               icon: FiTarget,
@@ -255,23 +255,23 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
 
     case 'msc_subrep':
       return [
-        {
+  {
           name: 'Dashboard',
           href: '/dashboard',
           icon: FiHome,
           roles: ['msc_subrep']
         },
-        {
+      {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
-          roles: ['msc_subrep']
-        },
-        {
+        roles: ['msc_subrep']
+      },
+      {
           name: 'My Commissions',
           href: '/commission',
           icon: FiDollarSign,
-          roles: ['msc_subrep']
+        roles: ['msc_subrep']
         }
       ];
 
@@ -338,13 +338,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   roles: ['msc_admin']
                 }
               ]
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'User & Org Management',
           href: '/management',
-          icon: FiUsers,
+    icon: FiUsers,
           roles: ['msc_admin'],
           children: [
             {
@@ -352,28 +352,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/access-requests',
               icon: FiUserCheck,
               roles: ['msc_admin']
-            },
-            {
+  },
+  {
               name: 'Sub-Rep Approval Queue',
               href: '/subrep-approvals',
               icon: FiUserPlus,
               roles: ['msc_admin']
-            },
-            {
-              name: 'User Management',
-              href: '/users',
-              icon: FiUsers,
+  },
+  {
+    name: 'User Management',
+    href: '/users',
+    icon: FiUsers,
               roles: ['msc_admin']
-            },
-            {
+      },
+      {
               name: 'Organization Management',
               href: '/organizations',
               icon: FiSettings,
               roles: ['msc_admin']
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'Settings',
           href: '/settings',
           icon: FiSettings,
@@ -412,20 +412,20 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/management',
           icon: FiUsers,
           roles: ['superadmin'],
-          children: [
-            {
+    children: [
+      {
               name: 'RBAC Configuration',
               href: '/rbac',
               icon: FiLock,
               roles: ['superadmin']
-            },
-            {
+      },
+      {
               name: 'All Users',
               href: '/users',
               icon: FiUsers,
               roles: ['superadmin']
-            },
-            {
+      },
+      {
               name: 'System Access Control',
               href: '/access-control',
               icon: FiShield,
@@ -436,10 +436,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/roles',
               icon: FiUserCheck,
               roles: ['superadmin']
-            }
-          ]
-        },
-        {
+      }
+    ]
+  },
+  {
           name: 'System Admin',
           href: '/system-admin',
           icon: FiCog,
@@ -448,7 +448,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             {
               name: 'Platform Configuration',
               href: '/system-admin/config',
-              icon: FiSettings,
+    icon: FiSettings,
               roles: ['superadmin']
             },
             {
@@ -468,7 +468,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/system-admin/audit',
               icon: FiArchive,
               roles: ['superadmin']
-            }
+  }
           ]
         }
       ];
