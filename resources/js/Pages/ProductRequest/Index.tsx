@@ -15,7 +15,7 @@ interface ProductRequest {
   facility_name: string;
   created_at: string;
   total_products: number;
-  total_amount: number;
+  total_amount: number | string | null;
 }
 
 interface Props {
@@ -54,6 +54,11 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
 
   const formatStatus = (status: string): string => {
     return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  };
+
+  const formatCurrency = (amount: number | string | null): string => {
+    const numericAmount = typeof amount === 'number' ? amount : parseFloat(amount || '0');
+    return isNaN(numericAmount) ? '$0.00' : `$${numericAmount.toFixed(2)}`;
   };
 
   return (
@@ -166,7 +171,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
                       {request.total_products} product{request.total_products !== 1 ? 's' : ''}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      ${request.total_amount.toFixed(2)}
+                      {formatCurrency(request.total_amount)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {request.created_at}
