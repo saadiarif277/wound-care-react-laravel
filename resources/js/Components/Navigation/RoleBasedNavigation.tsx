@@ -225,14 +225,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '#',
           icon: FiUsers,
           roles: ['msc_rep'],
-          children: [
-            {
-              name: 'Customer List',
-              href: '/contacts',
-              icon: FiUsers,
-              roles: ['msc_rep']
-            }
-          ]
+          children: []
         }
       ];
 

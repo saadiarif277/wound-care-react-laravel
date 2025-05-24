@@ -1,4 +1,4 @@
-import { Link, usePage } from '@inertiajs/react';
+import { usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import FilterBar from '@/Components/FilterBar/FilterBar';
 import Pagination from '@/Components/Pagination/Pagination';
@@ -21,13 +21,9 @@ function Index() {
       <h1 className="mb-8 text-3xl font-bold">Organizations</h1>
       <div className="flex items-center justify-between mb-6">
         <FilterBar />
-        <Link
-          className="btn-indigo focus:outline-none"
-          href={route('organizations.create')}
-        >
-          <span>Create</span>
-          <span className="hidden md:inline"> Organization</span>
-        </Link>
+        <div className="text-sm text-gray-600">
+          Read-only reference list
+        </div>
       </div>
       <Table
         columns={[
@@ -47,7 +43,6 @@ function Index() {
           { label: 'Phone', name: 'phone', colSpan: 2 }
         ]}
         rows={data}
-        getRowDetailsUrl={row => route('organizations.edit', row.id)}
       />
       <Pagination links={links} />
     </div>

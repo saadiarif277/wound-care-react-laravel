@@ -5,6 +5,7 @@ use App\Http\Controllers\EcwController;
 use App\Http\Controllers\CommissionRuleController;
 use App\Http\Controllers\CommissionRecordController;
 use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\Api\EligibilityController;
 use Illuminate\Support\Facades\Route;
 
 // FHIR Server REST API Routes
@@ -63,4 +64,37 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::get('commission-payouts/{payout}', [CommissionPayoutController::class, 'show']);
     Route::post('commission-payouts/{payout}/approve', [CommissionPayoutController::class, 'approve']);
     Route::post('commission-payouts/{payout}/process', [CommissionPayoutController::class, 'process']);
+});
+
+// Eligibility & Pre-Authorization Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    // Order-specific eligibility routes
+    Route::post('orders/{order_id}/eligibility-check', [EligibilityController::class, 'checkEligibility'])->name('eligibility.check');
+    Route::get('orders/{order_id}/eligibility', [EligibilityController::class, 'getEligibility'])->name('eligibility.get');
+    Route::post('orders/{order_id}/preauth', [EligibilityController::class, 'requestPreAuth'])->name('preauth.request');
+    Route::get('orders/{order_id}/preauth/tasks', [EligibilityController::class, 'getPreAuthTasks'])->name('preauth.tasks');
+
+    // Eligibility summary and management
+    Route::get('eligibility/summary', [EligibilityController::class, 'getSummary'])->name('eligibility.summary');
+    Route::get('eligibility/health-check', [EligibilityController::class, 'healthCheck'])->name('eligibility.health');
+});
+
+// Public callback endpoint (no auth required for external service callbacks)
+Route::post('v1/eligibility/preauth/callback', [EligibilityController::class, 'handleCallback'])->name('eligibility.callback');
+
+// Medicare MAC Validation Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    // Order-specific Medicare validation routes
+    Route::post('orders/{order_id}/medicare-validation', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'validateOrder'])->name('medicare.validate');
+    Route::get('orders/{order_id}/medicare-validation', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidation'])->name('medicare.get');
+
+    // Medicare validation management and monitoring
+    Route::get('medicare-validation/vascular-group', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularGroupValidations'])->name('medicare.vascular_group');
+    Route::get('medicare-validation/wound-care-only', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getWoundCareValidations'])->name('medicare.wound_care');
+    Route::post('medicare-validation/daily-monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'runDailyMonitoring'])->name('medicare.daily_monitoring');
+    Route::get('medicare-validation/dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getDashboard'])->name('medicare.dashboard');
+
+    // Individual validation management
+    Route::patch('medicare-validation/{validation_id}/monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'toggleMonitoring'])->name('medicare.toggle_monitoring');
+    Route::get('medicare-validation/{validation_id}/audit', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getAuditTrail'])->name('medicare.audit');
 });
