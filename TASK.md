@@ -95,6 +95,12 @@
   - [✅] MSC pricing calculation (40% discount from National ASP)
   - [✅] Available sizes management and pricing per size
   - [✅] Commission rate tracking per product
+  - [✅] **Role-based pricing visibility (Office Manager restrictions)**
+    - [✅] Backend API filtering of MSC pricing data based on user role
+    - [✅] Frontend component updates for conditional pricing display
+    - [✅] ProductSelector and AIRecommendationCard role-based pricing
+    - [✅] ProductCard pricing restrictions for office managers
+    - [✅] Test suite for verifying pricing visibility restrictions
 - [ ] Inventory tracking
 - [ ] Product documentation management (images, brochures, IFUs)
 
@@ -218,7 +224,7 @@
   - [✅] Integration with navigation system for admin roles
   - [ ] Email notification system integration (future enhancement)
   - [ ] Automatic user account creation upon approval (future enhancement)
-- [ ] **PHASE 4 - MSC Portal 6-Role System Implementation**
+- [🔄] **PHASE 4 - MSC Portal 6-Role System Implementation**
   - [ ] Provider Portal Features Implementation
     - [ ] Step-through forms with progress indicators
     - [ ] Product selection with intelligent recommendations
@@ -226,13 +232,13 @@
     - [ ] Prior authorization management
     - [ ] Mobile responsive design enhancements
     - [ ] See amount still owed on each processed order (Given net 60 terms)
-  - [ ] Office Manager Portal Features Implementation
+  - [🔄] Office Manager Portal Features Implementation
     - [ ] **Provider Workflow Access (Financial Restrictions Applied)**
       - [ ] Eligibility verification and checking
       - [ ] Prior Authorization (PA) management
       - [ ] Order requests and processing
       - [ ] Clinical assessment documentation workflows
-      - [ ] Product selection (National ASP pricing only, no discounts visible)
+      - [✅] Product selection (National ASP pricing only, no discounts visible)
       - [ ] MAC validation and eligibility checking interfaces
       - [ ] Step-through forms with progress indicators
     - [ ] **Facility-Level Management**
@@ -240,10 +246,10 @@
       - [ ] Provider coordination and management within facility
       - [ ] Facility operations dashboard
       - [ ] Provider activity monitoring for attached facility
-    - [ ] **Financial Restrictions**
+    - [✅] **Financial Restrictions**
       - [ ] Hide dollar amounts owed from providers
-      - [ ] Hide product discounts and special pricing
-      - [ ] Show only National ASP pricing for products
+      - [✅] Hide product discounts and special pricing
+      - [✅] Show only National ASP pricing for products
       - [ ] No access to commission or financial incentives
   - [ ] MSC Rep Portal Features Implementation
     - [ ] Commission tracking and statements
@@ -453,8 +459,8 @@
 
 ## Completion Status
 
-**Overall Progress: ~56% Complete**
+**Overall Progress: ~60% Complete**
 
-- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**
-- 🟡 **In Progress**: Provider Portal step-through forms (Phase 4), Order management, file storage, database optimization
+- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**, **Office Manager role-based pricing restrictions**
+- 🟡 **In Progress**: Provider Portal step-through forms (Phase 4), Office Manager Portal features, Order management, file storage, database optimization
 - 🔴 **Not Started**: Clinical features, real integrations, compliance implementation, advanced UI features 

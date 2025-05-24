@@ -27,10 +27,9 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     ],
     navigationItems: [
       'dashboard',
-      'orders',
-      'products',
+      'product-requests',
       'eligibility',
-      'reports'
+      'products'
     ]
   },
   office_manager: {
@@ -39,14 +38,14 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     description: 'Provider workflow access with financial restrictions, facility-level management',
     category: 'healthcare',
     permissions: {
-      canViewFinancials: false, // Cannot see amounts owed, discounts, or commission data
+      canViewFinancials: false, // CRITICAL: Cannot see amounts owed, discounts, or commission data
       canManageOrders: true,
       canViewCommissions: false,
       canManageUsers: false,
       canConfigureSystem: false,
       canViewReports: true,
       canManageTerritory: false,
-      canViewFullPricing: false, // Only sees National ASP pricing
+      canViewFullPricing: false, // CRITICAL: Only sees National ASP pricing - NO discounts, NO MSC pricing
     },
     dashboardFeatures: [
       'provider_coordination',
@@ -58,11 +57,10 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     ],
     navigationItems: [
       'dashboard',
-      'orders',
-      'products',
+      'product-requests',
       'eligibility',
-      'contacts',
-      'reports'
+      'products',
+      'providers'
     ]
   },
   msc_rep: {
@@ -85,17 +83,14 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'customer_management',
       'territory_analytics',
       'sales_performance',
-      'subrep_management',
+      'team_management',
       'recent_activity'
     ],
     navigationItems: [
       'dashboard',
-      'commission',
-      'customers',
-      'territory',
       'orders',
-      'products',
-      'reports'
+      'commission',
+      'customers'
     ]
   },
   msc_subrep: {
@@ -104,28 +99,25 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     description: 'Limited sales activities, territory support under main rep supervision',
     category: 'sales',
     permissions: {
-      canViewFinancials: false,
-      canManageOrders: true,
-      canViewCommissions: true, // Limited commission access
+      canViewFinancials: false, // Cannot see financial details except limited commission
+      canManageOrders: false, // Can only view orders
+      canViewCommissions: true, // Limited commission access only
       canManageUsers: false,
       canConfigureSystem: false,
       canViewReports: false,
       canManageTerritory: false,
-      canViewFullPricing: true,
+      canViewFullPricing: false, // Limited pricing access
     },
     dashboardFeatures: [
       'limited_commission_access',
       'customer_support',
       'subrep_activities',
-      'territory_support',
       'recent_activity'
     ],
     navigationItems: [
       'dashboard',
-      'commission',
-      'customers',
       'orders',
-      'products'
+      'commission'
     ]
   },
   msc_admin: {
@@ -134,13 +126,13 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     description: 'Platform administration, system configuration, operational oversight',
     category: 'admin',
     permissions: {
-      canViewFinancials: true,
+      canViewFinancials: true, // FULL financial visibility
       canManageOrders: true,
       canViewCommissions: true,
       canManageUsers: true,
       canConfigureSystem: true,
       canViewReports: true,
-      canManageTerritory: false,
+      canManageTerritory: true,
       canViewFullPricing: true,
     },
     dashboardFeatures: [
@@ -153,13 +145,10 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     ],
     navigationItems: [
       'dashboard',
+      'requests',
       'orders',
-      'users',
-      'organizations',
-      'commission',
-      'products',
-      'reports',
-      'system_config'
+      'management',
+      'settings'
     ]
   },
   superadmin: {
@@ -187,15 +176,11 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
     ],
     navigationItems: [
       'dashboard',
+      'requests',
       'orders',
-      'users',
-      'organizations',
       'commission',
-      'products',
-      'reports',
-      'system_config',
-      'security',
-      'audit'
+      'management',
+      'system-admin'
     ]
   }
 };

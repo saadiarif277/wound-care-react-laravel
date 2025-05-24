@@ -3,7 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 
 class ProductController extends Controller
@@ -284,6 +286,62 @@ class ProductController extends Controller
      */
     public function recommendations(Request $request)
     {
+        // For backward compatibility, support simple request parameters
+        if ($request->filled('wound_type') && !$request->filled('product_request_id')) {
+            return $this->getBasicRecommendations($request);
+        }
+
+        // Enhanced recommendations using the recommendation engine
+        $validated = $request->validate([
+            'product_request_id' => 'required|exists:product_requests,id',
+            'use_ai' => 'boolean',
+            'max_recommendations' => 'integer|min:1|max:10'
+        ]);
+
+        try {
+            $productRequest = ProductRequest::find($validated['product_request_id']);
+
+            if (!$productRequest) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Product request not found'
+                ], 404);
+            }
+            $user = Auth::user();
+
+            // Use the recommendation engine
+            $recommendationService = app(\App\Services\ProductRecommendationEngine\MSCProductRecommendationService::class);
+
+            $options = [
+                'use_ai' => $validated['use_ai'] ?? true,
+                'max_recommendations' => $validated['max_recommendations'] ?? 6,
+                'user_role' => $user->userRole?->name ?? 'provider',
+                'show_msc_pricing' => $user->canSeeDiscounts() // Only show MSC pricing if user can see discounts
+            ];
+
+            // Ensure we have a single ProductRequest model instance
+            if ($productRequest instanceof \Illuminate\Database\Eloquent\Collection) {
+                $productRequest = $productRequest->first();
+            }
+
+            $result = $recommendationService->getRecommendations($productRequest, $options);
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate recommendations',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Basic recommendations for backward compatibility
+     */
+    protected function getBasicRecommendations(Request $request)
+    {
         $query = Product::active();
 
         // Basic filtering based on wound type and clinical indicators
@@ -327,7 +385,11 @@ class ProductController extends Controller
                 ];
             });
 
-        return response()->json($recommendations);
+        return response()->json([
+            'success' => true,
+            'recommendations' => $recommendations,
+            'type' => 'basic'
+        ]);
     }
 
     /**
