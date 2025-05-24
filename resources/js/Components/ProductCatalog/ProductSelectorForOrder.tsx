@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import {
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  CheckIcon,
-  ShoppingCartIcon,
-  TagIcon,
-  BuildingOfficeIcon,
-  CurrencyDollarIcon
-} from '@heroicons/react/24/outline';
+  Search,
+  Filter,
+  Check,
+  ShoppingCart,
+  Tag,
+  Building,
+  DollarSign
+} from 'lucide-react';
 
 interface Product {
   id: number;
@@ -177,7 +177,7 @@ const ProductSelectorForOrder: React.FC<Props> = ({
             onClick={() => setShowCatalog(!showCatalog)}
             className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <ShoppingCartIcon className="w-4 h-4 mr-2" />
+            <ShoppingCart className="w-4 h-4 mr-2" />
             {showCatalog ? 'Hide Catalog' : 'Browse Catalog'}
           </button>
         </div>
@@ -218,7 +218,7 @@ const ProductSelectorForOrder: React.FC<Props> = ({
 
               {/* Search */}
               <div className="relative mb-4">
-                <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
+                <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search products by name, Q-code, manufacturer, or SKU..."
@@ -285,15 +285,15 @@ const ProductSelectorForOrder: React.FC<Props> = ({
                           <h5 className="font-medium text-gray-900">{product.name}</h5>
                           <div className="flex items-center space-x-4 mt-1 text-sm text-gray-600">
                             <span className="flex items-center">
-                              <TagIcon className="w-3 h-3 mr-1" />
+                              <Tag className="w-3 h-3 mr-1" />
                               Q{product.q_code}
                             </span>
                             <span className="flex items-center">
-                              <BuildingOfficeIcon className="w-3 h-3 mr-1" />
+                              <Building className="w-3 h-3 mr-1" />
                               {product.manufacturer}
                             </span>
                             <span className="flex items-center">
-                              <CurrencyDollarIcon className="w-3 h-3 mr-1" />
+                              <DollarSign className="w-3 h-3 mr-1" />
                               {formatPrice(product.msc_price)}/cm²
                             </span>
                           </div>
@@ -302,7 +302,7 @@ const ProductSelectorForOrder: React.FC<Props> = ({
                           </p>
                         </div>
                         {selectedProduct?.value === product.id.toString() && (
-                          <CheckIcon className="w-5 h-5 text-blue-600" />
+                          <Check className="w-5 h-5 text-blue-600" />
                         )}
                       </div>
                     </div>

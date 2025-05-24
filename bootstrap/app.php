@@ -20,6 +20,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->web(\App\Http\Middleware\HandleInertiaRequests::class);
 
+        // Register role-based financial access control middleware
+        $middleware->alias([
+            'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
+        ]);
+
         $middleware->throttleApi();
 
         $middleware->replace(\Illuminate\Http\Middleware\TrustProxies::class, \App\Http\Middleware\TrustProxies::class);

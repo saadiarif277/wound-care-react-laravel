@@ -76,34 +76,75 @@ class UserRole extends Model
     {
         $configs = [
             self::PROVIDER => [
-                'widgets' => ['quick_actions', 'recent_requests', 'pending_orders', 'clinical_opportunities'],
-                'quick_actions' => ['new_request', 'view_orders', 'eligibility_check'],
-                'menu_items' => ['dashboard', 'requests', 'products', 'orders', 'profile'],
+                'widgets' => ['clinical_opportunities', 'recent_requests', 'action_required', 'eligibility_status'],
+                'quick_actions' => ['new_request', 'eligibility_check', 'view_catalog'],
+                'menu_items' => ['dashboard', 'product-requests', 'eligibility', 'products'],
+                'financial_access' => true,
+                'pricing_access' => 'full', // Can see full pricing including discounts
             ],
             self::OFFICE_MANAGER => [
-                'widgets' => ['facility_overview', 'provider_activity', 'pending_orders', 'notifications'],
-                'quick_actions' => ['new_request', 'manage_providers', 'view_orders'],
-                'menu_items' => ['dashboard', 'requests', 'products', 'orders', 'providers', 'facility'],
+                'widgets' => ['provider_coordination', 'facility_management', 'recent_requests', 'operational_metrics'],
+                'quick_actions' => ['new_request', 'manage_providers', 'facility_requests'],
+                'menu_items' => ['dashboard', 'product-requests', 'eligibility', 'products', 'providers'],
+                'financial_access' => false, // CRITICAL: NO financial data visible
+                'pricing_access' => 'national_asp_only', // CRITICAL: Only National ASP pricing
+                'restrictions' => [
+                    'no_financial_totals',
+                    'no_amounts_owed',
+                    'no_discounts',
+                    'no_msc_pricing',
+                    'no_special_rates'
+                ]
             ],
             self::MSC_REP => [
-                'widgets' => ['sales_performance', 'commission_tracking', 'territory_overview', 'opportunities'],
-                'quick_actions' => ['view_commissions', 'territory_analysis', 'customer_outreach'],
-                'menu_items' => ['dashboard', 'commissions', 'territory', 'customers', 'reports'],
+                'widgets' => ['commission_tracking', 'customer_management', 'sales_performance', 'team_management'],
+                'quick_actions' => ['view_commissions', 'manage_customers', 'team_invite'],
+                'menu_items' => ['dashboard', 'orders', 'commission', 'customers'],
+                'financial_access' => true,
+                'pricing_access' => 'full',
+                'customer_data_restrictions' => ['no_phi'] // Can see product & commission, NO PHI
             ],
             self::MSC_SUBREP => [
-                'widgets' => ['limited_commission', 'assigned_accounts', 'rep_coordination'],
-                'quick_actions' => ['view_assignments', 'contact_rep', 'customer_support'],
-                'menu_items' => ['dashboard', 'assignments', 'customers', 'reports'],
+                'widgets' => ['limited_commission_access', 'customer_support', 'recent_activity'],
+                'quick_actions' => ['view_commission', 'customer_support'],
+                'menu_items' => ['dashboard', 'orders', 'commission'],
+                'financial_access' => false,
+                'pricing_access' => 'limited',
+                'commission_access' => 'limited', // Limited commission access only
+                'customer_data_restrictions' => ['no_phi', 'view_only'] // View only, NO PHI
             ],
             self::MSC_ADMIN => [
-                'widgets' => ['system_overview', 'user_management', 'platform_health', 'analytics'],
-                'quick_actions' => ['manage_users', 'system_config', 'view_analytics'],
-                'menu_items' => ['dashboard', 'users', 'system', 'analytics', 'reports', 'settings'],
+                'widgets' => ['system_administration', 'user_management', 'pending_approvals', 'operational_metrics'],
+                'quick_actions' => ['manage_requests', 'create_orders', 'manage_users'],
+                'menu_items' => ['dashboard', 'requests', 'orders', 'management', 'settings'],
+                'financial_access' => true, // FULL financial visibility
+                'pricing_access' => 'full',
+                'admin_capabilities' => [
+                    'create_manual_orders',
+                    'manage_all_orders',
+                    'product_management',
+                    'clinical_rules',
+                    'recommendation_rules',
+                    'commission_management',
+                    'user_approval',
+                    'subrep_approval'
+                ]
             ],
             self::SUPER_ADMIN => [
-                'widgets' => ['complete_system_access', 'security_monitoring', 'audit_logs'],
-                'quick_actions' => ['system_admin', 'security_review', 'audit_access'],
-                'menu_items' => ['dashboard', 'users', 'system', 'security', 'audit', 'settings'],
+                'widgets' => ['system_wide_control', 'security_monitoring', 'audit_oversight', 'all_metrics'],
+                'quick_actions' => ['system_config', 'rbac_config', 'audit_review'],
+                'menu_items' => ['dashboard', 'requests', 'orders', 'commission', 'management', 'system-admin'],
+                'financial_access' => true, // Complete financial access
+                'pricing_access' => 'full',
+                'admin_capabilities' => [
+                    'rbac_configuration',
+                    'system_access_control',
+                    'role_management',
+                    'platform_configuration',
+                    'integration_settings',
+                    'api_management',
+                    'audit_logs'
+                ]
             ],
         ];
 
@@ -115,7 +156,8 @@ class UserRole extends Model
      */
     public function canAccessFinancials(): bool
     {
-        return !in_array($this->name, [self::OFFICE_MANAGER]);
+        $config = $this->getDashboardConfig();
+        return $config['financial_access'] ?? false;
     }
 
     /**
@@ -123,6 +165,80 @@ class UserRole extends Model
      */
     public function canSeeDiscounts(): bool
     {
+        return !in_array($this->name, [self::OFFICE_MANAGER, self::MSC_SUBREP]);
+    }
+
+    /**
+     * Check if role can see MSC pricing
+     */
+    public function canSeeMscPricing(): bool
+    {
         return !in_array($this->name, [self::OFFICE_MANAGER]);
+    }
+
+    /**
+     * Check if role can see order totals and amounts owed
+     */
+    public function canSeeOrderTotals(): bool
+    {
+        $config = $this->getDashboardConfig();
+        $restrictions = $config['restrictions'] ?? [];
+        return !in_array('no_financial_totals', $restrictions);
+    }
+
+    /**
+     * Get pricing access level for this role
+     */
+    public function getPricingAccessLevel(): string
+    {
+        $config = $this->getDashboardConfig();
+        return $config['pricing_access'] ?? 'limited';
+    }
+
+    /**
+     * Check if role has customer data restrictions
+     */
+    public function hasCustomerDataRestrictions(): array
+    {
+        $config = $this->getDashboardConfig();
+        return $config['customer_data_restrictions'] ?? [];
+    }
+
+    /**
+     * Check if role can view PHI (Protected Health Information)
+     */
+    public function canViewPhi(): bool
+    {
+        $restrictions = $this->hasCustomerDataRestrictions();
+        return !in_array('no_phi', $restrictions);
+    }
+
+    /**
+     * Check if role can manage orders (vs view only)
+     */
+    public function canManageOrders(): bool
+    {
+        $restrictions = $this->hasCustomerDataRestrictions();
+        return !in_array('view_only', $restrictions) &&
+               !in_array($this->name, [self::MSC_SUBREP]);
+    }
+
+    /**
+     * Get commission access level
+     */
+    public function getCommissionAccessLevel(): string
+    {
+        $config = $this->getDashboardConfig();
+        return $config['commission_access'] ?? 'none';
+    }
+
+    /**
+     * Check if role has admin capabilities
+     */
+    public function hasAdminCapability(string $capability): bool
+    {
+        $config = $this->getDashboardConfig();
+        $capabilities = $config['admin_capabilities'] ?? [];
+        return in_array($capability, $capabilities);
     }
 }

@@ -87,8 +87,10 @@ export interface PageProps {
     success: string | null;
     error: string | null;
   };
+  errors: Record<string, string>;
   ziggy: {
     location: string;
     [key: string]: any;
   };
+  [key: string]: any;
 }

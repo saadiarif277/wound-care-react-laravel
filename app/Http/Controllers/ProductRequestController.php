@@ -11,6 +11,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
+use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
 
 class ProductRequestController extends Controller
 {
@@ -316,6 +317,38 @@ class ProductRequestController extends Controller
             'success' => true,
             'message' => 'Product request submitted successfully.',
         ]);
+    }
+
+    /**
+     * Get AI-powered product recommendations for a product request
+     */
+    public function getRecommendations(ProductRequest $productRequest)
+    {
+        // Ensure the provider can only get recommendations for their own requests
+        if ($productRequest->provider_id !== Auth::id()) {
+            abort(403);
+        }
+
+        try {
+            $user = Auth::user();
+
+            $recommendationService = app(MSCProductRecommendationService::class);
+            $recommendations = $recommendationService->getRecommendations($productRequest, [
+                'use_ai' => true,
+                'max_recommendations' => 6,
+                'user_role' => $user->userRole?->name ?? 'provider',
+                'show_msc_pricing' => $user->canSeeDiscounts() // Only show MSC pricing if user can see discounts
+            ]);
+
+            return response()->json($recommendations);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate recommendations',
+                'message' => 'Our recommendation engine is temporarily unavailable. Please try again later.'
+            ], 500);
+        }
     }
 
     // Private helper methods for MSC-MVP implementation

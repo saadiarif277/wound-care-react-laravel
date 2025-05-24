@@ -274,6 +274,7 @@ Route::middleware(['auth'])->group(function () {
     // Product Request API Routes
     Route::prefix('api/product-requests')->group(function () {
         Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
+        Route::get('/{productRequest}/recommendations', [ProductRequestController::class, 'getRecommendations'])->name('api.product-requests.recommendations');
     });
 
     // Product API Routes

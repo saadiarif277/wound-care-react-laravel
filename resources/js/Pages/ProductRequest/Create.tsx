@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { router } from '@inertiajs/react';
+import { router, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { ArrowLeft, ArrowRight, Check, Layout } from 'lucide-react';
 import ProductSelectionStep from './Components/ProductSelectionStep';
@@ -48,6 +48,9 @@ interface FormData {
 }
 
 const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFacilityId }) => {
+  const { props } = usePage<any>();
+  const userRole = props.userRole || 'provider';
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     patient_api_input: {
@@ -150,6 +153,7 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
         return <ProductSelectionStep
           formData={formData}
           updateFormData={updateFormData}
+          userRole={userRole}
         />;
       case 4:
         return <ValidationEligibilityStep
