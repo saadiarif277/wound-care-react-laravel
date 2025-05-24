@@ -219,8 +219,8 @@ const ProductSelector: React.FC<Props> = ({
       manufacturer: recommendation.manufacturer,
       category: recommendation.category,
       description: recommendation.reasoning, // Use reasoning as description
-      price_per_sq_cm: recommendation.product_details.msc_price,
-      msc_price: recommendation.product_details.msc_price,
+      price_per_sq_cm: recommendation.product_details.msc_price ?? recommendation.estimated_cost.national_asp,
+      msc_price: recommendation.product_details.msc_price ?? recommendation.estimated_cost.national_asp,
       available_sizes: recommendation.product_details.available_sizes,
       image_url: recommendation.product_details.image_url,
       commission_rate: 0 // Not available from AI recommendation

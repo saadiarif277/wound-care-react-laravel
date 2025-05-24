@@ -1,5 +1,5 @@
-import React from 'react';
-import { Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Link, router } from '@inertiajs/react';
 import { IconType } from 'react-icons';
 import {
   FiHome,
@@ -25,10 +25,11 @@ import {
   FiMapPin,
   FiTarget,
   FiActivity,
-  FiCog,
   FiLock,
   FiArchive,
-  FiBookOpen
+  FiBookOpen,
+  FiChevronRight,
+  FiChevronDown
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -51,22 +52,22 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
   switch (role) {
     case 'provider':
       return [
-  {
-    name: 'Dashboard',
-          href: '/dashboard',
-    icon: FiHome,
+        {
+          name: 'Dashboard',
+          href: '/',
+          icon: FiHome,
           roles: ['provider']
-  },
-  {
+        },
+        {
           name: 'Product Requests',
-          href: '/product-requests',
+          href: '#',
           icon: FiClipboard,
           roles: ['provider'],
-    children: [
-      {
+          children: [
+            {
               name: 'New Request',
               href: '/product-requests/create',
-        icon: FiPlus,
+              icon: FiPlus,
               roles: ['provider']
             },
             {
@@ -74,37 +75,25 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/product-requests',
               icon: FiClipboard,
               roles: ['provider']
-      },
-      {
-              name: 'Status',
-              href: '/product-requests/status',
-              icon: FiActivity,
-              roles: ['provider']
-      }
-    ]
-  },
-  {
+            }
+          ]
+        },
+        {
           name: 'MAC/Eligibility/PA',
-    href: '/eligibility',
-    icon: FiCheckCircle,
+          href: '#',
+          icon: FiCheckCircle,
           roles: ['provider'],
           children: [
-  {
-    name: 'MAC Validation',
-    href: '/mac-validation',
-    icon: FiShield,
+            {
+              name: 'MAC Validation',
+              href: '/mac-validation',
+              icon: FiShield,
               roles: ['provider']
             },
             {
               name: 'Eligibility Check',
               href: '/eligibility',
               icon: FiCheckCircle,
-              roles: ['provider']
-            },
-            {
-              name: 'Pre-Authorization',
-              href: '/pre-authorization',
-              icon: FiUserCheck,
               roles: ['provider']
             }
           ]
@@ -121,17 +110,17 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
       return [
         {
           name: 'Dashboard',
-          href: '/dashboard',
+          href: '/',
           icon: FiHome,
           roles: ['office_manager']
-  },
-  {
-    name: 'Product Requests',
-    href: '/product-requests',
+        },
+        {
+          name: 'Product Requests',
+          href: '#',
           icon: FiClipboard,
           roles: ['office_manager'],
-    children: [
-      {
+          children: [
+            {
               name: 'New',
               href: '/product-requests/create',
               icon: FiPlus,
@@ -140,20 +129,20 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             {
               name: 'Facility Requests',
               href: '/product-requests/facility',
-        icon: FiClipboard,
+              icon: FiClipboard,
               roles: ['office_manager']
-      },
-      {
+            },
+            {
               name: 'Provider Requests',
               href: '/product-requests/providers',
               icon: FiUsers,
               roles: ['office_manager']
-      }
-    ]
-  },
-  {
+            }
+          ]
+        },
+        {
           name: 'MAC/Eligibility/PA',
-          href: '/eligibility',
+          href: '#',
           icon: FiCheckCircle,
           roles: ['office_manager'],
           children: [
@@ -176,14 +165,14 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['office_manager']
             }
           ]
-  },
-  {
-    name: 'Product Catalog',
-    href: '/products',
-    icon: FiPackage,
+        },
+        {
+          name: 'Product Catalog',
+          href: '/products',
+          icon: FiPackage,
           roles: ['office_manager']
         },
-      {
+        {
           name: 'Provider Management',
           href: '/providers',
           icon: FiUsers,
@@ -195,58 +184,52 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
       return [
         {
           name: 'Dashboard',
-          href: '/dashboard',
+          href: '/',
           icon: FiHome,
           roles: ['msc_rep']
-      },
-      {
+        },
+        {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
           roles: ['msc_rep']
-  },
-  {
+        },
+        {
           name: 'Commissions',
-    href: '/commission',
-    icon: FiDollarSign,
+          href: '#',
+          icon: FiDollarSign,
           roles: ['msc_rep'],
-    children: [
-      {
+          children: [
+            {
               name: 'My Earnings',
-              href: '/commission/earnings',
-        icon: FiDollarSign,
+              href: '/commission',
+              icon: FiDollarSign,
               roles: ['msc_rep']
-      },
-      {
-              name: 'History',
-              href: '/commission/history',
+            },
+            {
+              name: 'Commission Records',
+              href: '/commission/records',
               icon: FiBarChart,
               roles: ['msc_rep']
-      },
-      {
-        name: 'Payouts',
-        href: '/commission/payouts',
-        icon: FiTrendingUp,
+            },
+            {
+              name: 'Payouts',
+              href: '/commission/payouts',
+              icon: FiTrendingUp,
               roles: ['msc_rep']
-      }
-    ]
-  },
-  {
+            }
+          ]
+        },
+        {
           name: 'My Customers',
-          href: '/customers',
+          href: '#',
           icon: FiUsers,
           roles: ['msc_rep'],
-    children: [
-      {
+          children: [
+            {
               name: 'Customer List',
-              href: '/customers',
-        icon: FiUsers,
-              roles: ['msc_rep']
-      },
-      {
-              name: 'My Team',
-              href: '/customers/team',
-              icon: FiTarget,
+              href: '/contacts',
+              icon: FiUsers,
               roles: ['msc_rep']
             }
           ]
@@ -255,9 +238,9 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
 
     case 'msc_subrep':
       return [
-  {
+          {
           name: 'Dashboard',
-          href: '/dashboard',
+          href: '/',
           icon: FiHome,
           roles: ['msc_subrep']
         },
@@ -267,11 +250,11 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiShoppingCart,
         roles: ['msc_subrep']
       },
-      {
+              {
           name: 'My Commissions',
           href: '/commission',
           icon: FiDollarSign,
-        roles: ['msc_subrep']
+          roles: ['msc_subrep']
         }
       ];
 
@@ -279,7 +262,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
       return [
         {
           name: 'Dashboard',
-          href: '/dashboard',
+          href: '/',
           icon: FiHome,
           roles: ['msc_admin']
         },
@@ -291,7 +274,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
         },
         {
           name: 'Order Management',
-          href: '/orders',
+          href: '#',
           icon: FiShoppingCart,
           roles: ['msc_admin'],
           children: [
@@ -315,8 +298,8 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             },
             {
               name: 'Engines',
-              href: '/engines',
-              icon: FiCog,
+              href: '#',
+              icon: FiSettings,
               roles: ['msc_admin'],
               children: [
                 {
@@ -338,13 +321,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   roles: ['msc_admin']
                 }
               ]
-      }
-    ]
-  },
-  {
+            }
+          ]
+        },
+        {
           name: 'User & Org Management',
-          href: '/management',
-    icon: FiUsers,
+          href: '#',
+          icon: FiUsers,
           roles: ['msc_admin'],
           children: [
             {
@@ -352,27 +335,27 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/access-requests',
               icon: FiUserCheck,
               roles: ['msc_admin']
-  },
-  {
+            },
+            {
               name: 'Sub-Rep Approval Queue',
               href: '/subrep-approvals',
               icon: FiUserPlus,
               roles: ['msc_admin']
-  },
-  {
-    name: 'User Management',
-    href: '/users',
-    icon: FiUsers,
+            },
+            {
+              name: 'User Management',
+              href: '/users',
+              icon: FiUsers,
               roles: ['msc_admin']
-      },
-      {
+            },
+            {
               name: 'Organization Management',
               href: '/organizations',
               icon: FiSettings,
               roles: ['msc_admin']
-      }
-    ]
-  },
+            }
+          ]
+        },
   {
           name: 'Settings',
           href: '/settings',
@@ -385,7 +368,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
       return [
         {
           name: 'Dashboard',
-          href: '/dashboard',
+          href: '/',
           icon: FiHome,
           roles: ['superadmin']
         },
@@ -409,23 +392,23 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
         },
         {
           name: 'User & Org Management',
-          href: '/management',
+          href: '#',
           icon: FiUsers,
           roles: ['superadmin'],
-    children: [
-      {
+          children: [
+            {
               name: 'RBAC Configuration',
               href: '/rbac',
               icon: FiLock,
               roles: ['superadmin']
-      },
-      {
+            },
+            {
               name: 'All Users',
               href: '/users',
               icon: FiUsers,
               roles: ['superadmin']
-      },
-      {
+            },
+            {
               name: 'System Access Control',
               href: '/access-control',
               icon: FiShield,
@@ -436,19 +419,19 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/roles',
               icon: FiUserCheck,
               roles: ['superadmin']
-      }
-    ]
-  },
-  {
+            }
+          ]
+        },
+        {
           name: 'System Admin',
-          href: '/system-admin',
-          icon: FiCog,
+          href: '#',
+          icon: FiSettings,
           roles: ['superadmin'],
           children: [
             {
               name: 'Platform Configuration',
               href: '/system-admin/config',
-    icon: FiSettings,
+              icon: FiSettings,
               roles: ['superadmin']
             },
             {
@@ -468,7 +451,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/system-admin/audit',
               icon: FiArchive,
               roles: ['superadmin']
-  }
+            }
           ]
         }
       ];
@@ -480,6 +463,17 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
 
 export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed }: RoleBasedNavigationProps) {
   const menuItems = getMenuByRole(userRole);
+  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
+
+  const toggleSubmenu = (itemName: string) => {
+    const newOpenMenus = new Set(openMenus);
+    if (newOpenMenus.has(itemName)) {
+      newOpenMenus.delete(itemName);
+    } else {
+      newOpenMenus.add(itemName);
+    }
+    setOpenMenus(newOpenMenus);
+  };
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
     const isActive = currentPath === item.href ||
@@ -490,25 +484,48 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
       (child.children && child.children.some(grandchild => currentPath === grandchild.href))
     );
 
+    const isOpen = openMenus.has(item.name) || isActive || hasActiveChild;
+    const hasChildren = item.children && item.children.length > 0;
+
     return (
       <div key={item.name}>
-        <Link
-          href={item.href}
-          className={`flex items-center px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 group ${
+        <div
+          className={`flex items-center px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 group cursor-pointer ${
             isActive
               ? 'bg-red-600 text-white shadow-lg'
               : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
           } ${isCollapsed ? 'justify-center' : ''} ${level > 0 ? 'ml-6' : ''}`}
           title={isCollapsed ? item.name : ''}
+          onClick={() => {
+            if (hasChildren && !isCollapsed) {
+              toggleSubmenu(item.name);
+            } else if (item.href && item.href !== '#') {
+              // Only navigate if href is not a placeholder
+              router.visit(item.href);
+            }
+          }}
         >
           <item.icon className={`flex-shrink-0 w-5 h-5 ${
             isCollapsed ? '' : 'mr-3'
           } ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-600'}`} />
-          {!isCollapsed && <span className="truncate">{item.name}</span>}
-        </Link>
-        {item.children && (isActive || hasActiveChild) && !isCollapsed && (
+          {!isCollapsed && (
+            <>
+              <span className="truncate flex-1">{item.name}</span>
+              {hasChildren && (
+                <div className="ml-2">
+                  {isOpen ? (
+                    <FiChevronDown className="w-4 h-4" />
+                  ) : (
+                    <FiChevronRight className="w-4 h-4" />
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+        {hasChildren && isOpen && !isCollapsed && (
           <div className="ml-6 mt-2 space-y-1">
-            {item.children.map((child) => renderMenuItem(child, level + 1))}
+            {item.children!.map((child) => renderMenuItem(child, level + 1))}
           </div>
         )}
       </div>
