@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Facility extends Model
@@ -52,9 +53,39 @@ class Facility extends Model
     /**
      * Get users associated with this facility
      */
-    public function users(): HasMany
+    public function users(): BelongsToMany
     {
-        return $this->hasMany(User::class);
+        return $this->belongsToMany(User::class, 'facility_user')
+            ->withPivot(['relationship_type', 'is_primary', 'is_active', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get active users for this facility
+     */
+    public function activeUsers(): BelongsToMany
+    {
+        return $this->users()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get office managers for this facility
+     */
+    public function officeManagers(): BelongsToMany
+    {
+        return $this->users()->whereHas('userRole', function ($q) {
+            $q->where('name', UserRole::OFFICE_MANAGER);
+        });
+    }
+
+    /**
+     * Get providers for this facility
+     */
+    public function providers(): BelongsToMany
+    {
+        return $this->users()->whereHas('userRole', function ($q) {
+            $q->where('name', UserRole::PROVIDER);
+        });
     }
 
     /**
