@@ -16,8 +16,8 @@ class DashboardController extends Controller
         // TODO: Replace with proper role field when RBAC is implemented
         $userRole = $this->getUserRole($user);
 
-        // Allow role testing via query parameter (development only)
-        if (request()->has('test_role') && app()->environment(['local', 'development'])) {
+        // Allow role testing via query parameter (development and staging)
+        if (request()->has('test_role') && app()->environment(['local', 'development', 'staging'])) {
             $testRole = request()->get('test_role');
             $validRoles = ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin', 'superadmin'];
             if (in_array($testRole, $validRoles)) {
@@ -34,7 +34,7 @@ class DashboardController extends Controller
                 'role' => $userRole,
                 'owner' => $user->owner,
             ],
-            'showRoleTestSwitcher' => app()->environment(['local', 'development'])
+            'showRoleTestSwitcher' => app()->environment(['local', 'development', 'staging'])
         ]);
     }
 

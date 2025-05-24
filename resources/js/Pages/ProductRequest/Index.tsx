@@ -63,27 +63,111 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
 
   return (
     <MainLayout title="Product Requests">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Product Requests</h1>
-          <p className="mt-1 text-sm text-gray-600">
+      <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto py-4 sm:py-6">
+          {/* Header - Mobile Optimized */}
+          <div className="mb-4 sm:mb-6 flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex-1">
+              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Product Requests</h1>
+              <p className="mt-1 text-sm sm:text-base text-gray-600">
             Manage your MSC-MVP product requests with intelligent workflow and sequential patient IDs
           </p>
         </div>
         <Link
           href="/product-requests/create"
-          className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150"
+              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150"
         >
           + New Product Request
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
+            <div className="p-4 sm:p-6 border-b border-gray-200">
           <FilterBar />
         </div>
 
-        <div className="overflow-x-auto">
+            {/* Mobile Card View */}
+            <div className="block lg:hidden">
+              {requests.data.length === 0 ? (
+                <div className="px-4 py-12 text-center">
+                  <div className="text-gray-500">
+                    <p className="text-lg font-medium">No product requests found</p>
+                    <p className="mt-1 text-sm">Get started by creating your first product request with the MSC-MVP workflow.</p>
+                    <Link
+                      href="/product-requests/create"
+                      className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
+                    >
+                      + New Product Request
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-200">
+                  {requests.data.map((request) => (
+                    <div key={request.id} className="p-4 hover:bg-gray-50 transition-colors">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <h3 className="text-sm font-medium text-gray-900">
+                            {request.request_number}
+                          </h3>
+                          <p className="text-xs text-gray-500 mt-1">MSC-MVP Request</p>
+                        </div>
+                        <Link
+                          href={`/product-requests/${request.id}`}
+                          className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                        >
+                          View →
+                        </Link>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Patient ID</span>
+                          <span className="text-sm font-medium text-gray-900">{request.patient_display}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Facility</span>
+                          <span className="text-sm text-gray-900">{request.facility_name}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Status</span>
+                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.order_status)}`}>
+                            {formatStatus(request.order_status)}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-gray-500">Progress</span>
+                          <span className={`text-xs font-medium ${getStepColor(request.step)}`}>
+                            Step {request.step}/6: {request.step_description}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500">Products</p>
+                            <p className="text-sm font-medium">{request.total_products}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500">Total</p>
+                            <p className="text-sm font-medium">{formatCurrency(request.total_amount)}</p>
+                          </div>
+                          <div className="text-center">
+                            <p className="text-xs text-gray-500">Created</p>
+                            <p className="text-sm font-medium">{request.created_at}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden lg:block overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -192,14 +276,14 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
         </div>
 
         {requests.data.length > 0 && (
-          <div className="px-6 py-4 border-t border-gray-200">
+              <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
             <Pagination links={requests.links} />
           </div>
         )}
       </div>
 
-      {/* Sequential ID Benefits Info */}
-      <div className="mt-6 bg-blue-50 border-l-4 border-blue-400 p-4">
+          {/* Sequential ID Benefits Info - Mobile Optimized */}
+          <div className="mt-4 sm:mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
         <div className="flex">
           <div className="ml-3">
             <h3 className="text-sm font-medium text-blue-800">Sequential Display ID Benefits</h3>
@@ -210,6 +294,8 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
                 <li><strong>Easy Search:</strong> Find patients by initials ("JoSm") or full ID ("JoSm001")</li>
                 <li><strong>Clear Differentiation:</strong> Sequential numbers prevent confusion between patients</li>
               </ul>
+                </div>
+              </div>
             </div>
           </div>
         </div>
