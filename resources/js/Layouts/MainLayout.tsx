@@ -20,6 +20,7 @@ interface MainLayoutProps {
 interface PageProps extends Record<string, unknown> {
   userRole?: UserRole;
   user?: any;
+  showRoleTestSwitcher?: boolean;
 }
 
 export default function MainLayout({ title, children }: MainLayoutProps) {
@@ -218,8 +219,8 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
           </main>
         </div>
 
-        {/* Global Role Test Switcher (Development Only) */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* Global Role Test Switcher (Development and Staging) */}
+        {props.showRoleTestSwitcher && (
           <RoleTestSwitcher
             currentRole={currentUserRole}
             onRoleChange={handleRoleChange}
