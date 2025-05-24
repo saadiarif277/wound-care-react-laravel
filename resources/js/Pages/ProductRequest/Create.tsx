@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon } from '@heroicons/react/24/outline';
+import MainLayout from '@/Layouts/MainLayout';
+import { ArrowLeft, ArrowRight, Check, Layout } from 'lucide-react';
 import ProductSelectionStep from './Components/ProductSelectionStep';
 
 interface Props {
@@ -100,7 +100,7 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
   };
 
   const submitForm = () => {
-    router.post('/product-requests', formData);
+    router.post('/product-requests', formData as any);
   };
 
   const isStepValid = (step: number): boolean => {
@@ -172,7 +172,7 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
   };
 
   return (
-    <Layout title="New Product Request">
+    <MainLayout title="New Product Request">
       <div className="max-w-6xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-semibold text-gray-900">New Product Request</h1>
@@ -238,7 +238,7 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
               disabled={currentStep === 1}
               className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <ArrowLeftIcon className="w-4 h-4 mr-2" />
+              <ArrowLeft className="w-4 h-4 mr-2" />
               Previous
             </button>
 
@@ -250,7 +250,7 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Next
-                <ArrowRightIcon className="w-4 h-4 ml-2" />
+                <ArrowRight className="w-4 h-4 ml-2" />
               </button>
             ) : (
               <button
@@ -259,14 +259,14 @@ const ProductRequestCreate: React.FC<Props> = ({ woundTypes, facilities, userFac
                 disabled={!isStepValid(currentStep)}
                 className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <CheckIcon className="w-4 h-4 mr-2" />
+                <Check className="w-4 h-4 mr-2" />
                 Submit Request
               </button>
             )}
           </div>
         </div>
       </div>
-    </Layout>
+    </MainLayout>
   );
 };
 
@@ -367,7 +367,7 @@ const PatientInformationStep: React.FC<any> = ({
               required
             >
               <option value="">Select facility...</option>
-              {facilities.map(facility => (
+              {facilities.map((facility: any) => (
                 <option key={facility.id} value={facility.id}>
                   {facility.name}
                 </option>
@@ -429,7 +429,7 @@ const PatientInformationStep: React.FC<any> = ({
           >
             <option value="">Select wound type...</option>
             {Object.entries(woundTypes).map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
+              <option key={key} value={key}>{label as string}</option>
             ))}
           </select>
         </div>

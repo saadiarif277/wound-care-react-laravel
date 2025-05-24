@@ -63,7 +63,7 @@ class ProductRequestController extends Controller
 
         return Inertia::render('ProductRequest/Create', [
             'woundTypes' => ProductRequest::getWoundTypeDescriptions(),
-            'facilities' => Facility::where('is_active', true)
+            'facilities' => Facility::where('active', true)
                 ->orderBy('name')
                 ->get(['id', 'name', 'address'])
                 ->toArray(),

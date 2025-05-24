@@ -209,10 +209,24 @@ const baseMenuItems: MenuItem[] = [
     roles: ['msc_admin', 'superadmin']
   },
   {
-    name: 'Users Management',
+    name: 'User Management',
     href: '/users',
     icon: FiUsers,
-    roles: ['msc_admin', 'superadmin']
+    roles: ['msc_admin', 'superadmin'],
+    children: [
+      {
+        name: 'Manage Users',
+        href: '/users',
+        icon: FiUsers,
+        roles: ['msc_admin', 'superadmin']
+      },
+      {
+        name: 'Access Requests',
+        href: '/access-requests',
+        icon: FiUserCheck,
+        roles: ['msc_admin', 'superadmin']
+      }
+    ]
   },
   {
     name: 'Reports',

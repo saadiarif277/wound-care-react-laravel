@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import {
-  MagnifyingGlassIcon,
-  FunnelIcon,
-  PlusIcon,
-  MinusIcon,
-  XMarkIcon,
+  Search,
+  Filter,
+  Plus,
+  Minus,
+  X,
+  ShoppingCart,
+  Tag,
+  Building,
+  Info,
   ShoppingCartIcon,
-  TagIcon,
-  BuildingOfficeIcon,
-  InformationCircleIcon
-} from '@heroicons/react/24/outline';
+  MinusIcon,
+  PlusIcon,
+  TagIcon
+} from 'lucide-react';
 
 interface Product {
   id: number;
@@ -216,7 +220,7 @@ const ProductSelector: React.FC<Props> = ({
               onClick={() => setShowFilters(!showFilters)}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
             >
-              <FunnelIcon className="w-4 h-4 mr-2" />
+              <Filter className="w-4 h-4 mr-2" />
               Filters
             </button>
           </div>
@@ -224,7 +228,7 @@ const ProductSelector: React.FC<Props> = ({
 
         {/* Search */}
         <div className="relative">
-          <MagnifyingGlassIcon className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
+          <Search className="w-5 h-5 absolute left-3 top-3 text-gray-400" />
           <input
             type="text"
             placeholder="Search products by name, Q-code, manufacturer, or SKU..."
@@ -271,7 +275,7 @@ const ProductSelector: React.FC<Props> = ({
       {recommendationContext && getRecommendedProducts().length > 0 && (
         <div className="bg-green-50 rounded-lg p-4">
           <h4 className="text-md font-semibold text-green-900 mb-3 flex items-center">
-            <InformationCircleIcon className="w-5 h-5 mr-2" />
+            <Info className="w-5 h-5 mr-2" />
             Recommended for {recommendationContext}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -325,7 +329,7 @@ const ProductSelector: React.FC<Props> = ({
             <div className="bg-white border border-gray-200 rounded-lg p-4 sticky top-4">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <ShoppingCartIcon className="w-5 h-5 mr-2" />
+                  <ShoppingCart className="w-5 h-5 mr-2" />
                   Selected Products
                 </h4>
                 <span className="text-sm text-gray-500">
@@ -364,7 +368,7 @@ const ProductSelector: React.FC<Props> = ({
                             onClick={() => removeProduct(item.product_id, item.size)}
                             className="text-red-500 hover:text-red-700"
                           >
-                            <XMarkIcon className="w-4 h-4" />
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
 
@@ -374,7 +378,7 @@ const ProductSelector: React.FC<Props> = ({
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity - 1)}
                               className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                             >
-                              <MinusIcon className="w-3 h-3" />
+                              <Minus className="w-3 h-3" />
                             </button>
                             <span className="text-sm font-medium w-8 text-center">
                               {item.quantity}
@@ -383,7 +387,7 @@ const ProductSelector: React.FC<Props> = ({
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity + 1)}
                               className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
                             >
-                              <PlusIcon className="w-3 h-3" />
+                              <Plus className="w-3 h-3" />
                             </button>
                           </div>
                           <div className="text-right">
@@ -464,13 +468,13 @@ const ProductCard: React.FC<{
             {product.name}
           </h3>
           <div className="flex items-center space-x-2 text-xs text-gray-500 mb-1">
-            <TagIcon className="w-3 h-3" />
+            <Tag className="w-3 h-3" />
             <span>Q{product.q_code}</span>
             <span>•</span>
             <span>{product.sku}</span>
           </div>
           <div className="flex items-center text-xs text-gray-500">
-            <BuildingOfficeIcon className="w-3 h-3 mr-1" />
+            <Building className="w-3 h-3 mr-1" />
             <span>{product.manufacturer}</span>
           </div>
         </div>

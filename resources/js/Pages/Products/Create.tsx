@@ -63,7 +63,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
       commission_rate: data.commission_rate ? parseFloat(data.commission_rate) : null,
     };
 
-    post('/products', processedData);
+    post('/products', processedData as any);
   };
 
   const addSize = () => {

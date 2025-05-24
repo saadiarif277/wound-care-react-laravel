@@ -84,7 +84,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
       commission_rate: data.commission_rate ? parseFloat(data.commission_rate) : null,
     };
 
-    put(`/products/${product.id}`, processedData);
+    put(`/products/${product.id}`, processedData as any);
   };
 
   const handleDelete = () => {
