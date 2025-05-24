@@ -738,8 +738,11 @@ function DashboardPage({ userRole = 'provider', user, showRoleTestSwitcher = fal
   );
 }
 
-DashboardPage.layout = (page: React.ReactNode, props: any) => (
-  <MainLayout title="Dashboard" children={page} userRole={props.userRole} />
-);
+DashboardPage.layout = (page: React.ReactNode) => {
+  // Access props through Inertia's page prop system
+  return (
+    <MainLayout title="Dashboard" children={page} />
+  );
+};
 
 export default DashboardPage;

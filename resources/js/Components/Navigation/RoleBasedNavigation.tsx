@@ -16,10 +16,9 @@ import {
   FiShield,
   FiActivity,
   FiTrendingUp,
-  FiBarChart3,
+  FiBarChart,
   FiTarget,
-  FiUserCheck,
-  FiBuilding
+  FiUserCheck
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 import { filterNavigationByRole } from '@/lib/roleUtils';
@@ -145,7 +144,7 @@ const baseMenuItems: MenuItem[] = [
       {
         name: 'Territory Analytics',
         href: '/sales/analytics',
-        icon: FiBarChart3,
+        icon: FiBarChart,
         roles: ['msc_rep', 'msc_admin', 'superadmin']
       },
       {
@@ -185,7 +184,7 @@ const baseMenuItems: MenuItem[] = [
   {
     name: 'Organizations',
     href: '/organizations',
-    icon: FiBuilding,
+    icon: FiSettings,
     roles: ['msc_admin', 'superadmin']
   },
   {
@@ -197,7 +196,7 @@ const baseMenuItems: MenuItem[] = [
   {
     name: 'Reports',
     href: '/reports',
-    icon: FiBarChart3,
+    icon: FiBarChart,
     roles: ['provider', 'office_manager', 'msc_rep', 'msc_admin', 'superadmin'],
     children: [
       {

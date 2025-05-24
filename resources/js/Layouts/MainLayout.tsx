@@ -1,4 +1,4 @@
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
 import { UserRole } from '@/types/roles';
@@ -14,10 +14,16 @@ import {
 interface MainLayoutProps {
   title?: string;
   children: React.ReactNode;
-  userRole?: UserRole;
 }
 
-export default function MainLayout({ title, children, userRole = 'provider' }: MainLayoutProps) {
+interface PageProps extends Record<string, unknown> {
+  userRole?: UserRole;
+  user?: any;
+}
+
+export default function MainLayout({ title, children }: MainLayoutProps) {
+  const { props } = usePage<PageProps>();
+  const userRole = props.userRole || 'provider';
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
