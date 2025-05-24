@@ -10,13 +10,15 @@ use Tests\TestCase;
 
 class OrganizationsTest extends TestCase
 {
+    protected User $user;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         $account = Account::create(['name' => 'Acme Corporation']);
 
-        $this->user = User::factory()->make([
+        $this->user = User::factory()->create([
             'account_id' => $account->id,
             'first_name' => 'John',
             'last_name' => 'Doe',

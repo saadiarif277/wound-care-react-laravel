@@ -19,11 +19,11 @@ class OrganizationsController extends Controller
     public function index(): Response
     {
         return Inertia::render('Organizations/Index', [
-            'filters' => Request::all('search', 'trashed'),
+            'filters' => Request::only(['search', 'trashed']),
             'organizations' => new OrganizationCollection(
                 Auth::user()->account->organizations()
                     ->orderBy('name')
-                    ->filter(Request::only('search', 'trashed'))
+                    ->filter(Request::only(['search', 'trashed']))
                     ->paginate()
                     ->appends(Request::all())
             ),
