@@ -36,6 +36,10 @@ return [
         'client_id' => env('AZURE_CLIENT_ID'),
         'client_secret' => env('AZURE_CLIENT_SECRET'),
         'fhir_endpoint' => env('AZURE_FHIR_ENDPOINT'),
+        'key_vault' => [
+            'vault_url' => env('AZURE_KEY_VAULT_URL'),
+            'use_managed_identity' => env('AZURE_USE_MANAGED_IDENTITY', false),
+        ],
     ],
 
     'supabase' => [
@@ -44,16 +48,23 @@ return [
         'service_role_key' => env('SUPABASE_SERVICE_ROLE_KEY'),
     ],
 
+    'slack' => [
+        'notifications' => [
+            'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),
+            'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
+        ],
+    ],
+
     'ecw' => [
         'client_id' => env('ECW_CLIENT_ID'),
         'client_secret' => env('ECW_CLIENT_SECRET'),
-        'sandbox_endpoint' => env('ECW_SANDBOX_ENDPOINT', 'https://fhir.eclinicalworks.com/ecwopendev/fhir'),
-        'production_endpoint' => env('ECW_PRODUCTION_ENDPOINT'),
-        'environment' => env('ECW_ENVIRONMENT', 'sandbox'), // sandbox or production
-        'application_id' => env('ECW_APPLICATION_ID'),
         'redirect_uri' => env('ECW_REDIRECT_URI'),
-        'scope' => env('ECW_SCOPE', 'patient/Patient.read patient/Observation.read patient/DocumentReference.read'),
-        'api_version' => env('ECW_API_VERSION', 'R4'),
+        'scope' => env('ECW_SCOPE', 'patient/read patient/write'),
+        'environment' => env('ECW_ENVIRONMENT', 'sandbox'),
+        'sandbox_endpoint' => env('ECW_SANDBOX_ENDPOINT'),
+        'production_endpoint' => env('ECW_PRODUCTION_ENDPOINT'),
+        'jwk_public_key' => env('ECW_JWK_PUBLIC_KEY'),
+        'jwk_private_key' => env('ECW_JWK_PRIVATE_KEY'),
     ],
 
 ];

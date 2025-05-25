@@ -523,4 +523,120 @@ class EcwFhirService
             throw new Exception("Invalid JSON response: " . json_last_error_msg());
         }
     }
+
+    /**
+     * Get patient conditions (problem list) from eCW
+     *
+     * @param string $patientId Patient ID
+     * @param string $accessToken Valid access token
+     * @param array $filters Optional filters (category, clinicalStatus, verificationStatus, etc.)
+     * @return array FHIR Bundle with conditions
+     */
+    public function getPatientConditions(string $patientId, string $accessToken, array $filters = []): array
+    {
+        try {
+            $params = ['patient' => $patientId];
+
+            // Add optional filters
+            if (!empty($filters['category'])) {
+                $params['category'] = $filters['category'];
+            }
+            if (!empty($filters['clinical-status'])) {
+                $params['clinical-status'] = $filters['clinical-status'];
+            }
+            if (!empty($filters['verification-status'])) {
+                $params['verification-status'] = $filters['verification-status'];
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$accessToken}",
+                'Accept' => 'application/fhir+json',
+                'User-Agent' => 'MSC-MVP-FHIR-Client/1.0',
+            ])->get("{$this->baseEndpoint}/Condition", $params);
+
+            if (!$response->successful()) {
+                throw new Exception("eCW Conditions API error: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Log access for audit trail
+            $this->logPatientAccess($patientId, 'condition_read', Auth::id());
+
+            return $bundle;
+
+        } catch (Exception $e) {
+            Log::error('eCW Conditions read failed', [
+                'patient_id' => $patientId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Create order summary document in eCW
+     *
+     * @param string $patientId Patient ID
+     * @param string $accessToken Valid access token
+     * @param array $orderData Order summary data
+     * @return array Created FHIR DocumentReference resource
+     */
+    public function createOrderSummary(string $patientId, string $accessToken, array $orderData): array
+    {
+        try {
+            // Create FHIR DocumentReference resource
+            $documentReference = [
+                'resourceType' => 'DocumentReference',
+                'status' => 'current',
+                'type' => [
+                    'coding' => [
+                        [
+                            'system' => 'http://loinc.org',
+                            'code' => '52521-4',
+                            'display' => 'Product order summary'
+                        ]
+                    ]
+                ],
+                'subject' => [
+                    'reference' => "Patient/{$patientId}"
+                ],
+                'date' => now()->toIso8601String(),
+                'content' => [
+                    [
+                        'attachment' => [
+                            'contentType' => 'application/json',
+                            'data' => base64_encode(json_encode($orderData)),
+                            'title' => 'MSC Wound Care Product Order Summary'
+                        ]
+                    ]
+                ]
+            ];
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$accessToken}",
+                'Accept' => 'application/fhir+json',
+                'Content-Type' => 'application/fhir+json',
+                'User-Agent' => 'MSC-MVP-FHIR-Client/1.0',
+            ])->post("{$this->baseEndpoint}/DocumentReference", $documentReference);
+
+            if (!$response->successful()) {
+                throw new Exception("eCW DocumentReference creation failed: " . $response->body());
+            }
+
+            $createdDocument = $response->json();
+
+            // Log access for audit trail
+            $this->logPatientAccess($patientId, 'document_create', Auth::id());
+
+            return $createdDocument;
+
+        } catch (Exception $e) {
+            Log::error('eCW order summary creation failed', [
+                'patient_id' => $patientId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }

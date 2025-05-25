@@ -160,21 +160,25 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
 
 // eClinicalWorks Integration Routes
 Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function () {
-    // OAuth2 Authentication
     Route::get('auth', [EcwController::class, 'authenticate'])->name('auth');
     Route::get('callback', [EcwController::class, 'callback'])->name('callback');
-
-    // Connection Management
     Route::get('status', [EcwController::class, 'status'])->name('status');
+    Route::get('test', [EcwController::class, 'test'])->name('test');
     Route::post('disconnect', [EcwController::class, 'disconnect'])->name('disconnect');
-    Route::get('test', [EcwController::class, 'testConnection'])->name('test');
 
-    // FHIR Data Access
-    Route::get('patients/search', [EcwController::class, 'searchPatients'])->name('patients.search');
-    Route::get('patients/{patient_id}', [EcwController::class, 'getPatient'])->name('patients.show');
-    Route::get('patients/{patient_id}/observations', [EcwController::class, 'getPatientObservations'])->name('patients.observations');
-    Route::get('patients/{patient_id}/documents', [EcwController::class, 'getPatientDocuments'])->name('patients.documents');
+    // Patient data routes
+    Route::prefix('patients')->name('patients.')->group(function () {
+        Route::get('search', [EcwController::class, 'searchPatients'])->name('search');
+        Route::get('{id}', [EcwController::class, 'getPatient'])->name('read');
+        Route::get('{id}/observations', [EcwController::class, 'getPatientObservations'])->name('observations');
+        Route::get('{id}/documents', [EcwController::class, 'getPatientDocuments'])->name('documents');
+        Route::get('{id}/conditions', [EcwController::class, 'getPatientConditions'])->name('conditions');
+        Route::post('{id}/order-summary', [EcwController::class, 'createOrderSummary'])->name('order-summary.create');
+    });
 });
+
+// JWK endpoint for eCW integration (public endpoint)
+Route::get('.well-known/jwks.json', [EcwController::class, 'jwks'])->name('jwks');
 
 // Commission Management Routes
 Route::middleware(['auth:sanctum'])->group(function () {
