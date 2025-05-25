@@ -24,8 +24,46 @@ class ProductRequestController extends Controller
 
     public function index()
     {
+        $user = Auth::user();
+
+        // Get status counts for the current user
+        $statusCounts = ProductRequest::where('provider_id', $user->id)
+            ->selectRaw('order_status, count(*) as count')
+            ->groupBy('order_status')
+            ->pluck('count', 'order_status')
+            ->toArray();
+
+        // Define all possible statuses with labels
+        $allStatuses = [
+            'draft' => 'Draft',
+            'submitted' => 'Submitted',
+            'processing' => 'Processing',
+            'approved' => 'Approved',
+            'rejected' => 'Rejected',
+            'shipped' => 'Shipped',
+            'delivered' => 'Delivered',
+            'cancelled' => 'Cancelled',
+        ];
+
+        // Build status options with counts
+        $statusOptions = [];
+        foreach ($allStatuses as $value => $label) {
+            $statusOptions[] = [
+                'value' => $value,
+                'label' => $label,
+                'count' => $statusCounts[$value] ?? 0
+            ];
+        }
+
+        // Get facilities for filter dropdown
+        $facilities = Facility::where('active', true)
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return Inertia::render('ProductRequest/Index', [
-            'filters' => request()->all(['search', 'status']),
+            'filters' => request()->all(['search', 'status', 'facility', 'date_from', 'date_to']),
+            'statusOptions' => $statusOptions,
+            'facilities' => $facilities,
             'requests' => ProductRequest::query()
                 ->where('provider_id', Auth::id())
                 ->when(request('search'), function ($query, $search) {
@@ -37,6 +75,15 @@ class ProductRequestController extends Controller
                 })
                 ->when(request('status'), function ($query, $status) {
                     $query->where('order_status', $status);
+                })
+                ->when(request('facility'), function ($query, $facility) {
+                    $query->where('facility_id', $facility);
+                })
+                ->when(request('date_from'), function ($query, $date) {
+                    $query->whereDate('created_at', '>=', $date);
+                })
+                ->when(request('date_to'), function ($query, $date) {
+                    $query->whereDate('created_at', '<=', $date);
                 })
                 ->with(['products', 'facility'])
                 ->orderBy('created_at', 'desc')
@@ -54,6 +101,13 @@ class ProductRequestController extends Controller
                     'created_at' => $request->created_at->format('M j, Y'),
                     'total_products' => $request->products->count(),
                     'total_amount' => $request->total_order_value,
+                    'mac_validation_status' => $request->mac_validation_status,
+                    'eligibility_status' => $request->eligibility_status,
+                    'pre_auth_required' => $request->isPriorAuthRequired(),
+                    'submitted_at' => $request->submitted_at?->format('M j, Y'),
+                    'approved_at' => $request->approved_at?->format('M j, Y'),
+                    'wound_type' => $request->wound_type,
+                    'expected_service_date' => $request->expected_service_date?->format('M j, Y'),
                 ])
         ]);
     }

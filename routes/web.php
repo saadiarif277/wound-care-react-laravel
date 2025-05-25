@@ -14,6 +14,7 @@ use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
 use App\Http\Controllers\CommissionController;use App\Http\Controllers\CommissionRuleController;use App\Http\Controllers\CommissionRecordController;use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
+use App\Http\Controllers\RequestController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -248,9 +249,8 @@ Route::middleware(['auth'])->group(function () {
     })->name('pre-authorization.index');
 
     // MSC Admin routes
-    Route::get('/requests', function () {
-        return Inertia::render('Requests/Index');
-    })->name('requests.index');
+    Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
+    Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
     Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
     Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
     Route::get('/settings', function () {
