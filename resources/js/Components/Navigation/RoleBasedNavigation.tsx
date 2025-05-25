@@ -29,7 +29,8 @@ import {
   FiArchive,
   FiBookOpen,
   FiChevronRight,
-  FiChevronDown
+  FiChevronDown,
+  FiLink
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -102,6 +103,12 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'Product Catalog',
           href: '/products',
           icon: FiPackage,
+          roles: ['provider']
+        },
+        {
+          name: 'eClinicalWorks',
+          href: '/ecw',
+          icon: FiLink,
           roles: ['provider']
         }
       ];
@@ -177,6 +184,12 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/providers',
           icon: FiUsers,
           roles: ['office_manager']
+        },
+        {
+          name: 'eClinicalWorks',
+          href: '/ecw',
+          icon: FiLink,
+          roles: ['office_manager']
         }
       ];
 
@@ -225,7 +238,20 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '#',
           icon: FiUsers,
           roles: ['msc_rep'],
-          children: []
+          children: [
+            {
+              name: 'Customer List',
+              href: '/customers',
+              icon: FiUsers,
+              roles: ['msc_rep']
+            },
+            {
+              name: 'My Team',
+              href: '/team',
+              icon: FiUserPlus,
+              roles: ['msc_rep']
+            }
+          ]
         }
       ];
 

@@ -177,7 +177,7 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
             <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Training Progress</h3>
             <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1 sm:mt-2">75%</p>
             <p className="text-xs text-gray-600 mt-1 sm:mt-2">Completion rate</p>
-          </div>
+        </div>
       </div>
 
         {/* Personal Commission Tracking - Mobile Optimized */}
@@ -316,7 +316,7 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
               <div className="ml-3">
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Assigned Customers</h2>
                   <p className="text-sm text-gray-600 mt-1">Your dedicated customer accounts and relationships</p>
-                </div>
+              </div>
             </div>
             <Link
                 href="/customers/assigned"
@@ -380,7 +380,7 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
               <div className="ml-3">
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Orders</h2>
                   <p className="text-sm text-gray-600 mt-1">Latest orders from your customer accounts</p>
-                </div>
+              </div>
             </div>
             <Link
                 href="/orders/my-orders"
