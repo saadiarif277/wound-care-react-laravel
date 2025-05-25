@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,7 +15,7 @@ class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes;
 
-    /**
+        /**
      * The attributes that are mass assignable.
      *
      * @var array<int, string>
@@ -26,6 +27,17 @@ class User extends Authenticatable
         'email',
         'password',
         'photo',
+        'account_id',
+        'owner',
+        'user_role_id',
+        'npi_number',
+        'dea_number',
+        'license_number',
+        'license_state',
+        'license_expiry',
+        'credentials',
+        'is_verified',
+        'last_activity',
     ];
 
     /**
@@ -48,6 +60,10 @@ class User extends Authenticatable
         return [
             'owner' => 'boolean',
             'email_verified_at' => 'datetime',
+            'license_expiry' => 'date',
+            'credentials' => 'array',
+            'is_verified' => 'boolean',
+            'last_activity' => 'datetime',
         ];
     }
 
@@ -59,6 +75,40 @@ class User extends Authenticatable
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    /**
+     * Get the user's role
+     */
+    public function userRole(): BelongsTo
+    {
+        return $this->belongsTo(UserRole::class);
+    }
+
+    /**
+     * Get facilities this user is associated with
+     */
+    public function facilities(): BelongsToMany
+    {
+        return $this->belongsToMany(Facility::class, 'facility_user')
+            ->withPivot(['relationship_type', 'is_primary', 'is_active', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get the user's primary facility
+     */
+    public function primaryFacility()
+    {
+        return $this->facilities()->wherePivot('is_primary', true)->first();
+    }
+
+    /**
+     * Get active facility relationships
+     */
+    public function activeFacilities(): BelongsToMany
+    {
+        return $this->facilities()->wherePivot('is_active', true);
     }
 
     public function getNameAttribute()
@@ -76,6 +126,86 @@ class User extends Authenticatable
         return $this->email === 'johndoe@example.com';
     }
 
+    /**
+     * Check if user has a specific role
+     */
+    public function hasRole(string $roleName): bool
+    {
+        return $this->userRole?->name === $roleName;
+    }
+
+    /**
+     * Check if user is a provider
+     */
+    public function isProvider(): bool
+    {
+        return $this->hasRole(UserRole::PROVIDER);
+    }
+
+    /**
+     * Check if user is an office manager
+     */
+    public function isOfficeManager(): bool
+    {
+        return $this->hasRole(UserRole::OFFICE_MANAGER);
+    }
+
+    /**
+     * Check if user is an MSC rep
+     */
+    public function isMscRep(): bool
+    {
+        return $this->hasRole(UserRole::MSC_REP);
+    }
+
+    /**
+     * Check if user is an MSC sub-rep
+     */
+    public function isMscSubRep(): bool
+    {
+        return $this->hasRole(UserRole::MSC_SUBREP);
+    }
+
+    /**
+     * Check if user is an MSC admin
+     */
+    public function isMscAdmin(): bool
+    {
+        return $this->hasRole(UserRole::MSC_ADMIN);
+    }
+
+    /**
+     * Check if user is a super admin
+     */
+    public function isSuperAdmin(): bool
+    {
+        return $this->hasRole(UserRole::SUPER_ADMIN);
+    }
+
+    /**
+     * Check if user can access financial information
+     */
+    public function canAccessFinancials(): bool
+    {
+        return $this->userRole?->canAccessFinancials() ?? false;
+    }
+
+    /**
+     * Check if user can see discounted pricing
+     */
+    public function canSeeDiscounts(): bool
+    {
+        return $this->userRole?->canSeeDiscounts() ?? false;
+    }
+
+    /**
+     * Get role-specific dashboard configuration
+     */
+    public function getDashboardConfig(): array
+    {
+        return $this->userRole?->getDashboardConfig() ?? [];
+    }
+
     public function scopeOrderByName($query)
     {
         $query->orderBy('last_name')->orderBy('first_name');
@@ -83,10 +213,26 @@ class User extends Authenticatable
 
     public function scopeWhereRole($query, $role)
     {
+        // Support legacy role checking
         switch ($role) {
             case 'user': return $query->where('owner', false);
             case 'owner': return $query->where('owner', true);
+            default:
+                // Support new role system
+                return $query->whereHas('userRole', function ($q) use ($role) {
+                    $q->where('name', $role);
+                });
         }
+    }
+
+    /**
+     * Scope to filter users by MSC role system
+     */
+    public function scopeWithRole($query, string $roleName)
+    {
+        return $query->whereHas('userRole', function ($q) use ($roleName) {
+            $q->where('name', $roleName);
+        });
     }
 
     public function scopeFilter($query, array $filters)

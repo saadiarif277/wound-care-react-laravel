@@ -11,12 +11,15 @@
         "php": "^8.2",
         "ext-exif": "*",
         "ext-gd": "*",
+        "aws/aws-sdk-php": "^3.0",
+        "doctrine/dbal": "*",
         "fakerphp/faker": "^1.23",
         "guzzlehttp/guzzle": "^7.2",
         "inertiajs/inertia-laravel": "^1.0",
         "laravel/framework": "^11.1",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
+        "league/flysystem-aws-s3-v3": "^3.0",
         "league/glide-symfony": "^2.0",
         "tightenco/ziggy": "^2.2"
     },
@@ -57,7 +60,9 @@
             "@php artisan key:generate --ansi"
         ],
         "compile": [
-            "@php artisan migrate:fresh --seed"
+            "rm -rf node_modules package-lock.json",
+            "npm install --ignore-optional",
+            "npm run prod"
         ]
     },
     "extra": {

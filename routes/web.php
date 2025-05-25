@@ -1,20 +1,23 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\ContactsController;
+use App\Http\Controllers\Auth\AccessRequestController;
+
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImagesController;
 use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
-use App\Http\Controllers\CommissionRuleController;
-use App\Http\Controllers\CommissionRecordController;
-use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\CommissionController;use App\Http\Controllers\CommissionRuleController;use App\Http\Controllers\CommissionRecordController;use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\ProductRequestController;
+use App\Http\Controllers\RequestController;
 
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
@@ -40,6 +43,37 @@ Route::post('login', [LoginController::class, 'store'])
 Route::delete('logout', [LoginController::class, 'destroy'])
     ->name('logout');
 
+// Access Requests (public routes)
+
+Route::get('request-access', [AccessRequestController::class, 'create'])
+    ->name('access-requests.create')
+    ->middleware('guest');
+
+Route::post('request-access', [AccessRequestController::class, 'store'])
+    ->name('access-requests.store')
+    ->middleware('guest');
+
+Route::get('api/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])
+    ->name('api.access-requests.role-fields');
+
+// Access Request Management (protected routes)
+
+Route::get('access-requests', [AccessRequestController::class, 'index'])
+    ->name('access-requests.index')
+    ->middleware('auth');
+
+Route::get('access-requests/{accessRequest}', [AccessRequestController::class, 'show'])
+    ->name('access-requests.show')
+    ->middleware('auth');
+
+Route::post('access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])
+    ->name('access-requests.approve')
+    ->middleware('auth');
+
+Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])
+    ->name('access-requests.deny')
+    ->middleware('auth');
+
 // Dashboard
 
 Route::get('/', [DashboardController::class, 'index'])
@@ -51,6 +85,54 @@ Route::get('/orders',[OrderController::class,'index'])->name('orders');
 Route::get('/orders/create',[OrderController::class,'create'])->name('orders.create');
 
 Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');
+
+// Products
+
+Route::get('products', [ProductController::class, 'index'])
+    ->name('products.index')
+    ->middleware('auth');
+
+Route::get('products/create', [ProductController::class, 'create'])
+    ->name('products.create')
+    ->middleware('auth');
+
+Route::post('products', [ProductController::class, 'store'])
+    ->name('products.store')
+    ->middleware('auth');
+
+Route::get('products/{product}', [ProductController::class, 'show'])
+    ->name('products.show')
+    ->middleware('auth');
+
+Route::get('products/{product}/edit', [ProductController::class, 'edit'])
+    ->name('products.edit')
+    ->middleware('auth');
+
+Route::put('products/{product}', [ProductController::class, 'update'])
+    ->name('products.update')
+    ->middleware('auth');
+
+Route::delete('products/{product}', [ProductController::class, 'destroy'])
+    ->name('products.destroy')
+    ->middleware('auth');
+
+Route::put('products/{product}/restore', [ProductController::class, 'restore'])
+    ->name('products.restore')
+    ->middleware('auth');
+
+// Product API endpoints
+
+Route::get('api/products/search', [ProductController::class, 'search'])
+    ->name('api.products.search')
+    ->middleware('auth');
+
+Route::get('api/products/{product}', [ProductController::class, 'apiShow'])
+    ->name('api.products.show')
+    ->middleware('auth');
+
+Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])
+    ->name('api.products.recommendations')
+    ->middleware('auth');
 
 // Users
 
@@ -82,65 +164,13 @@ Route::put('users/{user}/restore', [UsersController::class, 'restore'])
     ->name('users.restore')
     ->middleware('auth');
 
-// Organizations
+// Organizations (Read-only for reference)
 
 Route::get('organizations', [OrganizationsController::class, 'index'])
     ->name('organizations')
     ->middleware('auth');
 
-Route::get('organizations/create', [OrganizationsController::class, 'create'])
-    ->name('organizations.create')
-    ->middleware('auth');
 
-Route::post('organizations', [OrganizationsController::class, 'store'])
-    ->name('organizations.store')
-    ->middleware('auth');
-
-Route::get('organizations/{organization}/edit', [OrganizationsController::class, 'edit'])
-    ->name('organizations.edit')
-    ->middleware('auth');
-
-Route::put('organizations/{organization}', [OrganizationsController::class, 'update'])
-    ->name('organizations.update')
-    ->middleware('auth');
-
-Route::delete('organizations/{organization}', [OrganizationsController::class, 'destroy'])
-    ->name('organizations.destroy')
-    ->middleware('auth');
-
-Route::put('organizations/{organization}/restore', [OrganizationsController::class, 'restore'])
-    ->name('organizations.restore')
-    ->middleware('auth');
-
-// Contacts
-
-Route::get('contacts', [ContactsController::class, 'index'])
-    ->name('contacts')
-    ->middleware('auth');
-
-Route::get('contacts/create', [ContactsController::class, 'create'])
-    ->name('contacts.create')
-    ->middleware('auth');
-
-Route::post('contacts', [ContactsController::class, 'store'])
-    ->name('contacts.store')
-    ->middleware('auth');
-
-Route::get('contacts/{contact}/edit', [ContactsController::class, 'edit'])
-    ->name('contacts.edit')
-    ->middleware('auth');
-
-Route::put('contacts/{contact}', [ContactsController::class, 'update'])
-    ->name('contacts.update')
-    ->middleware('auth');
-
-Route::delete('contacts/{contact}', [ContactsController::class, 'destroy'])
-    ->name('contacts.destroy')
-    ->middleware('auth');
-
-Route::put('contacts/{contact}/restore', [ContactsController::class, 'restore'])
-    ->name('contacts.restore')
-    ->middleware('auth');
 
 // Reports
 
@@ -169,10 +199,115 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/validate', [MACValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
 
+    // eClinicalWorks Integration Routes
+    Route::get('/ecw', function () {
+        return \Inertia\Inertia::render('EcwIntegration/Index');
+    })->name('ecw.index');
+
     // Commission Management Routes
     Route::prefix('commission')->group(function () {
+        Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
         Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
         Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
         Route::get('/payouts', [CommissionPayoutController::class, 'index'])->name('commission-payouts.index');
     });
+
+    // Product Request Routes
+    Route::prefix('product-requests')->group(function () {
+        Route::get('/', [ProductRequestController::class, 'index'])->name('product-requests.index');
+        Route::get('/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
+        Route::post('/', [ProductRequestController::class, 'store'])->name('product-requests.store');
+        Route::get('/{productRequest}', [ProductRequestController::class, 'show'])->name('product-requests.show');
+        Route::post('/{productRequest}/update-step', [ProductRequestController::class, 'updateStep'])->name('product-requests.update-step');
+        Route::post('/{productRequest}/mac-validation', [ProductRequestController::class, 'runMacValidation'])->name('product-requests.mac-validation');
+        Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])->name('product-requests.eligibility-check');
+        Route::post('/{productRequest}/submit-prior-auth', [ProductRequestController::class, 'submitPriorAuth'])->name('product-requests.submit-prior-auth');
+        Route::post('/{productRequest}/check-prior-auth-status', [ProductRequestController::class, 'checkPriorAuthStatus'])->name('product-requests.check-prior-auth-status');
+        Route::post('/{productRequest}/submit', [ProductRequestController::class, 'submit'])->name('product-requests.submit');
+    });
+
+    // Product Request API Routes
+    Route::prefix('api/product-requests')->group(function () {
+        Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
+        Route::get('/{productRequest}/recommendations', [ProductRequestController::class, 'getRecommendations'])->name('api.product-requests.recommendations');
+    });
+
+    // Product API Routes
+    Route::prefix('api/products')->group(function () {
+        Route::get('/search', [ProductController::class, 'getAll'])->name('api.products.search');
+        Route::get('/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
+    });
+
+    // Office Manager specific routes
+    Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
+    Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
+    Route::get('/providers', function () {
+        return Inertia::render('Providers/Index');
+    })->name('providers.index');
+    Route::get('/pre-authorization', function () {
+        return Inertia::render('PreAuthorization/Index');
+    })->name('pre-authorization.index');
+
+    // MSC Admin routes
+    Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
+    Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
+    Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
+    Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
+    Route::get('/settings', function () {
+        return Inertia::render('Settings/Index');
+    })->name('settings.index');
+    Route::get('/subrep-approvals', function () {
+        return Inertia::render('SubrepApprovals/Index');
+    })->name('subrep-approvals.index');
+
+    // Engine routes
+    Route::prefix('engines')->group(function () {
+        Route::get('/clinical-rules', function () {
+            return Inertia::render('Engines/ClinicalRules');
+        })->name('engines.clinical-rules');
+        Route::get('/recommendation-rules', function () {
+            return Inertia::render('Engines/RecommendationRules');
+        })->name('engines.recommendation-rules');
+        Route::get('/commission', function () {
+            return Inertia::render('Engines/Commission');
+        })->name('engines.commission');
+    });
+
+    // Super Admin routes
+    Route::get('/rbac', function () {
+        return Inertia::render('RBAC/Index');
+    })->name('rbac.index');
+    Route::get('/access-control', function () {
+        return Inertia::render('AccessControl/Index');
+    })->name('access-control.index');
+    Route::get('/roles', function () {
+        return Inertia::render('Roles/Index');
+    })->name('roles.index');
+    Route::get('/commission/overview', function () {
+        return Inertia::render('Commission/Overview');
+    })->name('commission.overview');
+
+    // System Admin routes
+    Route::prefix('system-admin')->group(function () {
+        Route::get('/config', function () {
+            return Inertia::render('SystemAdmin/Config');
+        })->name('system-admin.config');
+        Route::get('/integrations', function () {
+            return Inertia::render('SystemAdmin/Integrations');
+        })->name('system-admin.integrations');
+        Route::get('/api', function () {
+            return Inertia::render('SystemAdmin/API');
+        })->name('system-admin.api');
+        Route::get('/audit', function () {
+            return Inertia::render('SystemAdmin/Audit');
+        })->name('system-admin.audit');
+    });
+
+    // MSC Rep routes
+    Route::get('/customers', function () {
+        return Inertia::render('Customers/Index');
+    })->name('customers.index');
+    Route::get('/team', function () {
+        return Inertia::render('Team/Index');
+    })->name('team.index');
 });

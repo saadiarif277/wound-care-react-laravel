@@ -1,0 +1,381 @@
+---
+description: This file stores project-specific knowledge, conventions, and user preferences learned by the AI assistant.
+globs:
+alwaysApply: false
+---
+# Project Memory
+
+This file stores project-specific knowledge, conventions, and user preferences learned by the AI assistant.
+
+## User Preferences
+
+- **Visual Design**: User prefers modern, clean aesthetics with proper contrast and readability. They reported issues with "grey titles" and wanted overall aesthetic improvements.
+- **Logo**: MSC-logo.png should be used consistently throughout the application (located in public/MSC-logo.png)
+
+## Technical Decisions
+
+- **Development Stack:** Laravel + Inertia.js + React + TypeScript + Vite
+- **CSS Framework:** Tailwind CSS with utility classes (with line-clamp plugin for text truncation)
+- **Build Tool:**
+- **Brand Colors**:
+  - Primary blue: #1822cf (used for primary actions, active states, focus states)
+  - Primary red: #cb0909 (used for danger actions, active menu items)
+  - White backgrounds for main content areas and sidebar
+- **Typography**: Dark text colors (gray-900) for headings, gray-700 for body text to ensure proper contrast
+- **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
+- **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
+- **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
+
+## Project Conventions
+
+- **Layout Structure**: MainLayout.tsx provides the primary application shell with sidebar navigation
+- **Logo Usage**: Logo component should use the PNG file (/MSC-logo.png) rather than embedded SVG
+- **Color Application**: Use brand colors via inline styles for dynamic elements, Tailwind utilities for static elements
+- **Component Design**: Follow modern design principles with proper shadows, rounded corners, and hover states
+
+## Completed Features
+
+### **Modern Authentication System (MSC Wound Portal)**
+- **Implementation**: Complete overhaul of login screen with MSC branding and professional healthcare aesthetic
+- **Backend Components**:
+  - AccessRequest model with comprehensive role-specific fields
+  - AccessRequestController with form display, submission, and admin management
+  - Database migration with role-specific field support for all 5 user roles
+  - Route configuration for public access request submission and protected admin management
+- **Frontend Components**:
+  - Modern Login.tsx with MSC logo, brand colors (#1822cf), and professional design
+  - RequestAccess.tsx with dynamic role-specific forms and real-time field validation
+  - Responsive design with mobile optimization and accessibility features
+  - Integrated with existing authentication flow and route system
+- **Key Features**:
+  - Role-based access request system (Provider, Office Manager, MSC Rep, MSC SubRep, MSC Admin)
+  - Dynamic form fields based on selected role with API-driven field requirements
+  - Comprehensive validation for role-specific information (NPI, licenses, territories, etc.)
+  - Admin approval workflow ready for integration with email notifications
+  - Professional healthcare branding throughout the authentication flow
+- **User Flow**: Login → Request Access → Role Selection → Dynamic Form → Admin Approval → Account Creation
+- **Design**: Consistent gradient backgrounds, MSC branding, modern card layouts, and brand color integration
+
+### **Product Catalog System (MSC Wound Care Products)**
+- **Implementation**: Comprehensive product management system for MSC wound care products
+- **Backend Components**:
+  - Product model with advanced scopes (active, byCategory, byManufacturer, search)
+  - ProductController with full CRUD operations and API endpoints
+  - Product seeder with 25+ real MSC wound care products from catalog
+  - Database schema supporting JSON arrays for sizes and documents
+- **Frontend Components**:
+  - Product Index page with grid/list view modes
+  - Advanced filtering (category, manufacturer, search)
+  - Sortable columns and pagination
+  - Product detail pages with comprehensive information
+  - Pricing breakdowns (National ASP vs MSC pricing)
+  - Available sizes with total pricing calculations
+- **Key Features**:
+  - MSC pricing calculation (40% discount from National ASP)
+  - Product recommendations API for clinical workflows
+  - Category and manufacturer filtering
+  - Commission rate tracking per product
+  - Integration ready for order creation workflow
+- **Products Included**: Biovance, EpiFix, Complete FT, Helicoll, and 20+ other MSC wound care products
+- **Navigation**: Updated MainLayout navigation from "Product Management" to "Product Catalog"
+
+### **Dashboard Enhancement Implementation**
+
+- **Role-Based Dashboard**: Implemented support for 3 user roles (provider, administrator, sales_rep) with role-specific content and navigation
+- **Action Required Notifications**: Added high-priority widget showing pending tasks, document requirements, PA approvals, and MAC validation warnings
+- **Quick Action Buttons**: Implemented 4 primary quick actions (New Request, Check Eligibility, Product Catalog, Submit PA) with hover states and proper iconography
+- **Clinical Opportunities Widget**: Provider-specific widget showing AI-identified opportunities for enhanced patient care with accept/dismiss functionality
+- **Enhanced Recent Requests**: Expanded beyond verifications to include product requests, PA requests, eligibility checks, and orders with proper status indicators
+- **Role-Specific Quick Links**: Different bottom sections for each user role (admin = system management, provider = clinical tools, sales = commission tracking)
+- **MSC Portal Alignment**: All widgets and content align with documented MSC Wound Portal provider/admin/sales portal specifications
+
+## MSC Portal User Roles (Actual System Requirements)
+
+### **1. Provider**
+- **Role**: Healthcare providers/clinicians
+- **Primary Purpose**: Clinical wound care workflows, patient management, product requests
+- **Key Features**:
+  - Step-through forms with progress indicators
+  - Product selection with intelligent recommendations
+  - MAC validation and eligibility checking interfaces
+  - Prior authorization management
+  - See amount still owed on each processed order (Given net 60 terms)
+  - Mobile responsive design
+- **Dashboard Focus**: Clinical workflows, patient care tools, order tracking with financial visibility
+
+### **2. Office Manager**
+- **Role**: Healthcare facility office management
+- **Primary Purpose**: Provider workflow access with financial restrictions, facility-level management
+- **Key Features**:
+  - Full provider workflow access (eligibility, PA, order requests, clinical documentation)
+  - Financial restrictions (no dollar amounts owed, no discounts, National ASP pricing only)
+  - Facility-attached provider oversight and coordination
+  - Administrative workflow tools for facility operations
+- **Dashboard Focus**: Provider workflows (financially restricted), facility management, provider coordination
+- **Scope**: Attached to specific facility and manages providers within that facility
+- **Financial Limitations**: Cannot see amounts owed, product discounts, or commission data
+
+### **3. MSC Rep (MSC Sales Representative)**
+- **Role**: Primary MSC sales representatives
+- **Primary Purpose**: Customer relationship management, sales activities, commission tracking
+- **Key Features**: Commission tracking, customer management, territory oversight, sales analytics, sub-rep management
+- **Dashboard Focus**: Sales performance, customer relationships, commission statements
+
+### **4. MSC SubRep (MSC Sub-Representative)**
+- **Role**: Sub-representatives under MSC Reps
+- **Primary Purpose**: Limited sales activities, territory support under main rep supervision
+- **Key Features**: Limited commission access, territory support, customer interaction, sub-rep workflows, reporting to primary rep
+- **Dashboard Focus**: Sub-rep activities, commission tracking (limited), customer support
+
+### **5. MSC Admin (MSC Administrator)**
+- **Role**: MSC internal administrators
+- **Primary Purpose**: Platform administration, system configuration, operational oversight
+- **Key Features**: System administration, user management, operational metrics, advanced data tables, configuration builders
+- **Dashboard Focus**: System administration, operational oversight, configuration management
+
+### **6. SuperAdmin**
+- **Role**: Highest level system administrators
+- **Primary Purpose**: Full system access, critical system management, security oversight
+- **Key Features**: Complete system access, security management, critical configurations, audit oversight
+- **Dashboard Focus**: System-wide control, security monitoring, critical operations
+- **Status**: **Not Really Needed at this time** (deprioritized)
+
+## MSC Wound Portal User Roles (From Documentation)
+
+### **Provider Portal Users (Healthcare Providers)**
+- **Primary Purpose**: Simplify and streamline wound care product requests, eligibility checks, and order management
+- **Goal**: Reduce administrative burden so providers can focus more on patient care
+- **Key Dashboard Components**:
+  - Recent Requests Card: Quick view of last 5-10 product requests and status
+  - Action Required Notifications: Requests needing attention (e.g., "Additional information needed for Request #123")
+  - Quick Action Buttons: Shortcuts for "Initiate New Request" or "Check Eligibility"
+  - Clinical Opportunities Widget: AI suggestions for additional services/products based on clinical best practices
+  - Main Navigation Menu: Access to "My Requests," "New Request," "Product Catalog," "Eligibility Check"
+- **Key Workflows**:
+  - Initiating new product/service requests with step-through forms
+  - Clinical assessment documentation with wound-specific questionnaires
+  - Product selection with intelligent recommendations
+  - MAC validation and eligibility checking
+  - Prior authorization management
+- **MSC Assist Integration**: AI-powered guidance for clinical decisions, documentation requirements, and platform features
+- **Features**: Mobile responsive, step-through forms, status visualization, contextual help
+
+### **Administrator Portal Users (Platform Administrators)**
+- **Primary Purpose**: Central hub for managing all operational aspects of the MSC-MVP platform
+- **Responsibilities**:
+  - Oversee order processing
+  - Manage customer and sales representative accounts
+  - Configure system rules and intelligent engines
+  - Monitor overall platform health and performance
+- **Key Dashboard Components**:
+  - Pending Approval Queues: Orders, Sub-Rep Applications, Provider Verifications
+  - Recent Platform Activity Feed: Chronological list of important events
+  - Operational Metrics Dashboard: Order volume, approval rates, processing times
+  - System Health Indicators: Critical system components, API integrations status
+  - Quick Action Buttons: Common administrative tasks
+  - Main Navigation Menu: Order Management, Customer Management, Sales Rep Management, Engine & Rules, System Config, Reporting
+- **Key Workflows**:
+  - Order processing and approval workflows
+  - Customer and sales rep account management
+  - System settings management and configuration
+  - Report generation and analytics
+  - Audit log review and compliance reporting
+- **Advanced UI Components**: Data tables with sorting/filtering, multi-panel interfaces, process visualization, configuration builders
+- **MSC Assist Integration**: Platform functionality guidance, complex administrative task assistance, policy implications understanding
+
+### **Sales Representative Portal Users**
+- **Primary Purpose**: Commission tracking, customer relationship management, and sales performance monitoring (referenced but not detailed in provided documentation)
+- **Expected Features**: Commission statements, territory management, customer management tools, sales analytics
+
+## User Role System
+
+- **Current Implementation**: Uses the existing `owner` boolean field from User model to determine role
+  - `owner = true` → 'administrator' role (shows admin dashboard)
+  - `owner = false` → 'provider' role (shows provider dashboard)
+- **Role Mapping**: DashboardController maps user->owner field to appropriate role string and passes to dashboard component
+- **Required Implementation**: Need to implement proper 6-role system (Provider, Office Manager, MSC Rep, MSC SubRep, MSC Admin, SuperAdmin)
+- **RBAC Development Approach**: Main technical developer is handling RBAC implementation. Focus on UI/UX role-specific features and work around existing RBAC system without implementing granular permissions.
+
+## Development Approach
+
+- **RBAC Delegation**: Main technical developer handles Role-Based Access Control implementation
+- **UI/UX Focus**: Concentrate on role-specific user interface features and user experience rather than permission management
+- **Feature-First Development**: Build role-specific features and workflows around existing RBAC system
+# Project Memory
+
+This file stores project-specific knowledge, conventions, and user preferences learned by the AI assistant.
+
+## User Preferences
+
+- **Visual Design**: User prefers modern, clean aesthetics with proper contrast and readability. They reported issues with "grey titles" and wanted overall aesthetic improvements.
+- **Logo**: MSC-logo.png should be used consistently throughout the application (located in public/MSC-logo.png)
+
+## Technical Decisions
+
+- **Development Stack:** Laravel + Inertia.js + React + TypeScript + Vite
+- **CSS Framework:** Tailwind CSS with utility classes (with line-clamp plugin for text truncation)
+- **Build Tool:**
+- **Brand Colors**:
+  - Primary blue: #1822cf (used for primary actions, active states, focus states)
+  - Primary red: #cb0909 (used for danger actions, active menu items)
+  - White backgrounds for main content areas and sidebar
+- **Typography**: Dark text colors (gray-900) for headings, gray-700 for body text to ensure proper contrast
+- **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
+- **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
+- **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
+
+## Project Conventions
+
+- **Layout Structure**: MainLayout.tsx provides the primary application shell with sidebar navigation
+- **Logo Usage**: Logo component should use the PNG file (/MSC-logo.png) rather than embedded SVG
+- **Color Application**: Use brand colors via inline styles for dynamic elements, Tailwind utilities for static elements
+- **Component Design**: Follow modern design principles with proper shadows, rounded corners, and hover states
+
+## Completed Features
+
+### **Product Catalog System (MSC Wound Care Products)**
+- **Implementation**: Comprehensive product management system for MSC wound care products
+- **Backend Components**:
+  - Product model with advanced scopes (active, byCategory, byManufacturer, search)
+  - ProductController with full CRUD operations and API endpoints
+  - Product seeder with 25+ real MSC wound care products from catalog
+  - Database schema supporting JSON arrays for sizes and documents
+- **Frontend Components**:
+  - Product Index page with grid/list view modes
+  - Advanced filtering (category, manufacturer, search)
+  - Sortable columns and pagination
+  - Product detail pages with comprehensive information
+  - Pricing breakdowns (National ASP vs MSC pricing)
+  - Available sizes with total pricing calculations
+- **Key Features**:
+  - MSC pricing calculation (40% discount from National ASP)
+  - Product recommendations API for clinical workflows
+  - Category and manufacturer filtering
+  - Commission rate tracking per product
+  - Integration ready for order creation workflow
+- **Products Included**: Biovance, EpiFix, Complete FT, Helicoll, and 20+ other MSC wound care products
+- **Navigation**: Updated MainLayout navigation from "Product Management" to "Product Catalog"
+
+### **Dashboard Enhancement Implementation**
+
+- **Role-Based Dashboard**: Implemented support for 3 user roles (provider, administrator, sales_rep) with role-specific content and navigation
+- **Action Required Notifications**: Added high-priority widget showing pending tasks, document requirements, PA approvals, and MAC validation warnings
+- **Quick Action Buttons**: Implemented 4 primary quick actions (New Request, Check Eligibility, Product Catalog, Submit PA) with hover states and proper iconography
+- **Clinical Opportunities Widget**: Provider-specific widget showing AI-identified opportunities for enhanced patient care with accept/dismiss functionality
+- **Enhanced Recent Requests**: Expanded beyond verifications to include product requests, PA requests, eligibility checks, and orders with proper status indicators
+- **Role-Specific Quick Links**: Different bottom sections for each user role (admin = system management, provider = clinical tools, sales = commission tracking)
+- **MSC Portal Alignment**: All widgets and content align with documented MSC Wound Portal provider/admin/sales portal specifications
+
+## MSC Portal User Roles (Actual System Requirements)
+
+### **1. Provider**
+- **Role**: Healthcare providers/clinicians
+- **Primary Purpose**: Clinical wound care workflows, patient management, product requests
+- **Key Features**:
+  - Step-through forms with progress indicators
+  - Product selection with intelligent recommendations
+  - MAC validation and eligibility checking interfaces
+  - Prior authorization management
+  - See amount still owed on each processed order (Given net 60 terms)
+  - Mobile responsive design
+- **Dashboard Focus**: Clinical workflows, patient care tools, order tracking with financial visibility
+
+### **2. Office Manager**
+- **Role**: Healthcare facility office management
+- **Primary Purpose**: Provider workflow access with financial restrictions, facility-level management
+- **Key Features**:
+  - Full provider workflow access (eligibility, PA, order requests, clinical documentation)
+  - Financial restrictions (no dollar amounts owed, no discounts, National ASP pricing only)
+  - Facility-attached provider oversight and coordination
+  - Administrative workflow tools for facility operations
+- **Dashboard Focus**: Provider workflows (financially restricted), facility management, provider coordination
+- **Scope**: Attached to specific facility and manages providers within that facility
+- **Financial Limitations**: Cannot see amounts owed, product discounts, or commission data
+
+### **3. MSC Rep (MSC Sales Representative)**
+- **Role**: Primary MSC sales representatives
+- **Primary Purpose**: Customer relationship management, sales activities, commission tracking
+- **Key Features**: Commission tracking, customer management, territory oversight, sales analytics, sub-rep management
+- **Dashboard Focus**: Sales performance, customer relationships, commission statements
+
+### **4. MSC SubRep (MSC Sub-Representative)**
+- **Role**: Sub-representatives under MSC Reps
+- **Primary Purpose**: Limited sales activities, territory support under main rep supervision
+- **Key Features**: Limited commission access, territory support, customer interaction, sub-rep workflows, reporting to primary rep
+- **Dashboard Focus**: Sub-rep activities, commission tracking (limited), customer support
+
+### **5. MSC Admin (MSC Administrator)**
+- **Role**: MSC internal administrators
+- **Primary Purpose**: Platform administration, system configuration, operational oversight
+- **Key Features**: System administration, user management, operational metrics, advanced data tables, configuration builders
+- **Dashboard Focus**: System administration, operational oversight, configuration management
+
+### **6. SuperAdmin**
+- **Role**: Highest level system administrators
+- **Primary Purpose**: Full system access, critical system management, security oversight
+- **Key Features**: Complete system access, security management, critical configurations, audit oversight
+- **Dashboard Focus**: System-wide control, security monitoring, critical operations
+- **Status**: **Not Really Needed at this time** (deprioritized)
+
+## MSC Wound Portal User Roles (From Documentation)
+
+### **Provider Portal Users (Healthcare Providers)**
+- **Primary Purpose**: Simplify and streamline wound care product requests, eligibility checks, and order management
+- **Goal**: Reduce administrative burden so providers can focus more on patient care
+- **Key Dashboard Components**:
+  - Recent Requests Card: Quick view of last 5-10 product requests and status
+  - Action Required Notifications: Requests needing attention (e.g., "Additional information needed for Request #123")
+  - Quick Action Buttons: Shortcuts for "Initiate New Request" or "Check Eligibility"
+  - Clinical Opportunities Widget: AI suggestions for additional services/products based on clinical best practices
+  - Main Navigation Menu: Access to "My Requests," "New Request," "Product Catalog," "Eligibility Check"
+- **Key Workflows**:
+  - Initiating new product/service requests with step-through forms
+  - Clinical assessment documentation with wound-specific questionnaires
+  - Product selection with intelligent recommendations
+  - MAC validation and eligibility checking
+  - Prior authorization management
+- **MSC Assist Integration**: AI-powered guidance for clinical decisions, documentation requirements, and platform features
+- **Features**: Mobile responsive, step-through forms, status visualization, contextual help
+
+### **Administrator Portal Users (Platform Administrators)**
+- **Primary Purpose**: Central hub for managing all operational aspects of the MSC-MVP platform
+- **Responsibilities**:
+  - Oversee order processing
+  - Manage customer and sales representative accounts
+  - Configure system rules and intelligent engines
+  - Monitor overall platform health and performance
+- **Key Dashboard Components**:
+  - Pending Approval Queues: Orders, Sub-Rep Applications, Provider Verifications
+  - Recent Platform Activity Feed: Chronological list of important events
+  - Operational Metrics Dashboard: Order volume, approval rates, processing times
+  - System Health Indicators: Critical system components, API integrations status
+  - Quick Action Buttons: Common administrative tasks
+  - Main Navigation Menu: Order Management, Customer Management, Sales Rep Management, Engine & Rules, System Config, Reporting
+- **Key Workflows**:
+  - Order processing and approval workflows
+  - Customer and sales rep account management
+  - System settings management and configuration
+  - Report generation and analytics
+  - Audit log review and compliance reporting
+- **Advanced UI Components**: Data tables with sorting/filtering, multi-panel interfaces, process visualization, configuration builders
+- **MSC Assist Integration**: Platform functionality guidance, complex administrative task assistance, policy implications understanding
+
+### **Sales Representative Portal Users**
+- **Primary Purpose**: Commission tracking, customer relationship management, and sales performance monitoring (referenced but not detailed in provided documentation)
+- **Expected Features**: Commission statements, territory management, customer management tools, sales analytics
+
+## User Role System
+
+- **Current Implementation**: Uses the existing `owner` boolean field from User model to determine role
+  - `owner = true` → 'administrator' role (shows admin dashboard)
+  - `owner = false` → 'provider' role (shows provider dashboard)
+- **Role Mapping**: DashboardController maps user->owner field to appropriate role string and passes to dashboard component
+- **Required Implementation**: Need to implement proper 6-role system (Provider, Office Manager, MSC Rep, MSC SubRep, MSC Admin, SuperAdmin)
+- **RBAC Development Approach**: Main technical developer is handling RBAC implementation. Focus on UI/UX role-specific features and work around existing RBAC system without implementing granular permissions.
+
+## Development Approach
+
+- **RBAC Delegation**: Main technical developer handles Role-Based Access Control implementation
+- **UI/UX Focus**: Concentrate on role-specific user interface features and user experience rather than permission management
+- **Feature-First Development**: Build role-specific features and workflows around existing RBAC system
+- **Collaboration Strategy**: Work around RBAC system being developed separately, focus on frontend components and workflows
