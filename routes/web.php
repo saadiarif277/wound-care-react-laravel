@@ -16,6 +16,7 @@ use App\Http\Controllers\CommissionController;use App\Http\Controllers\Commissio
 use App\Http\Controllers\ProductRequestController;
 
 use Illuminate\Support\Facades\Route;
+use Inertia\Inertia;
 
 /*
 |--------------------------------------------------------------------------
@@ -197,6 +198,11 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/validate', [MACValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
 
+    // eClinicalWorks Integration Routes
+    Route::get('/ecw', function () {
+        return \Inertia\Inertia::render('EcwIntegration/Index');
+    })->name('ecw.index');
+
     // Commission Management Routes
     Route::prefix('commission')->group(function () {
         Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
@@ -230,4 +236,78 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/search', [ProductController::class, 'getAll'])->name('api.products.search');
         Route::get('/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
     });
+
+    // Office Manager specific routes
+    Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
+    Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
+    Route::get('/providers', function () {
+        return Inertia::render('Providers/Index');
+    })->name('providers.index');
+    Route::get('/pre-authorization', function () {
+        return Inertia::render('PreAuthorization/Index');
+    })->name('pre-authorization.index');
+
+    // MSC Admin routes
+    Route::get('/requests', function () {
+        return Inertia::render('Requests/Index');
+    })->name('requests.index');
+    Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
+    Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
+    Route::get('/settings', function () {
+        return Inertia::render('Settings/Index');
+    })->name('settings.index');
+    Route::get('/subrep-approvals', function () {
+        return Inertia::render('SubrepApprovals/Index');
+    })->name('subrep-approvals.index');
+
+    // Engine routes
+    Route::prefix('engines')->group(function () {
+        Route::get('/clinical-rules', function () {
+            return Inertia::render('Engines/ClinicalRules');
+        })->name('engines.clinical-rules');
+        Route::get('/recommendation-rules', function () {
+            return Inertia::render('Engines/RecommendationRules');
+        })->name('engines.recommendation-rules');
+        Route::get('/commission', function () {
+            return Inertia::render('Engines/Commission');
+        })->name('engines.commission');
+    });
+
+    // Super Admin routes
+    Route::get('/rbac', function () {
+        return Inertia::render('RBAC/Index');
+    })->name('rbac.index');
+    Route::get('/access-control', function () {
+        return Inertia::render('AccessControl/Index');
+    })->name('access-control.index');
+    Route::get('/roles', function () {
+        return Inertia::render('Roles/Index');
+    })->name('roles.index');
+    Route::get('/commission/overview', function () {
+        return Inertia::render('Commission/Overview');
+    })->name('commission.overview');
+
+    // System Admin routes
+    Route::prefix('system-admin')->group(function () {
+        Route::get('/config', function () {
+            return Inertia::render('SystemAdmin/Config');
+        })->name('system-admin.config');
+        Route::get('/integrations', function () {
+            return Inertia::render('SystemAdmin/Integrations');
+        })->name('system-admin.integrations');
+        Route::get('/api', function () {
+            return Inertia::render('SystemAdmin/API');
+        })->name('system-admin.api');
+        Route::get('/audit', function () {
+            return Inertia::render('SystemAdmin/Audit');
+        })->name('system-admin.audit');
+    });
+
+    // MSC Rep routes
+    Route::get('/customers', function () {
+        return Inertia::render('Customers/Index');
+    })->name('customers.index');
+    Route::get('/team', function () {
+        return Inertia::render('Team/Index');
+    })->name('team.index');
 });

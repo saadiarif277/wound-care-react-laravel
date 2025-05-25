@@ -486,47 +486,49 @@ function CommissionDashboard() {
   ];
 
   return (
-    <div className="w-full py-8">
-      <div className="container mx-auto">
-        <div className="flex flex-col gap-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Commission Dashboard</h1>
-              <p className="text-gray-600">
+    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-4 sm:py-6 lg:py-8">
+        <div className="flex flex-col space-y-4 sm:space-y-6 lg:space-y-8">
+          {/* Header - Mobile Optimized */}
+          <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:justify-between sm:items-start">
+            <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-gray-900">Commission Dashboard</h1>
+              <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600">
                 Monitor sales performance and commission payouts
               </p>
             </div>
-            <div className="flex gap-4">
-              <Button variant="secondary" className="gap-2">
+            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
+              <Button variant="secondary" className="w-full sm:w-auto justify-center gap-2">
                 <Calendar className="w-4 h-4" />
                 Q4 2023
                 <ChevronDown className="w-4 h-4" />
               </Button>
-              <Button variant="secondary" className="gap-2">
+              <Button variant="secondary" className="w-full sm:w-auto justify-center gap-2">
                 <Download className="w-4 h-4" />
                 Export
               </Button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Stats Grid - Mobile First */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             {stats.map((stat, index) => (
-              <Card key={index} className="p-6">
-                <div className="flex flex-col gap-4">
+              <Card key={index} className="p-4 sm:p-6 shadow-sm sm:shadow-lg border border-gray-100">
+                <div className="flex flex-col gap-3 sm:gap-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">{stat.title}</span>
+                    <span className="text-xs sm:text-sm text-gray-600 font-medium">{stat.title}</span>
                     {stat.icon}
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <span className="text-2xl font-semibold">{stat.value}</span>
+                  <div className="flex flex-col gap-1 sm:gap-2">
+                    <span className="text-xl sm:text-2xl font-semibold text-gray-900">{stat.value}</span>
                     <div className="flex items-center gap-1">
                       {stat.isPositive ? (
-                        <ArrowUpRight className="w-4 h-4" style={{color: '#1822cf'}} />
+                        <ArrowUpRight className="w-3 h-3 sm:w-4 sm:h-4" style={{color: '#1822cf'}} />
                       ) : (
-                        <ArrowDownRight className="w-4 h-4" style={{color: '#cb0909'}} />
+                        <ArrowDownRight className="w-3 h-3 sm:w-4 sm:h-4" style={{color: '#cb0909'}} />
                       )}
                       <span className={cn(
-                        "text-xs"
+                        "text-xs sm:text-sm font-medium"
                       )} style={{color: stat.isPositive ? '#1822cf' : '#cb0909'}}>
                         {stat.change} from last period
                       </span>
@@ -537,73 +539,132 @@ function CommissionDashboard() {
             ))}
           </div>
 
+          {/* Tabs Section - Mobile Optimized */}
           <Tabs defaultValue="sales-reps">
-            <TabsList className="mb-4">
-              <TabsTrigger value="sales-reps">Sales Representatives</TabsTrigger>
-              <TabsTrigger value="payouts">Commission Payouts</TabsTrigger>
-              <TabsTrigger value="tracking">Payment Tracking</TabsTrigger>
-            </TabsList>
+            {/* Mobile-friendly Tab List */}
+            <div className="w-full overflow-x-auto">
+              <TabsList className="mb-4 w-full sm:w-auto">
+                <TabsTrigger value="sales-reps" className="flex-1 sm:flex-none">Sales Reps</TabsTrigger>
+                <TabsTrigger value="payouts" className="flex-1 sm:flex-none">Payouts</TabsTrigger>
+                <TabsTrigger value="tracking" className="flex-1 sm:flex-none">Tracking</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="sales-reps">
-              <Card>
-                <div className="p-4 border-b flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Sales Representatives Performance</h3>
-                  <div className="flex gap-2">
-                    <div className="relative">
+              <Card className="shadow-sm sm:shadow-lg border border-gray-100">
+                {/* Mobile-optimized header */}
+                <div className="p-4 sm:p-6 border-b border-gray-200 space-y-4">
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Sales Representatives Performance</h3>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <div className="relative flex-1 sm:max-w-sm">
                       <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
                       <input
                         type="search"
                         placeholder="Search reps..."
-                        className="pl-8 w-[200px] md:w-[260px] h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2"
+                        className="pl-8 w-full h-10 rounded-md border border-gray-300 bg-white px-3 py-2 text-sm placeholder:text-gray-500 focus:outline-none focus:ring-2"
                         style={{'--tw-ring-color': '#1822cf'} as React.CSSProperties}
                       />
                     </div>
-                    <Button variant="secondary">
-                      <Filter className="h-4 w-4" />
+                    <Button variant="secondary" className="w-full sm:w-auto justify-center">
+                      <Filter className="h-4 w-4 mr-2" />
+                      Filter
                     </Button>
                   </div>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Sales Rep</TableHead>
-                      <TableHead className="text-right">Total Sales</TableHead>
-                      <TableHead className="text-right">Commission</TableHead>
-                      <TableHead className="text-right">Patients</TableHead>
-                      <TableHead className="text-right">Performance</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+
+                {/* Mobile-friendly Sales Reps Display */}
+                <div className="block sm:hidden">
+                  {/* Mobile Cards View */}
+                  <div className="divide-y divide-gray-200">
                     {salesReps.map((rep) => (
-                      <TableRow key={rep.id}>
-                        <TableCell className="font-medium">{rep.name}</TableCell>
-                        <TableCell className="text-right">${rep.sales.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">${rep.commission.toLocaleString()}</TableCell>
-                        <TableCell className="text-right">{rep.patients}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            <span>{rep.performance}%</span>
+                      <div key={rep.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                              <span className="text-white text-xs font-medium">{rep.avatar}</span>
+                            </div>
+                            <h4 className="text-sm font-medium text-gray-900">{rep.name}</h4>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="text-sm font-medium">{rep.performance}%</span>
                             {rep.performance >= 100 ? (
                               <ArrowUpRight className="h-4 w-4" style={{color: '#1822cf'}} />
                             ) : (
                               <ArrowDownRight className="h-4 w-4" style={{color: '#cb0909'}} />
                             )}
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="bg-gray-50 rounded-lg p-2">
+                            <p className="text-xs text-gray-500">Sales</p>
+                            <p className="text-sm font-medium">${rep.sales.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-2">
+                            <p className="text-xs text-gray-500">Commission</p>
+                            <p className="text-sm font-medium">${rep.commission.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-2">
+                            <p className="text-xs text-gray-500">Patients</p>
+                            <p className="text-sm font-medium">{rep.patients}</p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Sales Rep</TableHead>
+                        <TableHead className="text-right">Total Sales</TableHead>
+                        <TableHead className="text-right">Commission</TableHead>
+                        <TableHead className="text-right">Patients</TableHead>
+                        <TableHead className="text-right">Performance</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {salesReps.map((rep) => (
+                        <TableRow key={rep.id}>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs font-medium">{rep.avatar}</span>
+                              </div>
+                              <span>{rep.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right">${rep.sales.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">${rep.commission.toLocaleString()}</TableCell>
+                          <TableCell className="text-right">{rep.patients}</TableCell>
+                          <TableCell className="text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <span>{rep.performance}%</span>
+                              {rep.performance >= 100 ? (
+                                <ArrowUpRight className="h-4 w-4" style={{color: '#1822cf'}} />
+                              ) : (
+                                <ArrowDownRight className="h-4 w-4" style={{color: '#cb0909'}} />
+                              )}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
             </TabsContent>
 
             <TabsContent value="payouts">
-              <Card>
-                <div className="p-4 border-b flex justify-between items-center">
-                  <h3 className="text-lg font-semibold">Commission Payouts</h3>
-                  <div className="flex gap-2">
-                    <Select defaultValue="all">
-                      <SelectTrigger className="w-[180px]">
+              <Card className="shadow-sm sm:shadow-lg border border-gray-100">
+                {/* Mobile-optimized header */}
+                <div className="p-4 sm:p-6 border-b border-gray-200 space-y-4">
+                  <h3 className="text-lg sm:text-xl font-semibold text-gray-900">Commission Payouts</h3>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                    <Select defaultValue="all" className="w-full sm:w-[180px]">
+                      <SelectTrigger>
                         <SelectValue placeholder="Filter by status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -613,75 +674,113 @@ function CommissionDashboard() {
                         <SelectItem value="completed">Completed</SelectItem>
                       </SelectContent>
                     </Select>
-                    <Button variant="secondary">
-                      <Download className="h-4 w-4" />
+                    <Button variant="secondary" className="w-full sm:w-auto justify-center">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
                     </Button>
                   </div>
                 </div>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Payment ID</TableHead>
-                      <TableHead>Sales Rep</TableHead>
-                      <TableHead className="text-right">Amount</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
+
+                {/* Mobile-friendly Payouts Display */}
+                <div className="block sm:hidden">
+                  {/* Mobile Cards View */}
+                  <div className="divide-y divide-gray-200">
                     {commissionPayments.map((payment) => (
-                      <TableRow key={payment.id}>
-                        <TableCell className="font-medium">{payment.id}</TableCell>
-                        <TableCell>{payment.salesRep}</TableCell>
-                        <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
-                        <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
-                        <TableCell>
+                      <div key={payment.id} className="p-4 hover:bg-gray-50 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-900">{payment.salesRep}</h4>
+                            <p className="text-xs text-gray-500">{payment.id}</p>
+                          </div>
                           <Badge variant={
                             payment.status === "completed" ? "default" :
                             payment.status === "processing" ? "secondary" : "outline"
                           }>
                             {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                           </Badge>
-                        </TableCell>
-                      </TableRow>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="bg-gray-50 rounded-lg p-2">
+                            <p className="text-xs text-gray-500">Amount</p>
+                            <p className="text-lg font-bold text-green-600">${payment.amount.toLocaleString()}</p>
+                          </div>
+                          <div className="bg-gray-50 rounded-lg p-2">
+                            <p className="text-xs text-gray-500">Date</p>
+                            <p className="text-sm font-medium">{new Date(payment.date).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                      </div>
                     ))}
-                  </TableBody>
-                </Table>
+                  </div>
+                </div>
+
+                {/* Desktop Table View */}
+                <div className="hidden sm:block">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Payment ID</TableHead>
+                        <TableHead>Sales Rep</TableHead>
+                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {commissionPayments.map((payment) => (
+                        <TableRow key={payment.id}>
+                          <TableCell className="font-medium">{payment.id}</TableCell>
+                          <TableCell>{payment.salesRep}</TableCell>
+                          <TableCell className="text-right">${payment.amount.toLocaleString()}</TableCell>
+                          <TableCell>{new Date(payment.date).toLocaleDateString()}</TableCell>
+                          <TableCell>
+                            <Badge variant={
+                              payment.status === "completed" ? "default" :
+                              payment.status === "processing" ? "secondary" : "outline"
+                            }>
+                              {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
               </Card>
             </TabsContent>
 
             <TabsContent value="tracking">
-              <Card className="p-6">
-                <div className="flex flex-col gap-6">
+              <Card className="p-4 sm:p-6 shadow-sm sm:shadow-lg border border-gray-100">
+                <div className="flex flex-col gap-4 sm:gap-6">
                   <div>
-                    <h3 className="text-lg font-semibold mb-2">Commission Payment Tracking</h3>
-                    <p className="text-gray-600">Track the status of commission payments through the approval and payment process</p>
+                    <h3 className="text-lg sm:text-xl font-semibold text-gray-900 mb-2">Commission Payment Tracking</h3>
+                    <p className="text-sm sm:text-base text-gray-600">Track the status of commission payments through the approval and payment process</p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
                     <div>
-                      <h4 className="text-sm font-medium mb-4">Payment Process for October 2023</h4>
+                      <h4 className="text-sm font-medium mb-4 text-gray-900">Payment Process for October 2023</h4>
                       <CommissionTracking steps={commissionSteps} />
                     </div>
 
-                    <Card className="p-4 border">
+                    <Card className="p-4 border border-gray-200">
                       <div className="flex flex-col gap-4">
-                        <h4 className="text-sm font-medium">Payment Summary</h4>
-                        <div className="space-y-2">
+                        <h4 className="text-sm font-medium text-gray-900">Payment Summary</h4>
+                        <div className="space-y-3">
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Total Reps</span>
-                            <span>5</span>
+                            <span className="text-sm text-gray-600">Total Reps</span>
+                            <span className="text-sm font-medium">5</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Total Amount</span>
-                            <span>$21,650</span>
+                            <span className="text-sm text-gray-600">Total Amount</span>
+                            <span className="text-sm font-medium">$21,650</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Payment Date</span>
-                            <span>October 15, 2023</span>
+                            <span className="text-sm text-gray-600">Payment Date</span>
+                            <span className="text-sm font-medium">October 15, 2023</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-gray-600">Status</span>
+                            <span className="text-sm text-gray-600">Status</span>
                             <Badge>Completed</Badge>
                           </div>
                         </div>

@@ -20,6 +20,7 @@ interface MainLayoutProps {
 interface PageProps extends Record<string, unknown> {
   userRole?: UserRole;
   user?: any;
+  showRoleTestSwitcher?: boolean;
 }
 
 export default function MainLayout({ title, children }: MainLayoutProps) {
@@ -31,7 +32,7 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
   // Get current path to determine active menu item
   const currentPath = window.location.pathname;
 
-  // Check for test role in URL params or localStorage on mount
+  // Update current role when props change or when test role is used
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const testRole = urlParams.get('test_role') as UserRole;
@@ -218,8 +219,8 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
           </main>
         </div>
 
-        {/* Global Role Test Switcher (Development Only) */}
-        {process.env.NODE_ENV === 'development' && (
+        {/* Global Role Test Switcher (Development and Staging) */}
+        {props.showRoleTestSwitcher && (
           <RoleTestSwitcher
             currentRole={currentUserRole}
             onRoleChange={handleRoleChange}

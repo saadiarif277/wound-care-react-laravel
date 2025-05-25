@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\EcwFhirService;
+use App\Services\AzureKeyVaultService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -22,10 +23,12 @@ use Exception;
 class EcwController extends Controller
 {
     private EcwFhirService $ecwService;
+    private AzureKeyVaultService $keyVault;
 
-    public function __construct(EcwFhirService $ecwService)
+    public function __construct(EcwFhirService $ecwService, AzureKeyVaultService $keyVault)
     {
         $this->ecwService = $ecwService;
+        $this->keyVault = $keyVault;
         $this->middleware('auth');
     }
 
@@ -385,5 +388,172 @@ class EcwController extends Controller
                 'error' => 'Connection test failed'
             ], 500);
         }
+    }
+
+    /**
+     * Get patient conditions (problem list) from eCW
+     *
+     * @param string $patientId
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getPatientConditions(string $patientId, Request $request): JsonResponse
+    {
+        try {
+            // Validate user has eCW token
+            $accessToken = $this->ecwService->getUserToken(Auth::id());
+            if (!$accessToken) {
+                return response()->json([
+                    'error' => 'Not connected to eClinicalWorks',
+                    'requires_auth' => true
+                ], 401);
+            }
+
+            // Validate filters
+            $request->validate([
+                'category' => 'sometimes|string|max:100',
+                'clinical-status' => 'sometimes|string|max:50',
+                'verification-status' => 'sometimes|string|max:50'
+            ]);
+
+            $filters = $request->only(['category', 'clinical-status', 'verification-status']);
+
+            $bundle = $this->ecwService->getPatientConditions($patientId, $accessToken, $filters);
+
+            return response()->json($bundle)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (Exception $e) {
+            Log::error('eCW patient conditions read failed', [
+                'user_id' => Auth::id(),
+                'patient_id' => $patientId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Conditions read failed'], 500);
+        }
+    }
+
+    /**
+     * Create order summary in eCW
+     *
+     * @param string $patientId
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function createOrderSummary(string $patientId, Request $request): JsonResponse
+    {
+        try {
+            // Validate user has eCW token
+            $accessToken = $this->ecwService->getUserToken(Auth::id());
+            if (!$accessToken) {
+                return response()->json([
+                    'error' => 'Not connected to eClinicalWorks',
+                    'requires_auth' => true
+                ], 401);
+            }
+
+            // Validate request data
+            $request->validate([
+                'order_data' => 'required|array',
+                'order_data.products' => 'required|array',
+                'order_data.clinical_summary' => 'required|string',
+                'order_data.order_date' => 'required|date'
+            ]);
+
+            $orderData = $request->input('order_data');
+
+            $documentReference = $this->ecwService->createOrderSummary($patientId, $accessToken, $orderData);
+
+            return response()->json($documentReference)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (Exception $e) {
+            Log::error('eCW order summary creation failed', [
+                'user_id' => Auth::id(),
+                'patient_id' => $patientId,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json(['error' => 'Order summary creation failed'], 500);
+        }
+    }
+
+    /**
+     * Get JWK (JSON Web Key) for eCW integration
+     * This endpoint provides the public key that eCW uses to verify JWT signatures
+     *
+     * @return JsonResponse
+     */
+    public function getJwk(): JsonResponse
+    {
+        try {
+            // Get keys from Azure Key Vault
+            $keys = $this->keyVault->getEcwJwkKeys();
+
+            if (!$keys) {
+                return response()->json([
+                    'error' => 'JWK keys not found',
+                    'message' => 'Please ensure ECW JWK keys are stored in Azure Key Vault'
+                ], 404);
+            }
+
+            // Convert PEM public key to JWK format manually
+            $jwkData = $this->convertPemToJwk($keys['public']);
+
+            // Create JWK Set response
+            $jwkSet = [
+                'keys' => [$jwkData]
+            ];
+
+            return response()->json($jwkSet, 200, [
+                'Cache-Control' => 'public, max-age=3600', // Cache for 1 hour
+                'Content-Type' => 'application/json'
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('JWK endpoint error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to generate JWK',
+                'message' => 'Internal server error'
+            ], 500);
+        }
+    }
+
+    /**
+     * Convert PEM public key to JWK format
+     */
+    private function convertPemToJwk(string $pemKey): array
+    {
+        $keyResource = openssl_pkey_get_public($pemKey);
+
+        if (!$keyResource) {
+            throw new \Exception('Invalid PEM public key');
+        }
+
+        $keyDetails = openssl_pkey_get_details($keyResource);
+
+        if ($keyDetails['type'] !== OPENSSL_KEYTYPE_RSA) {
+            throw new \Exception('Only RSA keys are supported');
+        }
+
+        $n = $keyDetails['rsa']['n'];
+        $e = $keyDetails['rsa']['e'];
+
+        // Generate a unique key ID
+        $keyId = 'ecw-' . substr(hash('sha256', $pemKey), 0, 16);
+
+        return [
+            'kty' => 'RSA',
+            'kid' => $keyId,
+            'use' => 'sig',
+            'alg' => 'RS256',
+            'n' => rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode($n)), '='),
+            'e' => rtrim(str_replace(['+', '/'], ['-', '_'], base64_encode($e)), '=')
+        ];
     }
 }

@@ -29,7 +29,8 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'dashboard',
       'product-requests',
       'eligibility',
-      'products'
+      'products',
+      'ecw'
     ]
   },
   office_manager: {
@@ -60,7 +61,8 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'product-requests',
       'eligibility',
       'products',
-      'providers'
+      'providers',
+      'ecw'
     ]
   },
   msc_rep: {
