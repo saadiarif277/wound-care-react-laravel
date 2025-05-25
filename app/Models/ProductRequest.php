@@ -34,6 +34,7 @@ class ProductRequest extends Model
         'order_status',
         'step',
         'submitted_at',
+        'approved_at',
         'total_order_value',
         'acquiring_rep_id',
     ];
@@ -45,6 +46,7 @@ class ProductRequest extends Model
         'eligibility_results' => 'array',
         'clinical_opportunities' => 'array',
         'submitted_at' => 'datetime',
+        'approved_at' => 'datetime',
         'total_order_value' => 'decimal:2',
     ];
 

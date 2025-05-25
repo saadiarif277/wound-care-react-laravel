@@ -108,6 +108,76 @@ class EligibilityController extends Controller
     }
 
     /**
+     * Check general eligibility (not tied to a specific order)
+     *
+     * POST /api/v1/eligibility/check
+     */
+    public function checkGeneralEligibility(Request $request): JsonResponse
+    {
+        try {
+            $request->validate([
+                'patient_data' => 'required|array',
+                'patient_data.member_id' => 'required|string',
+                'patient_data.first_name' => 'required|string',
+                'patient_data.last_name' => 'required|string',
+                'patient_data.dob' => 'required|date',
+                'payer_name' => 'required|string',
+                'service_date' => 'required|date',
+                'procedure_codes' => 'required|array',
+                'procedure_codes.*' => 'string'
+            ]);
+
+            $patientData = $request->input('patient_data');
+            $payerName = $request->input('payer_name');
+            $serviceDate = $request->input('service_date');
+            $procedureCodes = $request->input('procedure_codes');
+
+            Log::info('General eligibility check requested', [
+                'member_id' => $patientData['member_id'],
+                'payer_name' => $payerName,
+                'service_date' => $serviceDate,
+                'user_id' => $request->user()?->id
+            ]);
+
+            // Perform eligibility check
+            $result = $this->eligibilityService->checkGeneralEligibility(
+                $patientData,
+                $payerName,
+                $serviceDate,
+                $procedureCodes
+            );
+
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+
+        } catch (ValidationException $e) {
+            Log::warning('General eligibility check validation failed', [
+                'errors' => $e->errors()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+
+        } catch (\Exception $e) {
+            Log::error('General eligibility check failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Eligibility check failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Request pre-authorization for an order
      *
      * POST /api/v1/orders/{order_id}/preauth

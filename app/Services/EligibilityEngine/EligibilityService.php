@@ -445,4 +445,140 @@ class EligibilityService
             ]);
         }
     }
+
+    /**
+     * Check general eligibility (not tied to a specific order)
+     */
+    public function checkGeneralEligibility(array $patientData, string $payerName, string $serviceDate, array $procedureCodes): array
+    {
+        Log::info('Starting general eligibility check', [
+            'member_id' => $patientData['member_id'],
+            'payer_name' => $payerName,
+            'service_date' => $serviceDate
+        ]);
+
+        try {
+            // Build eligibility request payload for general check
+            $requestPayload = $this->buildGeneralEligibilityRequest($patientData, $payerName, $serviceDate, $procedureCodes);
+
+            // Validate payload
+            $this->validateEligibilityRequest($requestPayload);
+
+            // Send eligibility request
+            $response = $this->sendEligibilityRequest($requestPayload);
+
+            // Process response
+            $result = $this->processGeneralEligibilityResponse($response);
+
+            return $result;
+
+        } catch (\Exception $e) {
+            Log::error('General eligibility check failed', [
+                'member_id' => $patientData['member_id'],
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'status' => 'error',
+                'error' => $e->getMessage(),
+                'timestamp' => now()->toISOString()
+            ];
+        }
+    }
+
+    /**
+     * Build general eligibility request payload
+     */
+    private function buildGeneralEligibilityRequest(array $patientData, string $payerName, string $serviceDate, array $procedureCodes): array
+    {
+        return [
+            'subscriber' => [
+                'memberId' => $patientData['member_id'],
+                'firstName' => $patientData['first_name'],
+                'lastName' => $patientData['last_name'],
+                'dateOfBirth' => $patientData['dob'],
+                'gender' => $patientData['gender'] ?? 'U'
+            ],
+            'payer' => [
+                'name' => $payerName
+            ],
+            'serviceDate' => $serviceDate,
+            'procedureCodes' => $procedureCodes,
+            'requestType' => 'eligibility',
+            'timestamp' => now()->toISOString()
+        ];
+    }
+
+    /**
+     * Process general eligibility response
+     */
+    private function processGeneralEligibilityResponse(array $response): array
+    {
+        $status = $this->determineEligibilityStatus($response);
+        $benefits = $this->extractBenefitsFromResponse($response);
+        $priorAuthRequired = $this->isPreAuthRequired($response);
+
+        return [
+            'status' => $status,
+            'benefits' => $benefits,
+            'prior_authorization_required' => $priorAuthRequired,
+            'coverage_details' => $this->extractCoverageDetails($response),
+            'response' => $response,
+            'processed_at' => now()->toISOString()
+        ];
+    }
+
+    /**
+     * Extract benefits information from eligibility response
+     */
+    private function extractBenefitsFromResponse(array $response): array
+    {
+        $benefits = [];
+        $benefitsData = $response['benefits'] ?? [];
+
+        foreach ($benefitsData as $benefit) {
+            $benefitType = $benefit['type'] ?? '';
+            $amount = $benefit['amount'] ?? null;
+
+            switch (strtolower($benefitType)) {
+                case 'copay':
+                case 'copayment':
+                    $benefits['copay'] = $amount;
+                    break;
+                case 'deductible':
+                    $benefits['deductible'] = $amount;
+                    break;
+                case 'coinsurance':
+                    $benefits['coinsurance'] = $amount;
+                    break;
+                case 'out_of_pocket_maximum':
+                case 'out-of-pocket maximum':
+                    $benefits['out_of_pocket_max'] = $amount;
+                    break;
+            }
+        }
+
+        return $benefits;
+    }
+
+    /**
+     * Extract coverage details from eligibility response
+     */
+    private function extractCoverageDetails(array $response): string
+    {
+        $status = $response['status']['value'] ?? 'unknown';
+        $planName = $response['plan']['name'] ?? 'Unknown Plan';
+
+        switch ($status) {
+            case 'active':
+                return "Coverage is active under {$planName}";
+            case 'inactive':
+                return "Coverage is inactive";
+            case 'terminated':
+                return "Coverage has been terminated";
+            default:
+                return "Coverage status: {$status}";
+        }
+    }
 }

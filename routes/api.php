@@ -7,6 +7,7 @@ use App\Http\Controllers\CommissionRecordController;
 use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\Api\EligibilityController;
 use App\Http\Controllers\Api\ValidationBuilderController;
+use App\Http\Controllers\Api\ClinicalOpportunitiesController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -106,6 +107,29 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // Eligibility summary and management
     Route::get('eligibility/summary', [EligibilityController::class, 'getSummary'])->name('eligibility.summary');
     Route::get('eligibility/health-check', [EligibilityController::class, 'healthCheck'])->name('eligibility.health');
+
+    // General eligibility check (not order-specific)
+    Route::post('eligibility/check', [EligibilityController::class, 'checkGeneralEligibility'])->name('eligibility.check_general');
+});
+
+// Clinical Opportunities Engine Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('clinical-opportunities')->name('clinical_opportunities.')->group(function () {
+        // Scan for opportunities based on clinical data
+        Route::post('scan', [ClinicalOpportunitiesController::class, 'scanOpportunities'])->name('scan');
+
+        // Get opportunities for specific conditions/specialties
+        Route::get('by-specialty/{specialty}', [ClinicalOpportunitiesController::class, 'getOpportunitiesBySpecialty'])->name('by_specialty');
+        Route::get('by-wound-type/{wound_type}', [ClinicalOpportunitiesController::class, 'getOpportunitiesByWoundType'])->name('by_wound_type');
+
+        // Opportunity management
+        Route::get('templates', [ClinicalOpportunitiesController::class, 'getOpportunityTemplates'])->name('templates');
+        Route::post('validate-opportunity', [ClinicalOpportunitiesController::class, 'validateOpportunity'])->name('validate');
+
+        // Analytics and reporting
+        Route::get('analytics/summary', [ClinicalOpportunitiesController::class, 'getAnalyticsSummary'])->name('analytics.summary');
+        Route::get('analytics/revenue-impact', [ClinicalOpportunitiesController::class, 'getRevenueImpact'])->name('analytics.revenue');
+    });
 });
 
 // CMS Coverage API & Validation Builder Routes
@@ -118,6 +142,9 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         // Order & Product Request Validation
         Route::post('validate-order', [ValidationBuilderController::class, 'validateOrder'])->name('validate_order');
         Route::post('validate-product-request', [ValidationBuilderController::class, 'validateProductRequest'])->name('validate_product_request');
+
+        // Section-specific validation for clinical assessment forms
+        Route::post('validate-section', [ValidationBuilderController::class, 'validateSection'])->name('validate_section');
 
         // CMS Coverage Data
         Route::get('cms-lcds', [ValidationBuilderController::class, 'getCmsLcds'])->name('cms_lcds');

@@ -1,8 +1,10 @@
-import React from 'react';
-import { Link, usePage } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Link, usePage, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import FilterBar from '@/Components/FilterBar/FilterBar';
 import Pagination from '@/Components/Pagination/Pagination';
+import { ChevronDownIcon, ChevronUpIcon, FunnelIcon, MagnifyingGlassIcon } from '@heroicons/react/24/outline';
+import { CheckCircleIcon, ClockIcon, ExclamationTriangleIcon, XCircleIcon } from '@heroicons/react/24/solid';
 
 interface ProductRequest {
   id: number;
@@ -16,44 +18,89 @@ interface ProductRequest {
   created_at: string;
   total_products: number;
   total_amount: number | string | null;
+  mac_validation_status?: string;
+  eligibility_status?: string;
+  pre_auth_required?: boolean;
+  submitted_at?: string;
+  approved_at?: string;
 }
 
 interface Props {
   requests: {
     data: ProductRequest[];
     links: any[];
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
   };
   filters: {
     search?: string;
     status?: string;
+    facility?: string;
+    date_from?: string;
+    date_to?: string;
   };
+  facilities: Array<{ id: number; name: string }>;
+  statusOptions: Array<{ value: string; label: string; count: number }>;
 }
 
-const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
+const ProductRequestIndex: React.FC<Props> = ({ requests, filters, facilities, statusOptions }) => {
   const { auth } = usePage<any>().props;
+  const [expandedRows, setExpandedRows] = useState<Set<number>>(new Set());
+  const [selectedRequests, setSelectedRequests] = useState<Set<number>>(new Set());
+  const [showFilters, setShowFilters] = useState(false);
 
-  const getStatusColor = (status: string): string => {
-    const colors = {
-      draft: 'bg-gray-100 text-gray-800',
-      submitted: 'bg-blue-100 text-blue-800',
-      processing: 'bg-yellow-100 text-yellow-800',
-      approved: 'bg-green-100 text-green-800',
-      rejected: 'bg-red-100 text-red-800',
-      shipped: 'bg-purple-100 text-purple-800',
-      delivered: 'bg-green-100 text-green-800',
-      cancelled: 'bg-red-100 text-red-800',
-    };
-    return colors[status as keyof typeof colors] || 'bg-gray-100 text-gray-800';
+  // Status configuration with colors and icons
+  const statusConfig = {
+    draft: {
+      color: 'bg-gray-100 text-gray-800',
+      icon: ClockIcon,
+      label: 'Draft'
+    },
+    submitted: {
+      color: 'bg-blue-100 text-blue-800',
+      icon: ClockIcon,
+      label: 'Submitted'
+    },
+    processing: {
+      color: 'bg-yellow-100 text-yellow-800',
+      icon: ClockIcon,
+      label: 'Processing'
+    },
+    approved: {
+      color: 'bg-green-100 text-green-800',
+      icon: CheckCircleIcon,
+      label: 'Approved'
+    },
+    rejected: {
+      color: 'bg-red-100 text-red-800',
+      icon: XCircleIcon,
+      label: 'Rejected'
+    },
+    shipped: {
+      color: 'bg-purple-100 text-purple-800',
+      icon: CheckCircleIcon,
+      label: 'Shipped'
+    },
+    delivered: {
+      color: 'bg-green-100 text-green-800',
+      icon: CheckCircleIcon,
+      label: 'Delivered'
+    },
+    cancelled: {
+      color: 'bg-red-100 text-red-800',
+      icon: XCircleIcon,
+      label: 'Cancelled'
+    },
   };
 
-  const getStepColor = (step: number): string => {
-    if (step === 6) return 'text-green-600'; // Completed
-    if (step >= 4) return 'text-blue-600'; // In progress
-    return 'text-gray-600'; // Early stages
+  const getStatusConfig = (status: string) => {
+    return statusConfig[status as keyof typeof statusConfig] || statusConfig.draft;
   };
 
-  const formatStatus = (status: string): string => {
-    return status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+  const getStepProgress = (step: number): number => {
+    return Math.round((step / 6) * 100);
   };
 
   const formatCurrency = (amount: number | string | null): string => {
@@ -61,243 +108,452 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters }) => {
     return isNaN(numericAmount) ? '$0.00' : `$${numericAmount.toFixed(2)}`;
   };
 
+  const toggleRowExpansion = (id: number) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(id)) {
+      newExpanded.delete(id);
+    } else {
+      newExpanded.add(id);
+    }
+    setExpandedRows(newExpanded);
+  };
+
+  const toggleRequestSelection = (id: number) => {
+    const newSelected = new Set(selectedRequests);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedRequests(newSelected);
+  };
+
+  const toggleAllRequests = () => {
+    if (selectedRequests.size === requests.data.length) {
+      setSelectedRequests(new Set());
+    } else {
+      setSelectedRequests(new Set(requests.data.map(r => r.id)));
+    }
+  };
+
+  const handleFilter = (key: string, value: string) => {
+    router.get(route('product-requests.index'), {
+      ...filters,
+      [key]: value,
+      page: 1
+    }, {
+      preserveState: true,
+      preserveScroll: true,
+    });
+  };
+
+  const clearFilters = () => {
+    router.get(route('product-requests.index'), {}, {
+      preserveState: true,
+      preserveScroll: true,
+    });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(value => value);
+
   return (
-    <MainLayout title="Product Requests">
-      <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto py-4 sm:py-6">
-          {/* Header - Mobile Optimized */}
-          <div className="mb-4 sm:mb-6 flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex-1">
-              <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Product Requests</h1>
-              <p className="mt-1 text-sm sm:text-base text-gray-600">
-            Manage your MSC-MVP product requests with intelligent workflow and sequential patient IDs
-          </p>
-        </div>
-        <Link
-          href="/product-requests/create"
-              className="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700 active:bg-blue-900 focus:outline-none focus:border-blue-900 focus:ring ring-blue-300 disabled:opacity-25 transition ease-in-out duration-150"
-        >
-          + New Product Request
-        </Link>
-      </div>
-
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-          <FilterBar />
-        </div>
-
-            {/* Mobile Card View */}
-            <div className="block lg:hidden">
-              {requests.data.length === 0 ? (
-                <div className="px-4 py-12 text-center">
-                  <div className="text-gray-500">
-                    <p className="text-lg font-medium">No product requests found</p>
-                    <p className="mt-1 text-sm">Get started by creating your first product request with the MSC-MVP workflow.</p>
-                    <Link
-                      href="/product-requests/create"
-                      className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
-                    >
-                      + New Product Request
-                    </Link>
-                  </div>
+    <MainLayout title="My Requests">
+      <div className="min-h-screen bg-gray-50">
+        {/* Header Section */}
+        <div className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="py-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">My Product Requests</h1>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Manage your wound care product requests through the MSC-MVP workflow
+                  </p>
                 </div>
-              ) : (
-                <div className="divide-y divide-gray-200">
-                  {requests.data.map((request) => (
-                    <div key={request.id} className="p-4 hover:bg-gray-50 transition-colors">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-sm font-medium text-gray-900">
-                            {request.request_number}
-                          </h3>
-                          <p className="text-xs text-gray-500 mt-1">MSC-MVP Request</p>
-                        </div>
-                        <Link
-                          href={`/product-requests/${request.id}`}
-                          className="text-blue-600 hover:text-blue-900 text-sm font-medium"
-                        >
-                          View →
-                        </Link>
-                      </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Patient ID</span>
-                          <span className="text-sm font-medium text-gray-900">{request.patient_display}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Facility</span>
-                          <span className="text-sm text-gray-900">{request.facility_name}</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Status</span>
-                          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.order_status)}`}>
-                            {formatStatus(request.order_status)}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-gray-500">Progress</span>
-                          <span className={`text-xs font-medium ${getStepColor(request.step)}`}>
-                            Step {request.step}/6: {request.step_description}
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-3 pt-2 border-t border-gray-100">
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Products</p>
-                            <p className="text-sm font-medium">{request.total_products}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Total</p>
-                            <p className="text-sm font-medium">{formatCurrency(request.total_amount)}</p>
-                          </div>
-                          <div className="text-center">
-                            <p className="text-xs text-gray-500">Created</p>
-                            <p className="text-sm font-medium">{request.created_at}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                <div className="mt-4 sm:mt-0 flex space-x-3">
+                  <button
+                    onClick={() => setShowFilters(!showFilters)}
+                    className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    <FunnelIcon className="h-4 w-4 mr-2" />
+                    Filters
+                    {hasActiveFilters && (
+                      <span className="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {Object.values(filters).filter(v => v).length}
+                      </span>
+                    )}
+                  </button>
+                  <Link
+                    href="/product-requests/create"
+                    className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  >
+                    + New Request
+                  </Link>
                 </div>
-              )}
-            </div>
+              </div>
 
-            {/* Desktop Table View */}
-            <div className="hidden lg:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Request
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Patient ID
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Facility
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status / Step
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Products
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total
-                </th>
-                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created
-                </th>
-                <th scope="col" className="relative px-6 py-3">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {requests.data.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center">
-                    <div className="text-gray-500">
-                      <p className="text-lg font-medium">No product requests found</p>
-                      <p className="mt-1">Get started by creating your first product request with the MSC-MVP workflow.</p>
-                      <Link
-                        href="/product-requests/create"
-                        className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
-                      >
-                        + New Product Request
-                      </Link>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                requests.data.map((request) => (
-                  <tr key={request.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {request.request_number}
-                        </div>
-                        <div className="text-sm text-gray-500">
-                          MSC-MVP Request
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div>
-                        <div className="text-sm font-medium text-gray-900">
-                          {request.patient_display}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Sequential Display ID
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
-                        {request.facility_name}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="space-y-1">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(request.order_status)}`}>
-                          {formatStatus(request.order_status)}
-                        </span>
-                        <div className={`text-xs ${getStepColor(request.step)}`}>
-                          Step {request.step}/6: {request.step_description}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.total_products} product{request.total_products !== 1 ? 's' : ''}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {formatCurrency(request.total_amount)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {request.created_at}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link
-                        href={`/product-requests/${request.id}`}
-                        className="text-blue-600 hover:text-blue-900 inline-flex items-center"
-                      >
-                        👁 View
-                      </Link>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {requests.data.length > 0 && (
-              <div className="px-4 sm:px-6 py-4 border-t border-gray-200">
-            <Pagination links={requests.links} />
-          </div>
-        )}
-      </div>
-
-          {/* Sequential ID Benefits Info - Mobile Optimized */}
-          <div className="mt-4 sm:mt-6 bg-blue-50 border-l-4 border-blue-400 p-4 rounded-r-lg">
-        <div className="flex">
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-blue-800">Sequential Display ID Benefits</h3>
-            <div className="mt-2 text-sm text-blue-700">
-              <ul className="list-disc list-inside space-y-1">
-                <li><strong>Better Privacy:</strong> No age information that could enable patient identification</li>
-                <li><strong>Faster Performance:</strong> Order lists load without Azure HDS API calls</li>
-                <li><strong>Easy Search:</strong> Find patients by initials ("JoSm") or full ID ("JoSm001")</li>
-                <li><strong>Clear Differentiation:</strong> Sequential numbers prevent confusion between patients</li>
-              </ul>
-                </div>
+              {/* Quick Stats */}
+              <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {statusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => handleFilter('status', option.value)}
+                    className={`relative rounded-lg border p-4 text-left hover:shadow-md transition-shadow ${
+                      filters.status === option.value ? 'border-blue-500 bg-blue-50' : 'border-gray-200 bg-white'
+                    }`}
+                  >
+                    <p className="text-sm font-medium text-gray-600">{option.label}</p>
+                    <p className="mt-1 text-2xl font-semibold text-gray-900">{option.count}</p>
+                  </button>
+                ))}
               </div>
             </div>
           </div>
+        </div>
+
+        {/* Filters Section */}
+        {showFilters && (
+          <div className="bg-white border-b border-gray-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Search</label>
+                  <input
+                    type="text"
+                    value={filters.search || ''}
+                    onChange={(e) => handleFilter('search', e.target.value)}
+                    placeholder="Request #, Patient ID..."
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Status</label>
+                  <select
+                    value={filters.status || ''}
+                    onChange={(e) => handleFilter('status', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">All Statuses</option>
+                    {Object.entries(statusConfig).map(([value, config]) => (
+                      <option key={value} value={value}>{config.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Facility</label>
+                  <select
+                    value={filters.facility || ''}
+                    onChange={(e) => handleFilter('facility', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  >
+                    <option value="">All Facilities</option>
+                    {facilities.map((facility) => (
+                      <option key={facility.id} value={facility.id}>{facility.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date From</label>
+                  <input
+                    type="date"
+                    value={filters.date_from || ''}
+                    onChange={(e) => handleFilter('date_from', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Date To</label>
+                  <input
+                    type="date"
+                    value={filters.date_to || ''}
+                    onChange={(e) => handleFilter('date_to', e.target.value)}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+                  />
+                </div>
+              </div>
+              {hasActiveFilters && (
+                <div className="mt-4">
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Clear all filters
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="bg-white shadow-sm rounded-lg overflow-hidden">
+            {/* Table */}
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th scope="col" className="w-12 px-6 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedRequests.size === requests.data.length && requests.data.length > 0}
+                        onChange={toggleAllRequests}
+                        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      />
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Request Details
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Patient
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status & Progress
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Validation
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Products & Total
+                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {requests.data.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          <p className="text-lg font-medium">No product requests found</p>
+                          <p className="mt-1">Get started by creating your first product request.</p>
+                          <Link
+                            href="/product-requests/create"
+                            className="mt-4 inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-700"
+                          >
+                            + New Request
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    requests.data.map((request) => {
+                      const statusInfo = getStatusConfig(request.order_status);
+                      const StatusIcon = statusInfo.icon;
+                      const isExpanded = expandedRows.has(request.id);
+
+                      return (
+                        <React.Fragment key={request.id}>
+                          <tr className={`hover:bg-gray-50 ${selectedRequests.has(request.id) ? 'bg-blue-50' : ''}`}>
+                            <td className="px-6 py-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedRequests.has(request.id)}
+                                onChange={() => toggleRequestSelection(request.id)}
+                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                              />
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {request.request_number}
+                                </div>
+                                <div className="text-sm text-gray-500">
+                                  {request.facility_name}
+                                </div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  Created: {request.created_at}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {request.patient_display}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Sequential ID
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="space-y-2">
+                                <div className="flex items-center">
+                                  <StatusIcon className="h-5 w-5 mr-2" />
+                                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusInfo.color}`}>
+                                    {statusInfo.label}
+                                  </span>
+                                </div>
+                                <div className="w-full bg-gray-200 rounded-full h-2">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${getStepProgress(request.step)}%` }}
+                                  />
+                                </div>
+                                <div className="text-xs text-gray-600">
+                                  Step {request.step}/6: {request.step_description}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="space-y-1">
+                                {request.mac_validation_status && (
+                                  <div className="flex items-center text-xs">
+                                    {request.mac_validation_status === 'passed' ? (
+                                      <CheckCircleIcon className="h-4 w-4 text-green-500 mr-1" />
+                                    ) : (
+                                      <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mr-1" />
+                                    )}
+                                    <span>MAC: {request.mac_validation_status}</span>
+                                  </div>
+                                )}
+                                {request.eligibility_status && (
+                                  <div className="flex items-center text-xs">
+                                    {request.eligibility_status === 'eligible' ? (
+                                      <CheckCircleIcon className="h-4 w-4 text-green-500 mr-1" />
+                                    ) : (
+                                      <XCircleIcon className="h-4 w-4 text-red-500 mr-1" />
+                                    )}
+                                    <span>Eligibility: {request.eligibility_status}</span>
+                                  </div>
+                                )}
+                                {request.pre_auth_required && (
+                                  <div className="flex items-center text-xs">
+                                    <ExclamationTriangleIcon className="h-4 w-4 text-yellow-500 mr-1" />
+                                    <span>PA Required</span>
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div>
+                                <div className="text-sm font-medium text-gray-900">
+                                  {request.total_products} product{request.total_products !== 1 ? 's' : ''}
+                                </div>
+                                <div className="text-sm text-gray-900 font-semibold">
+                                  {formatCurrency(request.total_amount)}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center space-x-2">
+                                <Link
+                                  href={`/product-requests/${request.id}`}
+                                  className="text-blue-600 hover:text-blue-900 text-sm font-medium"
+                                >
+                                  View
+                                </Link>
+                                <button
+                                  onClick={() => toggleRowExpansion(request.id)}
+                                  className="text-gray-400 hover:text-gray-600"
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUpIcon className="h-5 w-5" />
+                                  ) : (
+                                    <ChevronDownIcon className="h-5 w-5" />
+                                  )}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                          {isExpanded && (
+                            <tr>
+                              <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-900 mb-2">Timeline</h4>
+                                    <div className="space-y-1 text-xs text-gray-600">
+                                      <div>Created: {request.created_at}</div>
+                                      {request.submitted_at && <div>Submitted: {request.submitted_at}</div>}
+                                      {request.approved_at && <div>Approved: {request.approved_at}</div>}
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-900 mb-2">Clinical Details</h4>
+                                    <div className="space-y-1 text-xs text-gray-600">
+                                      <div>Wound Type: {request.wound_type || 'Not specified'}</div>
+                                      <div>Service Date: {request.expected_service_date || 'Not set'}</div>
+                                    </div>
+                                  </div>
+                                  <div>
+                                    <h4 className="text-sm font-medium text-gray-900 mb-2">Quick Actions</h4>
+                                    <div className="space-x-2">
+                                      <Link
+                                        href={`/product-requests/${request.id}/edit`}
+                                        className="text-sm text-blue-600 hover:text-blue-800"
+                                      >
+                                        Edit
+                                      </Link>
+                                      <Link
+                                        href={`/product-requests/${request.id}/duplicate`}
+                                        className="text-sm text-blue-600 hover:text-blue-800"
+                                      >
+                                        Duplicate
+                                      </Link>
+                                      {request.order_status === 'draft' && (
+                                        <button
+                                          onClick={() => router.delete(`/product-requests/${request.id}`)}
+                                          className="text-sm text-red-600 hover:text-red-800"
+                                        >
+                                          Delete
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {requests.data.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    Showing {(requests.current_page - 1) * requests.per_page + 1} to{' '}
+                    {Math.min(requests.current_page * requests.per_page, requests.total)} of{' '}
+                    {requests.total} results
+                  </div>
+                  <Pagination links={requests.links} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Bulk Actions */}
+          {selectedRequests.size > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    {selectedRequests.size} request{selectedRequests.size !== 1 ? 's' : ''} selected
+                  </div>
+                  <div className="space-x-3">
+                    <button
+                      onClick={() => setSelectedRequests(new Set())}
+                      className="text-sm text-gray-600 hover:text-gray-800"
+                    >
+                      Cancel
+                    </button>
+                    <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                      Export
+                    </button>
+                    <button className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50">
+                      Print
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>
