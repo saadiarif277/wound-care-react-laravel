@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { DollarSign, Plus, Info, CheckCircle, X } from 'lucide-react';
+import { apiPost, handleApiResponse } from '@/lib/api';
 
 interface ClinicalOpportunitiesStepProps {
   formData: any;
@@ -31,21 +32,14 @@ const ClinicalOpportunitiesStep: React.FC<ClinicalOpportunitiesStepProps> = ({
   const scanOpportunities = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/v1/clinical-opportunities/scan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          clinical_data: formData.clinical_data,
-          wound_type: formData.wound_type,
-          patient_data: formData.patient_api_input,
-          selected_products: formData.selected_products,
-        }),
+      const response = await apiPost('/api/v1/clinical-opportunities/scan', {
+        clinical_data: formData.clinical_data,
+        wound_type: formData.wound_type,
+        patient_data: formData.patient_api_input,
+        selected_products: formData.selected_products,
       });
 
-      const result = await response.json();
+      const result = await handleApiResponse(response);
 
       if (result.success) {
         setOpportunities(result.data.opportunities || []);

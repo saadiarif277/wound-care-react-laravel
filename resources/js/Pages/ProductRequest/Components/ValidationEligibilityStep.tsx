@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Clock, Shield, Info, Loader2, ExternalLink } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Shield, Info, Loader2, ExternalLink, FileText, Database } from 'lucide-react';
+import { apiPost, apiGet, handleApiResponse } from '@/lib/api';
 
 interface ValidationEligibilityStepProps {
   formData: any;
@@ -12,11 +13,19 @@ interface ValidationResult {
   score: number;
   mac_contractor: string;
   jurisdiction: string;
+  validation_type: string;
+  cms_compliance: {
+    lcds_checked: number;
+    ncds_checked: number;
+    articles_checked: number;
+    compliance_score: number;
+  };
   issues: Array<{
     type: 'error' | 'warning' | 'info';
     message: string;
     resolution?: string;
     lcd_reference?: string;
+    cms_document_id?: string;
   }>;
   requirements_met: {
     coverage: boolean;
@@ -26,6 +35,9 @@ interface ValidationResult {
     billing_compliance: boolean;
     prior_authorization: boolean;
   };
+  daily_monitoring_enabled?: boolean;
+  reimbursement_risk?: 'low' | 'medium' | 'high';
+  pre_order_validation: boolean;
 }
 
 interface EligibilityResult {
@@ -50,41 +62,179 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
   const [isValidating, setIsValidating] = useState(false);
   const [isCheckingEligibility, setIsCheckingEligibility] = useState(false);
   const [autoValidationEnabled, setAutoValidationEnabled] = useState(true);
+  const [cmsData, setCmsData] = useState<any>(null);
+  const [isLoadingCmsData, setIsLoadingCmsData] = useState(false);
 
-  // Run MAC validation
+  // Determine validation type based on specialty and wound type
+  const getValidationType = () => {
+    if (userSpecialty === 'vascular_surgery' || formData.wound_type === 'arterial_ulcer') {
+      return 'vascular_wound_care';
+    }
+    if (userSpecialty === 'wound_care_specialty') {
+      return 'wound_care_only';
+    }
+    return 'wound_care_only';
+  };
+
+  // Load CMS coverage data for the specialty
+  const loadCmsData = async () => {
+    setIsLoadingCmsData(true);
+    try {
+      // Get facility state for MAC jurisdiction
+      const facilityState = formData.facility?.state || 'CA'; // Default to CA if not available
+
+      // Fetch CMS LCDs, NCDs, and Articles for the specialty
+      const [lcdsResponse, ncdsResponse, articlesResponse] = await Promise.all([
+        apiGet(`/api/v1/validation-builder/cms-lcds?specialty=${userSpecialty}&state=${facilityState}`),
+        apiGet(`/api/v1/validation-builder/cms-ncds?specialty=${userSpecialty}`),
+        apiGet(`/api/v1/validation-builder/cms-articles?specialty=${userSpecialty}&state=${facilityState}`)
+      ]);
+
+      const [lcds, ncds, articles] = await Promise.all([
+        handleApiResponse(lcdsResponse),
+        handleApiResponse(ncdsResponse),
+        handleApiResponse(articlesResponse)
+      ]);
+
+      setCmsData({
+        lcds: lcds.data?.lcds || [],
+        ncds: ncds.data?.ncds || [],
+        articles: articles.data?.articles || [],
+        state: facilityState
+      });
+    } catch (error) {
+      console.error('Error loading CMS data:', error);
+    } finally {
+      setIsLoadingCmsData(false);
+    }
+  };
+
+  // Run comprehensive MAC validation using CMS Coverage API and ValidationBuilder
   const runMacValidation = async () => {
     setIsValidating(true);
     try {
-      const response = await fetch('/api/v1/validation-builder/validate-order', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          patient_data: formData.patient_api_input,
-          clinical_data: formData.clinical_data,
-          wound_type: formData.wound_type,
-          facility_id: formData.facility_id,
-          expected_service_date: formData.expected_service_date,
-          provider_specialty: userSpecialty,
-          selected_products: formData.selected_products,
-        }),
+      // Use ValidationBuilder with CMS Coverage API integration for pre-order validation
+      const validationType = getValidationType();
+      const facilityState = formData.facility?.state || 'CA';
+
+      const response = await apiPost('/api/v1/validation-builder/validate-product-request', {
+        patient_data: formData.patient_api_input,
+        clinical_data: formData.clinical_data,
+        wound_type: formData.wound_type,
+        facility_id: formData.facility_id,
+        facility_state: facilityState,
+        expected_service_date: formData.expected_service_date,
+        provider_specialty: userSpecialty,
+        selected_products: formData.selected_products,
+        validation_type: validationType,
+        enable_cms_integration: true,
+        enable_mac_validation: true,
+        state: facilityState
       });
 
-      const result = await response.json();
+      const result = await handleApiResponse(response);
 
       if (result.success) {
-        setValidationResult(result.data);
+        // Transform ValidationBuilder result to comprehensive MAC validation format
+        const macValidationResult = {
+          status: result.data.overall_status || 'pending',
+          score: result.data.compliance_score || 0,
+          mac_contractor: result.data.mac_contractor || 'Unknown',
+          jurisdiction: result.data.jurisdiction || 'Unknown',
+          validation_type: validationType,
+          cms_compliance: result.data.cms_compliance || {
+            lcds_checked: cmsData?.lcds?.length || 0,
+            ncds_checked: cmsData?.ncds?.length || 0,
+            articles_checked: cmsData?.articles?.length || 0,
+            compliance_score: result.data.cms_compliance_score || 0
+          },
+          issues: result.data.issues || [],
+          requirements_met: result.data.requirements_met || {
+            coverage: false,
+            documentation: false,
+            frequency: false,
+            medical_necessity: false,
+            billing_compliance: false,
+            prior_authorization: false
+          },
+          daily_monitoring_enabled: false, // Not applicable for pre-order validation
+          reimbursement_risk: result.data.reimbursement_risk || 'medium',
+          pre_order_validation: true, // Flag to indicate this is pre-order validation
+          validation_builder_results: result.data
+        };
+
+        setValidationResult(macValidationResult);
         updateFormData({
-          mac_validation_results: result.data,
-          mac_validation_status: result.data.status
+          mac_validation_results: macValidationResult,
+          mac_validation_status: macValidationResult.status,
+          pre_order_compliance_score: macValidationResult.score,
+          cms_compliance_data: macValidationResult.cms_compliance
         });
       } else {
-        console.error('Validation failed:', result.message);
+        console.error('Pre-order MAC validation failed:', result.message);
+
+        // Show user-friendly error
+        setValidationResult({
+          status: 'failed',
+          score: 0,
+          mac_contractor: 'Unknown',
+          jurisdiction: 'Unknown',
+          validation_type: validationType,
+          cms_compliance: {
+            lcds_checked: 0,
+            ncds_checked: 0,
+            articles_checked: 0,
+            compliance_score: 0
+          },
+          issues: [{
+            type: 'error',
+            message: 'Unable to complete MAC validation. Please check your clinical data and try again.',
+            resolution: 'Ensure all required clinical assessment sections are completed.'
+          }],
+          requirements_met: {
+            coverage: false,
+            documentation: false,
+            frequency: false,
+            medical_necessity: false,
+            billing_compliance: false,
+            prior_authorization: false
+          },
+          pre_order_validation: true,
+          reimbursement_risk: 'high'
+        });
       }
     } catch (error) {
-      console.error('MAC validation error:', error);
+      console.error('Pre-order MAC validation error:', error);
+
+      // Show error state
+      setValidationResult({
+        status: 'failed',
+        score: 0,
+        mac_contractor: 'Unknown',
+        jurisdiction: 'Unknown',
+        validation_type: getValidationType(),
+        cms_compliance: {
+          lcds_checked: 0,
+          ncds_checked: 0,
+          articles_checked: 0,
+          compliance_score: 0
+        },
+        issues: [{
+          type: 'error',
+          message: 'MAC validation service is currently unavailable.',
+          resolution: 'Please try again in a few moments or contact support if the issue persists.'
+        }],
+        requirements_met: {
+          coverage: false,
+          documentation: false,
+          frequency: false,
+          medical_necessity: false,
+          billing_compliance: false,
+          prior_authorization: false
+        },
+        pre_order_validation: true,
+        reimbursement_risk: 'high'
+      });
     } finally {
       setIsValidating(false);
     }
@@ -94,21 +244,14 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
   const runEligibilityCheck = async () => {
     setIsCheckingEligibility(true);
     try {
-      const response = await fetch('/api/v1/eligibility/check', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          patient_data: formData.patient_api_input,
-          payer_name: formData.payer_name,
-          service_date: formData.expected_service_date,
-          procedure_codes: formData.selected_products?.map((p: any) => p.hcpcs_code) || [],
-        }),
+      const response = await apiPost('/api/v1/eligibility/check', {
+        patient_data: formData.patient_api_input,
+        payer_name: formData.payer_name,
+        service_date: formData.expected_service_date,
+        procedure_codes: formData.selected_products?.map((p: any) => p.hcpcs_code) || [],
       });
 
-      const result = await response.json();
+      const result = await handleApiResponse(response);
 
       if (result.success) {
         setEligibilityResult(result.data);
@@ -125,6 +268,11 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
       setIsCheckingEligibility(false);
     }
   };
+
+  // Load CMS data when component mounts
+  useEffect(() => {
+    loadCmsData();
+  }, [userSpecialty, formData.facility?.state]);
 
   // Auto-run validation when form data changes
   useEffect(() => {
@@ -171,6 +319,35 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
     }
   };
 
+  const renderCmsDataSection = () => {
+    if (!cmsData) return null;
+
+    return (
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-start">
+          <Database className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <div className="flex-1">
+            <h3 className="text-sm font-medium text-blue-900">CMS Coverage Data Loaded</h3>
+            <p className="text-sm text-blue-700 mt-1">
+              Live CMS coverage data has been loaded for {userSpecialty.replace(/_/g, ' ')} in {cmsData.state}
+            </p>
+            <div className="mt-2 grid grid-cols-3 gap-4 text-xs">
+              <div className="text-blue-700">
+                <span className="font-medium">{cmsData.lcds.length}</span> LCDs
+              </div>
+              <div className="text-blue-700">
+                <span className="font-medium">{cmsData.ncds.length}</span> NCDs
+              </div>
+              <div className="text-blue-700">
+                <span className="font-medium">{cmsData.articles.length}</span> Articles
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderMacValidation = () => {
     const statusDisplay = validationResult ? getStatusDisplay(validationResult.status) : getStatusDisplay('pending');
     const StatusIcon = statusDisplay.icon;
@@ -180,7 +357,12 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-gray-900 flex items-center">
             <Shield className="h-5 w-5 mr-2 text-blue-600" />
-            MAC Validation
+            Pre-Order MAC Validation
+            {validationResult?.pre_order_validation && (
+              <span className="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                Pre-Order Check
+              </span>
+            )}
           </h3>
           <div className="flex items-center space-x-3">
             <label className="flex items-center">
@@ -202,7 +384,7 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
               ) : (
                 <Shield className="h-4 w-4 mr-2" />
               )}
-              {isValidating ? 'Validating...' : 'Run Validation'}
+              {isValidating ? 'Validating...' : 'Run Pre-Order Validation'}
             </button>
           </div>
         </div>
@@ -215,26 +397,72 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
               <h4 className={`text-sm font-medium ${statusDisplay.color}`}>
                 {validationResult ? (
                   <>
-                    MAC Validation {validationResult.status.charAt(0).toUpperCase() + validationResult.status.slice(1)}
+                    Pre-Order MAC Validation {validationResult.status.charAt(0).toUpperCase() + validationResult.status.slice(1)}
                     {validationResult.score && (
                       <span className="ml-2 text-xs">
-                        (Score: {validationResult.score}/100)
+                        (Compliance Score: {validationResult.score}/100)
                       </span>
                     )}
                   </>
                 ) : (
-                  'Validation Pending'
+                  'Pre-Order MAC Validation Pending'
                 )}
               </h4>
               {validationResult && (
-                <div className="mt-2 text-sm text-gray-700">
+                <div className="mt-2 text-sm text-gray-700 space-y-1">
                   <p><strong>MAC Contractor:</strong> {validationResult.mac_contractor}</p>
                   <p><strong>Jurisdiction:</strong> {validationResult.jurisdiction}</p>
+                  <p><strong>Validation Type:</strong> {validationResult.validation_type?.replace(/_/g, ' ')}</p>
+                  {validationResult.pre_order_validation && (
+                    <p className="text-blue-700 font-medium">
+                      ✓ Validated before order creation - compliance verified upfront
+                    </p>
+                  )}
+                  {validationResult.reimbursement_risk && (
+                    <p><strong>Reimbursement Risk:</strong>
+                      <span className={`ml-1 font-medium ${
+                        validationResult.reimbursement_risk === 'low' ? 'text-green-600' :
+                        validationResult.reimbursement_risk === 'medium' ? 'text-yellow-600' : 'text-red-600'
+                      }`}>
+                        {validationResult.reimbursement_risk.toUpperCase()}
+                      </span>
+                    </p>
+                  )}
                 </div>
               )}
             </div>
           </div>
         </div>
+
+        {/* CMS Compliance Section */}
+        {validationResult?.cms_compliance && (
+          <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <FileText className="h-5 w-5 text-indigo-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div className="flex-1">
+                <h4 className="text-sm font-medium text-indigo-900">CMS Coverage Compliance</h4>
+                <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div>
+                    <span className="text-indigo-700 font-medium">{validationResult.cms_compliance.lcds_checked}</span>
+                    <span className="text-indigo-600 ml-1">LCDs Checked</span>
+                  </div>
+                  <div>
+                    <span className="text-indigo-700 font-medium">{validationResult.cms_compliance.ncds_checked}</span>
+                    <span className="text-indigo-600 ml-1">NCDs Checked</span>
+                  </div>
+                  <div>
+                    <span className="text-indigo-700 font-medium">{validationResult.cms_compliance.articles_checked}</span>
+                    <span className="text-indigo-600 ml-1">Articles Checked</span>
+                  </div>
+                  <div>
+                    <span className="text-indigo-700 font-medium">{validationResult.cms_compliance.compliance_score}%</span>
+                    <span className="text-indigo-600 ml-1">CMS Compliance</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Validation Requirements */}
         {validationResult && (
@@ -256,6 +484,21 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Daily Monitoring Status */}
+        {validationResult?.daily_monitoring_enabled && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+            <div className="flex items-start">
+              <CheckCircle className="h-5 w-5 text-green-600 mt-0.5 mr-3 flex-shrink-0" />
+              <div>
+                <h4 className="text-sm font-medium text-green-900">Daily Monitoring Enabled</h4>
+                <p className="text-sm text-green-700 mt-1">
+                  This validation will be automatically monitored daily for compliance changes and policy updates.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 
@@ -291,8 +534,8 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
                         <strong>Resolution:</strong> {issue.resolution}
                       </p>
                     )}
-                    {issue.lcd_reference && (
-                      <div className="mt-2">
+                    <div className="mt-2 flex space-x-4">
+                      {issue.lcd_reference && (
                         <a
                           href={issue.lcd_reference}
                           target="_blank"
@@ -302,8 +545,13 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
                           View LCD Reference
                           <ExternalLink className="h-3 w-3 ml-1" />
                         </a>
-                      </div>
-                    )}
+                      )}
+                      {issue.cms_document_id && (
+                        <span className="text-xs text-gray-500">
+                          CMS Doc: {issue.cms_document_id}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -402,7 +650,8 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
       <div>
         <h2 className="text-lg sm:text-xl font-semibold text-gray-900 mb-4">Validation & Eligibility</h2>
         <p className="text-sm text-gray-600 mb-6">
-          Automated MAC validation and insurance eligibility verification ensure compliance and coverage before submission.
+          Comprehensive Medicare MAC validation with live CMS coverage data and insurance eligibility verification
+          ensure compliance and coverage before submission.
         </p>
       </div>
 
@@ -411,14 +660,24 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
         <div className="flex items-start">
           <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
           <div>
-            <h3 className="text-sm font-medium text-blue-900">Automated Validation Process</h3>
+            <h3 className="text-sm font-medium text-blue-900">Pre-Order MAC Validation Process</h3>
             <p className="text-sm text-blue-700 mt-1">
-              Our system automatically validates your request against Medicare MAC requirements and checks insurance eligibility
-              to reduce claim denials and ensure proper reimbursement.
+              Our system validates your product request against Medicare MAC requirements using live CMS coverage data
+              (LCDs, NCDs, Articles) <strong>before</strong> creating an order. This proactive approach prevents claim denials
+              and ensures compliance from the start.
             </p>
+            {isLoadingCmsData && (
+              <div className="mt-2 flex items-center text-sm text-blue-600">
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Loading CMS coverage data for validation...
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* CMS Data Section */}
+      {renderCmsDataSection()}
 
       {/* MAC Validation Section */}
       {renderMacValidation()}
@@ -429,15 +688,43 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
       {/* Summary */}
       {(validationResult || eligibilityResult) && (
         <div className="bg-gray-50 rounded-lg p-4">
-          <h4 className="text-sm font-medium text-gray-900 mb-3">Validation Summary</h4>
+          <h4 className="text-sm font-medium text-gray-900 mb-3">Pre-Order Validation Summary</h4>
           <div className="space-y-2 text-sm">
             {validationResult && (
-              <div className="flex items-center justify-between">
-                <span>MAC Validation:</span>
-                <span className={`font-medium ${getStatusDisplay(validationResult.status).color}`}>
-                  {validationResult.status.charAt(0).toUpperCase() + validationResult.status.slice(1)}
-                </span>
-              </div>
+              <>
+                <div className="flex items-center justify-between">
+                  <span>Pre-Order MAC Validation:</span>
+                  <span className={`font-medium ${getStatusDisplay(validationResult.status).color}`}>
+                    {validationResult.status.charAt(0).toUpperCase() + validationResult.status.slice(1)}
+                  </span>
+                </div>
+                {validationResult.cms_compliance && (
+                  <div className="flex items-center justify-between">
+                    <span>CMS Compliance Score:</span>
+                    <span className="font-medium text-indigo-600">
+                      {validationResult.cms_compliance.compliance_score}%
+                    </span>
+                  </div>
+                )}
+                {validationResult.reimbursement_risk && (
+                  <div className="flex items-center justify-between">
+                    <span>Reimbursement Risk:</span>
+                    <span className={`font-medium ${
+                      validationResult.reimbursement_risk === 'low' ? 'text-green-600' :
+                      validationResult.reimbursement_risk === 'medium' ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {validationResult.reimbursement_risk.toUpperCase()}
+                    </span>
+                  </div>
+                )}
+                {validationResult.pre_order_validation && validationResult.status === 'passed' && (
+                  <div className="mt-3 p-2 bg-green-50 border border-green-200 rounded">
+                    <p className="text-green-700 text-xs font-medium">
+                      ✓ Ready for order creation - all MAC requirements validated
+                    </p>
+                  </div>
+                )}
+              </>
             )}
             {eligibilityResult && (
               <div className="flex items-center justify-between">

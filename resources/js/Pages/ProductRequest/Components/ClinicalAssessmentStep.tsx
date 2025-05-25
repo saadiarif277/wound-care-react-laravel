@@ -3,6 +3,7 @@ import { AlertCircle, ChevronRight, Info, Loader2 } from 'lucide-react';
 import WoundCareAssessmentForm from './ClinicalAssessment/WoundCareAssessmentForm';
 import PulmonaryWoundAssessmentForm from './ClinicalAssessment/PulmonaryWoundAssessmentForm';
 import VascularAssessmentForm from './ClinicalAssessment/VascularAssessmentForm';
+import { apiPost, handleApiResponse } from '@/lib/api';
 
 interface ClinicalAssessmentStepProps {
   formData: any;
@@ -76,21 +77,14 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
     setIsValidating(true);
     try {
       // Call validation API based on assessment type
-      const response = await fetch('/api/v1/validation-builder/validate-section', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          section: sectionId,
-          data: formData.clinical_data[sectionId] || {},
-          wound_type: formData.wound_type,
-          assessment_type: assessmentType,
-        }),
+      const response = await apiPost('/api/v1/validation-builder/validate-section', {
+        section: sectionId,
+        data: formData.clinical_data[sectionId] || {},
+        wound_type: formData.wound_type,
+        assessment_type: assessmentType,
       });
 
-      const result = await response.json();
+      const result = await handleApiResponse(response);
 
       if (result.errors) {
         setValidationErrors(prev => ({
