@@ -15,6 +15,9 @@ class ProductController extends Controller
      */
     public function index(Request $request)
     {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
         $query = Product::active();
 
         // Apply search filter
@@ -43,11 +46,23 @@ class ProductController extends Controller
 
         $products = $query->paginate(12)->appends($request->all());
 
+        // Filter pricing data based on user role
+        $products->getCollection()->transform(function ($product) use ($userRole) {
+            return $this->filterProductPricingData($product, $userRole);
+        });
+
         return Inertia::render('Products/Index', [
             'products' => $products,
             'categories' => Product::getCategories(),
             'manufacturers' => Product::getManufacturers(),
             'filters' => $request->only(['search', 'category', 'manufacturer', 'sort', 'direction']),
+            'roleRestrictions' => [
+                'can_view_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ]
         ]);
     }
 
@@ -56,8 +71,21 @@ class ProductController extends Controller
      */
     public function show(Product $product)
     {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
+        // Filter pricing data based on user role
+        $filteredProduct = $this->filterProductPricingData($product, $userRole);
+
         return Inertia::render('Products/Show', [
-            'product' => $product,
+            'product' => $filteredProduct,
+            'roleRestrictions' => [
+                'can_view_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ]
         ]);
     }
 
@@ -171,6 +199,9 @@ class ProductController extends Controller
      */
     public function search(Request $request)
     {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
         $query = Product::active();
 
         if ($request->filled('q')) {
@@ -185,8 +216,8 @@ class ProductController extends Controller
             ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'price_per_sq_cm', 'available_sizes'])
             ->limit(20)
             ->get()
-            ->map(function ($product) {
-                return [
+            ->map(function ($product) use ($userRole) {
+                $data = [
                     'id' => $product->id,
                     'label' => $product->name,
                     'name' => $product->name,
@@ -194,9 +225,16 @@ class ProductController extends Controller
                     'q_code' => $product->q_code,
                     'manufacturer' => $product->manufacturer,
                     'nationalAsp' => $product->price_per_sq_cm,
-                    'pricePerSqCm' => $product->msc_price,
                     'graphSizes' => $product->available_sizes ?? [],
                 ];
+
+                // Add MSC pricing only if role allows
+                if ($userRole->canSeeMscPricing()) {
+                    $data['pricePerSqCm'] = $product->msc_price;
+                    $data['mscPrice'] = $product->msc_price;
+                }
+
+                return $data;
             });
 
         return response()->json($products);
@@ -207,7 +245,10 @@ class ProductController extends Controller
      */
     public function apiShow(Product $product)
     {
-        return response()->json([
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
+        $data = [
             'id' => $product->id,
             'name' => $product->name,
             'sku' => $product->sku,
@@ -216,12 +257,21 @@ class ProductController extends Controller
             'category' => $product->category,
             'description' => $product->description,
             'national_asp' => $product->price_per_sq_cm,
-            'msc_price' => $product->msc_price,
             'available_sizes' => $product->available_sizes ?? [],
             'image_url' => $product->image_url,
             'document_urls' => $product->document_urls ?? [],
-            'commission_rate' => $product->commission_rate,
-        ]);
+        ];
+
+        // Add financial data only if role allows
+        if ($userRole->canSeeMscPricing()) {
+            $data['msc_price'] = $product->msc_price;
+        }
+
+        if ($userRole->canAccessFinancials()) {
+            $data['commission_rate'] = $product->commission_rate;
+        }
+
+        return response()->json($data);
     }
 
     /**
@@ -229,6 +279,9 @@ class ProductController extends Controller
      */
     public function getAll(Request $request)
     {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
         $query = Product::active();
 
         // Apply search filter
@@ -254,8 +307,8 @@ class ProductController extends Controller
             ])
             ->orderBy('name')
             ->get()
-            ->map(function ($product) {
-                return [
+            ->map(function ($product) use ($userRole) {
+                $data = [
                     'id' => $product->id,
                     'name' => $product->name,
                     'sku' => $product->sku,
@@ -264,11 +317,21 @@ class ProductController extends Controller
                     'category' => $product->category,
                     'description' => $product->description,
                     'price_per_sq_cm' => $product->price_per_sq_cm,
-                    'msc_price' => $product->msc_price,
                     'available_sizes' => $product->available_sizes ?? [],
                     'image_url' => $product->image_url,
-                    'commission_rate' => $product->commission_rate,
                 ];
+
+                // Add MSC pricing only if role allows
+                if ($userRole->canSeeMscPricing()) {
+                    $data['msc_price'] = $product->msc_price;
+                }
+
+                // Add commission data only if role allows
+                if ($userRole->canAccessFinancials()) {
+                    $data['commission_rate'] = $product->commission_rate;
+                }
+
+                return $data;
             });
 
         $categories = Product::getCategories();
@@ -412,5 +475,27 @@ class ProductController extends Controller
 
         // If no suitable size found, return the largest available
         return max($availableSizes);
+    }
+
+    /**
+     * Filter product pricing data based on user role
+     */
+    private function filterProductPricingData($product, $userRole)
+    {
+        // Create a copy of the product data
+        $filteredProduct = $product->toArray();
+
+        // Office managers should only see National ASP pricing
+        if (!$userRole->canSeeMscPricing()) {
+            unset($filteredProduct['msc_price']);
+        }
+
+        // Remove commission data if not authorized
+        if (!$userRole->canAccessFinancials()) {
+            unset($filteredProduct['commission_rate']);
+        }
+
+        // Convert back to object for consistency
+        return (object) $filteredProduct;
     }
 }

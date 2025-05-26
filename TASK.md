@@ -101,11 +101,16 @@
   - [✅] MSC pricing calculation (40% discount from National ASP)
   - [✅] Available sizes management and pricing per size
   - [✅] Commission rate tracking per product
-  - [✅] **Role-based pricing visibility (Office Manager restrictions)**
+  - [✅] **Comprehensive Role-based Financial Restrictions (Completed)**
     - [✅] Backend API filtering of MSC pricing data based on user role
     - [✅] Frontend component updates for conditional pricing display
     - [✅] ProductSelector and AIRecommendationCard role-based pricing
     - [✅] ProductCard pricing restrictions for office managers
+    - [✅] Product catalog index page with role-aware pricing display
+    - [✅] Product detail pages with financial data filtering
+    - [✅] All API endpoints filter pricing data based on user role
+    - [✅] Consistent PricingDisplay component usage across all product views
+    - [✅] Financial restriction notices and user communication
     - [✅] Test suite for verifying pricing visibility restrictions
 - [ ] Inventory tracking
 - [ ] Product documentation management (images, brochures, IFUs)
@@ -267,10 +272,10 @@
   - [ ] Email notification system integration (future enhancement)
   - [ ] Automatic user account creation upon approval (future enhancement)
 
-### ✅ **COMPLETED: Role-Based Menu Structure & Financial Restrictions (Phase 4)**
+### ✅ **COMPLETED: Comprehensive Role-Based Financial Access Control System (Phase 4)**
 
 #### **Implementation Summary**
-Successfully implemented a comprehensive role-based navigation system with critical financial restrictions for Office Managers, ensuring complete separation of clinical and financial access.
+Successfully implemented a comprehensive role-based navigation system with critical financial restrictions for Office Managers, ensuring complete separation of clinical and financial access across the entire application including dashboards, product catalog, and all API endpoints.
 
 #### **Key Accomplishments**
 
@@ -282,11 +287,13 @@ Successfully implemented a comprehensive role-based navigation system with criti
   - Role-specific routing and access control
   - Responsive design with collapsible sidebar support
 
-##### **2. Critical Office Manager Financial Restrictions**
-- **Complete financial data blocking** - Zero financial visibility
-- **National ASP pricing only** - No discounts, MSC pricing, or special rates
+##### **2. Critical Office Manager Financial Restrictions (Application-Wide)**
+- **Complete financial data blocking** - Zero financial visibility across all features
+- **National ASP pricing only** - No discounts, MSC pricing, or special rates anywhere
 - **Order total restrictions** - No amounts owed or financial summaries
 - **Commission data blocking** - No access to any commission information
+- **Product catalog restrictions** - MSC pricing hidden in all product views
+- **API-level enforcement** - All endpoints filter financial data by role
 
 ##### **3. Backend Security Implementation**
 - **Middleware**: `app/Http/Middleware/FinancialAccessControl.php`
@@ -298,45 +305,86 @@ Successfully implemented a comprehensive role-based navigation system with criti
   - Role-specific dashboard configurations
   - Pricing access level management
   - Customer data restriction handling
+- **ProductController**: `app/Http/Controllers/ProductController.php`
+  - Role-based pricing data filtering in all API endpoints
+  - Consistent financial data sanitization
 
 ##### **4. Frontend Security Components**
 - **PricingDisplay Component**: `resources/js/Components/Pricing/PricingDisplay.tsx`
   - Role-aware pricing visibility (Office Manager sees only National ASP)
   - Automatic financial data filtering
   - Multi-pricing tier support for authorized roles
+  - Consistent usage across all product interfaces
 - **OrderTotalDisplay Component**: Blocks all financial totals for restricted roles
 - **CommissionDisplay Component**: Commission data with access level controls
+- **Product Catalog Components**: Complete role-aware pricing across all views
 
-##### **5. Role Permissions Matrix Implementation**
-| Role | Financial Data | Discounts | MSC Pricing | Order Totals | Commission | PHI Access |
-|------|---------------|-----------|-------------|--------------|------------|------------|
-| Provider | ✅ Full | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | ✅ Yes |
-| Office Manager | ❌ **BLOCKED** | ❌ **BLOCKED** | ❌ **BLOCKED** | ❌ **BLOCKED** | ❌ **BLOCKED** | ✅ Yes |
-| MSC Rep | ✅ Full | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Full | ❌ No |
-| MSC Sub-Rep | ❌ No | ❌ No | ❌ No | ❌ No | 🟡 Limited | ❌ No |
-| MSC Admin | ✅ Full | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Full | ✅ Yes |
-| Super Admin | ✅ Full | ✅ Yes | ✅ Yes | ✅ Yes | ✅ Full | ✅ Yes |
+##### **5. Comprehensive Product Catalog Financial Restrictions**
+- **Product Index Page**: `resources/js/Pages/Products/Index.tsx`
+  - Role-aware pricing display using PricingDisplay component
+  - Dynamic table columns based on role permissions
+  - Financial restriction notices for office managers
+  - Statistics cards filtered by role access
+- **Product Detail Pages**: `resources/js/Pages/Products/Show.tsx`
+  - Complete financial data filtering
+  - Role-aware pricing tables and size calculations
+  - Commission data hidden for unauthorized roles
+- **Product Selector**: `resources/js/Components/ProductCatalog/ProductSelector.tsx`
+  - Consistent role-based pricing in product selection
+  - Financial totals restricted for office managers
+  - AI recommendations with role-aware pricing
+- **API Endpoints**: All product APIs filter financial data by role
+  - `/api/products/search` - MSC pricing filtered
+  - `/api/products/{id}` - Role-based financial data
+  - `/api/products` - Complete role-aware responses
 
-##### **6. Comprehensive Documentation**
+##### **6. Role Permissions Matrix Implementation**
+| Role | Dashboard Financial | Product Catalog | API Endpoints | Commission | PHI Access |
+|------|-------------------|-----------------|---------------|------------|------------|
+| Provider | ✅ Full | ✅ Full Pricing | ✅ Full Data | ❌ No | ✅ Yes |
+| Office Manager | ❌ **BLOCKED** | ❌ **National ASP Only** | ❌ **Filtered** | ❌ **BLOCKED** | ✅ Yes |
+| MSC Rep | ✅ Full | ✅ Full Pricing | ✅ Full Data | ✅ Full | ❌ No |
+| MSC Sub-Rep | ❌ Limited | ❌ Limited | ❌ Limited | 🟡 Limited | ❌ No |
+| MSC Admin | ✅ Full | ✅ Full Pricing | ✅ Full Data | ✅ Full | ✅ Yes |
+| Super Admin | ✅ Full | ✅ Full Pricing | ✅ Full Data | ✅ Full | ✅ Yes |
+
+##### **7. Comprehensive Documentation & Testing**
 - **Documentation**: `docs/ROLE_BASED_MENU_STRUCTURE.md`
 - **Complete portal structure** for all 6 roles
 - **Security implementation details** and compliance notes
 - **Testing scenarios** and validation requirements
+- **Test Script**: `test-product-catalog-restrictions.php`
 - **Configuration file references** for maintenance
 
-##### **7. Shared Data Integration**
+##### **8. Application-Wide Financial Security**
 - **Middleware**: `app/Http/Middleware/HandleInertiaRequests.php`
 - **Automatic role restriction sharing** with React frontend
 - **Real-time permission checking** for dynamic UI updates
 - **Seamless integration** with existing authentication system
+- **Complete API coverage** - All endpoints respect role restrictions
 
 #### **Security & Compliance Features**
-- ✅ **Backend Enforcement**: All restrictions enforced at API level
+- ✅ **Backend Enforcement**: All restrictions enforced at API level across entire application
 - ✅ **Middleware Protection**: Financial routes protected by custom middleware  
-- ✅ **Component-Level Security**: Frontend components respect role restrictions
+- ✅ **Component-Level Security**: All frontend components respect role restrictions
 - ✅ **Data Sanitization**: Sensitive data stripped before sending to unauthorized roles
+- ✅ **Product Catalog Security**: Complete financial data protection in all product views
+- ✅ **API Security**: All product endpoints filter data based on user role
 - ✅ **HIPAA Compliance**: PHI restrictions for sales roles
 - ✅ **Audit Ready**: All access attempts can be logged for compliance
+
+#### **Files Modified/Created**
+1. `app/Http/Middleware/FinancialAccessControl.php` - Financial access middleware
+2. `app/Http/Controllers/DashboardController.php` - Role-based dashboard data
+3. `app/Http/Controllers/ProductController.php` - **NEW**: Complete role-based API filtering
+4. `resources/js/Pages/Dashboard/Provider/ProviderDashboard.tsx` - Financial restrictions
+5. `resources/js/Pages/Dashboard/OfficeManager/OfficeManagerDashboard.tsx` - No financial data
+6. `resources/js/Pages/Products/Index.tsx` - **NEW**: Role-aware product catalog
+7. `resources/js/Pages/Products/Show.tsx` - **NEW**: Role-aware product details
+8. `resources/js/Components/ProductCatalog/ProductSelector.tsx` - **NEW**: Consistent pricing
+9. `resources/js/Components/Pricing/PricingDisplay.tsx` - Role-aware pricing component
+10. `routes/web.php` - Middleware protection and test routes
+11. `test-product-catalog-restrictions.php` - **NEW**: Comprehensive testing script
 
 #### **Next Phase Priorities**
 1. Provider Portal step-through forms with progress indicators
@@ -344,63 +392,6 @@ Successfully implemented a comprehensive role-based navigation system with criti
 3. Prior authorization workflow management
 4. Order management workflow completion
 5. Mobile responsive design enhancements
-- [✅] **PHASE 4 - MSC Portal Role-Based Menu Structure (Completed)**
-  - [✅] **Comprehensive Role-Based Navigation System**
-    - [✅] Provider Portal menu structure (Dashboard, Product Requests, MAC/Eligibility/PA, Product Catalog)
-    - [✅] Office Manager Portal menu structure (with Provider Management)
-    - [✅] MSC Rep Portal menu structure (Customer Orders, Commissions, My Customers)
-    - [✅] MSC Sub-Rep Portal menu structure (limited access)
-    - [✅] MSC Admin Portal menu structure (full admin capabilities)
-    - [✅] Super Admin Portal menu structure (system-wide access)
-  - [✅] **Office Manager Financial Restrictions (Critical Implementation)**
-    - [✅] **Complete Financial Data Blocking**
-      - [✅] NO financial totals visible anywhere
-      - [✅] NO amounts owed displayed
-      - [✅] NO order totals shown
-      - [✅] NO discounts or special pricing visible
-      - [✅] NO MSC pricing access
-      - [✅] ONLY National ASP pricing displayed
-    - [✅] **Backend Enforcement**
-      - [✅] FinancialAccessControl middleware implementation
-      - [✅] UserRole model with financial restriction methods
-      - [✅] API-level data filtering for office managers
-    - [✅] **Frontend Component Security**
-      - [✅] PricingDisplay component with role-based restrictions
-      - [✅] OrderTotalDisplay component blocking financial data
-      - [✅] CommissionDisplay component with access controls
-  - [ ] **Remaining Portal Feature Implementation**
-    - [ ] Provider Portal step-through forms with progress indicators
-    - [ ] MAC validation and eligibility checking interfaces  
-    - [ ] Prior authorization management workflows
-    - [ ] Mobile responsive design enhancements
-  - [ ] MSC Rep Portal Features Implementation
-    - [ ] Commission tracking and statements
-    - [ ] Sales analytics and performance monitoring
-    - [ ] Sub-rep management and coordination
-  - [ ] MSC SubRep Portal Features Implementation
-    - [ ] Limited commission access and tracking
-    - [ ] Sub-rep specific workflows
-    - [ ] Reporting to primary MSC Rep
-  - [ ] MSC Admin Portal Features Implementation
-    - [ ] System administration and configuration
-    - [ ] User management across all roles
-    - [ ] Operational metrics and oversight
-    - [ ] Platform health monitoring
-    - [ ] Advanced data tables with sorting/filtering
-    - [ ] Multi-panel interfaces for related information
-    - [ ] Configuration builders for rules/engines
-  - [ ] SuperAdmin Portal Features Implementation **Not Really Needed at this time**
-    - [ ] Complete system access and control
-    - [ ] Security management and monitoring
-    - [ ] Critical system operations
-    - [ ] Audit oversight and compliance
-    - [ ] System-wide configuration management
-- [ ] Order creation/management UI
-- [ ] Product catalog interface
-- [ ] Eligibility verification UI
-- [ ] MAC validation interface
-- [ ] Clinical forms
-- [ ] Reporting interface
 
 ### UI/UX Improvements
 - [ ] **MSC Portal UI/UX Requirements (From Documentation)**
@@ -611,8 +602,8 @@ Successfully implemented a comprehensive role-based navigation system with criti
 
 ## Completion Status
 
-**Overall Progress: ~80% Complete**
+**Overall Progress: ~85% Complete**
 
-- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**, **Complete role-based menu structure with financial restrictions**, **Critical Office Manager financial data blocking**, **Role-aware pricing components**, **All 6 role-specific dashboards with comprehensive data**, **Persistent global role switcher for development testing**, **Comprehensive validation engine testing suite**, **Enhanced security implementation**, **API documentation with Swagger**, **Performance monitoring and error handling**
+- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**, **Comprehensive role-based financial access control system**, **Critical Office Manager financial data blocking across entire application**, **Complete product catalog with role-aware pricing**, **All 6 role-specific dashboards with comprehensive data**, **Persistent global role switcher for development testing**, **Comprehensive validation engine testing suite**, **Enhanced security implementation**, **API documentation with Swagger**, **Performance monitoring and error handling**, **Application-wide financial restrictions with complete API coverage**
 - 🟡 **In Progress**: Provider Portal step-through forms, Order management workflows, file storage optimization, clinical feature implementation
-- 🔴 **Not Started**: Real payer integrations, FHIR implementation, advanced compliance features, mobile optimization 
+- 🔴 **Not Started**: Real payer integrations, FHIR implementation, advanced compliance features, mobile optimization

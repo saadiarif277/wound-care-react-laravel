@@ -21,6 +21,7 @@ use App\Http\Controllers\RoleController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -208,7 +209,7 @@ Route::middleware(['auth'])->group(function () {
     })->name('ecw.index');
 
     // Commission Management Routes
-    Route::prefix('commission')->group(function () {
+    Route::prefix('commission')->middleware(['financial.access'])->group(function () {
         Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
         Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
         Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
@@ -353,4 +354,24 @@ Route::middleware(['auth'])->group(function () {
             return Inertia::render('Team/Index');
         })->name('team.index');
     });
+
+    // Test route for role restrictions
+    Route::get('/test-role-restrictions', function () {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
+        return response()->json([
+            'user_email' => $user->email,
+            'role_name' => $userRole->name,
+            'role_display_name' => $userRole->display_name,
+            'financial_restrictions' => [
+                'can_access_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ],
+            'dashboard_config' => $userRole->getDashboardConfig(),
+        ]);
+    })->name('test.role-restrictions');
 });
