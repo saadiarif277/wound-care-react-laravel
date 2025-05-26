@@ -532,13 +532,13 @@ class EcwController extends Controller
         $keyResource = openssl_pkey_get_public($pemKey);
 
         if (!$keyResource) {
-            throw new \Exception('Invalid PEM public key');
+            throw new Exception('Invalid PEM public key');
         }
 
         $keyDetails = openssl_pkey_get_details($keyResource);
 
         if ($keyDetails['type'] !== OPENSSL_KEYTYPE_RSA) {
-            throw new \Exception('Only RSA keys are supported');
+            throw new Exception('Only RSA keys are supported');
         }
 
         $n = $keyDetails['rsa']['n'];

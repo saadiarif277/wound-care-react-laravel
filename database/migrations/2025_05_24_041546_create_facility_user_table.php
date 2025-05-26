@@ -14,7 +14,8 @@ return new class extends Migration
         Schema::create('facility_user', function (Blueprint $table) {
             $table->id();
             $table->foreignId('facility_id')->constrained('facilities')->onDelete('cascade');
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+            $table->unsignedInteger('user_id');
+            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
             $table->string('relationship_type')->default('attached'); // attached, managed, supervised
             $table->boolean('is_primary')->default(false); // Primary facility for the user
             $table->boolean('is_active')->default(true);

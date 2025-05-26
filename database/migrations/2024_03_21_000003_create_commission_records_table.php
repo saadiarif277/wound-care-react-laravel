@@ -19,7 +19,7 @@ return new class extends Migration
             $table->string('type'); // direct-rep, sub-rep-share, parent-rep-share
             $table->string('status')->default('pending'); // pending, approved, included_in_payout, paid
             $table->timestamp('calculation_date');
-            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->unsignedInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->unsignedBigInteger('payout_id')->nullable();
             $table->text('notes')->nullable();

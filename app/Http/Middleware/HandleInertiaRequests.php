@@ -29,7 +29,7 @@ class HandleInertiaRequests extends Middleware
     }
 
     /**
-     * Get the effective user role considering test role parameter
+     * Get the effective user role from authenticated user
      */
     private function getEffectiveUserRole(Request $request): ?string
     {
@@ -38,18 +38,7 @@ class HandleInertiaRequests extends Middleware
         }
 
         $user = Auth::user()->load('userRole');
-        $baseRole = $user->userRole->name ?? 'provider';
-
-        // Allow role testing via query parameter (development and staging)
-        if ($request->has('test_role') && app()->environment(['local', 'development', 'staging'])) {
-            $testRole = $request->get('test_role');
-            $validRoles = ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin', 'superadmin'];
-            if (in_array($testRole, $validRoles)) {
-                return $testRole;
-            }
-        }
-
-        return $baseRole;
+        return $user->userRole->name ?? 'provider';
     }
 
     /**
@@ -71,7 +60,6 @@ class HandleInertiaRequests extends Middleware
             'userRole' => function () use ($effectiveUserRole) {
                 return $effectiveUserRole;
             },
-            'showRoleTestSwitcher' => app()->environment(['local', 'development', 'staging']),
             'roleRestrictions' => function () use ($request) {
                 if (!Auth::check()) {
                     return null;

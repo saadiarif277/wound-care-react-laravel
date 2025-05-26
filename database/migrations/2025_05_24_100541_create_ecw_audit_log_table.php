@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('patient_id', 100); // Patient ID from eCW or 'multiple' for searches
             $table->string('action', 50); // Action performed (read, search, etc.)
-            $table->unsignedBigInteger('user_id')->nullable(); // User performing action
+            $table->unsignedInteger('user_id')->nullable(); // User performing action
             $table->json('metadata')->nullable(); // Additional context (search params, etc.)
             $table->string('ip_address', 45)->nullable(); // IPv4 or IPv6 address
             $table->text('user_agent')->nullable(); // Browser/client info

@@ -31,22 +31,17 @@ return new class extends Migration
             CREATE OR REPLACE FUNCTION increment_patient_sequence(
                 p_facility_id INTEGER,
                 p_initials_base VARCHAR(4)
-            ) RETURNS INTEGER AS $$
-            DECLARE
-                current_seq INTEGER;
+            ) RETURNS INTEGER
             BEGIN
-                -- Insert or update sequence record atomically
+                DECLARE current_seq INTEGER;
                 INSERT INTO patient_display_sequences (id, facility_id, initials_base, next_sequence, created_at, updated_at)
-                VALUES (gen_random_uuid(), p_facility_id, p_initials_base, 2, now(), now())
-                ON CONFLICT (facility_id, initials_base)
-                DO UPDATE SET
-                    next_sequence = patient_display_sequences.next_sequence + 1,
-                    updated_at = now()
-                RETURNING next_sequence - 1 INTO current_seq;
-
+                VALUES (UUID(), p_facility_id, p_initials_base, 2, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    next_sequence = next_sequence + 1,
+                    updated_at = NOW();
+                SELECT next_sequence - 1 INTO current_seq FROM patient_display_sequences WHERE facility_id = p_facility_id AND initials_base = p_initials_base;
                 RETURN current_seq;
             END;
-            $$ LANGUAGE plpgsql;
         ');
     }
 

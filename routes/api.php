@@ -8,6 +8,13 @@ use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\Api\EligibilityController;
 use App\Http\Controllers\Api\ValidationBuilderController;
 use App\Http\Controllers\Api\ClinicalOpportunitiesController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\RBACController;
+use App\Http\Controllers\AccessControlController;
+use App\Http\Controllers\Auth\AccessRequestController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -208,22 +215,29 @@ Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function
 Route::get('.well-known/jwks.json', [EcwController::class, 'jwks'])->name('jwks');
 
 // Commission Management Routes
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Commission Rules
-    Route::apiResource('commission-rules', CommissionRuleController::class);
+Route::middleware(['auth:sanctum', 'permission:view-commissions'])->group(function () {
+    Route::get('/commissions', [CommissionController::class, 'index']);
+    Route::get('/commissions/{commission}', [CommissionController::class, 'show']);
+});
 
-    // Commission Records
-    Route::get('commission-records', [CommissionRecordController::class, 'index']);
-    Route::get('commission-records/{record}', [CommissionRecordController::class, 'show']);
-    Route::post('commission-records/{record}/approve', [CommissionRecordController::class, 'approve']);
-    Route::get('commission-records/summary', [CommissionRecordController::class, 'summary']);
+Route::middleware(['auth:sanctum', 'permission:create-commissions'])->group(function () {
+    Route::post('/commissions', [CommissionController::class, 'store']);
+});
 
-    // Commission Payouts
-    Route::get('commission-payouts', [CommissionPayoutController::class, 'index']);
-    Route::post('commission-payouts/generate', [CommissionPayoutController::class, 'generate']);
-    Route::get('commission-payouts/{payout}', [CommissionPayoutController::class, 'show']);
-    Route::post('commission-payouts/{payout}/approve', [CommissionPayoutController::class, 'approve']);
-    Route::post('commission-payouts/{payout}/process', [CommissionPayoutController::class, 'process']);
+Route::middleware(['auth:sanctum', 'permission:edit-commissions'])->group(function () {
+    Route::put('/commissions/{commission}', [CommissionController::class, 'update']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:delete-commissions'])->group(function () {
+    Route::delete('/commissions/{commission}', [CommissionController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:approve-commissions'])->group(function () {
+    Route::post('/commissions/{commission}/approve', [CommissionController::class, 'approve']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:process-commissions'])->group(function () {
+    Route::post('/commissions/{commission}/process', [CommissionController::class, 'process']);
 });
 
 // Health check route (secured)
@@ -235,4 +249,74 @@ Route::middleware(['auth:sanctum'])->group(function () {
             'version' => config('app.version', '1.0.0')
         ]);
     })->name('api.health');
+});
+
+// Role and Permission Management Routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('permissions', PermissionController::class);
+
+    // User Role Management
+    Route::post('users/{user}/roles', [UserController::class, 'assignRoles']);
+    Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole']);
+    Route::put('users/{user}/roles', [UserController::class, 'syncRoles']);
+
+    // RBAC Management Routes
+    Route::middleware(['auth:sanctum', 'permission:manage-rbac'])->group(function () {
+        Route::get('/rbac', [RBACController::class, 'index']);
+        Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit']);
+        Route::get('/rbac/stats', [RBACController::class, 'getSystemStats']);
+        Route::post('/rbac/roles/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus']);
+        Route::get('/rbac/roles/{role}/permissions', [RBACController::class, 'getRolePermissions']);
+        Route::put('/rbac/roles/{role}/permissions', [RBACController::class, 'updateRolePermissions']);
+    });
+
+    // Access Control Management Routes
+    Route::middleware(['auth:sanctum', 'permission:manage-access-control'])->group(function () {
+        Route::get('/access-control/users', [AccessControlController::class, 'getUsersApi']);
+        Route::post('/access-control/users/{user}/assign-role', [AccessControlController::class, 'assignRoleApi']);
+        Route::delete('/access-control/users/{user}/remove-role', [AccessControlController::class, 'removeRoleApi']);
+        Route::get('/access-control/stats', [AccessControlController::class, 'getStats']);
+        Route::get('/access-control/security-monitoring', [AccessControlController::class, 'getSecurityMonitoring']);
+        Route::post('/access-control/mark-reviewed', [AccessControlController::class, 'markAsReviewed']);
+        Route::put('/access-control/users/{user}/role', [AccessControlController::class, 'updateUserRole']);
+        Route::patch('/access-control/users/{user}/status', [AccessControlController::class, 'toggleUserStatus']);
+        Route::delete('/access-control/users/{user}/access', [AccessControlController::class, 'revokeAccess']);
+    });
+
+    // Access Request Routes
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::middleware('permission:view-access-requests')->group(function () {
+            Route::get('/access-requests', [AccessRequestController::class, 'index']);
+            Route::get('/access-requests/{accessRequest}', [AccessRequestController::class, 'show']);
+        });
+
+        Route::middleware('permission:approve-access-requests')->group(function () {
+            Route::post('/access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve']);
+            Route::post('/access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny']);
+        });
+    });
+
+    // Public access request routes (no auth required)
+    Route::post('/access-requests', [AccessRequestController::class, 'store']);
+    Route::get('/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields']);
+
+    // Role Management Routes
+    Route::middleware(['auth:sanctum', 'permission:view-roles'])->group(function () {
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::get('/roles/{role}', [RoleController::class, 'show']);
+        Route::get('/roles/validation/rules', [RoleController::class, 'getValidationRules']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:create-roles'])->group(function () {
+        Route::post('/roles', [RoleController::class, 'store']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:edit-roles'])->group(function () {
+        Route::put('/roles/{role}', [RoleController::class, 'update']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:delete-roles'])->group(function () {
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+    });
 });
