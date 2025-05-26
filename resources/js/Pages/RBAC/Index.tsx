@@ -13,7 +13,7 @@ import {
   FiAlertTriangle,
   FiCheckCircle,
   FiXCircle,
-  FiBarChart3,
+  FiBarChart,
   FiActivity,
   FiClock
 } from 'react-icons/fi';
@@ -161,7 +161,7 @@ export default function RBACIndex({
           <div className="border-b border-gray-200 mb-6">
             <nav className="-mb-px flex space-x-8">
               {[
-                { id: 'overview', label: 'Overview', icon: FiBarChart3 },
+                { id: 'overview', label: 'Overview', icon: FiBarChart },
                 { id: 'roles', label: 'Role Management', icon: FiUsers },
                 { id: 'permissions', label: 'Permissions', icon: FiLock },
                 { id: 'audit', label: 'Security Audit', icon: FiActivity },
