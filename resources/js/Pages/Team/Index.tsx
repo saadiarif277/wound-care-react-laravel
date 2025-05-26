@@ -1,12 +1,12 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
+import MainLayout from '@/Layouts/MainLayout';
 
 export default function Index() {
     return (
-        <Layout>
+        <MainLayout>
             <Head title="Team Management" />
-            
+
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
@@ -19,6 +19,6 @@ export default function Index() {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </MainLayout>
     );
-} 
+}

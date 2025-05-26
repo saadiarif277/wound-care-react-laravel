@@ -1,10 +1,10 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
+import MainLayout from '@/Layouts/MainLayout';
 
 export default function Commission() {
     return (
-        <Layout>
+        <MainLayout>
             <Head title="Commission Engine" />
 
             <div className="py-12">
@@ -19,6 +19,6 @@ export default function Commission() {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </MainLayout>
     );
 }

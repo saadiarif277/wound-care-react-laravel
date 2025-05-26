@@ -1,10 +1,10 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
+import MainLayout from '@/Layouts/MainLayout';
 
 export default function API() {
     return (
-        <Layout>
+        <MainLayout>
             <Head title="API Management" />
 
             <div className="py-12">
@@ -19,6 +19,6 @@ export default function API() {
                     </div>
                 </div>
             </div>
-        </Layout>
+        </MainLayout>
     );
 }
