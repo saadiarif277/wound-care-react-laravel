@@ -1,10 +1,10 @@
 import React from 'react';
 import { Head } from '@inertiajs/react';
-import Layout from '@/Layouts/Layout';
+import MainLayout from '@/Layouts/MainLayout';
 
-export default function CommissionOverview() {
+export default function Overview() {
     return (
-        <Layout>
+        <MainLayout>
             <Head title="Commission Overview" />
 
             <div className="py-12">
@@ -12,11 +12,13 @@ export default function CommissionOverview() {
                     <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                         <div className="p-6 text-gray-900">
                             <h1 className="text-2xl font-semibold mb-6">Commission Overview</h1>
-                            <p className="text-gray-600">Commission overview dashboard coming soon...</p>
+                            <p className="text-gray-600">
+                                View commission summaries, earnings, and payout information.
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
-        </Layout>
+        </MainLayout>
     );
 }
