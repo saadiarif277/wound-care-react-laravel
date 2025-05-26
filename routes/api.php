@@ -12,6 +12,9 @@ use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\RBACController;
+use App\Http\Controllers\AccessControlController;
+use App\Http\Controllers\Auth\AccessRequestController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -257,4 +260,63 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('users/{user}/roles', [UserController::class, 'assignRoles']);
     Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole']);
     Route::put('users/{user}/roles', [UserController::class, 'syncRoles']);
+
+    // RBAC Management Routes
+    Route::middleware(['auth:sanctum', 'permission:manage-rbac'])->group(function () {
+        Route::get('/rbac', [RBACController::class, 'index']);
+        Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit']);
+        Route::get('/rbac/stats', [RBACController::class, 'getSystemStats']);
+        Route::post('/rbac/roles/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus']);
+        Route::get('/rbac/roles/{role}/permissions', [RBACController::class, 'getRolePermissions']);
+        Route::put('/rbac/roles/{role}/permissions', [RBACController::class, 'updateRolePermissions']);
+    });
+
+    // Access Control Management Routes
+    Route::middleware(['auth:sanctum', 'permission:manage-access-control'])->group(function () {
+        Route::get('/access-control/users', [AccessControlController::class, 'getUsersApi']);
+        Route::post('/access-control/users/{user}/assign-role', [AccessControlController::class, 'assignRoleApi']);
+        Route::delete('/access-control/users/{user}/remove-role', [AccessControlController::class, 'removeRoleApi']);
+        Route::get('/access-control/stats', [AccessControlController::class, 'getStats']);
+        Route::get('/access-control/security-monitoring', [AccessControlController::class, 'getSecurityMonitoring']);
+        Route::post('/access-control/mark-reviewed', [AccessControlController::class, 'markAsReviewed']);
+        Route::put('/access-control/users/{user}/role', [AccessControlController::class, 'updateUserRole']);
+        Route::patch('/access-control/users/{user}/status', [AccessControlController::class, 'toggleUserStatus']);
+        Route::delete('/access-control/users/{user}/access', [AccessControlController::class, 'revokeAccess']);
+    });
+
+    // Access Request Routes
+    Route::middleware(['auth:sanctum'])->group(function () {
+        Route::middleware('permission:view-access-requests')->group(function () {
+            Route::get('/access-requests', [AccessRequestController::class, 'index']);
+            Route::get('/access-requests/{accessRequest}', [AccessRequestController::class, 'show']);
+        });
+
+        Route::middleware('permission:approve-access-requests')->group(function () {
+            Route::post('/access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve']);
+            Route::post('/access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny']);
+        });
+    });
+
+    // Public access request routes (no auth required)
+    Route::post('/access-requests', [AccessRequestController::class, 'store']);
+    Route::get('/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields']);
+
+    // Role Management Routes
+    Route::middleware(['auth:sanctum', 'permission:view-roles'])->group(function () {
+        Route::get('/roles', [RoleController::class, 'index']);
+        Route::get('/roles/{role}', [RoleController::class, 'show']);
+        Route::get('/roles/validation/rules', [RoleController::class, 'getValidationRules']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:create-roles'])->group(function () {
+        Route::post('/roles', [RoleController::class, 'store']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:edit-roles'])->group(function () {
+        Route::put('/roles/{role}', [RoleController::class, 'update']);
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:delete-roles'])->group(function () {
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+    });
 });

@@ -23,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register role-based financial access control middleware
         $middleware->alias([
             'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
+            'permission' => \App\Http\Middleware\CheckPermission::class,
         ]);
 
         $middleware->throttleApi();

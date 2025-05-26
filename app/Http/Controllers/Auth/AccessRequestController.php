@@ -3,16 +3,27 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AccessRequestStoreRequest;
+use App\Http\Requests\AccessRequestApprovalRequest;
+use App\Http\Requests\AccessRequestDenialRequest;
 use App\Models\AccessRequest;
+use App\Models\RbacAuditLog;
 use Illuminate\Http\Request;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class AccessRequestController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth')->except(['create', 'store', 'getRoleFields']);
+        $this->middleware('permission:view-access-requests')->only(['index', 'show']);
+        $this->middleware('permission:approve-access-requests')->only(['approve', 'deny']);
+    }
+
     /**
      * Display the access request form
      */
@@ -26,55 +37,32 @@ class AccessRequestController extends Controller
     /**
      * Store a new access request
      */
-    public function store(Request $request): RedirectResponse
+    public function store(AccessRequestStoreRequest $request): RedirectResponse
     {
-        $validator = Validator::make($request->all(), [
-            'first_name' => 'required|string|max:255',
-            'last_name' => 'required|string|max:255',
-            'email' => 'required|email|unique:access_requests,email|unique:users,email',
-            'phone' => 'nullable|string|max:20',
-            'requested_role' => 'required|in:' . implode(',', array_keys(AccessRequest::ROLES)),
-            'request_notes' => 'nullable|string|max:1000',
-
-            // Provider fields
-            'npi_number' => 'required_if:requested_role,provider|nullable|string|max:255',
-            'medical_license' => 'required_if:requested_role,provider|nullable|string|max:255',
-            'license_state' => 'required_if:requested_role,provider|nullable|string|max:2',
-            'specialization' => 'nullable|string|max:255',
-            'facility_name' => 'required_if:requested_role,provider,office_manager|nullable|string|max:255',
-            'facility_address' => 'required_if:requested_role,provider,office_manager|nullable|string|max:500',
-
-            // Office Manager fields
-            'manager_name' => 'required_if:requested_role,office_manager|nullable|string|max:255',
-            'manager_email' => 'required_if:requested_role,office_manager|nullable|email|max:255',
-
-            // MSC Rep fields
-            'territory' => 'required_if:requested_role,msc_rep,msc_subrep|nullable|string|max:255',
-            'manager_contact' => 'required_if:requested_role,msc_rep|nullable|string|max:255',
-            'experience_years' => 'nullable|integer|min:0|max:50',
-
-            // MSC SubRep fields
-            'main_rep_name' => 'required_if:requested_role,msc_subrep|nullable|string|max:255',
-            'main_rep_email' => 'required_if:requested_role,msc_subrep|nullable|email|max:255',
-
-            // MSC Admin fields
-            'department' => 'required_if:requested_role,msc_admin|nullable|string|max:255',
-            'supervisor_name' => 'required_if:requested_role,msc_admin|nullable|string|max:255',
-            'supervisor_email' => 'required_if:requested_role,msc_admin|nullable|email|max:255',
-        ]);
-
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
-
         try {
-            AccessRequest::create($validator->validated());
+            $accessRequest = AccessRequest::create($request->validated());
+
+            // Log the access request creation
+            Log::info('Access request submitted', [
+                'request_id' => $accessRequest->id,
+                'email' => $accessRequest->email,
+                'requested_role' => $accessRequest->requested_role,
+                'ip_address' => request()->ip(),
+            ]);
 
             return redirect()->route('login')->with('success',
                 'Access request submitted successfully! You will receive an email notification within 24 hours regarding the status of your request.');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'An error occurred while submitting your request. Please try again.');
+            Log::error('Failed to create access request', [
+                'error' => $e->getMessage(),
+                'email' => $request->validated()['email'],
+                'requested_role' => $request->validated()['requested_role'],
+                'ip_address' => request()->ip(),
+            ]);
+
+            return back()->with('error', 'An error occurred while submitting your request. Please try again.')
+                ->withInput();
         }
     }
 
@@ -134,14 +122,38 @@ class AccessRequestController extends Controller
     /**
      * Approve an access request
      */
-    public function approve(AccessRequest $accessRequest, Request $request): RedirectResponse
+    public function approve(AccessRequest $accessRequest, AccessRequestApprovalRequest $request): RedirectResponse
     {
-        $request->validate([
-            'admin_notes' => 'nullable|string|max:1000',
-        ]);
-
         try {
-            $accessRequest->approve(Auth::user(), $request->admin_notes);
+            $user = Auth::user();
+            $oldStatus = $accessRequest->status;
+
+            $accessRequest->approve($user, $request->validated()['admin_notes'] ?? null);
+
+            // Log the approval in audit trail
+            RbacAuditLog::logEvent(
+                eventType: 'access_request_approved',
+                entityType: 'access_request',
+                entityId: $accessRequest->id,
+                entityName: $accessRequest->full_name,
+                targetUserEmail: $accessRequest->email,
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => 'approved'],
+                changes: ['status_change' => 'approved'],
+                reason: $request->validated()['admin_notes'] ?? 'Access request approved',
+                metadata: [
+                    'requested_role' => $accessRequest->requested_role,
+                    'request_id' => $accessRequest->id,
+                ]
+            );
+
+            Log::info('Access request approved', [
+                'request_id' => $accessRequest->id,
+                'approved_by' => $user->id,
+                'approved_by_email' => $user->email,
+                'applicant_email' => $accessRequest->email,
+                'requested_role' => $accessRequest->requested_role,
+            ]);
 
             // TODO: Send approval email notification
             // TODO: Create user account
@@ -149,28 +161,65 @@ class AccessRequestController extends Controller
             return back()->with('success', 'Access request approved successfully!');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'An error occurred while approving the request.');
+            Log::error('Failed to approve access request', [
+                'request_id' => $accessRequest->id,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+            ]);
+
+            return back()->with('error', 'An error occurred while approving the request. Please try again.');
         }
     }
 
     /**
      * Deny an access request
      */
-    public function deny(AccessRequest $accessRequest, Request $request): RedirectResponse
+    public function deny(AccessRequest $accessRequest, AccessRequestDenialRequest $request): RedirectResponse
     {
-        $request->validate([
-            'admin_notes' => 'required|string|max:1000',
-        ]);
-
         try {
-            $accessRequest->deny(Auth::user(), $request->admin_notes);
+            $user = Auth::user();
+            $oldStatus = $accessRequest->status;
+
+            $accessRequest->deny($user, $request->validated()['admin_notes']);
+
+            // Log the denial in audit trail
+            RbacAuditLog::logEvent(
+                eventType: 'access_request_denied',
+                entityType: 'access_request',
+                entityId: $accessRequest->id,
+                entityName: $accessRequest->full_name,
+                targetUserEmail: $accessRequest->email,
+                oldValues: ['status' => $oldStatus],
+                newValues: ['status' => 'denied'],
+                changes: ['status_change' => 'denied'],
+                reason: $request->validated()['admin_notes'],
+                metadata: [
+                    'requested_role' => $accessRequest->requested_role,
+                    'request_id' => $accessRequest->id,
+                ]
+            );
+
+            Log::info('Access request denied', [
+                'request_id' => $accessRequest->id,
+                'denied_by' => $user->id,
+                'denied_by_email' => $user->email,
+                'applicant_email' => $accessRequest->email,
+                'requested_role' => $accessRequest->requested_role,
+                'reason' => $request->validated()['admin_notes'],
+            ]);
 
             // TODO: Send denial email notification
 
             return back()->with('success', 'Access request denied.');
 
         } catch (\Exception $e) {
-            return back()->with('error', 'An error occurred while denying the request.');
+            Log::error('Failed to deny access request', [
+                'request_id' => $accessRequest->id,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+            ]);
+
+            return back()->with('error', 'An error occurred while denying the request. Please try again.');
         }
     }
 
