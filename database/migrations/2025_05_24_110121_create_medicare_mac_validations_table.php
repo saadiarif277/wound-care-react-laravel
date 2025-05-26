@@ -96,8 +96,8 @@ return new class extends Migration
             $table->index(['mac_contractor', 'mac_jurisdiction']);
             $table->index(['validation_status', 'validated_at']);
             $table->index(['next_validation_due']);
-            $table->index(['daily_monitoring_enabled', 'last_monitored_at']);
-            $table->index(['provider_specialty', 'validation_type']);
+            $table->index(['daily_monitoring_enabled', 'last_monitored_at'], 'mmv_daily_mon_last_mon_idx');
+            $table->index(['provider_specialty', 'validation_type'], 'mmv_prov_spec_valtype_idx');
         });
     }
 

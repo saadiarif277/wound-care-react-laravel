@@ -14,9 +14,10 @@ return new class extends Migration
         Schema::create('product_requests', function (Blueprint $table) {
             $table->id();
             $table->string('request_number')->unique();
-            $table->foreignId('provider_id')->constrained('users');
+            $table->unsignedInteger('provider_id');
+            $table->foreign('provider_id')->references('id')->on('users')->onDelete('cascade');
             $table->string('patient_fhir_id'); // Reference to PHI in Azure FHIR
-            $table->string('patient_display_id')->nullable(); // Sequential display ID (e.g., "JoSm001")
+            $table->string('patient_display_id', 7)->nullable(); // Sequential display ID (e.g., "JoSm001")
             $table->foreignId('facility_id')->constrained('facilities');
             $table->string('payer_name_submitted');
             $table->string('payer_id')->nullable();

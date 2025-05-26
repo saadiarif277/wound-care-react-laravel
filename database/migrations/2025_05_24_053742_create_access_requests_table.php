@@ -56,7 +56,7 @@ return new class extends Migration
             $table->text('request_notes')->nullable();
             $table->text('admin_notes')->nullable();
             $table->timestamp('reviewed_at')->nullable();
-            $table->unsignedBigInteger('reviewed_by')->nullable();
+            $table->unsignedInteger('reviewed_by')->nullable();
             $table->timestamps();
 
             // Indexes

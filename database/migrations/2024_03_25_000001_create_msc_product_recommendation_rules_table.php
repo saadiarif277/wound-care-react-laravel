@@ -38,8 +38,10 @@ return new class extends Migration
 
             // Evidence and audit
             $table->json('clinical_evidence')->nullable(); // JSON with supporting evidence/studies
-            $table->foreignId('created_by_user_id')->nullable()->constrained('users')->onDelete('set null');
-            $table->foreignId('last_updated_by_user_id')->nullable()->constrained('users')->onDelete('set null');
+            $table->unsignedInteger('created_by_user_id')->nullable();
+            $table->unsignedInteger('last_updated_by_user_id')->nullable();
+            $table->foreign('created_by_user_id')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('last_updated_by_user_id')->references('id')->on('users')->onDelete('set null');
 
             // Temporal validity
             $table->date('effective_date')->nullable();
@@ -50,7 +52,7 @@ return new class extends Migration
 
             // Indexes for performance
             $table->index(['is_active', 'wound_type']);
-            $table->index(['effective_date', 'expiration_date']);
+            $table->index(['effective_date', 'expiration_date'], 'msc_prr_eff_exp_idx');
             $table->index('priority');
         });
     }

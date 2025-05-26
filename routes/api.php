@@ -8,6 +8,10 @@ use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\Api\EligibilityController;
 use App\Http\Controllers\Api\ValidationBuilderController;
 use App\Http\Controllers\Api\ClinicalOpportunitiesController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PermissionController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CommissionController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -208,22 +212,29 @@ Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function
 Route::get('.well-known/jwks.json', [EcwController::class, 'jwks'])->name('jwks');
 
 // Commission Management Routes
-Route::middleware(['auth:sanctum'])->group(function () {
-    // Commission Rules
-    Route::apiResource('commission-rules', CommissionRuleController::class);
+Route::middleware(['auth:sanctum', 'permission:view-commissions'])->group(function () {
+    Route::get('/commissions', [CommissionController::class, 'index']);
+    Route::get('/commissions/{commission}', [CommissionController::class, 'show']);
+});
 
-    // Commission Records
-    Route::get('commission-records', [CommissionRecordController::class, 'index']);
-    Route::get('commission-records/{record}', [CommissionRecordController::class, 'show']);
-    Route::post('commission-records/{record}/approve', [CommissionRecordController::class, 'approve']);
-    Route::get('commission-records/summary', [CommissionRecordController::class, 'summary']);
+Route::middleware(['auth:sanctum', 'permission:create-commissions'])->group(function () {
+    Route::post('/commissions', [CommissionController::class, 'store']);
+});
 
-    // Commission Payouts
-    Route::get('commission-payouts', [CommissionPayoutController::class, 'index']);
-    Route::post('commission-payouts/generate', [CommissionPayoutController::class, 'generate']);
-    Route::get('commission-payouts/{payout}', [CommissionPayoutController::class, 'show']);
-    Route::post('commission-payouts/{payout}/approve', [CommissionPayoutController::class, 'approve']);
-    Route::post('commission-payouts/{payout}/process', [CommissionPayoutController::class, 'process']);
+Route::middleware(['auth:sanctum', 'permission:edit-commissions'])->group(function () {
+    Route::put('/commissions/{commission}', [CommissionController::class, 'update']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:delete-commissions'])->group(function () {
+    Route::delete('/commissions/{commission}', [CommissionController::class, 'destroy']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:approve-commissions'])->group(function () {
+    Route::post('/commissions/{commission}/approve', [CommissionController::class, 'approve']);
+});
+
+Route::middleware(['auth:sanctum', 'permission:process-commissions'])->group(function () {
+    Route::post('/commissions/{commission}/process', [CommissionController::class, 'process']);
 });
 
 // Health check route (secured)
@@ -235,4 +246,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
             'version' => config('app.version', '1.0.0')
         ]);
     })->name('api.health');
+});
+
+// Role and Permission Management Routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('permissions', PermissionController::class);
+
+    // User Role Management
+    Route::post('users/{user}/roles', [UserController::class, 'assignRoles']);
+    Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole']);
+    Route::put('users/{user}/roles', [UserController::class, 'syncRoles']);
 });
