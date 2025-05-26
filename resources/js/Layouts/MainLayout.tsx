@@ -2,6 +2,7 @@ import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
 import { UserRole } from '@/types/roles';
+import { getRoleDisplayName } from '@/lib/roleUtils';
 import React, { useState, useEffect } from 'react';
 import {
   FiLogOut,
@@ -19,6 +20,15 @@ interface MainLayoutProps {
 interface PageProps extends Record<string, unknown> {
   userRole?: UserRole;
   user?: any;
+  auth?: {
+    user?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      photo?: string;
+    };
+  };
 }
 
 export default function MainLayout({ title, children }: MainLayoutProps) {
@@ -29,6 +39,12 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
 
   // Get current path to determine active menu item
   const currentPath = window.location.pathname;
+
+  // Get user data
+  const user = props.auth?.user;
+  const userName = user ? `${user.first_name} ${user.last_name}` : 'User';
+  const userEmail = user?.email || '';
+  const roleDisplayName = currentUserRole ? getRoleDisplayName(currentUserRole) : 'User';
 
   // Update current role when props change
   useEffect(() => {
@@ -118,13 +134,13 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                     <div className="flex-shrink-0">
                       <img
                         className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                        src={user?.photo || "https://via.placeholder.com/100"}
                         alt="User profile"
                       />
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                      <p className="text-xs text-gray-500 truncate">Administrator</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                      <p className="text-xs text-gray-500 truncate">{roleDisplayName}</p>
                     </div>
                   </div>
 
@@ -144,9 +160,9 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                   {/* Collapsed User Avatar */}
                   <img
                     className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
+                    src={user?.photo || "https://via.placeholder.com/80"}
                     alt="User profile"
-                    title="John Doe - Administrator"
+                    title={`${userName} - ${roleDisplayName}`}
                   />
 
                   {/* Collapsed Logout Button */}
