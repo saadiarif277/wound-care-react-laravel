@@ -6,6 +6,7 @@
     "prod": "vite build"
   },
   "dependencies": {
+    "@heroicons/react": "^2.2.0",
     "@inertiajs/react": "^1.0.0",
     "@sentry/browser": "^7.119.1",
     "@tailwindcss/line-clamp": "^0.4.4",
