@@ -7,35 +7,32 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
 use App\Models\ProductRequest;
 use App\Models\Order;
-use App\Models\UserRole;
 use App\Models\User;
 
 class DashboardController extends Controller
 {
     public function index(): Response
     {
-        $user = Auth::user()->load('userRole');
-        $userRole = $user->userRole;
+        $user = Auth::user()->load('roles');
+        $primaryRole = $user->getPrimaryRole();
 
         // Handle case where user doesn't have a role assigned
-        if (!$userRole) {
-            // Create a default provider role or redirect to setup
-            $defaultRole = UserRole::where('name', UserRole::PROVIDER)->first();
+        if (!$primaryRole) {
+            // Assign default provider role
+            $defaultRole = \App\Models\Role::where('slug', 'provider')->first();
             if ($defaultRole) {
-                $user->update(['user_role_id' => $defaultRole->id]);
-                $userRole = $defaultRole;
-            } else {
-                // If no roles exist, create basic provider role
-                $userRole = $this->createDefaultProviderRole();
-                $user->update(['user_role_id' => $userRole->id]);
+                $user->assignRole($defaultRole);
+                $primaryRole = $defaultRole;
             }
         }
 
+        $roleName = $primaryRole ? $primaryRole->slug : 'provider';
+
         // Get role-specific dashboard data
-        $dashboardData = $this->getDashboardDataForRole($user, $userRole);
+        $dashboardData = $this->getDashboardDataForRole($user, $roleName);
 
         // Route to specific role-based dashboard
-        $dashboardComponent = $this->getDashboardComponent($userRole->name);
+        $dashboardComponent = $this->getDashboardComponent($roleName);
 
         return Inertia::render($dashboardComponent, [
             'user' => [
@@ -43,78 +40,112 @@ class DashboardController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'owner' => $user->owner,
-                'role' => $userRole->name,
-                'role_display_name' => $userRole->display_name,
+                'role' => $roleName,
+                'role_display_name' => $primaryRole ? $primaryRole->name : 'Provider',
             ],
             'dashboardData' => $dashboardData,
             'roleRestrictions' => [
-                'can_view_financials' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'pricing_access_level' => $userRole->getPricingAccessLevel(),
-                'commission_access_level' => $userRole->getCommissionAccessLevel(),
-                'can_manage_products' => $userRole->canManageProducts(),
+                'can_view_financials' => $user->hasPermission('view-financials'),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'pricing_access_level' => $this->getPricingAccessLevel($user),
+                'commission_access_level' => $this->getCommissionAccessLevel($user),
+                'can_manage_products' => $user->hasPermission('manage-products'),
             ]
         ]);
     }
 
-    private function getDashboardComponent(string $roleName): string
+
+
+        private function getDashboardDataForRole($user, $roleName): array
+    {
+        $baseData = [
+            'recent_requests' => $this->getRecentRequests($user),
+            'action_items' => $this->getActionItems($user),
+            'metrics' => $this->getMetrics($user),
+        ];
+
+        // Add role-specific data with normalized role handling
+        $normalizedRole = $this->normalizeRoleName($roleName);
+
+        // Add role-specific data based on permissions
+        $roleSpecificData = [];
+
+        if ($user->hasRole('provider')) {
+            $roleSpecificData = $this->getProviderSpecificData($user);
+        } elseif ($user->hasRole('office-manager')) {
+            $roleSpecificData = $this->getOfficeManagerSpecificData($user);
+        } elseif ($user->hasRole('msc-rep')) {
+            $roleSpecificData = $this->getMscRepSpecificData($user);
+        } elseif ($user->hasRole('msc-subrep')) {
+            $roleSpecificData = $this->getMscSubrepSpecificData($user);
+        } elseif ($user->hasRole('msc-admin')) {
+            $roleSpecificData = $this->getMscAdminSpecificData($user);
+        } elseif ($user->isSuperAdmin()) {
+            $roleSpecificData = $this->getSuperAdminSpecificData($user);
+        }
+
+        return array_merge($baseData, $roleSpecificData);
+    }
+
+        /**
+     * Normalize role names to handle legacy inconsistencies (fixes super admin duplication)
+     */
+    private function normalizeRoleName(string $roleName): string
     {
         return match($roleName) {
-            UserRole::PROVIDER => 'Dashboard/Provider/ProviderDashboard',
-            UserRole::OFFICE_MANAGER => 'Dashboard/OfficeManager/OfficeManagerDashboard',
-            UserRole::MSC_REP => 'Dashboard/Sales/MscRepDashboard',
-            UserRole::MSC_SUBREP => 'Dashboard/Sales/MscSubrepDashboard',
-            UserRole::MSC_ADMIN => 'Dashboard/Admin/MscAdminDashboard',
-            UserRole::SUPER_ADMIN => 'Dashboard/Admin/SuperAdminDashboard',
-            'superadmin' => 'Dashboard/Admin/SuperAdminDashboard',
+            'superadmin' => 'super-admin',
+            default => $roleName
+        };
+    }
+
+    /**
+     * Get dashboard component for role (eliminates duplication)
+     */
+    private function getDashboardComponent(string $roleName): string
+    {
+        $normalizedRole = $this->normalizeRoleName($roleName);
+
+        return match($normalizedRole) {
+            'provider' => 'Dashboard/Provider/ProviderDashboard',
+            'office-manager' => 'Dashboard/OfficeManager/OfficeManagerDashboard',
+            'msc-rep' => 'Dashboard/Sales/MscRepDashboard',
+            'msc-subrep' => 'Dashboard/Sales/MscSubrepDashboard',
+            'msc-admin' => 'Dashboard/Admin/MscAdminDashboard',
+            'super-admin' => 'Dashboard/Admin/SuperAdminDashboard',
             default => 'Dashboard/Index'
         };
     }
 
-    private function getDashboardDataForRole($user, $userRole): array
+    /**
+     * Get pricing access level based on user permissions
+     */
+    private function getPricingAccessLevel($user): string
     {
-        $baseData = [
-            'recent_requests' => $this->getRecentRequests($user, $userRole),
-            'action_items' => $this->getActionItems($user, $userRole),
-            'metrics' => $this->getMetrics($user, $userRole),
-        ];
-
-        // Add role-specific data
-        switch ($userRole->name) {
-            case UserRole::PROVIDER:
-                return array_merge($baseData, $this->getProviderSpecificData($user, $userRole));
-
-            case UserRole::OFFICE_MANAGER:
-                return array_merge($baseData, $this->getOfficeManagerSpecificData($user, $userRole));
-
-            case UserRole::MSC_REP:
-                return array_merge($baseData, $this->getMscRepSpecificData($user, $userRole));
-
-            case UserRole::MSC_SUBREP:
-                return array_merge($baseData, $this->getMscSubrepSpecificData($user, $userRole));
-
-            case UserRole::MSC_ADMIN:
-                return array_merge($baseData, $this->getMscAdminSpecificData($user, $userRole));
-
-            case UserRole::SUPER_ADMIN:
-            case 'superadmin':
-                return array_merge($baseData, $this->getSuperAdminSpecificData($user, $userRole));
-
-            default:
-                return $baseData;
-        }
+        if ($user->hasPermission('view-full-pricing')) return 'full';
+        if ($user->hasPermission('view-limited-pricing')) return 'limited';
+        return 'national_asp_only';
     }
 
-    private function getRecentRequests($user, $userRole): array
+    /**
+     * Get commission access level based on user permissions
+     */
+    private function getCommissionAccessLevel($user): string
+    {
+        if ($user->hasPermission('view-full-commission')) return 'full';
+        if ($user->hasPermission('view-limited-commission')) return 'limited';
+        return 'none';
+    }
+
+    private function getRecentRequests($user): array
     {
         $query = ProductRequest::with(['facility'])
             ->where('provider_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(5);
 
-        $requests = $query->get()->map(function ($request) use ($userRole) {
+        $requests = $query->get()->map(function ($request) use ($user) {
             $data = [
                 'id' => $request->id,
                 'request_number' => $request->request_number,
@@ -125,10 +156,9 @@ class DashboardController extends Controller
                 'facility_name' => $request->facility->name ?? 'Unknown Facility',
             ];
 
-            // Add financial data only if role allows it
-            if ($userRole && $userRole->canAccessFinancials() && $userRole->canSeeOrderTotals()) {
+            // Add financial data only if user has permission
+            if ($user->hasPermission('view-financials') && $user->hasPermission('view-order-totals')) {
                 $data['total_amount'] = $request->total_order_value;
-                // Note: amount_owed doesn't exist in the model, removing for now
             }
 
             return $data;
@@ -137,7 +167,7 @@ class DashboardController extends Controller
         return $requests->toArray();
     }
 
-    private function getActionItems($user, $userRole): array
+    private function getActionItems($user): array
     {
         // Get requests that need action - using order_status values that indicate action needed
         $actionItems = ProductRequest::where('provider_id', $user->id)
@@ -160,7 +190,7 @@ class DashboardController extends Controller
         return $actionItems->toArray();
     }
 
-    private function getMetrics($user, $userRole): array
+    private function getMetrics($user): array
     {
         $metrics = [
             'total_requests' => ProductRequest::where('provider_id', $user->id)->count(),
@@ -172,19 +202,17 @@ class DashboardController extends Controller
                 ->count(),
         ];
 
-        // Add financial metrics only if role allows
-        if ($userRole && $userRole->canAccessFinancials()) {
+        // Add financial metrics only if user has permission
+        if ($user->hasPermission('view-financials')) {
             $metrics['total_order_value'] = ProductRequest::where('provider_id', $user->id)
                 ->where('order_status', 'approved')
                 ->sum('total_order_value') ?? 0;
-
-            // Note: total_savings doesn't exist in the model, removing for now
         }
 
         return $metrics;
     }
 
-    private function getProviderSpecificData($user, $userRole): array
+    private function getProviderSpecificData($user): array
     {
         return [
             'clinical_opportunities' => $this->getClinicalOpportunities($user),
@@ -192,7 +220,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function getOfficeManagerSpecificData($user, $userRole): array
+    private function getOfficeManagerSpecificData($user): array
     {
         return [
             'facility_metrics' => $this->getFacilityMetrics($user),
@@ -200,7 +228,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function getMscRepSpecificData($user, $userRole): array
+    private function getMscRepSpecificData($user): array
     {
         return [
             'commission_summary' => $this->getCommissionSummary($user),
@@ -208,7 +236,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function getMscSubrepSpecificData($user, $userRole): array
+    private function getMscSubrepSpecificData($user): array
     {
         return [
             'personal_commission' => $this->getPersonalCommission($user),
@@ -216,7 +244,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function getMscAdminSpecificData($user, $userRole): array
+    private function getMscAdminSpecificData($user): array
     {
         return [
             'business_metrics' => $this->getBusinessMetrics(),
@@ -224,7 +252,7 @@ class DashboardController extends Controller
         ];
     }
 
-    private function getSuperAdminSpecificData($user, $userRole): array
+    private function getSuperAdminSpecificData($user): array
     {
         return [
             'system_metrics' => $this->getSystemMetrics(),
@@ -327,20 +355,7 @@ class DashboardController extends Controller
         return []; // Implement based on approval workflows
     }
 
-    /**
-     * Create a default provider role if none exists
-     */
-    private function createDefaultProviderRole(): UserRole
-    {
-        return UserRole::create([
-            'name' => UserRole::PROVIDER,
-            'display_name' => 'Healthcare Provider',
-            'description' => 'Default provider role for clinical staff',
-            'permissions' => [],
-            'is_active' => true,
-            'hierarchy_level' => 10,
-        ]);
-    }
+
 
     private function getSystemMetrics(): array
     {
