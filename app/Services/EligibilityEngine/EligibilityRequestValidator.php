@@ -8,60 +8,131 @@ use Illuminate\Validation\ValidationException;
 class EligibilityRequestValidator
 {
     /**
-     * Validate an eligibility request payload
+     * Validate eligibility request structure
      */
-    public function validate(array $payload): void
+    public function validate(array $request): void
     {
-        $validator = Validator::make($payload, $this->getRules());
+        $validator = Validator::make($request, [
+            'controlNumber' => 'required|string|max:10',
+            'submitterTransactionIdentifier' => 'required|string|max:50',
+            'tradingPartnerServiceId' => 'required|string',
+
+            // Provider validation
+            'provider.npi' => 'required|string|size:10',
+            'provider.organizationName' => 'required|string|max:100',
+            'provider.providerCode' => 'required|string|max:2',
+            'provider.serviceLocation.address' => 'required|string|max:100',
+            'provider.serviceLocation.city' => 'required|string|max:50',
+            'provider.serviceLocation.state' => 'required|string|size:2',
+            'provider.serviceLocation.postalCode' => 'required|string|max:10',
+
+            // Subscriber validation
+            'subscriber.memberId' => 'required|string|max:50',
+            'subscriber.firstName' => 'required|string|max:50',
+            'subscriber.lastName' => 'required|string|max:50',
+            'subscriber.dateOfBirth' => 'required|string|size:8', // YYYYMMDD
+            'subscriber.gender' => 'required|string|size:1|in:M,F',
+            'subscriber.address.address1' => 'required|string|max:100',
+            'subscriber.address.city' => 'required|string|max:50',
+            'subscriber.address.state' => 'required|string|size:2',
+            'subscriber.address.postalCode' => 'required|string|max:10',
+
+            // Encounter validation
+            'encounter.dateOfService' => 'required|string|size:8', // YYYYMMDD
+            'encounter.serviceTypeCodes' => 'required|array',
+            'encounter.serviceTypeCodes.*' => 'string|max:3',
+            'encounter.placeOfService' => 'required|string|max:2',
+            'encounter.procedureCodes' => 'nullable|array',
+            'encounter.procedureCodes.*' => 'string|max:5'
+        ]);
 
         if ($validator->fails()) {
             throw new ValidationException($validator);
         }
+
+        // Custom validation rules
+        $this->validateNpi($request['provider']['npi']);
+        $this->validateDateFormats($request);
+        $this->validateStateCode($request['provider']['serviceLocation']['state']);
+        $this->validateStateCode($request['subscriber']['address']['state']);
     }
 
     /**
-     * Get validation rules for eligibility request based on official API spec
+     * Validate NPI format
      */
-    private function getRules(): array
+    private function validateNpi(string $npi): void
     {
-        return [
-            // Required top-level fields
-            'controlNumber' => 'required|string|size:9|regex:/^[0-9]+$/',
-            'subscriber' => 'required|array',
+        // NPI must be 10 digits
+        if (!preg_match('/^\d{10}$/', $npi)) {
+            throw new ValidationException(
+                Validator::make([], [])
+                    ->after(function ($validator) {
+                        $validator->errors()->add('provider.npi', 'NPI must be exactly 10 digits');
+                    })
+            );
+        }
 
-            // Optional top-level fields
-            'submitterTransactionIdentifier' => 'sometimes|string|max:50',
-            'tradingPartnerServiceId' => 'sometimes|string|max:80',
-            'tradingPartnerName' => 'sometimes|string|max:80',
-            'provider' => 'sometimes|array',
-            'encounter' => 'sometimes|array',
+        // Optional: Add NPI checksum validation if needed
+    }
 
-            // Provider validation (if present)
-            'provider.organizationName' => 'sometimes|string|max:60',
-            'provider.npi' => 'sometimes|string|size:10|regex:/^[0-9]+$/',
-            'provider.serviceProviderNumber' => 'sometimes|string|max:80',
-            'provider.providerCode' => 'sometimes|string|in:AD,AT,BI,CO,CV,H,HH,LA,OT,P1,P2,PC,PE,R,RF,SB,SK,SU',
-            'provider.taxId' => 'sometimes|string|max:80',
-
-            // Subscriber validation (required)
-            'subscriber.memberId' => 'required|string|min:2|max:80',
-            'subscriber.firstName' => 'required|string|min:1|max:35',
-            'subscriber.lastName' => 'required|string|min:1|max:60',
-            'subscriber.dateOfBirth' => 'required|string|size:8|regex:/^[0-9]+$/',
-            'subscriber.gender' => 'required|string|in:M,F',
-            'subscriber.ssn' => 'sometimes|string|max:50',
-            'subscriber.groupNumber' => 'sometimes|string|max:50',
-            'subscriber.address' => 'sometimes|array',
-            'subscriber.address.address1' => 'sometimes|string|max:55',
-            'subscriber.address.city' => 'sometimes|string|max:30',
-            'subscriber.address.state' => 'sometimes|string|max:2',
-            'subscriber.address.postalCode' => 'sometimes|string|max:15',
-
-            // Encounter validation (if present)
-            'encounter.dateOfService' => 'sometimes|string|size:8|regex:/^[0-9]+$/',
-            'encounter.serviceTypeCodes' => 'sometimes|array|min:1',
-            'encounter.serviceTypeCodes.*' => 'string|max:3',
+    /**
+     * Validate date formats (YYYYMMDD)
+     */
+    private function validateDateFormats(array $request): void
+    {
+        $dates = [
+            'subscriber.dateOfBirth' => $request['subscriber']['dateOfBirth'],
+            'encounter.dateOfService' => $request['encounter']['dateOfService']
         ];
+
+        foreach ($dates as $field => $date) {
+            if (!preg_match('/^\d{8}$/', $date)) {
+                throw new ValidationException(
+                    Validator::make([], [])
+                        ->after(function ($validator) use ($field) {
+                            $validator->errors()->add($field, 'Date must be in YYYYMMDD format');
+                        })
+                );
+            }
+
+            // Validate that it's a real date
+            $year = substr($date, 0, 4);
+            $month = substr($date, 4, 2);
+            $day = substr($date, 6, 2);
+
+            if (!checkdate((int)$month, (int)$day, (int)$year)) {
+                throw new ValidationException(
+                    Validator::make([], [])
+                        ->after(function ($validator) use ($field) {
+                            $validator->errors()->add($field, 'Invalid date');
+                        })
+                );
+            }
+        }
+    }
+
+    /**
+     * Validate state codes
+     */
+    private function validateStateCode(string $state): void
+    {
+        $validStates = [
+            'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
+            'HI', 'ID', 'IL', 'IN', 'IA', 'KS', 'KY', 'LA', 'ME', 'MD',
+            'MA', 'MI', 'MN', 'MS', 'MO', 'MT', 'NE', 'NV', 'NH', 'NJ',
+            'NM', 'NY', 'NC', 'ND', 'OH', 'OK', 'OR', 'PA', 'RI', 'SC',
+            'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY',
+            'DC', 'PR', 'VI', 'GU', 'AS', 'MP'
+        ];
+
+        if (!in_array(strtoupper($state), $validStates)) {
+            throw new ValidationException(
+                Validator::make([], [])
+                    ->after(function ($validator) {
+                        $validator->errors()->add('state', 'Invalid state code');
+                    })
+            );
+        }
     }
 
     /**
