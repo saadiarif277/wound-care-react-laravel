@@ -102,6 +102,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'orders', 'commission', 'customers'],
                 'financial_access' => true,
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // MSC Rep can see full commission data
                 'customer_data_restrictions' => ['no_phi'] // Can see product & commission, NO PHI
             ],
             self::MSC_SUBREP => [
@@ -119,6 +120,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'requests', 'orders', 'management', 'settings'],
                 'financial_access' => true, // FULL financial visibility
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // MSC Admin can see full commission data
                 'admin_capabilities' => [
                     'create_manual_orders',
                     'manage_all_orders',
@@ -136,6 +138,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'requests', 'orders', 'commission', 'management', 'system-admin'],
                 'financial_access' => true, // Complete financial access
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // Super Admin can see full commission data
                 'admin_capabilities' => [
                     'rbac_configuration',
                     'system_access_control',

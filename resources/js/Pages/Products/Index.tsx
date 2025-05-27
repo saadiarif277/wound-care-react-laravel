@@ -39,6 +39,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  commission_access_level: string;
 }
 
 interface Props {
@@ -181,8 +182,8 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
             </span>
           </div>
 
-          {/* Show commission rate only if authorized */}
-          {roleRestrictions.can_view_financials && product.commission_rate && (
+          {/* Show commission rate only if commission access is allowed (RBAC compliant) */}
+          {roleRestrictions.commission_access_level !== 'none' && product.commission_rate && (
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-500">Commission:</span>
               <span className="text-sm font-medium text-green-600">
@@ -253,8 +254,8 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
       <td className="px-6 py-4 text-sm text-gray-500">
         {product.available_sizes?.length || 0} sizes
       </td>
-      {/* Show commission column only if authorized */}
-      {roleRestrictions.can_view_financials && (
+      {/* Show commission column only if commission access is allowed (RBAC compliant) */}
+      {roleRestrictions.commission_access_level !== 'none' && (
         <td className="px-6 py-4 text-sm text-green-600">
           {product.commission_rate ? `${product.commission_rate}%` : 'N/A'}
         </td>
@@ -498,8 +499,8 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Sizes
                     </th>
-                    {/* Show commission column only if authorized */}
-                    {roleRestrictions.can_view_financials && (
+                    {/* Show commission column only if commission access is allowed (RBAC compliant) */}
+                    {roleRestrictions.commission_access_level !== 'none' && (
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Commission
                       </th>

@@ -42,6 +42,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  commission_access_level: string;
 }
 
 interface Props {
@@ -176,8 +177,8 @@ export default function ProductShow({ product, roleRestrictions }: Props) {
                         <span className="text-gray-500">Graph Type:</span>
                         <span className="font-medium">{product.graph_type || 'N/A'}</span>
                       </div>
-                      {/* Show commission only if role allows */}
-                      {roleRestrictions.can_view_financials && product.commission_rate && (
+                      {/* Show commission only if commission access is allowed (RBAC compliant) */}
+                      {roleRestrictions.commission_access_level !== 'none' && product.commission_rate && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Commission Rate:</span>
                           <span className="font-medium text-green-600">{product.commission_rate}%</span>
@@ -213,8 +214,8 @@ export default function ProductShow({ product, roleRestrictions }: Props) {
                         <span className="font-medium">{product.available_sizes?.length || 0} options</span>
                       </div>
 
-                      {/* Show commission only if role allows */}
-                      {roleRestrictions.can_view_financials && product.commission_rate && (
+                      {/* Show commission only if commission access is allowed (RBAC compliant) */}
+                      {roleRestrictions.commission_access_level !== 'none' && product.commission_rate && (
                         <div className="flex justify-between">
                           <span className="text-gray-500">Commission Rate:</span>
                           <span className="font-medium text-green-600">{product.commission_rate}%</span>
