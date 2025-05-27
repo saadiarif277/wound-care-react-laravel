@@ -21,6 +21,8 @@ class MedicareMacValidation extends Model
         'mac_contractor',
         'mac_jurisdiction',
         'mac_region',
+        'patient_zip_code',
+        'addressing_method',
         'validation_type',
         'validation_status',
         'validation_results',
