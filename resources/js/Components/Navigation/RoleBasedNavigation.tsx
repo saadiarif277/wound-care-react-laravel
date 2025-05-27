@@ -30,7 +30,8 @@ import {
   FiBookOpen,
   FiChevronRight,
   FiChevronDown,
-  FiLink
+  FiLink,
+  FiAlertTriangle
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -288,12 +289,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiHome,
           roles: ['msc-admin']
         },
-        {
-          name: 'Request Management',
-          href: '/requests',
-          icon: FiClipboard,
-          roles: ['msc-admin']
-        },
+
         {
           name: 'Order Management',
           href: '#',
@@ -446,72 +442,35 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiUsers,
           roles: ['super-admin', 'superadmin']
         },
+
         {
-          name: 'Product Management',
-          href: '/products',
-          icon: FiPackage,
-          roles: ['super-admin', 'superadmin']
-        },
-        {
-          name: 'Order Management',
-          href: '/orders',
-          icon: FiShoppingCart,
-          roles: ['super-admin', 'superadmin']
-        },
-        {
-          name: 'Request Management',
-          href: '/requests',
-          icon: FiClipboard,
-          roles: ['super-admin', 'superadmin', 'msc-admin']
-        },
-        {
-          name: 'Commission Management',
+          name: 'System Monitoring',
           href: '#',
-          icon: FiDollarSign,
+          icon: FiActivity,
           roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'All Commissions',
-              href: '/commission/admin',
-              icon: FiDollarSign,
+              name: 'System Health',
+              href: '/system/health',
+              icon: FiActivity,
               roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Commission Rules',
-              href: '/commission/rules',
-              icon: FiSettings,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Payout Management',
-              href: '/commission/payouts',
-              icon: FiTrendingUp,
-              roles: ['super-admin', 'superadmin']
-            }
-          ]
-        },
-        {
-          name: 'Customer Management',
-          href: '/customers',
-          icon: FiUsers,
-          roles: ['super-admin', 'superadmin']
-        },
-        {
-          name: 'Reports & Analytics',
-          href: '#',
-          icon: FiBarChart,
-          roles: ['super-admin', 'superadmin'],
-          children: [
-            {
-              name: 'System Reports',
-              href: '/reports/system',
+              name: 'Performance Metrics',
+              href: '/system/performance',
               icon: FiBarChart,
               roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Activity Logs',
-              href: '/reports/activity',
-              icon: FiActivity,
+              name: 'API Monitoring',
+              href: '/system/api-monitoring',
+              icon: FiLink,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Error Tracking',
+              href: '/system/errors',
+              icon: FiAlertTriangle,
               roles: ['super-admin', 'superadmin']
             }
           ]
@@ -523,21 +482,33 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'Database Tools',
-              href: '/admin/database',
+              name: 'Database Management',
+              href: '/system/database',
               icon: FiDatabase,
               roles: ['super-admin', 'superadmin']
             },
             {
               name: 'System Logs',
-              href: '/admin/logs',
+              href: '/system/logs',
               icon: FiFileText,
               roles: ['super-admin', 'superadmin']
             },
             {
               name: 'Configuration',
-              href: '/admin/config',
+              href: '/system/config',
               icon: FiSettings,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Cache Management',
+              href: '/system/cache',
+              icon: FiArchive,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Security Settings',
+              href: '/system/security',
+              icon: FiLock,
               roles: ['super-admin', 'superadmin']
             }
           ]

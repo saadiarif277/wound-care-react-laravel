@@ -25,6 +25,8 @@ class UserRoleSeeder extends Seeder
             'view-order-totals' => 'View order total amounts',
             'view-phi' => 'View protected health information',
             'view-reports' => 'View system reports',
+            'view-customers' => 'View customer information and management',
+            'view-analytics' => 'View analytics and dashboard reports',
 
             // Management permissions
             'edit-users' => 'Edit user information and settings',
@@ -116,6 +118,11 @@ class UserRoleSeeder extends Seeder
                     'manage-commission',
                     'view-reports',
                     'manage-access-control',
+                    'view-customers',
+                    'view-analytics',
+                    'create-orders',
+                    'approve-orders',
+                    'process-orders',
                 ]
             ],
             'super-admin' => [

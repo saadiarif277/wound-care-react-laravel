@@ -86,8 +86,6 @@ Route::get('/', [DashboardController::class, 'index'])
 
 Route::get('/orders',[OrderController::class,'index'])->name('orders');
 
-Route::get('/orders/create',[OrderController::class,'create'])->name('orders.create');
-
 Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');
 
 // Products
@@ -261,13 +259,17 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // MSC Admin routes - Add proper authorization
-    Route::middleware(['permission:view-requests'])->group(function () {
-        Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
-        Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
-    });
 
     Route::middleware(['permission:manage-orders'])->group(function () {
         Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
+    });
+
+    Route::middleware(['permission:view-analytics'])->group(function () {
+        Route::get('/orders/analytics', [OrderController::class, 'analytics'])->name('orders.analytics');
+    });
+
+    Route::middleware(['permission:create-orders'])->group(function () {
+        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
     });
 
     Route::middleware(['permission:manage-products'])->group(function () {
