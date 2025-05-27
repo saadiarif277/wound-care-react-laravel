@@ -257,19 +257,19 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
 
     case 'msc_subrep':
       return [
-          {
+        {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
           roles: ['msc_subrep']
         },
-      {
+        {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
-        roles: ['msc_subrep']
-      },
-              {
+          roles: ['msc_subrep']
+        },
+        {
           name: 'My Commissions',
           href: '/commission',
           icon: FiDollarSign,
@@ -383,61 +383,62 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
         }
       ];
 
+    case 'super_admin':
     case 'superadmin':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Request Management',
           href: '/requests',
           icon: FiClipboard,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Order Management',
           href: '/orders',
           icon: FiShoppingCart,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Commission Overview',
           href: '/commission/overview',
           icon: FiPieChart,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'User & Org Management',
           href: '#',
           icon: FiUsers,
-          roles: ['superadmin'],
+          roles: ['super_admin', 'superadmin'],
           children: [
             {
               name: 'RBAC Configuration',
               href: '/rbac',
               icon: FiLock,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'All Users',
               href: '/users',
               icon: FiUsers,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'System Access Control',
               href: '/access-control',
               icon: FiShield,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Role Management',
               href: '/roles',
               icon: FiUserCheck,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             }
           ]
         },
@@ -445,31 +446,31 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'System Admin',
           href: '#',
           icon: FiSettings,
-          roles: ['superadmin'],
+          roles: ['super_admin', 'superadmin'],
           children: [
             {
               name: 'Platform Configuration',
               href: '/system-admin/config',
               icon: FiSettings,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Integration Settings',
               href: '/system-admin/integrations',
               icon: FiDatabase,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'API Management',
               href: '/system-admin/api',
               icon: FiTool,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Audit Logs',
               href: '/system-admin/audit',
               icon: FiArchive,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             }
           ]
         }
