@@ -25,9 +25,9 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
 - **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
 - **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
-- **RBAC System**: The project uses Role.php + Permission.php as the primary RBAC system (most robust). UserRole.php was a legacy system that should be deleted and replaced with the proper Role/Permission system.
+- **RBAC System**: The project uses Role.php + Permission.php as the primary RBAC system (built by tech lead). UserRole.php was legacy and has been removed. All permission checking should use the HasPermissions trait methods.
 - **RBAC Architecture**: User ↔ Role ↔ Permission with many-to-many relationships using HasPermissions trait
-- **Business Logic**: Business-specific logic (financial access, pricing levels, commission access) should be moved from models to services or configuration files for better maintainability
+- **Permission Checking**: Use `$user->hasPermission('permission-slug')`, `$user->hasRole('role-slug')`, and `$user->hasAnyPermission(['perm1', 'perm2'])` methods
 
 ## Project Conventions
 
