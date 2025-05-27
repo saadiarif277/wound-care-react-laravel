@@ -52,6 +52,8 @@ class DashboardController extends Controller
                 'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
                 'can_see_order_totals' => $userRole->canSeeOrderTotals(),
                 'pricing_access_level' => $userRole->getPricingAccessLevel(),
+                'commission_access_level' => $userRole->getCommissionAccessLevel(),
+                'can_manage_products' => $userRole->canManageProducts(),
             ]
         ]);
     }

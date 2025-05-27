@@ -13,6 +13,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  commission_access_level: string;
 }
 
 interface PricingDisplayProps {
@@ -180,13 +181,16 @@ export function CommissionDisplay({ roleRestrictions, commission, className = ''
   commission?: number | string;
   className?: string;
 }) {
-  // Only users with financial access can see commission data
-  if (!roleRestrictions.can_view_financials) {
+  // Use commission_access_level to determine commission visibility (RBAC compliant)
+  const commissionAccess = roleRestrictions.commission_access_level;
+
+  // No commission access - hide commission completely
+  if (commissionAccess === 'none') {
     return null;
   }
 
-  // Users with limited pricing access have limited commission access
-  if (roleRestrictions.pricing_access_level === 'limited') {
+  // Limited commission access
+  if (commissionAccess === 'limited') {
     return (
       <div className={`text-gray-600 ${className}`}>
         <span className="text-sm">Commission: Limited Access</span>
@@ -194,19 +198,24 @@ export function CommissionDisplay({ roleRestrictions, commission, className = ''
     );
   }
 
-  // Users with full financial access - Full commission visibility
-  if (commission === undefined) {
+  // Full commission access
+  if (commissionAccess === 'full') {
+    if (commission === undefined) {
+      return (
+        <div className={`text-gray-500 ${className}`}>
+          <span className="text-sm">Commission: Not Available</span>
+        </div>
+      );
+    }
+
     return (
-      <div className={`text-gray-500 ${className}`}>
-        <span className="text-sm">Commission: Not Available</span>
+      <div className={className}>
+        <span className="text-sm text-gray-600">Commission: </span>
+        <span className="font-semibold text-green-600">${formatCurrency(commission)}</span>
       </div>
     );
   }
 
-  return (
-    <div className={className}>
-      <span className="text-sm text-gray-600">Commission: </span>
-      <span className="font-semibold text-green-600">${formatCurrency(commission)}</span>
-    </div>
-  );
+  // Fallback - hide commission for unknown access levels
+  return null;
 }

@@ -81,6 +81,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'product-requests', 'eligibility', 'products'],
                 'financial_access' => true,
                 'pricing_access' => 'full', // Can see full pricing including discounts
+                'commission_access' => 'none', // CRITICAL: Provider should NOT see commission data
             ],
             self::OFFICE_MANAGER => [
                 'widgets' => ['provider_coordination', 'facility_management', 'recent_requests', 'operational_metrics'],
@@ -102,6 +103,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'orders', 'commission', 'customers'],
                 'financial_access' => true,
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // MSC Rep can see full commission data
                 'customer_data_restrictions' => ['no_phi'] // Can see product & commission, NO PHI
             ],
             self::MSC_SUBREP => [
@@ -119,6 +121,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'requests', 'orders', 'management', 'settings'],
                 'financial_access' => true, // FULL financial visibility
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // MSC Admin can see full commission data
                 'admin_capabilities' => [
                     'create_manual_orders',
                     'manage_all_orders',
@@ -136,6 +139,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'requests', 'orders', 'commission', 'management', 'system-admin'],
                 'financial_access' => true, // Complete financial access
                 'pricing_access' => 'full',
+                'commission_access' => 'full', // Super Admin can see full commission data
                 'admin_capabilities' => [
                     'rbac_configuration',
                     'system_access_control',
@@ -148,7 +152,13 @@ class UserRole extends Model
             ],
         ];
 
-        return $configs[$this->name] ?? $configs[self::PROVIDER];
+        // Handle both 'super_admin' and 'superadmin' role names
+        $roleName = $this->name;
+        if ($roleName === 'superadmin') {
+            $roleName = self::SUPER_ADMIN;
+        }
+
+        return $configs[$roleName] ?? $configs[self::PROVIDER];
     }
 
     /**
@@ -240,5 +250,14 @@ class UserRole extends Model
         $config = $this->getDashboardConfig();
         $capabilities = $config['admin_capabilities'] ?? [];
         return in_array($capability, $capabilities);
+    }
+
+    /**
+     * Check if role can manage products (create/edit/delete)
+     */
+    public function canManageProducts(): bool
+    {
+        return $this->hasAdminCapability('product_management') ||
+               in_array($this->name, [self::MSC_ADMIN, self::SUPER_ADMIN, 'superadmin']);
     }
 }
