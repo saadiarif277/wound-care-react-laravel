@@ -262,8 +262,68 @@ class User extends Authenticatable
 
     public function hasPermission(string $permission): bool
     {
-        return $this->roles()->whereHas('permissions', function ($query) use ($permission) {
-            $query->where('slug', $permission);
-        })->exists();
+        // Use the new RBAC system based on UserRole
+        if (!$this->userRole) {
+            return false;
+        }
+
+        // Map permissions to roles for the RBAC system
+        $rolePermissions = [
+            'manage-rbac' => ['super_admin', 'superadmin'],
+            'manage_rbac' => ['super_admin', 'superadmin'],
+            'manage-access-control' => ['super_admin', 'superadmin'],
+            'manage_access_control' => ['super_admin', 'superadmin'],
+            'view-users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'view_users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'create-users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'create_users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'edit-users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'edit_users' => ['super_admin', 'superadmin', 'msc_admin'],
+            'delete-users' => ['super_admin', 'superadmin'],
+            'delete_users' => ['super_admin', 'superadmin'],
+            'assign-roles' => ['super_admin', 'superadmin'],
+            'assign_roles' => ['super_admin', 'superadmin'],
+            'manage-super-admin-roles' => ['super_admin', 'superadmin'],
+            'manage_super_admin_roles' => ['super_admin', 'superadmin'],
+            'view-roles' => ['super_admin', 'superadmin'],
+            'view_roles' => ['super_admin', 'superadmin'],
+            'create-roles' => ['super_admin', 'superadmin'],
+            'create_roles' => ['super_admin', 'superadmin'],
+            'edit-roles' => ['super_admin', 'superadmin'],
+            'edit_roles' => ['super_admin', 'superadmin'],
+            'delete-roles' => ['super_admin', 'superadmin'],
+            'delete_roles' => ['super_admin', 'superadmin'],
+            'view-access-requests' => ['super_admin', 'superadmin', 'msc_admin'],
+            'view_access_requests' => ['super_admin', 'superadmin', 'msc_admin'],
+            'approve-access-requests' => ['super_admin', 'superadmin', 'msc_admin'],
+            'approve_access_requests' => ['super_admin', 'superadmin', 'msc_admin'],
+            'view_commission' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep', 'msc_subrep'],
+            'view-commission' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep', 'msc_subrep'],
+            'manage_system_config' => ['super_admin', 'superadmin'],
+            'manage-system-config' => ['super_admin', 'superadmin'],
+            'view_audit_logs' => ['super_admin', 'superadmin'],
+            'view-audit-logs' => ['super_admin', 'superadmin'],
+            'manage_clinical_rules' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage-clinical-rules' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage_recommendation_rules' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage-recommendation-rules' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage_commission_engine' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage-commission-engine' => ['super_admin', 'superadmin', 'msc_admin'],
+            'view_customers' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep'],
+            'view-customers' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep'],
+            'view_team' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep'],
+            'view-team' => ['super_admin', 'superadmin', 'msc_admin', 'msc_rep'],
+            'view_settings' => ['super_admin', 'superadmin', 'msc_admin'],
+            'view-settings' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage_subrep_approvals' => ['super_admin', 'superadmin', 'msc_admin'],
+            'manage-subrep-approvals' => ['super_admin', 'superadmin', 'msc_admin'],
+        ];
+
+        $allowedRoles = $rolePermissions[$permission] ?? [];
+
+        // Normalize the user's role name
+        $userRoleName = $this->userRole->name;
+
+        return in_array($userRoleName, $allowedRoles);
     }
 }

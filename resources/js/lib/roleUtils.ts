@@ -153,6 +153,38 @@ export const ROLE_DEFINITIONS: Record<UserRole, RoleDefinition> = {
       'settings'
     ]
   },
+  super_admin: {
+    id: 'super_admin',
+    name: 'Super Administrator',
+    description: 'Full system access, critical system management, security oversight',
+    category: 'admin',
+    permissions: {
+      canViewFinancials: true,
+      canManageOrders: true,
+      canViewCommissions: true,
+      canManageUsers: true,
+      canConfigureSystem: true,
+      canViewReports: true,
+      canManageTerritory: true,
+      canViewFullPricing: true,
+    },
+    dashboardFeatures: [
+      'system_wide_control',
+      'security_monitoring',
+      'critical_operations',
+      'audit_oversight',
+      'all_metrics',
+      'advanced_configuration'
+    ],
+    navigationItems: [
+      'dashboard',
+      'requests',
+      'orders',
+      'commission',
+      'management',
+      'system-admin'
+    ]
+  },
   superadmin: {
     id: 'superadmin',
     name: 'Super Administrator',
@@ -235,7 +267,7 @@ export function getRolesByCategory(category: 'healthcare' | 'sales' | 'admin'): 
 }
 
 export function isHigherRole(role1: UserRole, role2: UserRole): boolean {
-  const hierarchy = ['provider', 'office_manager', 'msc_subrep', 'msc_rep', 'msc_admin', 'superadmin'];
+  const hierarchy = ['provider', 'office_manager', 'msc_subrep', 'msc_rep', 'msc_admin', 'super_admin', 'superadmin'];
   return hierarchy.indexOf(role1) > hierarchy.indexOf(role2);
 }
 
@@ -247,6 +279,7 @@ export function getDashboardTitle(role: UserRole): string {
     msc_rep: 'MSC Sales Representative Dashboard',
     msc_subrep: 'MSC Sub-Representative Dashboard',
     msc_admin: 'MSC Administrator Dashboard',
+    super_admin: 'Super Administrator Dashboard',
     superadmin: 'Super Administrator Dashboard'
   };
 

@@ -5,6 +5,7 @@ export type UserRole =
   | 'msc_rep'
   | 'msc_subrep'
   | 'msc_admin'
+  | 'super_admin'
   | 'superadmin';
 
 export interface RoleDefinition {

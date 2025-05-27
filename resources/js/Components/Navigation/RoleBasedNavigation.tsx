@@ -50,7 +50,10 @@ interface RoleBasedNavigationProps {
 }
 
 const getMenuByRole = (role: UserRole): MenuItem[] => {
-  switch (role) {
+  // Normalize superadmin to super_admin for consistency
+  const normalizedRole = role === 'superadmin' ? 'super_admin' : role;
+
+  switch (normalizedRole) {
     case 'provider':
       return [
         {
@@ -257,19 +260,19 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
 
     case 'msc_subrep':
       return [
-          {
+        {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
           roles: ['msc_subrep']
         },
-      {
+        {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
-        roles: ['msc_subrep']
-      },
-              {
+          roles: ['msc_subrep']
+        },
+        {
           name: 'My Commissions',
           href: '/commission',
           icon: FiDollarSign,
@@ -375,7 +378,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             }
           ]
         },
-  {
+        {
           name: 'Settings',
           href: '/settings',
           icon: FiSettings,
@@ -383,61 +386,62 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
         }
       ];
 
+    case 'super_admin':
     case 'superadmin':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Request Management',
           href: '/requests',
           icon: FiClipboard,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Order Management',
           href: '/orders',
           icon: FiShoppingCart,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'Commission Overview',
           href: '/commission/overview',
           icon: FiPieChart,
-          roles: ['superadmin']
+          roles: ['super_admin', 'superadmin']
         },
         {
           name: 'User & Org Management',
           href: '#',
           icon: FiUsers,
-          roles: ['superadmin'],
+          roles: ['super_admin', 'superadmin'],
           children: [
             {
               name: 'RBAC Configuration',
               href: '/rbac',
               icon: FiLock,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'All Users',
               href: '/users',
               icon: FiUsers,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'System Access Control',
               href: '/access-control',
               icon: FiShield,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Role Management',
               href: '/roles',
               icon: FiUserCheck,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             }
           ]
         },
@@ -445,31 +449,31 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'System Admin',
           href: '#',
           icon: FiSettings,
-          roles: ['superadmin'],
+          roles: ['super_admin', 'superadmin'],
           children: [
             {
               name: 'Platform Configuration',
               href: '/system-admin/config',
               icon: FiSettings,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Integration Settings',
               href: '/system-admin/integrations',
               icon: FiDatabase,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'API Management',
               href: '/system-admin/api',
               icon: FiTool,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             },
             {
               name: 'Audit Logs',
               href: '/system-admin/audit',
               icon: FiArchive,
-              roles: ['superadmin']
+              roles: ['super_admin', 'superadmin']
             }
           ]
         }
@@ -494,7 +498,21 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
     setOpenMenus(newOpenMenus);
   };
 
+  // Helper function to validate if user can access a menu item
+  const canAccessMenuItem = (item: MenuItem): boolean => {
+    // Normalize the current user role
+    const normalizedRole = userRole === 'superadmin' ? 'super_admin' : userRole;
+
+    // Check if the user's role is in the item's allowed roles
+    return item.roles.includes(normalizedRole) || item.roles.includes(userRole);
+  };
+
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
+    // Only render if user has access to this menu item
+    if (!canAccessMenuItem(item)) {
+      return null;
+    }
+
     const isActive = currentPath === item.href ||
       (item.children && item.children.some(child => currentPath === child.href));
 
@@ -504,7 +522,10 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
     );
 
     const isOpen = openMenus.has(item.name) || isActive || hasActiveChild;
-    const hasChildren = item.children && item.children.length > 0;
+
+    // Filter children to only show accessible ones
+    const accessibleChildren = item.children ? item.children.filter(canAccessMenuItem) : [];
+    const hasAccessibleChildren = accessibleChildren.length > 0;
 
     return (
       <div key={item.name}>
@@ -516,7 +537,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           } ${isCollapsed ? 'justify-center' : ''} ${level > 0 ? 'ml-6' : ''}`}
           title={isCollapsed ? item.name : ''}
           onClick={() => {
-            if (hasChildren && !isCollapsed) {
+            if (hasAccessibleChildren && !isCollapsed) {
               toggleSubmenu(item.name);
             } else if (item.href && item.href !== '#') {
               // Only navigate if href is not a placeholder
@@ -530,7 +551,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           {!isCollapsed && (
             <>
               <span className="truncate flex-1">{item.name}</span>
-              {hasChildren && (
+              {hasAccessibleChildren && (
                 <div className="ml-2">
                   {isOpen ? (
                     <FiChevronDown className="w-4 h-4" />
@@ -542,9 +563,9 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
             </>
           )}
         </div>
-        {hasChildren && isOpen && !isCollapsed && (
+        {hasAccessibleChildren && isOpen && !isCollapsed && (
           <div className="ml-6 mt-2 space-y-1">
-            {item.children!.map((child) => renderMenuItem(child, level + 1))}
+            {accessibleChildren.map((child) => renderMenuItem(child, level + 1))}
           </div>
         )}
       </div>

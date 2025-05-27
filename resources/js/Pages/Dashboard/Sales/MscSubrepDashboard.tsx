@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
 
 interface MscSubrepDashboardProps {
@@ -129,7 +130,10 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8">
+    <MainLayout>
+      <Head title="MSC Sub-Rep Dashboard" />
+
+      <div className="space-y-6">
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header - Mobile Optimized */}
         <div className="pt-4 sm:pt-6 pb-2 sm:pb-4">
@@ -429,6 +433,7 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
             </div>
         </div>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 }

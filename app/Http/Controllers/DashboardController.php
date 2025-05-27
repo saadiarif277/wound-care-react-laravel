@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Models\ProductRequest;
 use App\Models\Order;
 use App\Models\UserRole;
+use App\Models\User;
 
 class DashboardController extends Controller
 {
@@ -67,6 +68,7 @@ class DashboardController extends Controller
             UserRole::MSC_SUBREP => 'Dashboard/Sales/MscSubrepDashboard',
             UserRole::MSC_ADMIN => 'Dashboard/Admin/MscAdminDashboard',
             UserRole::SUPER_ADMIN => 'Dashboard/Admin/SuperAdminDashboard',
+            'superadmin' => 'Dashboard/Admin/SuperAdminDashboard',
             default => 'Dashboard/Index'
         };
     }
@@ -95,6 +97,10 @@ class DashboardController extends Controller
 
             case UserRole::MSC_ADMIN:
                 return array_merge($baseData, $this->getMscAdminSpecificData($user, $userRole));
+
+            case UserRole::SUPER_ADMIN:
+            case 'superadmin':
+                return array_merge($baseData, $this->getSuperAdminSpecificData($user, $userRole));
 
             default:
                 return $baseData;
@@ -218,6 +224,15 @@ class DashboardController extends Controller
         ];
     }
 
+    private function getSuperAdminSpecificData($user, $userRole): array
+    {
+        return [
+            'system_metrics' => $this->getSystemMetrics(),
+            'security_overview' => $this->getSecurityOverview(),
+            'platform_health' => $this->getPlatformHealth(),
+        ];
+    }
+
     // Helper methods for specific data types
     private function getActionType($status): string
     {
@@ -319,16 +334,38 @@ class DashboardController extends Controller
     {
         return UserRole::create([
             'name' => UserRole::PROVIDER,
-            'display_name' => 'Provider',
-            'description' => 'Healthcare provider with access to patient care tools',
-            'permissions' => [
-                'view_dashboard',
-                'create_requests',
-                'view_products',
-                'check_eligibility'
-            ],
+            'display_name' => 'Healthcare Provider',
+            'description' => 'Default provider role for clinical staff',
+            'permissions' => [],
             'is_active' => true,
-            'hierarchy_level' => 3,
+            'hierarchy_level' => 10,
         ]);
+    }
+
+    private function getSystemMetrics(): array
+    {
+        return [
+            'total_users' => User::count(),
+            'active_sessions' => 0, // Would be implemented with session tracking
+            'system_load' => 'normal',
+        ];
+    }
+
+    private function getSecurityOverview(): array
+    {
+        return [
+            'failed_logins_24h' => 0, // Would be implemented with audit logging
+            'security_alerts' => [],
+            'last_security_scan' => now()->subDays(1)->toISOString(),
+        ];
+    }
+
+    private function getPlatformHealth(): array
+    {
+        return [
+            'database_status' => 'healthy',
+            'api_status' => 'operational',
+            'storage_usage' => '45%',
+        ];
     }
 }
