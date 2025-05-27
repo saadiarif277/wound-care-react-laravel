@@ -111,6 +111,7 @@ class UserRoleSeeder extends Seeder
                     'manage-financials',
                     'view-msc-pricing',
                     'view-discounts',
+                    'view-order-totals',
                     'view-commission',
                     'manage-commission',
                     'view-reports',

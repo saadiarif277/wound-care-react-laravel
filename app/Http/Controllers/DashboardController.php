@@ -123,8 +123,13 @@ class DashboardController extends Controller
      */
     private function getPricingAccessLevel($user): string
     {
-        if ($user->hasPermission('view-full-pricing')) return 'full';
-        if ($user->hasPermission('view-limited-pricing')) return 'limited';
+        // Full pricing access includes MSC pricing, discounts, and financial data
+        if ($user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts')) return 'full';
+
+        // Limited pricing access (basic pricing without MSC pricing or discounts)
+        if ($user->hasPermission('view-financials')) return 'limited';
+
+        // No special pricing access - only National ASP
         return 'national_asp_only';
     }
 
@@ -133,8 +138,8 @@ class DashboardController extends Controller
      */
     private function getCommissionAccessLevel($user): string
     {
-        if ($user->hasPermission('view-full-commission')) return 'full';
-        if ($user->hasPermission('view-limited-commission')) return 'limited';
+        if ($user->hasPermission('manage-commission')) return 'full';
+        if ($user->hasPermission('view-commission')) return 'full';
         return 'none';
     }
 
