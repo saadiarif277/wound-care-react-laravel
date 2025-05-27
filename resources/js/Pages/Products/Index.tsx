@@ -40,6 +40,7 @@ interface RoleRestrictions {
   can_see_order_totals: boolean;
   pricing_access_level: string;
   commission_access_level: string;
+  can_manage_products: boolean;
 }
 
 interface Props {
@@ -111,11 +112,15 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
     }).format(price);
   };
 
-  // Get user role for pricing display
+  // Get user role for pricing display and admin capabilities
   const getUserRole = () => {
     if (!roleRestrictions.can_see_msc_pricing) return 'office_manager';
     if (roleRestrictions.pricing_access_level === 'limited') return 'msc_subrep';
-    return 'provider'; // Default for full access roles
+    if (roleRestrictions.commission_access_level === 'full') {
+      // Could be MSC Rep, MSC Admin, or Super Admin - check for admin capabilities
+      return 'msc_admin'; // For now, treat full commission access as admin-level
+    }
+    return 'provider'; // Default for full access roles without commission
   };
 
   const userRole = getUserRole();
@@ -201,13 +206,15 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
             <FiEye className="w-4 h-4" />
             View Details
           </Link>
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            title="Edit Product"
-          >
-            <FiEdit className="w-4 h-4" />
-          </Link>
+          {roleRestrictions.can_manage_products && (
+            <Link
+              href={`/products/${product.id}/edit`}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              title="Edit Product"
+            >
+              <FiEdit className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -269,13 +276,15 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
           >
             <FiEye className="w-4 h-4" />
           </Link>
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="text-gray-600 hover:text-gray-800 transition-colors"
-            title="Edit Product"
-          >
-            <FiEdit className="w-4 h-4" />
-          </Link>
+          {roleRestrictions.can_manage_products && (
+            <Link
+              href={`/products/${product.id}/edit`}
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+              title="Edit Product"
+            >
+              <FiEdit className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </td>
     </tr>
@@ -295,45 +304,55 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                 Manage and browse MSC wound care products
               </p>
             </div>
-            <Link
-              href="/products/create"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <FiPlus className="w-4 h-4" />
-              Add Product
-            </Link>
+                        {/* Show Add Product button only for roles with product management capabilities */}
+            {roleRestrictions.can_manage_products && (
+              <Link
+                href="/products/create"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <FiPlus className="w-4 h-4" />
+                Add Product
+              </Link>
+            )}
           </div>
 
-          {/* Stats */}
+          {/* Role-appropriate Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Products</p>
+                  <p className="text-sm text-gray-500">Available Products</p>
                   <p className="text-2xl font-bold text-gray-900">{products.total}</p>
                 </div>
                 <FiPackage className="w-8 h-8 text-blue-600" />
               </div>
             </div>
+
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Categories</p>
+                  <p className="text-sm text-gray-500">
+                    {roleRestrictions.can_see_msc_pricing ? 'Product Categories' : 'Wound Types'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
                 </div>
                 <FiBarChart className="w-8 h-8 text-green-600" />
               </div>
             </div>
+
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Manufacturers</p>
+                  <p className="text-sm text-gray-500">
+                    {roleRestrictions.can_see_msc_pricing ? 'Manufacturers' : 'Available Brands'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{manufacturers.length}</p>
                 </div>
                 <FiGrid className="w-8 h-8 text-purple-600" />
               </div>
             </div>
-            {/* Show pricing stats only if role allows */}
+
+            {/* Role-specific fourth card */}
             {roleRestrictions.can_see_msc_pricing ? (
               <div className="bg-white p-4 rounded-lg border border-gray-200">
                 <div className="flex items-center justify-between">
@@ -352,11 +371,11 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
               <div className="bg-white p-4 rounded-lg border border-gray-200">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-500">Avg National ASP</p>
+                    <p className="text-sm text-gray-500">
+                      {roleRestrictions.can_view_financials ? 'Clinical Solutions' : 'Treatment Options'}
+                    </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {formatPrice(
-                        products.data.reduce((sum, p) => sum + p.price_per_sq_cm, 0) / products.data.length || 0
-                      )}
+                      {products.data.filter(p => p.category === 'Biologic' || p.category === 'SkinSubstitute').length}
                     </p>
                   </div>
                   <FiDollarSign className="w-8 h-8 text-orange-600" />

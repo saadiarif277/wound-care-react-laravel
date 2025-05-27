@@ -81,6 +81,7 @@ class UserRole extends Model
                 'menu_items' => ['dashboard', 'product-requests', 'eligibility', 'products'],
                 'financial_access' => true,
                 'pricing_access' => 'full', // Can see full pricing including discounts
+                'commission_access' => 'none', // CRITICAL: Provider should NOT see commission data
             ],
             self::OFFICE_MANAGER => [
                 'widgets' => ['provider_coordination', 'facility_management', 'recent_requests', 'operational_metrics'],
@@ -243,5 +244,14 @@ class UserRole extends Model
         $config = $this->getDashboardConfig();
         $capabilities = $config['admin_capabilities'] ?? [];
         return in_array($capability, $capabilities);
+    }
+
+    /**
+     * Check if role can manage products (create/edit/delete)
+     */
+    public function canManageProducts(): bool
+    {
+        return $this->hasAdminCapability('product_management') ||
+               in_array($this->name, [self::MSC_ADMIN, self::SUPER_ADMIN]);
     }
 }

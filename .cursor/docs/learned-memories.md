@@ -28,4 +28,14 @@
 - **User permissions**: `$request->user()->hasPermission($permission)` method
 - **Frontend roleRestrictions**: Passed from controllers to React components
 - **NO direct role checks**: Avoid `hasRole()`, `isSuperAdmin()`, etc. in business logic
-- **Commission Access Levels**: 'none', 'limited', 'full' based on role configuration 
+- **Commission Access Levels**: 'none', 'limited', 'full' based on role configuration
+- **Product Management Capabilities**: Added `canManageProducts()` method for controlling product CRUD operations
+
+### **Product Catalog Role-Based UI Refinements** (Latest Session)
+- **Provider Role Commission Fix**: Updated Provider role configuration to have `commission_access: 'none'` 
+- **Administrative Controls**: Restricted "Add Product" and "Edit Product" buttons to MSC Admin/Super Admin roles only
+- **Role-Appropriate Dashboard**: Updated stats cards to show contextually relevant information per role
+  - **Clinical Roles (Provider/Office Manager)**: Focus on clinical solutions and treatment options
+  - **Administrative Roles (MSC Admin/Rep)**: Focus on business metrics and product management
+- **UI Security**: All product management controls now properly hidden for non-administrative roles
+- **Commission Visibility**: Complete elimination of commission data display for Provider and Office Manager roles

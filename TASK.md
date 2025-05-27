@@ -99,6 +99,18 @@
         - **Office Manager**: National ASP only, NO commission data  
         - **MSC SubRep**: Limited commission access
         - **MSC Rep/Admin/SuperAdmin**: Full commission access
+      
+    - [✅] **Product Catalog Role-Based UI Refinements** (COMPLETED)
+      - [✅] **Provider Role Commission Visibility**: Fixed Provider role to have `commission_access: 'none'` 
+      - [✅] **Add Product Button**: Restricted to MSC Admin/Super Admin roles only using `can_manage_products` capability
+      - [✅] **Edit Product Controls**: Hidden edit buttons/links for users without product management capabilities
+      - [✅] **Role-Appropriate Stats Cards**: Updated dashboard stats to be contextually relevant per role
+        - **Provider/Office Manager**: "Available Products", "Wound Types", "Available Brands", "Clinical Solutions"
+        - **MSC Admin/Rep**: "Available Products", "Product Categories", "Manufacturers", "Avg MSC Price"
+      - [✅] **UserRole Model Enhancement**: Added `canManageProducts()` method for proper capability checking
+      - [✅] **Backend API Updates**: Added `can_manage_products` to roleRestrictions in ProductController responses
+      - [✅] **Commission Display Fix**: All commission data properly hidden for Provider and Office Manager roles
+      - [✅] **Database Role Assignment Fix**: Corrected `office.manager@mscwound.com` user to have proper `office_manager` role instead of `provider` role
     - [ ] **Frontend Components Audit** (Follow RBAC Pattern Above)
       - [✅] Dashboard components - RBAC implemented
       - [✅] Product components - RBAC implemented

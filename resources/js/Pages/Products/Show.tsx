@@ -43,6 +43,7 @@ interface RoleRestrictions {
   can_see_order_totals: boolean;
   pricing_access_level: string;
   commission_access_level: string;
+  can_manage_products: boolean;
 }
 
 interface Props {
@@ -144,13 +145,15 @@ export default function ProductShow({ product, roleRestrictions }: Props) {
                       </span>
                     </div>
                   </div>
-                  <Link
-                    href={`/products/${product.id}/edit`}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-                  >
-                    <FiEdit className="w-4 h-4" />
-                    Edit Product
-                  </Link>
+                  {roleRestrictions.can_manage_products && (
+                    <Link
+                      href={`/products/${product.id}/edit`}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                      Edit Product
+                    </Link>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
