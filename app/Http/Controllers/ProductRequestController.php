@@ -406,7 +406,7 @@ class ProductRequestController extends Controller
             $recommendations = $recommendationService->getRecommendations($productRequest, [
                 'use_ai' => true,
                 'max_recommendations' => 6,
-                'user_role' => $user->getPrimaryRole()?->slug ?? 'provider',
+                'user_role' => str_replace('-', '_', $user->getPrimaryRole()?->slug ?? 'provider'),
                 'show_msc_pricing' => $user->hasPermission('view-discounts') // Only show MSC pricing if user can see discounts
             ]);
 
