@@ -600,4 +600,237 @@ class CmsCoverageApiService
             'plastic_surgery' => 'Plastic Surgery'
         ];
     }
+
+    /**
+     * Check coverage with correct addressing for MAC validation
+     */
+    public function checkCoverageWithAddressing(array $coverageRequest): array
+    {
+        try {
+            $macJurisdiction = $coverageRequest['mac_jurisdiction'] ?? null;
+            $beneficiaryAddress = $coverageRequest['beneficiary_address'] ?? [];
+            $placeOfService = $coverageRequest['place_of_service'] ?? [];
+            $procedureCodes = $coverageRequest['procedure_codes'] ?? [];
+            $diagnosisCodes = $coverageRequest['diagnosis_codes'] ?? [];
+
+            // Validate required fields
+            if (!$macJurisdiction || empty($beneficiaryAddress) || empty($placeOfService)) {
+                throw new \InvalidArgumentException('MAC jurisdiction, beneficiary address, and place of service are required');
+            }
+
+            // Get LCDs for the MAC jurisdiction/state
+            $beneficiaryState = $beneficiaryAddress['state'] ?? null;
+            $lcds = $this->getLCDsBySpecialty('wound_care_specialty', $beneficiaryState);
+
+            // Get relevant NCDs
+            $ncds = $this->getNCDsBySpecialty('wound_care_specialty');
+
+            // Analyze coverage based on procedure codes and addressing
+            $coverageAnalysis = $this->analyzeCoverageWithAddressing(
+                $procedureCodes,
+                $diagnosisCodes,
+                $lcds,
+                $ncds,
+                $placeOfService,
+                $beneficiaryAddress
+            );
+
+            return [
+                'covered' => $coverageAnalysis['is_covered'],
+                'details' => $coverageAnalysis['coverage_details'],
+                'documentation' => $coverageAnalysis['documentation_requirements'],
+                'prior_authorization_required' => $coverageAnalysis['prior_auth_required'],
+                'mac_jurisdiction' => $macJurisdiction,
+                'beneficiary_state' => $beneficiaryState,
+                'place_of_service_code' => $placeOfService['code'] ?? null,
+                'addressing_compliant' => true,
+                'analysis_timestamp' => now()->toISOString()
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Coverage check with addressing failed', [
+                'error' => $e->getMessage(),
+                'request' => $coverageRequest
+            ]);
+
+            return [
+                'covered' => false,
+                'details' => [],
+                'documentation' => [],
+                'prior_authorization_required' => null,
+                'error' => $e->getMessage(),
+                'addressing_compliant' => false
+            ];
+        }
+    }
+
+    /**
+     * Analyze coverage based on procedure codes, diagnosis codes, and addressing
+     */
+    private function analyzeCoverageWithAddressing(
+        array $procedureCodes,
+        array $diagnosisCodes,
+        array $lcds,
+        array $ncds,
+        array $placeOfService,
+        array $beneficiaryAddress
+    ): array {
+        $coverageResults = [
+            'is_covered' => false,
+            'coverage_details' => [],
+            'documentation_requirements' => [],
+            'prior_auth_required' => false
+        ];
+
+        // Check procedure codes against LCDs
+        foreach ($procedureCodes as $procedureCode) {
+            $procedureCoverage = $this->checkProcedureCodeCoverage($procedureCode, $lcds, $ncds);
+
+            if ($procedureCoverage['covered']) {
+                $coverageResults['is_covered'] = true;
+                $coverageResults['coverage_details'][] = $procedureCoverage;
+
+                // Merge documentation requirements
+                $coverageResults['documentation_requirements'] = array_merge(
+                    $coverageResults['documentation_requirements'],
+                    $procedureCoverage['documentation'] ?? []
+                );
+
+                // Check if prior auth is required
+                if ($procedureCoverage['prior_auth'] ?? false) {
+                    $coverageResults['prior_auth_required'] = true;
+                }
+            }
+        }
+
+        // Validate place of service is appropriate
+        $posValidation = $this->validatePlaceOfServiceForProcedures($procedureCodes, $placeOfService);
+        if (!$posValidation['valid']) {
+            $coverageResults['coverage_details'][] = [
+                'issue' => 'Place of service validation',
+                'message' => $posValidation['message'],
+                'pos_code' => $placeOfService['code'] ?? null
+            ];
+        }
+
+        return $coverageResults;
+    }
+
+    /**
+     * Check if a procedure code is covered based on LCDs and NCDs
+     */
+    private function checkProcedureCodeCoverage(string $procedureCode, array $lcds, array $ncds): array
+    {
+        $coverage = [
+            'procedure_code' => $procedureCode,
+            'covered' => false,
+            'coverage_source' => null,
+            'documentation' => [],
+            'prior_auth' => false
+        ];
+
+        // Check LCDs first
+        foreach ($lcds as $lcd) {
+            if ($this->procedureCodeMatchesLcd($procedureCode, $lcd)) {
+                $coverage['covered'] = true;
+                $coverage['coverage_source'] = 'LCD';
+                $coverage['lcd_title'] = $lcd['title'] ?? '';
+                $coverage['documentation'] = $this->extractDocumentationRequirements($lcd);
+                $coverage['prior_auth'] = $this->requiresPriorAuth($lcd);
+                break;
+            }
+        }
+
+        // Check NCDs if not covered by LCD
+        if (!$coverage['covered']) {
+            foreach ($ncds as $ncd) {
+                if ($this->procedureCodeMatchesNcd($procedureCode, $ncd)) {
+                    $coverage['covered'] = true;
+                    $coverage['coverage_source'] = 'NCD';
+                    $coverage['ncd_title'] = $ncd['title'] ?? '';
+                    $coverage['documentation'] = $this->extractDocumentationRequirements($ncd);
+                    $coverage['prior_auth'] = $this->requiresPriorAuth($ncd);
+                    break;
+                }
+            }
+        }
+
+        return $coverage;
+    }
+
+    /**
+     * Check if procedure code matches LCD criteria
+     */
+    private function procedureCodeMatchesLcd(string $procedureCode, array $lcd): bool
+    {
+        // This would contain actual LCD parsing logic
+        // For now, basic string matching
+        $lcdText = strtolower(($lcd['title'] ?? '') . ' ' . ($lcd['summary'] ?? ''));
+        return str_contains($lcdText, strtolower($procedureCode));
+    }
+
+    /**
+     * Check if procedure code matches NCD criteria
+     */
+    private function procedureCodeMatchesNcd(string $procedureCode, array $ncd): bool
+    {
+        // This would contain actual NCD parsing logic
+        // For now, basic string matching
+        $ncdText = strtolower(($ncd['title'] ?? '') . ' ' . ($ncd['summary'] ?? ''));
+        return str_contains($ncdText, strtolower($procedureCode));
+    }
+
+    /**
+     * Extract documentation requirements from LCD/NCD
+     */
+    private function extractDocumentationRequirements(array $coverageDocument): array
+    {
+        // This would parse the actual LCD/NCD content for documentation requirements
+        // For now, return standard wound care documentation
+        return [
+            'wound_assessment',
+            'treatment_plan',
+            'progress_notes',
+            'physician_orders'
+        ];
+    }
+
+    /**
+     * Check if prior authorization is required
+     */
+    private function requiresPriorAuth(array $coverageDocument): bool
+    {
+        $content = strtolower(($coverageDocument['title'] ?? '') . ' ' . ($coverageDocument['summary'] ?? ''));
+        return str_contains($content, 'prior authorization') || str_contains($content, 'prior auth');
+    }
+
+    /**
+     * Validate place of service for given procedures
+     */
+    private function validatePlaceOfServiceForProcedures(array $procedureCodes, array $placeOfService): array
+    {
+        $posCode = $placeOfService['code'] ?? null;
+
+        if (!$posCode) {
+            return [
+                'valid' => false,
+                'message' => 'Place of service code is required'
+            ];
+        }
+
+        // Basic validation - more sophisticated logic would check specific procedure requirements
+        $validPosCodes = ['11', '21', '22', '23', '24', '31', '12'];
+
+        if (!in_array($posCode, $validPosCodes)) {
+            return [
+                'valid' => false,
+                'message' => "Invalid place of service code: {$posCode}"
+            ];
+        }
+
+        return [
+            'valid' => true,
+            'message' => 'Place of service is valid'
+        ];
+    }
 }
