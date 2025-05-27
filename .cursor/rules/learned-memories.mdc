@@ -203,10 +203,21 @@ This file stores project-specific knowledge, conventions, and user preferences l
   - Admin actions: approve, reject, request additional information
   - Integration points for MAC validation, eligibility results, document generation
   - Order fulfillment tracking with shipping information
-- **Workflow Integration**: Handles orders that originated from Product Request submissions
-- **MSC Portal Alignment**: Follows documented admin workflow for order review, validation, and processing
-- **Route Protection**: Secured with `permission:manage-orders` middleware
-- **Navigation**: Accessible via Order Management → Manage All Orders in MSC Admin role
+
+### **Navigation Menu Alignment with Documentation (COMPLETED)** ✅
+- **Implementation**: Complete alignment of role-based navigation menus with Sidebar_Menu_Structure.md documentation
+- **Changes Made**:
+  - **Provider Portal**: Added "Status" sub-item to Product Requests, Added Pre-Authorization to MAC/Eligibility/PA, Removed eClinicalWorks (not documented)
+  - **Office Manager Portal**: No changes needed - already aligned, Removed eClinicalWorks (not documented)
+  - **MSC Sales Rep Portal**: Changed "Commission Records" to "History" under Commissions section
+  - **MSC Sub-Rep Portal**: No changes needed - already aligned
+  - **MSC Admin Portal**: Added "Request Management" top-level item, Restructured to separate "Engines" as top-level item (Clinical Opportunity Rules, Product Recommendation Rules, Commission Management), Restructured "User & Org Management" section (Access Requests, Sub-Rep Approval Queue, User Management, Organization Management), Added "Settings" top-level item, Removed extra analytics and territory management (not documented)
+  - **Super Admin Portal**: Restructured to match documentation with "Request Management", "Order Management", "Commission Overview", "User & Org Management" (RBAC Configuration, All Users, System Access Control, Role Management), "System Admin" (Platform Configuration, Integration Settings, API Management, Audit Logs)
+- **Technical Updates**:
+  - Updated `RoleBasedNavigation.tsx` component with all role-specific menu structures
+  - Maintained existing navigation functionality (expandable menus, active states, role-based access control)
+  - Ensured all menu items maintain proper icons and href routes
+- **Documentation Compliance**: All role menus now exactly match the structure defined in `docs/ui-ux/Sidebar_Menu_Structure.md`
 
 ## MSC Portal User Roles (Actual System Requirements)
 
