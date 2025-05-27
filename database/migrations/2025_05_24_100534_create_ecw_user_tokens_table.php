@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('ecw_user_tokens', function (Blueprint $table) {
             $table->id();
-            $table->unsignedInteger('user_id');
+            $table->uuid('user_id');
             $table->text('access_token'); // Encrypted access token
             $table->text('refresh_token')->nullable(); // Encrypted refresh token
             $table->string('token_type', 20)->default('Bearer');
@@ -22,7 +22,10 @@ return new class extends Migration
             $table->timestamps();
 
             // Foreign key constraint
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
 
             // Index for performance
             $table->index('user_id');

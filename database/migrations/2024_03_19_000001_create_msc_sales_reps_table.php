@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('msc_sales_reps', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('name');
             $table->string('email')->unique();
             $table->string('phone')->nullable();
             $table->string('territory')->nullable();
             $table->decimal('commission_rate_direct', 5, 2)->default(0); // Base commission rate
             $table->decimal('sub_rep_parent_share_percentage', 5, 2)->default(50); // Parent share when sub-rep makes sale
-            $table->unsignedBigInteger('parent_rep_id')->nullable(); // For hierarchical structure
+            $table->uuid('parent_rep_id')->nullable(); // For hierarchical structure
             $table->boolean('is_active')->default(true);
             $table->timestamps();
             $table->softDeletes();
@@ -27,6 +27,8 @@ return new class extends Migration
             $table->foreign('parent_rep_id')->references('id')->on('msc_sales_reps')->onDelete('set null');
             $table->index('parent_rep_id');
             $table->index('is_active');
+            $table->index('email');
+            $table->index('territory');
         });
     }
 

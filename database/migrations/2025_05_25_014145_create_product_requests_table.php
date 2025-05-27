@@ -12,13 +12,20 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('product_requests', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('request_number')->unique();
-            $table->unsignedInteger('provider_id');
-            $table->foreign('provider_id')->references('id')->on('users')->onDelete('cascade');
+            $table->uuid('provider_id');
+            $table->foreign('provider_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
             $table->string('patient_fhir_id'); // Reference to PHI in Azure FHIR
             $table->string('patient_display_id', 7)->nullable(); // Sequential display ID (e.g., "JoSm001")
-            $table->foreignId('facility_id')->constrained('facilities');
+            $table->uuid('facility_id');
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('restrict');
             $table->string('payer_name_submitted');
             $table->string('payer_id')->nullable();
             $table->date('expected_service_date');
@@ -36,7 +43,11 @@ return new class extends Migration
             $table->timestamp('submitted_at')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->decimal('total_order_value', 10, 2)->nullable();
-            $table->bigInteger('acquiring_rep_id')->nullable();
+            $table->uuid('acquiring_rep_id')->nullable();
+            $table->foreign('acquiring_rep_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
             $table->timestamps();
             $table->softDeletes();
 

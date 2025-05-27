@@ -38,10 +38,16 @@ return new class extends Migration
 
             // Evidence and audit
             $table->json('clinical_evidence')->nullable(); // JSON with supporting evidence/studies
-            $table->unsignedInteger('created_by_user_id')->nullable();
-            $table->unsignedInteger('last_updated_by_user_id')->nullable();
-            $table->foreign('created_by_user_id')->references('id')->on('users')->onDelete('set null');
-            $table->foreign('last_updated_by_user_id')->references('id')->on('users')->onDelete('set null');
+            $table->uuid('created_by_user_id')->nullable();
+            $table->uuid('last_updated_by_user_id')->nullable();
+            $table->foreign('created_by_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+            $table->foreign('last_updated_by_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
 
             // Temporal validity
             $table->date('effective_date')->nullable();

@@ -17,17 +17,23 @@ return new class extends Migration
             // Event identification
             $table->string('event_type'); // role_created, role_updated, role_deleted, permission_assigned, etc.
             $table->string('entity_type'); // role, permission, user_role_assignment
-            $table->unsignedBigInteger('entity_id')->nullable(); // ID of the affected entity
+            $table->uuid('entity_id')->nullable(); // ID of the affected entity
             $table->string('entity_name')->nullable(); // Name of the affected entity for reference
 
             // User who performed the action
-            $table->unsignedInteger('performed_by')->nullable();
-            $table->foreign('performed_by')->references('id')->on('users')->onDelete('set null');
+            $table->uuid('performed_by')->nullable();
+            $table->foreign('performed_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
             $table->string('performed_by_name')->nullable(); // Store name for audit trail even if user deleted
 
             // Target user (for user role assignments)
-            $table->unsignedInteger('target_user_id')->nullable();
-            $table->foreign('target_user_id')->references('id')->on('users')->onDelete('set null');
+            $table->uuid('target_user_id')->nullable();
+            $table->foreign('target_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
             $table->string('target_user_email')->nullable();
 
             // Change details
@@ -49,8 +55,11 @@ return new class extends Migration
             $table->json('metadata')->nullable(); // Additional context data
             $table->boolean('requires_review')->default(false); // Flag for manual review
             $table->timestamp('reviewed_at')->nullable();
-            $table->unsignedInteger('reviewed_by')->nullable();
-            $table->foreign('reviewed_by')->references('id')->on('users')->onDelete('set null');
+            $table->uuid('reviewed_by')->nullable();
+            $table->foreign('reviewed_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
 
             $table->timestamps();
 

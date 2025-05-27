@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('provider_credentials', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->unsignedInteger('provider_id');
+            $table->uuid('provider_id');
 
             // Credential information
             $table->enum('credential_type', [
@@ -48,7 +48,7 @@ return new class extends Migration
                 'revoked'
             ])->default('pending');
             $table->timestamp('verified_at')->nullable();
-            $table->unsignedInteger('verified_by')->nullable()->comment('User who verified the credential');
+            $table->uuid('verified_by')->nullable()->comment('User who verified the credential');
             $table->text('verification_notes')->nullable();
 
             // Document management
@@ -70,8 +70,8 @@ return new class extends Migration
             $table->boolean('is_primary')->default(false)->comment('Primary credential of this type');
 
             // Audit fields
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             // Foreign key constraints
@@ -91,8 +91,14 @@ return new class extends Migration
             $table->index(['expiration_date', 'is_active']);
 
             // Unique constraints
-            $table->unique(['provider_id', 'credential_type', 'credential_number']);
-            $table->unique(['provider_id', 'credential_type', 'is_primary'])->where('is_primary', true);
+            $table->unique(
+                ['provider_id', 'credential_type', 'credential_number'],
+                'provider_cred_unique'
+            );
+            $table->unique(
+                ['provider_id', 'credential_type', 'is_primary'],
+                'provider_primary_cred_unique'
+            )->where('is_primary', true);
         });
     }
 
