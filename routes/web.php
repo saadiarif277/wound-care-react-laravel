@@ -21,6 +21,13 @@ use App\Http\Controllers\RequestController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\RoleController;
+use App\Http\Controllers\PreAuthorizationController;
+use App\Http\Controllers\ProviderController;
+use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\TeamController;
+use App\Http\Controllers\EngineController;
+use App\Http\Controllers\SystemAdminController;
+use App\Http\Controllers\RoleManagementController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -53,32 +60,32 @@ Route::delete('logout', [LoginController::class, 'destroy'])
 // Access Requests (public routes)
 
 Route::get('request-access', [AccessRequestController::class, 'create'])
-    ->name('access-requests.create')
+    ->name('web.access-requests.create')
     ->middleware('guest');
 
 Route::post('request-access', [AccessRequestController::class, 'store'])
-    ->name('access-requests.store')
+    ->name('web.access-requests.store')
     ->middleware('guest');
 
 Route::get('api/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])
-    ->name('api.access-requests.role-fields');
+    ->name('web.access-requests.role-fields');
 
 // Access Request Management (protected routes)
 
 Route::get('access-requests', [AccessRequestController::class, 'index'])
-    ->name('access-requests.index')
+    ->name('web.access-requests.index')
     ->middleware('auth');
 
 Route::get('access-requests/{accessRequest}', [AccessRequestController::class, 'show'])
-    ->name('access-requests.show')
+    ->name('web.access-requests.show')
     ->middleware('auth');
 
 Route::post('access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])
-    ->name('access-requests.approve')
+    ->name('web.access-requests.approve')
     ->middleware('auth');
 
 Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])
-    ->name('access-requests.deny')
+    ->name('web.access-requests.deny')
     ->middleware('auth');
 
 // Dashboard
@@ -225,20 +232,28 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // Office Manager specific routes - Add proper authorization
     Route::middleware(['permission:view-product-requests'])->group(function () {
-        Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
-        Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
+        Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])
+            ->name('product-requests.facility');
+        Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])
+            ->name('product-requests.providers');
+        Route::get('/product-requests/status', [ProductRequestController::class, 'status'])
+            ->name('product-requests.status');
     });
 
     Route::middleware(['permission:view-providers'])->group(function () {
-        Route::get('/providers', function () {
-            return Inertia::render('Providers/Index');
-        })->name('providers.index');
+        Route::get('/providers', [ProviderController::class, 'index'])
+            ->name('providers.index');
+        Route::get('/providers/{provider}', [ProviderController::class, 'show'])
+            ->name('providers.show');
     });
 
     Route::middleware(['permission:manage-pre-authorization'])->group(function () {
-        Route::get('/pre-authorization', function () {
-            return Inertia::render('PreAuthorization/Index');
-        })->name('pre-authorization.index');
+        Route::get('/pre-authorization', [PreAuthorizationController::class, 'index'])
+            ->name('pre-authorization.index');
+        Route::post('/pre-authorization/submit', [PreAuthorizationController::class, 'submit'])
+            ->name('pre-authorization.submit');
+        Route::get('/pre-authorization/status', [PreAuthorizationController::class, 'status'])
+            ->name('pre-authorization.status');
     });
 
     // MSC Admin routes - Add proper authorization
@@ -271,14 +286,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         })->name('subrep-approvals.index');
     });
 
-    // Super Admin routes - Add proper authorization
-    Route::middleware(['permission:manage-rbac'])->group(function () {
-        Route::get('/rbac', [RBACController::class, 'index'])->name('rbac.index');
-        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    // Role Management Routes
+    Route::middleware(['auth', 'role:msc-admin'])->group(function () {
+        Route::get('/roles', [RoleManagementController::class, 'index'])->name('web.roles.index');
+        Route::post('/roles', [RoleManagementController::class, 'store'])->name('web.roles.store');
+        Route::put('/roles/{role}', [RoleManagementController::class, 'update'])->name('web.roles.update');
+        Route::delete('/roles/{role}', [RoleManagementController::class, 'destroy'])->name('web.roles.destroy');
     });
 
+    // RBAC Management Routes
+    Route::middleware(['auth', 'permission:manage-rbac', 'role:msc-admin'])->group(function () {
+        Route::get('/rbac', [RBACController::class, 'index'])->name('web.rbac.index');
+    });
+
+    // Access Control Management Routes
     Route::middleware(['permission:manage-access-control'])->group(function () {
-        Route::get('/access-control', [AccessControlController::class, 'index'])->name('access-control.index');
+        Route::get('/access-control', [AccessControlController::class, 'index'])->name('web.access-control.index');
     });
 
     Route::middleware(['permission:view-commission'])->group(function () {
@@ -290,54 +313,49 @@ Route::middleware(['auth', 'verified'])->group(function () {
     // System Admin routes - Add proper authorization
     Route::middleware(['permission:manage-system-config'])->group(function () {
         Route::prefix('system-admin')->group(function () {
-            Route::get('/config', function () {
-                return Inertia::render('SystemAdmin/Config');
-            })->name('system-admin.config');
-            Route::get('/integrations', function () {
-                return Inertia::render('SystemAdmin/Integrations');
-            })->name('system-admin.integrations');
-            Route::get('/api', function () {
-                return Inertia::render('SystemAdmin/API');
-            })->name('system-admin.api');
+            Route::get('/config', [SystemAdminController::class, 'config'])
+                ->name('system-admin.config');
+            Route::get('/integrations', [SystemAdminController::class, 'integrations'])
+                ->name('system-admin.integrations');
+            Route::get('/api', [SystemAdminController::class, 'api'])
+                ->name('system-admin.api');
         });
     });
 
     Route::middleware(['permission:view-audit-logs'])->group(function () {
-        Route::get('/system-admin/audit', function () {
-            return Inertia::render('SystemAdmin/Audit');
-        })->name('system-admin.audit');
+        Route::get('/system-admin/audit', [SystemAdminController::class, 'audit'])
+            ->name('system-admin.audit');
     });
 
     // Engine routes - Add proper authorization
     Route::middleware(['permission:manage-clinical-rules'])->group(function () {
-        Route::get('/engines/clinical-rules', function () {
-            return Inertia::render('Engines/ClinicalRules');
-        })->name('engines.clinical-rules');
+        Route::get('/engines/clinical-rules', [EngineController::class, 'clinicalRules'])
+            ->name('engines.clinical-rules');
     });
 
     Route::middleware(['permission:manage-recommendation-rules'])->group(function () {
-        Route::get('/engines/recommendation-rules', function () {
-            return Inertia::render('Engines/RecommendationRules');
-        })->name('engines.recommendation-rules');
+        Route::get('/engines/recommendation-rules', [EngineController::class, 'recommendationRules'])
+            ->name('engines.recommendation-rules');
     });
 
     Route::middleware(['permission:manage-commission-engine'])->group(function () {
-        Route::get('/engines/commission', function () {
-            return Inertia::render('Engines/Commission');
-        })->name('engines.commission');
+        Route::get('/engines/commission', [EngineController::class, 'commission'])
+            ->name('engines.commission');
     });
 
     // MSC Rep routes - Add proper authorization
     Route::middleware(['permission:view-customers'])->group(function () {
-        Route::get('/customers', function () {
-            return Inertia::render('Customers/Index');
-        })->name('customers.index');
+        Route::get('/customers', [CustomerController::class, 'index'])
+            ->name('customers.index');
+        Route::get('/customers/{customer}', [CustomerController::class, 'show'])
+            ->name('customers.show');
     });
 
     Route::middleware(['permission:view-team'])->group(function () {
-        Route::get('/team', function () {
-            return Inertia::render('Team/Index');
-        })->name('team.index');
+        Route::get('/team', [TeamController::class, 'index'])
+            ->name('team.index');
+        Route::get('/team/{member}', [TeamController::class, 'show'])
+            ->name('team.show');
     });
 
     // Test route for role restrictions

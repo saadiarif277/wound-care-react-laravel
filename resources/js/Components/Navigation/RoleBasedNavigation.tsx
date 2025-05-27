@@ -42,6 +42,7 @@ interface MenuItem {
   current?: boolean;
   roles: UserRole[];
   children?: MenuItem[];
+  description?: string;
 }
 
 interface RoleBasedNavigationProps {
@@ -384,6 +385,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/settings',
           icon: FiSettings,
           roles: ['msc-admin']
+        },
+        {
+          name: 'Role Management',
+          href: route('web.rbac.index'),
+          icon: FiShield,
+          roles: ['msc-admin'],
+          description: 'Manage roles and permissions'
         }
       ];
 
@@ -439,9 +447,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             },
             {
               name: 'Role Management',
-              href: '/roles',
-              icon: FiUserCheck,
-              roles: ['super-admin', 'superadmin']
+              href: route('web.rbac.index'),
+              icon: FiShield,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage roles and permissions'
             }
           ]
         },

@@ -54,30 +54,68 @@ class DatabaseSeeder extends Seeder
 
         // 2. Create permissions
         $permissions = [
-            'view-users' => 'View user accounts',
-            'edit-users' => 'Edit user accounts',
-            'delete-users' => 'Delete user accounts',
+            // Dashboard permissions
+            'view-dashboard' => 'View dashboard and analytics',
+
+            // Product Request permissions
+            'create-product-requests' => 'Create new product requests',
+            'view-product-requests' => 'View product requests',
+            'view-facility-requests' => 'View facility product requests',
+            'view-provider-requests' => 'View provider product requests',
+            'view-request-status' => 'View request status',
+
+            // MAC/Eligibility/PA permissions
+            'view-mac-validation' => 'View MAC validation',
+            'manage-mac-validation' => 'Manage MAC validation',
+            'view-eligibility' => 'View eligibility checks',
+            'manage-eligibility' => 'Manage eligibility checks',
+            'view-pre-authorization' => 'View pre-authorization',
+            'manage-pre-authorization' => 'Manage pre-authorization',
+
+            // Product permissions
+            'view-products' => 'View product catalog',
             'manage-products' => 'Manage product catalog',
-            'manage-orders' => 'Manage orders',
-            'view-financials' => 'View financial information',
-            'manage-financials' => 'Manage financial information',
             'view-msc-pricing' => 'View MSC pricing',
             'view-discounts' => 'View discounts',
+            'view-national-asp' => 'View national ASP pricing',
+
+            // Provider permissions
+            'view-providers' => 'View providers',
+            'manage-providers' => 'Manage providers',
+
+            // Order permissions
+            'view-orders' => 'View orders',
+            'create-orders' => 'Create orders',
+            'manage-orders' => 'Manage orders',
             'view-order-totals' => 'View order totals',
+
+            // Commission permissions
             'view-commission' => 'View commission information',
             'manage-commission' => 'Manage commission rules',
-            'view-reports' => 'View reports',
-            'manage-access-control' => 'Manage access control',
+            'view-payouts' => 'View commission payouts',
+
+            // Customer permissions
             'view-customers' => 'View customer information',
-            'view-analytics' => 'View analytics',
-            'create-orders' => 'Create orders',
-            'approve-orders' => 'Approve orders',
-            'process-orders' => 'Process orders',
-            'view-products' => 'View products',
-            'view-providers' => 'View providers',
-            'view-product-requests' => 'View product requests',
-            'manage-pre-authorization' => 'Manage pre-authorization',
-            'manage-mac-validation' => 'Manage MAC validation',
+            'manage-customers' => 'Manage customer information',
+            'view-team' => 'View team members',
+            'manage-team' => 'Manage team members',
+
+            // User & Org permissions
+            'view-users' => 'View user accounts',
+            'manage-users' => 'Manage user accounts',
+            'view-organizations' => 'View organizations',
+            'manage-organizations' => 'Manage organizations',
+            'manage-access-requests' => 'Manage access requests',
+            'manage-subrep-approvals' => 'Manage sub-rep approvals',
+
+            // System permissions
+            'view-settings' => 'View system settings',
+            'manage-settings' => 'Manage system settings',
+            'view-audit-logs' => 'View audit logs',
+            'manage-rbac' => 'Manage role-based access control',
+            'manage-system-config' => 'Manage system configuration',
+            'manage-integrations' => 'Manage system integrations',
+            'manage-api' => 'Manage API settings',
         ];
 
         $permissionIds = [];
@@ -98,72 +136,106 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Healthcare Provider',
                 'description' => 'Healthcare provider with access to patient care tools',
                 'permissions' => [
+                    // Dashboard permissions
+                    'view-dashboard',
+
+                    // Product Request permissions
+                    'create-product-requests',
+                    'view-product-requests',
+                    'view-request-status',
+
+                    // MAC/Eligibility/PA permissions
+                    'view-mac-validation',
+                    'manage-mac-validation',  // Added to allow MAC validation
+                    'view-eligibility',
+                    'manage-eligibility',     // Added to allow eligibility checks
+                    'view-pre-authorization',
+                    'manage-pre-authorization', // Added to allow pre-authorization
+
+                    // Product permissions
+                    'view-products',
+                    'view-national-asp',
+
+                    // Order permissions
+                    'view-orders',
                     'create-orders',
-                    'view-reports',
                 ]
             ],
             'office-manager' => [
                 'name' => 'Office Manager',
                 'description' => 'Office manager with administrative access',
                 'permissions' => [
-                    'view-users',
-                    'edit-users',
-                    'create-orders',
-                    'approve-orders',
-                    'view-reports',
-                    'view-order-totals',
-                    'view-products',
-                    'view-providers',
+                    'view-dashboard',
+                    'create-product-requests',
                     'view-product-requests',
-                    'manage-pre-authorization',
+                    'view-facility-requests',
+                    'view-provider-requests',
                     'manage-mac-validation',
+                    'manage-eligibility',
+                    'manage-pre-authorization',
+                    'view-products',
+                    'view-national-asp',
+                    'view-providers',
+                    'manage-providers',
+                    'view-orders',
+                    'create-orders',
                 ]
             ],
             'msc-rep' => [
                 'name' => 'MSC Sales Rep',
                 'description' => 'MSC sales representative with commission tracking',
                 'permissions' => [
-                    'view-users',
+                    'view-dashboard',
+                    'view-orders',
                     'create-orders',
-                    'process-orders',
+                    'view-order-totals',
                     'view-commission',
+                    'view-payouts',
+                    'view-customers',
+                    'manage-customers',
+                    'view-team',
+                    'manage-team',
+                    'view-products',
                     'view-msc-pricing',
                     'view-discounts',
-                    'view-reports',
                 ]
             ],
             'msc-subrep' => [
                 'name' => 'MSC Sub Rep',
                 'description' => 'MSC sub-representative with limited access',
                 'permissions' => [
+                    'view-dashboard',
+                    'view-orders',
                     'create-orders',
                     'view-commission',
-                    'view-reports',
+                    'view-products',
+                    'view-msc-pricing',
+                    'view-discounts',
                 ]
             ],
             'msc-admin' => [
-                'name' => 'MSC Admin',
-                'description' => 'MSC administrator with full system access',
+                'name' => 'MSC Administrator',
+                'description' => 'MSC administrator with system management access',
                 'permissions' => [
-                    'view-users',
-                    'edit-users',
-                    'delete-users',
+                    'view-dashboard',
+                    'view-product-requests',
                     'manage-products',
                     'manage-orders',
-                    'view-financials',
-                    'manage-financials',
-                    'view-msc-pricing',
-                    'view-discounts',
                     'view-order-totals',
-                    'view-commission',
                     'manage-commission',
-                    'view-reports',
-                    'manage-access-control',
-                    'view-customers',
-                    'view-analytics',
-                    'create-orders',
-                    'approve-orders',
-                    'process-orders',
+                    'view-payouts',
+                    'manage-customers',
+                    'manage-team',
+                    'manage-users',
+                    'manage-organizations',
+                    'manage-access-requests',
+                    'manage-subrep-approvals',
+                    'manage-settings',
+                    'view-audit-logs',
+                    'manage-rbac',
+                    'manage-system-config',
+                    'manage-integrations',
+                    'manage-api',
                 ]
             ],
             'super-admin' => [
