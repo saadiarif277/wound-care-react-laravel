@@ -87,6 +87,10 @@ Route::get('/', [DashboardController::class, 'index'])
     ->name('dashboard')
     ->middleware('auth');
 
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->name('dashboard.alias')
+    ->middleware('auth');
+
 Route::get('/orders',[OrderController::class,'index'])->name('orders');
 
 Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');

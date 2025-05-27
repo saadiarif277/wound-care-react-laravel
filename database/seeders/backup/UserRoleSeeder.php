@@ -7,6 +7,9 @@ use Illuminate\Database\Seeder;
 use App\Models\Role;
 use App\Models\Permission;
 use App\Models\User;
+use Illuminate\Support\Str;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class UserRoleSeeder extends Seeder
 {
@@ -15,6 +18,18 @@ class UserRoleSeeder extends Seeder
      */
     public function run(): void
     {
+        // Disable foreign key checks temporarily
+        Schema::disableForeignKeyConstraints();
+
+        // Clean up all related tables
+        DB::table('role_permission')->truncate();
+        DB::table('user_role')->truncate();
+        DB::table('permissions')->truncate();
+        DB::table('roles')->truncate();
+
+        // Re-enable foreign key checks
+        Schema::enableForeignKeyConstraints();
+
         // Create permissions first
         $permissions = [
             // View permissions
@@ -52,12 +67,20 @@ class UserRoleSeeder extends Seeder
             'manage-commission' => 'Manage commission settings and tracking',
         ];
 
+        // Create permissions with explicit UUIDs
+        $permissionIds = [];
         foreach ($permissions as $slug => $description) {
-            Permission::firstOrCreate([
+            $id = (string) Str::uuid();
+            $permissionIds[$slug] = $id;
+
+            DB::table('permissions')->insert([
+                'id' => $id,
                 'slug' => $slug,
-            ], [
                 'name' => ucwords(str_replace('-', ' ', $slug)),
                 'description' => $description,
+                'guard_name' => 'web',
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
         }
 
@@ -142,25 +165,58 @@ class UserRoleSeeder extends Seeder
             ],
         ];
 
+        // Create roles with explicit UUIDs and their permissions
+        $roleIds = [];
         foreach ($rolesWithPermissions as $slug => $roleData) {
-            $role = Role::firstOrCreate([
+            $roleId = (string) Str::uuid();
+            $roleIds[$slug] = $roleId;
+
+            // Insert role
+            DB::table('roles')->insert([
+                'id' => $roleId,
                 'slug' => $slug,
-            ], [
                 'name' => $roleData['name'],
+                'display_name' => $roleData['name'],
                 'description' => $roleData['description'],
+                'is_active' => true,
+                'hierarchy_level' => match($slug) {
+                    'super-admin' => 100,
+                    'msc-admin' => 80,
+                    'msc-rep' => 60,
+                    'msc-subrep' => 50,
+                    'office-manager' => 40,
+                    'provider' => 20,
+                    default => 0
+                },
+                'created_at' => now(),
+                'updated_at' => now(),
             ]);
 
-            // Attach permissions to role
-            $permissionIds = Permission::whereIn('slug', $roleData['permissions'])->pluck('id');
-            $role->permissions()->sync($permissionIds);
+            // Insert role-permission relationships
+            foreach ($roleData['permissions'] as $permissionSlug) {
+                if (isset($permissionIds[$permissionSlug])) {
+                    DB::table('role_permission')->insert([
+                        'id' => (string) Str::uuid(),
+                        'role_id' => $roleId,
+                        'permission_id' => $permissionIds[$permissionSlug],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
         }
 
         // Assign default provider role to existing users who don't have any roles
-        $providerRole = Role::where('slug', 'provider')->first();
-        if ($providerRole) {
+        if (isset($roleIds['provider'])) {
             $usersWithoutRoles = User::doesntHave('roles')->get();
             foreach ($usersWithoutRoles as $user) {
-                $user->roles()->attach($providerRole->id);
+                DB::table('user_role')->insert([
+                    'id' => (string) Str::uuid(),
+                    'user_id' => $user->id,
+                    'role_id' => $roleIds['provider'],
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
             }
         }
 

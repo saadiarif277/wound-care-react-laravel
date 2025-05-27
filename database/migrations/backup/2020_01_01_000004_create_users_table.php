@@ -12,8 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('account_id')->index();
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('account_id');
+            $table->foreign('account_id')->references('id')->on('accounts')->onDelete('cascade');
             $table->string('first_name', 25);
             $table->string('last_name', 25);
             $table->string('email', 50)->unique();
@@ -24,12 +25,6 @@ return new class extends Migration
             $table->rememberToken();
             $table->timestamps();
             $table->softDeletes();
-
-            // Add foreign key constraint
-            $table->foreign('account_id')
-                  ->references('id')
-                  ->on('accounts')
-                  ->onDelete('cascade');
         });
     }
 

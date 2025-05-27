@@ -16,7 +16,7 @@ return new class extends Migration
 
         // Create the roles table
         Schema::create('roles', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->bigIncrements('id');
             $table->string('name')->unique();
             $table->string('slug')->unique();
             $table->string('display_name');
@@ -34,7 +34,7 @@ return new class extends Migration
 
         // Create the permissions table
         Schema::create('permissions', function (Blueprint $table) {
-            $table->uuid('id')->primary();
+            $table->bigIncrements('id');
             $table->string('name')->unique();
             $table->string('slug')->unique();
             $table->string('guard_name')->default('web');
@@ -48,9 +48,9 @@ return new class extends Migration
 
         // Create the role_permission pivot table
         Schema::create('role_permission', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('role_id');
-            $table->uuid('permission_id');
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('role_id');
+            $table->unsignedBigInteger('permission_id');
             $table->timestamps();
 
             // Add foreign key constraints
@@ -71,9 +71,9 @@ return new class extends Migration
 
         // Create the user_role pivot table
         Schema::create('user_role', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('user_id');
-            $table->uuid('role_id');
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('role_id');
             $table->timestamps();
 
             // Add foreign key constraints

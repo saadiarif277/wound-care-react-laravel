@@ -9,13 +9,13 @@ return new class extends Migration
     public function up()
     {
         Schema::create('commission_payouts', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('rep_id');
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('rep_id');
             $table->timestamp('period_start')->useCurrent();
             $table->timestamp('period_end')->useCurrent();
             $table->decimal('total_amount', 10, 2);
             $table->string('status')->default('calculated'); // calculated, approved, processed
-            $table->uuid('approved_by')->nullable();
+            $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('processed_at')->nullable();
             $table->string('payment_reference')->nullable();

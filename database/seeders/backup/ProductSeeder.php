@@ -6,6 +6,7 @@ use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Product;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class ProductSeeder extends Seeder
 {
@@ -319,6 +320,7 @@ class ProductSeeder extends Seeder
 
         foreach ($products as $productData) {
             Product::create([
+                'id' => (string) Str::uuid(),
                 'sku' => $productData['sku'],
                 'name' => $productData['name'],
                 'description' => $productData['description'],

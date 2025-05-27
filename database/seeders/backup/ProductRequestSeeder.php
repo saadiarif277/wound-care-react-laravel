@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\User;
 use App\Models\Facility;
 use Carbon\Carbon;
+use Illuminate\Support\Str;
 
 class ProductRequestSeeder extends Seeder
 {
@@ -17,21 +18,22 @@ class ProductRequestSeeder extends Seeder
      */
     public function run(): void
     {
-        // Get a provider user (or create one if needed)
+        // Get a provider user (or create one if needed) and ensure it has a valid UUID (length 36)
         $provider = User::where('email', 'provider@example.com')->first();
         if (!$provider) {
             $provider = User::first(); // Get any user for testing
         }
-
-        if (!$provider) {
-            $this->command->error('No users found. Please run UserSeeder first.');
+        if (!$provider || strlen($provider->id) !== 36) {
+            $this->command->error('No valid provider (with UUID) found. Please run UserSeeder first.');
             return;
         }
 
-        // Get facilities
-        $facilities = Facility::where('active', true)->get();
+        // Get facilities and filter out any non-UUIDs (i.e. ensure facility->id is a valid UUID)
+        $facilities = Facility::where('active', true)->get()->filter(function ($facility) {
+            return (strlen($facility->id) === 36);
+        });
         if ($facilities->isEmpty()) {
-            $this->command->error('No active facilities found. Please run FacilitySeeder first.');
+            $this->command->error('No valid (active) facilities (with UUID) found. Please run FacilitySeeder first.');
             return;
         }
 
@@ -42,14 +44,14 @@ class ProductRequestSeeder extends Seeder
             return;
         }
 
-        // Sample product requests with different statuses
+        // Sample product requests with different statuses (using valid UUIDs for provider_id and facility_id)
         $requests = [
             [
                 'request_number' => 'PR-' . strtoupper(uniqid()),
-                'provider_id' => $provider->id,
+                'provider_id' => $provider->id, // (valid UUID)
                 'patient_fhir_id' => 'Patient/' . uniqid(),
                 'patient_display_id' => 'JoSm001',
-                'facility_id' => $facilities->random()->id,
+                'facility_id' => $facilities->random()->id, // (valid UUID)
                 'payer_name_submitted' => 'Medicare Part B',
                 'payer_id' => 'MEDICARE',
                 'expected_service_date' => Carbon::now()->addDays(7),
@@ -61,10 +63,10 @@ class ProductRequestSeeder extends Seeder
             ],
             [
                 'request_number' => 'PR-' . strtoupper(uniqid()),
-                'provider_id' => $provider->id,
+                'provider_id' => $provider->id, // (valid UUID)
                 'patient_fhir_id' => 'Patient/' . uniqid(),
                 'patient_display_id' => 'MaJo002',
-                'facility_id' => $facilities->random()->id,
+                'facility_id' => $facilities->random()->id, // (valid UUID)
                 'payer_name_submitted' => 'Blue Cross Blue Shield',
                 'payer_id' => 'BCBS',
                 'expected_service_date' => Carbon::now()->addDays(5),
@@ -80,10 +82,10 @@ class ProductRequestSeeder extends Seeder
             ],
             [
                 'request_number' => 'PR-' . strtoupper(uniqid()),
-                'provider_id' => $provider->id,
+                'provider_id' => $provider->id, // (valid UUID)
                 'patient_fhir_id' => 'Patient/' . uniqid(),
                 'patient_display_id' => 'RoWi003',
-                'facility_id' => $facilities->random()->id,
+                'facility_id' => $facilities->random()->id, // (valid UUID)
                 'payer_name_submitted' => 'Aetna',
                 'payer_id' => 'AETNA',
                 'expected_service_date' => Carbon::now()->addDays(10),
@@ -99,10 +101,10 @@ class ProductRequestSeeder extends Seeder
             ],
             [
                 'request_number' => 'PR-' . strtoupper(uniqid()),
-                'provider_id' => $provider->id,
+                'provider_id' => $provider->id, // (valid UUID)
                 'patient_fhir_id' => 'Patient/' . uniqid(),
                 'patient_display_id' => 'SaAn004',
-                'facility_id' => $facilities->random()->id,
+                'facility_id' => $facilities->random()->id, // (valid UUID)
                 'payer_name_submitted' => 'United Healthcare',
                 'payer_id' => 'UHC',
                 'expected_service_date' => Carbon::now()->addDays(3),
@@ -119,10 +121,10 @@ class ProductRequestSeeder extends Seeder
             ],
             [
                 'request_number' => 'PR-' . strtoupper(uniqid()),
-                'provider_id' => $provider->id,
+                'provider_id' => $provider->id, // (valid UUID)
                 'patient_fhir_id' => 'Patient/' . uniqid(),
                 'patient_display_id' => 'DaGr005',
-                'facility_id' => $facilities->random()->id,
+                'facility_id' => $facilities->random()->id, // (valid UUID)
                 'payer_name_submitted' => 'Humana',
                 'payer_id' => 'HUMANA',
                 'expected_service_date' => Carbon::now()->addDays(14),
@@ -138,6 +140,7 @@ class ProductRequestSeeder extends Seeder
         ];
 
         foreach ($requests as $requestData) {
+            $requestData['id'] = (string) Str::uuid();
             $request = ProductRequest::create($requestData);
 
             // Attach random products
