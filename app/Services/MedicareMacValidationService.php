@@ -177,18 +177,29 @@ class MedicareMacValidationService
      */
     private function setMacContractor(MedicareMacValidation $validation, Order $order): void
     {
-        $facility = $order->facility;
-        $state = $facility->state ?? 'Unknown';
+        // Use patient address for MAC contractor determination (REQUIRED for Medicare billing)
+        $patientZip = $order->patient->zip_code ?? $order->patient->postal_code ?? null;
+        $patientState = $order->patient->state ?? null;
 
-        $macInfo = $this->macContractors[$state] ?? [
-            'contractor' => 'Unknown',
-            'jurisdiction' => 'Unknown'
-        ];
+        // Fallback to facility if patient address is not available
+        if (!$patientState && !$patientZip) {
+            $facility = $order->facility;
+            $patientState = $facility->state ?? 'Unknown';
+            Log::warning('Using facility address for MAC determination due to missing patient address', [
+                'order_id' => $order->id,
+                'patient_id' => $order->patient->id ?? null
+            ]);
+        }
+
+        // Get MAC contractor based on patient address
+        $macInfo = $this->getMacContractorByPatientZip($patientZip, $patientState);
 
         $validation->update([
             'mac_contractor' => $macInfo['contractor'],
             'mac_jurisdiction' => $macInfo['jurisdiction'],
-            'mac_region' => $state
+            'mac_region' => $patientState,
+            'patient_zip_code' => $patientZip,
+            'addressing_method' => $macInfo['addressing_method'] ?? 'patient_address'
         ]);
     }
 
@@ -1021,12 +1032,75 @@ class MedicareMacValidationService
     private function getMacContractorByPatientAddress(array $patientData): array
     {
         $patientState = $patientData['state'] ?? null;
+        $patientZip = $patientData['zip_code'] ?? $patientData['postal_code'] ?? null;
 
-        if (!$patientState) {
+        return $this->getMacContractorByPatientZip($patientZip, $patientState);
+    }
+
+    /**
+     * Get MAC contractor based on patient ZIP code and state with enhanced ZIP lookup
+     */
+    private function getMacContractorByPatientZip(?string $zipCode, ?string $state): array
+    {
+        if (!$state) {
             throw new \InvalidArgumentException('Patient state is required for MAC jurisdiction determination');
         }
 
-        return $this->getMacContractorByState($patientState, 'patient_address');
+        // Get base MAC info from state
+        $macInfo = $this->getMacContractorByState($state, 'patient_address');
+
+        // If we have a ZIP code, check for special jurisdictions or cross-border areas
+        if ($zipCode) {
+            $zipBasedMac = $this->getMacContractorByZipCode($zipCode, $state);
+            if ($zipBasedMac['contractor'] !== 'Unknown') {
+                $macInfo = array_merge($macInfo, $zipBasedMac);
+                $macInfo['addressing_method'] = 'zip_code_specific';
+            } else {
+                $macInfo['addressing_method'] = 'state_based';
+            }
+            $macInfo['patient_zip_code'] = $zipCode;
+        } else {
+            $macInfo['addressing_method'] = 'state_based_no_zip';
+        }
+
+        return $macInfo;
+    }
+
+    /**
+     * Get MAC contractor for specific ZIP codes that may cross state boundaries
+     * or have special MAC jurisdictions (like border areas or military bases)
+     */
+    private function getMacContractorByZipCode(string $zipCode, string $state): array
+    {
+        $zipPrefix = substr($zipCode, 0, 5); // Use 5-digit ZIP
+
+        // Special ZIP code mappings for cross-border areas or special jurisdictions
+        // These are areas where ZIP codes cross MAC jurisdiction boundaries
+        $specialZipMappings = [
+            // Examples of special ZIP jurisdictions (would be populated with actual CMS data)
+
+            // Connecticut/New York border area where some CTs are served by NY MAC
+            '06830' => ['contractor' => 'National Government Services', 'jurisdiction' => 'J6'], // Greenwich, CT
+
+            // DC Metro area complications
+            '20090' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'J5'], // DC area
+            '20092' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'J5'], // DC area
+
+            // Kansas City metro spans multiple states
+            '64108' => ['contractor' => 'WPS Health Solutions', 'jurisdiction' => 'JM'], // Kansas City, MO
+            '66101' => ['contractor' => 'WPS Health Solutions', 'jurisdiction' => 'JM'], // Kansas City, KS
+
+            // Add more special cases as identified
+        ];
+
+        if (isset($specialZipMappings[$zipPrefix])) {
+            $result = $specialZipMappings[$zipPrefix];
+            $result['zip_override_reason'] = 'Special jurisdiction mapping';
+            return $result;
+        }
+
+        // No special mapping found - use state-based determination
+        return ['contractor' => 'Unknown', 'jurisdiction' => 'Unknown'];
     }
 
     /**

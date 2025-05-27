@@ -423,35 +423,49 @@ class CmsCoverageApiService
     }
 
     /**
-     * Get MAC jurisdiction for a state
+     * Get MAC jurisdiction for a state with optional ZIP code
      */
-    public function getMACJurisdiction(string $state): ?array
+    public function getMACJurisdiction(string $state, ?string $zipCode = null): ?array
     {
-        $cacheKey = "cms_mac_jurisdiction_{$state}";
+        $cacheKey = $zipCode ? "cms_mac_jurisdiction_{$state}_{$zipCode}" : "cms_mac_jurisdiction_{$state}";
 
-        return Cache::remember($cacheKey, $this->cacheMinutes * 24, function () use ($state) {
+        return Cache::remember($cacheKey, $this->cacheMinutes * 24, function () use ($state, $zipCode) {
             try {
+                $params = ['state' => $state];
+                if ($zipCode) {
+                    $params['zip_code'] = $zipCode;
+                }
+
                 $response = Http::timeout(30)
-                    ->get("{$this->baseUrl}/reports/local-coverage-mac-contacts", [
-                        'state' => $state
-                    ]);
+                    ->get("{$this->baseUrl}/reports/local-coverage-mac-contacts", $params);
 
                 if (!$response->successful()) {
                     Log::error('CMS Coverage API MAC jurisdiction request failed', [
                         'status' => $response->status(),
                         'body' => $response->body(),
-                        'state' => $state
+                        'state' => $state,
+                        'zip_code' => $zipCode
                     ]);
                     return null;
                 }
 
                 $data = $response->json();
-                return $data['data'][0] ?? null;
+                $macData = $data['data'][0] ?? null;
+
+                // Add additional context for our internal tracking
+                if ($macData) {
+                    $macData['query_state'] = $state;
+                    $macData['query_zip_code'] = $zipCode;
+                    $macData['addressing_method'] = $zipCode ? 'zip_code_enhanced' : 'state_only';
+                }
+
+                return $macData;
 
             } catch (\Exception $e) {
                 Log::error('CMS Coverage API MAC jurisdiction request exception', [
                     'error' => $e->getMessage(),
-                    'state' => $state
+                    'state' => $state,
+                    'zip_code' => $zipCode
                 ]);
                 return null;
             }

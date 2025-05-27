@@ -279,7 +279,7 @@ class ValidationBuilderController extends Controller
                 $productRequestId = $request->input('product_request_id');
                 $specialty = $request->input('specialty');
 
-                $productRequest = \App\Models\ProductRequest::with('facility')->where('id', $productRequestId)->firstOrFail();
+                $productRequest = ProductRequest::with('facility')->where('id', $productRequestId)->firstOrFail();
 
                 // Extract facility address as place of service
                 $facility = $productRequest->facility;

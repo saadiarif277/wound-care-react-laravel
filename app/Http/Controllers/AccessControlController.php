@@ -116,7 +116,7 @@ class AccessControlController extends Controller
 
         return DB::transaction(function () use ($request, $user) {
             $oldRoles = $user->roles->pluck('name')->toArray();
-            $newRole = \App\Models\Role::find($request->role_id);
+            $newRole = Role::find($request->role_id);
 
             // Security check: Only super admins can assign super admin role
             if ($newRole->slug === 'super-admin' && !Auth::user()->isSuperAdmin()) {
