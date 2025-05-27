@@ -114,16 +114,15 @@ class ProductRequestController extends Controller
 
     public function create()
     {
-        $user = Auth::user()->load('userRole');
-        $userRole = $user->userRole;
+        $user = Auth::user()->load('roles');
 
         return Inertia::render('ProductRequest/Create', [
             'roleRestrictions' => [
-                'can_view_financials' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'pricing_access_level' => $this->getPricingAccessLevel($user),
             ],
             'woundTypes' => ProductRequest::getWoundTypeDescriptions(),
             'facilities' => Facility::where('active', true)
@@ -206,16 +205,15 @@ class ProductRequestController extends Controller
             abort(403);
         }
 
-        $user = Auth::user()->load('userRole');
-        $userRole = $user->userRole;
+        $user = Auth::user()->load('roles');
 
         return Inertia::render('ProductRequest/Show', [
             'roleRestrictions' => [
-                'can_view_financials' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'pricing_access_level' => $this->getPricingAccessLevel($user),
             ],
             'request' => [
                 'id' => $productRequest->id,
@@ -408,8 +406,8 @@ class ProductRequestController extends Controller
             $recommendations = $recommendationService->getRecommendations($productRequest, [
                 'use_ai' => true,
                 'max_recommendations' => 6,
-                'user_role' => $user->userRole?->name ?? 'provider',
-                'show_msc_pricing' => $user->canSeeDiscounts() // Only show MSC pricing if user can see discounts
+                'user_role' => $user->getPrimaryRole()?->slug ?? 'provider',
+                'show_msc_pricing' => $user->hasPermission('view-discounts') // Only show MSC pricing if user can see discounts
             ]);
 
             return response()->json($recommendations);
@@ -540,5 +538,20 @@ class ProductRequestController extends Controller
             ],
             'total_potential_revenue' => 125.00,
         ];
+    }
+
+    /**
+     * Get pricing access level based on user permissions
+     */
+    private function getPricingAccessLevel($user): string
+    {
+        // Full pricing access includes MSC pricing, discounts, and financial data
+        if ($user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts')) return 'full';
+
+        // Limited pricing access (basic pricing without MSC pricing or discounts)
+        if ($user->hasPermission('view-financials')) return 'limited';
+
+        // No special pricing access - only National ASP
+        return 'national_asp_only';
     }
 }

@@ -333,21 +333,20 @@ Route::middleware(['auth'])->group(function () {
 
     // Test route for role restrictions
     Route::get('/test-role-restrictions', function () {
-        $user = Auth::user()->load('userRole');
-        $userRole = $user->userRole;
+        $user = Auth::user()->load('roles');
+        $primaryRole = $user->getPrimaryRole();
 
         return response()->json([
             'user_email' => $user->email,
-            'role_name' => $userRole->name,
-            'role_display_name' => $userRole->display_name,
+            'role_name' => $primaryRole?->slug,
+            'role_display_name' => $primaryRole?->name,
             'financial_restrictions' => [
-                'can_access_financials' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+                'can_access_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'pricing_access_level' => $user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts') ? 'full' : ($user->hasPermission('view-financials') ? 'limited' : 'national_asp_only'),
             ],
-            'dashboard_config' => $userRole->getDashboardConfig(),
         ]);
     })->name('test.role-restrictions');
 
