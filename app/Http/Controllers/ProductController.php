@@ -382,7 +382,7 @@ class ProductController extends Controller
             $options = [
                 'use_ai' => $validated['use_ai'] ?? true,
                 'max_recommendations' => $validated['max_recommendations'] ?? 6,
-                'user_role' => $user->getPrimaryRoleSlug() ?? 'provider',
+                'user_role' => str_replace('-', '_', $user->getPrimaryRole()?->slug ?? 'provider'),
                 'show_msc_pricing' => $user->hasPermission('view-discounts') // Only show MSC pricing if user can see discounts
             ];
 
