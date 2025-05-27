@@ -438,7 +438,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'Access Requests',
           href: '/access-requests',
           icon: FiUserCheck,
-          roles: ['super-admin', 'superadmin'],
+          roles: ['super-admin', 'superadmin', 'msc-admin'],
         },
         {
           name: 'Organization Management',
@@ -462,7 +462,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'Request Management',
           href: '/requests',
           icon: FiClipboard,
-          roles: ['super-admin', 'superadmin']
+          roles: ['super-admin', 'superadmin', 'msc-admin']
         },
         {
           name: 'Commission Management',
