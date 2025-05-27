@@ -16,11 +16,16 @@ class FinancialAccessControl
     {
         $user = $request->user();
 
-        if (!$user || !$user->role) {
+        if (!$user || !$user->userRole) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $userRole = $user->role;
+        // Load the user role relationship if not already loaded
+        if (!$user->relationLoaded('userRole')) {
+            $user->load('userRole');
+        }
+
+        $userRole = $user->userRole;
 
         // Check if the route requires financial access
         $routeName = $request->route()->getName();

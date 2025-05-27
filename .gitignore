@@ -18,3 +18,9 @@ npm-debug.log
 /.idea
 /.vscode
 .vercel
+
+# Testing
+/tests/Manual/temp/
+test-patient-id.txt
+*.test.tmp
+test-*.log

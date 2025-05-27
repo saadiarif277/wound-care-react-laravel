@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
 import {
   FiArrowLeft,
   FiEdit,
@@ -24,22 +25,31 @@ interface Product {
   category: string;
   description: string;
   price_per_sq_cm: number;
-  msc_price: number;
+  msc_price?: number; // Optional based on role
   available_sizes: number[];
   image_url: string;
   document_urls: string[];
-  commission_rate: number;
+  commission_rate?: number; // Optional based on role
   is_active: boolean;
   graph_type: string;
   created_at: string;
   updated_at: string;
 }
 
-interface Props {
-  product: Product;
+interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  pricing_access_level: string;
 }
 
-export default function ProductShow({ product }: Props) {
+interface Props {
+  product: Product;
+  roleRestrictions: RoleRestrictions;
+}
+
+export default function ProductShow({ product, roleRestrictions }: Props) {
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -58,7 +68,7 @@ export default function ProductShow({ product }: Props) {
   };
 
   const calculateTotalPrice = (size: number, useNationalAsp = false) => {
-    const pricePerSqCm = useNationalAsp ? product.price_per_sq_cm : product.msc_price;
+    const pricePerSqCm = useNationalAsp ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm);
     return pricePerSqCm * size;
   };
 
@@ -68,6 +78,15 @@ export default function ProductShow({ product }: Props) {
     if (size <= 36) return 'Large wounds';
     return 'Extra large wounds';
   };
+
+  // Get user role for pricing display
+  const getUserRole = () => {
+    if (!roleRestrictions.can_see_msc_pricing) return 'office_manager';
+    if (roleRestrictions.pricing_access_level === 'limited') return 'msc_subrep';
+    return 'provider'; // Default for full access roles
+  };
+
+  const userRole = getUserRole();
 
   return (
     <MainLayout title={product.name}>
@@ -157,32 +176,50 @@ export default function ProductShow({ product }: Props) {
                         <span className="text-gray-500">Graph Type:</span>
                         <span className="font-medium">{product.graph_type || 'N/A'}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Commission Rate:</span>
-                        <span className="font-medium">{product.commission_rate}%</span>
-                      </div>
+                      {/* Show commission only if role allows */}
+                      {roleRestrictions.can_view_financials && product.commission_rate && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Commission Rate:</span>
+                          <span className="font-medium text-green-600">{product.commission_rate}%</span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div>
                     <h3 className="font-semibold text-gray-900 mb-3">Pricing</h3>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">National ASP:</span>
-                        <span className="font-medium">{formatPrice(product.price_per_sq_cm)}/cm²</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">MSC Price:</span>
-                        <span className="font-semibold text-blue-600">{formatPrice(product.msc_price)}/cm²</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Discount:</span>
-                        <span className="font-medium text-green-600">40%</span>
-                      </div>
+                    <div className="space-y-3">
+                      {/* Use PricingDisplay component for role-aware pricing */}
+                      <PricingDisplay
+                        userRole={userRole as any}
+                        product={{
+                          nationalAsp: product.price_per_sq_cm,
+                          mscPrice: product.msc_price,
+                        }}
+                        showLabel={true}
+                        className="text-sm"
+                      />
+
+                      {/* Show discount only if role allows */}
+                      {roleRestrictions.can_see_discounts && product.msc_price && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Discount:</span>
+                          <span className="font-medium text-green-600">40%</span>
+                        </div>
+                      )}
+
                       <div className="flex justify-between">
                         <span className="text-gray-500">Available Sizes:</span>
                         <span className="font-medium">{product.available_sizes?.length || 0} options</span>
                       </div>
+
+                      {/* Show commission only if role allows */}
+                      {roleRestrictions.can_view_financials && product.commission_rate && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Commission Rate:</span>
+                          <span className="font-medium text-green-600">{product.commission_rate}%</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -222,6 +259,27 @@ export default function ProductShow({ product }: Props) {
           </div>
         </div>
 
+        {/* Financial Restriction Notice for Office Managers */}
+        {!roleRestrictions.can_see_msc_pricing && (
+          <div className="mb-8 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Pricing Information Restricted</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    As an Office Manager, only National ASP pricing is displayed. MSC pricing, discounts, and commission information are not available for your role.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Available Sizes */}
         {product.available_sizes && product.available_sizes.length > 0 && (
           <div className="mb-8">
@@ -237,8 +295,13 @@ export default function ProductShow({ product }: Props) {
                     <tr className="border-b border-gray-200">
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Size (cm²)</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">National ASP Total</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">MSC Price Total</th>
-                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Savings</th>
+                      {/* Show MSC pricing columns only if role allows */}
+                      {roleRestrictions.can_see_msc_pricing && (
+                        <>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-900">MSC Price Total</th>
+                          <th className="text-left py-3 px-4 font-semibold text-gray-900">Savings</th>
+                        </>
+                      )}
                       <th className="text-left py-3 px-4 font-semibold text-gray-900">Recommended For</th>
                     </tr>
                   </thead>
@@ -252,8 +315,13 @@ export default function ProductShow({ product }: Props) {
                         <tr key={size} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                           <td className="py-3 px-4 font-medium text-gray-900">{size} cm²</td>
                           <td className="py-3 px-4 text-gray-600">{formatPrice(nationalTotal)}</td>
-                          <td className="py-3 px-4 font-semibold text-blue-600">{formatPrice(mscTotal)}</td>
-                          <td className="py-3 px-4 font-medium text-green-600">{formatPrice(savings)}</td>
+                          {/* Show MSC pricing columns only if role allows */}
+                          {roleRestrictions.can_see_msc_pricing && (
+                            <>
+                              <td className="py-3 px-4 font-semibold text-blue-600">{formatPrice(mscTotal)}</td>
+                              <td className="py-3 px-4 font-medium text-green-600">{formatPrice(savings)}</td>
+                            </>
+                          )}
                           <td className="py-3 px-4 text-sm text-gray-500">{getSizeRecommendation(size)}</td>
                         </tr>
                       );
@@ -261,6 +329,15 @@ export default function ProductShow({ product }: Props) {
                   </tbody>
                 </table>
               </div>
+
+              {/* Show pricing note for office managers */}
+              {!roleRestrictions.can_see_msc_pricing && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                  <p className="text-sm text-yellow-700">
+                    <strong>Note:</strong> Only National ASP pricing is displayed. MSC pricing and savings information are not available for your role.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}

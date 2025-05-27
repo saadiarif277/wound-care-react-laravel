@@ -20,6 +20,7 @@ import {
   Clock,
   DollarSign
 } from 'lucide-react';
+import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
 
 interface Product {
   id: number;
@@ -258,11 +259,10 @@ const ProductSelector: React.FC<Props> = ({
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
 
-      const pricePerUnit = item.size
-        ? product.msc_price * parseFloat(item.size)
-        : product.msc_price;
-
-      return total + (pricePerUnit * item.quantity);
+      // Use appropriate pricing based on user role
+      const pricePerUnit = userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm);
+      const unitPrice = item.size ? pricePerUnit * parseFloat(item.size) : pricePerUnit;
+      return total + (unitPrice * item.quantity);
     }, 0);
   };
 
@@ -462,12 +462,12 @@ const ProductSelector: React.FC<Props> = ({
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {filteredProducts.map(product => (
-                                  <ProductCard
-                  key={product.id}
-                  product={product}
-                  onAdd={addProductToSelection}
-                  userRole={userRole}
-                />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onAdd={addProductToSelection}
+                    userRole={userRole}
+                  />
                 ))}
               </div>
             )}
@@ -561,6 +561,12 @@ const ProductSelector: React.FC<Props> = ({
                         {formatPrice(calculateTotal())}
                       </span>
                     </div>
+                    {/* Show financial restriction notice for office managers */}
+                    {userRole === 'office_manager' && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        * Pricing shown is National ASP only
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
@@ -596,7 +602,7 @@ const ProductCard: React.FC<{
   };
 
   const calculatePrice = () => {
-    const pricePerUnit = userRole === 'office_manager' ? product.price_per_sq_cm : product.msc_price;
+    const pricePerUnit = userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm);
     if (selectedSize) {
       return pricePerUnit * parseFloat(selectedSize) * quantity;
     }
@@ -638,29 +644,25 @@ const ProductCard: React.FC<{
       </p>
 
       <div className="space-y-2 mb-3">
-        {/* Always show National ASP for office managers, MSC price for others */}
-        {userRole === 'office_manager' ? (
+        {/* Use PricingDisplay component for consistent role-based pricing */}
+        <PricingDisplay
+          userRole={userRole as any}
+          product={{
+            nationalAsp: product.price_per_sq_cm,
+            mscPrice: product.msc_price,
+          }}
+          showLabel={true}
+          className="text-xs"
+        />
+
+        {/* Show commission only if role allows */}
+        {userRole !== 'office_manager' && product.commission_rate && (
           <div className="flex justify-between text-xs">
-            <span className="text-gray-500">National ASP:</span>
-            <span className="font-medium text-gray-900">
-              {formatPrice(product.price_per_sq_cm)}/cm²
+            <span className="text-gray-500">Commission:</span>
+            <span className="font-medium text-green-600">
+              {product.commission_rate}%
             </span>
           </div>
-        ) : (
-          <>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">MSC Price:</span>
-              <span className="font-medium text-blue-600">
-                {formatPrice(product.msc_price)}/cm²
-              </span>
-            </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">Commission:</span>
-              <span className="font-medium text-green-600">
-                {product.commission_rate}%
-              </span>
-            </div>
-          </>
         )}
       </div>
 
@@ -678,7 +680,7 @@ const ProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => (
               <option key={size} value={size.toString()}>
-                {size} cm² - {formatPrice((userRole === 'office_manager' ? product.price_per_sq_cm : product.msc_price) * size)}
+                {size} cm² - {formatPrice((userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm)) * size)}
               </option>
             ))}
           </select>
@@ -799,33 +801,28 @@ const AIRecommendationCard: React.FC<{
 
       {/* Pricing Information */}
       <div className="mb-3 space-y-1">
-        {/* Always show National ASP */}
-        <div className="flex justify-between text-xs">
-          <span className="text-gray-500">National ASP:</span>
-          <span className="font-medium text-gray-900">
-            {formatPrice(recommendation.estimated_cost.national_asp)}
-          </span>
+        {/* Use PricingDisplay component for consistent role-based pricing */}
+        <div className="text-xs">
+          <PricingDisplay
+            userRole={userRole as any}
+            product={{
+              nationalAsp: recommendation.estimated_cost.national_asp,
+              mscPrice: recommendation.estimated_cost.msc_price,
+            }}
+            showLabel={true}
+            className="text-xs"
+          />
         </div>
 
-        {/* Only show MSC pricing and savings for non-office managers */}
-        {userRole !== 'office_manager' && recommendation.estimated_cost.msc_price && (
-          <>
-            <div className="flex justify-between text-xs">
-              <span className="text-gray-500">MSC Price:</span>
-              <span className="font-medium text-blue-600">
-                {formatPrice(recommendation.estimated_cost.msc_price)}
-              </span>
-            </div>
-            {recommendation.estimated_cost.savings && recommendation.estimated_cost.savings > 0 && (
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-500">Savings vs ASP:</span>
-                <span className="font-medium text-green-600">
-                  {formatPrice(recommendation.estimated_cost.savings)}
-                  ({recommendation.estimated_cost.savings_percentage}%)
-                </span>
-              </div>
-            )}
-          </>
+        {/* Only show savings for non-office managers */}
+        {userRole !== 'office_manager' && recommendation.estimated_cost.savings && recommendation.estimated_cost.savings > 0 && (
+          <div className="flex justify-between text-xs">
+            <span className="text-gray-500">Savings vs ASP:</span>
+            <span className="font-medium text-green-600">
+              {formatPrice(recommendation.estimated_cost.savings)}
+              ({recommendation.estimated_cost.savings_percentage}%)
+            </span>
+          </div>
         )}
 
         {recommendation.suggested_size && (
