@@ -95,10 +95,8 @@ class AzureKeyVaultService
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$accessToken}",
                 'Content-Type' => 'application/json',
-            ])->put("{$this->vaultUrl}/secrets/{$secretName}", [
+            ])->put("{$this->vaultUrl}/secrets/{$secretName}?api-version=7.4", [
                 'value' => $secretValue
-            ], [
-                'api-version' => '7.4'
             ]);
 
             if (!$response->successful()) {

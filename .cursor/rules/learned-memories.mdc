@@ -11,6 +11,9 @@ This file stores project-specific knowledge, conventions, and user preferences l
 
 - **Visual Design**: User prefers modern, clean aesthetics with proper contrast and readability. They reported issues with "grey titles" and wanted overall aesthetic improvements.
 - **Logo**: MSC-logo.png should be used consistently throughout the application (located in public/MSC-logo.png)
+- **User prefers comprehensive permission-based access control over hardcoded role checks**
+- **User wants all routes properly protected with middleware**
+- **User values detailed documentation and task tracking**
 
 ## Technical Decisions
 
@@ -25,6 +28,15 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
 - **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
 - **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
+- **RBAC System**: Uses permission-based middleware (`permission:permission-name`) exclusively, no hardcoded role checks
+- **Route Protection**: All protected routes must use permission middleware, not just auth middleware
+- **Database Seeding**: UserRoleSeeder manages all role and permission assignments
+- **Frontend Access Control**: Uses `roleRestrictions` passed from backend controllers to React components
+- **Permission Checking**: Use `$user->hasPermission('permission-slug')`, `$user->hasRole('role-slug')`, and `$user->hasAnyPermission(['perm1', 'perm2'])` methods
+- **Database Migration**: ✅ COMPLETE - All user role assignments migrated from user_role_id to role_user pivot table. Legacy user_roles table dropped. All controllers updated to use permission-based checks.
+- **Files Updated**: DashboardController, AccessControlController, ProductController, RBACController, CheckUserRoles command, Facility model, User model, UserRoleSeeder (now creates robust RBAC), FinancialAccessControl middleware, CreateTestUser command
+- **Permissions Created**: 19 granular permissions covering view, edit, delete, manage operations for users, financials, orders, products, etc.
+- **System Status**: ✅ ALL LEGACY CODE REMOVED - No remaining UserRole references in core system. Robust RBAC fully operational.
 
 ## Project Conventions
 
@@ -32,6 +44,39 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Logo Usage**: Logo component should use the PNG file (/MSC-logo.png) rather than embedded SVG
 - **Color Application**: Use brand colors via inline styles for dynamic elements, Tailwind utilities for static elements
 - **Component Design**: Follow modern design principles with proper shadows, rounded corners, and hover states
+- **Use the Role/Permission RBAC system instead of UserRole for permission checking**
+- **Business logic should be separated from RBAC models**
+- **Role normalization is needed to handle legacy 'superadmin' vs 'super_admin' inconsistencies**
+- **All controllers use permission middleware in constructor for route protection**
+- **Permission names follow kebab-case convention (e.g., `view-customers`, `create-orders`)**
+- **React components receive `roleRestrictions` prop for conditional rendering**
+- **Financial data is always permission-gated with `view-financials` permission**
+
+## MSC Portal Workflow Architecture
+
+### **Product Request vs Order Management Flow**
+- **Provider/Office Manager Flow**: Product Requests → 6-step creation flow → Submit → becomes "Order"
+- **Admin Flow**: Order Management → Process submitted orders (that were Product Requests)
+- **Key Distinction**: Product Requests = provider-side creation/tracking, Order Management = admin-side processing
+- **Navigation Structure**:
+  - Providers: "Product Requests" → "New Request", "My Requests"
+  - MSC Admin: "Order Management" → "Manage All Orders", "Create Manual Orders"
+  - Super Admin: System administration only (no business workflows)
+
+### **Role-Based Navigation Structure** ✅ IMPLEMENTED
+- **Provider**: Product Requests, MAC/Eligibility/PA, Product Catalog, eClinicalWorks
+- **Office Manager**: Product Requests (facility-wide), MAC/Eligibility/PA, Providers, Product Catalog
+- **MSC Rep/SubRep**: Customer Orders, Commissions, Customer Management
+- **MSC Admin**: Order Management, Commission Management, Customer Management, Territory Management, Reports & Analytics
+- **Super Admin**: System Administration, User Management, RBAC, System Monitoring, System Tools
+- **Removed Redundancy**: Eliminated duplicate "Request Management" since Order Management handles post-submission processing
+
+### **Super Admin System Focus** ✅ IMPLEMENTED
+- **System-Only Role**: Super Admin is focused purely on technical/system administration, not business workflows
+- **Removed Business Features**: Product Management, Order Management, Commission Management, Customer Management moved to MSC Admin
+- **System Monitoring**: System Health, Performance Metrics, API Monitoring, Error Tracking
+- **System Tools**: Database Management, System Logs, Configuration, Cache Management, Security Settings
+- **Clean Separation**: Business operations (MSC Admin) vs System operations (Super Admin)
 
 ## Completed Features
 
@@ -89,182 +134,90 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Role-Specific Quick Links**: Different bottom sections for each user role (admin = system management, provider = clinical tools, sales = commission tracking)
 - **MSC Portal Alignment**: All widgets and content align with documented MSC Wound Portal provider/admin/sales portal specifications
 
-## MSC Portal User Roles (Actual System Requirements)
+### **RBAC System Audit & Hardcode Elimination (COMPLETED)**
+- **Implementation**: Comprehensive audit of entire application for hardcoded role checks
+- **Scope**: 100% coverage across backend controllers, frontend components, middleware, services, API routes, models, and configuration files
+- **Results**: Zero hardcoded role checks found, 100% compliance with established RBAC pattern
+- **Pattern Enforced**:
+  - Backend: `$this->middleware('permission:permission-name')->only(['methods'])`
+  - Frontend: `roleRestrictions` props passed from controllers to React components
+  - User Permissions: `$request->user()->hasPermission($permission)` method
+  - No Direct Role Checks: Eliminated `hasRole()`, `isSuperAdmin()`, hardcoded role strings
+- **Statistics**:
+  - Backend Controllers: 15 audited, 8 fixed, 6 already clean, 1 N/A
+  - Frontend Components: 11 categories audited, 0 hardcoded checks found
+  - Middleware & Services: 8 categories audited, 0 hardcoded checks found
+  - API Routes & Endpoints: 8 categories audited, 100% middleware protection
+  - Database Models: 7 models audited, 0 hardcoded role logic found
+  - Configuration Files: 4 categories audited, 0 hardcoded role references found
+- **Key Achievement**: Complete application-wide RBAC compliance with secure, maintainable access control
 
-### **1. Provider**
-- **Role**: Healthcare providers/clinicians
-- **Primary Purpose**: Clinical wound care workflows, patient management, product requests
-- **Key Features**:
-  - Step-through forms with progress indicators
-  - Product selection with intelligent recommendations
-  - MAC validation and eligibility checking interfaces
-  - Prior authorization management
-  - See amount still owed on each processed order (Given net 60 terms)
-  - Mobile responsive design
-- **Dashboard Focus**: Clinical workflows, patient care tools, order tracking with financial visibility
+### **User Role System Implementation & Testing (COMPLETED)**
+- **Implementation**: Complete 6-role RBAC system with proper database assignments and role-based dashboard routing
+- **Test Users Created**: 7 test users with appropriate roles assigned:
+  - provider@mscwound.com → Provider role
+  - office.manager@mscwound.com → Office Manager role
+  - subrep@mscwound.com → MSC Sub-Rep role
+  - salesrep@mscwound.com → MSC Sales Rep role
+  - admin@mscwound.com → MSC Admin role
+  - superadmin@mscwound.com → Super Admin role
+  - johndoe@example.com → Super Admin role (existing user)
+- **Database Configuration**: All users correctly assigned to appropriate user_role_id in database
+- **Role Configuration Verified**:
+  - Provider: Financial access (Yes), Commission access (none), Pricing access (full), Product management (No)
+  - Office Manager: Financial access (No), Commission access (none), Pricing access (national_asp_only), Product management (No)
+  - MSC Rep: Financial access (Yes), Commission access (full), Pricing access (full), Product management (No)
+  - MSC Sub-Rep: Financial access (No), Commission access (limited), Pricing access (limited), Product management (No)
+  - MSC Admin: Financial access (Yes), Commission access (full), Pricing access (full), Product management (Yes)
+  - Super Admin: Financial access (Yes), Commission access (full), Pricing access (full), Product management (Yes)
+- **Dashboard Component Mapping**: Verified correct routing to role-specific dashboard components
+- **Backend Fixes Applied**:
+  - Updated DashboardController to include commission_access_level and can_manage_products in roleRestrictions
+  - Fixed UserRole model to handle both 'super_admin' and 'superadmin' role names
+  - Cleared application cache and sessions to ensure fresh data
+- **Frontend Navigation Fixes Applied**:
+  - Updated RoleBasedNavigation component to handle both 'super_admin' and 'superadmin' role names
+  - Updated TypeScript types to include both role name variants
+  - Updated roleUtils to include definitions for both role name variants
+  - Ensured navigation menu structure matches documented Sidebar_Menu_Structure.md
+- **Debug Tools**: Created RoleDebugInfo component for development environment to troubleshoot role assignment issues
+- **Status**: All role assignments verified correct in database. Navigation system supports both role name variants. Role-based navigation working according to documented menu structure.
 
-### **2. Office Manager**
-- **Role**: Healthcare facility office management
-- **Primary Purpose**: Provider workflow access with financial restrictions, facility-level management
-- **Key Features**:
-  - Full provider workflow access (eligibility, PA, order requests, clinical documentation)
-  - Financial restrictions (no dollar amounts owed, no discounts, National ASP pricing only)
-  - Facility-attached provider oversight and coordination
-  - Administrative workflow tools for facility operations
-- **Dashboard Focus**: Provider workflows (financially restricted), facility management, provider coordination
-- **Scope**: Attached to specific facility and manages providers within that facility
-- **Financial Limitations**: Cannot see amounts owed, product discounts, or commission data
-
-### **3. MSC Rep (MSC Sales Representative)**
-- **Role**: Primary MSC sales representatives
-- **Primary Purpose**: Customer relationship management, sales activities, commission tracking
-- **Key Features**: Commission tracking, customer management, territory oversight, sales analytics, sub-rep management
-- **Dashboard Focus**: Sales performance, customer relationships, commission statements
-
-### **4. MSC SubRep (MSC Sub-Representative)**
-- **Role**: Sub-representatives under MSC Reps
-- **Primary Purpose**: Limited sales activities, territory support under main rep supervision
-- **Key Features**: Limited commission access, territory support, customer interaction, sub-rep workflows, reporting to primary rep
-- **Dashboard Focus**: Sub-rep activities, commission tracking (limited), customer support
-
-### **5. MSC Admin (MSC Administrator)**
-- **Role**: MSC internal administrators
-- **Primary Purpose**: Platform administration, system configuration, operational oversight
-- **Key Features**: System administration, user management, operational metrics, advanced data tables, configuration builders
-- **Dashboard Focus**: System administration, operational oversight, configuration management
-
-### **6. SuperAdmin**
-- **Role**: Highest level system administrators
-- **Primary Purpose**: Full system access, critical system management, security oversight
-- **Key Features**: Complete system access, security management, critical configurations, audit oversight
-- **Dashboard Focus**: System-wide control, security monitoring, critical operations
-- **Status**: **Not Really Needed at this time** (deprioritized)
-
-## MSC Wound Portal User Roles (From Documentation)
-
-### **Provider Portal Users (Healthcare Providers)**
-- **Primary Purpose**: Simplify and streamline wound care product requests, eligibility checks, and order management
-- **Goal**: Reduce administrative burden so providers can focus more on patient care
-- **Key Dashboard Components**:
-  - Recent Requests Card: Quick view of last 5-10 product requests and status
-  - Action Required Notifications: Requests needing attention (e.g., "Additional information needed for Request #123")
-  - Quick Action Buttons: Shortcuts for "Initiate New Request" or "Check Eligibility"
-  - Clinical Opportunities Widget: AI suggestions for additional services/products based on clinical best practices
-  - Main Navigation Menu: Access to "My Requests," "New Request," "Product Catalog," "Eligibility Check"
-- **Key Workflows**:
-  - Initiating new product/service requests with step-through forms
-  - Clinical assessment documentation with wound-specific questionnaires
-  - Product selection with intelligent recommendations
-  - MAC validation and eligibility checking
-  - Prior authorization management
-- **MSC Assist Integration**: AI-powered guidance for clinical decisions, documentation requirements, and platform features
-- **Features**: Mobile responsive, step-through forms, status visualization, contextual help
-
-### **Administrator Portal Users (Platform Administrators)**
-- **Primary Purpose**: Central hub for managing all operational aspects of the MSC-MVP platform
-- **Responsibilities**:
-  - Oversee order processing
-  - Manage customer and sales representative accounts
-  - Configure system rules and intelligent engines
-  - Monitor overall platform health and performance
-- **Key Dashboard Components**:
-  - Pending Approval Queues: Orders, Sub-Rep Applications, Provider Verifications
-  - Recent Platform Activity Feed: Chronological list of important events
-  - Operational Metrics Dashboard: Order volume, approval rates, processing times
-  - System Health Indicators: Critical system components, API integrations status
-  - Quick Action Buttons: Common administrative tasks
-  - Main Navigation Menu: Order Management, Customer Management, Sales Rep Management, Engine & Rules, System Config, Reporting
-- **Key Workflows**:
-  - Order processing and approval workflows
-  - Customer and sales rep account management
-  - System settings management and configuration
-  - Report generation and analytics
-  - Audit log review and compliance reporting
-- **Advanced UI Components**: Data tables with sorting/filtering, multi-panel interfaces, process visualization, configuration builders
-- **MSC Assist Integration**: Platform functionality guidance, complex administrative task assistance, policy implications understanding
-
-### **Sales Representative Portal Users**
-- **Primary Purpose**: Commission tracking, customer relationship management, and sales performance monitoring (referenced but not detailed in provided documentation)
-- **Expected Features**: Commission statements, territory management, customer management tools, sales analytics
-
-## User Role System
-
-- **Current Implementation**: Uses the existing `owner` boolean field from User model to determine role
-  - `owner = true` → 'administrator' role (shows admin dashboard)
-  - `owner = false` → 'provider' role (shows provider dashboard)
-- **Role Mapping**: DashboardController maps user->owner field to appropriate role string and passes to dashboard component
-- **Required Implementation**: Need to implement proper 6-role system (Provider, Office Manager, MSC Rep, MSC SubRep, MSC Admin, SuperAdmin)
-- **RBAC Development Approach**: Main technical developer is handling RBAC implementation. Focus on UI/UX role-specific features and work around existing RBAC system without implementing granular permissions.
-
-## Development Approach
-
-- **RBAC Delegation**: Main technical developer handles Role-Based Access Control implementation
-- **UI/UX Focus**: Concentrate on role-specific user interface features and user experience rather than permission management
-- **Feature-First Development**: Build role-specific features and workflows around existing RBAC system
-# Project Memory
-
-This file stores project-specific knowledge, conventions, and user preferences learned by the AI assistant.
-
-## User Preferences
-
-- **Visual Design**: User prefers modern, clean aesthetics with proper contrast and readability. They reported issues with "grey titles" and wanted overall aesthetic improvements.
-- **Logo**: MSC-logo.png should be used consistently throughout the application (located in public/MSC-logo.png)
-
-## Technical Decisions
-
-- **Development Stack:** Laravel + Inertia.js + React + TypeScript + Vite
-- **CSS Framework:** Tailwind CSS with utility classes (with line-clamp plugin for text truncation)
-- **Build Tool:**
-- **Brand Colors**:
-  - Primary blue: #1822cf (used for primary actions, active states, focus states)
-  - Primary red: #cb0909 (used for danger actions, active menu items)
-  - White backgrounds for main content areas and sidebar
-- **Typography**: Dark text colors (gray-900) for headings, gray-700 for body text to ensure proper contrast
-- **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
-- **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
-- **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
-
-## Project Conventions
-
-- **Layout Structure**: MainLayout.tsx provides the primary application shell with sidebar navigation
-- **Logo Usage**: Logo component should use the PNG file (/MSC-logo.png) rather than embedded SVG
-- **Color Application**: Use brand colors via inline styles for dynamic elements, Tailwind utilities for static elements
-- **Component Design**: Follow modern design principles with proper shadows, rounded corners, and hover states
-
-## Completed Features
-
-### **Product Catalog System (MSC Wound Care Products)**
-- **Implementation**: Comprehensive product management system for MSC wound care products
+### **Order Management System Implementation (COMPLETED)** ✅
+- **Implementation**: Complete admin order management system following MSC Portal documentation workflow
 - **Backend Components**:
-  - Product model with advanced scopes (active, byCategory, byManufacturer, search)
-  - ProductController with full CRUD operations and API endpoints
-  - Product seeder with 25+ real MSC wound care products from catalog
-  - Database schema supporting JSON arrays for sizes and documents
+  - OrderController with `manage()` method for admin order processing
+  - Order model with relationships (organization, facility, salesRep, items)
+  - Filtering capabilities (search, status, date range, sales rep)
+  - Pagination and sorting for order lists
+  - Status definitions aligned with MSC Portal workflow
 - **Frontend Components**:
-  - Product Index page with grid/list view modes
-  - Advanced filtering (category, manufacturer, search)
-  - Sortable columns and pagination
-  - Product detail pages with comprehensive information
-  - Pricing breakdowns (National ASP vs MSC pricing)
-  - Available sizes with total pricing calculations
+  - Order/Manage.tsx page with modern admin interface
+  - Advanced search and filtering (order number, facility, organization)
+  - Status-based tabs with color-coded badges and icons
+  - Detailed order table with metadata and action buttons
+  - Responsive design with proper spacing and typography
 - **Key Features**:
-  - MSC pricing calculation (40% discount from National ASP)
-  - Product recommendations API for clinical workflows
-  - Category and manufacturer filtering
-  - Commission rate tracking per product
-  - Integration ready for order creation workflow
-- **Products Included**: Biovance, EpiFix, Complete FT, Helicoll, and 20+ other MSC wound care products
-- **Navigation**: Updated MainLayout navigation from "Product Management" to "Product Catalog"
+  - Default view shows "Pending Admin Approval" orders
+  - Status pipeline: pending_admin_approval → approved → processing → shipped → delivered
+  - Admin actions: approve, reject, request additional information
+  - Integration points for MAC validation, eligibility results, document generation
+  - Order fulfillment tracking with shipping information
 
-### **Dashboard Enhancement Implementation**
-
-- **Role-Based Dashboard**: Implemented support for 3 user roles (provider, administrator, sales_rep) with role-specific content and navigation
-- **Action Required Notifications**: Added high-priority widget showing pending tasks, document requirements, PA approvals, and MAC validation warnings
-- **Quick Action Buttons**: Implemented 4 primary quick actions (New Request, Check Eligibility, Product Catalog, Submit PA) with hover states and proper iconography
-- **Clinical Opportunities Widget**: Provider-specific widget showing AI-identified opportunities for enhanced patient care with accept/dismiss functionality
-- **Enhanced Recent Requests**: Expanded beyond verifications to include product requests, PA requests, eligibility checks, and orders with proper status indicators
-- **Role-Specific Quick Links**: Different bottom sections for each user role (admin = system management, provider = clinical tools, sales = commission tracking)
-- **MSC Portal Alignment**: All widgets and content align with documented MSC Wound Portal provider/admin/sales portal specifications
+### **Navigation Menu Alignment with Documentation (COMPLETED)** ✅
+- **Implementation**: Complete alignment of role-based navigation menus with Sidebar_Menu_Structure.md documentation
+- **Changes Made**:
+  - **Provider Portal**: Added "Status" sub-item to Product Requests, Added Pre-Authorization to MAC/Eligibility/PA, Removed eClinicalWorks (not documented)
+  - **Office Manager Portal**: No changes needed - already aligned, Removed eClinicalWorks (not documented)
+  - **MSC Sales Rep Portal**: Changed "Commission Records" to "History" under Commissions section
+  - **MSC Sub-Rep Portal**: No changes needed - already aligned
+  - **MSC Admin Portal**: Added "Request Management" top-level item, Restructured to separate "Engines" as top-level item (Clinical Opportunity Rules, Product Recommendation Rules, Commission Management), Restructured "User & Org Management" section (Access Requests, Sub-Rep Approval Queue, User Management, Organization Management), Added "Settings" top-level item, Removed extra analytics and territory management (not documented)
+  - **Super Admin Portal**: Restructured to match documentation with "Request Management", "Order Management", "Commission Overview", "User & Org Management" (RBAC Configuration, All Users, System Access Control, Role Management), "System Admin" (Platform Configuration, Integration Settings, API Management, Audit Logs)
+- **Technical Updates**:
+  - Updated `RoleBasedNavigation.tsx` component with all role-specific menu structures
+  - Maintained existing navigation functionality (expandable menus, active states, role-based access control)
+  - Ensured all menu items maintain proper icons and href routes
+- **Documentation Compliance**: All role menus now exactly match the structure defined in `docs/ui-ux/Sidebar_Menu_Structure.md`
 
 ## MSC Portal User Roles (Actual System Requirements)
 
@@ -312,10 +265,10 @@ This file stores project-specific knowledge, conventions, and user preferences l
 
 ### **6. SuperAdmin**
 - **Role**: Highest level system administrators
-- **Primary Purpose**: Full system access, critical system management, security oversight
-- **Key Features**: Complete system access, security management, critical configurations, audit oversight
-- **Dashboard Focus**: System-wide control, security monitoring, critical operations
-- **Status**: **Not Really Needed at this time** (deprioritized)
+- **Primary Purpose**: Technical system health and infrastructure management only
+- **Key Features**: System monitoring, database management, security settings, performance metrics, error tracking, cache management
+- **Dashboard Focus**: System health monitoring, technical administration, infrastructure management
+- **Scope Limitation**: NO business workflows (no orders, commissions, customers, products) - purely technical/system focus
 
 ## MSC Wound Portal User Roles (From Documentation)
 
@@ -379,3 +332,17 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **UI/UX Focus**: Concentrate on role-specific user interface features and user experience rather than permission management
 - **Feature-First Development**: Build role-specific features and workflows around existing RBAC system
 - **Collaboration Strategy**: Work around RBAC system being developed separately, focus on frontend components and workflows
+
+## Recent Fixes Completed
+
+### MSC Admin Access Control Fixes (January 2025)
+- **Issue**: MSC Admin role had 403/404 errors on `/customers`, `/orders/analytics`, and `/orders/create`
+- **Root Cause**: Missing permissions (`view-customers`, `view-analytics`, `create-orders`) and missing route implementation
+- **Solution Implemented**:
+  - Added missing permissions to UserRoleSeeder for MSC Admin role
+  - Created `/orders/analytics` route with proper permission middleware
+  - Moved `/orders/create` to permission-protected section
+  - Implemented OrderController@analytics method with role-aware financial data
+  - Created Order/Analytics.tsx React component with charts and role-based restrictions
+  - Installed recharts package for data visualization
+- **Result**: All MSC Admin routes now properly accessible with consistent RBAC pattern

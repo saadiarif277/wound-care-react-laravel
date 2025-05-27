@@ -82,15 +82,13 @@ class GenerateEcwKeysInAzure extends Command
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$accessToken}",
                 'Content-Type' => 'application/json',
-            ])->post("{$vaultUrl}/keys/ecw-jwk-rsa-key/create", [
+            ])->post("{$vaultUrl}/keys/ecw-jwk-rsa-key/create?api-version=7.4", [
                 'kty' => 'RSA',
                 'key_size' => 2048,
                 'key_ops' => ['sign', 'verify'],
                 'attributes' => [
                     'enabled' => true
                 ]
-            ], [
-                'api-version' => '7.4'
             ]);
 
             if (!$response->successful()) {
