@@ -261,10 +261,6 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // MSC Admin routes - Add proper authorization
-    Route::middleware(['permission:view-requests'])->group(function () {
-        Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
-        Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
-    });
 
     Route::middleware(['permission:manage-orders'])->group(function () {
         Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
