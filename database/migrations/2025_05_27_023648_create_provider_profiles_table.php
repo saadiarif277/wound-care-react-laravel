@@ -13,7 +13,7 @@ return new class extends Migration
     {
         // Create enum types
         Schema::create('provider_profiles', function (Blueprint $table) {
-            $table->unsignedInteger('provider_id')->primary();
+            $table->uuid('provider_id')->primary();
             $table->string('azure_provider_fhir_id')->nullable()->comment('Reference to Azure Health Data Services FHIR Patient resource');
 
             // Profile completion tracking
@@ -47,14 +47,23 @@ return new class extends Migration
             $table->boolean('two_factor_enabled')->default(false);
 
             // Audit fields
-            $table->unsignedInteger('created_by')->nullable();
-            $table->unsignedInteger('updated_by')->nullable();
+            $table->uuid('created_by')->nullable();
+            $table->uuid('updated_by')->nullable();
             $table->timestamps();
 
             // Foreign key constraints
-            $table->foreign('provider_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('created_by')->references('id')->on('users')->onDelete('set null');
-            $table->foreign('updated_by')->references('id')->on('users')->onDelete('set null');
+            $table->foreign('provider_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+            $table->foreign('created_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+            $table->foreign('updated_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
 
             // Indexes for performance
             $table->index('verification_status');

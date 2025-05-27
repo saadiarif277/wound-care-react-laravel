@@ -13,14 +13,23 @@ return new class extends Migration
     {
         Schema::create('facility_user', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('facility_id')->constrained('facilities')->onDelete('cascade');
-            $table->unsignedInteger('user_id');
-            $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
+            $table->uuid('facility_id');
+            $table->uuid('user_id');
             $table->string('relationship_type')->default('attached'); // attached, managed, supervised
             $table->boolean('is_primary')->default(false); // Primary facility for the user
             $table->boolean('is_active')->default(true);
             $table->text('notes')->nullable();
             $table->timestamps();
+
+            // Add foreign key constraints
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
 
             // Prevent duplicate relationships
             $table->unique(['facility_id', 'user_id', 'relationship_type'], 'facility_user_relationship_unique');

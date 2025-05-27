@@ -12,9 +12,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('order_items', function (Blueprint $table) {
-            $table->id();
-            $table->unsignedBigInteger('order_id');
-            $table->unsignedBigInteger('product_id');
+            $table->uuid('id')->primary();
+            $table->uuid('order_id');
+            $table->uuid('product_id');
             $table->integer('quantity');
             $table->string('graph_size')->nullable();
             $table->decimal('price', 10, 2);
@@ -23,7 +23,10 @@ return new class extends Migration
             $table->softDeletes();
 
             $table->foreign('order_id')->references('id')->on('orders')->onDelete('cascade');
-            $table->foreign('product_id')->references('id')->on('msc_products');
+            $table->foreign('product_id')->references('id')->on('msc_products')->onDelete('restrict');
+
+            $table->index('quantity');
+            $table->index('graph_size');
         });
     }
 

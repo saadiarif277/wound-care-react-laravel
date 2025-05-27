@@ -12,14 +12,14 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('msc_products', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('sku')->unique();
             $table->string('name');
             $table->text('description')->nullable();
             $table->string('manufacturer')->nullable();
-            $table->unsignedBigInteger('manufacturer_id')->nullable();
+            $table->uuid('manufacturer_id')->nullable();
             $table->string('category')->nullable();
-            $table->unsignedBigInteger('category_id')->nullable();
+            $table->uuid('category_id')->nullable();
             $table->decimal('national_asp', 10, 2)->nullable();
             $table->decimal('price_per_sq_cm', 10, 4)->nullable();
             $table->string('q_code', 10)->nullable();
@@ -32,8 +32,12 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
+            // Add indexes for performance
             $table->index(['manufacturer_id', 'category_id']);
             $table->index('is_active');
+            $table->index('sku');
+            $table->index('category');
+            $table->index('graph_type');
         });
     }
 

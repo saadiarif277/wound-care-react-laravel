@@ -13,8 +13,15 @@ return new class extends Migration
     {
         Schema::create('product_request_products', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('product_request_id')->constrained('product_requests')->onDelete('cascade');
-            $table->foreignId('product_id')->constrained('msc_products');
+            $table->uuid('product_request_id');
+            $table->foreign('product_request_id')
+                  ->references('id')
+                  ->on('product_requests')
+                  ->onDelete('cascade');
+            $table->uuid('product_id');
+            $table->foreign('product_id')
+                  ->references('id')
+                  ->on('msc_products');
             $table->integer('quantity');
             $table->string('size')->nullable();
             $table->decimal('unit_price', 10, 2);

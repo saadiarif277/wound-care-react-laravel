@@ -12,8 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('organizations', function (Blueprint $table) {
-            $table->id();
-            $table->integer('account_id')->index();
+            $table->uuid('id')->primary();
+            $table->uuid('account_id')->index();
             $table->string('name', 100);
             $table->string('email', 50)->nullable();
             $table->string('phone', 50)->nullable();
@@ -24,6 +24,16 @@ return new class extends Migration
             $table->string('postal_code', 25)->nullable();
             $table->timestamps();
             $table->softDeletes();
+
+            // Add foreign key constraint
+            $table->foreign('account_id')
+                  ->references('id')
+                  ->on('accounts')
+                  ->onDelete('cascade');
+
+            // Add indexes for performance
+            $table->index('email');
+            $table->index('country');
         });
     }
 

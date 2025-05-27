@@ -26,7 +26,7 @@ return new class extends Migration
             $table->string('entity_display_name')->nullable()->comment('Human-readable name of the entity');
 
             // User and context information
-            $table->unsignedInteger('user_id')->comment('User who performed the action');
+            $table->uuid('user_id')->comment('User who performed the action');
             $table->string('user_email')->nullable()->comment('Email of user at time of action');
             $table->string('user_role')->nullable()->comment('Role of user at time of action');
 
@@ -69,7 +69,7 @@ return new class extends Migration
             ])->default('administrative');
             $table->boolean('requires_approval')->default(false);
             $table->timestamp('approved_at')->nullable();
-            $table->unsignedInteger('approved_by')->nullable();
+            $table->uuid('approved_by')->nullable();
 
             // Timestamps
             $table->timestamp('created_at')->useCurrent();

@@ -16,9 +16,17 @@ return new class extends Migration
             $table->uuid('validation_id')->unique();
 
             // Related entities
-            $table->foreignId('order_id')->constrained('orders')->onDelete('cascade');
+            $table->uuid('order_id');
+            $table->foreign('order_id')
+                  ->references('id')
+                  ->on('orders')
+                  ->onDelete('cascade');
             $table->string('patient_fhir_id')->nullable(); // FHIR patient identifier
-            $table->foreignId('facility_id')->constrained('facilities')->onDelete('cascade');
+            $table->uuid('facility_id');
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
 
             // Medicare MAC Information
             $table->string('mac_contractor')->nullable(); // e.g., 'CGS', 'Novitas', 'WPS', etc.

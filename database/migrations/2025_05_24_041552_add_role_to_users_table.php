@@ -12,7 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->foreignId('user_role_id')->nullable()->constrained('user_roles')->onDelete('set null');
+            $table->uuid('role_id')->nullable();
+            $table->foreign('role_id')
+                  ->references('id')
+                  ->on('roles')
+                  ->onDelete('set null');
             $table->string('npi_number')->nullable(); // For healthcare providers
             $table->string('dea_number')->nullable(); // For prescribing providers
             $table->string('license_number')->nullable(); // Professional license
@@ -23,7 +27,7 @@ return new class extends Migration
             $table->timestamp('last_activity')->nullable();
 
             // Index for performance
-            $table->index(['user_role_id', 'is_verified']);
+            $table->index(['role_id', 'is_verified']);
             $table->index('npi_number');
         });
     }
@@ -34,9 +38,9 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('users', function (Blueprint $table) {
-            $table->dropForeign(['user_role_id']);
+            $table->dropForeign(['role_id']);
             $table->dropColumn([
-                'user_role_id',
+                'role_id',
                 'npi_number',
                 'dea_number',
                 'license_number',

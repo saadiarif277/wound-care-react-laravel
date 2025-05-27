@@ -14,7 +14,11 @@ return new class extends Migration
     {
         Schema::create('patient_display_sequences', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignId('facility_id')->constrained('facilities')->onDelete('cascade');
+            $table->uuid('facility_id');
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
             $table->string('initials_base', 4); // "JoSm"
             $table->integer('next_sequence')->default(1);
             $table->timestamps();
@@ -29,7 +33,7 @@ return new class extends Migration
         // Create the atomic sequence increment function
         DB::unprepared('
             CREATE OR REPLACE FUNCTION increment_patient_sequence(
-                p_facility_id INTEGER,
+                p_facility_id CHAR(36),
                 p_initials_base VARCHAR(4)
             ) RETURNS INTEGER
             BEGIN
@@ -51,7 +55,7 @@ return new class extends Migration
     public function down(): void
     {
         // Drop the function first
-        DB::unprepared('DROP FUNCTION IF EXISTS increment_patient_sequence(INTEGER, VARCHAR(4));');
+        DB::unprepared('DROP FUNCTION IF EXISTS increment_patient_sequence(CHAR(36), VARCHAR(4));');
 
         Schema::dropIfExists('patient_display_sequences');
     }

@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('facilities', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('organization_id')->constrained()->onDelete('cascade');
+            $table->uuid('id')->primary();
+            $table->uuid('organization_id');
             $table->string('name');
             $table->string('facility_type'); // clinic, hospital, etc.
             $table->string('address');
@@ -24,6 +24,17 @@ return new class extends Migration
             $table->boolean('active')->default(true);
             $table->timestamps();
             $table->softDeletes();
+
+            // Add foreign key constraint
+            $table->foreign('organization_id')
+                  ->references('id')
+                  ->on('organizations')
+                  ->onDelete('cascade');
+
+            // Add indexes for performance
+            $table->index('facility_type');
+            $table->index('active');
+            $table->index('npi');
         });
     }
 

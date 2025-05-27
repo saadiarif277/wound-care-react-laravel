@@ -12,11 +12,11 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('orders', function (Blueprint $table) {
-            $table->id();
+            $table->uuid('id')->primary();
             $table->string('order_number')->unique();
             $table->string('patient_fhir_id'); // Reference to FHIR Patient resource - NO PHI stored here
-            $table->unsignedBigInteger('facility_id');
-            $table->unsignedBigInteger('sales_rep_id')->nullable();
+            $table->uuid('facility_id');
+            $table->uuid('sales_rep_id')->nullable();
             $table->date('date_of_service');
             $table->string('credit_terms')->default('net60');
             $table->enum('status', ['pending', 'confirmed', 'shipped', 'fulfilled', 'cancelled'])->default('pending');
@@ -31,11 +31,21 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->foreign('facility_id')->references('id')->on('facilities');
-            $table->foreign('sales_rep_id')->references('id')->on('msc_sales_reps');
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('restrict');
+
+            $table->foreign('sales_rep_id')
+                  ->references('id')
+                  ->on('msc_sales_reps')
+                  ->onDelete('set null');
+
             $table->index('patient_fhir_id');
             $table->index('status');
             $table->index('date_of_service');
+            $table->index('payment_status');
+            $table->index('order_number');
         });
     }
 
