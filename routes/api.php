@@ -198,17 +198,24 @@ Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function
     Route::get('callback', [EcwController::class, 'callback'])->name('callback');
     Route::get('status', [EcwController::class, 'status'])->name('status');
     Route::get('test', [EcwController::class, 'test'])->name('test');
-    Route::post('disconnect', [EcwController::class, 'disconnect'])->name('disconnect');
 
     // Patient data routes
-    Route::prefix('patients')->name('patients.')->group(function () {
-        Route::get('search', [EcwController::class, 'searchPatients'])->name('search');
-        Route::get('{id}', [EcwController::class, 'getPatient'])->name('read');
-        Route::get('{id}/observations', [EcwController::class, 'getPatientObservations'])->name('observations');
-        Route::get('{id}/documents', [EcwController::class, 'getPatientDocuments'])->name('documents');
-        Route::get('{id}/conditions', [EcwController::class, 'getPatientConditions'])->name('conditions');
-        Route::post('{id}/order-summary', [EcwController::class, 'createOrderSummary'])->name('order-summary.create');
-    });
+    Route::get('patients', [EcwController::class, 'getPatients'])->name('patients');
+    Route::get('patients/{patient_id}', [EcwController::class, 'getPatient'])->name('patient');
+    Route::get('patients/{patient_id}/appointments', [EcwController::class, 'getPatientAppointments'])->name('patient.appointments');
+    Route::get('patients/{patient_id}/documents', [EcwController::class, 'getPatientDocuments'])->name('patient.documents');
+
+    // Provider data routes
+    Route::get('providers', [EcwController::class, 'getProviders'])->name('providers');
+    Route::get('providers/{provider_id}', [EcwController::class, 'getProvider'])->name('provider');
+
+    // Appointment routes
+    Route::get('appointments', [EcwController::class, 'getAppointments'])->name('appointments');
+    Route::post('appointments', [EcwController::class, 'createAppointment'])->name('appointments.create');
+
+    // Document routes
+    Route::get('documents', [EcwController::class, 'getDocuments'])->name('documents');
+    Route::post('documents', [EcwController::class, 'uploadDocument'])->name('documents.upload');
 });
 
 // JWK endpoint for eCW integration (public endpoint)
@@ -318,5 +325,68 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
     Route::middleware(['auth:sanctum', 'permission:delete-roles'])->group(function () {
         Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
+    });
+});
+
+// RBAC Management Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('roles', RoleController::class);
+    Route::apiResource('permissions', PermissionController::class);
+    Route::apiResource('users', UserController::class);
+
+    // RBAC specific routes
+    Route::post('rbac/assign-role', [RBACController::class, 'assignRole'])->name('rbac.assign_role');
+    Route::post('rbac/revoke-role', [RBACController::class, 'revokeRole'])->name('rbac.revoke_role');
+    Route::post('rbac/assign-permission', [RBACController::class, 'assignPermission'])->name('rbac.assign_permission');
+    Route::post('rbac/revoke-permission', [RBACController::class, 'revokePermission'])->name('rbac.revoke_permission');
+
+    // Access control
+    Route::get('access-control/dashboard', [AccessControlController::class, 'dashboard'])->name('access_control.dashboard');
+    Route::get('access-control/audit', [AccessControlController::class, 'auditLog'])->name('access_control.audit');
+});
+
+// Access Request Management Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    Route::apiResource('access-requests', AccessRequestController::class);
+    Route::post('access-requests/{id}/approve', [AccessRequestController::class, 'approve'])->name('access_requests.approve');
+    Route::post('access-requests/{id}/reject', [AccessRequestController::class, 'reject'])->name('access_requests.reject');
+});
+
+// Provider Profile Management Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('providers/{provider_id}')->name('providers.')->group(function () {
+        // Profile management
+        Route::get('profile', [\App\Http\Controllers\Api\ProviderProfileController::class, 'show'])->name('profile.show');
+        Route::put('profile', [\App\Http\Controllers\Api\ProviderProfileController::class, 'update'])->name('profile.update');
+        Route::get('profile/completion-status', [\App\Http\Controllers\Api\ProviderProfileController::class, 'completionStatus'])->name('profile.completion');
+
+        // Preferences management
+        Route::put('profile/notification-preferences', [\App\Http\Controllers\Api\ProviderProfileController::class, 'updateNotificationPreferences'])->name('profile.notifications');
+        Route::put('profile/practice-preferences', [\App\Http\Controllers\Api\ProviderProfileController::class, 'updatePracticePreferences'])->name('profile.practice');
+
+        // Credential management
+        Route::get('credentials', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'index'])->name('credentials.index');
+        Route::post('credentials', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'store'])->name('credentials.store');
+        Route::get('credentials/{credential_id}', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'show'])->name('credentials.show');
+        Route::put('credentials/{credential_id}', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'update'])->name('credentials.update');
+        Route::delete('credentials/{credential_id}', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'destroy'])->name('credentials.destroy');
+
+        // Credential verification (admin only)
+        Route::post('credentials/{credential_id}/verify', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'verify'])->name('credentials.verify');
+        Route::post('credentials/{credential_id}/reject', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'reject'])->name('credentials.reject');
+        Route::post('credentials/{credential_id}/suspend', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'suspend'])->name('credentials.suspend');
+
+        // Document management
+        Route::post('credentials/{credential_id}/documents', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'uploadDocument'])->name('credentials.documents.upload');
+        Route::get('credentials/{credential_id}/documents/{document_id}', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'downloadDocument'])->name('credentials.documents.download');
+        Route::delete('credentials/{credential_id}/documents/{document_id}', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'deleteDocument'])->name('credentials.documents.delete');
+    });
+
+    // Credential management utilities
+    Route::prefix('credentials')->name('credentials.')->group(function () {
+        Route::get('types', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getCredentialTypes'])->name('types');
+        Route::get('expiring', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getExpiringCredentials'])->name('expiring');
+        Route::get('expired', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getExpiredCredentials'])->name('expired');
+        Route::get('pending-verification', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getPendingVerification'])->name('pending');
     });
 });
