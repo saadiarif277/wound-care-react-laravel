@@ -7,6 +7,12 @@ use Inertia\Inertia;
 
 class MACValidationController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:manage-mac-validation')->only(['index', 'validateMAC']);
+    }
+
     /**
      * Display the MAC Validation page.
      */

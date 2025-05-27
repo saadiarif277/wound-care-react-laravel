@@ -15,9 +15,13 @@ use App\Http\Controllers\MACValidationController;
 use App\Http\Controllers\CommissionController;use App\Http\Controllers\CommissionRuleController;use App\Http\Controllers\CommissionRecordController;use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
 use App\Http\Controllers\RequestController;
+use App\Http\Controllers\RBACController;
+use App\Http\Controllers\AccessControlController;
+use App\Http\Controllers\RoleController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 /*
 |--------------------------------------------------------------------------
@@ -82,57 +86,29 @@ Route::get('/', [DashboardController::class, 'index'])
 
 Route::get('/orders',[OrderController::class,'index'])->name('orders');
 
-Route::get('/orders/create',[OrderController::class,'create'])->name('orders.create');
-
 Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');
 
-// Products
+// Products - with proper permission middleware
 
-Route::get('products', [ProductController::class, 'index'])
-    ->name('products.index')
-    ->middleware('auth');
+Route::middleware(['permission:view-products'])->group(function () {
+    Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
 
-Route::get('products/create', [ProductController::class, 'create'])
-    ->name('products.create')
-    ->middleware('auth');
+    // Product API endpoints accessible to all roles with view-products permission
+    Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
+    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
+    Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
+});
 
-Route::post('products', [ProductController::class, 'store'])
-    ->name('products.store')
-    ->middleware('auth');
-
-Route::get('products/{product}', [ProductController::class, 'show'])
-    ->name('products.show')
-    ->middleware('auth');
-
-Route::get('products/{product}/edit', [ProductController::class, 'edit'])
-    ->name('products.edit')
-    ->middleware('auth');
-
-Route::put('products/{product}', [ProductController::class, 'update'])
-    ->name('products.update')
-    ->middleware('auth');
-
-Route::delete('products/{product}', [ProductController::class, 'destroy'])
-    ->name('products.destroy')
-    ->middleware('auth');
-
-Route::put('products/{product}/restore', [ProductController::class, 'restore'])
-    ->name('products.restore')
-    ->middleware('auth');
-
-// Product API endpoints
-
-Route::get('api/products/search', [ProductController::class, 'search'])
-    ->name('api.products.search')
-    ->middleware('auth');
-
-Route::get('api/products/{product}', [ProductController::class, 'apiShow'])
-    ->name('api.products.show')
-    ->middleware('auth');
-
-Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])
-    ->name('api.products.recommendations')
-    ->middleware('auth');
+// Product management - restricted to admin roles only
+Route::middleware(['permission:manage-products'])->group(function () {
+    Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::put('products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+});
 
 // Users
 
@@ -193,19 +169,19 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/prior-auth/status', [EligibilityController::class, 'checkPriorAuthStatus'])->name('eligibility.prior-auth.status');
     });
 
-    // MAC Validation Routes
-    Route::prefix('mac-validation')->group(function () {
+    // MAC Validation Routes - accessible to office managers and admins
+    Route::middleware(['permission:manage-mac-validation'])->prefix('mac-validation')->group(function () {
         Route::get('/', [MACValidationController::class, 'index'])->name('mac-validation.index');
         Route::post('/validate', [MACValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
 
     // eClinicalWorks Integration Routes
     Route::get('/ecw', function () {
-        return \Inertia\Inertia::render('EcwIntegration/Index');
+        return Inertia::render('EcwIntegration/Index');
     })->name('ecw.index');
 
     // Commission Management Routes
-    Route::prefix('commission')->group(function () {
+    Route::prefix('commission')->middleware(['financial.access'])->group(function () {
         Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
         Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
         Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
@@ -238,76 +214,158 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
     });
 
-    // Office Manager specific routes
-    Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
-    Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
-    Route::get('/providers', function () {
-        return Inertia::render('Providers/Index');
-    })->name('providers.index');
-    Route::get('/pre-authorization', function () {
-        return Inertia::render('PreAuthorization/Index');
-    })->name('pre-authorization.index');
-
-    // MSC Admin routes
-    Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
-    Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
-    Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
-    Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
-    Route::get('/settings', function () {
-        return Inertia::render('Settings/Index');
-    })->name('settings.index');
-    Route::get('/subrep-approvals', function () {
-        return Inertia::render('SubrepApprovals/Index');
-    })->name('subrep-approvals.index');
-
-    // Engine routes
-    Route::prefix('engines')->group(function () {
-        Route::get('/clinical-rules', function () {
-            return Inertia::render('Engines/ClinicalRules');
-        })->name('engines.clinical-rules');
-        Route::get('/recommendation-rules', function () {
-            return Inertia::render('Engines/RecommendationRules');
-        })->name('engines.recommendation-rules');
-        Route::get('/commission', function () {
-            return Inertia::render('Engines/Commission');
-        })->name('engines.commission');
+    // Office Manager specific routes - Add proper authorization
+    Route::middleware(['permission:view-product-requests'])->group(function () {
+        Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
+        Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
     });
 
-    // Super Admin routes
-    Route::get('/rbac', function () {
-        return Inertia::render('RBAC/Index');
-    })->name('rbac.index');
-    Route::get('/access-control', function () {
-        return Inertia::render('AccessControl/Index');
-    })->name('access-control.index');
-    Route::get('/roles', function () {
-        return Inertia::render('Roles/Index');
-    })->name('roles.index');
-    Route::get('/commission/overview', function () {
-        return Inertia::render('Commission/Overview');
-    })->name('commission.overview');
+    Route::middleware(['permission:view-providers'])->group(function () {
+        Route::get('/providers', function () {
+            return Inertia::render('Providers/Index');
+        })->name('providers.index');
+    });
 
-    // System Admin routes
-    Route::prefix('system-admin')->group(function () {
-        Route::get('/config', function () {
-            return Inertia::render('SystemAdmin/Config');
-        })->name('system-admin.config');
-        Route::get('/integrations', function () {
-            return Inertia::render('SystemAdmin/Integrations');
-        })->name('system-admin.integrations');
-        Route::get('/api', function () {
-            return Inertia::render('SystemAdmin/API');
-        })->name('system-admin.api');
-        Route::get('/audit', function () {
+    Route::middleware(['permission:manage-pre-authorization'])->group(function () {
+        Route::get('/pre-authorization', function () {
+            return Inertia::render('PreAuthorization/Index');
+        })->name('pre-authorization.index');
+    });
+
+    // MSC Admin routes - Add proper authorization
+
+    Route::middleware(['permission:manage-orders'])->group(function () {
+        Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
+    });
+
+    Route::middleware(['permission:view-analytics'])->group(function () {
+        Route::get('/orders/analytics', [OrderController::class, 'analytics'])->name('orders.analytics');
+    });
+
+    Route::middleware(['permission:create-orders'])->group(function () {
+        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
+    });
+
+    Route::middleware(['permission:manage-products'])->group(function () {
+        Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
+    });
+
+    Route::middleware(['permission:view-settings'])->group(function () {
+        Route::get('/settings', function () {
+            return Inertia::render('Settings/Index');
+        })->name('settings.index');
+    });
+
+    Route::middleware(['permission:manage-subrep-approvals'])->group(function () {
+        Route::get('/subrep-approvals', function () {
+            return Inertia::render('SubrepApprovals/Index');
+        })->name('subrep-approvals.index');
+    });
+
+    // Super Admin routes - Add proper authorization
+    Route::middleware(['permission:manage-rbac'])->group(function () {
+        Route::get('/rbac', [RBACController::class, 'index'])->name('rbac.index');
+        Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
+    });
+
+    Route::middleware(['permission:manage-access-control'])->group(function () {
+        Route::get('/access-control', [AccessControlController::class, 'index'])->name('access-control.index');
+    });
+
+    Route::middleware(['permission:view-commission'])->group(function () {
+        Route::get('/commission/overview', function () {
+            return Inertia::render('Commission/Overview');
+        })->name('commission.overview');
+    });
+
+    // System Admin routes - Add proper authorization
+    Route::middleware(['permission:manage-system-config'])->group(function () {
+        Route::prefix('system-admin')->group(function () {
+            Route::get('/config', function () {
+                return Inertia::render('SystemAdmin/Config');
+            })->name('system-admin.config');
+            Route::get('/integrations', function () {
+                return Inertia::render('SystemAdmin/Integrations');
+            })->name('system-admin.integrations');
+            Route::get('/api', function () {
+                return Inertia::render('SystemAdmin/API');
+            })->name('system-admin.api');
+        });
+    });
+
+    Route::middleware(['permission:view-audit-logs'])->group(function () {
+        Route::get('/system-admin/audit', function () {
             return Inertia::render('SystemAdmin/Audit');
         })->name('system-admin.audit');
     });
 
-    // MSC Rep routes
-    Route::get('/customers', function () {
-        return Inertia::render('Customers/Index');
-    })->name('customers.index');
-    Route::get('/team', function () {
-        return Inertia::render('Team/Index');
-    })->name('team.index');
+    // Engine routes - Add proper authorization
+    Route::middleware(['permission:manage-clinical-rules'])->group(function () {
+        Route::get('/engines/clinical-rules', function () {
+            return Inertia::render('Engines/ClinicalRules');
+        })->name('engines.clinical-rules');
+    });
+
+    Route::middleware(['permission:manage-recommendation-rules'])->group(function () {
+        Route::get('/engines/recommendation-rules', function () {
+            return Inertia::render('Engines/RecommendationRules');
+        })->name('engines.recommendation-rules');
+    });
+
+    Route::middleware(['permission:manage-commission-engine'])->group(function () {
+        Route::get('/engines/commission', function () {
+            return Inertia::render('Engines/Commission');
+        })->name('engines.commission');
+    });
+
+    // MSC Rep routes - Add proper authorization
+    Route::middleware(['permission:view-customers'])->group(function () {
+        Route::get('/customers', function () {
+            return Inertia::render('Customers/Index');
+        })->name('customers.index');
+    });
+
+    Route::middleware(['permission:view-team'])->group(function () {
+        Route::get('/team', function () {
+            return Inertia::render('Team/Index');
+        })->name('team.index');
+    });
+
+    // Test route for role restrictions
+    Route::get('/test-role-restrictions', function () {
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
+        return response()->json([
+            'user_email' => $user->email,
+            'role_name' => $userRole->name,
+            'role_display_name' => $userRole->display_name,
+            'financial_restrictions' => [
+                'can_access_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ],
+            'dashboard_config' => $userRole->getDashboardConfig(),
+        ]);
+    })->name('test.role-restrictions');
+
+    // Test route for Office Manager permissions
+    Route::get('/test-office-manager-permissions', function () {
+        $user = Auth::user();
+
+        return response()->json([
+            'user_email' => $user->email,
+            'user_role' => $user->getPrimaryRole()?->slug,
+            'permissions' => [
+                'view-products' => $user->hasPermission('view-products'),
+                'view-providers' => $user->hasPermission('view-providers'),
+                'view-product-requests' => $user->hasPermission('view-product-requests'),
+                'manage-mac-validation' => $user->hasPermission('manage-mac-validation'),
+                'manage-pre-authorization' => $user->hasPermission('manage-pre-authorization'),
+            ],
+            'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
+        ]);
+    })->name('test.office-manager-permissions');
 });

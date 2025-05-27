@@ -5,7 +5,6 @@ namespace App\Http\Middleware;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
-use App\Models\UserRole;
 
 class FinancialAccessControl
 {
@@ -16,11 +15,14 @@ class FinancialAccessControl
     {
         $user = $request->user();
 
-        if (!$user || !$user->role) {
+        if (!$user) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
 
-        $userRole = $user->role;
+        // Load the user roles if not already loaded
+        if (!$user->relationLoaded('roles')) {
+            $user->load('roles');
+        }
 
         // Check if the route requires financial access
         $routeName = $request->route()->getName();
@@ -36,11 +38,11 @@ class FinancialAccessControl
             return fnmatch($pattern, $routeName);
         });
 
-        if ($requiresFinancialAccess && !$userRole->canAccessFinancials()) {
+        if ($requiresFinancialAccess && !$user->hasAnyPermission(['view-financials', 'manage-financials'])) {
             if ($request->expectsJson()) {
                 return response()->json([
                     'error' => 'Access denied. Financial information not available for your role.',
-                    'message' => 'Office Managers cannot access financial data.'
+                    'message' => 'Your role does not have permission to access financial data.'
                 ], 403);
             }
 
@@ -50,14 +52,15 @@ class FinancialAccessControl
         // Add role restrictions to request for use in controllers
         $request->merge([
             'role_restrictions' => [
-                'can_view_financials' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'pricing_access_level' => $userRole->getPricingAccessLevel(),
-                'customer_data_restrictions' => $userRole->hasCustomerDataRestrictions(),
-                'can_view_phi' => $userRole->canViewPhi(),
-                'commission_access_level' => $userRole->getCommissionAccessLevel()
+                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'can_view_phi' => $user->hasPermission('view-phi'),
+                'can_view_commission' => $user->hasPermission('view-commission'),
+                'can_manage_commission' => $user->hasPermission('manage-commission'),
+                'can_manage_orders' => $user->hasPermission('manage-orders'),
+                'can_manage_products' => $user->hasPermission('manage-products'),
             ]
         ]);
 

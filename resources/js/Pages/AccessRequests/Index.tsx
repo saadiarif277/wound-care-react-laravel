@@ -109,10 +109,10 @@ export default function AccessRequestsIndex({ accessRequests, filters, roles }: 
   const getRoleBadge = (role: string) => {
     const roleColors = {
       provider: 'bg-blue-100 text-blue-800',
-      office_manager: 'bg-purple-100 text-purple-800',
-      msc_rep: 'bg-green-100 text-green-800',
-      msc_subrep: 'bg-indigo-100 text-indigo-800',
-      msc_admin: 'bg-gray-100 text-gray-800',
+      'office-manager': 'bg-purple-100 text-purple-800',
+      'msc-rep': 'bg-green-100 text-green-800',
+      'msc-subrep': 'bg-indigo-100 text-indigo-800',
+      'msc-admin': 'bg-gray-100 text-gray-800',
     };
 
     return (

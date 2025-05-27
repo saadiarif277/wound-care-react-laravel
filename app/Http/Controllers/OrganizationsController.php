@@ -11,6 +11,15 @@ use Inertia\Response;
 
 class OrganizationsController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:view-organizations')->only(['index', 'show']);
+        $this->middleware('permission:create-organizations')->only(['create', 'store']);
+        $this->middleware('permission:edit-organizations')->only(['edit', 'update']);
+        $this->middleware('permission:delete-organizations')->only('destroy');
+    }
+
     public function index(): Response
     {
         return Inertia::render('Organizations/Index', [

@@ -64,9 +64,18 @@ interface Request {
   description: string;
 }
 
+interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  pricing_access_level: string;
+}
+
 interface DashboardProps {
   userRole?: UserRole;
   user?: UserWithRole;
+  roleRestrictions?: RoleRestrictions;
 }
 
 // Create dummy data
@@ -225,21 +234,22 @@ const dummyRecentRequests: Request[] = [
   }
 ];
 
-function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
+function DashboardPage({ userRole = 'provider', user, roleRestrictions }: DashboardProps) {
   // Route to specific role-based dashboards
   const renderRoleSpecificDashboard = () => {
     switch (userRole) {
       case 'provider':
-        return <ProviderDashboard user={user} />;
-      case 'office_manager':
-        return <OfficeManagerDashboard user={user} />;
-      case 'msc_admin':
+        return <ProviderDashboard user={user} dashboardData={{}} roleRestrictions={roleRestrictions} />;
+      case 'office-manager':
+        return <OfficeManagerDashboard user={user} dashboardData={{}} roleRestrictions={roleRestrictions} />;
+      case 'msc-admin':
         return <MscAdminDashboard user={user} />;
+      case 'super-admin':
       case 'superadmin':
         return <SuperAdminDashboard user={user} />;
-      case 'msc_rep':
+      case 'msc-rep':
         return <MscRepDashboard user={user} />;
-      case 'msc_subrep':
+              case 'msc-subrep':
         return <MscSubrepDashboard user={user} />;
       default:
         // Fall back to the existing generic dashboard for unrecognized roles
@@ -439,8 +449,8 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
         </div>
       </div>
 
-      {/* Clinical Opportunities Widget */}
-      {userRole === 'provider' && clinicalOpportunities.length > 0 && (
+      {/* Clinical Opportunities Widget - Show for users with clinical access */}
+      {roleRestrictions?.can_see_msc_pricing && clinicalOpportunities.length > 0 && (
         <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-6 border-b border-gray-200 bg-blue-50">
             <div className="flex items-center">
@@ -577,7 +587,7 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
 
       {/* Role-specific Quick Links */}
       <div className="grid gap-6 md:grid-cols-3">
-        {(userRole === 'msc_admin' || userRole === 'superadmin') && (
+        {roleRestrictions?.can_view_financials && roleRestrictions?.pricing_access_level === 'full' && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">System Management</h3>
@@ -621,7 +631,7 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
           </>
         )}
 
-        {userRole === 'provider' && (
+        {roleRestrictions?.can_see_msc_pricing && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Product Catalog</h3>
@@ -664,7 +674,7 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
           </>
         )}
 
-        {userRole === 'office_manager' && (
+        {!roleRestrictions?.can_see_msc_pricing && roleRestrictions?.can_view_financials === false && (
           <>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">Facility Management</h3>
@@ -708,14 +718,14 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
           </>
         )}
 
-        {(userRole === 'msc_rep' || userRole === 'msc_subrep') && (
+        {roleRestrictions?.can_view_financials && (
           <>
                         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Commission Tracking' : 'Limited Commission Access'}
+                {roleRestrictions?.pricing_access_level === 'full' ? 'Commission Tracking' : 'Limited Commission Access'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {roleRestrictions?.pricing_access_level === 'full'
                   ? 'View your commission statements and team performance.'
                   : 'Track your limited commission access and activities.'
                 }
@@ -730,10 +740,10 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Customer Management' : 'Customer Support'}
+                {roleRestrictions?.pricing_access_level === 'full' ? 'Customer Management' : 'Customer Support'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {roleRestrictions?.pricing_access_level === 'full'
                   ? 'Manage customer relationships and territory oversight.'
                   : 'Assist with customer interactions and territory support.'
                 }
@@ -743,25 +753,25 @@ function DashboardPage({ userRole = 'provider', user }: DashboardProps) {
                 className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white transition-all duration-200 hover:shadow-md"
                 style={{ backgroundColor: '#1822cf' }}
               >
-                {userRole === 'msc_rep' ? 'Manage Customers' : 'Customer Support'}
+                {roleRestrictions?.pricing_access_level === 'full' ? 'Manage Customers' : 'Customer Support'}
               </Link>
             </div>
             <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">
-                {userRole === 'msc_rep' ? 'Territory & Analytics' : 'Sub-Rep Activities'}
+                {roleRestrictions?.pricing_access_level === 'full' ? 'Territory & Analytics' : 'Sub-Rep Activities'}
               </h3>
               <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                {userRole === 'msc_rep'
+                {roleRestrictions?.pricing_access_level === 'full'
                   ? 'Track sales performance and manage sub-representatives.'
                   : 'Report activities and coordinate with primary MSC Rep.'
                 }
               </p>
               <Link
-                href={userRole === 'msc_rep' ? '/sales/analytics' : '/sales/subrep-activities'}
+                href={roleRestrictions?.pricing_access_level === 'full' ? '/sales/analytics' : '/sales/subrep-activities'}
                 className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-semibold rounded-lg shadow-sm text-white transition-all duration-200 hover:shadow-md"
                 style={{ backgroundColor: '#1822cf' }}
               >
-                {userRole === 'msc_rep' ? 'View Analytics' : 'My Activities'}
+                {roleRestrictions?.pricing_access_level === 'full' ? 'View Analytics' : 'My Activities'}
               </Link>
             </div>
           </>

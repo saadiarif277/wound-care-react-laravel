@@ -30,7 +30,8 @@ import {
   FiBookOpen,
   FiChevronRight,
   FiChevronDown,
-  FiLink
+  FiLink,
+  FiAlertTriangle
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -50,7 +51,10 @@ interface RoleBasedNavigationProps {
 }
 
 const getMenuByRole = (role: UserRole): MenuItem[] => {
-  switch (role) {
+  // Normalize superadmin to super-admin for consistency
+  const normalizedRole = role === 'superadmin' ? 'super-admin' : role;
+
+  switch (normalizedRole) {
     case 'provider':
       return [
         {
@@ -113,37 +117,37 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
         }
       ];
 
-    case 'office_manager':
+    case 'office-manager':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['office_manager']
+          roles: ['office-manager']
         },
         {
           name: 'Product Requests',
           href: '#',
           icon: FiClipboard,
-          roles: ['office_manager'],
+          roles: ['office-manager'],
           children: [
             {
               name: 'New',
               href: '/product-requests/create',
               icon: FiPlus,
-              roles: ['office_manager']
+              roles: ['office-manager']
             },
             {
               name: 'Facility Requests',
               href: '/product-requests/facility',
               icon: FiClipboard,
-              roles: ['office_manager']
+              roles: ['office-manager']
             },
             {
               name: 'Provider Requests',
               href: '/product-requests/providers',
               icon: FiUsers,
-              roles: ['office_manager']
+              roles: ['office-manager']
             }
           ]
         },
@@ -151,25 +155,25 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'MAC/Eligibility/PA',
           href: '#',
           icon: FiCheckCircle,
-          roles: ['office_manager'],
+          roles: ['office-manager'],
           children: [
             {
               name: 'MAC Validation',
               href: '/mac-validation',
               icon: FiShield,
-              roles: ['office_manager']
+              roles: ['office-manager']
             },
             {
               name: 'Eligibility Check',
               href: '/eligibility',
               icon: FiCheckCircle,
-              roles: ['office_manager']
+              roles: ['office-manager']
             },
             {
               name: 'Pre-Authorization',
               href: '/pre-authorization',
               icon: FiUserCheck,
-              roles: ['office_manager']
+              roles: ['office-manager']
             }
           ]
         },
@@ -177,59 +181,59 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'Product Catalog',
           href: '/products',
           icon: FiPackage,
-          roles: ['office_manager']
+          roles: ['office-manager']
         },
         {
           name: 'Provider Management',
           href: '/providers',
           icon: FiUsers,
-          roles: ['office_manager']
+          roles: ['office-manager']
         },
         {
           name: 'eClinicalWorks',
           href: '/ecw',
           icon: FiLink,
-          roles: ['office_manager']
+          roles: ['office-manager']
         }
       ];
 
-    case 'msc_rep':
+    case 'msc-rep':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['msc_rep']
+          roles: ['msc-rep']
         },
         {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
-          roles: ['msc_rep']
+          roles: ['msc-rep']
         },
         {
           name: 'Commissions',
           href: '#',
           icon: FiDollarSign,
-          roles: ['msc_rep'],
+          roles: ['msc-rep'],
           children: [
             {
               name: 'My Earnings',
               href: '/commission',
               icon: FiDollarSign,
-              roles: ['msc_rep']
+              roles: ['msc-rep']
             },
             {
               name: 'Commission Records',
               href: '/commission/records',
               icon: FiBarChart,
-              roles: ['msc_rep']
+              roles: ['msc-rep']
             },
             {
               name: 'Payouts',
               href: '/commission/payouts',
               icon: FiTrendingUp,
-              roles: ['msc_rep']
+              roles: ['msc-rep']
             }
           ]
         },
@@ -237,274 +241,329 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           name: 'My Customers',
           href: '#',
           icon: FiUsers,
-          roles: ['msc_rep'],
+          roles: ['msc-rep'],
           children: [
             {
               name: 'Customer List',
               href: '/customers',
               icon: FiUsers,
-              roles: ['msc_rep']
+              roles: ['msc-rep']
             },
             {
               name: 'My Team',
               href: '/team',
               icon: FiUserPlus,
-              roles: ['msc_rep']
+              roles: ['msc-rep']
             }
           ]
         }
       ];
 
-    case 'msc_subrep':
+    case 'msc-subrep':
       return [
-          {
+        {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['msc_subrep']
+          roles: ['msc-subrep']
         },
-      {
+        {
           name: 'Customer Orders',
           href: '/orders',
           icon: FiShoppingCart,
-        roles: ['msc_subrep']
-      },
-              {
+          roles: ['msc-subrep']
+        },
+        {
           name: 'My Commissions',
           href: '/commission',
           icon: FiDollarSign,
-          roles: ['msc_subrep']
+          roles: ['msc-subrep']
         }
       ];
 
-    case 'msc_admin':
+    case 'msc-admin':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['msc_admin']
+          roles: ['msc-admin']
         },
-        {
-          name: 'Request Management',
-          href: '/requests',
-          icon: FiClipboard,
-          roles: ['msc_admin']
-        },
+
         {
           name: 'Order Management',
           href: '#',
           icon: FiShoppingCart,
-          roles: ['msc_admin'],
+          roles: ['msc-admin'],
           children: [
             {
               name: 'Create Manual Orders',
               href: '/orders/create',
               icon: FiPlus,
-              roles: ['msc_admin']
+              roles: ['msc-admin']
             },
             {
               name: 'Manage All Orders',
               href: '/orders/manage',
               icon: FiSettings,
-              roles: ['msc_admin']
+              roles: ['msc-admin']
             },
             {
-              name: 'Product Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['msc_admin']
-            },
-            {
-              name: 'Engines',
-              href: '#',
-              icon: FiSettings,
-              roles: ['msc_admin'],
-              children: [
-                {
-                  name: 'Clinical Opportunity Rules',
-                  href: '/engines/clinical-rules',
-                  icon: FiTool,
-                  roles: ['msc_admin']
-                },
-                {
-                  name: 'Product Recommendation Rules',
-                  href: '/engines/recommendation-rules',
-                  icon: FiStar,
-                  roles: ['msc_admin']
-                },
-                {
-                  name: 'Commission Management',
-                  href: '/engines/commission',
-                  icon: FiDollarSign,
-                  roles: ['msc_admin']
-                }
-              ]
+              name: 'Order Analytics',
+              href: '/orders/analytics',
+              icon: FiPieChart,
+              roles: ['msc-admin']
             }
           ]
         },
         {
-          name: 'User & Org Management',
+          name: 'Commission Management',
           href: '#',
-          icon: FiUsers,
-          roles: ['msc_admin'],
+          icon: FiDollarSign,
+          roles: ['msc-admin'],
           children: [
             {
-              name: 'Access Requests',
-              href: '/access-requests',
-              icon: FiUserCheck,
-              roles: ['msc_admin']
+              name: 'All Commissions',
+              href: '/commission/all',
+              icon: FiDollarSign,
+              roles: ['msc-admin']
             },
             {
-              name: 'Sub-Rep Approval Queue',
-              href: '/subrep-approvals',
-              icon: FiUserPlus,
-              roles: ['msc_admin']
-            },
-            {
-              name: 'User Management',
-              href: '/users',
-              icon: FiUsers,
-              roles: ['msc_admin']
-            },
-            {
-              name: 'Organization Management',
-              href: '/organizations',
+              name: 'Commission Rules',
+              href: '/commission/rules',
               icon: FiSettings,
-              roles: ['msc_admin']
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Payout Management',
+              href: '/commission/payouts',
+              icon: FiTrendingUp,
+              roles: ['msc-admin']
             }
           ]
         },
-  {
-          name: 'Settings',
-          href: '/settings',
-          icon: FiSettings,
-          roles: ['msc_admin']
+        {
+          name: 'Customer Management',
+          href: '#',
+          icon: FiUsers,
+          roles: ['msc-admin'],
+          children: [
+            {
+              name: 'All Customers',
+              href: '/customers',
+              icon: FiUsers,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Customer Analytics',
+              href: '/customers/analytics',
+              icon: FiBarChart,
+              roles: ['msc-admin']
+            }
+          ]
+        },
+        {
+          name: 'Territory Management',
+          href: '#',
+          icon: FiMapPin,
+          roles: ['msc-admin'],
+          children: [
+            {
+              name: 'Territory Mapping',
+              href: '/territories',
+              icon: FiMapPin,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Rep Assignments',
+              href: '/territories/assignments',
+              icon: FiTarget,
+              roles: ['msc-admin']
+            }
+          ]
+        },
+        {
+          name: 'Reports & Analytics',
+          href: '#',
+          icon: FiBarChart,
+          roles: ['msc-admin'],
+          children: [
+            {
+              name: 'Sales Reports',
+              href: '/reports/sales',
+              icon: FiTrendingUp,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Performance Reports',
+              href: '/reports/performance',
+              icon: FiActivity,
+              roles: ['msc-admin']
+            }
+          ]
         }
       ];
 
-    case 'superadmin':
+    case 'super-admin':
       return [
         {
           name: 'Dashboard',
           href: '/',
           icon: FiHome,
-          roles: ['superadmin']
+          roles: ['super-admin', 'superadmin']
         },
         {
-          name: 'Request Management',
-          href: '/requests',
-          icon: FiClipboard,
-          roles: ['superadmin']
+          name: 'System Administration',
+          href: '/admin',
+          icon: FiSettings,
+          roles: ['super-admin', 'superadmin']
         },
         {
-          name: 'Order Management',
-          href: '/orders',
-          icon: FiShoppingCart,
-          roles: ['superadmin']
-        },
-        {
-          name: 'Commission Overview',
-          href: '/commission/overview',
-          icon: FiPieChart,
-          roles: ['superadmin']
-        },
-        {
-          name: 'User & Org Management',
-          href: '#',
+          name: 'User Management',
+          href: '/users',
           icon: FiUsers,
-          roles: ['superadmin'],
+          roles: ['super-admin', 'superadmin']
+        },
+        {
+          name: 'Role & Permissions',
+          href: '/rbac',
+          icon: FiLock,
+          roles: ['super-admin', 'superadmin']
+        },
+        {
+          name: 'Access Requests',
+          href: '/access-requests',
+          icon: FiUserCheck,
+          roles: ['super-admin', 'superadmin', 'msc-admin'],
+        },
+        {
+          name: 'Organization Management',
+          href: '/organizations',
+          icon: FiUsers,
+          roles: ['super-admin', 'superadmin']
+        },
+
+        {
+          name: 'System Monitoring',
+          href: '#',
+          icon: FiActivity,
+          roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'RBAC Configuration',
-              href: '/rbac',
-              icon: FiLock,
-              roles: ['superadmin']
+              name: 'System Health',
+              href: '/system/health',
+              icon: FiActivity,
+              roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'All Users',
-              href: '/users',
-              icon: FiUsers,
-              roles: ['superadmin']
+              name: 'Performance Metrics',
+              href: '/system/performance',
+              icon: FiBarChart,
+              roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'System Access Control',
-              href: '/access-control',
-              icon: FiShield,
-              roles: ['superadmin']
+              name: 'API Monitoring',
+              href: '/system/api-monitoring',
+              icon: FiLink,
+              roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Role Management',
-              href: '/roles',
-              icon: FiUserCheck,
-              roles: ['superadmin']
+              name: 'Error Tracking',
+              href: '/system/errors',
+              icon: FiAlertTriangle,
+              roles: ['super-admin', 'superadmin']
             }
           ]
         },
         {
-          name: 'System Admin',
+          name: 'System Tools',
           href: '#',
-          icon: FiSettings,
-          roles: ['superadmin'],
+          icon: FiTool,
+          roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'Platform Configuration',
-              href: '/system-admin/config',
-              icon: FiSettings,
-              roles: ['superadmin']
-            },
-            {
-              name: 'Integration Settings',
-              href: '/system-admin/integrations',
+              name: 'Database Management',
+              href: '/system/database',
               icon: FiDatabase,
-              roles: ['superadmin']
+              roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'API Management',
-              href: '/system-admin/api',
-              icon: FiTool,
-              roles: ['superadmin']
+              name: 'System Logs',
+              href: '/system/logs',
+              icon: FiFileText,
+              roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Audit Logs',
-              href: '/system-admin/audit',
+              name: 'Configuration',
+              href: '/system/config',
+              icon: FiSettings,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Cache Management',
+              href: '/system/cache',
               icon: FiArchive,
-              roles: ['superadmin']
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Security Settings',
+              href: '/system/security',
+              icon: FiLock,
+              roles: ['super-admin', 'superadmin']
             }
           ]
         }
       ];
 
     default:
-      return [];
+      return [
+        {
+          name: 'Dashboard',
+          href: '/',
+          icon: FiHome,
+          roles: ['provider']
+        }
+      ];
   }
 };
 
 export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed }: RoleBasedNavigationProps) {
   const menuItems = getMenuByRole(userRole);
-  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
 
   const toggleSubmenu = (itemName: string) => {
-    const newOpenMenus = new Set(openMenus);
-    if (newOpenMenus.has(itemName)) {
-      newOpenMenus.delete(itemName);
-    } else {
-      newOpenMenus.add(itemName);
-    }
-    setOpenMenus(newOpenMenus);
+    setOpenMenus(prev =>
+      prev.includes(itemName)
+        ? prev.filter(name => name !== itemName)
+        : [...prev, itemName]
+    );
+  };
+
+  const canAccessMenuItem = (item: MenuItem): boolean => {
+    // Normalize role for comparison
+    const normalizedRole = userRole === 'superadmin' ? 'super-admin' : userRole;
+    return item.roles.includes(normalizedRole);
   };
 
   const renderMenuItem = (item: MenuItem, level: number = 0) => {
-    const isActive = currentPath === item.href ||
-      (item.children && item.children.some(child => currentPath === child.href));
+    if (!canAccessMenuItem(item)) {
+      return null;
+    }
 
-    const hasActiveChild = item.children && item.children.some(child =>
+    const isActive = currentPath === item.href;
+    const hasChildren = item.children && item.children.length > 0;
+    const isOpen = openMenus.includes(item.name);
+
+    const isActiveChild = item.children && item.children.some(child =>
       currentPath === child.href ||
       (child.children && child.children.some(grandchild => currentPath === grandchild.href))
     );
 
-    const isOpen = openMenus.has(item.name) || isActive || hasActiveChild;
-    const hasChildren = item.children && item.children.length > 0;
+    const isOpenChild = item.children && item.children.some(child => openMenus.includes(child.name));
+
+    // Filter children to only show accessible ones
+    const accessibleChildren = item.children ? item.children.filter(canAccessMenuItem) : [];
+    const hasAccessibleChildren = accessibleChildren.length > 0;
 
     return (
       <div key={item.name}>
@@ -516,7 +575,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           } ${isCollapsed ? 'justify-center' : ''} ${level > 0 ? 'ml-6' : ''}`}
           title={isCollapsed ? item.name : ''}
           onClick={() => {
-            if (hasChildren && !isCollapsed) {
+            if (hasAccessibleChildren && !isCollapsed) {
               toggleSubmenu(item.name);
             } else if (item.href && item.href !== '#') {
               // Only navigate if href is not a placeholder
@@ -530,7 +589,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           {!isCollapsed && (
             <>
               <span className="truncate flex-1">{item.name}</span>
-              {hasChildren && (
+              {hasAccessibleChildren && (
                 <div className="ml-2">
                   {isOpen ? (
                     <FiChevronDown className="w-4 h-4" />
@@ -542,9 +601,9 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
             </>
           )}
         </div>
-        {hasChildren && isOpen && !isCollapsed && (
+        {hasAccessibleChildren && isOpen && !isCollapsed && (
           <div className="ml-6 mt-2 space-y-1">
-            {item.children!.map((child) => renderMenuItem(child, level + 1))}
+            {accessibleChildren.map((child) => renderMenuItem(child, level + 1))}
           </div>
         )}
       </div>

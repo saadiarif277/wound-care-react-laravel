@@ -1,8 +1,9 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
-import RoleTestSwitcher from '@/Components/RoleTestSwitcher';
+import RoleDebugInfo from '@/Components/Debug/RoleDebugInfo';
 import { UserRole } from '@/types/roles';
+import { getRoleDisplayName } from '@/lib/roleUtils';
 import React, { useState, useEffect } from 'react';
 import {
   FiLogOut,
@@ -20,7 +21,15 @@ interface MainLayoutProps {
 interface PageProps extends Record<string, unknown> {
   userRole?: UserRole;
   user?: any;
-  showRoleTestSwitcher?: boolean;
+  auth?: {
+    user?: {
+      id: number;
+      first_name: string;
+      last_name: string;
+      email: string;
+      photo?: string;
+    };
+  };
 }
 
 export default function MainLayout({ title, children }: MainLayoutProps) {
@@ -32,30 +41,18 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
   // Get current path to determine active menu item
   const currentPath = window.location.pathname;
 
-  // Update current role when props change or when test role is used
+  // Get user data
+  const user = props.auth?.user;
+  const userName = user ? `${user.first_name} ${user.last_name}` : 'User';
+  const userEmail = user?.email || '';
+  const roleDisplayName = currentUserRole ? getRoleDisplayName(currentUserRole) : 'User';
+
+  // Update current role when props change
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const testRole = urlParams.get('test_role') as UserRole;
-    const savedRole = localStorage.getItem('dev_test_role') as UserRole;
-
-    // Priority: URL param > localStorage > props.userRole > default
-    const effectiveRole = testRole || savedRole || props.userRole || 'provider';
-
-    // Validate role
-    const validRoles: UserRole[] = ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin', 'superadmin'];
-    if (validRoles.includes(effectiveRole)) {
-      setCurrentUserRole(effectiveRole);
-
-      // Save to localStorage if it came from URL
-      if (testRole) {
-        localStorage.setItem('dev_test_role', testRole);
-      }
+    if (props.userRole) {
+      setCurrentUserRole(props.userRole);
     }
   }, [props.userRole]);
-
-  const handleRoleChange = (newRole: UserRole) => {
-    setCurrentUserRole(newRole);
-  };
 
   const toggleSidebar = () => {
     setIsCollapsed(!isCollapsed);
@@ -136,15 +133,23 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                 <>
                   <div className="flex items-center mb-4 p-3 bg-white rounded-lg shadow-sm">
                     <div className="flex-shrink-0">
-                      <img
-                        className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                        src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                        alt="User profile"
-                      />
+                      <div className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center">
+                        {user?.photo ? (
+                          <img
+                            className="w-10 h-10 rounded-full"
+                            src={user.photo}
+                            alt="User profile"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-600">
+                            {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">John Doe</p>
-                      <p className="text-xs text-gray-500 truncate">Administrator</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
+                      <p className="text-xs text-gray-500 truncate">{roleDisplayName}</p>
                     </div>
                   </div>
 
@@ -162,12 +167,22 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
               ) : (
                 <div className="flex flex-col items-center space-y-3">
                   {/* Collapsed User Avatar */}
-                  <img
-                    className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                    src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=facearea&facepad=2&w=256&h=256&q=80"
-                    alt="User profile"
-                    title="John Doe - Administrator"
-                  />
+                  <div
+                    className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center"
+                    title={`${userName} - ${roleDisplayName}`}
+                  >
+                    {user?.photo ? (
+                      <img
+                        className="w-8 h-8 rounded-full"
+                        src={user.photo}
+                        alt="User profile"
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-gray-600">
+                        {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Collapsed Logout Button */}
                   <Link
@@ -219,13 +234,8 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
           </main>
         </div>
 
-        {/* Global Role Test Switcher (Development and Staging) */}
-        {props.showRoleTestSwitcher && (
-          <RoleTestSwitcher
-            currentRole={currentUserRole}
-            onRoleChange={handleRoleChange}
-          />
-        )}
+        {/* Debug Component - Only shows in development */}
+        <RoleDebugInfo />
       </div>
     </>
   );
