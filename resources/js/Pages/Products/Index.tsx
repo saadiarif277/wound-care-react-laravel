@@ -165,7 +165,7 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
         <div className="space-y-2 mb-4">
           {/* Use PricingDisplay component for role-aware pricing */}
           <PricingDisplay
-            userRole={userRole as any}
+            roleRestrictions={roleRestrictions}
             product={{
               nationalAsp: product.price_per_sq_cm,
               mscPrice: product.msc_price,

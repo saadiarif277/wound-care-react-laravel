@@ -72,13 +72,22 @@ interface AIRecommendation {
   };
 }
 
+interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  pricing_access_level: string;
+}
+
 interface Props {
   selectedProducts: SelectedProduct[];
   onProductsChange: (products: SelectedProduct[]) => void;
   showCart?: boolean;
   recommendationContext?: string; // For wound type based recommendations
   productRequestId?: number; // For AI recommendations
-  userRole?: string; // For role-based pricing display
+  userRole?: string; // For role-based pricing display (legacy support)
+  roleRestrictions?: RoleRestrictions; // Preferred RBAC approach
   className?: string;
   title?: string;
   description?: string;
@@ -91,10 +100,51 @@ const ProductSelector: React.FC<Props> = ({
   recommendationContext,
   productRequestId,
   userRole = 'provider',
+  roleRestrictions,
   className = '',
   title = 'Product Catalog Selection',
   description = 'Choose products from our comprehensive catalog'
 }) => {
+  // Helper function to convert userRole to roleRestrictions for backward compatibility
+  const getRoleRestrictions = (): RoleRestrictions => {
+    if (roleRestrictions) {
+      return roleRestrictions;
+    }
+
+    // Legacy userRole conversion
+    switch (userRole) {
+      case 'office_manager':
+        return {
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'national_asp_only'
+        };
+      case 'msc_subrep':
+        return {
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'limited'
+        };
+      case 'provider':
+      case 'msc_rep':
+      case 'msc_admin':
+      case 'superadmin':
+      default:
+        return {
+          can_view_financials: true,
+          can_see_discounts: true,
+          can_see_msc_pricing: true,
+          can_see_order_totals: true,
+          pricing_access_level: 'full'
+        };
+    }
+  };
+
+  const currentRoleRestrictions = getRoleRestrictions();
   const [products, setProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -259,8 +309,8 @@ const ProductSelector: React.FC<Props> = ({
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
 
-      // Use appropriate pricing based on user role
-      const pricePerUnit = userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm);
+      // Use appropriate pricing based on role restrictions
+      const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
       const unitPrice = item.size ? pricePerUnit * parseFloat(item.size) : pricePerUnit;
       return total + (unitPrice * item.quantity);
     }, 0);
@@ -404,7 +454,7 @@ const ProductSelector: React.FC<Props> = ({
                     recommendation={recommendation}
                     onAdd={addRecommendationToSelection}
                     rank={index + 1}
-                    userRole={userRole}
+                    roleRestrictions={currentRoleRestrictions}
                   />
                 ))}
               </div>
@@ -434,7 +484,7 @@ const ProductSelector: React.FC<Props> = ({
                 product={product}
                 onAdd={addProductToSelection}
                 isRecommended={true}
-                userRole={userRole}
+                roleRestrictions={currentRoleRestrictions}
               />
             ))}
           </div>
@@ -466,7 +516,7 @@ const ProductSelector: React.FC<Props> = ({
                     key={product.id}
                     product={product}
                     onAdd={addProductToSelection}
-                    userRole={userRole}
+                    roleRestrictions={currentRoleRestrictions}
                   />
                 ))}
               </div>
@@ -561,8 +611,8 @@ const ProductSelector: React.FC<Props> = ({
                         {formatPrice(calculateTotal())}
                       </span>
                     </div>
-                    {/* Show financial restriction notice for office managers */}
-                    {userRole === 'office_manager' && (
+                    {/* Show financial restriction notice for users without MSC pricing access */}
+                    {!currentRoleRestrictions.can_see_msc_pricing && (
                       <p className="text-xs text-yellow-600 mt-1">
                         * Pricing shown is National ASP only
                       </p>
@@ -583,8 +633,8 @@ const ProductCard: React.FC<{
   product: Product;
   onAdd: (product: Product, quantity: number, size?: string) => void;
   isRecommended?: boolean;
-  userRole?: string;
-}> = ({ product, onAdd, isRecommended = false, userRole = 'provider' }) => {
+  roleRestrictions: RoleRestrictions;
+}> = ({ product, onAdd, isRecommended = false, roleRestrictions }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -602,7 +652,7 @@ const ProductCard: React.FC<{
   };
 
   const calculatePrice = () => {
-    const pricePerUnit = userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm);
+    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
     if (selectedSize) {
       return pricePerUnit * parseFloat(selectedSize) * quantity;
     }
@@ -646,7 +696,7 @@ const ProductCard: React.FC<{
       <div className="space-y-2 mb-3">
         {/* Use PricingDisplay component for consistent role-based pricing */}
         <PricingDisplay
-          userRole={userRole as any}
+          roleRestrictions={roleRestrictions}
           product={{
             nationalAsp: product.price_per_sq_cm,
             mscPrice: product.msc_price,
@@ -656,7 +706,7 @@ const ProductCard: React.FC<{
         />
 
         {/* Show commission only if role allows */}
-        {userRole !== 'office_manager' && product.commission_rate && (
+        {roleRestrictions.can_view_financials && product.commission_rate && (
           <div className="flex justify-between text-xs">
             <span className="text-gray-500">Commission:</span>
             <span className="font-medium text-green-600">
@@ -680,7 +730,7 @@ const ProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => (
               <option key={size} value={size.toString()}>
-                {size} cm² - {formatPrice((userRole === 'office_manager' ? product.price_per_sq_cm : (product.msc_price || product.price_per_sq_cm)) * size)}
+                {size} cm² - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
               </option>
             ))}
           </select>
@@ -724,8 +774,8 @@ const AIRecommendationCard: React.FC<{
   recommendation: AIRecommendation;
   onAdd: (recommendation: AIRecommendation, quantity: number) => void;
   rank: number;
-  userRole?: string;
-}> = ({ recommendation, onAdd, rank, userRole = 'provider' }) => {
+  roleRestrictions: RoleRestrictions;
+}> = ({ recommendation, onAdd, rank, roleRestrictions }) => {
   const [quantity, setQuantity] = useState(1);
 
   const formatPrice = (price: number) => {
@@ -804,7 +854,7 @@ const AIRecommendationCard: React.FC<{
         {/* Use PricingDisplay component for consistent role-based pricing */}
         <div className="text-xs">
           <PricingDisplay
-            userRole={userRole as any}
+            roleRestrictions={roleRestrictions}
             product={{
               nationalAsp: recommendation.estimated_cost.national_asp,
               mscPrice: recommendation.estimated_cost.msc_price,
@@ -814,8 +864,8 @@ const AIRecommendationCard: React.FC<{
           />
         </div>
 
-        {/* Only show savings for non-office managers */}
-        {userRole !== 'office_manager' && recommendation.estimated_cost.savings && recommendation.estimated_cost.savings > 0 && (
+        {/* Only show savings for users who can see discounts */}
+        {roleRestrictions.can_see_discounts && recommendation.estimated_cost.savings && recommendation.estimated_cost.savings > 0 && (
           <div className="flex justify-between text-xs">
             <span className="text-gray-500">Savings vs ASP:</span>
             <span className="font-medium text-green-600">

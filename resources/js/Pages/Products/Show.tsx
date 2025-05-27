@@ -191,7 +191,7 @@ export default function ProductShow({ product, roleRestrictions }: Props) {
                     <div className="space-y-3">
                       {/* Use PricingDisplay component for role-aware pricing */}
                       <PricingDisplay
-                        userRole={userRole as any}
+                        roleRestrictions={roleRestrictions}
                         product={{
                           nationalAsp: product.price_per_sq_cm,
                           mscPrice: product.msc_price,
