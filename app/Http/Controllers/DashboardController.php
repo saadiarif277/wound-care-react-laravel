@@ -88,7 +88,7 @@ class DashboardController extends Controller
     private function getRecentRequests($user, $userRole): array
     {
         $query = ProductRequest::with(['facility'])
-            ->where('user_id', $user->id)
+            ->where('provider_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->limit(5);
 
@@ -96,17 +96,17 @@ class DashboardController extends Controller
             $data = [
                 'id' => $request->id,
                 'request_number' => $request->request_number,
-                'patient_name' => $request->patient_first_name . ' ' . $request->patient_last_name,
+                'patient_name' => $request->formatPatientDisplay(),
                 'wound_type' => $request->wound_type,
-                'status' => $request->status,
+                'status' => $request->order_status,
                 'created_at' => $request->created_at->format('Y-m-d'),
                 'facility_name' => $request->facility->name ?? 'Unknown Facility',
             ];
 
             // Add financial data only if role allows it
             if ($userRole->canAccessFinancials() && $userRole->canSeeOrderTotals()) {
-                $data['total_amount'] = $request->total_amount;
-                $data['amount_owed'] = $request->amount_owed;
+                $data['total_amount'] = $request->total_order_value;
+                // Note: amount_owed doesn't exist in the model, removing for now
             }
 
             return $data;
@@ -117,18 +117,18 @@ class DashboardController extends Controller
 
     private function getActionItems($user, $userRole): array
     {
-        // Get requests that need action
-        $actionItems = ProductRequest::where('user_id', $user->id)
-            ->whereIn('status', ['pending_documentation', 'pending_eligibility', 'pending_pa'])
+        // Get requests that need action - using order_status values that indicate action needed
+        $actionItems = ProductRequest::where('provider_id', $user->id)
+            ->whereIn('order_status', ['draft', 'submitted', 'processing'])
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
             ->map(function ($request) {
                 return [
                     'id' => $request->id,
-                    'type' => $this->getActionType($request->status),
-                    'patient_name' => $request->patient_first_name . ' ' . $request->patient_last_name,
-                    'description' => $this->getActionDescription($request->status),
+                    'type' => $this->getActionType($request->order_status),
+                    'patient_name' => $request->formatPatientDisplay(),
+                    'description' => $this->getActionDescription($request->order_status),
                     'priority' => $this->getActionPriority($request),
                     'due_date' => $request->expected_service_date,
                     'request_id' => $request->request_number,
@@ -141,24 +141,22 @@ class DashboardController extends Controller
     private function getMetrics($user, $userRole): array
     {
         $metrics = [
-            'total_requests' => ProductRequest::where('user_id', $user->id)->count(),
-            'pending_requests' => ProductRequest::where('user_id', $user->id)
-                ->whereIn('status', ['draft', 'submitted', 'processing'])
+            'total_requests' => ProductRequest::where('provider_id', $user->id)->count(),
+            'pending_requests' => ProductRequest::where('provider_id', $user->id)
+                ->whereIn('order_status', ['draft', 'submitted', 'processing'])
                 ->count(),
-            'approved_requests' => ProductRequest::where('user_id', $user->id)
-                ->where('status', 'approved')
+            'approved_requests' => ProductRequest::where('provider_id', $user->id)
+                ->where('order_status', 'approved')
                 ->count(),
         ];
 
         // Add financial metrics only if role allows
         if ($userRole->canAccessFinancials()) {
-            $metrics['total_amount_owed'] = ProductRequest::where('user_id', $user->id)
-                ->where('status', 'approved')
-                ->sum('amount_owed') ?? 0;
+            $metrics['total_order_value'] = ProductRequest::where('provider_id', $user->id)
+                ->where('order_status', 'approved')
+                ->sum('total_order_value') ?? 0;
 
-            $metrics['total_savings'] = ProductRequest::where('user_id', $user->id)
-                ->where('status', 'approved')
-                ->sum('total_savings') ?? 0;
+            // Note: total_savings doesn't exist in the model, removing for now
         }
 
         return $metrics;
@@ -208,9 +206,10 @@ class DashboardController extends Controller
     private function getActionType($status): string
     {
         return match($status) {
-            'pending_documentation' => 'documentation_required',
-            'pending_eligibility' => 'eligibility_check',
-            'pending_pa' => 'pa_approval',
+            'draft' => 'complete_request',
+            'submitted' => 'review_pending',
+            'processing' => 'processing_review',
+            'rejected' => 'address_rejection',
             default => 'review_required'
         };
     }
@@ -218,9 +217,10 @@ class DashboardController extends Controller
     private function getActionDescription($status): string
     {
         return match($status) {
-            'pending_documentation' => 'Additional documentation required',
-            'pending_eligibility' => 'Insurance eligibility verification needed',
-            'pending_pa' => 'Prior authorization required',
+            'draft' => 'Complete and submit request',
+            'submitted' => 'Request submitted, awaiting review',
+            'processing' => 'Request is being processed',
+            'rejected' => 'Request rejected, needs attention',
             default => 'Review required'
         };
     }
