@@ -12,9 +12,17 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
-use App\Http\Controllers\CommissionController;use App\Http\Controllers\CommissionRuleController;use App\Http\Controllers\CommissionRecordController;use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\CommissionRuleController;
+use App\Http\Controllers\CommissionRecordController;
+use App\Http\Controllers\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
 use App\Http\Controllers\RequestController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\SalesRepController;
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\RoleController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -88,9 +96,9 @@ Route::get('/orders/approvals',[OrderController::class,'approval'])->name('order
 
 // Products
 
-Route::get('products', [ProductController::class, 'index'])
-    ->name('products.index')
-    ->middleware('auth');
+Route::get('/products', [ProductController::class, 'index'])
+    ->middleware('role:provider,office_manager,msc_rep,msc_subrep,msc_admin')
+    ->name('products.index');
 
 Route::get('products/create', [ProductController::class, 'create'])
     ->name('products.create')
@@ -136,9 +144,9 @@ Route::get('api/products/recommendations', [ProductController::class, 'recommend
 
 // Users
 
-Route::get('users', [UsersController::class, 'index'])
-    ->name('users')
-    ->middleware('auth');
+Route::get('/users', [UserController::class, 'index'])
+    ->middleware('role:msc_admin')
+    ->name('users.index');
 
 Route::get('users/create', [UsersController::class, 'create'])
     ->name('users.create')
@@ -184,7 +192,7 @@ Route::get('/img/{path}', [ImagesController::class, 'show'])
     ->where('path', '.*')
     ->name('image');
 
-Route::middleware(['auth'])->group(function () {
+Route::middleware(['auth', 'verified'])->group(function () {
     // Eligibility Verification Routes
     Route::prefix('eligibility')->group(function () {
         Route::get('/', [EligibilityController::class, 'index'])->name('eligibility.index');
@@ -206,7 +214,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Commission Management Routes
     Route::prefix('commission')->group(function () {
-        Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
+        Route::get('/', [CommissionController::class, 'index'])
+            ->middleware('role:msc_rep,msc_subrep,msc_admin,office_manager')
+            ->name('commissions.index');
         Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
         Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
         Route::get('/payouts', [CommissionPayoutController::class, 'index'])->name('commission-payouts.index');
@@ -214,7 +224,9 @@ Route::middleware(['auth'])->group(function () {
 
     // Product Request Routes
     Route::prefix('product-requests')->group(function () {
-        Route::get('/', [ProductRequestController::class, 'index'])->name('product-requests.index');
+        Route::get('/', [ProductRequestController::class, 'index'])
+            ->middleware('role:provider,office_manager,msc_rep,msc_subrep,msc_admin')
+            ->name('product-requests.index');
         Route::get('/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
         Route::post('/', [ProductRequestController::class, 'store'])->name('product-requests.store');
         Route::get('/{productRequest}', [ProductRequestController::class, 'show'])->name('product-requests.show');
@@ -280,9 +292,9 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/access-control', function () {
         return Inertia::render('AccessControl/Index');
     })->name('access-control.index');
-    Route::get('/roles', function () {
-        return Inertia::render('Roles/Index');
-    })->name('roles.index');
+    Route::get('/roles', [RoleController::class, 'index'])
+        ->middleware('role:msc_admin')
+        ->name('roles.index');
     Route::get('/commission/overview', function () {
         return Inertia::render('Commission/Overview');
     })->name('commission.overview');
@@ -310,4 +322,23 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/team', function () {
         return Inertia::render('Team/Index');
     })->name('team.index');
+
+    // Facilities - Accessible by all roles except provider
+    Route::get('/facilities', [FacilityController::class, 'index'])
+        ->middleware('role:office_manager,msc_rep,msc_subrep,msc_admin')
+        ->name('facilities.index');
+
+    // Sales Reps - Accessible by MSC roles
+    Route::get('/sales-reps', [SalesRepController::class, 'index'])
+        ->middleware('role:msc_rep,msc_admin')
+        ->name('sales-reps.index');
+
+    // Profile routes
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::get('/unauthorized', function () {
+    return Inertia::render('Unauthorized');
+})->name('unauthorized');
