@@ -1,6 +1,6 @@
 import React from 'react';
 import { Head, usePage } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import MainLayout from '@/Layouts/MainLayout';
 import {
     BarChart,
     Bar,
@@ -83,23 +83,20 @@ export default function Analytics({ analyticsData, roleRestrictions }: Props) {
     };
 
     return (
-        <AuthenticatedLayout
-            user={auth.user}
-            header={
-                <div className="flex justify-between items-center">
-                    <h2 className="font-semibold text-xl text-gray-800 leading-tight">
-                        Order Analytics Dashboard
-                    </h2>
-                    <div className="text-sm text-gray-600">
-                        {analyticsData.date_range.from} to {analyticsData.date_range.to}
-                    </div>
-                </div>
-            }
-        >
+        <MainLayout title="Order Analytics">
             <Head title="Order Analytics" />
 
-            <div className="py-12">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-6">
+            {/* Page Header */}
+            <div className="flex justify-between items-center mb-6">
+                <h1 className="font-semibold text-2xl text-gray-800 leading-tight">
+                    Order Analytics Dashboard
+                </h1>
+                <div className="text-sm text-gray-600">
+                    {analyticsData.date_range.from} to {analyticsData.date_range.to}
+                </div>
+            </div>
+
+            <div className="space-y-6">
                     {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                         <div className="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
@@ -299,7 +296,6 @@ export default function Analytics({ analyticsData, roleRestrictions }: Props) {
                         </div>
                     </div>
                 </div>
-            </div>
-        </AuthenticatedLayout>
+        </MainLayout>
     );
 }
