@@ -288,7 +288,7 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
                       {roleRestrictions.can_view_financials && request.total_amount && (
                         <div className="mt-2 p-3 bg-blue-50 rounded-lg">
                           <OrderTotalDisplay
-                            userRole={user.role as any}
+                            roleRestrictions={roleRestrictions}
                             total={request.total_amount}
                             amountOwed={request.amount_owed}
                             className="text-sm"

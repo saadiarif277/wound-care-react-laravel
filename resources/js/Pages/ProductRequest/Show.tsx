@@ -57,13 +57,20 @@ interface SelectedProduct {
   product?: any;
 }
 
-interface Props {
-  request: ProductRequest;
+interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  pricing_access_level: string;
 }
 
-const ProductRequestShow: React.FC<Props> = ({ request }) => {
-  const { props } = usePage<any>();
-  const userRole = props.userRole || 'provider';
+interface Props {
+  request: ProductRequest;
+  roleRestrictions: RoleRestrictions;
+}
+
+const ProductRequestShow: React.FC<Props> = ({ request, roleRestrictions }) => {
 
   const [selectedProducts, setSelectedProducts] = useState<SelectedProduct[]>(
     request.products?.map(product => ({
@@ -300,7 +307,7 @@ const ProductRequestShow: React.FC<Props> = ({ request }) => {
               onProductsChange={handleProductsChange}
               recommendationContext={request.wound_type}
               productRequestId={request.id}
-              userRole={userRole}
+              roleRestrictions={roleRestrictions}
               showCart={true}
               title="Clinical Product Recommendations"
               description="AI-enhanced recommendations tailored to this patient's specific clinical needs"

@@ -114,9 +114,17 @@ class ProductRequestController extends Controller
 
     public function create()
     {
-        $user = Auth::user();
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
 
         return Inertia::render('ProductRequest/Create', [
+            'roleRestrictions' => [
+                'can_view_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ],
             'woundTypes' => ProductRequest::getWoundTypeDescriptions(),
             'facilities' => Facility::where('active', true)
                 ->orderBy('name')
@@ -198,7 +206,17 @@ class ProductRequestController extends Controller
             abort(403);
         }
 
+        $user = Auth::user()->load('userRole');
+        $userRole = $user->userRole;
+
         return Inertia::render('ProductRequest/Show', [
+            'roleRestrictions' => [
+                'can_view_financials' => $userRole->canAccessFinancials(),
+                'can_see_discounts' => $userRole->canSeeDiscounts(),
+                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
+                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
+                'pricing_access_level' => $userRole->getPricingAccessLevel(),
+            ],
             'request' => [
                 'id' => $productRequest->id,
                 'request_number' => $productRequest->request_number,
