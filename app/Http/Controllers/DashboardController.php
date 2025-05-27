@@ -16,6 +16,20 @@ class DashboardController extends Controller
         $user = Auth::user()->load('userRole');
         $userRole = $user->userRole;
 
+        // Handle case where user doesn't have a role assigned
+        if (!$userRole) {
+            // Create a default provider role or redirect to setup
+            $defaultRole = UserRole::where('name', UserRole::PROVIDER)->first();
+            if ($defaultRole) {
+                $user->update(['user_role_id' => $defaultRole->id]);
+                $userRole = $defaultRole;
+            } else {
+                // If no roles exist, create basic provider role
+                $userRole = $this->createDefaultProviderRole();
+                $user->update(['user_role_id' => $userRole->id]);
+            }
+        }
+
         // Get role-specific dashboard data
         $dashboardData = $this->getDashboardDataForRole($user, $userRole);
 
@@ -104,7 +118,7 @@ class DashboardController extends Controller
             ];
 
             // Add financial data only if role allows it
-            if ($userRole->canAccessFinancials() && $userRole->canSeeOrderTotals()) {
+            if ($userRole && $userRole->canAccessFinancials() && $userRole->canSeeOrderTotals()) {
                 $data['total_amount'] = $request->total_order_value;
                 // Note: amount_owed doesn't exist in the model, removing for now
             }
@@ -151,7 +165,7 @@ class DashboardController extends Controller
         ];
 
         // Add financial metrics only if role allows
-        if ($userRole->canAccessFinancials()) {
+        if ($userRole && $userRole->canAccessFinancials()) {
             $metrics['total_order_value'] = ProductRequest::where('provider_id', $user->id)
                 ->where('order_status', 'approved')
                 ->sum('total_order_value') ?? 0;
@@ -294,5 +308,25 @@ class DashboardController extends Controller
     private function getPendingApprovals(): array
     {
         return []; // Implement based on approval workflows
+    }
+
+    /**
+     * Create a default provider role if none exists
+     */
+    private function createDefaultProviderRole(): UserRole
+    {
+        return UserRole::create([
+            'name' => UserRole::PROVIDER,
+            'display_name' => 'Provider',
+            'description' => 'Healthcare provider with access to patient care tools',
+            'permissions' => [
+                'view_dashboard',
+                'create_requests',
+                'view_products',
+                'check_eligibility'
+            ],
+            'is_active' => true,
+            'hierarchy_level' => 3,
+        ]);
     }
 }
