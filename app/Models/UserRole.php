@@ -152,7 +152,13 @@ class UserRole extends Model
             ],
         ];
 
-        return $configs[$this->name] ?? $configs[self::PROVIDER];
+        // Handle both 'super_admin' and 'superadmin' role names
+        $roleName = $this->name;
+        if ($roleName === 'superadmin') {
+            $roleName = self::SUPER_ADMIN;
+        }
+
+        return $configs[$roleName] ?? $configs[self::PROVIDER];
     }
 
     /**
@@ -252,6 +258,6 @@ class UserRole extends Model
     public function canManageProducts(): bool
     {
         return $this->hasAdminCapability('product_management') ||
-               in_array($this->name, [self::MSC_ADMIN, self::SUPER_ADMIN]);
+               in_array($this->name, [self::MSC_ADMIN, self::SUPER_ADMIN, 'superadmin']);
     }
 }

@@ -1,6 +1,7 @@
 import { Head, Link, usePage } from '@inertiajs/react';
 import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
+import RoleDebugInfo from '@/Components/Debug/RoleDebugInfo';
 import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
 import React, { useState, useEffect } from 'react';
@@ -214,6 +215,9 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
             </div>
           </main>
         </div>
+
+        {/* Debug Component - Only shows in development */}
+        <RoleDebugInfo />
       </div>
     </>
   );
