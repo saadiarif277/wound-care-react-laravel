@@ -15,12 +15,12 @@ class UserController extends Controller
         $this->middleware('permission:create-users')->only(['create', 'store']);
         $this->middleware('permission:edit-users')->only(['edit', 'update']);
         $this->middleware('permission:delete-users')->only('destroy');
+        $this->middleware('permission:assign-roles')->only(['assignRoles', 'removeRole', 'syncRoles']);
+        $this->middleware('permission:manage-super-admin-roles')->only(['removeRole', 'syncRoles']);
     }
 
     public function assignRoles(Request $request, User $user)
     {
-        $this->checkPermission('assign-roles');
-
         $validated = $request->validate([
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
@@ -36,11 +36,8 @@ class UserController extends Controller
 
     public function removeRole(Request $request, User $user, Role $role)
     {
-        $this->checkPermission('assign-roles');
-
-        if ($role->slug === 'super-admin' && !auth()->user()->isSuperAdmin()) {
-            return response()->json(['message' => 'Only super admins can remove super admin role'], 403);
-        }
+        // Super admin role removal is protected by manage-super-admin-roles middleware
+        // for this specific method
 
         $user->roles()->detach($role);
 
@@ -52,17 +49,13 @@ class UserController extends Controller
 
     public function syncRoles(Request $request, User $user)
     {
-        $this->checkPermission('assign-roles');
-
         $validated = $request->validate([
             'roles' => 'required|array',
             'roles.*' => 'exists:roles,id',
         ]);
 
-        // Prevent removing super-admin role unless the current user is a super-admin
-        if ($user->hasRole('super-admin') && !auth()->user()->isSuperAdmin()) {
-            return response()->json(['message' => 'Only super admins can modify super admin roles'], 403);
-        }
+        // Super admin role sync is protected by manage-super-admin-roles middleware
+        // for this specific method
 
         $user->roles()->sync($validated['roles']);
 

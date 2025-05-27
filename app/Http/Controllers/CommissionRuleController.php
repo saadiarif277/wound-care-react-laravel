@@ -8,6 +8,15 @@ use Illuminate\Support\Facades\Validator;
 
 class CommissionRuleController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:view-commission-rules')->only(['index', 'show']);
+        $this->middleware('permission:create-commission-rules')->only(['create', 'store']);
+        $this->middleware('permission:edit-commission-rules')->only(['edit', 'update']);
+        $this->middleware('permission:delete-commission-rules')->only('destroy');
+    }
+
     public function index()
     {
         // Dummy data for testing

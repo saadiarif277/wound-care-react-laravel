@@ -76,7 +76,30 @@ class PermissionSeeder extends Seeder
             'create_products',
             'edit_products',
             'delete_products',
+            'manage_products',
             'manage_product_categories',
+        ];
+
+        // Additional System Permissions
+        $systemPermissions = [
+            'view_providers',
+            'manage_pre_authorization',
+            'view_requests',
+            'manage_orders',
+            'view_settings',
+            'manage_subrep_approvals',
+            'manage_rbac',
+            'manage_access_control',
+            'view_commission',
+            'manage_system_config',
+            'view_audit_logs',
+            'manage_clinical_rules',
+            'manage_recommendation_rules',
+            'manage_commission_engine',
+            'view_customers',
+            'view_team',
+            'view_access_requests',
+            'approve_access_requests',
         ];
 
         // Combine all permissions
@@ -87,7 +110,8 @@ class PermissionSeeder extends Seeder
             $rolePermissions,
             $commissionPermissions,
             $salesRepPermissions,
-            $productPermissions
+            $productPermissions,
+            $systemPermissions
         );
 
         // Insert permissions

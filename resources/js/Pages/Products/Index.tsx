@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
 import {
   FiSearch,
   FiFilter,
@@ -24,12 +25,22 @@ interface Product {
   category: string;
   description: string;
   price_per_sq_cm: number;
-  msc_price: number;
+  msc_price?: number; // Optional based on role
   available_sizes: number[];
   image_url: string;
-  commission_rate: number;
+  commission_rate?: number; // Optional based on role
   is_active: boolean;
   created_at: string;
+}
+
+interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  pricing_access_level: string;
+  commission_access_level: string;
+  can_manage_products: boolean;
 }
 
 interface Props {
@@ -49,9 +60,10 @@ interface Props {
     sort?: string;
     direction?: string;
   };
+  roleRestrictions: RoleRestrictions;
 }
 
-export default function ProductsIndex({ products, categories, manufacturers, filters }: Props) {
+export default function ProductsIndex({ products, categories, manufacturers, filters, roleRestrictions }: Props) {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
   const [localFilters, setLocalFilters] = useState(filters);
@@ -100,6 +112,19 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
     }).format(price);
   };
 
+  // Get user role for pricing display and admin capabilities
+  const getUserRole = () => {
+    if (!roleRestrictions.can_see_msc_pricing) return 'office-manager';
+    if (roleRestrictions.pricing_access_level === 'limited') return 'msc-subrep';
+    if (roleRestrictions.commission_access_level === 'full') {
+      // Could be MSC Rep, MSC Admin, or Super Admin - check for admin capabilities
+      return 'msc-admin'; // For now, treat full commission access as admin-level
+    }
+    return 'provider'; // Default for full access roles without commission
+  };
+
+  const userRole = getUserRole();
+
   const ProductCard = ({ product }: { product: Product }) => (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 overflow-hidden group">
       <div className="aspect-w-16 aspect-h-9 bg-gray-100 relative">
@@ -144,20 +169,33 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
         </p>
 
         <div className="space-y-2 mb-4">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500">National ASP:</span>
-            <span className="font-medium text-gray-900">{formatPrice(product.price_per_sq_cm)}/cm²</span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500">MSC Price:</span>
-            <span className="font-semibold text-blue-600">{formatPrice(product.msc_price)}/cm²</span>
-          </div>
+          {/* Use PricingDisplay component for role-aware pricing */}
+          <PricingDisplay
+            roleRestrictions={roleRestrictions}
+            product={{
+              nationalAsp: product.price_per_sq_cm,
+              mscPrice: product.msc_price,
+            }}
+            showLabel={true}
+            className="text-sm"
+          />
+
           <div className="flex justify-between items-center">
             <span className="text-sm text-gray-500">Sizes:</span>
             <span className="text-sm text-gray-700">
               {product.available_sizes?.length || 0} available
             </span>
           </div>
+
+          {/* Show commission rate only if commission access is allowed (RBAC compliant) */}
+          {roleRestrictions.commission_access_level !== 'none' && product.commission_rate && (
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-500">Commission:</span>
+              <span className="text-sm font-medium text-green-600">
+                {product.commission_rate}%
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex gap-2">
@@ -168,13 +206,15 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
             <FiEye className="w-4 h-4" />
             View Details
           </Link>
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-            title="Edit Product"
-          >
-            <FiEdit className="w-4 h-4" />
-          </Link>
+          {roleRestrictions.can_manage_products && (
+            <Link
+              href={`/products/${product.id}/edit`}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              title="Edit Product"
+            >
+              <FiEdit className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </div>
     </div>
@@ -212,12 +252,21 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
       <td className="px-6 py-4 text-sm font-medium text-gray-900">
         {formatPrice(product.price_per_sq_cm)}
       </td>
-      <td className="px-6 py-4 text-sm font-semibold text-blue-600">
-        {formatPrice(product.msc_price)}
-      </td>
+      {/* Show MSC Price column only if role allows */}
+      {roleRestrictions.can_see_msc_pricing && (
+        <td className="px-6 py-4 text-sm font-semibold text-blue-600">
+          {product.msc_price ? formatPrice(product.msc_price) : 'N/A'}
+        </td>
+      )}
       <td className="px-6 py-4 text-sm text-gray-500">
         {product.available_sizes?.length || 0} sizes
       </td>
+      {/* Show commission column only if commission access is allowed (RBAC compliant) */}
+      {roleRestrictions.commission_access_level !== 'none' && (
+        <td className="px-6 py-4 text-sm text-green-600">
+          {product.commission_rate ? `${product.commission_rate}%` : 'N/A'}
+        </td>
+      )}
       <td className="px-6 py-4">
         <div className="flex gap-2">
           <Link
@@ -227,13 +276,15 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
           >
             <FiEye className="w-4 h-4" />
           </Link>
-          <Link
-            href={`/products/${product.id}/edit`}
-            className="text-gray-600 hover:text-gray-800 transition-colors"
-            title="Edit Product"
-          >
-            <FiEdit className="w-4 h-4" />
-          </Link>
+          {roleRestrictions.can_manage_products && (
+            <Link
+              href={`/products/${product.id}/edit`}
+              className="text-gray-600 hover:text-gray-800 transition-colors"
+              title="Edit Product"
+            >
+              <FiEdit className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </td>
     </tr>
@@ -253,57 +304,84 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                 Manage and browse MSC wound care products
               </p>
             </div>
-            <Link
-              href="/products/create"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <FiPlus className="w-4 h-4" />
-              Add Product
-            </Link>
+                        {/* Show Add Product button only for roles with product management capabilities */}
+            {roleRestrictions.can_manage_products && (
+              <Link
+                href="/products/create"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <FiPlus className="w-4 h-4" />
+                Add Product
+              </Link>
+            )}
           </div>
 
-          {/* Stats */}
+          {/* Role-appropriate Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Total Products</p>
+                  <p className="text-sm text-gray-500">Available Products</p>
                   <p className="text-2xl font-bold text-gray-900">{products.total}</p>
                 </div>
                 <FiPackage className="w-8 h-8 text-blue-600" />
               </div>
             </div>
+
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Categories</p>
+                  <p className="text-sm text-gray-500">
+                    {roleRestrictions.can_see_msc_pricing ? 'Product Categories' : 'Wound Types'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
                 </div>
                 <FiBarChart className="w-8 h-8 text-green-600" />
               </div>
             </div>
+
             <div className="bg-white p-4 rounded-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Manufacturers</p>
+                  <p className="text-sm text-gray-500">
+                    {roleRestrictions.can_see_msc_pricing ? 'Manufacturers' : 'Available Brands'}
+                  </p>
                   <p className="text-2xl font-bold text-gray-900">{manufacturers.length}</p>
                 </div>
                 <FiGrid className="w-8 h-8 text-purple-600" />
               </div>
             </div>
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-500">Avg MSC Price</p>
-                  <p className="text-2xl font-bold text-gray-900">
-                    {formatPrice(
-                      products.data.reduce((sum, p) => sum + p.msc_price, 0) / products.data.length || 0
-                    )}
-                  </p>
+
+            {/* Role-specific fourth card */}
+            {roleRestrictions.can_see_msc_pricing ? (
+              <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">Avg MSC Price</p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {formatPrice(
+                        products.data.reduce((sum, p) => sum + (p.msc_price || 0), 0) / products.data.length || 0
+                      )}
+                    </p>
+                  </div>
+                  <FiDollarSign className="w-8 h-8 text-orange-600" />
                 </div>
-                <FiDollarSign className="w-8 h-8 text-orange-600" />
               </div>
-            </div>
+            ) : (
+              <div className="bg-white p-4 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      {roleRestrictions.can_view_financials ? 'Clinical Solutions' : 'Treatment Options'}
+                    </p>
+                    <p className="text-2xl font-bold text-gray-900">
+                      {products.data.filter(p => p.category === 'Biologic' || p.category === 'SkinSubstitute').length}
+                    </p>
+                  </div>
+                  <FiDollarSign className="w-8 h-8 text-orange-600" />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search and Filters */}
@@ -431,12 +509,21 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                     >
                       National ASP
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      MSC Price
-                    </th>
+                    {/* Show MSC Price column only if role allows */}
+                    {roleRestrictions.can_see_msc_pricing && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        MSC Price
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Sizes
                     </th>
+                    {/* Show commission column only if commission access is allowed (RBAC compliant) */}
+                    {roleRestrictions.commission_access_level !== 'none' && (
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Commission
+                      </th>
+                    )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Actions
                     </th>
@@ -476,6 +563,27 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                   dangerouslySetInnerHTML={{ __html: link.label }}
                 />
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Financial Restriction Notice for Office Managers */}
+        {!roleRestrictions.can_see_msc_pricing && (
+          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex">
+              <div className="flex-shrink-0">
+                <svg className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">Pricing Information Restricted</h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>
+                    As an Office Manager, only National ASP pricing is displayed. MSC pricing, discounts, and commission information are not available for your role.
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
         )}

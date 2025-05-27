@@ -8,6 +8,14 @@ use Inertia\Response;
 
 class EligibilityController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:view-eligibility')->only(['index']);
+        $this->middleware('permission:verify-eligibility')->only(['verify']);
+        $this->middleware('permission:manage-prior-auth')->only(['submitPriorAuth', 'checkPriorAuthStatus']);
+    }
+
     public function index(): Response
     {
         return Inertia::render('Eligibility/Index');

@@ -30,7 +30,6 @@ class User extends Authenticatable
         'photo',
         'account_id',
         'owner',
-        'user_role_id',
         'npi_number',
         'dea_number',
         'license_number',
@@ -78,13 +77,7 @@ class User extends Authenticatable
         return $this->belongsTo(Account::class);
     }
 
-    /**
-     * Get the user's role
-     */
-    public function userRole(): BelongsTo
-    {
-        return $this->belongsTo(UserRole::class);
-    }
+
 
     /**
      * Get facilities this user is associated with
@@ -132,7 +125,7 @@ class User extends Authenticatable
      */
     public function hasRole(string $roleName): bool
     {
-        return $this->userRole?->name === $roleName;
+        return $this->roles->contains('slug', $roleName);
     }
 
     /**
@@ -140,7 +133,7 @@ class User extends Authenticatable
      */
     public function isProvider(): bool
     {
-        return $this->hasRole(UserRole::PROVIDER);
+        return $this->hasRole('provider');
     }
 
     /**
@@ -148,7 +141,7 @@ class User extends Authenticatable
      */
     public function isOfficeManager(): bool
     {
-        return $this->hasRole(UserRole::OFFICE_MANAGER);
+        return $this->hasRole('office-manager');
     }
 
     /**
@@ -156,7 +149,7 @@ class User extends Authenticatable
      */
     public function isMscRep(): bool
     {
-        return $this->hasRole(UserRole::MSC_REP);
+        return $this->hasRole('msc-rep');
     }
 
     /**
@@ -164,7 +157,7 @@ class User extends Authenticatable
      */
     public function isMscSubRep(): bool
     {
-        return $this->hasRole(UserRole::MSC_SUBREP);
+        return $this->hasRole('msc-subrep');
     }
 
     /**
@@ -172,15 +165,15 @@ class User extends Authenticatable
      */
     public function isMscAdmin(): bool
     {
-        return $this->hasRole(UserRole::MSC_ADMIN);
+        return $this->hasRole('msc-admin');
     }
 
     /**
-     * Check if user is a super admin
+     * Check if user is a super admin (handles legacy inconsistencies)
      */
     public function isSuperAdmin(): bool
     {
-        return $this->hasRole(UserRole::SUPER_ADMIN);
+        return $this->hasRole('super-admin') || $this->hasRole('superadmin');
     }
 
     /**
@@ -188,7 +181,7 @@ class User extends Authenticatable
      */
     public function canAccessFinancials(): bool
     {
-        return $this->userRole?->canAccessFinancials() ?? false;
+        return $this->hasAnyPermission(['view-financials', 'manage-financials']);
     }
 
     /**
@@ -196,15 +189,23 @@ class User extends Authenticatable
      */
     public function canSeeDiscounts(): bool
     {
-        return $this->userRole?->canSeeDiscounts() ?? false;
+        return $this->hasPermission('view-discounts');
     }
 
     /**
-     * Get role-specific dashboard configuration
+     * Get primary role for business logic
      */
-    public function getDashboardConfig(): array
+    public function getPrimaryRole(): ?Role
     {
-        return $this->userRole?->getDashboardConfig() ?? [];
+        return $this->roles->first();
+    }
+
+    /**
+     * Get primary role slug
+     */
+    public function getPrimaryRoleSlug(): ?string
+    {
+        return $this->getPrimaryRole()?->slug;
     }
 
     public function scopeOrderByName($query)
@@ -219,20 +220,20 @@ class User extends Authenticatable
             case 'user': return $query->where('owner', false);
             case 'owner': return $query->where('owner', true);
             default:
-                // Support new role system
-                return $query->whereHas('userRole', function ($q) use ($role) {
-                    $q->where('name', $role);
+                // Use robust RBAC system
+                return $query->whereHas('roles', function ($q) use ($role) {
+                    $q->where('slug', $role);
                 });
         }
     }
 
     /**
-     * Scope to filter users by MSC role system
+     * Scope to filter users by role system (robust RBAC)
      */
     public function scopeWithRole($query, string $roleName)
     {
-        return $query->whereHas('userRole', function ($q) use ($roleName) {
-            $q->where('name', $roleName);
+        return $query->whereHas('roles', function ($q) use ($roleName) {
+            $q->where('slug', $roleName);
         });
     }
 
@@ -255,15 +256,5 @@ class User extends Authenticatable
         });
     }
 
-    public function roles(): BelongsToMany
-    {
-        return $this->belongsToMany(Role::class);
-    }
-
-    public function hasPermission(string $permission): bool
-    {
-        return $this->roles()->whereHas('permissions', function ($query) use ($permission) {
-            $query->where('slug', $permission);
-        })->exists();
-    }
+    // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait
 }

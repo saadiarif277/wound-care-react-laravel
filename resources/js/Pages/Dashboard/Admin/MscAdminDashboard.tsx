@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
 
 interface MscAdminDashboardProps {
@@ -116,7 +117,10 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
   const revenueProgress = (businessMetrics.monthlyRevenue / businessMetrics.monthlyTarget) * 100;
 
   return (
-    <div className="space-y-6">
+    <MainLayout>
+      <Head title="MSC Admin Dashboard" />
+
+      <div className="space-y-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Business Operations Dashboard</h1>
@@ -353,6 +357,7 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
           ))}
         </div>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
