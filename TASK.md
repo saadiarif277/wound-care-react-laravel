@@ -86,6 +86,19 @@
       - **1 controller N/A** (FacilityController doesn't exist)
       - **100% compliance** with middleware-based RBAC pattern
       - **All hardcoded role checks eliminated** from backend controllers
+      
+    - [✅] **Commission Visibility Issue Resolution** (COMPLETED)
+      - [✅] **Root Cause Identified**: CommissionDisplay component was using `can_view_financials` instead of `commission_access_level`
+      - [✅] **Issue**: Provider had `financial_access: true` but should NOT see commission data
+      - [✅] **Fix Applied**: Updated CommissionDisplay to use `commission_access_level` ('none'/'limited'/'full')
+      - [✅] **UserRole Model Updates**: Added `commission_access: 'full'` to MSC_REP, MSC_ADMIN, SUPER_ADMIN roles
+      - [✅] **Product Pages Fixed**: Updated commission display logic in Index and Show pages
+      - [✅] **Interface Updates**: Added `commission_access_level` to RoleRestrictions interfaces
+      - [✅] **Final Role-Based Access Matrix**:
+        - **Provider**: National ASP + MSC Price + Savings, NO commission data
+        - **Office Manager**: National ASP only, NO commission data  
+        - **MSC SubRep**: Limited commission access
+        - **MSC Rep/Admin/SuperAdmin**: Full commission access
     - [ ] **Frontend Components Audit** (Follow RBAC Pattern Above)
       - [✅] Dashboard components - RBAC implemented
       - [✅] Product components - RBAC implemented
@@ -692,8 +705,8 @@ Successfully implemented a comprehensive role-based navigation system with criti
 
 ## Completion Status
 
-**Overall Progress: ~87% Complete**
+**Overall Progress: ~89% Complete**
 
-- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**, **Comprehensive role-based financial access control system**, **Critical Office Manager financial data blocking across entire application**, **Complete product catalog with role-aware pricing**, **All 6 role-specific dashboards with comprehensive data**, **Persistent global role switcher for development testing**, **Comprehensive validation engine testing suite**, **Enhanced security implementation**, **API documentation with Swagger**, **Performance monitoring and error handling**, **Application-wide financial restrictions with complete API coverage**, **Complete RBAC system implementation with hardcode elimination**
+- ✅ **Completed**: Infrastructure setup, basic CRUD operations, authentication, commission calculation backend, organization/user/account relationships, role-based dashboard and navigation, collection resources, test infrastructure, **MSC Portal 6-role system database foundation**, **Modern login screen with MSC branding**, **Complete access request system with role-based forms**, **Full admin interface for access request management**, **Comprehensive role-based financial access control system**, **Critical Office Manager financial data blocking across entire application**, **Complete product catalog with role-aware pricing**, **All 6 role-specific dashboards with comprehensive data**, **Persistent global role switcher for development testing**, **Comprehensive validation engine testing suite**, **Enhanced security implementation**, **API documentation with Swagger**, **Performance monitoring and error handling**, **Application-wide financial restrictions with complete API coverage**, **Complete RBAC system implementation with backend hardcode elimination**, **Commission visibility issue resolution with proper role-based access control**
 - 🟡 **In Progress**: **RBAC system audit and hardcode elimination across remaining components**, Provider Portal step-through forms, Order management workflows, file storage optimization, clinical feature implementation
 - 🔴 **Not Started**: Real payer integrations, FHIR implementation, advanced compliance features, mobile optimization
