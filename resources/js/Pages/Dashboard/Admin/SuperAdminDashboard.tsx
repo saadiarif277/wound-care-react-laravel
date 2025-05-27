@@ -1,5 +1,6 @@
 import React from 'react';
-import { Link } from '@inertiajs/react';
+import { Head, Link } from '@inertiajs/react';
+import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
 
 interface SuperAdminDashboardProps {
@@ -170,7 +171,10 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
   };
 
   return (
-    <div className="space-y-6">
+    <MainLayout>
+      <Head title="Super Admin Dashboard" />
+
+      <div className="space-y-6">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900">System Operations Dashboard</h1>
@@ -475,6 +479,7 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </MainLayout>
   );
 }
