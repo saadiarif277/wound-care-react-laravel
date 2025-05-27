@@ -88,53 +88,27 @@ Route::get('/orders',[OrderController::class,'index'])->name('orders');
 
 Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');
 
-// Products
+// Products - with proper permission middleware
 
-Route::get('products', [ProductController::class, 'index'])
-    ->name('products.index')
-    ->middleware('auth');
+Route::middleware(['permission:view-products'])->group(function () {
+    Route::get('products', [ProductController::class, 'index'])->name('products.index');
+    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
 
-Route::get('products/create', [ProductController::class, 'create'])
-    ->name('products.create')
-    ->middleware('auth');
+    // Product API endpoints accessible to all roles with view-products permission
+    Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
+    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
+    Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
+});
 
-Route::post('products', [ProductController::class, 'store'])
-    ->name('products.store')
-    ->middleware('auth');
-
-Route::get('products/{product}', [ProductController::class, 'show'])
-    ->name('products.show')
-    ->middleware('auth');
-
-Route::get('products/{product}/edit', [ProductController::class, 'edit'])
-    ->name('products.edit')
-    ->middleware('auth');
-
-Route::put('products/{product}', [ProductController::class, 'update'])
-    ->name('products.update')
-    ->middleware('auth');
-
-Route::delete('products/{product}', [ProductController::class, 'destroy'])
-    ->name('products.destroy')
-    ->middleware('auth');
-
-Route::put('products/{product}/restore', [ProductController::class, 'restore'])
-    ->name('products.restore')
-    ->middleware('auth');
-
-// Product API endpoints
-
-Route::get('api/products/search', [ProductController::class, 'search'])
-    ->name('api.products.search')
-    ->middleware('auth');
-
-Route::get('api/products/{product}', [ProductController::class, 'apiShow'])
-    ->name('api.products.show')
-    ->middleware('auth');
-
-Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])
-    ->name('api.products.recommendations')
-    ->middleware('auth');
+// Product management - restricted to admin roles only
+Route::middleware(['permission:manage-products'])->group(function () {
+    Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
+    Route::post('products', [ProductController::class, 'store'])->name('products.store');
+    Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
+    Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
+    Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+    Route::put('products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+});
 
 // Users
 
@@ -195,8 +169,8 @@ Route::middleware(['auth'])->group(function () {
         Route::post('/prior-auth/status', [EligibilityController::class, 'checkPriorAuthStatus'])->name('eligibility.prior-auth.status');
     });
 
-    // MAC Validation Routes
-    Route::prefix('mac-validation')->group(function () {
+    // MAC Validation Routes - accessible to office managers and admins
+    Route::middleware(['permission:manage-mac-validation'])->prefix('mac-validation')->group(function () {
         Route::get('/', [MACValidationController::class, 'index'])->name('mac-validation.index');
         Route::post('/validate', [MACValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
@@ -376,4 +350,22 @@ Route::middleware(['auth'])->group(function () {
             'dashboard_config' => $userRole->getDashboardConfig(),
         ]);
     })->name('test.role-restrictions');
+
+    // Test route for Office Manager permissions
+    Route::get('/test-office-manager-permissions', function () {
+        $user = Auth::user();
+
+        return response()->json([
+            'user_email' => $user->email,
+            'user_role' => $user->getPrimaryRole()?->slug,
+            'permissions' => [
+                'view-products' => $user->hasPermission('view-products'),
+                'view-providers' => $user->hasPermission('view-providers'),
+                'view-product-requests' => $user->hasPermission('view-product-requests'),
+                'manage-mac-validation' => $user->hasPermission('manage-mac-validation'),
+                'manage-pre-authorization' => $user->hasPermission('manage-pre-authorization'),
+            ],
+            'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
+        ]);
+    })->name('test.office-manager-permissions');
 });

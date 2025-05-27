@@ -10,8 +10,7 @@ class MACValidationController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('permission:view-mac-validation')->only(['index']);
-        $this->middleware('permission:perform-mac-validation')->only(['validateMAC']);
+        $this->middleware('permission:manage-mac-validation')->only(['index', 'validateMAC']);
     }
 
     /**

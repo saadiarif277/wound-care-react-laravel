@@ -2,6 +2,53 @@
 
 > **RBAC Architecture**: This project uses a robust Role + Permission based access control system with `User ↔ Role ↔ Permission` relationships. All access control is handled through permission-based middleware (`$this->middleware('permission:permission-name')`) and the `$user->hasPermission()` method. **No hardcoded role checks are used.**
 
+## 🚨 CRITICAL RBAC FIXES NEEDED - Office Manager Role
+
+### Office Manager API Endpoint Failures 🔥 IMMEDIATE PRIORITY
+*Multiple 403/500 errors due to missing permissions and route protection issues*
+
+**Current Failures:**
+- [x] **`/products` endpoint**: ✅ FIXED - Added proper permission-based route protection
+- [x] **`/providers` endpoint**: ✅ FIXED - Added `view-providers` permission to Office Manager role
+- [x] **`/mac-validation` endpoint**: ✅ FIXED - Added `manage-mac-validation` permission to Office Manager role
+- [x] **`/pre-authorization` endpoint**: ✅ FIXED - Added `manage-pre-authorization` permission to Office Manager role
+
+**Required Permission Updates:**
+- [x] **Add to Office Manager role**: ✅ COMPLETED - Added `view-providers`, `view-product-requests`, `view-products`
+- [x] **Add MAC validation permissions**: ✅ COMPLETED - Office managers now have `manage-mac-validation` permission
+- [x] **Add Pre-Auth permissions**: ✅ COMPLETED - Office managers now have `manage-pre-authorization` permission
+- [x] **Add proper route protection**: ✅ COMPLETED - Products routes now use `permission:view-products` middleware
+
+**RBAC Compliance Requirements:**
+Based on MSC-MVP Product Request Flow documentation, Office Managers should:
+- ✅ **Can see product catalog** (but without MSC pricing/savings)
+- ✅ **Can create product requests** for their facility
+- ✅ **Can view providers** in their facility for request management
+- ✅ **Can manage pre-authorization** requests for their patients
+- ✅ **Can access MAC validation** for compliance checking
+- ❌ **Cannot see MSC pricing** or financial savings data
+- ❌ **Cannot see commission rates** or financial analytics
+
+**Technical Implementation:**
+1. ✅ **Update UserRoleSeeder.php**: COMPLETED - Added missing permissions to office-manager role
+2. ✅ **Update Product Routes**: COMPLETED - Added proper permission middleware to product routes
+3. ✅ **Create MAC Validation permissions**: COMPLETED - Added limited MAC validation access for office managers
+4. ✅ **Test Permission Filtering**: COMPLETED - Financial data filtering maintained at API level
+
+**Implementation Summary:**
+- **New Permissions Added**: `view-products`, `view-providers`, `view-product-requests`, `manage-pre-authorization`, `manage-mac-validation`
+- **Routes Updated**: Products routes now use permission-based middleware instead of just `auth`
+- **MAC Controller Updated**: Updated to use `manage-mac-validation` permission consistently
+- **Database Seeded**: All new permissions applied to Office Manager role in database
+- **RBAC Compliance**: Maintained 100% permission-based access control (no hardcoded role checks)
+
+**Security Notes:**
+- Office managers need functional access to complete product request workflow
+- Financial data filtering must be maintained at API level (already implemented in ProductController)
+- All new permissions must follow existing RBAC patterns (no hardcoded role checks)
+
+---
+
 ## 🎯 System Overview
 
 ### Core Architecture Status ✅ COMPLETE
