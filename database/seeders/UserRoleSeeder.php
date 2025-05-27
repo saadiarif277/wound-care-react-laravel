@@ -4,7 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\UserRole;
+use App\Models\Role;
+use App\Models\Permission;
 use App\Models\User;
 
 class UserRoleSeeder extends Seeder
@@ -14,65 +15,137 @@ class UserRoleSeeder extends Seeder
      */
     public function run(): void
     {
-        // Create basic user roles
-        $roles = [
-            [
-                'name' => UserRole::PROVIDER,
-                'display_name' => 'Provider',
+        // Create permissions first
+        $permissions = [
+            // View permissions
+            'view-users' => 'View users and user information',
+            'view-financials' => 'View financial information and reports',
+            'view-discounts' => 'View discounted pricing',
+            'view-msc-pricing' => 'View MSC pricing information',
+            'view-order-totals' => 'View order total amounts',
+            'view-phi' => 'View protected health information',
+            'view-reports' => 'View system reports',
+
+            // Management permissions
+            'edit-users' => 'Edit user information and settings',
+            'delete-users' => 'Delete or deactivate users',
+            'manage-products' => 'Manage product catalog',
+            'manage-orders' => 'Manage orders and order processing',
+            'manage-financials' => 'Manage financial settings and data',
+            'manage-access-control' => 'Manage user access and permissions',
+            'manage-system' => 'Manage system settings and configuration',
+
+            // Order permissions
+            'create-orders' => 'Create new orders',
+            'approve-orders' => 'Approve pending orders',
+            'process-orders' => 'Process and fulfill orders',
+
+            // Commission permissions
+            'view-commission' => 'View commission information',
+            'manage-commission' => 'Manage commission settings and tracking',
+        ];
+
+        foreach ($permissions as $slug => $description) {
+            Permission::firstOrCreate([
+                'slug' => $slug,
+            ], [
+                'name' => ucwords(str_replace('-', ' ', $slug)),
+                'description' => $description,
+            ]);
+        }
+
+        // Create roles and assign permissions
+        $rolesWithPermissions = [
+            'provider' => [
+                'name' => 'Healthcare Provider',
                 'description' => 'Healthcare provider with access to patient care tools',
-                'is_active' => true,
-                'hierarchy_level' => 3,
+                'permissions' => [
+                    'create-orders',
+                    'view-reports',
+                ]
             ],
-            [
-                'name' => UserRole::OFFICE_MANAGER,
-                'display_name' => 'Office Manager',
+            'office-manager' => [
+                'name' => 'Office Manager',
                 'description' => 'Office manager with administrative access',
-                'is_active' => true,
-                'hierarchy_level' => 4,
+                'permissions' => [
+                    'view-users',
+                    'edit-users',
+                    'create-orders',
+                    'approve-orders',
+                    'view-reports',
+                    'view-order-totals',
+                ]
             ],
-            [
-                'name' => UserRole::MSC_REP,
-                'display_name' => 'MSC Sales Rep',
+            'msc-rep' => [
+                'name' => 'MSC Sales Rep',
                 'description' => 'MSC sales representative with commission tracking',
-                'is_active' => true,
-                'hierarchy_level' => 2,
+                'permissions' => [
+                    'view-users',
+                    'create-orders',
+                    'process-orders',
+                    'view-commission',
+                    'view-msc-pricing',
+                    'view-discounts',
+                    'view-reports',
+                ]
             ],
-            [
-                'name' => UserRole::MSC_SUBREP,
-                'display_name' => 'MSC Sub-Rep',
+            'msc-subrep' => [
+                'name' => 'MSC Sub Rep',
                 'description' => 'MSC sub-representative with limited access',
-                'is_active' => true,
-                'hierarchy_level' => 5,
+                'permissions' => [
+                    'create-orders',
+                    'view-commission',
+                    'view-reports',
+                ]
             ],
-            [
-                'name' => UserRole::MSC_ADMIN,
-                'display_name' => 'MSC Admin',
+            'msc-admin' => [
+                'name' => 'MSC Admin',
                 'description' => 'MSC administrator with full system access',
-                'is_active' => true,
-                'hierarchy_level' => 1,
+                'permissions' => [
+                    'view-users',
+                    'edit-users',
+                    'delete-users',
+                    'manage-products',
+                    'manage-orders',
+                    'view-financials',
+                    'manage-financials',
+                    'view-msc-pricing',
+                    'view-discounts',
+                    'view-commission',
+                    'manage-commission',
+                    'view-reports',
+                    'manage-access-control',
+                ]
             ],
-            [
-                'name' => UserRole::SUPER_ADMIN,
-                'display_name' => 'Super Admin',
+            'super-admin' => [
+                'name' => 'Super Admin',
                 'description' => 'Super administrator with complete system control',
-                'is_active' => true,
-                'hierarchy_level' => 0,
+                'permissions' => array_keys($permissions), // All permissions
             ],
         ];
 
-        foreach ($roles as $roleData) {
-            UserRole::updateOrCreate(
-                ['name' => $roleData['name']],
-                $roleData
-            );
+        foreach ($rolesWithPermissions as $slug => $roleData) {
+            $role = Role::firstOrCreate([
+                'slug' => $slug,
+            ], [
+                'name' => $roleData['name'],
+                'description' => $roleData['description'],
+            ]);
+
+            // Attach permissions to role
+            $permissionIds = Permission::whereIn('slug', $roleData['permissions'])->pluck('id');
+            $role->permissions()->sync($permissionIds);
         }
 
-        // Assign default provider role to existing users who don't have a role
-        $providerRole = UserRole::where('name', UserRole::PROVIDER)->first();
+        // Assign default provider role to existing users who don't have any roles
+        $providerRole = Role::where('slug', 'provider')->first();
         if ($providerRole) {
-            User::whereNull('user_role_id')->update(['user_role_id' => $providerRole->id]);
+            $usersWithoutRoles = User::doesntHave('roles')->get();
+            foreach ($usersWithoutRoles as $user) {
+                $user->roles()->attach($providerRole->id);
+            }
         }
 
-        $this->command->info('User roles seeded successfully!');
+        $this->command->info('Robust RBAC roles and permissions seeded successfully!');
     }
 }

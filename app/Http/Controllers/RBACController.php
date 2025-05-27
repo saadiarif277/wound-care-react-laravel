@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
-use App\Models\UserRole;
 use App\Models\RbacAuditLog;
 use App\Http\Requests\RolePermissionUpdateRequest;
 use Illuminate\Http\Request;
@@ -34,23 +33,21 @@ class RBACController extends Controller
      */
     public function index(): Response
     {
-        $userRoles = UserRole::with('users')->get();
-        $roles = Role::with('permissions')->get();
+        $roles = Role::with(['permissions', 'users'])->get();
         $permissions = Permission::all();
-        $users = User::with('role')->get();
+        $users = User::with('roles')->get();
 
         // Get role statistics
-        $roleStats = $userRoles->map(function ($role) {
+        $roleStats = $roles->map(function ($role) {
             return [
                 'id' => $role->id,
                 'name' => $role->name,
-                'display_name' => $role->display_name,
+                'slug' => $role->slug,
                 'description' => $role->description,
                 'user_count' => $role->users->count(),
-                'hierarchy_level' => $role->hierarchy_level,
-                'is_active' => $role->is_active,
-                'permissions' => $role->permissions ?? [],
-                'dashboard_config' => $role->getDashboardConfig(),
+                'permissions_count' => $role->permissions->count(),
+                'permissions' => $role->permissions->pluck('name'),
+                'is_active' => $role->is_active ?? true,
             ];
         });
 
@@ -71,16 +68,15 @@ class RBACController extends Controller
         });
 
         // Get user role distribution
-        $userDistribution = $userRoles->map(function ($role) use ($users) {
+        $userDistribution = $roles->map(function ($role) use ($users) {
             return [
-                'role' => $role->display_name,
+                'role' => $role->name,
                 'count' => $role->users->count(),
                 'percentage' => $users->count() > 0 ? round(($role->users->count() / $users->count()) * 100, 1) : 0,
             ];
         });
 
         return Inertia::render('RBAC/Index', [
-            'userRoles' => $roleStats,
             'roles' => $roles,
             'permissions' => $permissions,
             'users' => $users,
@@ -88,7 +84,7 @@ class RBACController extends Controller
             'permissionStats' => $permissionStats,
             'userDistribution' => $userDistribution,
             'totalUsers' => $users->count(),
-            'totalRoles' => $userRoles->count(),
+            'totalRoles' => $roles->count(),
             'totalPermissions' => $permissions->count(),
         ]);
     }
@@ -98,19 +94,18 @@ class RBACController extends Controller
      */
     public function getRoleHierarchy()
     {
-        $userRoles = UserRole::orderBy('hierarchy_level')->get();
+        $roles = Role::with(['permissions', 'users'])->orderBy('name')->get();
 
-        $hierarchy = $userRoles->map(function ($role) {
+        $hierarchy = $roles->map(function ($role) {
             return [
                 'id' => $role->id,
                 'name' => $role->name,
-                'display_name' => $role->display_name,
-                'hierarchy_level' => $role->hierarchy_level,
-                'user_count' => $role->users()->count(),
-                'permissions_count' => count($role->permissions ?? []),
-                'can_access_financials' => $role->canAccessFinancials(),
-                'pricing_access_level' => $role->getPricingAccessLevel(),
-                'commission_access_level' => $role->getCommissionAccessLevel(),
+                'slug' => $role->slug,
+                'description' => $role->description,
+                'user_count' => $role->users->count(),
+                'permissions_count' => $role->permissions->count(),
+                'permissions' => $role->permissions->pluck('name'),
+                'is_active' => $role->is_active ?? true,
             ];
         });
 
@@ -120,23 +115,32 @@ class RBACController extends Controller
     /**
      * Get detailed role configuration
      */
-    public function getRoleConfig(UserRole $userRole)
+    public function getRoleConfig(Role $role)
     {
-        $config = $userRole->getDashboardConfig();
-
         return response()->json([
-            'role' => $userRole,
-            'config' => $config,
-            'restrictions' => [
-                'financial_access' => $userRole->canAccessFinancials(),
-                'can_see_discounts' => $userRole->canSeeDiscounts(),
-                'can_see_msc_pricing' => $userRole->canSeeMscPricing(),
-                'can_see_order_totals' => $userRole->canSeeOrderTotals(),
-                'can_view_phi' => $userRole->canViewPhi(),
-                'can_manage_orders' => $userRole->canManageOrders(),
-                'customer_data_restrictions' => $userRole->hasCustomerDataRestrictions(),
+            'role' => $role->load('permissions'),
+            'permissions' => $role->permissions->map(function ($permission) {
+                return [
+                    'id' => $permission->id,
+                    'name' => $permission->name,
+                    'slug' => $permission->slug,
+                    'description' => $permission->description,
+                ];
+            }),
+            'capabilities' => [
+                'can_view_users' => $role->permissions->contains('slug', 'view-users'),
+                'can_edit_users' => $role->permissions->contains('slug', 'edit-users'),
+                'can_delete_users' => $role->permissions->contains('slug', 'delete-users'),
+                'can_view_financials' => $role->permissions->contains('slug', 'view-financials'),
+                'can_manage_financials' => $role->permissions->contains('slug', 'manage-financials'),
+                'can_view_msc_pricing' => $role->permissions->contains('slug', 'view-msc-pricing'),
+                'can_view_discounts' => $role->permissions->contains('slug', 'view-discounts'),
+                'can_manage_products' => $role->permissions->contains('slug', 'manage-products'),
+                'can_manage_orders' => $role->permissions->contains('slug', 'manage-orders'),
+                'can_view_commission' => $role->permissions->contains('slug', 'view-commission'),
+                'can_manage_commission' => $role->permissions->contains('slug', 'manage-commission'),
             ],
-            'admin_capabilities' => $config['admin_capabilities'] ?? [],
+            'user_count' => $role->users()->count(),
         ]);
     }
 

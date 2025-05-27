@@ -107,10 +107,10 @@ export default function AccessRequestShow({ accessRequest, roleSpecificFields }:
   const getRoleDisplayName = (role: string) => {
     const roleNames = {
       provider: 'Healthcare Provider',
-      office_manager: 'Office Manager',
-      msc_rep: 'MSC Sales Representative',
-      msc_subrep: 'MSC Sub-Representative',
-      msc_admin: 'MSC Administrator',
+          'office-manager': 'Office Manager',
+    'msc-rep': 'MSC Sales Representative',
+    'msc-subrep': 'MSC Sub-Representative',
+    'msc-admin': 'MSC Administrator',
     };
     return roleNames[role as keyof typeof roleNames] || role;
   };

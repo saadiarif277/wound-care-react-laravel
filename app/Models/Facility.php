@@ -73,8 +73,8 @@ class Facility extends Model
      */
     public function officeManagers(): BelongsToMany
     {
-        return $this->users()->whereHas('userRole', function ($q) {
-            $q->where('name', UserRole::OFFICE_MANAGER);
+        return $this->users()->whereHas('roles', function ($q) {
+            $q->where('slug', 'office-manager');
         });
     }
 
@@ -83,8 +83,8 @@ class Facility extends Model
      */
     public function providers(): BelongsToMany
     {
-        return $this->users()->whereHas('userRole', function ($q) {
-            $q->where('name', UserRole::PROVIDER);
+        return $this->users()->whereHas('roles', function ($q) {
+            $q->where('slug', 'provider');
         });
     }
 

@@ -240,15 +240,16 @@ function DashboardPage({ userRole = 'provider', user, roleRestrictions }: Dashbo
     switch (userRole) {
       case 'provider':
         return <ProviderDashboard user={user} dashboardData={{}} roleRestrictions={roleRestrictions} />;
-      case 'office_manager':
+      case 'office-manager':
         return <OfficeManagerDashboard user={user} dashboardData={{}} roleRestrictions={roleRestrictions} />;
-      case 'msc_admin':
+      case 'msc-admin':
         return <MscAdminDashboard user={user} />;
+      case 'super-admin':
       case 'superadmin':
         return <SuperAdminDashboard user={user} />;
-      case 'msc_rep':
+      case 'msc-rep':
         return <MscRepDashboard user={user} />;
-      case 'msc_subrep':
+              case 'msc-subrep':
         return <MscSubrepDashboard user={user} />;
       default:
         // Fall back to the existing generic dashboard for unrecognized roles

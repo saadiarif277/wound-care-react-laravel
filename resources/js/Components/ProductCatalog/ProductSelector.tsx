@@ -113,7 +113,7 @@ const ProductSelector: React.FC<Props> = ({
 
     // Legacy userRole conversion
     switch (userRole) {
-      case 'office_manager':
+      case 'office-manager':
         return {
           can_view_financials: false,
           can_see_discounts: false,
@@ -130,8 +130,8 @@ const ProductSelector: React.FC<Props> = ({
           pricing_access_level: 'limited'
         };
       case 'provider':
-      case 'msc_rep':
-      case 'msc_admin':
+      case 'msc-rep':
+      case 'msc-admin':
       case 'superadmin':
       default:
         return {

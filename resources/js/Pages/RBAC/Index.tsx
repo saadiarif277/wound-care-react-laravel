@@ -83,9 +83,9 @@ export default function RBACIndex({
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
 
   const getRiskLevel = (role: UserRole) => {
-    if (role.name === 'super_admin') return 'critical';
-    if (role.name === 'msc_admin') return 'high';
-    if (['msc_rep', 'provider'].includes(role.name)) return 'medium';
+          if (role.name === 'super-admin') return 'critical';
+      if (role.name === 'msc-admin') return 'high';
+      if (['msc-rep', 'provider'].includes(role.name)) return 'medium';
     return 'low';
   };
 
