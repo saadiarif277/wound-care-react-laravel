@@ -11,6 +11,9 @@ This file stores project-specific knowledge, conventions, and user preferences l
 
 - **Visual Design**: User prefers modern, clean aesthetics with proper contrast and readability. They reported issues with "grey titles" and wanted overall aesthetic improvements.
 - **Logo**: MSC-logo.png should be used consistently throughout the application (located in public/MSC-logo.png)
+- **User prefers comprehensive permission-based access control over hardcoded role checks**
+- **User wants all routes properly protected with middleware**
+- **User values detailed documentation and task tracking**
 
 ## Technical Decisions
 
@@ -25,8 +28,10 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
 - **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
 - **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
-- **RBAC System**: ✅ FULLY COMPLETED - The project uses Role.php + Permission.php as the primary RBAC system (built by tech lead). UserRole.php legacy system has been completely removed and all data migrated.
-- **RBAC Architecture**: User ↔ Role ↔ Permission with many-to-many relationships using HasPermissions trait
+- **RBAC System**: Uses permission-based middleware (`permission:permission-name`) exclusively, no hardcoded role checks
+- **Route Protection**: All protected routes must use permission middleware, not just auth middleware
+- **Database Seeding**: UserRoleSeeder manages all role and permission assignments
+- **Frontend Access Control**: Uses `roleRestrictions` passed from backend controllers to React components
 - **Permission Checking**: Use `$user->hasPermission('permission-slug')`, `$user->hasRole('role-slug')`, and `$user->hasAnyPermission(['perm1', 'perm2'])` methods
 - **Database Migration**: ✅ COMPLETE - All user role assignments migrated from user_role_id to role_user pivot table. Legacy user_roles table dropped. All controllers updated to use permission-based checks.
 - **Files Updated**: DashboardController, AccessControlController, ProductController, RBACController, CheckUserRoles command, Facility model, User model, UserRoleSeeder (now creates robust RBAC), FinancialAccessControl middleware, CreateTestUser command
@@ -42,6 +47,10 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Use the Role/Permission RBAC system instead of UserRole for permission checking**
 - **Business logic should be separated from RBAC models**
 - **Role normalization is needed to handle legacy 'superadmin' vs 'super_admin' inconsistencies**
+- **All controllers use permission middleware in constructor for route protection**
+- **Permission names follow kebab-case convention (e.g., `view-customers`, `create-orders`)**
+- **React components receive `roleRestrictions` prop for conditional rendering**
+- **Financial data is always permission-gated with `view-financials` permission**
 
 ## MSC Portal Workflow Architecture
 
@@ -312,3 +321,17 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **UI/UX Focus**: Concentrate on role-specific user interface features and user experience rather than permission management
 - **Feature-First Development**: Build role-specific features and workflows around existing RBAC system
 - **Collaboration Strategy**: Work around RBAC system being developed separately, focus on frontend components and workflows
+
+## Recent Fixes Completed
+
+### MSC Admin Access Control Fixes (January 2025)
+- **Issue**: MSC Admin role had 403/404 errors on `/customers`, `/orders/analytics`, and `/orders/create`
+- **Root Cause**: Missing permissions (`view-customers`, `view-analytics`, `create-orders`) and missing route implementation
+- **Solution Implemented**:
+  - Added missing permissions to UserRoleSeeder for MSC Admin role
+  - Created `/orders/analytics` route with proper permission middleware
+  - Moved `/orders/create` to permission-protected section
+  - Implemented OrderController@analytics method with role-aware financial data
+  - Created Order/Analytics.tsx React component with charts and role-based restrictions
+  - Installed recharts package for data visualization
+- **Result**: All MSC Admin routes now properly accessible with consistent RBAC pattern

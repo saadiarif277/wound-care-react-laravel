@@ -18,6 +18,7 @@ class OrderController extends Controller
         $this->middleware('permission:delete-orders')->only('destroy');
         $this->middleware('permission:approve-orders')->only('approval');
         $this->middleware('permission:manage-orders')->only('manage');
+        $this->middleware('permission:view-analytics')->only('analytics');
     }
 
     public function index(): Response
@@ -117,6 +118,99 @@ class OrderController extends Controller
             'orders' => $orders,
             'filters' => $request->only(['search', 'status', 'date_from', 'date_to', 'sales_rep_id']),
             'statuses' => $statuses,
+        ]);
+    }
+
+    /**
+     * Display order analytics dashboard for administrators
+     */
+    public function analytics(Request $request): Response
+    {
+        $user = $request->user();
+
+        // Get date range (default to last 30 days)
+        $dateFrom = $request->get('date_from', now()->subDays(30)->toDateString());
+        $dateTo = $request->get('date_to', now()->toDateString());
+
+        // Base query for orders in date range
+        $baseQuery = Order::whereBetween('order_date', [$dateFrom, $dateTo]);
+
+        // Order statistics
+        $totalOrders = (clone $baseQuery)->count();
+        $approvedOrders = (clone $baseQuery)->where('status', 'approved')->count();
+        $pendingOrders = (clone $baseQuery)->where('status', 'pending_admin_approval')->count();
+        $rejectedOrders = (clone $baseQuery)->where('status', 'rejected')->count();
+
+        // Financial data (only if user has permission)
+        $financialData = null;
+        if ($user->hasPermission('view-financials')) {
+            $totalRevenue = (clone $baseQuery)->where('status', 'approved')->sum('total_amount');
+            $averageOrderValue = $totalOrders > 0 ? ($totalRevenue / max($totalOrders, 1)) : 0;
+
+            $financialData = [
+                'total_revenue' => $totalRevenue,
+                'average_order_value' => $averageOrderValue,
+            ];
+        }
+
+        // Status breakdown
+        $statusBreakdown = (clone $baseQuery)
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
+
+        // Daily order trends (last 7 days)
+        $dailyTrends = [];
+        for ($i = 6; $i >= 0; $i--) {
+            $date = now()->subDays($i)->toDateString();
+            $count = Order::whereDate('order_date', $date)->count();
+            $dailyTrends[] = [
+                'date' => $date,
+                'orders' => $count,
+            ];
+        }
+
+        // Top facilities by order count
+        $topFacilities = (clone $baseQuery)
+            ->with('facility:id,name')
+            ->selectRaw('facility_id, COUNT(*) as order_count')
+            ->groupBy('facility_id')
+            ->orderByDesc('order_count')
+            ->limit(5)
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'facility_name' => $item->facility->name ?? 'Unknown',
+                    'order_count' => $item->order_count,
+                ];
+            });
+
+        $analyticsData = [
+            'summary' => [
+                'total_orders' => $totalOrders,
+                'approved_orders' => $approvedOrders,
+                'pending_orders' => $pendingOrders,
+                'rejected_orders' => $rejectedOrders,
+                'approval_rate' => $totalOrders > 0 ? round(($approvedOrders / $totalOrders) * 100, 1) : 0,
+            ],
+            'financial' => $financialData,
+            'status_breakdown' => $statusBreakdown,
+            'daily_trends' => $dailyTrends,
+            'top_facilities' => $topFacilities,
+            'date_range' => [
+                'from' => $dateFrom,
+                'to' => $dateTo,
+            ],
+        ];
+
+        return Inertia::render('Order/Analytics', [
+            'analyticsData' => $analyticsData,
+            'roleRestrictions' => [
+                'can_view_financials' => $user->hasPermission('view-financials'),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+            ],
         ]);
     }
 }
