@@ -133,11 +133,19 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                 <>
                   <div className="flex items-center mb-4 p-3 bg-white rounded-lg shadow-sm">
                     <div className="flex-shrink-0">
-                      <img
-                        className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                        src={user?.photo || "https://via.placeholder.com/100"}
-                        alt="User profile"
-                      />
+                      <div className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center">
+                        {user?.photo ? (
+                          <img
+                            className="w-10 h-10 rounded-full"
+                            src={user.photo}
+                            alt="User profile"
+                          />
+                        ) : (
+                          <span className="text-sm font-medium text-gray-600">
+                            {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
@@ -159,12 +167,22 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
               ) : (
                 <div className="flex flex-col items-center space-y-3">
                   {/* Collapsed User Avatar */}
-                  <img
-                    className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20"
-                    src={user?.photo || "https://via.placeholder.com/80"}
-                    alt="User profile"
+                  <div
+                    className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center"
                     title={`${userName} - ${roleDisplayName}`}
-                  />
+                  >
+                    {user?.photo ? (
+                      <img
+                        className="w-8 h-8 rounded-full"
+                        src={user.photo}
+                        alt="User profile"
+                      />
+                    ) : (
+                      <span className="text-xs font-medium text-gray-600">
+                        {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
+                      </span>
+                    )}
+                  </div>
 
                   {/* Collapsed Logout Button */}
                   <Link

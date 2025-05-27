@@ -27,6 +27,9 @@ class UserRoleSeeder extends Seeder
             'view-reports' => 'View system reports',
             'view-customers' => 'View customer information and management',
             'view-analytics' => 'View analytics and dashboard reports',
+            'view-products' => 'View product catalog and information',
+            'view-providers' => 'View healthcare providers information',
+            'view-product-requests' => 'View product requests and status',
 
             // Management permissions
             'edit-users' => 'Edit user information and settings',
@@ -36,6 +39,8 @@ class UserRoleSeeder extends Seeder
             'manage-financials' => 'Manage financial settings and data',
             'manage-access-control' => 'Manage user access and permissions',
             'manage-system' => 'Manage system settings and configuration',
+            'manage-pre-authorization' => 'Manage prior authorization requests',
+            'manage-mac-validation' => 'Manage MAC validation processes',
 
             // Order permissions
             'create-orders' => 'Create new orders',
@@ -76,6 +81,11 @@ class UserRoleSeeder extends Seeder
                     'approve-orders',
                     'view-reports',
                     'view-order-totals',
+                    'view-products',
+                    'view-providers',
+                    'view-product-requests',
+                    'manage-pre-authorization',
+                    'manage-mac-validation',
                 ]
             ],
             'msc-rep' => [
