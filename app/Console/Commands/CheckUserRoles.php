@@ -4,7 +4,7 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Models\User;
-use App\Models\UserRole;
+use App\Models\Role;
 
 class CheckUserRoles extends Command
 {
@@ -34,19 +34,19 @@ class CheckUserRoles extends Command
         $this->info('Current user role assignments:');
         $this->line('');
 
-        $users = User::with('userRole')->get();
+        $users = User::with('roles')->get();
 
         foreach ($users as $user) {
-            $roleInfo = $user->userRole ? $user->userRole->name : 'No role assigned';
+            $roleInfo = $user->roles->isNotEmpty() ? $user->roles->first()->name : 'No role assigned';
             $this->line($user->email . ' - ' . $roleInfo);
         }
 
         $this->line('');
         $this->info('Available roles:');
 
-        $roles = UserRole::all();
+        $roles = Role::all();
         foreach ($roles as $role) {
-            $this->line($role->id . ': ' . $role->name . ' (' . $role->display_name . ')');
+            $this->line($role->id . ': ' . $role->slug . ' (' . $role->name . ')');
         }
     }
 
@@ -54,8 +54,8 @@ class CheckUserRoles extends Command
     {
         $this->info('Fixing role assignments...');
 
-        // Get the office_manager role
-        $officeManagerRole = UserRole::where('name', 'office_manager')->first();
+        // Get the office-manager role
+        $officeManagerRole = Role::where('slug', 'office-manager')->first();
 
         if (!$officeManagerRole) {
             $this->error('Office Manager role not found!');
@@ -64,9 +64,8 @@ class CheckUserRoles extends Command
 
         // Fix office.manager@mscwound.com
         $user = User::where('email', 'office.manager@mscwound.com')->first();
-        if ($user) {
-            $user->user_role_id = $officeManagerRole->id;
-            $user->save();
+        if ($user && !$user->hasRole('office-manager')) {
+            $user->roles()->sync([$officeManagerRole->id]);
             $this->info('Fixed office.manager@mscwound.com role assignment');
         }
 
@@ -77,9 +76,8 @@ class CheckUserRoles extends Command
 
         foreach ($otherOfficeManagers as $email) {
             $user = User::where('email', $email)->first();
-            if ($user && $user->user_role_id != $officeManagerRole->id) {
-                $user->user_role_id = $officeManagerRole->id;
-                $user->save();
+            if ($user && !$user->hasRole('office-manager')) {
+                $user->roles()->sync([$officeManagerRole->id]);
                 $this->info("Fixed {$email} role assignment");
             }
         }

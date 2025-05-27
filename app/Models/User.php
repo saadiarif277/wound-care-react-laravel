@@ -125,7 +125,7 @@ class User extends Authenticatable
      */
     public function hasRole(string $roleName): bool
     {
-        return $this->userRole?->name === $roleName;
+        return $this->roles->contains('slug', $roleName);
     }
 
     /**
