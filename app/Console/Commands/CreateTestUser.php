@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Models\User;
-use App\Models\UserRole;
+use App\Models\Role;
 use App\Models\Account;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Hash;
@@ -38,10 +38,10 @@ class CreateTestUser extends Command
         }
 
         // Check if role exists
-        $role = UserRole::where('name', $roleName)->first();
+        $role = Role::where('slug', $roleName)->first();
         if (!$role) {
             $this->error("Role '{$roleName}' does not exist!");
-            $this->info('Available roles: ' . UserRole::pluck('name')->implode(', '));
+            $this->info('Available roles: ' . Role::pluck('slug')->implode(', '));
             return 1;
         }
 
@@ -64,14 +64,15 @@ class CreateTestUser extends Command
             ]);
 
             // Assign role
-            $user->userRole()->attach($role->id);
+            $user->roles()->attach($role->id);
 
             $this->info("✓ User created successfully!");
             $this->table(['Field', 'Value'], [
                 ['ID', $user->id],
                 ['Name', $user->first_name . ' ' . $user->last_name],
                 ['Email', $user->email],
-                ['Role', $role->display_name],
+                ['Role', $role->name],
+                ['Role Slug', $role->slug],
                 ['Account ID', $user->account_id],
                 ['Password', 'password (default)'],
             ]);

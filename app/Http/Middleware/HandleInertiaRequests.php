@@ -37,8 +37,8 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $user = Auth::user()->load('userRole');
-        return $user->userRole->name ?? 'provider';
+        $user = Auth::user()->load('roles');
+        return $user->getPrimaryRoleSlug() ?? 'provider';
     }
 
     /**
@@ -52,7 +52,7 @@ class HandleInertiaRequests extends Middleware
 
         return array_merge(parent::share($request), [
             'auth' => function () {
-                $user = Auth::check() ? Auth::user()->load(['account', 'userRole']) : null;
+                $user = Auth::check() ? Auth::user()->load(['account', 'roles']) : null;
                 return [
                     'user' => $user ? new UserResource($user) : null,
                 ];
@@ -65,21 +65,16 @@ class HandleInertiaRequests extends Middleware
                     return null;
                 }
 
-                $user = Auth::user()->load('userRole');
-                if (!$user->userRole) {
-                    return null;
-                }
-
-                $role = $user->userRole;
+                $user = Auth::user()->load('roles');
                 return [
-                    'can_view_financials' => $role->canAccessFinancials(),
-                    'can_see_discounts' => $role->canSeeDiscounts(),
-                    'can_see_msc_pricing' => $role->canSeeMscPricing(),
-                    'can_see_order_totals' => $role->canSeeOrderTotals(),
-                    'pricing_access_level' => $role->getPricingAccessLevel(),
-                    'customer_data_restrictions' => $role->hasCustomerDataRestrictions(),
-                    'can_view_phi' => $role->canViewPhi(),
-                    'commission_access_level' => $role->getCommissionAccessLevel(),
+                    'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                    'can_see_discounts' => $user->hasPermission('view-discounts'),
+                    'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                    'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                    'can_view_phi' => $user->hasPermission('view-phi'),
+                    'is_super_admin' => $user->isSuperAdmin(),
+                    'is_msc_admin' => $user->isMscAdmin(),
+                    'is_provider' => $user->isProvider(),
                 ];
             },
             'flash' => function () use ($request) {

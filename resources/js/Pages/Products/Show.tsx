@@ -83,7 +83,7 @@ export default function ProductShow({ product, roleRestrictions }: Props) {
 
   // Get user role for pricing display
   const getUserRole = () => {
-    if (!roleRestrictions.can_see_msc_pricing) return 'office_manager';
+    if (!roleRestrictions.can_see_msc_pricing) return 'office-manager';
     if (roleRestrictions.pricing_access_level === 'limited') return 'msc_subrep';
     return 'provider'; // Default for full access roles
   };

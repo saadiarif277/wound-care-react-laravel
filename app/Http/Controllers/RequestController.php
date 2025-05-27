@@ -10,6 +10,12 @@ use Inertia\Response;
 
 class RequestController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+        $this->middleware('permission:view-requests')->only(['index', 'show']);
+    }
+
     /**
      * Display a listing of requests
      */

@@ -114,11 +114,11 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
 
   // Get user role for pricing display and admin capabilities
   const getUserRole = () => {
-    if (!roleRestrictions.can_see_msc_pricing) return 'office_manager';
-    if (roleRestrictions.pricing_access_level === 'limited') return 'msc_subrep';
+    if (!roleRestrictions.can_see_msc_pricing) return 'office-manager';
+    if (roleRestrictions.pricing_access_level === 'limited') return 'msc-subrep';
     if (roleRestrictions.commission_access_level === 'full') {
       // Could be MSC Rep, MSC Admin, or Super Admin - check for admin capabilities
-      return 'msc_admin'; // For now, treat full commission access as admin-level
+      return 'msc-admin'; // For now, treat full commission access as admin-level
     }
     return 'provider'; // Default for full access roles without commission
   };

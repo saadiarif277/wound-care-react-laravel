@@ -25,6 +25,13 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Layout**: Modern sidebar with wider width (w-72), better spacing, and card-based content layout
 - **Component Styling**: Updated Button, Input, and layout components to use brand colors and modern design patterns
 - **RBAC Development**: Main technical developer is handling Role-Based Access Control (RBAC) implementation. Focus on UI/UX role-specific features rather than granular permission management. Work around existing RBAC system without implementing detailed permissions.
+- **RBAC System**: ✅ FULLY COMPLETED - The project uses Role.php + Permission.php as the primary RBAC system (built by tech lead). UserRole.php legacy system has been completely removed and all data migrated.
+- **RBAC Architecture**: User ↔ Role ↔ Permission with many-to-many relationships using HasPermissions trait
+- **Permission Checking**: Use `$user->hasPermission('permission-slug')`, `$user->hasRole('role-slug')`, and `$user->hasAnyPermission(['perm1', 'perm2'])` methods
+- **Database Migration**: ✅ COMPLETE - All user role assignments migrated from user_role_id to role_user pivot table. Legacy user_roles table dropped. All controllers updated to use permission-based checks.
+- **Files Updated**: DashboardController, AccessControlController, ProductController, RBACController, CheckUserRoles command, Facility model, User model, UserRoleSeeder (now creates robust RBAC), FinancialAccessControl middleware, CreateTestUser command
+- **Permissions Created**: 19 granular permissions covering view, edit, delete, manage operations for users, financials, orders, products, etc.
+- **System Status**: ✅ ALL LEGACY CODE REMOVED - No remaining UserRole references in core system. Robust RBAC fully operational.
 
 ## Project Conventions
 
@@ -32,6 +39,9 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Logo Usage**: Logo component should use the PNG file (/MSC-logo.png) rather than embedded SVG
 - **Color Application**: Use brand colors via inline styles for dynamic elements, Tailwind utilities for static elements
 - **Component Design**: Follow modern design principles with proper shadows, rounded corners, and hover states
+- **Use the Role/Permission RBAC system instead of UserRole for permission checking**
+- **Business logic should be separated from RBAC models**
+- **Role normalization is needed to handle legacy 'superadmin' vs 'super_admin' inconsistencies**
 
 ## Completed Features
 

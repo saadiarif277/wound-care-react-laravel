@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\UserRole;
 use App\Models\AccessRequest;
 use App\Models\Role;
 use App\Models\RbacAuditLog;
@@ -32,12 +31,12 @@ class AccessControlController extends Controller
     public function index(): Response
     {
         // Use pagination for better performance with large datasets
-        $users = User::with(['userRole'])
-            ->select(['id', 'name', 'email', 'user_role_id', 'is_active', 'last_login_at', 'created_at'])
+        $users = User::with(['roles'])
+            ->select(['id', 'name', 'email', 'is_active', 'last_login_at', 'created_at'])
             ->orderBy('created_at', 'desc')
             ->paginate(50); // Paginate instead of loading all users
 
-        $userRoles = UserRole::select(['id', 'name', 'display_name'])->get();
+        $userRoles = Role::select(['id', 'name', 'slug'])->get();
 
         // Optimize access requests query
         $accessRequests = AccessRequest::with(['reviewedBy:id,name,email'])
@@ -57,17 +56,19 @@ class AccessControlController extends Controller
         ];
 
         // Get role distribution efficiently
-        $roleDistribution = UserRole::withCount(['users' => function ($query) {
+        $roleDistribution = Role::withCount(['users' => function ($query) {
             $query->select(DB::raw('count(*)'));
         }])
         ->get()
         ->map(function ($role) use ($accessStats) {
-            $activeCount = User::where('user_role_id', $role->id)
+            $activeCount = User::whereHas('roles', function ($q) use ($role) {
+                    $q->where('role_id', $role->id);
+                })
                 ->where('is_active', true)
                 ->count();
 
             return [
-                'role' => $role->display_name,
+                'role' => $role->name,
                 'count' => $role->users_count,
                 'active_count' => $activeCount,
                 'percentage' => $accessStats['total_users'] > 0
@@ -104,44 +105,42 @@ class AccessControlController extends Controller
     }
 
     /**
-     * Update user role
+     * Update user role (using robust RBAC system)
      */
     public function updateUserRole(Request $request, User $user)
     {
         $request->validate([
-            'role_id' => 'required|exists:user_roles,id',
+            'role_id' => 'required|exists:roles,id',
             'reason' => 'required|string|max:500',
         ]);
 
         return DB::transaction(function () use ($request, $user) {
-            $oldRole = $user->userRole;
-            $newRole = UserRole::find($request->role_id);
+            $oldRoles = $user->roles->pluck('name')->toArray();
+            $newRole = \App\Models\Role::find($request->role_id);
 
             // Security check: Only super admins can assign super admin role
-            if ($newRole->name === 'super_admin' && Auth::user()->userRole->name !== 'super_admin') {
+            if ($newRole->slug === 'super-admin' && !Auth::user()->isSuperAdmin()) {
                 return response()->json([
                     'message' => 'Only super administrators can assign super admin role'
                 ], 403);
             }
 
-            // Update user role
-            $user->update([
-                'user_role_id' => $request->role_id,
-            ]);
+            // Replace all roles with the new role (single role assignment)
+            $user->roles()->sync([$request->role_id]);
 
             // Log the role change
             $this->logSecurityEvent('user_role_changed', [
                 'user_id' => $user->id,
                 'user_email' => $user->email,
-                'old_role' => $oldRole->display_name,
-                'new_role' => $newRole->display_name,
+                'old_roles' => $oldRoles,
+                'new_role' => $newRole->name,
                 'reason' => $request->reason,
                 'changed_by' => Auth::user()->email,
             ]);
 
             return response()->json([
                 'message' => 'User role updated successfully',
-                'user' => $user->fresh(['userRole']),
+                'user' => $user->fresh(['roles']),
             ]);
         });
     }
@@ -195,7 +194,7 @@ class AccessControlController extends Controller
         }
 
         // Prevent deletion of super admin by non-super admin
-        if ($user->userRole->name === 'super_admin' && Auth::user()->userRole->name !== 'super_admin') {
+        if ($user->isSuperAdmin() && !Auth::user()->isSuperAdmin()) {
             return response()->json([
                 'message' => 'Only super administrators can revoke super admin access'
             ], 403);
@@ -331,13 +330,17 @@ class AccessControlController extends Controller
 
     private function getRoleDistributionMetrics()
     {
-        $users = User::with('userRole')->get();
-        $userRoles = UserRole::all();
+        $users = User::with('roles')->get();
+        $userRoles = Role::all();
 
         return $userRoles->map(function ($role) use ($users) {
+            $count = $users->filter(function ($user) use ($role) {
+                return $user->roles->contains('id', $role->id);
+            })->count();
+
             return [
-                'role' => $role->display_name,
-                'count' => $users->where('user_role_id', $role->id)->count(),
+                'role' => $role->name,
+                'count' => $count,
             ];
         });
     }

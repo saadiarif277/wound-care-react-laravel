@@ -1,41 +1,64 @@
-// User Role System Types
-export type UserRole =
-  | 'provider'
-  | 'office_manager'
-  | 'msc_rep'
-  | 'msc_subrep'
-  | 'msc_admin'
-  | 'super_admin'
-  | 'superadmin';
+// Updated role types for the robust RBAC system
+
+export type UserRole = 'provider' | 'office-manager' | 'msc-rep' | 'msc-subrep' | 'msc-admin' | 'super-admin' | 'superadmin';
+
+// User interface with role information
+export interface UserWithRole {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role?: UserRole;
+  roles?: Array<{
+    id: number;
+    name: string;
+    slug: UserRole;
+  }>;
+  owner?: boolean; // Legacy field for backward compatibility
+}
+
+// Role restrictions from backend (permission-based)
+export interface RoleRestrictions {
+  can_view_financials: boolean;
+  can_see_discounts: boolean;
+  can_see_msc_pricing: boolean;
+  can_see_order_totals: boolean;
+  can_view_phi: boolean;
+  is_super_admin: boolean;
+  is_msc_admin: boolean;
+  is_provider: boolean;
+}
+
+// Legacy interfaces kept for compatibility (but deprecated)
+// These should be replaced with RoleRestrictions over time
+export interface FeatureFlags {
+  showFinancials: boolean;
+  showCommissions: boolean;
+  showAdminTools: boolean;
+  showSalesTools: boolean;
+  showProviderTools: boolean;
+  showReports: boolean;
+}
+
+export interface RolePermissions {
+  canViewFinancials: boolean;
+  canManageOrders: boolean;
+  canViewCommissions: boolean;
+  canManageUsers: boolean;
+  canConfigureSystem: boolean;
+  canViewReports: boolean;
+  canManageTerritory: boolean;
+  canViewFullPricing: boolean;
+}
 
 export interface RoleDefinition {
-  id: UserRole;
+  id: string;
   name: string;
   description: string;
   category: 'healthcare' | 'sales' | 'admin';
-  permissions: {
-    canViewFinancials: boolean;
-    canManageOrders: boolean;
-    canViewCommissions: boolean;
-    canManageUsers: boolean;
-    canConfigureSystem: boolean;
-    canViewReports: boolean;
-    canManageTerritory: boolean;
-    canViewFullPricing: boolean;
-  };
+  permissions: RolePermissions;
   dashboardFeatures: string[];
   navigationItems: string[];
-}
-
-export interface UserWithRole {
-  id: number;
-  name: string;
-  email: string;
-  role: UserRole;
-  facility_id?: number;
-  sales_rep_id?: number;
-  territory?: string;
-  owner: boolean; // Legacy field for backward compatibility
 }
 
 export interface DashboardData {
@@ -94,14 +117,4 @@ export interface NavigationItem {
   badge?: number;
   roles: UserRole[];
   children?: NavigationItem[];
-}
-
-// Role-based Feature Flags
-export interface FeatureFlags {
-  showFinancials: boolean;
-  showCommissions: boolean;
-  showAdminTools: boolean;
-  showSalesTools: boolean;
-  showProviderTools: boolean;
-  showReports: boolean;
 }

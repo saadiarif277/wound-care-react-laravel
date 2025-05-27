@@ -243,67 +243,67 @@ Route::middleware(['auth'])->group(function () {
     });
 
     // Office Manager specific routes - Add proper authorization
-    Route::middleware(['permission:view_product_requests'])->group(function () {
+    Route::middleware(['permission:view-product-requests'])->group(function () {
         Route::get('/product-requests/facility', [ProductRequestController::class, 'facilityRequests'])->name('product-requests.facility');
         Route::get('/product-requests/providers', [ProductRequestController::class, 'providerRequests'])->name('product-requests.providers');
     });
 
-    Route::middleware(['permission:view_providers'])->group(function () {
+    Route::middleware(['permission:view-providers'])->group(function () {
         Route::get('/providers', function () {
             return Inertia::render('Providers/Index');
         })->name('providers.index');
     });
 
-    Route::middleware(['permission:manage_pre_authorization'])->group(function () {
+    Route::middleware(['permission:manage-pre-authorization'])->group(function () {
         Route::get('/pre-authorization', function () {
             return Inertia::render('PreAuthorization/Index');
         })->name('pre-authorization.index');
     });
 
     // MSC Admin routes - Add proper authorization
-    Route::middleware(['permission:view_requests'])->group(function () {
+    Route::middleware(['permission:view-requests'])->group(function () {
         Route::get('/requests', [RequestController::class, 'index'])->name('requests.index');
         Route::get('/requests/{request}', [RequestController::class, 'show'])->name('requests.show');
     });
 
-    Route::middleware(['permission:manage_orders'])->group(function () {
+    Route::middleware(['permission:manage-orders'])->group(function () {
         Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
     });
 
-    Route::middleware(['permission:manage_products'])->group(function () {
+    Route::middleware(['permission:manage-products'])->group(function () {
         Route::get('/products/manage', [ProductController::class, 'manage'])->name('products.manage');
     });
 
-    Route::middleware(['permission:view_settings'])->group(function () {
+    Route::middleware(['permission:view-settings'])->group(function () {
         Route::get('/settings', function () {
             return Inertia::render('Settings/Index');
         })->name('settings.index');
     });
 
-    Route::middleware(['permission:manage_subrep_approvals'])->group(function () {
+    Route::middleware(['permission:manage-subrep-approvals'])->group(function () {
         Route::get('/subrep-approvals', function () {
             return Inertia::render('SubrepApprovals/Index');
         })->name('subrep-approvals.index');
     });
 
     // Super Admin routes - Add proper authorization
-    Route::middleware(['permission:manage_rbac'])->group(function () {
+    Route::middleware(['permission:manage-rbac'])->group(function () {
         Route::get('/rbac', [RBACController::class, 'index'])->name('rbac.index');
         Route::get('/roles', [RoleController::class, 'index'])->name('roles.index');
     });
 
-    Route::middleware(['permission:manage_access_control'])->group(function () {
+    Route::middleware(['permission:manage-access-control'])->group(function () {
         Route::get('/access-control', [AccessControlController::class, 'index'])->name('access-control.index');
     });
 
-    Route::middleware(['permission:view_commission'])->group(function () {
+    Route::middleware(['permission:view-commission'])->group(function () {
         Route::get('/commission/overview', function () {
             return Inertia::render('Commission/Overview');
         })->name('commission.overview');
     });
 
     // System Admin routes - Add proper authorization
-    Route::middleware(['permission:manage_system_config'])->group(function () {
+    Route::middleware(['permission:manage-system-config'])->group(function () {
         Route::prefix('system-admin')->group(function () {
             Route::get('/config', function () {
                 return Inertia::render('SystemAdmin/Config');
@@ -317,39 +317,39 @@ Route::middleware(['auth'])->group(function () {
         });
     });
 
-    Route::middleware(['permission:view_audit_logs'])->group(function () {
+    Route::middleware(['permission:view-audit-logs'])->group(function () {
         Route::get('/system-admin/audit', function () {
             return Inertia::render('SystemAdmin/Audit');
         })->name('system-admin.audit');
     });
 
     // Engine routes - Add proper authorization
-    Route::middleware(['permission:manage_clinical_rules'])->group(function () {
+    Route::middleware(['permission:manage-clinical-rules'])->group(function () {
         Route::get('/engines/clinical-rules', function () {
             return Inertia::render('Engines/ClinicalRules');
         })->name('engines.clinical-rules');
     });
 
-    Route::middleware(['permission:manage_recommendation_rules'])->group(function () {
+    Route::middleware(['permission:manage-recommendation-rules'])->group(function () {
         Route::get('/engines/recommendation-rules', function () {
             return Inertia::render('Engines/RecommendationRules');
         })->name('engines.recommendation-rules');
     });
 
-    Route::middleware(['permission:manage_commission_engine'])->group(function () {
+    Route::middleware(['permission:manage-commission-engine'])->group(function () {
         Route::get('/engines/commission', function () {
             return Inertia::render('Engines/Commission');
         })->name('engines.commission');
     });
 
     // MSC Rep routes - Add proper authorization
-    Route::middleware(['permission:view_customers'])->group(function () {
+    Route::middleware(['permission:view-customers'])->group(function () {
         Route::get('/customers', function () {
             return Inertia::render('Customers/Index');
         })->name('customers.index');
     });
 
-    Route::middleware(['permission:view_team'])->group(function () {
+    Route::middleware(['permission:view-team'])->group(function () {
         Route::get('/team', function () {
             return Inertia::render('Team/Index');
         })->name('team.index');
