@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProductRequest;
-use App\Models\Facility;
+use App\Models\Order\ProductRequest;
+use App\Models\Fhir\Facility;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -316,7 +316,7 @@ class ProductRequestReviewController extends Controller
         foreach ($requestIds as $requestId) {
             try {
                 $productRequest = ProductRequest::findOrFail($requestId);
-                
+
                 // Ensure we have a single model instance, not a collection
                 if ($productRequest instanceof \Illuminate\Database\Eloquent\Collection) {
                     $productRequest = $productRequest->first();

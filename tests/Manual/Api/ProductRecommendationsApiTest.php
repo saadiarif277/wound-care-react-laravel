@@ -3,7 +3,7 @@
 require_once 'vendor/autoload.php';
 
 use Illuminate\Http\Request;
-use App\Models\ProductRequest;
+use App\Models\Order\ProductRequest;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
 
 // Test the Product Recommendations API

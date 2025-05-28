@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductRequest;
-use App\Models\PreAuthorization;
+use App\Models\Order\ProductRequest;
+use App\Models\Insurance\PreAuthorization;
 use App\Jobs\SubmitPreAuthorizationJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -200,7 +200,7 @@ class PreAuthorizationController extends Controller
         // Use UUID-based approach to avoid database locks and deadlocks
         $datePrefix = now()->format('Ymd');
         $uniqueId = strtoupper(Str::random(8));
-        
+
         return "PA-{$datePrefix}-{$uniqueId}";
     }
 
