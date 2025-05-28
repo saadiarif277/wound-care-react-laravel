@@ -14,6 +14,7 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **User prefers comprehensive permission-based access control over hardcoded role checks**
 - **User wants all routes properly protected with middleware**
 - **User values detailed documentation and task tracking**
+- **Database IDs**: User strongly prefers UUID primary keys over auto-incrementing integers throughout the application. Use UUIDs whenever possible for all models and database tables.
 
 ## Technical Decisions
 
