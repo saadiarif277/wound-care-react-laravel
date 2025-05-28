@@ -24,6 +24,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
+            'role' => \App\Http\Middleware\CheckRole::class,
         ]);
 
         $middleware->throttleApi();

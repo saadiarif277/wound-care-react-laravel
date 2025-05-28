@@ -22,14 +22,17 @@ class AzureKeyVaultService
 
     public function __construct()
     {
-        $this->vaultUrl = config('services.azure.key_vault.vault_url');
-        $this->tenantId = config('services.azure.tenant_id');
-        $this->clientId = config('services.azure.client_id');
-        $this->clientSecret = config('services.azure.client_secret');
-        $this->useManagedIdentity = config('services.azure.key_vault.use_managed_identity');
+        $this->vaultUrl = config('services.azure.key_vault.vault_url') ?? '';
+        $this->tenantId = config('services.azure.tenant_id') ?? '';
+        $this->clientId = config('services.azure.client_id') ?? '';
+        $this->clientSecret = config('services.azure.client_secret') ?? '';
+        $this->useManagedIdentity = config('services.azure.key_vault.use_managed_identity', false);
 
+        // Only log warning, don't throw exception during application startup
         if (!$this->vaultUrl) {
-            throw new Exception('Azure Key Vault URL not configured');
+            Log::warning('Azure Key Vault URL not configured', [
+                'service' => 'AzureKeyVaultService'
+            ]);
         }
     }
 
@@ -41,6 +44,11 @@ class AzureKeyVaultService
      */
     public function getSecret(string $secretName): ?string
     {
+        if (!$this->vaultUrl) {
+            Log::warning('Azure Key Vault not configured, cannot retrieve secret', ['secret_name' => $secretName]);
+            return null;
+        }
+
         try {
             $accessToken = $this->getAccessToken();
 
