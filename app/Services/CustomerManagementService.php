@@ -19,7 +19,7 @@ class CustomerManagementService
      */
     public function getOrganizationHierarchy(int $organizationId): ?Organization // Return single Organization model or null
     {
-        return Organization::with([
+        $organization = Organization::with([
             'facilities.providers.roles', // Eager load facilities, their providers, and providers' roles
             'facilities.addresses',       // Eager load facility addresses
             'salesRep',                 // Eager load the sales rep for the organization
@@ -27,9 +27,14 @@ class CustomerManagementService
             'addresses'                 // Eager load organization's own addresses
         ])
         ->withCount(['facilities']) // Get count of facilities
-        // We might need a more complex way to count total_providers and active_providers if it spans across all facilities
-        // For now, these can be derived in the resource or controller from the loaded relations.
         ->find($organizationId);
+        
+        // Ensure we have a model instance, not a builder
+        if ($organization instanceof \Illuminate\Database\Eloquent\Builder) {
+            $organization = $organization->first();
+        }
+        
+        return $organization;
     }
 
     /**
