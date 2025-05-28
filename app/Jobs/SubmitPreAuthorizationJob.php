@@ -33,6 +33,11 @@ class SubmitPreAuthorizationJob implements ShouldQueue
     {
         $preAuth = PreAuthorization::find($this->preAuthorizationId);
         
+        // Ensure we have a model instance, not a builder
+        if ($preAuth instanceof \Illuminate\Database\Eloquent\Builder) {
+            $preAuth = $preAuth->first();
+        }
+        
         if (!$preAuth) {
             Log::error('PreAuthorization not found for job', [
                 'pre_auth_id' => $this->preAuthorizationId

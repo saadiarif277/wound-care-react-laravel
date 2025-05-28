@@ -102,10 +102,11 @@ class NPIVerificationServiceTest extends TestCase
             'last_verified' => '2024-01-01 00:00:00',
         ];
 
-        Cache::shouldReceive('get')
+        Cache::partialMock()
+            ->shouldReceive('get')
             ->once()
             ->with('npi_verification:1234567890')
-            ->andReturn($cachedData);
+            ->andReturnUsing(fn() => $cachedData);
 
         $result = $this->service->verifyNPI('1234567890');
         
