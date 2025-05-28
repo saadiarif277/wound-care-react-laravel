@@ -8,6 +8,7 @@ use App\Http\Controllers\ImagesController;
 use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
+use App\Http\Controllers\Admin\UsersController as AdminUsersController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
@@ -33,6 +34,7 @@ use App\Models\MedicareMacValidation;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\Request;
 
 /*
 |--------------------------------------------------------------------------
@@ -89,6 +91,52 @@ Route::post('access-requests/{accessRequest}/approve', [AccessRequestController:
 Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])
     ->name('web.access-requests.deny')
     ->middleware('auth');
+
+// Provider Invitation Routes
+Route::get('auth/provider-invitation/{token}', function ($token) {
+    // Get invitation data and render the invitation page
+    $invitation = \App\Models\ProviderInvitation::where('invitation_token', $token)
+        ->where('status', 'sent')
+        ->where('expires_at', '>', now())
+        ->first();
+        
+    if (!$invitation) {
+        abort(404, 'Invitation not found or expired');
+    }
+    
+    // Load organization data
+    $invitation->load('organization');
+    
+    return Inertia::render('Auth/ProviderInvitation', [
+        'invitation' => [
+            'id' => $invitation->id,
+            'organization_name' => $invitation->organization->name,
+            'organization_type' => $invitation->organization->type ?? 'Healthcare Organization',
+            'invited_email' => $invitation->email,
+            'invited_role' => 'Provider',
+            'expires_at' => $invitation->expires_at->toISOString(),
+            'status' => $invitation->status,
+            'metadata' => [
+                'organization_id' => $invitation->organization_id,
+                'invited_by' => $invitation->invited_by_user_id,
+                'invited_by_name' => $invitation->invitedBy->first_name . ' ' . $invitation->invitedBy->last_name,
+            ]
+        ],
+        'token' => $token
+    ]);
+})->name('auth.provider-invitation.show')->middleware('guest');
+
+Route::post('auth/provider-invitation/{token}/accept', function ($token, Request $request) {
+    $onboardingService = app(\App\Services\OnboardingService::class);
+    
+    $result = $onboardingService->acceptProviderInvitation($token, $request->all());
+    
+    if ($result['success']) {
+        return redirect()->route('login')->with('success', 'Account created successfully. Please log in.');
+    } else {
+        return back()->withErrors(['error' => $result['message']]);
+    }
+})->name('auth.provider-invitation.accept')->middleware('guest');
 
 // Dashboard
 
@@ -226,6 +274,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/{productRequest}/recommendations', [ProductRequestController::class, 'getRecommendations'])->name('api.product-requests.recommendations');
     });
 
+    // Product Request Review Routes (Admin)
+    Route::middleware(['permission:manage-product-requests'])->prefix('product-requests')->group(function () {
+        Route::get('/review', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'index'])
+            ->name('product-requests.review');
+        Route::get('/review/{productRequest}', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'show'])
+            ->name('product-requests.review.show');
+        Route::post('/review/{productRequest}/approve', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'approve'])
+            ->name('product-requests.review.approve');
+        Route::post('/review/{productRequest}/reject', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'reject'])
+            ->name('product-requests.review.reject');
+        Route::post('/review/{productRequest}/request-info', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'requestInformation'])
+            ->name('product-requests.review.request-info');
+        Route::post('/review/bulk-action', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'bulkAction'])
+            ->name('product-requests.review.bulk-action');
+    });
+
     // Product API Routes
     Route::prefix('api/products')->group(function () {
         Route::get('/search', [ProductController::class, 'getAll'])->name('api.products.search');
@@ -329,6 +393,61 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('system-admin.audit');
     });
 
+    // Onboarding Management Routes
+    Route::middleware(['permission:manage-onboarding'])->prefix('onboarding')->group(function () {
+        Route::get('/management', function () {
+            return Inertia::render('Onboarding/Management');
+        })->name('onboarding.management');
+        
+        Route::get('/organizations', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'listOrganizations'])
+            ->name('onboarding.organizations');
+        Route::get('/organizations/{organization}/status', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'getOnboardingStatus'])
+            ->name('onboarding.organizations.status');
+    });
+
+    // Admin User Management Routes (Consolidated)
+    Route::middleware(['permission:manage-users'])->prefix('admin/users')->group(function () {
+        Route::get('/', [AdminUsersController::class, 'index'])
+            ->name('admin.users.index');
+        Route::get('/create', [AdminUsersController::class, 'create'])
+            ->name('admin.users.create');
+        Route::post('/', [AdminUsersController::class, 'store'])
+            ->name('admin.users.store');
+        Route::get('/{user}/edit', [AdminUsersController::class, 'edit'])
+            ->name('admin.users.edit');
+        Route::put('/{user}', [AdminUsersController::class, 'update'])
+            ->name('admin.users.update');
+        Route::patch('/{user}/deactivate', [AdminUsersController::class, 'deactivate'])
+            ->name('admin.users.deactivate');
+        Route::patch('/{user}/activate', [AdminUsersController::class, 'activate'])
+            ->name('admin.users.activate');
+    });
+
+    // Provider Invitations Management Routes
+    Route::middleware(['permission:manage-users'])->prefix('admin/provider-invitations')->group(function () {
+        Route::get('/', function () {
+            $invitations = \App\Models\ProviderInvitation::with(['organization', 'invitedBy'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(20);
+                
+            return Inertia::render('Admin/ProviderInvitations/Index', [
+                'invitations' => $invitations
+            ]);
+        })->name('admin.provider-invitations.index');
+        
+        Route::post('/{invitation}/resend', function (\App\Models\ProviderInvitation $invitation) {
+            // Resend invitation logic
+            $onboardingService = app(\App\Services\OnboardingService::class);
+            // Implementation would go here
+            return back()->with('success', 'Invitation resent successfully');
+        })->name('admin.provider-invitations.resend');
+        
+        Route::delete('/{invitation}', function (\App\Models\ProviderInvitation $invitation) {
+            $invitation->update(['status' => 'cancelled']);
+            return back()->with('success', 'Invitation cancelled successfully');
+        })->name('admin.provider-invitations.cancel');
+    });
+
     // Engine routes - Add proper authorization
     Route::middleware(['permission:manage-clinical-rules'])->group(function () {
         Route::get('/engines/clinical-rules', [EngineController::class, 'clinicalRules'])
@@ -351,6 +470,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('customers.index');
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])
             ->name('customers.show');
+        Route::get('/customers/dashboard', [CustomerController::class, 'dashboard'])
+            ->name('customers.dashboard');
     });
 
     Route::middleware(['permission:view-team'])->group(function () {

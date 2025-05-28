@@ -157,15 +157,14 @@ class OnboardingService
                 $invitationToken = $this->generateSecureToken();
                 
                 $invitation = ProviderInvitation::create([
-                    'id' => $this->generateSecureUuid(),
                     'email' => strtolower(trim($provider['email'])),
                     'first_name' => trim($provider['first_name']),
                     'last_name' => trim($provider['last_name']),
                     'invitation_token' => $invitationToken,
                     'organization_id' => $organizationId,
                     'invited_by_user_id' => $invitedBy,
-                    'assigned_facilities' => json_encode($provider['facilities'] ?? []),
-                    'assigned_roles' => json_encode($provider['roles'] ?? ['provider']),
+                    'assigned_facilities' => $provider['facilities'] ?? [],
+                    'assigned_roles' => $provider['roles'] ?? ['provider'],
                     'status' => 'pending',
                     'expires_at' => now()->addDays(self::INVITATION_EXPIRY_DAYS)
                 ]);
@@ -235,7 +234,7 @@ class OnboardingService
         try {
             // Create user account
             $user = User::create([
-                'id' => $this->generateSecureUuid(),
+                'account_id' => $invitation->organization->account_id,
                 'first_name' => $registrationData['first_name'] ?? $invitation->first_name,
                 'last_name' => $registrationData['last_name'] ?? $invitation->last_name,
                 'email' => $invitation->email,
