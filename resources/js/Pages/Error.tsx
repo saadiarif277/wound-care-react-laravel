@@ -1,9 +1,9 @@
 import { PageProps } from '@/types';
 import { Head } from '@inertiajs/react';
 
-type ErrorPageProps = PageProps<{
+type ErrorPageProps = PageProps & {
   status: number;
-}>;
+};
 
 export default function ErrorPage({ status }: ErrorPageProps) {
   /**

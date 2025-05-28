@@ -1026,23 +1026,23 @@ const CreateOrderPage = () => {
                     <Input
                       label="Name"
                       value={newDoctorFacility.name}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, name: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, name: value }))}
                       required
                     />
                     <Input
                       label="Address"
                       value={newDoctorFacility.address}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, address: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, address: value }))}
                     />
                     <Input
                       label="Phone"
                       value={newDoctorFacility.phone}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, phone: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, phone: value }))}
                     />
                     <Input
                       label="Email"
                       value={newDoctorFacility.email}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, email: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, email: value }))}
                       type="email"
                     />
                     </div>
@@ -1076,33 +1076,33 @@ const CreateOrderPage = () => {
                     <Input
                       label="Product Name"
                       value={newProduct.name}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, name: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, name: value }))}
                       required
                     />
                     <Input
                       label="SKU"
                       value={newProduct.sku}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, sku: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, sku: value }))}
                       required
                     />
                     <NumberInput
                       label="National ASP"
                       value={newProduct.nationalAsp}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, nationalAsp: value }))}
+                      onChange={(value: number) => setNewProduct(prev => ({ ...prev, nationalAsp: value }))}
                       min="0"
                       required
                     />
                     <NumberInput
                       label="Price per sq cm"
                       value={newProduct.pricePerSqCm}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, pricePerSqCm: value }))}
+                      onChange={(value: number) => setNewProduct(prev => ({ ...prev, pricePerSqCm: value }))}
                       min="0"
                       required
                     />
                     <Input
                       label="Q Code"
                       value={newProduct.qCode}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, qCode: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, qCode: value }))}
                       required
                     />
                     <div>

@@ -270,7 +270,7 @@ export default function Dashboard({ user, dashboardData, roleRestrictions }: Das
   };
 
   return (
-    <MainLayout user={currentUser} dashboardData={currentDashboardData} roleRestrictions={currentRoleRestrictions}>
+    <MainLayout title="Dashboard">
       {renderRoleSpecificDashboard()}
     </MainLayout>
   );

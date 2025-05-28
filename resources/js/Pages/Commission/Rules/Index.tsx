@@ -90,10 +90,7 @@ export default function Index({ auth, rules }: Props) {
     };
 
     return (
-        <MainLayout
-            user={auth.user}
-            header={<h2 className="font-semibold text-xl text-gray-800 leading-tight">Commission Rules</h2>}
-        >
+        <MainLayout title="Commission Rules">
             <Head title="Commission Rules" />
 
             <div className="py-12">
