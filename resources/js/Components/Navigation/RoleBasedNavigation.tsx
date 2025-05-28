@@ -36,7 +36,12 @@ import {
   FiAward,
   FiCalendar,
   FiGlobe,
-  FiMail
+  FiMail,
+  FiCpu,
+  FiSliders,
+  FiServer,
+  FiCloudLightning,
+  FiCheckSquare
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -203,6 +208,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['office-manager']
         },
         {
+          name: 'Document Management',
+          href: '#',
+          icon: FiFileText,
+          roles: ['office-manager'],
+          children: [
+            {
+              name: 'Document Submissions',
+              href: '/admin/docuseal/submissions',
+              icon: FiFileText,
+              roles: ['office-manager'],
+              description: 'View and manage document submissions'
+            },
+            {
+              name: 'Signing Status',
+              href: '/admin/docuseal/status',
+              icon: FiCheckCircle,
+              roles: ['office-manager'],
+              description: 'Track document signing progress'
+            }
+          ]
+        },
+        {
           name: 'Provider Management',
           href: '/providers',
           icon: FiUsers,
@@ -324,65 +351,45 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-admin']
         },
         {
-          name: 'Request Management',
+          name: 'Operations',
           href: '#',
-          icon: FiClipboard,
+          icon: FiServer,
           roles: ['msc-admin'],
           children: [
             {
-              name: 'All Requests',
-              href: '/requests',
-              icon: FiClipboard,
+              name: 'Order Processing',
+              href: '/orders/manage',
+              icon: FiShoppingCart,
               roles: ['msc-admin']
             },
             {
-              name: 'Product Request Review',
+              name: 'Request Review & Approval',
               href: '/admin/product-requests/review',
               icon: FiEye,
               roles: ['msc-admin'],
               description: 'Review and approve product requests'
-            }
-          ]
-        },
-        {
-          name: 'Order Management',
-          href: '#',
-          icon: FiShoppingCart,
-          roles: ['msc-admin'],
-          children: [
+            },
             {
-              name: 'Create Manual Orders',
+              name: 'Document Generation & Tracking',
+              href: '/admin/docuseal',
+              icon: FiFileText,
+              roles: ['msc-admin'],
+              description: 'Manage order documents and signatures'
+            },
+            {
+              name: 'Manual Order Creation',
               href: '/orders/create',
               icon: FiPlus,
               roles: ['msc-admin']
-            },
-            {
-              name: 'Manage All Orders',
-              href: '/orders/manage',
-              icon: FiSettings,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Product Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['msc-admin']
             }
           ]
         },
         {
-          name: 'Customer Management',
+          name: 'Customer & Provider Management',
           href: '#',
-          icon: FiBriefcase,
+          icon: FiUsers,
           roles: ['msc-admin'],
           children: [
-            {
-              name: 'Customer Dashboard',
-              href: '/admin/customer-management',
-              icon: FiBarChart,
-              roles: ['msc-admin'],
-              description: 'Customer overview and analytics'
-            },
             {
               name: 'Organizations',
               href: '/organizations',
@@ -391,72 +398,54 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Manage customer organizations'
             },
             {
-              name: 'Create Organization',
-              href: '/admin/customer-management/organizations/create',
-              icon: FiPlus,
+              name: 'Facilities & Providers',
+              href: '/admin/customer-management',
+              icon: FiBriefcase,
               roles: ['msc-admin'],
-              description: 'Add new customer organizations'
+              description: 'Manage facilities and providers'
             },
             {
-              name: 'Onboarding Management',
+              name: 'Onboarding Pipeline',
               href: '/admin/onboarding',
               icon: FiCalendar,
               roles: ['msc-admin'],
               description: 'Track customer onboarding progress'
+            },
+            {
+              name: 'Customer Analytics',
+              href: '/admin/customer-management',
+              icon: FiBarChart,
+              roles: ['msc-admin'],
+              description: 'Customer overview and analytics'
             }
           ]
         },
         {
-          name: 'Engines',
+          name: 'Sales & Commission Management',
           href: '#',
-          icon: FiTool,
+          icon: FiDollarSign,
           roles: ['msc-admin'],
           children: [
             {
-              name: 'Clinical Opportunity Rules',
-              href: '/engines/clinical-rules',
-              icon: FiTarget,
-              roles: ['msc-admin']
+              name: 'Commission Tracking',
+              href: '/commission/records',
+              icon: FiTrendingUp,
+              roles: ['msc-admin'],
+              description: 'Track individual commission records'
             },
             {
-              name: 'Product Recommendation Rules',
-              href: '/engines/recommendation-rules',
-              icon: FiStar,
-              roles: ['msc-admin']
+              name: 'Payout Management',
+              href: '/commission/payouts',
+              icon: FiCheckSquare,
+              roles: ['msc-admin'],
+              description: 'Manage and process commission payouts'
             },
             {
-              name: 'Commission Management',
-              href: '/engines/commission',
-              icon: FiDollarSign,
-              roles: ['msc-admin']
-            }
-          ]
-        },
-        {
-          name: 'User & Access Control',
-          href: '#',
-          icon: FiUsers,
-          roles: ['msc-admin'],
-          children: [
-            {
-              name: 'User Management',
-              href: '/admin/users',
+              name: 'Sales Rep Management',
+              href: '/admin/users/reps',
               icon: FiUsers,
               roles: ['msc-admin'],
-              description: 'Manage all users and roles'
-            },
-            {
-              name: 'Access Requests',
-              href: '/access-requests',
-              icon: FiUserCheck,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Provider Invitations',
-              href: '/admin/provider-invitations',
-              icon: FiMail,
-              roles: ['msc-admin'],
-              description: 'Manage provider invitation workflow'
+              description: 'Manage sales representatives'
             },
             {
               name: 'Sub-Rep Approvals',
@@ -467,15 +456,47 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           ]
         },
         {
-          name: 'Analytics & Reports',
+          name: 'Intelligent Engines',
+          href: '#',
+          icon: FiCpu,
+          roles: ['msc-admin'],
+          children: [
+            {
+              name: 'Clinical Opportunity Engine',
+              href: '/engines/clinical-rules',
+              icon: FiTarget,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Product Recommendation Engine',
+              href: '/engines/recommendation-rules',
+              icon: FiStar,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'MAC Validation Rules',
+              href: '/engines/mac-validation-rules',
+              icon: FiShield,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Commission Rules Configuration',
+              href: '/engines/commission',
+              icon: FiSliders,
+              roles: ['msc-admin']
+            }
+          ]
+        },
+        {
+          name: 'Analytics & Reporting',
           href: '#',
           icon: FiPieChart,
           roles: ['msc-admin'],
           children: [
             {
-              name: 'Reports Dashboard',
-              href: '/reports',
-              icon: FiBarChart,
+              name: 'Executive Dashboard',
+              href: '/reports/executive',
+              icon: FiActivity,
               roles: ['msc-admin']
             },
             {
@@ -483,21 +504,75 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/orders/analytics',
               icon: FiTrendingUp,
               roles: ['msc-admin']
+            },
+            {
+              name: 'Performance Metrics',
+              href: '/reports/performance',
+              icon: FiBarChart,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Compliance Reports',
+              href: '/reports/compliance',
+              icon: FiCheckCircle,
+              roles: ['msc-admin']
             }
           ]
         },
         {
-          name: 'Settings',
-          href: '/settings',
+          name: 'System Administration',
+          href: '#',
           icon: FiSettings,
-          roles: ['msc-admin']
-        },
-        {
-          name: 'Role Management',
-          href: '/rbac',
-          icon: FiShield,
           roles: ['msc-admin'],
-          description: 'Manage roles and permissions'
+          children: [
+            {
+              name: 'User Management',
+              href: '/admin/users',
+              icon: FiUsers,
+              roles: ['msc-admin'],
+              description: 'Manage all users and roles'
+            },
+            {
+              name: 'Access Control & Invitations',
+              href: '#',
+              icon: FiLock,
+              roles: ['msc-admin'],
+              children: [
+                {
+                  name: 'Access Requests',
+                  href: '/access-requests',
+                  icon: FiUserCheck,
+                  roles: ['msc-admin']
+                },
+                {
+                  name: 'Invitations',
+                  href: '/admin/invitations',
+                  icon: FiMail,
+                  roles: ['msc-admin'],
+                  description: 'Send and manage user invitations'
+                }
+              ]
+            },
+            {
+              name: 'Product Catalog Management',
+              href: '/products/manage',
+              icon: FiPackage,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'System Settings',
+              href: '/settings/system',
+              icon: FiTool,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Role Management',
+              href: '/rbac',
+              icon: FiShield,
+              roles: ['msc-admin'],
+              description: 'Manage roles and permissions'
+            }
+          ]
         }
       ];
 
@@ -510,51 +585,67 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin']
         },
         {
-          name: 'Request Management',
+          name: 'Operations',
           href: '#',
-          icon: FiClipboard,
+          icon: FiServer,
           roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'All Requests',
-              href: '/requests',
-              icon: FiClipboard,
+              name: 'Order Processing',
+              href: '/orders/manage',
+              icon: FiShoppingCart,
               roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Product Request Review',
+              name: 'Request Review & Approval',
               href: '/admin/product-requests/review',
               icon: FiEye,
               roles: ['super-admin', 'superadmin'],
               description: 'Review and approve product requests'
+            },
+            {
+              name: 'Document Generation & Tracking',
+              href: '#',
+              icon: FiFileText,
+              roles: ['super-admin', 'superadmin'],
+              children: [
+                {
+                  name: 'All Submissions',
+                  href: '/admin/docuseal/submissions',
+                  icon: FiFileText,
+                  roles: ['super-admin', 'superadmin'],
+                  description: 'View all document submissions across organizations'
+                },
+                {
+                  name: 'Template Management',
+                  href: '/admin/docuseal/templates',
+                  icon: FiArchive,
+                  roles: ['super-admin', 'superadmin'],
+                  description: 'Manage DocuSeal templates'
+                },
+                {
+                  name: 'Signing Analytics',
+                  href: '/admin/docuseal/analytics',
+                  icon: FiBarChart,
+                  roles: ['super-admin', 'superadmin'],
+                  description: 'Document signing analytics and reports'
+                }
+              ]
+            },
+            {
+              name: 'Manual Order Creation',
+              href: '/orders/create',
+              icon: FiPlus,
+              roles: ['super-admin', 'superadmin']
             }
           ]
         },
         {
-          name: 'Order Management',
-          href: '/orders/manage',
-          icon: FiShoppingCart,
-          roles: ['super-admin', 'superadmin']
-        },
-        {
-          name: 'Commission Overview',
-          href: '/commission/overview',
-          icon: FiDollarSign,
-          roles: ['super-admin', 'superadmin']
-        },
-        {
-          name: 'Customer Management',
+          name: 'Customer & Provider Management',
           href: '#',
-          icon: FiBriefcase,
+          icon: FiUsers,
           roles: ['super-admin', 'superadmin'],
           children: [
-            {
-              name: 'Customer Dashboard',
-              href: '/admin/customer-management',
-              icon: FiBarChart,
-              roles: ['super-admin', 'superadmin'],
-              description: 'Customer overview and analytics'
-            },
             {
               name: 'Organizations',
               href: '/organizations',
@@ -563,25 +654,137 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Manage customer organizations'
             },
             {
-              name: 'Create Organization',
-              href: '/admin/customer-management/organizations/create',
-              icon: FiPlus,
+              name: 'Facilities & Providers',
+              href: '/admin/customer-management',
+              icon: FiBriefcase,
               roles: ['super-admin', 'superadmin'],
-              description: 'Add new customer organizations'
+              description: 'Manage facilities and providers'
             },
             {
-              name: 'Onboarding Management',
+              name: 'Onboarding Pipeline',
               href: '/admin/onboarding',
               icon: FiCalendar,
               roles: ['super-admin', 'superadmin'],
               description: 'Track customer onboarding progress'
+            },
+            {
+              name: 'Customer Analytics',
+              href: '/admin/customer-management',
+              icon: FiBarChart,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Customer overview and analytics'
             }
           ]
         },
         {
-          name: 'User & Access Control',
+          name: 'Sales & Commission Management',
           href: '#',
-          icon: FiUsers,
+          icon: FiDollarSign,
+          roles: ['super-admin', 'superadmin'],
+          children: [
+            {
+              name: 'Commission Tracking',
+              href: '/commission/records',
+              icon: FiTrendingUp,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Track individual commission records'
+            },
+            {
+              name: 'Payout Management',
+              href: '/commission/payouts',
+              icon: FiCheckSquare,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage and process commission payouts'
+            },
+            {
+              name: 'Sales Rep Management',
+              href: '/admin/users/reps',
+              icon: FiUsers,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage sales representatives'
+            },
+            {
+              name: 'Sub-Rep Approvals',
+              href: '/subrep-approvals',
+              icon: FiUserPlus,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Commission Overview',
+              href: '/commission/overview',
+              icon: FiDollarSign,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
+        },
+        {
+          name: 'Intelligent Engines',
+          href: '#',
+          icon: FiCpu,
+          roles: ['super-admin', 'superadmin'],
+          children: [
+            {
+              name: 'Clinical Opportunity Engine',
+              href: '/engines/clinical-rules',
+              icon: FiTarget,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Product Recommendation Engine',
+              href: '/engines/recommendation-rules',
+              icon: FiStar,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'MAC Validation Rules',
+              href: '/engines/mac-validation-rules',
+              icon: FiShield,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Commission Rules Configuration',
+              href: '/engines/commission',
+              icon: FiSliders,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
+        },
+        {
+          name: 'Analytics & Reporting',
+          href: '#',
+          icon: FiPieChart,
+          roles: ['super-admin', 'superadmin'],
+          children: [
+            {
+              name: 'Executive Dashboard',
+              href: '/reports/executive',
+              icon: FiActivity,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Order Analytics',
+              href: '/orders/analytics',
+              icon: FiTrendingUp,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Performance Metrics',
+              href: '/reports/performance',
+              icon: FiBarChart,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Compliance Reports',
+              href: '/reports/compliance',
+              icon: FiCheckCircle,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
+        },
+        {
+          name: 'System Administration',
+          href: '#',
+          icon: FiSettings,
           roles: ['super-admin', 'superadmin'],
           children: [
             {
@@ -592,75 +795,76 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Manage all users and roles'
             },
             {
-              name: 'RBAC Configuration',
-              href: '/rbac',
+              name: 'Access Control & Invitations',
+              href: '#',
               icon: FiLock,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Provider Invitations',
-              href: '/admin/provider-invitations',
-              icon: FiMail,
               roles: ['super-admin', 'superadmin'],
-              description: 'Manage provider invitation workflow'
+              children: [
+                {
+                  name: 'Access Requests',
+                  href: '/access-requests',
+                  icon: FiUserCheck,
+                  roles: ['super-admin', 'superadmin']
+                },
+                {
+                  name: 'Invitations',
+                  href: '/admin/invitations',
+                  icon: FiMail,
+                  roles: ['super-admin', 'superadmin'],
+                  description: 'Send and manage user invitations'
+                },
+                {
+                  name: 'Access Control',
+                  href: '/access-control',
+                  icon: FiShield,
+                  roles: ['super-admin', 'superadmin']
+                }
+              ]
             },
             {
-              name: 'Access Control',
-              href: '/access-control',
-              icon: FiShield,
-              roles: ['super-admin', 'superadmin']
-            }
-          ]
-        },
-        {
-          name: 'Analytics & Reports',
-          href: '#',
-          icon: FiPieChart,
-          roles: ['super-admin', 'superadmin'],
-          children: [
-            {
-              name: 'Reports Dashboard',
-              href: '/reports',
-              icon: FiBarChart,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Order Analytics',
-              href: '/orders/analytics',
-              icon: FiTrendingUp,
-              roles: ['super-admin', 'superadmin']
-            }
-          ]
-        },
-        {
-          name: 'System Admin',
-          href: '#',
-          icon: FiSettings,
-          roles: ['super-admin', 'superadmin'],
-          children: [
-            {
-              name: 'Platform Configuration',
-              href: '/system-admin/config',
-              icon: FiSettings,
+              name: 'Product Catalog Management',
+              href: '/products/manage',
+              icon: FiPackage,
               roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Integration Settings',
-              href: '/system-admin/integrations',
-              icon: FiLink,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'API Management',
-              href: '/system-admin/api',
+              name: 'System Settings',
+              href: '#',
               icon: FiTool,
-              roles: ['super-admin', 'superadmin']
+              roles: ['super-admin', 'superadmin'],
+              children: [
+                {
+                  name: 'Platform Configuration',
+                  href: '/system-admin/config',
+                  icon: FiSettings,
+                  roles: ['super-admin', 'superadmin']
+                },
+                {
+                  name: 'Integration Settings',
+                  href: '/system-admin/integrations',
+                  icon: FiLink,
+                  roles: ['super-admin', 'superadmin']
+                },
+                {
+                  name: 'API Management',
+                  href: '/system-admin/api',
+                  icon: FiCloudLightning,
+                  roles: ['super-admin', 'superadmin']
+                },
+                {
+                  name: 'Audit Logs',
+                  href: '/system-admin/audit',
+                  icon: FiFileText,
+                  roles: ['super-admin', 'superadmin']
+                }
+              ]
             },
             {
-              name: 'Audit Logs',
-              href: '/system-admin/audit',
-              icon: FiFileText,
-              roles: ['super-admin', 'superadmin']
+              name: 'Role Management',
+              href: '/rbac',
+              icon: FiShield,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage roles and permissions'
             }
           ]
         }

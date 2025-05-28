@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "b48197bc9be2f63695ca61b5dd637fba",
+    "content-hash": "6867907b6797540e1548dfa25fe6c093",
     "packages": [
         {
             "name": "aws/aws-crt-php",
@@ -748,6 +748,42 @@
                 }
             ],
             "time": "2024-02-05T11:56:58+00:00"
+        },
+        {
+            "name": "docusealco/docuseal-php",
+            "version": "1.0.3",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/docusealco/docuseal-php.git",
+                "reference": "f187ace51ac63d94757782c077b7ac80536f8422"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/docusealco/docuseal-php/zipball/f187ace51ac63d94757782c077b7ac80536f8422",
+                "reference": "f187ace51ac63d94757782c077b7ac80536f8422",
+                "shasum": ""
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Docuseal\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "DocuSeal"
+                }
+            ],
+            "description": "PHP bindings for DocuSeal API",
+            "support": {
+                "issues": "https://github.com/docusealco/docuseal-php/issues",
+                "source": "https://github.com/docusealco/docuseal-php/tree/1.0.3"
+            },
+            "time": "2025-04-15T19:31:57+00:00"
         },
         {
             "name": "dragonmantank/cron-expression",
