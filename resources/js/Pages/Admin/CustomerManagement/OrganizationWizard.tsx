@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Button } from '@/Components/Button/Button';
+import { Button } from '@/Components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Progress } from '@/Components/ui/progress';
 import { CheckCircle2, Building2, Users, FileText, Settings } from 'lucide-react';
