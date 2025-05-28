@@ -76,4 +76,13 @@ return [
         'jwk_private_key' => env('ECW_JWK_PRIVATE_KEY'),
     ],
 
+    'npi' => [
+        'use_mock' => env('NPI_USE_MOCK', true),
+        'api_url' => env('NPI_API_URL', 'https://npiregistry.cms.hhs.gov/api'),
+        'timeout' => env('NPI_API_TIMEOUT', 30),
+        'cache_ttl' => env('NPI_CACHE_TTL', 86400), // 24 hours in seconds
+        'max_retries' => env('NPI_MAX_RETRIES', 3),
+        'retry_delay' => env('NPI_RETRY_DELAY', 1000), // milliseconds
+    ],
+
 ];

@@ -7,6 +7,9 @@ use App\Models\PreAuthorization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Queue;
 use Inertia\Inertia;
 
 class PreAuthorizationController extends Controller
@@ -50,8 +53,13 @@ class PreAuthorizationController extends Controller
         // Get paginated results
         $preAuths = $query->paginate(20)->withQueryString();
 
-        // Transform for frontend
+        // Transform for frontend with null safety
         $preAuths->getCollection()->transform(function ($preAuth) {
+            // Guard against missing relations
+            $productRequest = $preAuth->productRequest;
+            $provider = $productRequest?->provider;
+            $facility = $productRequest?->facility;
+
             return [
                 'id' => $preAuth->id,
                 'authorization_number' => $preAuth->authorization_number,
@@ -61,12 +69,14 @@ class PreAuthorizationController extends Controller
                 'submitted_at' => $preAuth->submitted_at?->format('M j, Y H:i'),
                 'expires_at' => $preAuth->expires_at?->format('M j, Y'),
                 'estimated_approval_date' => $preAuth->estimated_approval_date?->format('M j, Y'),
-                'product_request' => [
-                    'id' => $preAuth->productRequest->id,
-                    'request_number' => $preAuth->productRequest->request_number,
-                    'provider_name' => $preAuth->productRequest->provider->first_name . ' ' . $preAuth->productRequest->provider->last_name,
-                    'facility_name' => $preAuth->productRequest->facility->name,
-                ],
+                'product_request' => $productRequest ? [
+                    'id' => $productRequest->id,
+                    'request_number' => $productRequest->request_number,
+                    'provider_name' => $provider ?
+                        ($provider->first_name . ' ' . $provider->last_name) :
+                        'Unknown Provider',
+                    'facility_name' => $facility?->name ?? 'Unknown Facility',
+                ] : null,
                 'days_since_submission' => $preAuth->submitted_at ? $preAuth->submitted_at->diffInDays(now()) : 0,
                 'priority' => $this->calculatePriority($preAuth),
             ];
@@ -91,44 +101,65 @@ class PreAuthorizationController extends Controller
             'product_request_id' => 'required|exists:product_requests,id',
             'payer_name' => 'required|string|max:255',
             'patient_id' => 'required|string|max:100',
-            'diagnosis_codes' => 'required|array',
-            'procedure_codes' => 'required|array',
+            'diagnosis_codes' => 'required|array|min:1',
+            'diagnosis_codes.*' => 'required|string|regex:/^[A-Z]\d{2}(\.\d{1,4})?$/', // ICD-10 format
+            'procedure_codes' => 'required|array|min:1',
+            'procedure_codes.*' => 'required|string|regex:/^\d{5}(-\d{2})?$/', // CPT format
             'clinical_documentation' => 'required|string',
             'urgency' => 'required|string|in:routine,urgent,expedited',
         ]);
 
         $productRequest = ProductRequest::findOrFail($validated['product_request_id']);
 
-        // Create pre-authorization record
-        $preAuth = PreAuthorization::create([
-            'product_request_id' => $productRequest->id,
-            'authorization_number' => $this->generateAuthorizationNumber(),
-            'payer_name' => $validated['payer_name'],
-            'patient_id' => $validated['patient_id'],
-            'diagnosis_codes' => $validated['diagnosis_codes'],
-            'procedure_codes' => $validated['procedure_codes'],
-            'clinical_documentation' => $validated['clinical_documentation'],
-            'urgency' => $validated['urgency'],
-            'status' => 'submitted',
-            'submitted_at' => now(),
-            'submitted_by' => Auth::id(),
-            'estimated_approval_date' => $this->calculateEstimatedApprovalDate($validated['urgency']),
-        ]);
+        DB::beginTransaction();
+        try {
+            // Create pre-authorization record with concurrency-safe authorization number
+            $preAuth = PreAuthorization::create([
+                'product_request_id' => $productRequest->id,
+                'authorization_number' => $this->generateAuthorizationNumber(),
+                'payer_name' => $validated['payer_name'],
+                'patient_id' => $validated['patient_id'],
+                'diagnosis_codes' => $validated['diagnosis_codes'],
+                'procedure_codes' => $validated['procedure_codes'],
+                'clinical_documentation' => $validated['clinical_documentation'],
+                'urgency' => $validated['urgency'],
+                'status' => 'submitted',
+                'submitted_at' => now(),
+                'submitted_by' => Auth::id(),
+                'estimated_approval_date' => $this->calculateEstimatedApprovalDate($validated['urgency']),
+            ]);
 
-        // Submit to external payer system (mock implementation)
-        $this->submitToPayerSystem($preAuth);
+            // Queue payer system submission for async processing
+            Queue::push(function () use ($preAuth) {
+                $this->submitToPayerSystemAsync($preAuth);
+            });
 
-        // Update product request status
-        $productRequest->update([
-            'pre_auth_status' => 'submitted',
-            'pre_auth_submitted_at' => now(),
-        ]);
+            // Update product request status
+            $productRequest->update([
+                'pre_auth_status' => 'submitted',
+                'pre_auth_submitted_at' => now(),
+            ]);
 
-        return response()->json([
-            'success' => true,
-            'message' => 'Prior authorization submitted successfully.',
-            'authorization_number' => $preAuth->authorization_number,
-        ]);
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Prior authorization submitted successfully.',
+                'authorization_number' => $preAuth->authorization_number,
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to submit pre-authorization', [
+                'error' => $e->getMessage(),
+                'product_request_id' => $validated['product_request_id'],
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit prior authorization.',
+            ], 500);
+        }
     }
 
     public function status(Request $request)
@@ -141,8 +172,12 @@ class PreAuthorizationController extends Controller
             ->with(['productRequest.provider', 'productRequest.facility'])
             ->firstOrFail();
 
-        // Check status with payer system (mock implementation)
-        $statusUpdate = $this->checkPayerSystemStatus($preAuth);
+        // Check status with payer system - only mock in non-production environments
+        if (!app()->environment('production')) {
+            $statusUpdate = $this->checkPayerSystemStatusMock($preAuth);
+        } else {
+            $statusUpdate = $this->checkPayerSystemStatus($preAuth);
+        }
 
         if ($statusUpdate) {
             $preAuth->update($statusUpdate);
@@ -163,7 +198,17 @@ class PreAuthorizationController extends Controller
 
     private function generateAuthorizationNumber(): string
     {
-        return 'PA-' . now()->format('Ymd') . '-' . str_pad(PreAuthorization::count() + 1, 4, '0', STR_PAD_LEFT);
+        return DB::transaction(function () {
+            // Lock table for reading to prevent race conditions
+            $lastRecord = DB::table('pre_authorizations')
+                ->lockForUpdate()
+                ->orderBy('id', 'desc')
+                ->first();
+
+            $sequence = $lastRecord ? $lastRecord->id + 1 : 1;
+
+            return 'PA-' . now()->format('Ymd') . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
+        });
     }
 
     private function calculateEstimatedApprovalDate(string $urgency): \Carbon\Carbon
@@ -181,41 +226,52 @@ class PreAuthorizationController extends Controller
     private function calculatePriority(PreAuthorization $preAuth): string
     {
         $daysSince = $preAuth->submitted_at ? $preAuth->submitted_at->diffInDays(now()) : 0;
-        
+
         if ($preAuth->urgency === 'expedited' || $daysSince > 10) {
             return 'high';
         } elseif ($preAuth->urgency === 'urgent' || $daysSince > 5) {
             return 'medium';
         }
-        
+
         return 'low';
     }
 
-    private function submitToPayerSystem(PreAuthorization $preAuth): array
+    private function submitToPayerSystemAsync(PreAuthorization $preAuth): array
     {
-        // Mock implementation - would integrate with actual payer APIs
+        // Non-blocking implementation for actual payer system integration
         // Examples: Change Healthcare, Availity, etc.
-        
-        try {
-            // Simulate API call delay
-            sleep(1);
-            
-            // Mock response
-            $response = [
-                'transaction_id' => 'TXN-' . uniqid(),
-                'confirmation_number' => 'CONF-' . uniqid(),
-                'status' => 'received',
-                'estimated_response_date' => $preAuth->estimated_approval_date->format('Y-m-d'),
-            ];
 
-            $preAuth->update([
-                'payer_transaction_id' => $response['transaction_id'],
-                'payer_confirmation' => $response['confirmation_number'],
-                'status' => 'processing',
+        try {
+            // Use HTTP client with timeout instead of sleep
+            $response = Http::timeout(30)->post(config('payers.submission_endpoint'), [
+                'authorization_number' => $preAuth->authorization_number,
+                'payer_name' => $preAuth->payer_name,
+                'patient_id' => $preAuth->patient_id,
+                'diagnosis_codes' => $preAuth->diagnosis_codes,
+                'procedure_codes' => $preAuth->procedure_codes,
+                'clinical_documentation' => $preAuth->clinical_documentation,
+                'urgency' => $preAuth->urgency,
             ]);
 
-            return $response;
+            if ($response->successful()) {
+                $responseData = $response->json();
+
+                $preAuth->update([
+                    'payer_transaction_id' => $responseData['transaction_id'] ?? null,
+                    'payer_confirmation' => $responseData['confirmation_number'] ?? null,
+                    'status' => 'processing',
+                ]);
+
+                return $responseData;
+            } else {
+                throw new \Exception('Payer system responded with error: ' . $response->status());
+            }
         } catch (\Exception $e) {
+            Log::error('Failed to submit to payer system', [
+                'pre_auth_id' => $preAuth->id,
+                'error' => $e->getMessage()
+            ]);
+
             $preAuth->update([
                 'status' => 'submission_failed',
                 'payer_response' => ['error' => $e->getMessage()],
@@ -227,34 +283,91 @@ class PreAuthorizationController extends Controller
 
     private function checkPayerSystemStatus(PreAuthorization $preAuth): ?array
     {
-        // Mock implementation - would check actual payer system status
-        
+        // Production implementation - check actual payer system status
+
         if (!$preAuth->payer_transaction_id) {
             return null;
         }
 
-        // Simulate random status updates for demo
-        $statuses = ['processing', 'approved', 'denied', 'pending_info'];
-        $randomStatus = $statuses[array_rand($statuses)];
+        try {
+            $response = Http::timeout(30)->get(config('payers.status_endpoint'), [
+                'transaction_id' => $preAuth->payer_transaction_id,
+            ]);
 
-        if ($preAuth->status !== 'processing') {
-            return null; // No update needed
+            if ($response->successful()) {
+                $statusData = $response->json();
+
+                $updates = [
+                    'status' => $statusData['status'],
+                    'last_status_check' => now(),
+                    'payer_response' => $statusData,
+                ];
+
+                if ($statusData['status'] === 'approved') {
+                    $updates['approved_at'] = now();
+                    $updates['approved_amount'] = $statusData['approved_amount'] ?? null;
+                    $updates['expires_at'] = $statusData['expires_at'] ?
+                        \Carbon\Carbon::parse($statusData['expires_at']) : null;
+                } elseif ($statusData['status'] === 'denied') {
+                    $updates['denied_at'] = now();
+                    $updates['denial_reason'] = $statusData['denial_reason'] ?? 'No reason provided';
+                }
+
+                return $updates;
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to check payer system status', [
+                'pre_auth_id' => $preAuth->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return null;
+    }
+
+    private function checkPayerSystemStatusMock(PreAuthorization $preAuth): ?array
+    {
+        // Mock implementation for development/testing only
+
+        if (!$preAuth->payer_transaction_id || $preAuth->status !== 'processing') {
+            return null;
+        }
+
+        // Only update if enough time has passed to simulate realistic processing
+        if ($preAuth->updated_at->diffInMinutes(now()) < 1) {
+            return null;
+        }
+
+        // Simulate status progression based on urgency and time
+        $minutesSinceSubmission = $preAuth->submitted_at->diffInMinutes(now());
+        $mockStatus = 'processing';
+
+        if ($preAuth->urgency === 'expedited' && $minutesSinceSubmission > 5) {
+            $mockStatus = 'approved';
+        } elseif ($preAuth->urgency === 'urgent' && $minutesSinceSubmission > 15) {
+            $mockStatus = rand(1, 10) <= 8 ? 'approved' : 'denied'; // 80% approval rate
+        } elseif ($preAuth->urgency === 'routine' && $minutesSinceSubmission > 30) {
+            $mockStatus = rand(1, 10) <= 7 ? 'approved' : 'denied'; // 70% approval rate
+        }
+
+        if ($mockStatus === $preAuth->status) {
+            return null; // No change
         }
 
         $updates = [
-            'status' => $randomStatus,
+            'status' => $mockStatus,
             'last_status_check' => now(),
         ];
 
-        if ($randomStatus === 'approved') {
+        if ($mockStatus === 'approved') {
             $updates['approved_at'] = now();
             $updates['approved_amount'] = rand(500, 2000);
             $updates['expires_at'] = now()->addMonths(6);
-        } elseif ($randomStatus === 'denied') {
+        } elseif ($mockStatus === 'denied') {
             $updates['denied_at'] = now();
             $updates['denial_reason'] = 'Insufficient clinical documentation';
         }
 
         return $updates;
     }
-} 
+}

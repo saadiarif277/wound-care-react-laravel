@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Facades\Auth;
 
 class CreateOrganizationRequest extends FormRequest
 {
@@ -11,9 +12,8 @@ class CreateOrganizationRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        // Assuming any authenticated admin user can create an organization.
-        // Adjust based on actual authorization logic (e.g., specific permissions).
-        return auth()->check() && auth()->user()->hasRole('admin'); // Example, ensure User model has hasRole()
+        // Check if user is authenticated and has permission to manage customers/organizations
+        return Auth::check() && Auth::user()->hasPermission('manage-customers');
     }
 
     /**

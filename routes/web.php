@@ -384,42 +384,44 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('team.show');
     });
 
-    // Test route for role restrictions
-    Route::get('/test-role-restrictions', function () {
-        $user = Auth::user()->load('roles');
-        $primaryRole = $user->getPrimaryRole();
+    // Test routes for role restrictions - Only available in debug mode
+    if (config('app.debug')) {
+        Route::get('/test-role-restrictions', function () {
+            $user = Auth::user()->load('roles');
+            $primaryRole = $user->getPrimaryRole();
 
-        return response()->json([
-            'user_email' => $user->email,
-            'role_name' => $primaryRole?->slug,
-            'role_display_name' => $primaryRole?->name,
-            'financial_restrictions' => [
-                'can_access_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
-                'can_see_discounts' => $user->hasPermission('view-discounts'),
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
-                'pricing_access_level' => $user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts') ? 'full' : ($user->hasPermission('view-financials') ? 'limited' : 'national_asp_only'),
-            ],
-        ]);
-    })->name('test.role-restrictions');
+            return response()->json([
+                'user_email' => $user->email,
+                'role_name' => $primaryRole?->slug,
+                'role_display_name' => $primaryRole?->name,
+                'financial_restrictions' => [
+                    'can_access_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+                    'can_see_discounts' => $user->hasPermission('view-discounts'),
+                    'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                    'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                    'pricing_access_level' => $user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts') ? 'full' : ($user->hasPermission('view-financials') ? 'limited' : 'national_asp_only'),
+                ],
+            ]);
+        })->name('test.role-restrictions');
 
-    // Test route for Office Manager permissions
-    Route::get('/test-office-manager-permissions', function () {
-        $user = Auth::user();
+        // Test route for Office Manager permissions
+        Route::get('/test-office-manager-permissions', function () {
+            $user = Auth::user();
 
-        return response()->json([
-            'user_email' => $user->email,
-            'user_role' => $user->getPrimaryRole()?->slug,
-            'permissions' => [
-                'view-products' => $user->hasPermission('view-products'),
-                'view-providers' => $user->hasPermission('view-providers'),
-                'view-product-requests' => $user->hasPermission('view-product-requests'),
-                'manage-mac-validation' => $user->hasPermission('manage-mac-validation'),
-                'manage-pre-authorization' => $user->hasPermission('manage-pre-authorization'),
-            ],
-            'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
-        ]);
-    })->name('test.office-manager-permissions');
+            return response()->json([
+                'user_email' => $user->email,
+                'user_role' => $user->getPrimaryRole()?->slug,
+                'permissions' => [
+                    'view-products' => $user->hasPermission('view-products'),
+                    'view-providers' => $user->hasPermission('view-providers'),
+                    'view-product-requests' => $user->hasPermission('view-product-requests'),
+                    'manage-mac-validation' => $user->hasPermission('manage-mac-validation'),
+                    'manage-pre-authorization' => $user->hasPermission('manage-pre-authorization'),
+                ],
+                'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
+            ]);
+        })->name('test.office-manager-permissions');
+    }
 
     // Customer Management Routes - Admin Only
     Route::middleware(['auth', 'role:msc-admin', 'permission:manage-customers'])->prefix('admin/customers')->group(function () {
