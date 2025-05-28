@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Order;
-use App\Models\DocusealSubmission;
+use App\Models\Order\Order;
+use App\Models\Docuseal\DocusealSubmission;
 use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;

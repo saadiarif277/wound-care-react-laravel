@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Order;
-use App\Models\DocusealTemplate;
-use App\Models\DocusealSubmission;
-use App\Models\DocusealFolder;
+use App\Models\Order\Order;
+use App\Models\Docuseal\DocusealTemplate;
+use App\Models\Docuseal\DocusealSubmission;
+use App\Models\Docuseal\DocusealFolder;
 use Docuseal\Api as DocusealApi;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;

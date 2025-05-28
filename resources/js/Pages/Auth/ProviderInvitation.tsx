@@ -127,7 +127,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
     const handleAccountSetup = () => {
         // Clear any previous validation errors
         setSetupValidationErrors({});
-        
+
         // Validate the form before proceeding
         if (validateSetupForm()) {
             setStep('credentials');
@@ -167,7 +167,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
     const handleCompleteRegistration = () => {
         // Clear any previous validation errors
         setCredentialsValidationErrors({});
-        
+
         // Validate the credentials form before proceeding
         if (validateCredentialsForm()) {
             post(`/auth/provider-invitation/${token}/accept`, {
@@ -273,8 +273,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.first_name}
                         onChange={(e) => handleFieldChange('first_name', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.first_name || errors.first_name 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.first_name || errors.first_name
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                     />
@@ -294,8 +294,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.last_name}
                         onChange={(e) => handleFieldChange('last_name', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.last_name || errors.last_name 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.last_name || errors.last_name
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                     />
@@ -315,8 +315,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.phone}
                         onChange={(e) => handleFieldChange('phone', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.phone || errors.phone 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.phone || errors.phone
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                     />
@@ -336,8 +336,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.title}
                         onChange={(e) => handleFieldChange('title', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.title || errors.title 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.title || errors.title
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                         placeholder="e.g., Physician, Nurse Practitioner"
@@ -358,8 +358,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.password}
                         onChange={(e) => handleFieldChange('password', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.password || errors.password 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.password || errors.password
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                     />
@@ -379,8 +379,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.password_confirmation}
                         onChange={(e) => handleFieldChange('password_confirmation', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            setupValidationErrors.password_confirmation || errors.password_confirmation 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            setupValidationErrors.password_confirmation || errors.password_confirmation
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                     />
@@ -423,8 +423,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         value={data.npi_number}
                         onChange={(e) => handleFieldChange('npi_number', e.target.value)}
                         className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            credentialsValidationErrors.npi_number || errors.npi_number 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            credentialsValidationErrors.npi_number || errors.npi_number
+                                ? 'border-red-300 focus:ring-red-500'
                                 : 'border-gray-300'
                         }`}
                         placeholder="10-digit NPI number"
@@ -498,8 +498,8 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         checked={data.accept_terms}
                         onChange={(e) => handleFieldChange('accept_terms', e.target.checked)}
                         className={`mt-1 ${
-                            credentialsValidationErrors.accept_terms || errors.accept_terms 
-                                ? 'border-red-300 focus:ring-red-500' 
+                            credentialsValidationErrors.accept_terms || errors.accept_terms
+                                ? 'border-red-300 focus:ring-red-500'
                                 : ''
                         }`}
                     />
@@ -553,19 +553,6 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
     );
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <Head title="Provider Invitation" />
-
-            <div className="sm:mx-auto sm:w-full sm:max-w-2xl">
-                <Card>
-                    <CardContent className="p-8">
-                        {step === 'review' && renderReviewStep()}
-                        {step === 'setup' && renderSetupStep()}
-                        {step === 'credentials' && renderCredentialsStep()}
-                        {step === 'complete' && renderCompleteStep()}
-                    </CardContent>
-                </Card>
-            </div>
-        </div>
+        <Head title="Provider Invitation" />
     );
 }

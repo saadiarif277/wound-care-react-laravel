@@ -13,10 +13,10 @@ use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
 use App\Http\Controllers\MACValidationController;
-use App\Http\Controllers\CommissionController;
-use App\Http\Controllers\CommissionRuleController;
-use App\Http\Controllers\CommissionRecordController;
-use App\Http\Controllers\CommissionPayoutController;
+use App\Http\Controllers\Commission\CommissionController;
+use App\Http\Controllers\Commission\CommissionRuleController;
+use App\Http\Controllers\Commission\CommissionRecordController;
+use App\Http\Controllers\Commission\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\RBACController;
@@ -35,6 +35,9 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
+use App\Http\Controllers\Auth\ProviderInvitationController;
+use App\Models\ProviderInvitation;
+use Illuminate\Support\Str;
 
 /*
 |--------------------------------------------------------------------------
@@ -95,18 +98,18 @@ Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::cl
 // Provider Invitation Routes
 Route::get('auth/provider-invitation/{token}', function ($token) {
     // Get invitation data and render the invitation page
-    $invitation = \App\Models\ProviderInvitation::where('invitation_token', $token)
+    $invitation = App\Models\Users\Provider\ProviderInvitation::where('invitation_token', $token)
         ->where('status', 'sent')
         ->where('expires_at', '>', now())
         ->first();
-        
+
     if (!$invitation) {
         abort(404, 'Invitation not found or expired');
     }
-    
+
     // Load organization data
     $invitation->load('organization');
-    
+
     return Inertia::render('Auth/ProviderInvitation', [
         'invitation' => [
             'id' => $invitation->id,
@@ -128,9 +131,9 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
 
 Route::post('auth/provider-invitation/{token}/accept', function ($token, Request $request) {
     $onboardingService = app(\App\Services\OnboardingService::class);
-    
+
     $result = $onboardingService->acceptProviderInvitation($token, $request->all());
-    
+
     if ($result['success']) {
         return redirect()->route('login')->with('success', 'Account created successfully. Please log in.');
     } else {
@@ -159,7 +162,7 @@ Route::middleware(['permission:view-products'])->group(function () {
     // Product API endpoints accessible to all roles with view-products permission
     Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
     Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
-    
+
     // Specific routes must come before parameterized routes
     Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
     Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
@@ -170,7 +173,7 @@ Route::middleware(['permission:manage-products'])->group(function () {
     // Specific routes first
     Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
     Route::get('products/manage', [ProductController::class, 'manage'])->name('products.manage');
-    
+
     // Then parameterized routes
     Route::post('products', [ProductController::class, 'store'])->name('products.store');
     Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
@@ -399,7 +402,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/management', function () {
             return Inertia::render('Onboarding/Management');
         })->name('onboarding.management');
-        
+
         Route::get('/organizations', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'listOrganizations'])
             ->name('onboarding.organizations');
         Route::get('/organizations/{organization}/status', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'getOnboardingStatus'])
@@ -424,29 +427,57 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('admin.users.activate');
     });
 
-    // Provider Invitations Management Routes
-    Route::middleware(['permission:manage-users'])->prefix('admin/provider-invitations')->group(function () {
+    // User Invitations Management Routes (General for all roles)
+    Route::middleware(['permission:manage-users'])->prefix('admin/invitations')->group(function () {
         Route::get('/', function () {
-            $invitations = \App\Models\ProviderInvitation::with(['organization', 'invitedBy'])
+            $invitations = App\Models\Users\Provider\ProviderInvitation::with(['organization', 'invitedBy'])
                 ->orderBy('created_at', 'desc')
                 ->paginate(20);
-                
-            return Inertia::render('Admin/ProviderInvitations/Index', [
+
+            return Inertia::render('Admin/Invitations/Index', [
                 'invitations' => $invitations
             ]);
-        })->name('admin.provider-invitations.index');
-        
-        Route::post('/{invitation}/resend', function (\App\Models\ProviderInvitation $invitation) {
+        })->name('admin.invitations.index');
+
+        Route::post('/', function (Request $request) {
+            $request->validate([
+                'email' => 'required|email|unique:users,email|unique:provider_invitations,invited_email',
+                'role' => 'required|in:provider,office-manager,msc-rep,msc-subrep,msc-admin',
+                'organization_id' => 'nullable|uuid|exists:organizations,id',
+                'message' => 'nullable|string|max:500'
+            ]);
+
+            // Create the invitation
+            $invitation = App\Models\Users\Provider\ProviderInvitation::create([
+                'id' => Str::uuid(),
+                'invited_email' => $request->email,
+                'invited_role' => $request->role,
+                'organization_id' => $request->organization_id,
+                'invited_by' => Auth::id(),
+                'status' => 'pending',
+                'expires_at' => now()->addDays(7),
+                'metadata' => [
+                    'custom_message' => $request->message,
+                    'invited_by_name' => Auth::user()->first_name . ' ' . Auth::user()->last_name
+                ]
+            ]);
+
+            // TODO: Send email notification
+
+            return back()->with('success', 'Invitation sent successfully');
+        })->name('admin.invitations.store');
+
+        Route::post('/{invitation}/resend', function (App\Models\Users\Provider\ProviderInvitation $invitation) {
             // Resend invitation logic
             $onboardingService = app(\App\Services\OnboardingService::class);
             // Implementation would go here
             return back()->with('success', 'Invitation resent successfully');
-        })->name('admin.provider-invitations.resend');
-        
-        Route::delete('/{invitation}', function (\App\Models\ProviderInvitation $invitation) {
+        })->name('admin.invitations.resend');
+
+        Route::delete('/{invitation}', function (App\Models\Users\Provider\ProviderInvitation $invitation) {
             $invitation->update(['status' => 'cancelled']);
             return back()->with('success', 'Invitation cancelled successfully');
-        })->name('admin.provider-invitations.cancel');
+        })->name('admin.invitations.cancel');
     });
 
     // Engine routes - Add proper authorization
@@ -518,4 +549,35 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
         ]);
     })->name('test.office-manager-permissions');
+
+    // DocuSeal Document Management Routes
+    Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
+        // Main DocuSeal dashboard
+        Route::get('/', function () {
+            return Inertia::render('Admin/DocuSeal/Dashboard');
+        })->name('admin.docuseal.index');
+
+        // Document submissions management
+        Route::get('/submissions', function () {
+            return Inertia::render('Admin/DocuSeal/Submissions');
+        })->name('admin.docuseal.submissions');
+
+        // Document signing status tracking
+        Route::get('/status', function () {
+            return Inertia::render('Admin/DocuSeal/Status');
+        })->name('admin.docuseal.status');
+    });
+
+    // Super Admin only DocuSeal routes
+    Route::middleware(['permission:manage-all-organizations'])->prefix('admin/docuseal')->group(function () {
+        // Template management (super admin only)
+        Route::get('/templates', function () {
+            return Inertia::render('Admin/DocuSeal/Templates');
+        })->name('admin.docuseal.templates');
+
+        // Analytics dashboard (super admin only)
+        Route::get('/analytics', function () {
+            return Inertia::render('Admin/DocuSeal/Analytics');
+        })->name('admin.docuseal.analytics');
+    });
 });
