@@ -2,7 +2,7 @@
 
 namespace App\Models\Fhir;
 
-use App\Models\Order;
+use App\Models\Order\Order;
 use App\Models\User;
 use App\Models\Users\Organization\Organization;
 use App\Models\Fhir\Address;

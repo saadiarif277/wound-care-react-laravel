@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\DocusealTemplate;
+use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Str;
 
 class DocusealTemplateSeeder extends Seeder
