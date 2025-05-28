@@ -28,11 +28,10 @@ class DocusealController extends Controller
     {
         $request->validate([
             'order_id' => 'required|uuid|exists:orders,id',
-            'docuseal_msc_template_id' => 'required|uuid|exists:docuseal_templates,id',
         ]);
 
         try {
-            $order = Order::findOrFail($request->order_id);
+            $order = Order::where('id', $request->order_id)->firstOrFail();
 
             // Check if user has permission to access this order
             if (!$this->canAccessOrder($order)) {
@@ -64,7 +63,6 @@ class DocusealController extends Controller
         } catch (Exception $e) {
             Log::error('DocuSeal document generation failed', [
                 'order_id' => $request->order_id,
-                'template_id' => $request->docuseal_msc_template_id,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage()
             ]);
@@ -83,7 +81,7 @@ class DocusealController extends Controller
     public function getSubmissionStatus(string $submissionId): JsonResponse
     {
         try {
-            $submission = DocusealSubmission::findOrFail($submissionId);
+            $submission = DocusealSubmission::with('order')->findOrFail($submissionId);
 
             // Check if user has permission to access this submission
             if (!$submission->order || !$this->canAccessOrder($submission->order)) {
@@ -134,7 +132,7 @@ class DocusealController extends Controller
     public function downloadDocument(string $submissionId)
     {
         try {
-            $submission = DocusealSubmission::findOrFail($submissionId);
+            $submission = DocusealSubmission::with('order')->findOrFail($submissionId);
 
             // Check if user has permission to access this submission
             if (!$submission->order || !$this->canAccessOrder($submission->order)) {
@@ -190,8 +188,8 @@ class DocusealController extends Controller
 
         // Office Managers can only access orders from their facility
         if ($user->hasPermission('manage-orders')) {
-            // TODO: Implement facility-level access control
-            return true;
+            // Security-critical: Ensure user can only access orders from their organization
+            return $user->organization_id === $order->organization_id;
         }
 
         return false;

@@ -17,10 +17,15 @@ class DocusealService
 
     public function __construct()
     {
-        $this->docusealApi = new DocusealApi(
-            config('services.docuseal.api_key'),
-            config('services.docuseal.api_url', 'https://api.docuseal.com')
-        );
+        // Configuration validation guard
+        $apiKey = config('services.docuseal.api_key');
+        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+
+        if (empty($apiKey)) {
+            throw new Exception('DocuSeal API key is not configured. Please set DOCUSEAL_API_KEY in your environment.');
+        }
+
+        $this->docusealApi = new DocusealApi($apiKey, $apiUrl);
     }
 
     /**
@@ -30,10 +35,10 @@ class DocusealService
     {
         try {
             $submissions = [];
-            
+
             // Get PHI data from FHIR service
             $phiData = $this->getOrderPHIData($order);
-            
+
             // Generate Insurance Verification Form
             $insuranceSubmission = $this->generateInsuranceVerificationForm($order, $phiData);
             if ($insuranceSubmission) {
@@ -85,7 +90,7 @@ class DocusealService
     public function generateInsuranceVerificationForm(Order $order, array $phiData): ?DocusealSubmission
     {
         $template = DocusealTemplate::getDefaultTemplate('InsuranceVerification');
-        
+
         if (!$template) {
             Log::warning('No default InsuranceVerification template found');
             return null;
@@ -113,7 +118,7 @@ class DocusealService
     public function generateOrderForm(Order $order, array $phiData): ?DocusealSubmission
     {
         $template = DocusealTemplate::getDefaultTemplate('OrderForm');
-        
+
         if (!$template) {
             Log::warning('No default OrderForm template found');
             return null;
@@ -146,7 +151,7 @@ class DocusealService
         }
 
         $template = DocusealTemplate::getDefaultTemplate('OnboardingForm');
-        
+
         if (!$template) {
             Log::warning('No default OnboardingForm template found');
             return null;
@@ -192,7 +197,7 @@ class DocusealService
     {
         try {
             $documents = $this->docusealApi->getSubmissionDocuments($docusealSubmissionId);
-            
+
             if (empty($documents)) {
                 throw new Exception('No documents found for submission');
             }
@@ -232,7 +237,7 @@ class DocusealService
                 'metadata' => [
                     'template_name' => $template->template_name,
                     'created_at' => now()->toISOString(),
-                    'response' => $response,
+                    'submission_id' => $response['id'], // Only store essential non-PHI data
                 ],
             ]);
 
@@ -308,7 +313,7 @@ class DocusealService
             ],
             [
                 'name' => 'order_date',
-                'default_value' => $order->date_of_service ? $order->date_of_service->format('Y-m-d') : ''
+                'default_value' => $order->date_of_service?->format('Y-m-d') ?? ''
             ],
         ];
     }
@@ -341,7 +346,7 @@ class DocusealService
             ],
             [
                 'name' => 'date_of_service',
-                'default_value' => $order->date_of_service ? $order->date_of_service->format('Y-m-d') : ''
+                'default_value' => $order->date_of_service?->format('Y-m-d') ?? ''
             ],
         ];
     }
@@ -354,19 +359,19 @@ class DocusealService
         return [
             [
                 'name' => 'provider_name',
-                'default_value' => $phiData['provider_name']
+                'default_value' => $phiData['provider_name'] ?? ''
             ],
             [
                 'name' => 'provider_npi',
-                'default_value' => $phiData['provider_npi']
+                'default_value' => $phiData['provider_npi'] ?? ''
             ],
             [
                 'name' => 'facility_name',
-                'default_value' => $phiData['facility_name']
+                'default_value' => $phiData['facility_name'] ?? ''
             ],
             [
                 'name' => 'facility_address',
-                'default_value' => $phiData['patient_address'] // Placeholder
+                'default_value' => '' // Remove PHI leakage - get from facility data instead
             ],
         ];
     }
@@ -390,4 +395,4 @@ class DocusealService
         // For now, return a default folder ID
         return 'default-folder';
     }
-} 
+}

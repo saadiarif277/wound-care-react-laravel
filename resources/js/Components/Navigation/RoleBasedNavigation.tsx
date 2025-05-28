@@ -203,6 +203,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['office-manager']
         },
         {
+          name: 'Document Management',
+          href: '#',
+          icon: FiFileText,
+          roles: ['office-manager'],
+          children: [
+            {
+              name: 'Document Submissions',
+              href: '/admin/docuseal/submissions',
+              icon: FiFileText,
+              roles: ['office-manager'],
+              description: 'View and manage document submissions'
+            },
+            {
+              name: 'Signing Status',
+              href: '/admin/docuseal/status',
+              icon: FiCheckCircle,
+              roles: ['office-manager'],
+              description: 'Track document signing progress'
+            }
+          ]
+        },
+        {
           name: 'Provider Management',
           href: '/providers',
           icon: FiUsers,
@@ -361,6 +383,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/orders/manage',
               icon: FiSettings,
               roles: ['msc-admin']
+            },
+            {
+              name: 'Document Management',
+              href: '/admin/docuseal',
+              icon: FiFileText,
+              roles: ['msc-admin'],
+              description: 'Manage order documents and signatures'
             },
             {
               name: 'Product Management',
@@ -535,6 +564,35 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/orders/manage',
           icon: FiShoppingCart,
           roles: ['super-admin', 'superadmin']
+        },
+        {
+          name: 'Document Management',
+          href: '#',
+          icon: FiFileText,
+          roles: ['super-admin', 'superadmin'],
+          children: [
+            {
+              name: 'All Submissions',
+              href: '/admin/docuseal/submissions',
+              icon: FiFileText,
+              roles: ['super-admin', 'superadmin'],
+              description: 'View all document submissions across organizations'
+            },
+            {
+              name: 'Template Management',
+              href: '/admin/docuseal/templates',
+              icon: FiArchive,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage DocuSeal templates'
+            },
+            {
+              name: 'Signing Analytics',
+              href: '/admin/docuseal/analytics',
+              icon: FiBarChart,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Document signing analytics and reports'
+            }
+          ]
         },
         {
           name: 'Commission Overview',
