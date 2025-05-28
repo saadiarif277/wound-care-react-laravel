@@ -2,27 +2,32 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Facility extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'organization_id',
         'name',
         'facility_type',
+        'group_npi',
+        'status',
+        'npi_verified_at',
         'address',
         'city',
         'state',
         'zip_code',
         'phone',
         'email',
-        'npi',
         'business_hours',
         'active',
     ];
@@ -30,6 +35,7 @@ class Facility extends Model
     protected $casts = [
         'business_hours' => 'array',
         'active' => 'boolean',
+        'npi_verified_at' => 'datetime',
     ];
 
     protected $dates = ['deleted_at'];
@@ -130,5 +136,37 @@ class Facility extends Model
         }
 
         return $this->phone;
+    }
+
+    /**
+     * Get all addresses for the facility.
+     */
+    public function addresses(): MorphMany
+    {
+        return $this->morphMany(Address::class, 'addressable');
+    }
+
+    /**
+     * Get the primary address for the facility.
+     */
+    public function primaryAddress(): MorphOne
+    {
+        return $this->morphOne(Address::class, 'addressable')->where('is_primary', true);
+    }
+
+    /**
+     * Get all onboarding checklists associated with the facility.
+     */
+    public function onboardingChecklists(): MorphMany
+    {
+        return $this->morphMany(OnboardingChecklist::class, 'entity');
+    }
+
+    /**
+     * Get all onboarding documents associated with the facility.
+     */
+    public function onboardingDocuments(): MorphMany
+    {
+        return $this->morphMany(OnboardingDocument::class, 'entity');
     }
 }

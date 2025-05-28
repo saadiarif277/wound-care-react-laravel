@@ -42,6 +42,15 @@ return [
         ],
     ],
 
+    'cms' => [
+        'base_url' => env('CMS_API_BASE_URL', 'https://api.coverage.cms.gov/v1'),
+        'timeout' => env('CMS_API_TIMEOUT', 30),
+        'max_retries' => env('CMS_API_MAX_RETRIES', 3),
+        'retry_delay' => env('CMS_API_RETRY_DELAY', 1000),
+        'throttle_limit' => env('CMS_API_THROTTLE_LIMIT', 9000),
+        'cache_minutes' => env('CMS_API_CACHE_MINUTES', 60),
+    ],
+
     'supabase' => [
         'url' => env('SUPABASE_URL'),
         'anon_key' => env('SUPABASE_ANON_KEY'),

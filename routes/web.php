@@ -20,6 +20,7 @@ use App\Http\Controllers\ProductRequestController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
+use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PreAuthorizationController;
 use App\Http\Controllers\ProviderController;
@@ -28,6 +29,8 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\EngineController;
 use App\Http\Controllers\SystemAdminController;
 use App\Http\Controllers\RoleManagementController;
+use App\Http\Controllers\Admin\CustomerManagementController as AdminCustomerManagementController;
+use App\Http\Controllers\OnboardingController;
 
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -126,7 +129,7 @@ Route::middleware(['permission:manage-products'])->group(function () {
 
 // Users
 
-Route::get('/users', [UserController::class, 'index'])
+Route::get('/users', [UsersController::class, 'index'])
     ->middleware('role:msc_admin')
     ->name('users.index');
 
@@ -185,8 +188,15 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // MAC Validation Routes - accessible to office managers and admins
     Route::middleware(['permission:manage-mac-validation'])->prefix('mac-validation')->group(function () {
-        Route::get('/', [MACValidationController::class, 'index'])->name('mac-validation.index');
-        Route::post('/validate', [MACValidationController::class, 'validateMAC'])->name('mac-validation.validate');
+        Route::get('/', [MedicareMacValidationController::class, 'index'])->name('mac-validation.index');
+    });
+
+    // MAC Validation API Routes - Real CMS API integration
+    Route::prefix('api/mac-validation')->middleware(['auth', 'verified'])->group(function () {
+        Route::post('/quick-check', [MedicareMacValidationController::class, 'quickCheck'])->name('api.mac-validation.quick-check');
+        Route::post('/thorough-validate', [MedicareMacValidationController::class, 'thoroughValidate'])->name('api.mac-validation.thorough-validate');
+        Route::post('/orders/{order}/validate', [MedicareMacValidationController::class, 'validateOrder'])->name('api.mac-validation.validate-order');
+        Route::get('/orders/{order}/validation', [MedicareMacValidationController::class, 'getValidation'])->name('api.mac-validation.get-validation');
     });
 
     // eClinicalWorks Integration Routes
@@ -222,6 +232,22 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::prefix('api/product-requests')->group(function () {
         Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
         Route::get('/{productRequest}/recommendations', [ProductRequestController::class, 'getRecommendations'])->name('api.product-requests.recommendations');
+    });
+
+    // Admin Product Request Review Routes
+    Route::middleware(['permission:manage-product-requests|approve-product-requests'])->prefix('admin/product-requests')->group(function () {
+        Route::get('/review', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'index'])
+            ->name('admin.product-requests.review');
+        Route::get('/{productRequest}/detail', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'show'])
+            ->name('admin.product-requests.detail');
+        Route::post('/{productRequest}/approve', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'approve'])
+            ->name('admin.product-requests.approve');
+        Route::post('/{productRequest}/reject', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'reject'])
+            ->name('admin.product-requests.reject');
+        Route::post('/{productRequest}/request-info', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'requestInformation'])
+            ->name('admin.product-requests.request-info');
+        Route::post('/bulk-action', [\App\Http\Controllers\Admin\ProductRequestReviewController::class, 'bulkAction'])
+            ->name('admin.product-requests.bulk-action');
     });
 
     // Product API Routes
@@ -394,4 +420,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
             'all_permissions' => $user->getAllPermissions()->pluck('slug')->toArray(),
         ]);
     })->name('test.office-manager-permissions');
+
+    // Customer Management Routes - Admin Only
+    Route::middleware(['auth', 'role:msc-admin', 'permission:manage-customers'])->prefix('admin/customers')->group(function () {
+        Route::get('/', [AdminCustomerManagementController::class, 'dashboard'])
+            ->name('admin.customers.dashboard');
+        
+        Route::get('/organizations/create', [AdminCustomerManagementController::class, 'createOrganization'])
+            ->name('admin.customers.organizations.create');
+        
+        Route::get('/organizations/{organization}', [AdminCustomerManagementController::class, 'showOrganization'])
+            ->name('admin.customers.organizations.show');
+        
+        Route::get('/organizations/{organization}/edit', [AdminCustomerManagementController::class, 'editOrganization'])
+            ->name('admin.customers.organizations.edit');
+    });
+
+    // Organization Onboarding Routes - Customer Facing
+    Route::middleware(['auth', 'verified'])->prefix('onboarding')->group(function () {
+        // Only organization admins can access their own onboarding
+        Route::get('/organization-setup', [OnboardingController::class, 'organizationSetup'])
+            ->middleware('permission:complete-organization-onboarding')
+            ->name('onboarding.organization-setup');
+        
+        Route::post('/organization-setup/progress', [OnboardingController::class, 'saveProgress'])
+            ->middleware('permission:complete-organization-onboarding')
+            ->name('onboarding.save-progress');
+    });
 });

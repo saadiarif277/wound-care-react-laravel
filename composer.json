@@ -12,6 +12,7 @@
         "ext-exif": "*",
         "ext-gd": "*",
         "aws/aws-sdk-php": "^3.0",
+        "axlon/laravel-postal-code-validation": "*",
         "doctrine/dbal": "*",
         "fakerphp/faker": "^1.23",
         "guzzlehttp/guzzle": "^7.2",

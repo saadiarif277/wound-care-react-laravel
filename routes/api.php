@@ -15,6 +15,9 @@ use App\Http\Controllers\CommissionController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\Auth\AccessRequestController;
+use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+use App\Http\Controllers\Api\V1\ProviderOnboardingController;
+use App\Http\Controllers\Api\V1\ProviderProfileController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -100,7 +103,17 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
             Route::get('mac-contractor-analysis', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getMacContractorAnalysis'])->name('mac_contractor_analysis');
             Route::get('validation-trends', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidationTrends'])->name('validation_trends');
         });
+
+        // Frontend validation endpoints
+        Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('quick_check');
+        Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('thorough_validate');
     });
+});
+
+// Simple MAC Validation routes for frontend (outside the v1 group for simpler paths)
+Route::middleware(['web', 'auth'])->prefix('mac-validation')->group(function () {
+    Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('mac_validation.quick_check');
+    Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('mac_validation.thorough_validate');
 });
 
 // Eligibility & Pre-Authorization Routes
@@ -372,3 +385,46 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::get('pending-verification', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getPendingVerification'])->name('pending');
     });
 });
+
+Route::prefix('api/v1/admin')->middleware(['auth:sanctum'])->group(function () {
+    // Organization Management - Require specific customer management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-customers'])->group(function () {
+        Route::get('/customers/organizations', [CustomerManagementController::class, 'listOrganizations']);
+        Route::post('/customers/organizations', [CustomerManagementController::class, 'createOrganization']);
+        Route::get('/customers/organizations/{organizationId}/hierarchy', [CustomerManagementController::class, 'getOrganizationHierarchy'])->name('admin.customers.organizations.hierarchy');
+        Route::get('/customers/organizations/{organizationId}/onboarding', [CustomerManagementController::class, 'getOnboardingStatus'])->name('admin.customers.organizations.onboarding');
+    });
+
+    // Facility Management - Require specific facility management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/facilities', [CustomerManagementController::class, 'addFacility'])->name('admin.customers.facilities.add');
+    });
+
+    // Provider Management - Require specific provider management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-providers'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/invite-providers', [CustomerManagementController::class, 'inviteProviders'])->name('admin.customers.providers.invite');
+    });
+
+    // Document Management - Require document management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-documents'])->group(function () {
+        Route::post('/customers/documents/upload', [CustomerManagementController::class, 'uploadDocument'])->name('admin.customers.documents.upload');
+    });
+});
+
+// Provider Self-Service Routes
+Route::prefix('api/v1')->group(function () {
+    // Public invitation acceptance
+    // Route::get('/invitations/verify/{token}', [ProviderOnboardingController::class, 'verifyInvitation']);
+    // Route::post('/invitations/accept/{token}', [ProviderOnboardingController::class, 'acceptInvitation']);
+
+    // Authenticated provider routes
+    Route::middleware(['auth:sanctum', 'role:provider'])->group(function () {
+        // Route::get('/profile', [ProviderProfileController::class, 'show']);
+        // Route::put('/profile', [ProviderProfileController::class, 'update']);
+        // Route::post('/profile/verify-npi', [ProviderProfileController::class, 'verifyNPI']);
+        // Route::post('/profile/credentials', [ProviderProfileController::class, 'addCredential']);
+        // Route::post('/profile/documents', [ProviderProfileController::class, 'uploadDocument']); // This might conflict with admin upload or be different
+        // Route::get('/profile/onboarding-status', [ProviderProfileController::class, 'getOnboardingStatus']);
+    });
+});
+

@@ -83,6 +83,14 @@ class DatabaseSeeder extends Seeder
             'view-providers' => 'View providers',
             'manage-providers' => 'Manage providers',
 
+            // Facility permissions
+            'view-facilities' => 'View facilities',
+            'manage-facilities' => 'Manage facilities',
+
+            // Document permissions
+            'view-documents' => 'View documents',
+            'manage-documents' => 'Manage documents and uploads',
+
             // Order permissions
             'view-orders' => 'View orders',
             'create-orders' => 'Create orders',
@@ -99,6 +107,9 @@ class DatabaseSeeder extends Seeder
             'manage-customers' => 'Manage customer information',
             'view-team' => 'View team members',
             'manage-team' => 'Manage team members',
+
+            // Onboarding permissions
+            'complete-organization-onboarding' => 'Complete organization onboarding process',
 
             // User & Org permissions
             'view-users' => 'View user accounts',
@@ -177,6 +188,9 @@ class DatabaseSeeder extends Seeder
                     'view-national-asp',
                     'view-providers',
                     'manage-providers',
+                    'view-facilities',
+                    'view-documents',
+                    'complete-organization-onboarding',
                     'view-orders',
                     'create-orders',
                 ]
@@ -225,6 +239,9 @@ class DatabaseSeeder extends Seeder
                     'manage-commission',
                     'view-payouts',
                     'manage-customers',
+                    'manage-facilities',
+                    'manage-providers',
+                    'manage-documents',
                     'manage-team',
                     'manage-users',
                     'manage-organizations',
