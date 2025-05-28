@@ -8,6 +8,7 @@ use App\Http\Controllers\ImagesController;
 use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
+use App\Http\Controllers\Admin\UsersController as AdminUsersController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
@@ -402,6 +403,24 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('onboarding.organizations');
         Route::get('/organizations/{organization}/status', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'getOnboardingStatus'])
             ->name('onboarding.organizations.status');
+    });
+
+    // Admin User Management Routes (Consolidated)
+    Route::middleware(['permission:manage-users'])->prefix('admin/users')->group(function () {
+        Route::get('/', [AdminUsersController::class, 'index'])
+            ->name('admin.users.index');
+        Route::get('/create', [AdminUsersController::class, 'create'])
+            ->name('admin.users.create');
+        Route::post('/', [AdminUsersController::class, 'store'])
+            ->name('admin.users.store');
+        Route::get('/{user}/edit', [AdminUsersController::class, 'edit'])
+            ->name('admin.users.edit');
+        Route::put('/{user}', [AdminUsersController::class, 'update'])
+            ->name('admin.users.update');
+        Route::patch('/{user}/deactivate', [AdminUsersController::class, 'deactivate'])
+            ->name('admin.users.deactivate');
+        Route::patch('/{user}/activate', [AdminUsersController::class, 'activate'])
+            ->name('admin.users.activate');
     });
 
     // Provider Invitations Management Routes

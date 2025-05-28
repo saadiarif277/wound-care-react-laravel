@@ -433,11 +433,18 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           ]
         },
         {
-          name: 'User & Org Management',
+          name: 'User & Access Control',
           href: '#',
           icon: FiUsers,
           roles: ['msc-admin'],
           children: [
+            {
+              name: 'User Management',
+              href: '/admin/users',
+              icon: FiUsers,
+              roles: ['msc-admin'],
+              description: 'Manage all users and roles'
+            },
             {
               name: 'Access Requests',
               href: '/access-requests',
@@ -452,15 +459,9 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Manage provider invitation workflow'
             },
             {
-              name: 'Sub-Rep Approval Queue',
+              name: 'Sub-Rep Approvals',
               href: '/subrep-approvals',
               icon: FiUserPlus,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'User Management',
-              href: '/users',
-              icon: FiUsers,
               roles: ['msc-admin']
             }
           ]
@@ -578,11 +579,18 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           ]
         },
         {
-          name: 'User & Org Management',
+          name: 'User & Access Control',
           href: '#',
           icon: FiUsers,
           roles: ['super-admin', 'superadmin'],
           children: [
+            {
+              name: 'User Management',
+              href: '/admin/users',
+              icon: FiUsers,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage all users and roles'
+            },
             {
               name: 'RBAC Configuration',
               href: '/rbac',
@@ -597,23 +605,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Manage provider invitation workflow'
             },
             {
-              name: 'All Users',
-              href: '/users',
-              icon: FiUsers,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'System Access Control',
+              name: 'Access Control',
               href: '/access-control',
               icon: FiShield,
               roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Role Management',
-              href: '/rbac',
-              icon: FiShield,
-              roles: ['super-admin', 'superadmin'],
-              description: 'Manage roles and permissions'
             }
           ]
         },
