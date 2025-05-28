@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Head, useForm } from '@inertiajs/react';
-import { Button } from '@/Components/Button/Button';
+import { Button } from '@/Components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
-import { UserPlus, Building2, Mail, CheckCircle2, AlertCircle, Key, Shield } from 'lucide-react';
+import { UserPlus, Building2, Mail, CheckCircle2, AlertCircle, Key, Shield, FileText } from 'lucide-react';
+import { parseISO, isBefore, differenceInDays, formatDistanceToNow, format } from 'date-fns';
 
 interface InvitationData {
     id: string;
@@ -41,6 +42,8 @@ interface ProviderInvitationProps {
 
 export default function ProviderInvitation({ invitation, token }: ProviderInvitationProps) {
     const [step, setStep] = useState<'review' | 'setup' | 'credentials' | 'complete'>('review');
+    const [setupValidationErrors, setSetupValidationErrors] = useState<Record<string, string>>({});
+    const [credentialsValidationErrors, setCredentialsValidationErrors] = useState<Record<string, string>>({});
 
     const { data, setData, post, processing, errors } = useForm<AcceptanceFormData>({
         first_name: '',
@@ -56,24 +59,123 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
         accept_terms: false
     });
 
-    const isExpired = new Date(invitation.expires_at) < new Date();
-    const daysUntilExpiry = Math.ceil((new Date(invitation.expires_at).getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+    const isExpired = isBefore(parseISO(invitation.expires_at), new Date());
+    const daysUntilExpiry = Math.max(0, differenceInDays(parseISO(invitation.expires_at), new Date()));
 
     const handleAcceptInvitation = () => {
         if (isExpired) return;
         setStep('setup');
     };
 
+    const validateSetupForm = (): boolean => {
+        const validationErrors: Record<string, string> = {};
+        let isValid = true;
+
+        // Validate required fields
+        if (!data.first_name.trim()) {
+            validationErrors.first_name = 'First name is required';
+            isValid = false;
+        }
+
+        if (!data.last_name.trim()) {
+            validationErrors.last_name = 'Last name is required';
+            isValid = false;
+        }
+
+        if (!data.password) {
+            validationErrors.password = 'Password is required';
+            isValid = false;
+        } else if (data.password.length < 8) {
+            validationErrors.password = 'Password must be at least 8 characters long';
+            isValid = false;
+        }
+
+        if (!data.password_confirmation) {
+            validationErrors.password_confirmation = 'Password confirmation is required';
+            isValid = false;
+        } else if (data.password !== data.password_confirmation) {
+            validationErrors.password_confirmation = 'Passwords do not match';
+            isValid = false;
+        }
+
+        // Optional field validation with format checks
+        if (data.phone && !/^[\+]?[\d\s\-\(\)]+$/.test(data.phone)) {
+            validationErrors.phone = 'Please enter a valid phone number';
+            isValid = false;
+        }
+
+        setSetupValidationErrors(validationErrors);
+        return isValid;
+    };
+
+    const clearFieldValidationError = (fieldName: string) => {
+        if (setupValidationErrors[fieldName]) {
+            setSetupValidationErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[fieldName];
+                return newErrors;
+            });
+        }
+    };
+
+    const handleFieldChange = (fieldName: keyof AcceptanceFormData, value: string | boolean) => {
+        setData(fieldName, value);
+        clearFieldValidationError(fieldName);
+        clearCredentialsFieldError(fieldName);
+    };
+
     const handleAccountSetup = () => {
-        setStep('credentials');
+        // Clear any previous validation errors
+        setSetupValidationErrors({});
+        
+        // Validate the form before proceeding
+        if (validateSetupForm()) {
+            setStep('credentials');
+        }
+    };
+
+    const validateCredentialsForm = (): boolean => {
+        const validationErrors: Record<string, string> = {};
+        let isValid = true;
+
+        // Terms acceptance is required
+        if (!data.accept_terms) {
+            validationErrors.accept_terms = 'You must accept the Terms of Service and Privacy Policy to continue';
+            isValid = false;
+        }
+
+        // Optional NPI validation if provided
+        if (data.npi_number && !/^\d{10}$/.test(data.npi_number.replace(/\s/g, ''))) {
+            validationErrors.npi_number = 'NPI number must be exactly 10 digits';
+            isValid = false;
+        }
+
+        setCredentialsValidationErrors(validationErrors);
+        return isValid;
+    };
+
+    const clearCredentialsFieldError = (fieldName: string) => {
+        if (credentialsValidationErrors[fieldName]) {
+            setCredentialsValidationErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[fieldName];
+                return newErrors;
+            });
+        }
     };
 
     const handleCompleteRegistration = () => {
-        post(`/auth/provider-invitation/${token}/accept`, {
-            onSuccess: () => {
-                setStep('complete');
-            }
-        });
+        // Clear any previous validation errors
+        setCredentialsValidationErrors({});
+        
+        // Validate the credentials form before proceeding
+        if (validateCredentialsForm()) {
+            post(`/auth/provider-invitation/${token}/accept`, {
+                onSuccess: () => {
+                    setStep('complete');
+                }
+            });
+        }
     };
 
     const renderReviewStep = () => (
@@ -105,7 +207,9 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <div className="flex justify-between">
                         <dt className="text-sm font-medium text-gray-500">Your Role:</dt>
                         <dd className="text-sm text-gray-900">
-                            <Badge variant="outline">{invitation.invited_role}</Badge>
+                            <Badge variant="default">
+                                {invitation.invited_role}
+                            </Badge>
                         </dd>
                     </div>
                     <div className="flex justify-between">
@@ -121,7 +225,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <h4 className="text-sm font-medium text-yellow-800">Invitation Expires Soon</h4>
                     <p className="text-sm text-yellow-700">
                         This invitation expires in {daysUntilExpiry} day{daysUntilExpiry !== 1 ? 's' : ''}
-                        ({new Date(invitation.expires_at).toLocaleDateString()})
+                        ({format(parseISO(invitation.expires_at), 'PPP')})
                     </p>
                 </div>
             </div>
@@ -138,7 +242,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                 </div>
             ) : (
                 <div className="flex gap-3 justify-end">
-                    <Button variant="outline">
+                    <Button variant="secondary">
                         Decline
                     </Button>
                     <Button onClick={handleAcceptInvitation}>
@@ -167,10 +271,18 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="text"
                         value={data.first_name}
-                        onChange={(e) => setData('first_name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('first_name', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.first_name || errors.first_name 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                     />
-                    {errors.first_name && <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>}
+                    {(setupValidationErrors.first_name || errors.first_name) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.first_name || errors.first_name}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -180,10 +292,18 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="text"
                         value={data.last_name}
-                        onChange={(e) => setData('last_name', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('last_name', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.last_name || errors.last_name 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                     />
-                    {errors.last_name && <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>}
+                    {(setupValidationErrors.last_name || errors.last_name) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.last_name || errors.last_name}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -193,10 +313,18 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="tel"
                         value={data.phone}
-                        onChange={(e) => setData('phone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('phone', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.phone || errors.phone 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                     />
-                    {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+                    {(setupValidationErrors.phone || errors.phone) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.phone || errors.phone}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -206,11 +334,19 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="text"
                         value={data.title}
-                        onChange={(e) => setData('title', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('title', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.title || errors.title 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                         placeholder="e.g., Physician, Nurse Practitioner"
                     />
-                    {errors.title && <p className="mt-1 text-sm text-red-600">{errors.title}</p>}
+                    {(setupValidationErrors.title || errors.title) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.title || errors.title}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -220,10 +356,18 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="password"
                         value={data.password}
-                        onChange={(e) => setData('password', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('password', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.password || errors.password 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                     />
-                    {errors.password && <p className="mt-1 text-sm text-red-600">{errors.password}</p>}
+                    {(setupValidationErrors.password || errors.password) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.password || errors.password}
+                        </p>
+                    )}
                 </div>
 
                 <div>
@@ -233,15 +377,23 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="password"
                         value={data.password_confirmation}
-                        onChange={(e) => setData('password_confirmation', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('password_confirmation', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            setupValidationErrors.password_confirmation || errors.password_confirmation 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                     />
-                    {errors.password_confirmation && <p className="mt-1 text-sm text-red-600">{errors.password_confirmation}</p>}
+                    {(setupValidationErrors.password_confirmation || errors.password_confirmation) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {setupValidationErrors.password_confirmation || errors.password_confirmation}
+                        </p>
+                    )}
                 </div>
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep('review')}>
+                <Button variant="secondary" onClick={() => setStep('review')}>
                     Back
                 </Button>
                 <Button onClick={handleAccountSetup}>
@@ -269,11 +421,19 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     <input
                         type="text"
                         value={data.npi_number}
-                        onChange={(e) => setData('npi_number', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => handleFieldChange('npi_number', e.target.value)}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            credentialsValidationErrors.npi_number || errors.npi_number 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : 'border-gray-300'
+                        }`}
                         placeholder="10-digit NPI number"
                     />
-                    {errors.npi_number && <p className="mt-1 text-sm text-red-600">{errors.npi_number}</p>}
+                    {(credentialsValidationErrors.npi_number || errors.npi_number) && (
+                        <p className="mt-1 text-sm text-red-600">
+                            {credentialsValidationErrors.npi_number || errors.npi_number}
+                        </p>
+                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -284,7 +444,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         <input
                             type="text"
                             value={data.license_number}
-                            onChange={(e) => setData('license_number', e.target.value)}
+                            onChange={(e) => handleFieldChange('license_number', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                         {errors.license_number && <p className="mt-1 text-sm text-red-600">{errors.license_number}</p>}
@@ -296,7 +456,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         </label>
                         <select
                             value={data.license_state}
-                            onChange={(e) => setData('license_state', e.target.value)}
+                            onChange={(e) => handleFieldChange('license_state', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value="">Select state</option>
@@ -316,7 +476,7 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                     </label>
                     <select
                         value={data.specialty}
-                        onChange={(e) => setData('specialty', e.target.value)}
+                        onChange={(e) => handleFieldChange('specialty', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                         <option value="">Select specialty</option>
@@ -336,8 +496,12 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         type="checkbox"
                         id="accept_terms"
                         checked={data.accept_terms}
-                        onChange={(e) => setData('accept_terms', e.target.checked)}
-                        className="mt-1"
+                        onChange={(e) => handleFieldChange('accept_terms', e.target.checked)}
+                        className={`mt-1 ${
+                            credentialsValidationErrors.accept_terms || errors.accept_terms 
+                                ? 'border-red-300 focus:ring-red-500' 
+                                : ''
+                        }`}
                     />
                     <label htmlFor="accept_terms" className="text-sm text-gray-700">
                         I agree to the <a href="#" className="text-blue-600 hover:underline">Terms of Service</a> and{' '}
@@ -345,18 +509,19 @@ export default function ProviderInvitation({ invitation, token }: ProviderInvita
                         will be verified before account activation.
                     </label>
                 </div>
-                {errors.accept_terms && <p className="mt-1 text-sm text-red-600">{errors.accept_terms}</p>}
+                {(credentialsValidationErrors.accept_terms || errors.accept_terms) && (
+                    <p className="mt-1 text-sm text-red-600">
+                        {credentialsValidationErrors.accept_terms || errors.accept_terms}
+                    </p>
+                )}
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setStep('setup')}>
+                <Button variant="secondary" onClick={() => setStep('setup')}>
                     Back
                 </Button>
-                <Button
-                    onClick={handleCompleteRegistration}
-                    disabled={processing || !data.accept_terms}
-                >
-                    {processing ? 'Creating Account...' : 'Complete Registration'}
+                <Button onClick={handleCompleteRegistration} disabled={processing}>
+                    Complete Registration
                 </Button>
             </div>
         </div>
