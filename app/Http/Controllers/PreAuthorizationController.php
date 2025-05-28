@@ -4,12 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\ProductRequest;
 use App\Models\PreAuthorization;
+use App\Jobs\SubmitPreAuthorizationJob;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Queue;
+use Illuminate\Support\Str;
 use Inertia\Inertia;
 
 class PreAuthorizationController extends Controller
@@ -113,7 +114,7 @@ class PreAuthorizationController extends Controller
 
         DB::beginTransaction();
         try {
-            // Create pre-authorization record with concurrency-safe authorization number
+            // Create pre-authorization record with improved authorization number generation
             $preAuth = PreAuthorization::create([
                 'product_request_id' => $productRequest->id,
                 'authorization_number' => $this->generateAuthorizationNumber(),
@@ -129,10 +130,8 @@ class PreAuthorizationController extends Controller
                 'estimated_approval_date' => $this->calculateEstimatedApprovalDate($validated['urgency']),
             ]);
 
-            // Queue payer system submission for async processing
-            Queue::push(function () use ($preAuth) {
-                $this->submitToPayerSystemAsync($preAuth);
-            });
+            // Dispatch proper job class instead of closure
+            SubmitPreAuthorizationJob::dispatch($preAuth->id);
 
             // Update product request status
             $productRequest->update([
@@ -198,17 +197,11 @@ class PreAuthorizationController extends Controller
 
     private function generateAuthorizationNumber(): string
     {
-        return DB::transaction(function () {
-            // Lock table for reading to prevent race conditions
-            $lastRecord = DB::table('pre_authorizations')
-                ->lockForUpdate()
-                ->orderBy('id', 'desc')
-                ->first();
-
-            $sequence = $lastRecord ? $lastRecord->id + 1 : 1;
-
-            return 'PA-' . now()->format('Ymd') . '-' . str_pad($sequence, 4, '0', STR_PAD_LEFT);
-        });
+        // Use UUID-based approach to avoid database locks and deadlocks
+        $datePrefix = now()->format('Ymd');
+        $uniqueId = strtoupper(Str::random(8));
+        
+        return "PA-{$datePrefix}-{$uniqueId}";
     }
 
     private function calculateEstimatedApprovalDate(string $urgency): \Carbon\Carbon
@@ -234,51 +227,6 @@ class PreAuthorizationController extends Controller
         }
 
         return 'low';
-    }
-
-    private function submitToPayerSystemAsync(PreAuthorization $preAuth): array
-    {
-        // Non-blocking implementation for actual payer system integration
-        // Examples: Change Healthcare, Availity, etc.
-
-        try {
-            // Use HTTP client with timeout instead of sleep
-            $response = Http::timeout(30)->post(config('payers.submission_endpoint'), [
-                'authorization_number' => $preAuth->authorization_number,
-                'payer_name' => $preAuth->payer_name,
-                'patient_id' => $preAuth->patient_id,
-                'diagnosis_codes' => $preAuth->diagnosis_codes,
-                'procedure_codes' => $preAuth->procedure_codes,
-                'clinical_documentation' => $preAuth->clinical_documentation,
-                'urgency' => $preAuth->urgency,
-            ]);
-
-            if ($response->successful()) {
-                $responseData = $response->json();
-
-                $preAuth->update([
-                    'payer_transaction_id' => $responseData['transaction_id'] ?? null,
-                    'payer_confirmation' => $responseData['confirmation_number'] ?? null,
-                    'status' => 'processing',
-                ]);
-
-                return $responseData;
-            } else {
-                throw new \Exception('Payer system responded with error: ' . $response->status());
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to submit to payer system', [
-                'pre_auth_id' => $preAuth->id,
-                'error' => $e->getMessage()
-            ]);
-
-            $preAuth->update([
-                'status' => 'submission_failed',
-                'payer_response' => ['error' => $e->getMessage()],
-            ]);
-
-            throw $e;
-        }
     }
 
     private function checkPayerSystemStatus(PreAuthorization $preAuth): ?array

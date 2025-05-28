@@ -12,13 +12,20 @@ class NPIVerificationService
 {
     private const CACHE_PREFIX = 'npi_verification:';
 
+    private bool $useMock;
+    private string $apiUrl;
+    private int $timeout;
+    private int $cacheTtl;
+    private int $maxRetries;
+    private int $retryDelay;
+
     public function __construct(
-        private bool $useMock = null,
-        private string $apiUrl = null,
-        private int $timeout = null,
-        private int $cacheTtl = null,
-        private int $maxRetries = null,
-        private int $retryDelay = null
+        ?bool $useMock = null,
+        ?string $apiUrl = null,
+        ?int $timeout = null,
+        ?int $cacheTtl = null,
+        ?int $maxRetries = null,
+        ?int $retryDelay = null
     ) {
         $this->useMock = $useMock ?? config('services.npi.use_mock', true);
         $this->apiUrl = $apiUrl ?? config('services.npi.api_url', 'https://npiregistry.cms.hhs.gov/api');
@@ -104,26 +111,70 @@ class NPIVerificationService
     }
 
     /**
-     * Clear all NPI verification cache
+     * Clear all NPI verification cache with improved performance
      */
     public function clearAllCache(): bool
     {
-        // This is a simple implementation - in production you might want to use cache tags
-        $pattern = self::CACHE_PREFIX . '*';
-
-        // For Redis cache store
         $store = Cache::getStore();
+        
+        // For Redis cache store - use non-blocking approach
         if ($store instanceof \Illuminate\Cache\RedisStore) {
-            /** @var \Illuminate\Cache\RedisStore $store */
-            return $store->connection()->eval(
-                "return redis.call('del', unpack(redis.call('keys', ARGV[1])))",
-                0,
-                $pattern
-            ) > 0;
+            try {
+                /** @var \Illuminate\Cache\RedisStore $store */
+                $connection = $store->connection();
+                
+                // Use SCAN instead of KEYS for better performance
+                $cursor = 0;
+                $pattern = self::CACHE_PREFIX . '*';
+                $deletedCount = 0;
+                
+                do {
+                    $result = $connection->scan($cursor, [
+                        'MATCH' => $pattern,
+                        'COUNT' => 100 // Process in smaller batches
+                    ]);
+                    
+                    if (is_array($result) && count($result) >= 2) {
+                        $cursor = (int) $result[0];
+                        $keys = $result[1];
+                        
+                        if (!empty($keys)) {
+                            // Use pipeline for batch deletion
+                            $connection->pipeline(function ($pipe) use ($keys) {
+                                foreach ($keys as $key) {
+                                    $pipe->del($key);
+                                }
+                            });
+                            $deletedCount += count($keys);
+                        }
+                    }
+                } while ($cursor !== 0);
+                
+                Log::info('NPI cache cleared using SCAN', ['deleted_keys' => $deletedCount]);
+                return $deletedCount > 0;
+                
+            } catch (Exception $e) {
+                Log::error('Failed to clear NPI cache using SCAN', ['error' => $e->getMessage()]);
+                return false;
+            }
         }
 
-        // For other cache stores, log a warning
-        Log::warning('Cache clearing not implemented for current cache store');
+        // For other cache stores, use tag-based clearing if available
+        if (method_exists($store, 'tags')) {
+            try {
+                Cache::tags(['npi_verification'])->flush();
+                Log::info('NPI cache cleared using tags');
+                return true;
+            } catch (Exception $e) {
+                Log::error('Failed to clear NPI cache using tags', ['error' => $e->getMessage()]);
+                return false;
+            }
+        }
+
+        // Fallback: log warning for unsupported cache stores
+        Log::warning('Cache clearing not implemented for current cache store', [
+            'store_class' => get_class($store)
+        ]);
         return false;
     }
 

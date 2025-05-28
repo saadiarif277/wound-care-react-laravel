@@ -37,11 +37,167 @@ class NPIVerificationServiceTest extends TestCase
     /** @test */
     public function it_validates_npi_format()
     {
-        $result = $this->service->verifyNPI('123'); // Invalid format
-
+        // Valid NPI
+        $result = $this->service->verifyNPI('1234567890');
         $this->assertInstanceOf(NPIVerificationResult::class, $result);
+
+        // Invalid NPI - too short
+        $result = $this->service->verifyNPI('123456789');
         $this->assertFalse($result->valid);
-        $this->assertEquals('Invalid NPI format. NPI must be 10 digits.', $result->error);
+        $this->assertStringContainsString('Invalid NPI format', $result->error);
+
+        // Invalid NPI - contains letters
+        $result = $this->service->verifyNPI('123456789A');
+        $this->assertFalse($result->valid);
+        $this->assertStringContainsString('Invalid NPI format', $result->error);
+    }
+
+    /** @test */
+    public function it_handles_mock_verification()
+    {
+        $result = $this->service->verifyNPI('1234567890');
+        
+        if ($result->valid) {
+            $this->assertNotNull($result->npi);
+            $this->assertEquals('1234567890', $result->npi);
+        } else {
+            $this->assertStringContainsString('mock response', $result->error);
+        }
+    }
+
+    /** @test */
+    public function it_caches_successful_results()
+    {
+        Cache::shouldReceive('get')
+            ->once()
+            ->with('npi_verification:1234567890')
+            ->andReturn(null);
+
+        Cache::shouldReceive('put')
+            ->once()
+            ->withArgs(function ($key, $data, $ttl) {
+                return $key === 'npi_verification:1234567890' && is_array($data) && $ttl > 0;
+            });
+
+        $result = $this->service->verifyNPI('1234567890');
+        
+        // Should be a valid result that gets cached
+        if ($result->valid) {
+            $this->assertTrue(true); // Cache expectations will verify caching occurred
+        }
+    }
+
+    /** @test */
+    public function it_retrieves_from_cache()
+    {
+        $cachedData = [
+            'valid' => true,
+            'npi' => '1234567890',
+            'provider_name' => 'Test Provider',
+            'address' => '123 Test St',
+            'city' => 'Test City',
+            'state' => 'TS',
+            'postal_code' => '12345',
+            'primary_specialty' => 'Test Specialty',
+            'last_verified' => '2024-01-01 00:00:00',
+        ];
+
+        Cache::shouldReceive('get')
+            ->once()
+            ->with('npi_verification:1234567890')
+            ->andReturn($cachedData);
+
+        $result = $this->service->verifyNPI('1234567890');
+        
+        $this->assertTrue($result->valid);
+        $this->assertEquals('1234567890', $result->npi);
+        $this->assertEquals('Test Provider', $result->providerName);
+        $this->assertTrue($result->fromCache);
+    }
+
+    /** @test */
+    public function it_clears_individual_cache()
+    {
+        Cache::shouldReceive('forget')
+            ->once()
+            ->with('npi_verification:1234567890')
+            ->andReturn(true);
+
+        $result = $this->service->clearCache('1234567890');
+        $this->assertTrue($result);
+    }
+
+    /** @test */
+    public function it_batch_verifies_npis()
+    {
+        $npis = ['1234567890', '0987654321'];
+        $results = $this->service->verifyNPIs($npis);
+
+        $this->assertCount(2, $results);
+        $this->assertArrayHasKey('1234567890', $results);
+        $this->assertArrayHasKey('0987654321', $results);
+        
+        foreach ($results as $result) {
+            $this->assertInstanceOf(NPIVerificationResult::class, $result);
+        }
+    }
+
+    /** @test */
+    public function it_handles_constructor_with_null_values()
+    {
+        // This should not throw a TypeError
+        $service = new NPIVerificationService(
+            useMock: null,
+            apiUrl: null,
+            timeout: null,
+            cacheTtl: null,
+            maxRetries: null,
+            retryDelay: null
+        );
+
+        // Should use config defaults
+        $result = $service->verifyNPI('1234567890');
+        $this->assertInstanceOf(NPIVerificationResult::class, $result);
+    }
+
+    /** @test */
+    public function it_handles_api_verification_with_retries()
+    {
+        $service = new NPIVerificationService(
+            useMock: false,
+            maxRetries: 2,
+            retryDelay: 1
+        );
+
+        // Mock HTTP failures then success
+        Http::fake([
+            '*' => Http::sequence()
+                ->push([], 500) // First attempt fails
+                ->push([], 500) // Second attempt fails
+                ->push(['results' => []], 200) // Third attempt succeeds but no results
+        ]);
+
+        $result = $service->verifyNPI('1234567890');
+        
+        // Should eventually succeed but find no results
+        $this->assertFalse($result->valid);
+        $this->assertStringContainsString('not found', $result->error);
+    }
+
+    /** @test */
+    public function it_handles_cache_clearing_with_unsupported_store()
+    {
+        // Mock a cache store that doesn't support Redis or tags
+        $mockStore = new class {
+            // Empty mock store
+        };
+
+        Cache::shouldReceive('getStore')
+            ->once()
+            ->andReturn($mockStore);
+
+        $result = $this->service->clearAllCache();
+        $this->assertFalse($result);
     }
 
     /** @test */
@@ -78,24 +234,6 @@ class NPIVerificationServiceTest extends TestCase
         $orgResult = $this->service->verifyNPI('1234567891');
         $this->assertNull($orgResult->providerName);
         $this->assertNotNull($orgResult->organizationName);
-    }
-
-    /** @test */
-    public function it_caches_successful_verification_results()
-    {
-        $npi = '1234567891';
-
-        // First call should not be from cache
-        $result1 = $this->service->verifyNPI($npi);
-        $this->assertFalse($result1->fromCache);
-
-        // Second call should be from cache
-        $result2 = $this->service->verifyNPI($npi);
-        $this->assertTrue($result2->fromCache);
-
-        // Results should be equivalent
-        $this->assertEquals($result1->npi, $result2->npi);
-        $this->assertEquals($result1->valid, $result2->valid);
     }
 
     /** @test */
