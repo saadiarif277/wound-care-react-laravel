@@ -203,7 +203,70 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
 - [x] **Storage Cleanup** - Automatic file cleanup on database transaction failures
 - [x] **Audit Logging** - Complete audit trail for all document upload operations
 
-### 4. Real Payer Integration 🔥 HIGH PRIORITY
+### 4. CustomerManagementService Code Quality Fixes ✅ COMPLETED
+*Laravel best practices and SQL optimization improvements*
+
+**Code Quality Issues Fixed:**
+- [x] **Removed Unused Dependency** - Eliminated unused OnboardingService injection from constructor
+- [x] **Fixed SQL Operator** - Removed trailing space in comparison operator (`'<= '` → `'<='`) that could break SQL
+- [x] **Corrected Pluck Usage** - Fixed aliased table reference in pluck (`'users.id'` → `'id'`) for proper query generation
+- [x] **Clean Imports** - Removed unused service import to reduce memory footprint
+
+**Technical Improvements:**
+- [x] **Constructor Optimization** - Simplified service class with no unused dependencies
+- [x] **SQL Query Optimization** - Ensured proper SQL syntax for database compatibility
+- [x] **Eloquent Best Practices** - Used correct pluck syntax without unnecessary table prefixes
+- [x] **Code Maintainability** - Cleaner codebase with proper dependency management
+
+### 5. InviteProvidersRequest Security & Validation Enhancements ✅ COMPLETED
+*Comprehensive authorization and validation improvements for provider invitation system*
+
+**Security Issues Fixed:**
+- [x] **Fixed Authorization Logic** - Replaced unsafe `auth()` calls with proper `Auth::facade` usage and permission-based access control
+- [x] **Organization-Level Access Control** - Added proper authorization checks to ensure users can only invite providers to organizations they manage
+- [x] **Permission-Based Authorization** - Implemented proper RBAC with `invite-providers` permission instead of hardcoded role checks
+- [x] **Route Parameter Validation** - Added organization existence verification and ownership validation
+
+**Validation Enhancements:**
+- [x] **Enabled Facility Validation** - Uncommented and enhanced facility validation to prevent invalid facility references
+- [x] **Duplicate Email Prevention** - Added comprehensive duplicate email validation within requests and against existing users/invitations
+- [x] **NPI Number Validation** - Added proper NPI validation with duplicate prevention and format cleaning
+- [x] **Enhanced Error Messages** - Improved validation error messages for better user experience
+
+**Advanced Features Added:**
+- [x] **Data Preprocessing** - Added `prepareForValidation()` method for email normalization and NPI formatting
+- [x] **Custom Validator Logic** - Implemented `withValidator()` for complex cross-field validation scenarios
+- [x] **Organization Scope Validation** - Ensured facility assignments belong to the target organization
+- [x] **Comprehensive Unique Constraints** - Prevention of duplicate emails, NPIs, and pending invitations
+
+**RBAC Compliance Features:**
+- [x] **MSC Admin Access** - MSC Admins with `manage-all-organizations` permission can invite to any organization
+- [x] **Office Manager Restrictions** - Office Managers can only invite providers to their own organization
+- [x] **Permission-Based Middleware** - All authorization logic follows project RBAC patterns with no hardcoded role checks
+
+### 6. ProviderProfileController Security & Code Quality Fixes ✅ COMPLETED
+*File upload security hardening and JSON encoding fixes*
+
+**Security Vulnerabilities Fixed:**
+- [x] **Enhanced File Upload Security** - Added comprehensive MIME type validation with both extension and content verification
+- [x] **File Size Restrictions** - Enforced 2MB maximum file size for professional photos
+- [x] **Image Validation** - Added `getimagesize()` validation to prevent malicious file uploads disguised as images
+- [x] **Secure File Storage** - Migrated from public storage to private Supabase S3 storage
+- [x] **Secure Filename Generation** - Added timestamp and unique ID to prevent filename collisions and directory traversal
+
+**Code Quality Improvements:**
+- [x] **Eliminated Duplicate Controller** - Removed duplicate ProviderProfileController in V1 namespace
+- [x] **Fixed Double JSON Encoding** - Added proper array handling for notification and practice preferences
+- [x] **Enhanced Error Handling** - Added comprehensive validation for file upload operations
+- [x] **Improved Data Type Safety** - Added type checking for JSON preference fields to prevent encoding issues
+
+**Technical Enhancements:**
+- [x] **MIME Type Verification** - Dual validation using both Laravel rules and native PHP functions
+- [x] **File Integrity Checks** - Verification that uploaded files are actually valid images
+- [x] **Preference Data Normalization** - Proper handling of JSON preferences to prevent double encoding
+- [x] **Storage Architecture Alignment** - Consistent use of Supabase S3 for all file storage operations
+
+### 7. Real Payer Integration 🔥 HIGH PRIORITY
 *Live API connections for eligibility and prior authorization*
 
 **What's Needed:**
@@ -232,7 +295,7 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
 
 ## 🎯 Medium Priority Features
 
-### 5. Enhanced Clinical Features 📊 MEDIUM PRIORITY
+### 8. Enhanced Clinical Features 📊 MEDIUM PRIORITY
 *Advanced clinical decision support and documentation*
 
 **Remaining Tasks:**
@@ -252,7 +315,7 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
   - Best practice alerts
   - Evidence-based guidelines
 
-### 6. Advanced Business Intelligence 📈 MEDIUM PRIORITY
+### 9. Advanced Business Intelligence 📈 MEDIUM PRIORITY
 *Enhanced analytics and reporting for all user roles*
 
 **Remaining Tasks:**
@@ -271,7 +334,7 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
   - Accounts receivable aging
   - Profit/loss analysis by product/territory
 
-### 7. System Optimization 🔧 MEDIUM PRIORITY
+### 10. System Optimization 🔧 MEDIUM PRIORITY
 *Performance, monitoring, and operational improvements*
 
 **Remaining Tasks:**
@@ -295,7 +358,7 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
 
 ## 🔮 Future Enhancements (Low Priority)
 
-### 8. Advanced Integration Features
+### 11. Advanced Integration Features
 - [ ] **Third-party EMR Integration**
   - Epic MyChart integration
   - Cerner APIs
@@ -309,7 +372,7 @@ Based on MSC-MVP Product Request Flow documentation, Office Managers should:
   - Risk stratification algorithms
   - Personalized treatment recommendations
 
-### 9. Mobile & Accessibility
+### 12. Mobile & Accessibility
 - [ ] **Native Mobile App**
   - React Native implementation
   - Offline capability

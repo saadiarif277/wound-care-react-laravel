@@ -166,8 +166,15 @@ class ProviderProfileController extends Controller
         $profile = ProviderProfile::where('provider_id', $providerId)->firstOrFail();
         $originalPreferences = $profile->notification_preferences;
 
+        // Ensure we're working with arrays, not JSON strings
+        $currentPreferences = is_array($profile->notification_preferences) 
+            ? $profile->notification_preferences 
+            : (json_decode($profile->notification_preferences, true) ?? []);
+            
+        $defaultPreferences = ProviderProfile::getDefaultNotificationPreferences();
+
         $profile->notification_preferences = array_merge(
-            $profile->notification_preferences ?? ProviderProfile::getDefaultNotificationPreferences(),
+            $currentPreferences ?: $defaultPreferences,
             $request->all()
         );
         $profile->updated_by = Auth::id();
@@ -226,8 +233,15 @@ class ProviderProfileController extends Controller
         $profile = ProviderProfile::where('provider_id', $providerId)->firstOrFail();
         $originalPreferences = $profile->practice_preferences;
 
+        // Ensure we're working with arrays, not JSON strings  
+        $currentPreferences = is_array($profile->practice_preferences)
+            ? $profile->practice_preferences
+            : (json_decode($profile->practice_preferences, true) ?? []);
+            
+        $defaultPreferences = ProviderProfile::getDefaultPracticePreferences();
+
         $profile->practice_preferences = array_merge(
-            $profile->practice_preferences ?? ProviderProfile::getDefaultPracticePreferences(),
+            $currentPreferences ?: $defaultPreferences,
             $request->all()
         );
         $profile->updated_by = Auth::id();
@@ -331,19 +345,46 @@ class ProviderProfileController extends Controller
             'specializations.*' => 'string|max:100',
             'languages_spoken' => 'nullable|array',
             'languages_spoken.*' => 'string|max:50',
-            'professional_photo' => 'nullable|image|mimes:jpeg,png,jpg|max:2048',
+            'professional_photo' => [
+                'nullable',
+                'file',
+                'image',
+                'mimes:jpeg,png,jpg',
+                'max:2048', // 2MB max
+                'mimetypes:image/jpeg,image/png,image/jpg',
+                function ($attribute, $value, $fail) {
+                    // Additional security check for suspicious files
+                    if ($value && !getimagesize($value->getPathname())) {
+                        $fail('The uploaded file is not a valid image.');
+                    }
+                },
+            ],
             'two_factor_enabled' => 'boolean',
             'reason' => 'nullable|string|max:500',
         ]);
     }
 
     /**
-     * Handle professional photo upload.
+     * Handle professional photo upload with enhanced security.
      */
     private function handlePhotoUpload($file, int $providerId): string
     {
-        $filename = 'provider_' . $providerId . '_' . time() . '.' . $file->getClientOriginalExtension();
-        $path = $file->storeAs('provider-photos', $filename, 'public');
+        // Validate file is actually an image
+        if (!getimagesize($file->getPathname())) {
+            throw new \InvalidArgumentException('Invalid image file');
+        }
+
+        // Generate secure filename
+        $extension = $file->getClientOriginalExtension();
+        $filename = 'provider_' . $providerId . '_' . time() . '_' . uniqid() . '.' . $extension;
+        
+        // Store in private disk (Supabase S3)
+        $path = $file->storeAs('provider-photos', $filename, 'supabase');
+        
+        if (!$path) {
+            throw new \Exception('Failed to store image file');
+        }
+        
         return $path;
     }
 

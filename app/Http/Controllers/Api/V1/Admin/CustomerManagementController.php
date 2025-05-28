@@ -232,16 +232,15 @@ class CustomerManagementController extends Controller
 
             // Initiate facility onboarding with validation
             try {
-                $onboardingResult = $this->onboardingService->initiateFacilityOnboarding($facility);
+                $this->onboardingService->initiateFacilityOnboarding($facility);
                 
-                if (is_array($onboardingResult) && isset($onboardingResult['success']) && $onboardingResult['success']) {
-                    $this->onboardingService->updateOnboardingProgress(
-                        Organization::class,
-                        $organizationId,
-                        'add_facilities',
-                        true
-                    );
-                }
+                // If no exception thrown, assume success
+                $this->onboardingService->updateOnboardingProgress(
+                    Organization::class,
+                    $organizationId,
+                    'add_facilities',
+                    true
+                );
             } catch (\Exception $e) {
                 Log::error('Failed to initiate facility onboarding', [
                     'facility_id' => $facility->id,
@@ -327,7 +326,7 @@ class CustomerManagementController extends Controller
             'organization' => Organization::class,
             'facility' => Facility::class,
             'user' => User::class,
-            default => throw new ValidationException('Invalid entity type specified.'),
+            default => throw new \InvalidArgumentException('Invalid entity type specified.'),
         };
 
         // Validate entity exists

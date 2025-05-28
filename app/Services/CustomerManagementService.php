@@ -10,12 +10,9 @@ use Carbon\Carbon;
 use App\Models\OnboardingDocument;
 use App\Models\OnboardingChecklist;
 use App\Models\ProviderInvitation;
-use App\Services\OnboardingService;
 
 class CustomerManagementService
 {
-    public function __construct(private OnboardingService $onboardingService) {}
-
     /**
      * Get organization hierarchy details.
      * This is a placeholder and needs full implementation.
@@ -188,7 +185,7 @@ class CustomerManagementService
     {
         $query = OnboardingDocument::query()
             ->whereNotNull('expiration_date')
-            ->where('expiration_date', '<= ', now()->addDays($days)->toDateString())
+            ->where('expiration_date', '<=', now()->addDays($days)->toDateString())
             ->where('expiration_date', '>=', now()->toDateString())
             ->where('status', 'approved'); // Only interested in approved, expiring documents
 
@@ -207,7 +204,7 @@ class CustomerManagementService
                                             ->get();
 
             // Documents for providers (users) linked to facilities within the organization
-            $providerIds = User::whereHas('facilities', fn($q) => $q->where('organization_id', $organizationId))->pluck('users.id');
+            $providerIds = User::whereHas('facilities', fn($q) => $q->where('organization_id', $organizationId))->pluck('id');
             $providerDocQuery = clone $query;
             $providerDocs = $providerDocQuery->where('entity_type', User::class)
                                             ->whereIn('entity_id', $providerIds)
