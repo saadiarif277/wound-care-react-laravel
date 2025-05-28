@@ -12,7 +12,7 @@ import {
   FiEye,
   FiCalendar,
   FiUser,
-  FiBuilding
+  FiBriefcase
 } from 'react-icons/fi';
 
 interface Invitation {
@@ -68,7 +68,7 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
     { value: 'msc-admin', label: 'MSC Admin' }
   ];
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (status: 'pending' | 'sent' | 'accepted' | 'expired' | 'cancelled') => {
     const variants = {
       pending: 'bg-yellow-100 text-yellow-800',
       sent: 'bg-blue-100 text-blue-800',
@@ -243,7 +243,7 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                     <td className="px-6 py-4 whitespace-nowrap">
                       {invitation.organization ? (
                         <div className="flex items-center">
-                          <FiBuilding className="w-4 h-4 text-gray-400 mr-2" />
+                          <FiBriefcase className="w-4 h-4 text-gray-400 mr-2" />
                           <span className="text-sm text-gray-900">
                             {invitation.organization.name}
                           </span>
