@@ -145,7 +145,7 @@ export default function CustomerManagementDashboard({
                             <p className="text-gray-600 mt-1">Manage organizations and track onboarding progress</p>
                         </div>
                         <div className="flex gap-3">
-                            <Button variant="outline">
+                            <Button variant="secondary">
                                 <Download className="h-4 w-4 mr-2" />
                                 Export
                             </Button>
@@ -249,7 +249,7 @@ export default function CustomerManagementDashboard({
                                 </div>
 
                                 <Button
-                                    variant="outline"
+                                    variant="secondary"
                                     onClick={() => setShowFilters(!showFilters)}
                                 >
                                     <Filter className="h-4 w-4 mr-2" />
@@ -313,16 +313,14 @@ export default function CustomerManagementDashboard({
                                     </span>
                                     <div className="flex gap-2">
                                         <Button
-                                            variant="outline"
-                                            size="sm"
+                                            variant="secondary"
                                             onClick={() => handleBulkAction('send_reminders')}
                                         >
                                             <Mail className="h-4 w-4 mr-1" />
                                             Send Reminders
                                         </Button>
                                         <Button
-                                            variant="outline"
-                                            size="sm"
+                                            variant="secondary"
                                             onClick={() => handleBulkAction('export')}
                                         >
                                             <Download className="h-4 w-4 mr-1" />
@@ -433,16 +431,16 @@ export default function CustomerManagementDashboard({
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-2">
                                                         <Link href={`/admin/customers/${org.id}`}>
-                                                            <Button variant="outline" size="sm">
+                                                            <Button variant="secondary" className="h-8 w-8">
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
                                                         <Link href={`/admin/customers/${org.id}/edit`}>
-                                                            <Button variant="outline" size="sm">
+                                                            <Button variant="secondary" className="h-8 w-8">
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
-                                                        <Button variant="outline" size="sm">
+                                                        <Button variant="secondary" className="h-8 w-8">
                                                             <MoreHorizontal className="h-4 w-4" />
                                                         </Button>
                                                     </div>

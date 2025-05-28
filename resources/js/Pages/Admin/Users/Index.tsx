@@ -15,7 +15,8 @@ import {
   FiEye,
   FiSettings,
   FiMail,
-  FiUserPlus
+  FiUserPlus,
+  FiActivity
 } from 'react-icons/fi';
 
 interface UserRole {

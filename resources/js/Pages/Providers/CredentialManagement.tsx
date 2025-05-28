@@ -367,7 +367,7 @@ export default function CredentialManagement({ credentials, user }: CredentialMa
 
                                 <div className="mt-6 flex justify-end gap-3">
                                     <Button
-                                        variant="outline"
+                                        variant="secondary"
                                         onClick={() => {
                                             setShowAddForm(false);
                                             setEditingCredential(null);
@@ -457,18 +457,17 @@ export default function CredentialManagement({ credentials, user }: CredentialMa
 
                                                 <div className="flex items-center gap-2 ml-4">
                                                     {credential.document_url && (
-                                                        <Button variant="outline" size="sm">
+                                                        <Button variant="secondary">
                                                             <Eye className="h-4 w-4" />
                                                         </Button>
                                                     )}
                                                     <Button
-                                                        variant="outline"
-                                                        size="sm"
+                                                        variant="secondary"
                                                         onClick={() => handleEdit(credential)}
                                                     >
                                                         <Edit className="h-4 w-4" />
                                                     </Button>
-                                                    <Button variant="outline" size="sm">
+                                                    <Button variant="secondary">
                                                         <Trash2 className="h-4 w-4" />
                                                     </Button>
                                                 </div>

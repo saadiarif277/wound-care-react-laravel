@@ -222,7 +222,6 @@ export default function ProviderInvitationsIndex({ invitations }: ProviderInvita
                                                 {(invitation.status === 'sent' || invitation.status === 'pending') && (
                                                     <Button
                                                         variant="secondary"
-                                                        size="sm"
                                                         onClick={() => handleResendInvitation(invitation.id)}
                                                     >
                                                         <FiRefreshCw className="w-4 h-4 mr-1" />
@@ -231,8 +230,7 @@ export default function ProviderInvitationsIndex({ invitations }: ProviderInvita
                                                 )}
                                                 {invitation.status !== 'accepted' && invitation.status !== 'cancelled' && (
                                                     <Button
-                                                        variant="destructive"
-                                                        size="sm"
+                                                        variant="danger"
                                                         onClick={() => handleCancelInvitation(invitation.id)}
                                                     >
                                                         <FiTrash2 className="w-4 h-4 mr-1" />

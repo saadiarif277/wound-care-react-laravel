@@ -17,7 +17,7 @@ import {
     CreditCard,
     Eye
 } from 'lucide-react';
-
+import { toast } from 'sonner';
 interface OnboardingStep {
     id: number;
     title: string;
@@ -160,10 +160,17 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
 
         // Save progress to backend
         post(`/api/v1/onboarding/${organization.id}/progress`, {
-            step: stepId,
-            data: data
-        }, {
-            preserveScroll: true
+            data: {
+                step: stepId,
+                ...data
+            },
+            preserveScroll: true,
+            onSuccess: () => {
+                toast.success('Progress saved successfully');
+            },
+            onError: () => {
+                toast.error('Failed to save progress');
+            }
         });
     };
 
@@ -314,7 +321,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(1)}>
+                <Button variant="secondary" onClick={() => setCurrentStep(1)}>
                     Back
                 </Button>
                 <Button
@@ -385,13 +392,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(2)}>
-                    Back
-                </Button>
-                <Button
-                    onClick={() => handleStepComplete(3)}
-                    disabled={!data.payment_method || !data.billing_contact_email}
-                >
+                <Button variant="secondary" onClick={() => setCurrentStep(2)}>
                     Continue to Integration
                 </Button>
             </div>
@@ -462,7 +463,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(3)}>
+                <Button variant="secondary" onClick={() => setCurrentStep(3)}>
                     Back
                 </Button>
                 <Button onClick={() => handleStepComplete(4)}>
@@ -542,7 +543,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <Button
-                variant="outline"
+                variant="secondary"
                 onClick={() => {
                     setData('additional_users', [
                         ...data.additional_users,
@@ -554,7 +555,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </Button>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(4)}>
+                <Button variant="secondary" onClick={() => setCurrentStep(4)}>
                     Back
                 </Button>
                 <Button onClick={() => handleStepComplete(5)}>
@@ -600,7 +601,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="outline" onClick={() => setCurrentStep(5)}>
+                <Button variant="secondary" onClick={() => setCurrentStep(5)}>
                     Back
                 </Button>
                 <Button

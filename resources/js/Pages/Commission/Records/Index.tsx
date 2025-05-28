@@ -61,7 +61,7 @@ interface Filters {
     end_date: string;
 }
 
-export default function Index({ auth, records, summary }: Props) {
+export default function Index({ records, summary }: Props) {
     const [filters, setFilters] = useState<Filters>({
         status: '',
         rep_id: '',
@@ -107,17 +107,14 @@ export default function Index({ auth, records, summary }: Props) {
     ];
 
     return (
-        <MainLayout
-            user={auth.user}
-            header={
-                <PageHeader
-                    title="Commission Records"
-                    description="View and manage commission records for all sales representatives"
-                    navItems={navItems}
-                />
-            }
-        >
+        <MainLayout title="Commission Records">
             <Head title="Commission Records" />
+
+            <PageHeader
+                title="Commission Records"
+                description="View and manage commission records for all sales representatives"
+                navItems={navItems}
+            />
 
             <div className="py-12">
                 <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
