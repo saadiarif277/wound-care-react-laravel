@@ -2,19 +2,19 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use League\Glide\Responses\SymfonyResponseFactory;
 use League\Glide\ServerFactory;
 
 class ImagesController extends Controller
 {
-    public function show(Filesystem $filesystem, Request $request, $path)
+    public function show(Request $request, $path)
     {
         $server = ServerFactory::create([
             'response' => new SymfonyResponseFactory($request),
-            'source' => $filesystem->getDriver(),
-            'cache' => $filesystem->getDriver(),
+            'source' => storage_path('app/public'),
+            'cache' => storage_path('app/public'),
             'cache_path_prefix' => '.glide-cache',
         ]);
 

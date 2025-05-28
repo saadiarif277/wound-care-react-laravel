@@ -244,7 +244,10 @@ class OnboardingService
             ]);
 
             // Assign provider role
-            $user->assignRole('provider');
+            $providerRole = \App\Models\Role::where('slug', 'provider')->first();
+            if ($providerRole) {
+                $user->assignRole($providerRole);
+            }
 
             // Create provider checklist
             $this->createChecklist(

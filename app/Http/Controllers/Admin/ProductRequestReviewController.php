@@ -316,6 +316,11 @@ class ProductRequestReviewController extends Controller
         foreach ($requestIds as $requestId) {
             try {
                 $productRequest = ProductRequest::findOrFail($requestId);
+                
+                // Ensure we have a single model instance, not a collection
+                if ($productRequest instanceof \Illuminate\Database\Eloquent\Collection) {
+                    $productRequest = $productRequest->first();
+                }
 
                 switch ($action) {
                     case 'approve':
