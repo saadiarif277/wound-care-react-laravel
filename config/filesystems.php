@@ -44,6 +44,14 @@ return [
             'throw' => false,
         ],
 
+        // Private disk for secure document storage (not web-accessible)
+        'private' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
         // AWS S3 (if you want to keep this as backup option)
         's3' => [
             'driver' => 's3',

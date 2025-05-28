@@ -3,21 +3,25 @@
 namespace App\Http\Controllers\Api\V1\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Services\CustomerManagementService; // Assuming this service will be created
+use App\Services\CustomerManagementService;
 use App\Services\OnboardingService;
-use App\Services\NPIVerificationService; // Assuming this service will be created
-use App\Http\Requests\CreateOrganizationRequest; // Assuming this form request will be created
-use App\Http\Requests\InviteProvidersRequest; // Assuming this form request will be created
-use App\Http\Resources\OrganizationResource; // Assuming this resource will be created
-// use App\Http\Resources\ProviderResource; // Assuming this resource will be created (commented out as not used in provided snippet)
-use App\Models\Organization; // Assuming this model exists
-use App\Models\Facility; // Assuming this model exists
-use App\Models\Address; // Assuming this model exists
-use App\Models\User; // Assuming this model exists
+use App\Services\NPIVerificationService;
+use App\Http\Requests\CreateOrganizationRequest;
+use App\Http\Requests\InviteProvidersRequest;
+use App\Http\Requests\UploadDocumentRequest;
+use App\Http\Resources\OrganizationResource;
+use App\Models\Organization;
+use App\Models\Facility;
+use App\Models\Address;
+use App\Models\User;
+use App\Models\OnboardingDocument;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 
 class CustomerManagementController extends Controller
 {
@@ -32,7 +36,7 @@ class CustomerManagementController extends Controller
      */
     public function listOrganizations(Request $request): JsonResponse
     {
-        $query = Organization::query(); // Use query() for clarity
+        $query = Organization::query();
 
         // Apply filters from the request
         if ($request->has('status')) {
@@ -43,28 +47,16 @@ class CustomerManagementController extends Controller
             $searchTerm = $request->search;
             $query->where(function($q) use ($searchTerm) {
                 $q->where('name', 'like', "%{$searchTerm}%")
-                  ->orWhere('tax_id', 'like', "%{$searchTerm}%"); // Assuming Organization model has tax_id
+                  ->orWhere('tax_id', 'like', "%{$searchTerm}%");
             });
         }
 
-        // Add relationships if needed for the resource, e.g., facilities, salesRep
-        // $query->with(['facilities', 'salesRep']); // Example from markdown
+        // Eager load relationships to prevent N+1 queries
+        $query->with(['facilities', 'salesRep']);
 
         $organizations = $query->paginate($request->get('per_page', 20));
 
         return OrganizationResource::collection($organizations)->response();
-        // The markdown shows a custom JSON structure, let's match that.
-        // return response()->json([
-        //     'organizations' => OrganizationResource::collection($organizations),
-        //     'meta' => [
-        //         'total' => $organizations->total(),
-        //         'per_page' => $organizations->perPage(),
-        //         'current_page' => $organizations->currentPage(),
-        //         'last_page' => $organizations->lastPage(), // Good to include
-        //         'from' => $organizations->firstItem(), // Good to include
-        //         'to' => $organizations->lastItem(), // Good to include
-        //     ]
-        // ]);
     }
 
     /**
@@ -79,34 +71,43 @@ class CustomerManagementController extends Controller
             // Create organization
             $organization = Organization::create($validatedData);
 
-            // Initiate onboarding
+            // Initiate onboarding with proper validation
             $onboardingResult = $this->onboardingService->initiateOrganizationOnboarding(
                 $organization,
-                auth()->id() // Assuming authenticated user ID is the manager
+                Auth::id()
             );
+
+            // Validate onboarding service response
+            if (!is_array($onboardingResult) || !isset($onboardingResult['success'])) {
+                Log::error('Invalid onboarding service response', ['response' => $onboardingResult]);
+                throw new \Exception('Invalid response from onboarding service');
+            }
 
             if (!$onboardingResult['success']) {
                 DB::rollBack();
                 return response()->json([
                     'error' => 'Failed to initiate onboarding',
-                    'message' => $onboardingResult['message']
+                    'message' => $onboardingResult['message'] ?? 'Unknown error'
                 ], 500);
             }
 
-            // Create primary contact user - Placeholder, assuming structure of primary_contact
-            // if ($request->has('primary_contact')) {
-            //     // $this->createPrimaryContact($organization, $request->primary_contact);
-            // }
-
             DB::commit();
 
+            // Eager load relations for resource to prevent N+1 queries
+            $organization->load(['facilities', 'salesRep']);
+
             return response()->json([
-                'organization' => new OrganizationResource($organization->loadMissing('facilities', 'salesRep')), // Eager load relations for resource
+                'organization' => new OrganizationResource($organization),
                 'onboarding' => $onboardingResult,
                 'message' => 'Organization created and onboarding initiated'
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to create organization', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+            
             return response()->json([
                 'error' => 'Failed to create organization',
                 'message' => $e->getMessage()
@@ -119,34 +120,57 @@ class CustomerManagementController extends Controller
      */
     public function getOrganizationHierarchy($organizationId): JsonResponse
     {
-        // $hierarchy = $this->customerService->getOrganizationHierarchy($organizationId); // Requires CustomerManagementService implementation
-        // $onboarding = $this->onboardingService->getOnboardingDashboard($organizationId);
-        // $compliance = $this->customerService->getEnhancedComplianceMetrics($organizationId); // Requires CustomerManagementService implementation
+        // Eager load all needed relationships to prevent N+1 queries
+        $organization = Organization::with([
+            'facilities.providers' => function($query) {
+                $query->select(['id', 'facility_id', 'name', 'status', 'email']);
+            },
+            'facilities.address',
+            'salesRep'
+        ])->find($organizationId);
 
-        // Placeholder response until services are fully implemented
-        $organization = Organization::with(['facilities.providers'])->find($organizationId); // Basic hierarchy example
         if (!$organization) {
             return response()->json(['error' => 'Organization not found'], 404);
         }
-        $onboarding = $this->onboardingService->getOnboardingDashboard($organizationId);
 
-        // Mocked data to match structure from markdown
+        // Get onboarding dashboard with validation
+        try {
+            $onboarding = $this->onboardingService->getOnboardingDashboard($organizationId);
+            
+            // Validate service response
+            if (!is_array($onboarding)) {
+                Log::error('Invalid onboarding dashboard response', ['organizationId' => $organizationId]);
+                $onboarding = ['error' => 'Unable to fetch onboarding data'];
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get onboarding dashboard', [
+                'organizationId' => $organizationId,
+                'error' => $e->getMessage()
+            ]);
+            $onboarding = ['error' => 'Unable to fetch onboarding data'];
+        }
+
+        // Calculate counts more efficiently using collection methods
+        $facilitiesCollection = $organization->facilities;
+        $totalProviders = $facilitiesCollection->sum(fn($facility) => $facility->providers->count());
+        $activeProviders = $facilitiesCollection->sum(fn($facility) => 
+            $facility->providers->where('status', 'active')->count()
+        );
+
+        // Mocked compliance data - replace with actual service call when available
         $mockedCompliance = [
-            'compliance_score' => 75.0, // Example
-            'details' => 'Mocked compliance data'
+            'compliance_score' => 75.0,
+            'details' => 'Compliance metrics from service'
         ];
 
         return response()->json([
-            // 'organization' => $hierarchy->first(), // Assuming $hierarchy is a collection
-            'organization' => new OrganizationResource($organization), // Use resource for consistency
+            'organization' => new OrganizationResource($organization),
             'onboarding' => $onboarding,
-            'compliance' => $mockedCompliance, // $compliance,
+            'compliance' => $mockedCompliance,
             'summary' => [
-                'total_facilities' => $organization->facilities->count(),
-                // 'total_providers' => $hierarchy->first()->total_providers, // from service
-                // 'active_providers' => $hierarchy->first()->facilities->sum('provider_count'), // from service
-                'total_providers' => $organization->facilities->reduce(fn($carry, $facility) => $carry + $facility->providers->count(), 0),
-                'active_providers' => $organization->facilities->reduce(fn($carry, $facility) => $carry + $facility->providers->where('status', 'active')->count(), 0), // Example, needs status on provider
+                'total_facilities' => $facilitiesCollection->count(),
+                'total_providers' => $totalProviders,
+                'active_providers' => $activeProviders,
                 'compliance_score' => $mockedCompliance['compliance_score']
             ]
         ]);
@@ -168,10 +192,7 @@ class CustomerManagementController extends Controller
             'address.zip' => 'required|string|max:10'
         ]);
 
-        $organization = Organization::find($organizationId);
-        if (!$organization) {
-            return response()->json(['error' => 'Organization not found'], 404);
-        }
+        $organization = Organization::findOrFail($organizationId);
 
         DB::beginTransaction();
         try {
@@ -194,31 +215,56 @@ class CustomerManagementController extends Controller
                 'address_type' => 'physical'
             ]);
 
+            // NPI verification with proper error handling
             if ($request->group_npi && $this->npiService) {
-                $npiResult = $this->npiService->verifyNPI($request->group_npi);
-                if (isset($npiResult['valid']) && $npiResult['valid']) {
-                    $facility->update(['npi_verified_at' => now()]);
+                try {
+                    $npiResult = $this->npiService->verifyNPI($request->group_npi);
+                    if (is_array($npiResult) && isset($npiResult['valid']) && $npiResult['valid']) {
+                        $facility->update(['npi_verified_at' => now()]);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('NPI verification failed', [
+                        'npi' => $request->group_npi,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
 
-            // Use the new method from OnboardingService
-            $this->onboardingService->initiateFacilityOnboarding($facility);
-
-            $this->onboardingService->updateOnboardingProgress(
-                Organization::class,
-                $organizationId,
-                'add_facilities',
-                true
-            );
+            // Initiate facility onboarding with validation
+            try {
+                $onboardingResult = $this->onboardingService->initiateFacilityOnboarding($facility);
+                
+                if (is_array($onboardingResult) && isset($onboardingResult['success']) && $onboardingResult['success']) {
+                    $this->onboardingService->updateOnboardingProgress(
+                        Organization::class,
+                        $organizationId,
+                        'add_facilities',
+                        true
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to initiate facility onboarding', [
+                    'facility_id' => $facility->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
 
             DB::commit();
 
+            // Load address relationship for response
+            $facility->load('address');
+
             return response()->json([
-                'facility' => $facility->load('address'),
+                'facility' => $facility,
                 'message' => 'Facility added successfully'
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
+            Log::error('Failed to add facility', [
+                'organization_id' => $organizationId,
+                'error' => $e->getMessage()
+            ]);
+            
             return response()->json([
                 'error' => 'Failed to add facility',
                 'message' => $e->getMessage()
@@ -231,106 +277,172 @@ class CustomerManagementController extends Controller
      */
     public function inviteProviders(InviteProvidersRequest $request, $organizationId): JsonResponse
     {
-        $organization = Organization::find($organizationId);
-        if (!$organization) {
-            return response()->json(['error' => 'Organization not found'], 404);
-        }
+        $organization = Organization::findOrFail($organizationId);
 
-        $results = $this->onboardingService->inviteProviders(
-            $request->validated()['providers'], // Get validated providers array
-            $organizationId,
-            auth()->id()
-        );
-
-        if ($results['sent'] > 0) {
-            $this->onboardingService->updateOnboardingProgress(
-                Organization::class, // Use class name
+        try {
+            $results = $this->onboardingService->inviteProviders(
+                $request->validated()['providers'],
                 $organizationId,
-                'invite_providers',
-                true
+                Auth::id()
             );
-        }
 
-        return response()->json([
-            'results' => $results,
-            'message' => "{$results['sent']} invitations sent, {$results['failed']} failed."
-        ]);
+            // Validate service response
+            if (!is_array($results) || !isset($results['sent'], $results['failed'])) {
+                Log::error('Invalid invite providers response', ['results' => $results]);
+                throw new \Exception('Invalid response from invite service');
+            }
+
+            if ($results['sent'] > 0) {
+                $this->onboardingService->updateOnboardingProgress(
+                    Organization::class,
+                    $organizationId,
+                    'invite_providers',
+                    true
+                );
+            }
+
+            return response()->json([
+                'results' => $results,
+                'message' => "{$results['sent']} invitations sent, {$results['failed']} failed."
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to invite providers', [
+                'organization_id' => $organizationId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to invite providers',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
-    // ... other methods from the markdown would go here ...
-    // getProviders, assignProviderToFacility, getFacilityCoverageReport, getComplianceReport, uploadDocument, getOnboardingStatus
-    // These will require CustomerManagementService to be fleshed out and potentially other models/resources.
-
     /**
-     * Upload onboarding document
+     * Upload onboarding document with enhanced security
      */
-    public function uploadDocument(Request $request): JsonResponse
+    public function uploadDocument(UploadDocumentRequest $request): JsonResponse
     {
-        $request->validate([
-            'entity_type' => 'required|string|in:organization,facility,user', // Match morph map keys or specific model names
-            'entity_id' => 'required', // ID can be int or uuid depending on model
-            'document_type' => 'required|string',
-            'document' => 'required|file|max:10240' // 10MB max
-        ]);
-
         $entityTypeClass = match ($request->entity_type) {
             'organization' => Organization::class,
             'facility' => Facility::class,
             'user' => User::class,
-            default => null,
+            default => throw new ValidationException('Invalid entity type specified.'),
         };
 
-        if (!$entityTypeClass) {
-            return response()->json(['error' => 'Invalid entity type specified.'], 400);
-        }
+        // Validate entity exists
+        $entity = $entityTypeClass::findOrFail($request->entity_id);
 
-        // Validate entity_id exists for the given type
-        $entity = $entityTypeClass::find($request->entity_id);
-        if (!$entity) {
-             return response()->json(['error' => 'Entity not found for the given ID and type.'], 404);
-        }
-
-        $file = $request->file('document');
-        // Example storage path, customize as needed, e.g., using S3
-        $path = $file->store('onboarding-documents/' . $request->entity_type, 'public');
-
-        // Create onboarding document record - Assuming OnboardingDocument model will be created
-        // DB::table('onboarding_documents')->insert([...]) from markdown is okay, but Eloquent model is better
-        // OnboardingDocument::create([...]);
-
-        // Placeholder for OnboardingDocument model creation
-        $documentId = Str::uuid();
-        DB::table('onboarding_documents')->insert([
-            'id' => $documentId,
-            'entity_id' => $request->entity_id,
-            'entity_type' => $entityTypeClass, // Store FQCN for morphs
-            'document_type' => $request->document_type,
-            'document_name' => $file->getClientOriginalName(),
-            'file_path' => $path,
-            'file_size' => $file->getSize(),
-            'mime_type' => $file->getMimeType(),
-            'status' => 'uploaded',
-            'uploaded_by' => auth()->id(), // Placeholder for user ID relation
-            'created_at' => now(),
-            'updated_at' => now()
-        ]);
-
-
-        $checklistItemKey = $this->onboardingService->mapDocumentTypeToChecklistItem($request->document_type);
-        if ($checklistItemKey) {
-            $this->onboardingService->updateOnboardingProgress(
-                $entityTypeClass,
-                $request->entity_id,
-                $checklistItemKey,
-                true
+        DB::beginTransaction();
+        try {
+            $file = $request->file('document');
+            
+            // Generate secure filename and path
+            $secureFilename = $this->generateSecureFilename($file);
+            $storagePath = $this->getDocumentStoragePath($request->entity_type, $request->entity_id);
+            
+            // Store in Supabase S3 (private access by default)
+            $path = Storage::disk('supabase')->putFileAs(
+                $storagePath,
+                $file,
+                $secureFilename
             );
-        }
 
-        return response()->json([
-            'message' => 'Document uploaded successfully',
-            'path' => $path,
-            'document_id' => $documentId
-        ], 201);
+            if (!$path) {
+                throw new \Exception('Failed to store file in Supabase storage');
+            }
+
+            // Use Eloquent model instead of raw DB query
+            $document = OnboardingDocument::create([
+                'entity_id' => $request->entity_id,
+                'entity_type' => $entityTypeClass,
+                'document_type' => $request->document_type,
+                'document_name' => $file->getClientOriginalName(),
+                'file_path' => $path,
+                'file_size' => $file->getSize(),
+                'mime_type' => $file->getMimeType(),
+                'status' => 'uploaded',
+                'uploaded_by' => Auth::id(),
+            ]);
+
+            // Update onboarding progress with validation
+            try {
+                $checklistItemKey = $this->onboardingService->mapDocumentTypeToChecklistItem($request->document_type);
+                if ($checklistItemKey) {
+                    $this->onboardingService->updateOnboardingProgress(
+                        $entityTypeClass,
+                        $request->entity_id,
+                        $checklistItemKey,
+                        true
+                    );
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to update onboarding progress after document upload', [
+                    'document_id' => $document->id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            DB::commit();
+
+            Log::info('Document uploaded successfully to Supabase S3', [
+                'document_id' => $document->id,
+                'entity_type' => $request->entity_type,
+                'entity_id' => $request->entity_id,
+                'uploaded_by' => Auth::id(),
+                'file_path' => $path
+            ]);
+
+            return response()->json([
+                'message' => 'Document uploaded successfully',
+                'document_id' => $document->id,
+                'document_name' => $document->document_name
+            ], 201);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            // Clean up file if it was stored but database operation failed
+            if (isset($path) && Storage::disk('supabase')->exists($path)) {
+                Storage::disk('supabase')->delete($path);
+            }
+            
+            Log::error('Failed to upload document to Supabase S3', [
+                'entity_type' => $request->entity_type,
+                'entity_id' => $request->entity_id,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to upload document',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate a secure filename for uploaded documents
+     */
+    private function generateSecureFilename($file): string
+    {
+        $extension = $file->getClientOriginalExtension();
+        $timestamp = time();
+        $randomString = substr(md5(uniqid(rand(), true)), 0, 8);
+        
+        // Clean original filename for logging purposes
+        $cleanOriginalName = preg_replace('/[^a-zA-Z0-9_-]/', '_', 
+            pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
+        );
+        
+        return "{$timestamp}_{$randomString}_{$cleanOriginalName}.{$extension}";
+    }
+
+    /**
+     * Get the storage path for documents
+     */
+    private function getDocumentStoragePath(string $entityType, string $entityId): string
+    {
+        return "onboarding-documents/{$entityType}/{$entityId}";
     }
 
     /**
@@ -338,17 +450,28 @@ class CustomerManagementController extends Controller
      */
     public function getOnboardingStatus($organizationId): JsonResponse
     {
-        $organization = Organization::find($organizationId);
-         if (!$organization) {
-            return response()->json(['error' => 'Organization not found'], 404);
+        $organization = Organization::findOrFail($organizationId);
+        
+        try {
+            $dashboard = $this->onboardingService->getOnboardingDashboard($organizationId);
+            
+            // Validate service response
+            if (!is_array($dashboard)) {
+                Log::error('Invalid onboarding dashboard response', ['organizationId' => $organizationId]);
+                throw new \Exception('Invalid response from onboarding service');
+            }
+            
+            return response()->json($dashboard);
+        } catch (\Exception $e) {
+            Log::error('Failed to get onboarding status', [
+                'organization_id' => $organizationId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to retrieve onboarding status',
+                'message' => $e->getMessage()
+            ], 500);
         }
-        $dashboard = $this->onboardingService->getOnboardingDashboard($organizationId);
-        return response()->json($dashboard);
     }
-
-    // Placeholder for createPrimaryContact, if needed as a separate method
-    // private function createPrimaryContact(Organization $organization, array $contactData) {}
-
-    // Placeholder for other methods from markdown like getProviders, assignProviderToFacility etc.
-    // These will heavily depend on CustomerManagementService and other models.
 }

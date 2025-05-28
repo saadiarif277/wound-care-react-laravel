@@ -195,6 +195,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           href: '/providers',
           icon: FiUsers,
           roles: ['office-manager']
+        },
+        {
+          name: 'Facility Management',
+          href: '/facilities',
+          icon: FiMapPin,
+          roles: ['office-manager'],
+          description: 'Manage facilities'
         }
       ];
 
@@ -345,6 +352,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/engines/commission',
               icon: FiDollarSign,
               roles: ['msc-admin']
+            }
+          ]
+        },
+        {
+          name: 'Customer Management',
+          href: '#',
+          icon: FiUsers,
+          roles: ['msc-admin'],
+          children: [
+            {
+              name: 'Customer Dashboard',
+              href: '/admin/customers',
+              icon: FiBarChart,
+              roles: ['msc-admin'],
+              description: 'Manage customer organizations and onboarding'
+            },
+            {
+              name: 'Create Organization',
+              href: '/admin/customers/organizations/create',
+              icon: FiPlus,
+              roles: ['msc-admin'],
+              description: 'Add new customer organizations'
             }
           ]
         },
