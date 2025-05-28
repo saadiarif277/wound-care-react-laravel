@@ -23,7 +23,7 @@ class UserSeeder extends Seeder
         // Create users with their roles
         $users = [
             [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'account_id' => $accountId,
                 'first_name' => 'Admin',
                 'last_name' => 'User',
@@ -34,7 +34,7 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'account_id' => $accountId,
                 'first_name' => 'John',
                 'last_name' => 'Smith',
@@ -45,7 +45,7 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'account_id' => $accountId,
                 'first_name' => 'Jane',
                 'last_name' => 'Manager',
@@ -56,7 +56,7 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'account_id' => $accountId,
                 'first_name' => 'Bob',
                 'last_name' => 'Sales',
@@ -67,7 +67,7 @@ class UserSeeder extends Seeder
                 'updated_at' => now(),
             ],
             [
-                'id' => (string) \Illuminate\Support\Str::uuid(),
+                'id' => (string) Str::uuid(),
                 'account_id' => $accountId,
                 'first_name' => 'Alice',
                 'last_name' => 'SubRep',
@@ -99,7 +99,7 @@ class UserSeeder extends Seeder
 
             if ($role && $user) {
                 DB::table('user_role')->insert([
-                    'id' => (string) \Illuminate\Support\Str::uuid(),
+                    'id' => (string) Str::uuid(),
                     'user_id' => $user->id,
                     'role_id' => $role->id,
                     'created_at' => now(),

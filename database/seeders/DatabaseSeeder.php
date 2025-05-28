@@ -403,8 +403,9 @@ class DatabaseSeeder extends Seeder
             ],
         ];
 
+        $facilityIds = [];
         foreach ($facilities as $facility) {
-            DB::table('facilities')->insert($facility);
+            $facilityIds[] = DB::table('facilities')->insertGetId($facility);
         }
 
         // 10. Create sales reps

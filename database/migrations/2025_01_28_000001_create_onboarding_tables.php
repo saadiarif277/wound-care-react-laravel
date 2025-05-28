@@ -11,7 +11,7 @@ return new class extends Migration
         // Organization onboarding tracking
         Schema::create('organization_onboarding', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->unsignedInteger('organization_id')->unique();
+            $table->unsignedBigInteger('organization_id')->unique();
             $table->enum('status', [
                 'initiated',
                 'basic_info_complete',
@@ -24,7 +24,7 @@ return new class extends Migration
             ])->default('initiated');
             $table->json('completed_steps')->default('[]');
             $table->json('pending_items')->default('[]');
-            $table->unsignedInteger('onboarding_manager_id')->nullable();
+            $table->unsignedBigInteger('onboarding_manager_id')->nullable();
             $table->timestamp('initiated_at');
             $table->timestamp('target_go_live_date')->nullable();
             $table->timestamp('actual_go_live_date')->nullable();
@@ -37,56 +37,23 @@ return new class extends Migration
             $table->index('status');
         });
 
-        // Provider invitations and onboarding
-        Schema::create('provider_invitations', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->string('email');
-            $table->string('first_name');
-            $table->string('last_name');
-            $table->string('invitation_token')->unique();
-            $table->unsignedInteger('organization_id');
-            $table->unsignedInteger('invited_by_user_id');
-            $table->json('assigned_facilities')->default('[]');
-            $table->json('assigned_roles')->default('[]');
-            $table->enum('status', [
-                'pending',
-                'sent',
-                'opened',
-                'accepted',
-                'expired',
-                'cancelled'
-            ])->default('pending');
-            $table->timestamp('sent_at')->nullable();
-            $table->timestamp('opened_at')->nullable();
-            $table->timestamp('accepted_at')->nullable();
-            $table->timestamp('expires_at');
-            $table->unsignedInteger('created_user_id')->nullable();
-            $table->timestamps();
-
-            $table->foreign('organization_id')->references('id')->on('organizations')->onDelete('cascade');
-            $table->foreign('invited_by_user_id')->references('id')->on('users')->onDelete('cascade');
-            $table->foreign('created_user_id')->references('id')->on('users')->onDelete('set null');
-
-            $table->index(['email', 'organization_id']);
-            $table->index('invitation_token');
-            $table->index('status');
-        });
-
         // Onboarding checklists
-        Schema::create('onboarding_checklists', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->morphs('entity'); // Can be used for organizations, facilities, or providers
-            $table->string('checklist_type'); // 'organization', 'facility', 'provider'
-            $table->json('items')->comment('Array of checklist items with status');
-            $table->integer('total_items')->default(0);
-            $table->integer('completed_items')->default(0);
-            $table->decimal('completion_percentage', 5, 2)->default(0);
-            $table->timestamp('last_activity_at')->nullable();
-            $table->timestamps();
+        if (!Schema::hasTable('onboarding_checklists')) {
+            Schema::create('onboarding_checklists', function (Blueprint $table) {
+                $table->uuid('id')->primary();
+                $table->morphs('entity'); // Can be used for organizations, facilities, or providers
+                $table->string('checklist_type'); // 'organization', 'facility', 'provider'
+                $table->json('items')->comment('Array of checklist items with status');
+                $table->integer('total_items')->default(0);
+                $table->integer('completed_items')->default(0);
+                $table->decimal('completion_percentage', 5, 2)->default(0);
+                $table->timestamp('last_activity_at')->nullable();
+                $table->timestamps();
 
-            $table->index(['entity_type', 'entity_id']);
-            $table->index('checklist_type');
-        });
+                $table->index(['entity_type', 'entity_id']);
+                $table->index('checklist_type');
+            });
+        }
 
         // Onboarding documents
         Schema::create('onboarding_documents', function (Blueprint $table) {
@@ -104,8 +71,8 @@ return new class extends Migration
                 'rejected',
                 'expired'
             ])->default('uploaded');
-            $table->unsignedInteger('uploaded_by');
-            $table->unsignedInteger('reviewed_by')->nullable();
+            $table->unsignedBigInteger('uploaded_by');
+            $table->unsignedBigInteger('reviewed_by')->nullable();
             $table->timestamp('reviewed_at')->nullable();
             $table->text('review_notes')->nullable();
             $table->date('expiration_date')->nullable();
@@ -124,7 +91,6 @@ return new class extends Migration
     {
         Schema::dropIfExists('onboarding_documents');
         Schema::dropIfExists('onboarding_checklists');
-        Schema::dropIfExists('provider_invitations');
         Schema::dropIfExists('organization_onboarding');
     }
 };

@@ -35,7 +35,8 @@ import {
   FiBriefcase,
   FiAward,
   FiCalendar,
-  FiGlobe
+  FiGlobe,
+  FiMail
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
 
@@ -444,6 +445,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['msc-admin']
             },
             {
+              name: 'Provider Invitations',
+              href: '/admin/provider-invitations',
+              icon: FiMail,
+              roles: ['msc-admin'],
+              description: 'Manage provider invitation workflow'
+            },
+            {
               name: 'Sub-Rep Approval Queue',
               href: '/subrep-approvals',
               icon: FiUserPlus,
@@ -580,6 +588,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/rbac',
               icon: FiLock,
               roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Provider Invitations',
+              href: '/admin/provider-invitations',
+              icon: FiMail,
+              roles: ['super-admin', 'superadmin'],
+              description: 'Manage provider invitation workflow'
             },
             {
               name: 'All Users',

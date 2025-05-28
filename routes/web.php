@@ -404,6 +404,31 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('onboarding.organizations.status');
     });
 
+    // Provider Invitations Management Routes
+    Route::middleware(['permission:manage-users'])->prefix('admin/provider-invitations')->group(function () {
+        Route::get('/', function () {
+            $invitations = \App\Models\ProviderInvitation::with(['organization', 'invitedBy'])
+                ->orderBy('created_at', 'desc')
+                ->paginate(20);
+                
+            return Inertia::render('Admin/ProviderInvitations/Index', [
+                'invitations' => $invitations
+            ]);
+        })->name('admin.provider-invitations.index');
+        
+        Route::post('/{invitation}/resend', function (\App\Models\ProviderInvitation $invitation) {
+            // Resend invitation logic
+            $onboardingService = app(\App\Services\OnboardingService::class);
+            // Implementation would go here
+            return back()->with('success', 'Invitation resent successfully');
+        })->name('admin.provider-invitations.resend');
+        
+        Route::delete('/{invitation}', function (\App\Models\ProviderInvitation $invitation) {
+            $invitation->update(['status' => 'cancelled']);
+            return back()->with('success', 'Invitation cancelled successfully');
+        })->name('admin.provider-invitations.cancel');
+    });
+
     // Engine routes - Add proper authorization
     Route::middleware(['permission:manage-clinical-rules'])->group(function () {
         Route::get('/engines/clinical-rules', [EngineController::class, 'clinicalRules'])

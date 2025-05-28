@@ -10,11 +10,7 @@ class ProviderInvitation extends Model
 {
     use HasFactory;
 
-    public $incrementing = false;
-    protected $keyType = 'string';
-
     protected $fillable = [
-        'id',
         'email',
         'first_name',
         'last_name',
@@ -32,8 +28,8 @@ class ProviderInvitation extends Model
     ];
 
     protected $casts = [
-        'assigned_facilities' => 'json',
-        'assigned_roles' => 'json',
+        'assigned_facilities' => 'array',
+        'assigned_roles' => 'array',
         'sent_at' => 'datetime',
         'opened_at' => 'datetime',
         'accepted_at' => 'datetime',
@@ -43,9 +39,10 @@ class ProviderInvitation extends Model
     protected static function boot()
     {
         parent::boot();
+        
         static::creating(function ($model) {
-            if (empty($model->{$model->getKeyName()})) {
-                $model->{$model->getKeyName()} = (string) Str::uuid();
+            if (empty($model->invitation_token)) {
+                $model->invitation_token = bin2hex(random_bytes(32));
             }
         });
     }
@@ -53,6 +50,11 @@ class ProviderInvitation extends Model
     public function organization()
     {
         return $this->belongsTo(Organization::class, 'organization_id');
+    }
+
+    public function invitedBy()
+    {
+        return $this->belongsTo(User::class, 'invited_by_user_id');
     }
 
     public function invitedByUser()
@@ -63,5 +65,29 @@ class ProviderInvitation extends Model
     public function createdUser()
     {
         return $this->belongsTo(User::class, 'created_user_id');
+    }
+
+    /**
+     * Check if the invitation is expired
+     */
+    public function isExpired(): bool
+    {
+        return $this->expires_at && $this->expires_at->isPast();
+    }
+
+    /**
+     * Check if the invitation is active (sent but not expired)
+     */
+    public function isActive(): bool
+    {
+        return $this->status === 'sent' && !$this->isExpired();
+    }
+
+    /**
+     * Generate a secure invitation URL
+     */
+    public function getInvitationUrl(): string
+    {
+        return route('auth.provider-invitation.show', ['token' => $this->invitation_token]);
     }
 }
