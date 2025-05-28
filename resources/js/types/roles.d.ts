@@ -23,6 +23,8 @@ export interface RoleRestrictions {
   can_see_discounts: boolean;
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
+  pricing_access_level: string;
+  commission_access_level: string;
   can_view_phi: boolean;
   is_super_admin: boolean;
   is_msc_admin: boolean;

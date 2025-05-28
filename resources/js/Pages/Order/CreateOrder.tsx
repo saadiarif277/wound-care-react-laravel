@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 import Select from 'react-select/async';
 import { components } from 'react-select';
+import ProductSelectorForOrder from '@/Components/ProductCatalog/ProductSelectorForOrder';
 
 // Types
 interface Rep {

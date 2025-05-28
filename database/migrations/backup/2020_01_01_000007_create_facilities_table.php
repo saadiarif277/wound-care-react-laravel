@@ -9,8 +9,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('facilities', function (Blueprint $table) {
-            $table->uuid('id')->primary();
-            $table->uuid('organization_id');
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('organization_id');
             $table->string('name');
             $table->string('facility_type'); // clinic, hospital, etc.
             $table->string('address');
