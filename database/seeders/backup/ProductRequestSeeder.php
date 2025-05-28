@@ -4,10 +4,10 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\ProductRequest;
-use App\Models\Product;
+use App\Models\Order\ProductRequest;
+use App\Models\Order\Product;
 use App\Models\User;
-use App\Models\Facility;
+use App\Models\Fhir\Facility;
 use Carbon\Carbon;
 use Illuminate\Support\Str;
 

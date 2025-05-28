@@ -2,7 +2,7 @@
 
 namespace App\Services\ProductRecommendationEngine;
 
-use App\Models\ProductRequest;
+use App\Models\Order\ProductRequest;
 use App\Services\PatientService;
 use Illuminate\Support\Facades\Log;
 
