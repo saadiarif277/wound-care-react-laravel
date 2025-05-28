@@ -22,9 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
 
         // Register role-based financial access control middleware
         $middleware->alias([
+            'auth' => \Illuminate\Auth\Middleware\Authenticate::class,
             'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'role' => \App\Http\Middleware\CheckRole::class,
+            'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
         ]);
 
         $middleware->throttleApi();

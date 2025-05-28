@@ -556,36 +556,72 @@ if (user.role === 'admin') { // Don't do this
 *Fixed critical security vulnerability in provider invitation flow where form steps could be bypassed without validation*
 
 **Security Issues Fixed:**
-- [x] **Form Step Bypass Prevention** - Added comprehensive validation in `handleAccountSetup()` function to prevent advancing to credentials step without required field validation
-- [x] **Required Field Validation** - Implemented client-side validation for all required fields: first name, last name, password, password confirmation
-- [x] **Password Security** - Added minimum 8-character password requirement and password confirmation matching validation
-- [x] **Terms Acceptance Validation** - Added required validation for terms of service acceptance before final registration
-- [x] **Real-Time Error Clearing** - Implemented user-friendly error clearing when users start typing to improve UX
+- [x] **Form Step Bypass Prevention** - Added comprehensive validation in `handleAccountSetup()` function
+- [x] **Credentials Form Validation** - Added validation for terms acceptance and NPI format
+- [x] **Field-Level Error Handling** - Individual field validation with real-time error clearing
+- [x] **Frontend UX Improvements** - Enhanced error display and user feedback
 
-**Validation Features Implemented:**
-- [x] **Setup Step Validation** - Complete validation for personal information and account creation fields
-- [x] **Credentials Step Validation** - Added validation for terms acceptance and optional NPI number format validation
-- [x] **Progressive Error Display** - Visual error indicators with red borders and clear error messages
-- [x] **Input Format Validation** - Phone number format validation and NPI number format validation (10 digits)
-- [x] **User Experience Enhancement** - Error messages clear automatically when users begin typing corrections
+**Validation Rules Added:**
+- Required fields: first_name, last_name, password, password_confirmation
+- Password strength: minimum 8 characters, matching confirmation
+- Phone format validation with regex pattern
+- NPI number format validation (10 digits)
+- Terms acceptance requirement
 
-**Technical Implementation:**
-- [x] **State Management** - Added `setupValidationErrors` and `credentialsValidationErrors` state for step-specific validation
-- [x] **Validation Functions** - Created `validateSetupForm()` and `validateCredentialsForm()` with comprehensive field checks
-- [x] **Error Handling** - Implemented `clearFieldValidationError()` and `clearCredentialsFieldError()` for better UX
-- [x] **Field Change Handler** - Updated `handleFieldChange()` to clear validation errors on user input
-- [x] **Form Step Protection** - Both `handleAccountSetup()` and `handleCompleteRegistration()` now require successful validation
+### 5. UserResource API Compatibility Fix ✅ COMPLETED
+*Fixed breaking changes in UserResource.php that were causing frontend failures by re-adding missing fields*
 
-**Security Validation Rules:**
-- [x] **Required Fields**: First name, last name, password, password confirmation must be filled
-- [x] **Password Strength**: Minimum 8 characters required for security
-- [x] **Password Matching**: Confirmation field must match original password
-- [x] **Terms Acceptance**: Users must explicitly accept terms before completing registration
-- [x] **Optional Field Validation**: Phone number and NPI format validation when provided
-- [x] **Input Sanitization**: All inputs validated and sanitized before processing
+**API Issues Fixed:**
+- [x] **Missing Name Field** - Re-added `name` field using User model accessor
+- [x] **Missing Owner Field** - Re-added `owner` boolean field for role identification
+- [x] **Missing Photo Field** - Re-added `photo` field with proper image URL generation
+- [x] **Missing Deleted At Field** - Re-added `deleted_at` timestamp for soft delete handling
+- [x] **Missing Account Relationship** - Re-added `account` object with conditional loading
 
-**Code Quality Improvements:**
-- [x] **Separation of Concerns** - Validation logic separated into dedicated functions for maintainability
-- [x] **Error State Management** - Clean state management for different validation contexts
-- [x] **User Experience** - Progressive error clearing and visual feedback for validation states
-- [x] **Accessibility** - Proper error messaging and form field associations for screen readers
+**Frontend Compatibility Restored:**
+- User management interfaces (Index, Edit) now work correctly
+- Photo display functionality restored
+- Role-based UI elements properly rendered
+- Soft delete indicators working
+- TypeScript interfaces match API responses
+
+**Security & Performance:**
+- Conditional relationship loading using `whenLoaded()`
+- Secure photo URL generation via image route
+- Proper ARIA attributes for accessibility
+- Maintained data integrity and validation
+
+### 6. CreateOrganizationRequest RBAC Compliance Fix ✅ COMPLETED
+*Fixed hardcoded role check in authorization by replacing it with permission-based approach*
+
+**Security Issues Fixed:**
+- [x] **Hardcoded Role Dependencies** - Removed hardcoded 'admin' role reference that didn't exist
+- [x] **Permission-Based Authorization** - Implemented 'manage-customers' permission check instead
+- [x] **Auth Facade Usage** - Used proper Auth facade instead of auth() helper for consistency
+- [x] **RBAC Compliance** - Aligned with project's permission-based security model
+
+**Security Benefits:**
+- Role-agnostic authorization based on capabilities
+- Future-proof against role name changes
+- Consistent with other controllers' authorization patterns
+- Proper separation of authentication and authorization concerns
+
+### 7. TeamController Authentication & Authorization Security Fix ✅ COMPLETED  
+*Added missing authentication and authorization middleware to protect sensitive team data*
+
+**Security Issues Fixed:**
+- [x] **Missing Authentication** - Added 'auth' middleware to require user login
+- [x] **Missing Authorization** - Added 'permission:view-team' middleware for access control
+- [x] **Unprotected Endpoints** - Both index() and show() methods now properly secured
+- [x] **Consistent Security Model** - Aligned with project's RBAC permission system
+
+**Security Implementation:**
+- Constructor middleware: `['auth', 'permission:view-team']`
+- Uses existing 'view-team' permission from RBAC seed data
+- Protects against unauthorized access to team member information
+- Maintains consistency with other protected controllers
+
+**Permission Structure:**
+- Required permission: `view-team` (View team members)
+- Available to roles: `msc-rep` (MSC Sales Rep with team management)
+- Falls back to 403 Forbidden for unauthorized users

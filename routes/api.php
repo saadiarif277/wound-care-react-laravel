@@ -110,12 +110,6 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     });
 });
 
-// Simple MAC Validation routes for frontend (outside the v1 group for simpler paths)
-Route::middleware(['web', 'auth'])->prefix('mac-validation')->group(function () {
-    Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('mac_validation.quick_check');
-    Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('mac_validation.thorough_validate');
-});
-
 // Eligibility & Pre-Authorization Routes
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     // Order-specific eligibility routes

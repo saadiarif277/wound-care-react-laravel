@@ -107,7 +107,7 @@ class CustomerManagementController extends Controller
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to create organization',
                 'message' => $e->getMessage()
@@ -125,7 +125,7 @@ class CustomerManagementController extends Controller
             'facilities.providers' => function($query) {
                 $query->select(['id', 'facility_id', 'name', 'status', 'email']);
             },
-            'facilities.address',
+            'facilities.primaryAddress',
             'salesRep'
         ])->find($organizationId);
 
@@ -136,7 +136,7 @@ class CustomerManagementController extends Controller
         // Get onboarding dashboard with validation
         try {
             $onboarding = $this->onboardingService->getOnboardingDashboard($organizationId);
-            
+
             // Validate service response
             if (!is_array($onboarding)) {
                 Log::error('Invalid onboarding dashboard response', ['organizationId' => $organizationId]);
@@ -153,7 +153,7 @@ class CustomerManagementController extends Controller
         // Calculate counts more efficiently using collection methods
         $facilitiesCollection = $organization->facilities;
         $totalProviders = $facilitiesCollection->sum(fn($facility) => $facility->providers->count());
-        $activeProviders = $facilitiesCollection->sum(fn($facility) => 
+        $activeProviders = $facilitiesCollection->sum(fn($facility) =>
             $facility->providers->where('status', 'active')->count()
         );
 
@@ -219,12 +219,26 @@ class CustomerManagementController extends Controller
             if ($request->group_npi && $this->npiService) {
                 try {
                     $npiResult = $this->npiService->verifyNPI($request->group_npi);
-                    if (is_array($npiResult) && isset($npiResult['valid']) && $npiResult['valid']) {
+                    if ($npiResult->valid) {
                         $facility->update(['npi_verified_at' => now()]);
+
+                        Log::info('NPI verification successful', [
+                            'npi' => $request->group_npi,
+                            'facility_id' => $facility->id,
+                            'provider_name' => $npiResult->getPrimaryName(),
+                            'from_cache' => $npiResult->fromCache
+                        ]);
+                    } else {
+                        Log::warning('NPI verification failed', [
+                            'npi' => $request->group_npi,
+                            'facility_id' => $facility->id,
+                            'error' => $npiResult->error
+                        ]);
                     }
                 } catch (\Exception $e) {
-                    Log::warning('NPI verification failed', [
+                    Log::warning('NPI verification failed with exception', [
                         'npi' => $request->group_npi,
+                        'facility_id' => $facility->id,
                         'error' => $e->getMessage()
                     ]);
                 }
@@ -233,7 +247,7 @@ class CustomerManagementController extends Controller
             // Initiate facility onboarding with validation
             try {
                 $this->onboardingService->initiateFacilityOnboarding($facility);
-                
+
                 // If no exception thrown, assume success
                 $this->onboardingService->updateOnboardingProgress(
                     Organization::class,
@@ -251,7 +265,7 @@ class CustomerManagementController extends Controller
             DB::commit();
 
             // Load address relationship for response
-            $facility->load('address');
+            $facility->load('primaryAddress');
 
             return response()->json([
                 'facility' => $facility,
@@ -263,7 +277,7 @@ class CustomerManagementController extends Controller
                 'organization_id' => $organizationId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to add facility',
                 'message' => $e->getMessage()
@@ -309,7 +323,7 @@ class CustomerManagementController extends Controller
                 'organization_id' => $organizationId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to invite providers',
                 'message' => $e->getMessage()
@@ -335,11 +349,11 @@ class CustomerManagementController extends Controller
         DB::beginTransaction();
         try {
             $file = $request->file('document');
-            
+
             // Generate secure filename and path
             $secureFilename = $this->generateSecureFilename($file);
             $storagePath = $this->getDocumentStoragePath($request->entity_type, $request->entity_id);
-            
+
             // Store in Supabase S3 (private access by default)
             $path = Storage::disk('supabase')->putFileAs(
                 $storagePath,
@@ -399,19 +413,19 @@ class CustomerManagementController extends Controller
             ], 201);
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             // Clean up file if it was stored but database operation failed
             if (isset($path) && Storage::disk('supabase')->exists($path)) {
                 Storage::disk('supabase')->delete($path);
             }
-            
+
             Log::error('Failed to upload document to Supabase S3', [
                 'entity_type' => $request->entity_type,
                 'entity_id' => $request->entity_id,
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to upload document',
                 'message' => $e->getMessage()
@@ -427,12 +441,12 @@ class CustomerManagementController extends Controller
         $extension = $file->getClientOriginalExtension();
         $timestamp = time();
         $randomString = substr(md5(uniqid(rand(), true)), 0, 8);
-        
+
         // Clean original filename for logging purposes
-        $cleanOriginalName = preg_replace('/[^a-zA-Z0-9_-]/', '_', 
+        $cleanOriginalName = preg_replace('/[^a-zA-Z0-9_-]/', '_',
             pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
         );
-        
+
         return "{$timestamp}_{$randomString}_{$cleanOriginalName}.{$extension}";
     }
 
@@ -450,23 +464,23 @@ class CustomerManagementController extends Controller
     public function getOnboardingStatus($organizationId): JsonResponse
     {
         $organization = Organization::findOrFail($organizationId);
-        
+
         try {
             $dashboard = $this->onboardingService->getOnboardingDashboard($organizationId);
-            
+
             // Validate service response
             if (!is_array($dashboard)) {
                 Log::error('Invalid onboarding dashboard response', ['organizationId' => $organizationId]);
                 throw new \Exception('Invalid response from onboarding service');
             }
-            
+
             return response()->json($dashboard);
         } catch (\Exception $e) {
             Log::error('Failed to get onboarding status', [
                 'organization_id' => $organizationId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'error' => 'Failed to retrieve onboarding status',
                 'message' => $e->getMessage()

@@ -8,28 +8,27 @@ import { Input } from '@/components/ui/input'; // Assuming Shadcn Input
 import { Label } from '@/components/ui/label';   // Assuming Shadcn Label
 import { Checkbox } from '@/components/ui/checkbox'; // Assuming Shadcn Checkbox
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Assuming Shadcn Alert
+import { CheckCircle2 } from 'lucide-react';
 // For a real form, you'd likely use react-hook-form with Shadcn components
 // import { useForm } from 'react-hook-form';
 
 // Helper to get token from URL query params (alternative to useParams if not using client-side routing for this page)
 const getTokenFromUrl = () => {
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('token');
-  }
-  return null;
+  const urlParams = new URLSearchParams(window.location.search);
+  return urlParams.get('token') || window.location.pathname.split('/').pop();
 };
 
 export function ProviderRegistration() {
   // const { token } = useParams(); // Use if token is a route parameter, e.g., /register/:token
-  const tokenFromUrl = getTokenFromUrl(); // Use if token is a query parameter, e.g., /register?token=...
-  const token = tokenFromUrl; // Decide which token source to use
+  const token = getTokenFromUrl(); // Use if token is a query parameter, e.g., /register?token=...
 
   const [invitationDetails, setInvitationDetails] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [registrationError, setRegistrationError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(false);
+  const [successData, setSuccessData] = useState(null);
 
   // Form state - simple state for now, ideally use react-hook-form
   const [formData, setFormData] = useState({
@@ -131,9 +130,8 @@ export function ProviderRegistration() {
       }
 
       // Handle successful registration
-      // e.g., redirect to login, show success message, or automatically log in if token is returned
-      alert('Registration successful! User: ' + data.user?.email); // Placeholder
-      // Potentially: window.location.href = '/login';
+      setSuccessData(data);
+      setRegistrationSuccess(true);
 
     } catch (err) {
       setRegistrationError(err.message || 'An unexpected error occurred during registration.');
@@ -153,6 +151,57 @@ export function ProviderRegistration() {
           <AlertTitle>Error</AlertTitle>
           <AlertDescription>{error || 'Could not load invitation details.'}</AlertDescription>
         </Alert>
+      </div>
+    );
+  }
+
+  // Show success screen after successful registration
+  if (registrationSuccess) {
+    return (
+      <div className="max-w-2xl mx-auto p-6 my-10">
+        <Card>
+          <CardContent className="p-8 text-center">
+            <div className="flex justify-center mb-6">
+              <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle2 className="w-8 h-8 text-green-600" />
+              </div>
+            </div>
+            
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">
+              Registration Successful!
+            </h1>
+            
+            <p className="text-gray-600 mb-6">
+              Welcome, {successData?.user?.first_name}! Your account has been created successfully.
+            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <h3 className="text-sm font-medium text-blue-800 mb-2">What's Next?</h3>
+              <ul className="text-sm text-blue-700 space-y-1 text-left">
+                <li>• Your account is now active and ready to use</li>
+                <li>• You can log in using your email: {successData?.user?.email}</li>
+                <li>• Complete your profile setup in the dashboard</li>
+                <li>• Start collaborating with {invitationDetails?.organization_name}</li>
+              </ul>
+            </div>
+
+            <div className="space-y-3">
+              <Button 
+                onClick={() => window.location.href = '/login'} 
+                className="w-full"
+              >
+                Continue to Login
+              </Button>
+              <Button 
+                variant="secondary" 
+                onClick={() => window.location.href = '/'}
+                className="w-full"
+              >
+                Go to Homepage
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
