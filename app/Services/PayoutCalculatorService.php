@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\CommissionRecord;
-use App\Models\CommissionPayout;
+use App\Models\Commissions\CommissionRecord;
+use App\Models\Commissions\CommissionPayout;
 use App\Models\MscSalesRep;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;

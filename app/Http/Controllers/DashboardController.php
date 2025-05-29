@@ -5,7 +5,7 @@ namespace App\Http\Controllers;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Auth;
-use App\Models\ProductRequest;
+use App\Models\Order\ProductRequest;
 use App\Models\Order;
 use App\Models\User;
 

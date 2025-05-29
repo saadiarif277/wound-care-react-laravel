@@ -47,7 +47,14 @@ class EcwFhirService
             : config('services.ecw.sandbox_endpoint');
 
         if (!$this->baseEndpoint) {
-            throw new \InvalidArgumentException('eCW FHIR endpoint not configured');
+            // Only throw error if eCW service is actually being used
+            // This allows the application to start without eCW configuration
+            Log::warning('eCW FHIR endpoint not configured', [
+                'environment' => $this->environment,
+                'production_endpoint' => config('services.ecw.production_endpoint'),
+                'sandbox_endpoint' => config('services.ecw.sandbox_endpoint')
+            ]);
+            return; // Allow constructor to complete without error
         }
 
         // Validate endpoint format
@@ -64,6 +71,10 @@ class EcwFhirService
      */
     public function getAuthorizationUrl(string $state): string
     {
+        if (!$this->baseEndpoint) {
+            throw new \InvalidArgumentException('eCW FHIR endpoint not configured');
+        }
+
         $params = [
             'response_type' => 'code',
             'client_id' => $this->clientId,

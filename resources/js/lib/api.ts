@@ -556,3 +556,713 @@ export const generateSlug = (name: string): string => {
         .replace(/-+/g, '-')
         .trim();
 };
+
+export const api = {
+    // Orders API
+    orders: {
+        async getAll(params?: {
+            search?: string;
+            status?: string;
+            date_from?: string;
+            date_to?: string;
+            sales_rep_id?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/orders${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getAnalytics(params?: {
+            date_from?: string;
+            date_to?: string;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/orders/analytics${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async create(orderData: any): Promise<any> {
+            const response = await apiPost('/api/orders', orderData);
+            return handleApiResponse(response);
+        },
+
+        async update(orderId: string, orderData: any): Promise<any> {
+            const response = await apiPut(`/api/orders/${orderId}`, orderData);
+            return handleApiResponse(response);
+        },
+
+        async approve(orderId: string, data: any): Promise<any> {
+            const response = await apiPost(`/api/orders/${orderId}/approve`, data);
+            return handleApiResponse(response);
+        },
+
+        async reject(orderId: string, data: any): Promise<any> {
+            const response = await apiPost(`/api/orders/${orderId}/reject`, data);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Eligibility API
+    eligibility: {
+        async checkEligibility(data: {
+            patient: {
+                first_name: string;
+                last_name: string;
+                date_of_birth: string;
+                gender: string;
+                member_id: string;
+            };
+            payer: {
+                name: string;
+                id: string;
+                insurance_type: string;
+            };
+            service_date: string;
+            service_codes: Array<{ code: string; type: string }>;
+        }): Promise<any> {
+            const response = await apiPost('/api/v1/eligibility/check', data);
+            return handleApiResponse(response);
+        },
+
+        async getHistory(): Promise<any[]> {
+            const response = await apiGet('/api/v1/eligibility/history');
+            return handleApiResponse(response);
+        },
+
+        async getSummary(): Promise<any> {
+            const response = await apiGet('/api/v1/eligibility/summary');
+            return handleApiResponse(response);
+        }
+    },
+
+    // Medicare MAC Validation API
+    medicareValidation: {
+        async quickCheck(data: {
+            patient_zip: string;
+            service_codes: string[];
+            wound_type: string;
+            service_date: string;
+        }): Promise<any> {
+            const response = await apiPost('/api/v1/medicare-validation/quick-check', data);
+            return handleApiResponse(response);
+        },
+
+        async thoroughValidate(data: any): Promise<any> {
+            const response = await apiPost('/api/v1/medicare-validation/thorough-validate', data);
+            return handleApiResponse(response);
+        },
+
+        async getDashboard(): Promise<any> {
+            const response = await apiGet('/api/v1/medicare-validation/dashboard');
+            return handleApiResponse(response);
+        }
+    },
+
+    // Clinical Opportunities API
+    clinicalOpportunities: {
+        async scanOpportunities(data: {
+            clinical_data: any;
+            wound_type: string;
+            patient_data: any;
+            selected_products: any[];
+        }): Promise<any> {
+            const response = await apiPost('/api/v1/clinical-opportunities/scan', data);
+            return handleApiResponse(response);
+        },
+
+        async getBySpecialty(specialty: string): Promise<any[]> {
+            const response = await apiGet(`/api/v1/clinical-opportunities/by-specialty/${specialty}`);
+            return handleApiResponse(response);
+        },
+
+        async getAnalyticsSummary(): Promise<any> {
+            const response = await apiGet('/api/v1/clinical-opportunities/analytics/summary');
+            return handleApiResponse(response);
+        }
+    },
+
+    // Product Requests API
+    productRequests: {
+        async getAll(params?: {
+            search?: string;
+            status?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/product-requests${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async create(requestData: any): Promise<any> {
+            const response = await apiPost('/api/product-requests', requestData);
+            return handleApiResponse(response);
+        },
+
+        async update(requestId: string, requestData: any): Promise<any> {
+            const response = await apiPut(`/api/product-requests/${requestId}`, requestData);
+            return handleApiResponse(response);
+        },
+
+        async getById(requestId: string): Promise<any> {
+            const response = await apiGet(`/api/product-requests/${requestId}`);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Products API
+    products: {
+        async getAll(params?: {
+            search?: string;
+            category?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/products${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(productId: string): Promise<any> {
+            const response = await apiGet(`/api/products/${productId}`);
+            return handleApiResponse(response);
+        },
+
+        async search(query: string): Promise<any[]> {
+            const response = await apiGet(`/api/products/search?q=${encodeURIComponent(query)}`);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Providers API
+    providers: {
+        async getAll(params?: {
+            search?: string;
+            facility_id?: string;
+            organization_id?: string;
+            specialty?: string;
+            status?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/providers${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(id: string): Promise<any> {
+            const response = await apiGet(`/api/providers/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async create(data: any): Promise<any> {
+            const response = await apiPost('/api/providers', data);
+            return handleApiResponse(response);
+        },
+
+        async update(id: string, data: any): Promise<any> {
+            const response = await apiPut(`/api/providers/${id}`, data);
+            return handleApiResponse(response);
+        },
+
+        async delete(id: string): Promise<any> {
+            const response = await apiDelete(`/api/providers/${id}`);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Facilities API
+    facilities: {
+        async getAll(params?: {
+            search?: string;
+            organization_id?: string;
+            status?: string;
+            type?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/facilities${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(id: string): Promise<any> {
+            const response = await apiGet(`/api/facilities/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async create(data: any): Promise<any> {
+            const response = await apiPost('/api/facilities', data);
+            return handleApiResponse(response);
+        },
+
+        async update(id: string, data: any): Promise<any> {
+            const response = await apiPut(`/api/facilities/${id}`, data);
+            return handleApiResponse(response);
+        },
+
+        async delete(id: string): Promise<any> {
+            const response = await apiDelete(`/api/facilities/${id}`);
+            return handleApiResponse(response);
+        }
+    },
+
+    // DocuSeal API
+    docuseal: {
+        async getSubmissions(params?: {
+            status?: string;
+            document_type?: string;
+            date_from?: string;
+            date_to?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/v1/admin/docuseal/submissions${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async generateDocument(orderId: string): Promise<any> {
+            const response = await apiPost('/api/v1/admin/docuseal/generate-document', {
+                order_id: orderId
+            });
+            return handleApiResponse(response);
+        },
+
+        async getSubmissionStatus(submissionId: string): Promise<any> {
+            const response = await apiGet(`/api/v1/admin/docuseal/submissions/${submissionId}/status`);
+            return handleApiResponse(response);
+        },
+
+        async downloadDocument(submissionId: string): Promise<any> {
+            const response = await apiGet(`/api/v1/admin/docuseal/submissions/${submissionId}/download`);
+            return response; // This will redirect to document URL
+        }
+    },
+
+    // Commission API
+    commission: {
+        async getRecords(params?: {
+            status?: string;
+            rep_id?: string;
+            date_from?: string;
+            date_to?: string;
+            search?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/commission/records${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getSummary(params?: {
+            status?: string;
+            rep_id?: string;
+            date_from?: string;
+            date_to?: string;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/commission/records/summary${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async approveRecord(recordId: string, data: { notes?: string }): Promise<any> {
+            const response = await apiPost(`/api/commission/records/${recordId}/approve`, data);
+            return handleApiResponse(response);
+        },
+
+        async getRecord(recordId: string): Promise<any> {
+            const response = await apiGet(`/api/commission/records/${recordId}`);
+            return handleApiResponse(response);
+        },
+
+        async getPayouts(params?: {
+            status?: string;
+            rep_id?: string;
+            period_start?: string;
+            period_end?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/commission/payouts${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getRules(params?: {
+            target_type?: string;
+            active?: boolean;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/commission/rules${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async createRule(data: {
+            target_type: string;
+            target_id: number;
+            percentage_rate: number;
+            valid_from: string;
+            valid_to?: string;
+            is_active?: boolean;
+            description?: string;
+        }): Promise<any> {
+            const response = await apiPost('/api/commission/rules', data);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Organizations API
+    organizations: {
+        async getAll(params?: {
+            search?: string;
+            status?: string;
+            type?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/organizations${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(id: string): Promise<any> {
+            const response = await apiGet(`/api/organizations/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async create(data: any): Promise<any> {
+            const response = await apiPost('/api/organizations', data);
+            return handleApiResponse(response);
+        },
+
+        async update(id: string, data: any): Promise<any> {
+            const response = await apiPut(`/api/organizations/${id}`, data);
+            return handleApiResponse(response);
+        },
+
+        async delete(id: string): Promise<any> {
+            const response = await apiDelete(`/api/organizations/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async getStats(): Promise<any> {
+            const response = await apiGet('/api/organizations/stats');
+            return handleApiResponse(response);
+        }
+    },
+
+    // Onboarding API
+    onboarding: {
+        async getRecords(params?: {
+            search?: string;
+            status?: string;
+            stage?: string;
+            assigned_to?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/onboarding/records${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(id: string): Promise<any> {
+            const response = await apiGet(`/api/onboarding/records/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async updateStage(id: string, data: { stage: string; completion_percentage: number; notes?: string }): Promise<any> {
+            const response = await apiPut(`/api/onboarding/records/${id}/stage`, data);
+            return handleApiResponse(response);
+        },
+
+        async updateStatus(id: string, data: { status: string; notes?: string }): Promise<any> {
+            const response = await apiPut(`/api/onboarding/records/${id}/status`, data);
+            return handleApiResponse(response);
+        }
+    },
+
+    // Analytics API
+    analytics: {
+        async getCustomerAnalytics(params?: {
+            search?: string;
+            date_from?: string;
+            date_to?: string;
+            organization_id?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/analytics/customers${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getRevenueAnalytics(params?: {
+            date_from?: string;
+            date_to?: string;
+            granularity?: 'daily' | 'weekly' | 'monthly';
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/analytics/revenue${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getPerformanceMetrics(): Promise<any> {
+            const response = await apiGet('/api/analytics/performance');
+            return handleApiResponse(response);
+        }
+    },
+
+    // Sales Reps API
+    salesReps: {
+        async getAll(params?: {
+            search?: string;
+            status?: string;
+            territory?: string;
+            manager_id?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getById(id: string): Promise<any> {
+            const response = await apiGet(`/api/sales-reps/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async create(data: {
+            name: string;
+            email: string;
+            phone: string;
+            territory: string;
+            commission_rate: number;
+            manager_id?: string;
+            status?: string;
+        }): Promise<any> {
+            const response = await apiPost('/api/sales-reps', data);
+            return handleApiResponse(response);
+        },
+
+        async update(id: string, data: any): Promise<any> {
+            const response = await apiPut(`/api/sales-reps/${id}`, data);
+            return handleApiResponse(response);
+        },
+
+        async delete(id: string): Promise<any> {
+            const response = await apiDelete(`/api/sales-reps/${id}`);
+            return handleApiResponse(response);
+        },
+
+        async getAnalytics(params?: {
+            date_from?: string;
+            date_to?: string;
+            rep_id?: string;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/analytics${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getSubRepApprovals(params?: {
+            search?: string;
+            status?: string;
+            primary_rep_id?: string;
+            page?: number;
+        }): Promise<PaginatedResponse<any>> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/sub-rep-approvals${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async approveSubRep(approvalId: string, data: { notes?: string }): Promise<any> {
+            const response = await apiPost(`/api/sales-reps/sub-rep-approvals/${approvalId}/approve`, data);
+            return handleApiResponse(response);
+        },
+
+        async rejectSubRep(approvalId: string, data: { reason: string; notes?: string }): Promise<any> {
+            const response = await apiPost(`/api/sales-reps/sub-rep-approvals/${approvalId}/reject`, data);
+            return handleApiResponse(response);
+        },
+
+        async getTerritories(): Promise<any[]> {
+            const response = await apiGet('/api/sales-reps/territories');
+            return handleApiResponse(response);
+        },
+
+        async getCommissionSummary(repId: string, params?: {
+            date_from?: string;
+            date_to?: string;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/${repId}/commissions/summary${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        }
+    },
+};

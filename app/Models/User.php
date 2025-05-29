@@ -3,9 +3,17 @@
 namespace App\Models;
 
 use App\Traits\HasPermissions;
+use App\Models\Fhir\Facility;
+use App\Models\Users\Organization\Organization;
+use App\Models\Users\Provider\ProviderInvitation;
+use App\Models\Users\OnboardingChecklist;
+use App\Models\Users\OnboardingDocument;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -76,8 +84,6 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Account::class);
     }
-
-
 
     /**
      * Get facilities this user is associated with
@@ -254,6 +260,63 @@ class User extends Authenticatable
                 $query->onlyTrashed();
             }
         });
+    }
+
+    /**
+     * Get the organizations this user is a sales representative for.
+     */
+    public function representedOrganizations(): HasMany
+    {
+        return $this->hasMany(Organization::class, 'sales_rep_id');
+    }
+
+    /**
+     * Provider invitations initiated by this user.
+     */
+    public function initiatedProviderInvitations(): HasMany
+    {
+        return $this->hasMany(ProviderInvitation::class, 'invited_by_user_id');
+    }
+
+    /**
+     * Provider invitation that led to the creation of this user account.
+     * (If this user was created via an invitation)
+     */
+    public function createdViaInvitation(): HasOne
+    {
+        return $this->hasOne(ProviderInvitation::class, 'created_user_id');
+    }
+
+    /**
+     * Onboarding documents uploaded by this user.
+     */
+    public function uploadedOnboardingDocuments(): HasMany
+    {
+        return $this->hasMany(OnboardingDocument::class, 'uploaded_by');
+    }
+
+    /**
+     * Onboarding documents reviewed by this user.
+     */
+    public function reviewedOnboardingDocuments(): HasMany
+    {
+        return $this->hasMany(OnboardingDocument::class, 'reviewed_by');
+    }
+
+    /**
+     * Get all onboarding checklists associated with the user (e.g., as a provider).
+     */
+    public function onboardingChecklists(): MorphMany
+    {
+        return $this->morphMany(OnboardingChecklist::class, 'entity');
+    }
+
+    /**
+     * Get all onboarding documents associated with the user (e.g. credentials).
+     */
+    public function onboardingDocuments(): MorphMany
+    {
+        return $this->morphMany(OnboardingDocument::class, 'entity');
     }
 
     // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait

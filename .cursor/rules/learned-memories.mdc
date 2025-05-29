@@ -14,6 +14,7 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **User prefers comprehensive permission-based access control over hardcoded role checks**
 - **User wants all routes properly protected with middleware**
 - **User values detailed documentation and task tracking**
+- **Database IDs**: User strongly prefers UUID primary keys over auto-incrementing integers throughout the application. Use UUIDs whenever possible for all models and database tables.
 
 ## Technical Decisions
 
@@ -218,6 +219,22 @@ This file stores project-specific knowledge, conventions, and user preferences l
   - Maintained existing navigation functionality (expandable menus, active states, role-based access control)
   - Ensured all menu items maintain proper icons and href routes
 - **Documentation Compliance**: All role menus now exactly match the structure defined in `docs/ui-ux/Sidebar_Menu_Structure.md`
+
+### **CORRECTED Comprehensive Eligibility, MAC Validation & Pre-Authorization Plan (COMPLETED)** ✅
+- **Key Correction**: MAC jurisdiction determined by **patient address**, not facility address
+- **Implementation**: Complete workflow for eligibility → MAC validation → pre-authorization
+- **Services Created**:
+  - **OptumEligibilityService**: Optum V3 API integration with facility address as place of service
+  - **Enhanced MedicareMacValidationService**: Correct patient address for MAC jurisdiction determination
+  - **AvailityPreAuthService**: Pre-authorization submissions with proper addressing
+  - **CmsCoverageApiService**: Enhanced with `checkCoverageWithAddressing()` method
+- **Addressing Logic**:
+  - **MAC Jurisdiction**: Patient's permanent address (with DME expatriate exception)
+  - **Place of Service**: Facility address for service location and POS codes
+  - **CMS-1500 Compliance**: Service location address required on claims
+- **Flow**: Patient Data → Eligibility Check → MAC Validation (patient address) → Coverage Check → Pre-Auth (if required)
+- **Integration**: All services work together with correct addressing methodology
+- **Documentation**: Follows CMS guidelines for beneficiary address vs. place of service distinction
 
 ## MSC Portal User Roles (Actual System Requirements)
 

@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductRequest;
-use App\Models\Product;
+use App\Models\Order\ProductRequest;
+use App\Models\Order\Product;
 use App\Models\User;
-use App\Models\Facility;
+use App\Models\Fhir\Facility;
 use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;

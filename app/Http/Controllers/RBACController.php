@@ -18,14 +18,6 @@ class RBACController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('permission:manage-rbac')->only([
-            'index',
-            'getSecurityAudit',
-            'toggleRoleStatus',
-            'updateRolePermissions',
-            'getRolePermissions',
-            'getSystemStats'
-        ]);
     }
 
     /**

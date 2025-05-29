@@ -1,6 +1,7 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { RoleRestrictions } from '@/types/roles';
 
 interface User {
   id: number;
@@ -43,14 +44,6 @@ interface DashboardData {
     admin_tasks: number;
   };
   provider_activity?: any[];
-}
-
-interface RoleRestrictions {
-  can_view_financials: boolean;
-  can_see_discounts: boolean;
-  can_see_msc_pricing: boolean;
-  can_see_order_totals: boolean;
-  pricing_access_level: string;
 }
 
 interface OfficeManagerDashboardProps {
@@ -495,23 +488,6 @@ export default function OfficeManagerDashboard({ user, dashboardData, roleRestri
             </div>
           </div>
         </div>
-
-        {/* Debug Information - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-800 mb-2">Debug Information (Development Only)</h3>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>User Role:</strong> {user.role} ({user.role_display_name})</p>
-              <p><strong>Can View Financials:</strong> {roleRestrictions.can_view_financials ? 'Yes' : 'No'}</p>
-              <p><strong>Can See Discounts:</strong> {roleRestrictions.can_see_discounts ? 'Yes' : 'No'}</p>
-              <p><strong>Can See MSC Pricing:</strong> {roleRestrictions.can_see_msc_pricing ? 'Yes' : 'No'}</p>
-              <p><strong>Can See Order Totals:</strong> {roleRestrictions.can_see_order_totals ? 'Yes' : 'No'}</p>
-              <p><strong>Pricing Access Level:</strong> {roleRestrictions.pricing_access_level}</p>
-              <p><strong>Recent Requests Count:</strong> {dashboardData.recent_requests.length}</p>
-              <p><strong>Action Items Count:</strong> {dashboardData.action_items.length}</p>
-            </div>
-          </div>
-        )}
       </div>
     </MainLayout>
   );

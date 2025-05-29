@@ -172,8 +172,24 @@ class ValidationBuilderController extends Controller
      */
     public function validateProductRequest(Request $request): JsonResponse
     {
+        // Support both direct validation (from frontend) and product request ID validation
         $validator = Validator::make($request->all(), [
-            'product_request_id' => 'required|integer|exists:product_requests,id',
+            // For direct validation (frontend form)
+            'patient_data' => 'nullable|array',
+            'clinical_data' => 'nullable|array',
+            'wound_type' => 'nullable|string',
+            'facility_id' => 'nullable|integer|exists:facilities,id',
+            'facility_state' => 'nullable|string|size:2',
+            'expected_service_date' => 'nullable|date',
+            'provider_specialty' => 'nullable|string',
+            'selected_products' => 'nullable|array',
+            'validation_type' => 'nullable|string',
+            'enable_cms_integration' => 'nullable|boolean',
+            'enable_mac_validation' => 'nullable|boolean',
+            'state' => 'nullable|string|size:2',
+
+            // For product request ID validation
+            'product_request_id' => 'nullable|integer|exists:product_requests,id',
             'specialty' => 'nullable|string',
         ]);
 
@@ -186,31 +202,128 @@ class ValidationBuilderController extends Controller
         }
 
         try {
-            $productRequestId = $request->input('product_request_id');
-            $specialty = $request->input('specialty');
+            // Check if this is a direct validation request (from frontend) or product request ID validation
+            if ($request->has('facility_id') || $request->has('patient_data')) {
+                // Direct validation request - extract facility address for place of service
+                $facilityId = $request->input('facility_id');
+                $facilityAddress = null;
+                $placeOfService = null;
 
-            $productRequest = ProductRequest::where('id', $productRequestId)->firstOrFail();
-            $validationResults = $this->validationEngine->validateProductRequest($productRequest, $specialty);
+                if ($facilityId) {
+                    $facility = \App\Models\Facility::find($facilityId);
+                    if ($facility) {
+                        // Use complete facility address as place of service for CMS Coverage API
+                        $facilityAddress = [
+                            'id' => $facility->id,
+                            'name' => $facility->name,
+                            'address' => $facility->address,
+                            'city' => $facility->city,
+                            'state' => $facility->state,
+                            'zip_code' => $facility->zip_code,
+                            'full_address' => $facility->full_address
+                        ];
 
-            return response()->json([
-                'success' => true,
-                'data' => [
-                    'product_request_id' => $productRequestId,
-                    'specialty' => $specialty,
-                    'validation_results' => $validationResults
-                ]
-            ]);
+                        // Format place of service for MAC validation
+                        $placeOfService = [
+                            'facility_id' => $facility->id,
+                            'facility_name' => $facility->name,
+                            'service_address' => $facility->address,
+                            'service_city' => $facility->city,
+                            'service_state' => $facility->state,
+                            'service_zip' => $facility->zip_code,
+                            'full_service_address' => $facility->full_address,
+                            'npi' => $facility->npi
+                        ];
+                    }
+                }
+
+                // Build validation request with place of service
+                $validationData = [
+                    'patient_data' => $request->input('patient_data', []),
+                    'clinical_data' => $request->input('clinical_data', []),
+                    'wound_type' => $request->input('wound_type'),
+                    'facility_address' => $facilityAddress,
+                    'place_of_service' => $placeOfService,
+                    'expected_service_date' => $request->input('expected_service_date'),
+                    'provider_specialty' => $request->input('provider_specialty', 'wound_care_specialty'),
+                    'selected_products' => $request->input('selected_products', []),
+                    'validation_type' => $request->input('validation_type', 'wound_care_only'),
+                    'enable_cms_integration' => $request->input('enable_cms_integration', true),
+                    'enable_mac_validation' => $request->input('enable_mac_validation', true),
+                    'state' => $facilityAddress['state'] ?? $request->input('state', 'CA')
+                ];
+
+                $validationResults = $this->validationEngine->validateDirectRequest($validationData);
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'facility_address' => $facilityAddress,
+                        'place_of_service' => $placeOfService,
+                        'validation_type' => $validationData['validation_type'],
+                        'specialty' => $validationData['provider_specialty'],
+                        'validation_results' => $validationResults,
+                        'overall_status' => $validationResults['overall_status'] ?? 'pending',
+                        'compliance_score' => $validationResults['compliance_score'] ?? 0,
+                        'mac_contractor' => $validationResults['mac_contractor'] ?? 'Unknown',
+                        'jurisdiction' => $validationResults['jurisdiction'] ?? 'Unknown',
+                        'cms_compliance' => $validationResults['cms_compliance'] ?? [],
+                        'issues' => $validationResults['issues'] ?? [],
+                        'requirements_met' => $validationResults['requirements_met'] ?? [],
+                        'reimbursement_risk' => $validationResults['reimbursement_risk'] ?? 'medium'
+                    ]
+                ]);
+
+            } else {
+                // Traditional product request ID validation
+                $productRequestId = $request->input('product_request_id');
+                $specialty = $request->input('specialty');
+
+                $productRequest = ProductRequest::with('facility')->where('id', $productRequestId)->firstOrFail();
+
+                // Extract facility address as place of service
+                $facility = $productRequest->facility;
+                $placeOfService = null;
+
+                if ($facility) {
+                    $placeOfService = [
+                        'facility_id' => $facility->id,
+                        'facility_name' => $facility->name,
+                        'service_address' => $facility->address,
+                        'service_city' => $facility->city,
+                        'service_state' => $facility->state,
+                        'service_zip' => $facility->zip_code,
+                        'full_service_address' => $facility->full_address,
+                        'npi' => $facility->npi
+                    ];
+                }
+
+                $validationResults = $this->validationEngine->validateProductRequest($productRequest, $specialty, $placeOfService);
+
+                return response()->json([
+                    'success' => true,
+                    'data' => [
+                        'product_request_id' => $productRequestId,
+                        'specialty' => $specialty,
+                        'place_of_service' => $placeOfService,
+                        'validation_results' => $validationResults
+                    ]
+                ]);
+            }
 
         } catch (\Exception $e) {
             Log::error('Error validating product request', [
+                'facility_id' => $request->input('facility_id'),
                 'product_request_id' => $request->input('product_request_id'),
                 'specialty' => $request->input('specialty'),
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Error validating product request'
+                'message' => 'Error validating product request',
+                'error' => $e->getMessage()
             ], 500);
         }
     }

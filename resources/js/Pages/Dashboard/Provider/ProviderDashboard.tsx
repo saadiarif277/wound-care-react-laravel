@@ -2,14 +2,8 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { PricingDisplay, OrderTotalDisplay } from '@/Components/Pricing/PricingDisplay';
-
-interface User {
-  id: number;
-  name: string;
-  email: string;
-  role: string;
-  role_display_name: string;
-}
+import { RoleRestrictions, UserWithRole } from '@/types/roles';
+import { FiPlus, FiTrendingUp, FiClock, FiCheck, FiAlertTriangle, FiUser, FiFileText } from 'react-icons/fi';
 
 interface DashboardData {
   recent_requests: Array<{
@@ -39,97 +33,65 @@ interface DashboardData {
     total_amount_owed?: number;
     total_savings?: number;
   };
-  clinical_opportunities?: any[];
-  eligibility_status?: any[];
-}
-
-interface RoleRestrictions {
-  can_view_financials: boolean;
-  can_see_discounts: boolean;
-  can_see_msc_pricing: boolean;
-  can_see_order_totals: boolean;
-  pricing_access_level: string;
+  clinical_opportunities?: Array<{
+    id: string;
+    type: string;
+    patient: string;
+    description: string;
+    priority: string;
+    estimated_value?: number;
+    hcpcs_code?: string;
+  }>;
+  eligibility_status?: Array<{
+    payer: string;
+    status: string;
+    last_updated: string;
+    coverage: string;
+    deductible: string;
+  }>;
 }
 
 interface ProviderDashboardProps {
-  user: User;
+  user: UserWithRole;
   dashboardData: DashboardData;
   roleRestrictions: RoleRestrictions;
 }
 
-// Static data for clinical opportunities (this would come from the clinical engine)
-const clinicalOpportunities = [
-  {
-    id: 'CO-001',
-    type: 'Compression Therapy',
-    patient: 'Maria Garcia',
-    description: 'Patient may benefit from compression therapy for venous ulcer management',
-    priority: 'medium',
-    estimatedValue: 450.00,
-    hcpcsCode: 'A6545'
-  },
-  {
-    id: 'CO-002',
-    type: 'Negative Pressure Therapy',
-    patient: 'John Doe',
-    description: 'Consider NPWT for complex diabetic foot ulcer',
-    priority: 'high',
-    estimatedValue: 1250.00,
-    hcpcsCode: 'E2402'
-  }
-];
-
-// Static eligibility status data (this would come from payer integrations)
-const eligibilityStatus = [
-  {
-    payer: 'Medicare',
-    status: 'verified',
-    lastUpdated: '2024-01-15',
-    coverage: 'Active',
-    deductible: 'Met'
-  },
-  {
-    payer: 'Aetna',
-    status: 'verified',
-    lastUpdated: '2024-01-14',
-    coverage: 'Active',
-    deductible: 'Partial'
-  }
-];
-
 export default function ProviderDashboard({ user, dashboardData, roleRestrictions }: ProviderDashboardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'submitted':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending_eligibility':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'pending_documentation':
-        return 'bg-orange-100 text-orange-800';
-      case 'in_review':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'draft': return 'bg-gray-100 text-gray-800';
+      case 'submitted': return 'bg-blue-100 text-blue-800';
+      case 'approved': return 'bg-green-100 text-green-800';
+      case 'rejected': return 'bg-red-100 text-red-800';
+      case 'processing': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
   };
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
+      case 'high': return 'bg-red-100 text-red-800';
+      case 'medium': return 'bg-yellow-100 text-yellow-800';
+      case 'low': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getEligibilityStatusColor = (status: string) => {
+    switch (status) {
+      case 'verified': return 'bg-green-100 text-green-800';
+      case 'pending': return 'bg-yellow-100 text-yellow-800';
+      case 'expired': return 'bg-red-100 text-red-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
   };
 
   return (
@@ -137,74 +99,59 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
       <Head title="Provider Dashboard" />
 
       <div className="space-y-6">
-        {/* Header */}
+        {/* Provider Welcome Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Clinical Dashboard</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}</h1>
           <p className="mt-2 text-gray-600 leading-normal">
-            Streamline your wound care workflows with intelligent product recommendations, eligibility verification, and clinical opportunities.
+            Manage your wound care product requests, track patient outcomes, and access clinical decision support tools.
           </p>
         </div>
 
-        {/* Key Clinical Metrics */}
+        {/* Key Metrics */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Total Requests</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1 sm:mt-2">{dashboardData.metrics.total_requests}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">All time</p>
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Total Requests</h3>
+            <p className="text-3xl font-bold text-blue-600 mt-2">{dashboardData.metrics.total_requests}</p>
+            <p className="text-xs text-gray-600 mt-2">All time</p>
           </div>
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Pending Requests</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1 sm:mt-2">{dashboardData.metrics.pending_requests}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">Require attention</p>
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Pending Requests</h3>
+            <p className="text-3xl font-bold text-yellow-600 mt-2">{dashboardData.metrics.pending_requests}</p>
+            <p className="text-xs text-gray-600 mt-2">Awaiting processing</p>
           </div>
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Approved Requests</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1 sm:mt-2">{dashboardData.metrics.approved_requests}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">This month</p>
+          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Approved Requests</h3>
+            <p className="text-3xl font-bold text-green-600 mt-2">{dashboardData.metrics.approved_requests}</p>
+            <p className="text-xs text-gray-600 mt-2">Ready for delivery</p>
           </div>
 
-          {/* Financial metrics - only show if role allows */}
-          {roleRestrictions.can_view_financials && dashboardData.metrics.total_amount_owed !== undefined ? (
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Amount Owed</h3>
-              <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1 sm:mt-2">
-                ${dashboardData.metrics.total_amount_owed.toFixed(2)}
+          {roleRestrictions.can_view_financials && dashboardData.metrics.total_amount_owed && (
+            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
+              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Total Value</h3>
+              <p className="text-3xl font-bold text-purple-600 mt-2">
+                {formatCurrency(dashboardData.metrics.total_amount_owed)}
               </p>
-              <p className="text-xs text-gray-600 mt-1 sm:mt-2">Outstanding</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-              <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Clinical Opportunities</h3>
-              <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1 sm:mt-2">{clinicalOpportunities.length}</p>
-              <p className="text-xs text-gray-600 mt-1 sm:mt-2">Identified</p>
+              <p className="text-xs text-gray-600 mt-2">Approved orders</p>
             </div>
           )}
         </div>
 
-        {/* Action Required Items */}
-        {dashboardData.action_items.length > 0 && (
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
+        {/* Action Items */}
+        {dashboardData.action_items && dashboardData.action_items.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-200 bg-amber-50">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center">
                   <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 sm:h-6 sm:w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
+                    <FiAlertTriangle className="h-6 w-6 text-amber-600" />
                   </div>
                   <div className="ml-3">
-                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Action Required</h2>
+                    <h2 className="text-xl font-semibold text-gray-900">Action Required</h2>
                     <p className="text-sm text-gray-600 mt-1">Items that need your immediate attention</p>
                   </div>
                 </div>
-                <Link
-                  href="/product-requests"
-                  className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors text-center"
-                >
-                  View All
-                </Link>
               </div>
             </div>
             <div className="divide-y divide-gray-200">
@@ -235,14 +182,12 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
         )}
 
         {/* Recent Patient Requests */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
           <div className="p-4 sm:p-6 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
+                  <FiFileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
                 <div className="ml-3">
                   <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Patient Requests</h2>
@@ -258,7 +203,7 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
             </div>
           </div>
           <div className="divide-y divide-gray-200">
-            {dashboardData.recent_requests.length > 0 ? (
+            {dashboardData.recent_requests && dashboardData.recent_requests.length > 0 ? (
               dashboardData.recent_requests.map((request) => (
                 <div key={request.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
                   <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
@@ -266,35 +211,19 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
                       <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
                         <h3 className="text-sm font-semibold text-gray-900">{request.patient_name}</h3>
                         <span className={`inline-flex sm:ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
-                          {request.status.replace('_', ' ')}
+                          {request.status.replace('_', ' ').toUpperCase()}
                         </span>
                       </div>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                          <p className="text-xs text-gray-500">Wound Type</p>
-                          <p className="text-sm font-medium">{request.wound_type.replace('_', ' ')}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                          <p className="text-xs text-gray-500">Request Date</p>
-                          <p className="text-sm font-medium">{request.created_at}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                          <p className="text-xs text-gray-500">Facility</p>
-                          <p className="text-sm font-medium">{request.facility_name}</p>
-                        </div>
+                      <p className="text-sm text-gray-600 mt-1">
+                        {request.wound_type} - {request.facility_name}
+                      </p>
+                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-2 text-xs text-gray-500">
+                        <span>Request #{request.request_number}</span>
+                        <span>Created: {new Date(request.created_at).toLocaleDateString()}</span>
+                        {roleRestrictions.can_view_financials && request.total_amount && (
+                          <span>Value: {formatCurrency(request.total_amount)}</span>
+                        )}
                       </div>
-
-                      {/* Financial information - only show if role allows */}
-                      {roleRestrictions.can_view_financials && request.total_amount && (
-                        <div className="mt-2 p-3 bg-blue-50 rounded-lg">
-                          <OrderTotalDisplay
-                            roleRestrictions={roleRestrictions}
-                            total={request.total_amount}
-                            amountOwed={request.amount_owed}
-                            className="text-sm"
-                          />
-                        </div>
-                      )}
                     </div>
                     <Link
                       href={`/product-requests/${request.id}`}
@@ -312,6 +241,7 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
                   href="/product-requests/create"
                   className="mt-2 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
                 >
+                  <FiPlus className="mr-2 h-4 w-4" />
                   Create New Request
                 </Link>
               </div>
@@ -319,55 +249,42 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
           </div>
         </div>
 
-        {/* Clinical Opportunities Engine */}
-        {clinicalOpportunities.length > 0 && (
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-4 sm:p-6 border-b border-gray-200">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Clinical Opportunities</h2>
-                    <p className="text-sm text-gray-600 mt-1">AI-powered recommendations for additional services</p>
-                  </div>
+        {/* Clinical Opportunities (if available from backend) */}
+        {dashboardData.clinical_opportunities && dashboardData.clinical_opportunities.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FiTrendingUp className="h-6 w-6 text-purple-600" />
+                </div>
+                <div className="ml-3">
+                  <h2 className="text-xl font-semibold text-gray-900">Clinical Opportunities</h2>
+                  <p className="text-sm text-gray-600 mt-1">AI-identified opportunities for enhanced patient care</p>
                 </div>
               </div>
             </div>
             <div className="divide-y divide-gray-200">
-              {clinicalOpportunities.map((opportunity) => (
-                <div key={opportunity.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
+              {dashboardData.clinical_opportunities.map((opportunity) => (
+                <div key={opportunity.id} className="p-6 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
-                        <h3 className="text-sm font-semibold text-gray-900">{opportunity.type}</h3>
-                        <span className={`inline-flex sm:ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(opportunity.priority)}`}>
+                      <div className="flex items-center">
+                        <h3 className="text-sm font-semibold text-gray-900">{opportunity.patient}</h3>
+                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(opportunity.priority)}`}>
                           {opportunity.priority} priority
                         </span>
                       </div>
                       <p className="text-sm text-gray-600 mt-1">{opportunity.description}</p>
-                      <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                        <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                          <p className="text-xs text-gray-500">Patient</p>
-                          <p className="text-sm font-medium">{opportunity.patient}</p>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                          <p className="text-xs text-gray-500">HCPCS Code</p>
-                          <p className="text-sm font-medium">{opportunity.hcpcsCode}</p>
-                        </div>
-                        {roleRestrictions.can_view_financials && (
-                          <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                            <p className="text-xs text-gray-500">Estimated Value</p>
-                            <p className="text-sm font-medium text-green-600">${opportunity.estimatedValue.toFixed(2)}</p>
-                          </div>
+                      <div className="flex items-center mt-2 text-xs text-gray-500">
+                        <span>{opportunity.type}</span>
+                        {opportunity.hcpcs_code && <span className="ml-4">HCPCS: {opportunity.hcpcs_code}</span>}
+                        {roleRestrictions.can_view_financials && opportunity.estimated_value && (
+                          <span className="ml-4">Est. Value: {formatCurrency(opportunity.estimated_value)}</span>
                         )}
                       </div>
                     </div>
-                    <button className="w-full lg:w-auto lg:ml-4 px-3 py-2 bg-purple-600 text-white text-center rounded-md hover:bg-purple-700 transition-colors">
-                      Add to Request
+                    <button className="ml-4 px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
+                      Review
                     </button>
                   </div>
                 </div>
@@ -376,91 +293,80 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
           </div>
         )}
 
-        {/* Eligibility Status */}
-        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-200">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Payer Eligibility Status</h2>
-                <p className="text-sm text-gray-600 mt-1">Real-time insurance verification status</p>
-              </div>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {eligibilityStatus.map((payer, index) => (
-              <div key={index} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <h3 className="text-sm font-semibold text-gray-900">{payer.payer}</h3>
-                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                        payer.status === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                      }`}>
-                        {payer.status}
-                      </span>
-                    </div>
-                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-                      <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                        <p className="text-xs text-gray-500">Coverage</p>
-                        <p className="text-sm font-medium">{payer.coverage}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                        <p className="text-xs text-gray-500">Deductible</p>
-                        <p className="text-sm font-medium">{payer.deductible}</p>
-                      </div>
-                      <div className="bg-gray-50 rounded-lg p-3 sm:bg-transparent sm:p-0">
-                        <p className="text-xs text-gray-500">Last Updated</p>
-                        <p className="text-sm font-medium">{payer.lastUpdated}</p>
-                      </div>
-                    </div>
-                  </div>
+        {/* Insurance Eligibility Status (if available from backend) */}
+        {dashboardData.eligibility_status && dashboardData.eligibility_status.length > 0 && (
+          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <FiCheck className="h-6 w-6 text-green-600" />
+                </div>
+                <div className="ml-3">
+                  <h2 className="text-xl font-semibold text-gray-900">Insurance Eligibility Status</h2>
+                  <p className="text-sm text-gray-600 mt-1">Real-time payer connectivity and eligibility verification</p>
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Financial Restriction Notice */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
             </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">Financial Information Restricted</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>
-                  As an Office Manager, financial information including pricing, discounts, and amounts owed are not displayed.
-                  You have full access to clinical workflows, provider coordination, and facility management features.
-                </p>
+            <div className="p-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                {dashboardData.eligibility_status.map((status, index) => (
+                  <div key={index} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="text-sm font-semibold text-gray-900">{status.payer}</h3>
+                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getEligibilityStatusColor(status.status)}`}>
+                        {status.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 text-xs text-gray-600">
+                      <p>Coverage: {status.coverage}</p>
+                      <p>Deductible: {status.deductible}</p>
+                      <p>Last Updated: {new Date(status.last_updated).toLocaleDateString()}</p>
+                    </div>
+                  </div>
+                ))}
               </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Debug Information - Remove in production */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="bg-gray-100 border border-gray-300 rounded-lg p-4">
-            <h3 className="text-sm font-medium text-gray-800 mb-2">Debug Information (Development Only)</h3>
-            <div className="text-xs text-gray-600 space-y-1">
-              <p><strong>User Role:</strong> {user.role} ({user.role_display_name})</p>
-              <p><strong>Can View Financials:</strong> {roleRestrictions.can_view_financials ? 'Yes' : 'No'}</p>
-              <p><strong>Can See Discounts:</strong> {roleRestrictions.can_see_discounts ? 'Yes' : 'No'}</p>
-              <p><strong>Can See MSC Pricing:</strong> {roleRestrictions.can_see_msc_pricing ? 'Yes' : 'No'}</p>
-              <p><strong>Can See Order Totals:</strong> {roleRestrictions.can_see_order_totals ? 'Yes' : 'No'}</p>
-              <p><strong>Pricing Access Level:</strong> {roleRestrictions.pricing_access_level}</p>
-              <p><strong>Recent Requests Count:</strong> {dashboardData.recent_requests.length}</p>
-              <p><strong>Action Items Count:</strong> {dashboardData.action_items.length}</p>
             </div>
           </div>
         )}
+
+        {/* Quick Actions */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link
+              href="/product-requests/create"
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <FiPlus className="h-6 w-6 text-blue-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">New Product Request</h3>
+                <p className="text-xs text-gray-600">Submit wound care product request</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/eligibility"
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <FiCheck className="h-6 w-6 text-green-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Check Eligibility</h3>
+                <p className="text-xs text-gray-600">Verify patient insurance coverage</p>
+              </div>
+            </Link>
+
+            <Link
+              href="/product-requests"
+              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              <FiUser className="h-6 w-6 text-purple-600 mr-3" />
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Patient Management</h3>
+                <p className="text-xs text-gray-600">View all patient requests</p>
+              </div>
+            </Link>
+          </div>
+        </div>
       </div>
     </MainLayout>
   );

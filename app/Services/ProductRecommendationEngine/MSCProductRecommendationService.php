@@ -2,9 +2,9 @@
 
 namespace App\Services\ProductRecommendationEngine;
 
-use App\Models\Product;
-use App\Models\ProductRequest;
-use App\Models\MscProductRecommendationRule;
+use App\Models\Order\Product;
+use App\Models\Order\ProductRequest;
+use App\Models\Order\MscProductRecommendationRule;
 use App\Services\SupabaseService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

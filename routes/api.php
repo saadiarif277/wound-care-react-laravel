@@ -11,10 +11,13 @@ use App\Http\Controllers\Api\ClinicalOpportunitiesController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\Auth\AccessRequestController;
+use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+use App\Http\Controllers\Api\V1\ProviderOnboardingController;
+use App\Http\Controllers\Api\V1\ProviderProfileController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -100,6 +103,10 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
             Route::get('mac-contractor-analysis', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getMacContractorAnalysis'])->name('mac_contractor_analysis');
             Route::get('validation-trends', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidationTrends'])->name('validation_trends');
         });
+
+        // Frontend validation endpoints
+        Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('quick_check');
+        Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('thorough_validate');
     });
 });
 
@@ -192,6 +199,22 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });
 
+// DocuSeal Integration Routes
+Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
+    // Document generation
+    Route::post('generate-document', [\App\Http\Controllers\DocusealController::class, 'generateDocument'])->name('generate');
+
+    // Submission management
+    Route::get('submissions/{submission_id}/status', [\App\Http\Controllers\DocusealController::class, 'getSubmissionStatus'])->name('status');
+    Route::get('submissions/{submission_id}/download', [\App\Http\Controllers\DocusealController::class, 'downloadDocument'])->name('download');
+
+    // Order submissions
+    Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
+});
+
+// DocuSeal Webhook (no auth required for external webhooks)
+Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
+
 // eClinicalWorks Integration Routes
 Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function () {
     Route::get('auth', [EcwController::class, 'authenticate'])->name('auth');
@@ -260,22 +283,47 @@ Route::middleware(['auth:sanctum'])->group(function () {
 
 // Role and Permission Management Routes
 Route::middleware(['auth:sanctum'])->group(function () {
-    Route::apiResource('roles', RoleController::class);
-    Route::apiResource('permissions', PermissionController::class);
+    // Role Management Routes with unique names
+    Route::middleware(['auth:sanctum', 'permission:view-roles'])->group(function () {
+        Route::get('/roles', [RoleController::class, 'index'])->name('api.roles.index');
+        Route::get('/roles/{role}', [RoleController::class, 'show'])->name('api.roles.show');
+        Route::get('/roles/validation/rules', [RoleController::class, 'getValidationRules'])->name('api.roles.validation-rules');
+    });
 
-    // User Role Management
-    Route::post('users/{user}/roles', [UserController::class, 'assignRoles']);
-    Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole']);
-    Route::put('users/{user}/roles', [UserController::class, 'syncRoles']);
+    Route::middleware(['auth:sanctum', 'permission:create-roles'])->group(function () {
+        Route::post('/roles', [RoleController::class, 'store'])->name('api.roles.store');
+    });
 
-    // RBAC Management Routes
-    Route::middleware(['auth:sanctum', 'permission:manage-rbac'])->group(function () {
-        Route::get('/rbac', [RBACController::class, 'index']);
-        Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit']);
-        Route::get('/rbac/stats', [RBACController::class, 'getSystemStats']);
-        Route::post('/rbac/roles/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus']);
-        Route::get('/rbac/roles/{role}/permissions', [RBACController::class, 'getRolePermissions']);
-        Route::put('/rbac/roles/{role}/permissions', [RBACController::class, 'updateRolePermissions']);
+    Route::middleware(['auth:sanctum', 'permission:edit-roles'])->group(function () {
+        Route::put('/roles/{role}', [RoleController::class, 'update'])->name('api.roles.update');
+    });
+
+    Route::middleware(['auth:sanctum', 'permission:delete-roles'])->group(function () {
+        Route::delete('/roles/{role}', [RoleController::class, 'destroy'])->name('api.roles.destroy');
+    });
+
+    // Permission Management Routes with unique names
+    Route::apiResource('permissions', PermissionController::class)->names([
+        'index' => 'api.permissions.index',
+        'store' => 'api.permissions.store',
+        'show' => 'api.permissions.show',
+        'update' => 'api.permissions.update',
+        'destroy' => 'api.permissions.destroy'
+    ]);
+
+    // User Role Management with unique names
+    Route::post('users/{user}/roles', [UserController::class, 'assignRoles'])->name('api.users.roles.assign');
+    Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole'])->name('api.users.roles.remove');
+    Route::put('users/{user}/roles', [UserController::class, 'syncRoles'])->name('api.users.roles.sync');
+
+    // RBAC Management Routes with unique names
+    Route::middleware(['auth:sanctum', 'role:msc-admin'])->group(function () {
+        Route::get('/rbac', [RBACController::class, 'index'])->name('api.rbac.index');
+        Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit'])->name('api.rbac.security-audit');
+        Route::get('/rbac/stats', [RBACController::class, 'getSystemStats'])->name('api.rbac.stats');
+        Route::post('/rbac/roles/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus'])->name('api.rbac.roles.toggle-status');
+        Route::get('/rbac/roles/{role}/permissions', [RBACController::class, 'getRolePermissions'])->name('api.rbac.roles.permissions');
+        Route::put('/rbac/roles/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('api.rbac.roles.update-permissions');
     });
 
     // Access Control Management Routes
@@ -294,62 +342,19 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // Access Request Routes
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::middleware('permission:view-access-requests')->group(function () {
-            Route::get('/access-requests', [AccessRequestController::class, 'index']);
-            Route::get('/access-requests/{accessRequest}', [AccessRequestController::class, 'show']);
+            Route::get('/access-requests', [AccessRequestController::class, 'index'])->name('api.access-requests.index');
+            Route::get('/access-requests/{accessRequest}', [AccessRequestController::class, 'show'])->name('api.access-requests.show');
         });
 
         Route::middleware('permission:approve-access-requests')->group(function () {
-            Route::post('/access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve']);
-            Route::post('/access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny']);
+            Route::post('/access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])->name('api.access-requests.approve');
+            Route::post('/access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])->name('api.access-requests.deny');
         });
     });
 
     // Public access request routes (no auth required)
-    Route::post('/access-requests', [AccessRequestController::class, 'store']);
-    Route::get('/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields']);
-
-    // Role Management Routes
-    Route::middleware(['auth:sanctum', 'permission:view-roles'])->group(function () {
-        Route::get('/roles', [RoleController::class, 'index']);
-        Route::get('/roles/{role}', [RoleController::class, 'show']);
-        Route::get('/roles/validation/rules', [RoleController::class, 'getValidationRules']);
-    });
-
-    Route::middleware(['auth:sanctum', 'permission:create-roles'])->group(function () {
-        Route::post('/roles', [RoleController::class, 'store']);
-    });
-
-    Route::middleware(['auth:sanctum', 'permission:edit-roles'])->group(function () {
-        Route::put('/roles/{role}', [RoleController::class, 'update']);
-    });
-
-    Route::middleware(['auth:sanctum', 'permission:delete-roles'])->group(function () {
-        Route::delete('/roles/{role}', [RoleController::class, 'destroy']);
-    });
-});
-
-// RBAC Management Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
-    Route::apiResource('roles', RoleController::class);
-    Route::apiResource('permissions', PermissionController::class);
-    Route::apiResource('users', UserController::class);
-
-    // RBAC specific routes
-    Route::post('rbac/assign-role', [RBACController::class, 'assignRole'])->name('rbac.assign_role');
-    Route::post('rbac/revoke-role', [RBACController::class, 'revokeRole'])->name('rbac.revoke_role');
-    Route::post('rbac/assign-permission', [RBACController::class, 'assignPermission'])->name('rbac.assign_permission');
-    Route::post('rbac/revoke-permission', [RBACController::class, 'revokePermission'])->name('rbac.revoke_permission');
-
-    // Access control
-    Route::get('access-control/dashboard', [AccessControlController::class, 'dashboard'])->name('access_control.dashboard');
-    Route::get('access-control/audit', [AccessControlController::class, 'auditLog'])->name('access_control.audit');
-});
-
-// Access Request Management Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
-    Route::apiResource('access-requests', AccessRequestController::class);
-    Route::post('access-requests/{id}/approve', [AccessRequestController::class, 'approve'])->name('access_requests.approve');
-    Route::post('access-requests/{id}/reject', [AccessRequestController::class, 'reject'])->name('access_requests.reject');
+    Route::post('/access-requests', [AccessRequestController::class, 'store'])->name('api.access-requests.store');
+    Route::get('/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])->name('api.access-requests.role-fields');
 });
 
 // Provider Profile Management Routes
@@ -390,3 +395,46 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::get('pending-verification', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getPendingVerification'])->name('pending');
     });
 });
+
+Route::prefix('api/v1/admin')->middleware(['auth:sanctum'])->group(function () {
+    // Organization Management - Require specific customer management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-customers'])->group(function () {
+        Route::get('/customers/organizations', [CustomerManagementController::class, 'listOrganizations']);
+        Route::post('/customers/organizations', [CustomerManagementController::class, 'createOrganization']);
+        Route::get('/customers/organizations/{organizationId}/hierarchy', [CustomerManagementController::class, 'getOrganizationHierarchy'])->name('admin.customers.organizations.hierarchy');
+        Route::get('/customers/organizations/{organizationId}/onboarding', [CustomerManagementController::class, 'getOnboardingStatus'])->name('admin.customers.organizations.onboarding');
+    });
+
+    // Facility Management - Require specific facility management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/facilities', [CustomerManagementController::class, 'addFacility'])->name('admin.customers.facilities.add');
+    });
+
+    // Provider Management - Require specific provider management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-providers'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/invite-providers', [CustomerManagementController::class, 'inviteProviders'])->name('admin.customers.providers.invite');
+    });
+
+    // Document Management - Require document management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-documents'])->group(function () {
+        Route::post('/customers/documents/upload', [CustomerManagementController::class, 'uploadDocument'])->name('admin.customers.documents.upload');
+    });
+});
+
+// Provider Self-Service Routes
+Route::prefix('api/v1')->group(function () {
+    // Public invitation acceptance
+    // Route::get('/invitations/verify/{token}', [ProviderOnboardingController::class, 'verifyInvitation']);
+    // Route::post('/invitations/accept/{token}', [ProviderOnboardingController::class, 'acceptInvitation']);
+
+    // Authenticated provider routes
+    Route::middleware(['auth:sanctum', 'role:provider'])->group(function () {
+        // Route::get('/profile', [ProviderProfileController::class, 'show']);
+        // Route::put('/profile', [ProviderProfileController::class, 'update']);
+        // Route::post('/profile/verify-npi', [ProviderProfileController::class, 'verifyNPI']);
+        // Route::post('/profile/credentials', [ProviderProfileController::class, 'addCredential']);
+        // Route::post('/profile/documents', [ProviderProfileController::class, 'uploadDocument']); // This might conflict with admin upload or be different
+        // Route::get('/profile/onboarding-status', [ProviderProfileController::class, 'getOnboardingStatus']);
+    });
+});
+
