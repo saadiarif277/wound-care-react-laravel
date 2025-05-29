@@ -151,9 +151,97 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard.alias')
     ->middleware('auth');
 
-Route::get('/orders',[OrderController::class,'index'])->name('orders');
+// ================================================================
+// CONSOLIDATED ORDER MANAGEMENT
+// ================================================================
 
-Route::get('/orders/approvals',[OrderController::class,'approval'])->name('orders.approval');
+// Consolidated Order Management - Order Processing, Document Generation, Manual Creation
+Route::middleware(['permission:manage-orders'])->group(function () {
+    Route::get('/orders/management', function () {
+        return Inertia::render('Order/Management');
+    })->name('orders.management');
+});
+
+// Legacy order routes (redirect to consolidated page)
+Route::get('/orders', function () {
+    return redirect()->route('orders.management');
+})->name('orders')->middleware('auth');
+
+Route::get('/orders/approvals', function () {
+    return redirect()->route('orders.management');
+})->name('orders.approval')->middleware('auth');
+
+Route::get('/orders/manage', function () {
+    return redirect()->route('orders.management');
+})->name('orders.manage')->middleware('auth');
+
+Route::get('/orders/create', function () {
+    return redirect()->route('orders.management');
+})->name('orders.create')->middleware('auth');
+
+// ================================================================
+// CONSOLIDATED ORGANIZATIONS & ANALYTICS
+// ================================================================
+
+// Consolidated Organizations & Analytics - Organizations, Facilities, Providers, Onboarding, Analytics
+Route::middleware(['permission:manage-users'])->group(function () {
+    Route::get('/admin/organizations', function () {
+        return Inertia::render('Admin/Organizations/Index');
+    })->name('admin.organizations.index');
+});
+
+// Legacy routes (redirect to consolidated page)
+Route::get('/organizations', function () {
+    return redirect()->route('admin.organizations.index');
+})->name('organizations')->middleware('auth');
+
+Route::get('/admin/customer-management', function () {
+    return redirect()->route('admin.organizations.index');
+})->name('admin.customer-management')->middleware('auth');
+
+Route::get('/admin/onboarding', function () {
+    return redirect()->route('admin.organizations.index');
+})->name('admin.onboarding')->middleware('auth');
+
+Route::get('/customers', function () {
+    return redirect()->route('admin.organizations.index');
+})->name('customers.index')->middleware('auth');
+
+// ================================================================
+// CONSOLIDATED SALES MANAGEMENT
+// ================================================================
+
+// Consolidated Sales Management - Commission Tracking, Payouts, Sales Rep Management, Sub-Rep Approvals
+Route::middleware(['financial.access'])->group(function () {
+    Route::get('/commission/management', function () {
+        return Inertia::render('Commission/Index');
+    })->name('commission.management');
+});
+
+// Legacy commission routes (redirect to consolidated page)
+Route::get('/commission', function () {
+    return redirect()->route('commission.management');
+})->name('commission.index')->middleware('auth');
+
+Route::get('/commission/rules', function () {
+    return redirect()->route('commission.management');
+})->name('commission-rules.index')->middleware('auth');
+
+Route::get('/commission/records', function () {
+    return redirect()->route('commission.management');
+})->name('commission-records.index')->middleware('auth');
+
+Route::get('/commission/payouts', function () {
+    return redirect()->route('commission.management');
+})->name('commission-payouts.index')->middleware('auth');
+
+Route::get('/subrep-approvals', function () {
+    return redirect()->route('commission.management');
+})->name('subrep-approvals.index')->middleware('auth');
+
+// ================================================================
+// STANDARD ROUTES (UNCHANGED)
+// ================================================================
 
 // Products - with proper permission middleware
 
@@ -212,14 +300,6 @@ Route::put('users/{user}/restore', [UsersController::class, 'restore'])
     ->name('users.restore')
     ->middleware('auth');
 
-// Organizations (Read-only for reference)
-
-Route::get('organizations', [OrganizationsController::class, 'index'])
-    ->name('organizations')
-    ->middleware('auth');
-
-
-
 // Reports
 
 Route::get('reports', [ReportsController::class, 'index'])
@@ -251,14 +331,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/ecw', function () {
         return Inertia::render('EcwIntegration/Index');
     })->name('ecw.index');
-
-    // Commission Management Routes
-    Route::prefix('commission')->middleware(['financial.access'])->group(function () {
-        Route::get('/', [CommissionController::class, 'index'])->name('commission.index');
-        Route::get('/rules', [CommissionRuleController::class, 'index'])->name('commission-rules.index');
-        Route::get('/records', [CommissionRecordController::class, 'index'])->name('commission-records.index');
-        Route::get('/payouts', [CommissionPayoutController::class, 'index'])->name('commission-payouts.index');
-    });
 
     // Product Request Routes
     Route::prefix('product-requests')->group(function () {
@@ -330,30 +402,14 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('pre-authorization.status');
     });
 
-    // MSC Admin routes - Add proper authorization
-
-    Route::middleware(['permission:manage-orders'])->group(function () {
-        Route::get('/orders/manage', [OrderController::class, 'manage'])->name('orders.manage');
-    });
-
     Route::middleware(['permission:view-analytics'])->group(function () {
         Route::get('/orders/analytics', [OrderController::class, 'analytics'])->name('orders.analytics');
-    });
-
-    Route::middleware(['permission:create-orders'])->group(function () {
-        Route::get('/orders/create', [OrderController::class, 'create'])->name('orders.create');
     });
 
     Route::middleware(['permission:view-settings'])->group(function () {
         Route::get('/settings', function () {
             return Inertia::render('Settings/Index');
         })->name('settings.index');
-    });
-
-    Route::middleware(['permission:manage-subrep-approvals'])->group(function () {
-        Route::get('/subrep-approvals', function () {
-            return Inertia::render('SubrepApprovals/Index');
-        })->name('subrep-approvals.index');
     });
 
     // Role Management Routes
@@ -395,18 +451,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::middleware(['permission:view-audit-logs'])->group(function () {
         Route::get('/system-admin/audit', [SystemAdminController::class, 'audit'])
             ->name('system-admin.audit');
-    });
-
-    // Onboarding Management Routes
-    Route::middleware(['permission:manage-onboarding'])->prefix('onboarding')->group(function () {
-        Route::get('/management', function () {
-            return Inertia::render('Onboarding/Management');
-        })->name('onboarding.management');
-
-        Route::get('/organizations', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'listOrganizations'])
-            ->name('onboarding.organizations');
-        Route::get('/organizations/{organization}/status', [\App\Http\Controllers\Api\V1\Admin\CustomerManagementController::class, 'getOnboardingStatus'])
-            ->name('onboarding.organizations.status');
     });
 
     // Admin User Management Routes (Consolidated)
@@ -496,16 +540,6 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('engines.commission');
     });
 
-    // MSC Rep routes - Add proper authorization
-    Route::middleware(['permission:view-customers'])->group(function () {
-        Route::get('/customers', [CustomerController::class, 'index'])
-            ->name('customers.index');
-        Route::get('/customers/{customer}', [CustomerController::class, 'show'])
-            ->name('customers.show');
-        Route::get('/customers/dashboard', [CustomerController::class, 'dashboard'])
-            ->name('customers.dashboard');
-    });
-
     Route::middleware(['permission:view-team'])->group(function () {
         Route::get('/team', [TeamController::class, 'index'])
             ->name('team.index');
@@ -552,19 +586,19 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // DocuSeal Document Management Routes
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
-        // Main DocuSeal dashboard
+        // Main DocuSeal dashboard (redirect to consolidated order management)
         Route::get('/', function () {
-            return Inertia::render('Admin/DocuSeal/Dashboard');
+            return redirect()->route('orders.management');
         })->name('admin.docuseal.index');
 
-        // Document submissions management
+        // Document submissions management (redirect to consolidated order management)
         Route::get('/submissions', function () {
-            return Inertia::render('Admin/DocuSeal/Submissions');
+            return redirect()->route('orders.management');
         })->name('admin.docuseal.submissions');
 
-        // Document signing status tracking
+        // Document signing status tracking (redirect to consolidated order management)
         Route::get('/status', function () {
-            return Inertia::render('Admin/DocuSeal/Status');
+            return redirect()->route('orders.management');
         })->name('admin.docuseal.status');
     });
 

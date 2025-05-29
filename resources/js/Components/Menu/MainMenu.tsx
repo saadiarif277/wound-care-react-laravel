@@ -1,5 +1,5 @@
 import MainMenuItem from '@/Components/Menu/MainMenuItem';
-import { Building, CircleGauge, Printer, Users, Calculator, Receipt, Wallet } from 'lucide-react';
+import { Building, CircleGauge, Printer, Users, Calculator, Receipt, Wallet, ShoppingCart, Globe, DollarSign } from 'lucide-react';
 
 interface MainMenuProps {
   className?: string;
@@ -13,10 +13,23 @@ export default function MainMenu({ className }: MainMenuProps) {
         link="dashboard"
         icon={<CircleGauge size={20} />}
       />
+
       <MainMenuItem
-        text="Organizations"
-        link="organizations"
-        icon={<Building size={20} />}
+        text="Order Management"
+        link="orders.management"
+        icon={<ShoppingCart size={20} />}
+      />
+
+      <MainMenuItem
+        text="Organizations & Analytics"
+        link="admin.organizations.index"
+        icon={<Globe size={20} />}
+      />
+
+      <MainMenuItem
+        text="Sales Management"
+        link="commission.management"
+        icon={<DollarSign size={20} />}
       />
 
       <MainMenuItem
@@ -24,28 +37,6 @@ export default function MainMenu({ className }: MainMenuProps) {
         link="reports"
         icon={<Printer size={20} />}
       />
-
-      {/* Commission Management Section */}
-      <div className="pt-4 mt-4 border-t border-indigo-800">
-        <div className="px-3 mb-2 text-xs font-semibold text-indigo-200 uppercase">
-          Commission Management
-        </div>
-        <MainMenuItem
-          text="Commission Rules"
-          link="commission-rules.index"
-          icon={<Calculator size={20} />}
-        />
-        <MainMenuItem
-          text="Commission Records"
-          link="commission-records.index"
-          icon={<Receipt size={20} />}
-        />
-        <MainMenuItem
-          text="Commission Payouts"
-          link="commission-payouts.index"
-          icon={<Wallet size={20} />}
-        />
-      </div>
     </div>
   );
 }
