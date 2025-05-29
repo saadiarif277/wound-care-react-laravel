@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
@@ -6,75 +6,125 @@ import {
   FiChevronDown, FiChevronUp, FiCalendar, FiMapPin,
   FiUser, FiDollarSign, FiPackage, FiClock
 } from 'react-icons/fi';
+import { api, handleApiResponse } from '@/lib/api';
 
 // Types
 interface Order {
   id: string;
-  submissionDate: Date;
-  providerName: string;
-  facilityName: string;
-  payerName: string;
-  expectedServiceDate: Date;
+  order_number: string;
+  submission_date: string;
+  provider_name: string;
+  facility_name: string;
+  payer_name: string;
+  expected_service_date: string;
   products: string;
-  totalOrderValue: number;
-  macValidation: 'passed' | 'warning' | 'failed';
-  eligibilityStatus: 'eligible' | 'pending' | 'not_eligible';
-  preAuthStatus: 'approved' | 'pending' | 'denied';
+  total_order_value: number;
+  mac_validation: 'passed' | 'warning' | 'failed';
+  eligibility_status: 'eligible' | 'pending' | 'not_eligible';
+  pre_auth_status: 'approved' | 'pending' | 'denied';
+  status: string;
 }
 
-// Dummy data
-const dummyOrders: Order[] = [
-  {
-    id: 'ORD-001',
-    submissionDate: new Date('2024-03-15T10:30:00'),
-    providerName: 'Dr. John Smith',
-    facilityName: 'Main Hospital',
-    payerName: 'Medicare',
-    expectedServiceDate: new Date('2024-03-20'),
-    products: 'Wound Dressing Advanced (2x2), Antimicrobial Foam (4x4)',
-    totalOrderValue: 1250.75,
-    macValidation: 'passed',
-    eligibilityStatus: 'eligible',
-    preAuthStatus: 'approved'
-  },
-  {
-    id: 'ORD-002',
-    submissionDate: new Date('2024-03-15T09:15:00'),
-    providerName: 'Dr. Sarah Johnson',
-    facilityName: 'Northside Clinic',
-    payerName: 'Blue Cross',
-    expectedServiceDate: new Date('2024-03-18'),
-    products: 'Wound Dressing Advanced (4x4)',
-    totalOrderValue: 850.50,
-    macValidation: 'warning',
-    eligibilityStatus: 'pending',
-    preAuthStatus: 'pending'
-  },
-  {
-    id: 'ORD-003',
-    submissionDate: new Date('2024-03-14T16:45:00'),
-    providerName: 'Dr. Michael Brown',
-    facilityName: 'Downtown Medical Center',
-    payerName: 'Aetna',
-    expectedServiceDate: new Date('2024-03-17'),
-    products: 'Antimicrobial Foam (6x6), Wound Dressing Advanced (2x2)',
-    totalOrderValue: 1500.25,
-    macValidation: 'failed',
-    eligibilityStatus: 'not_eligible',
-    preAuthStatus: 'denied'
-  }
-];
+interface Filters {
+  search: string;
+  status: string;
+  validation: string;
+  eligibility: string;
+}
 
-const OrderApproval = () => {
+const OrderApproval: React.FC = () => {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>({
+    search: '',
+    status: '',
+    validation: '',
+    eligibility: ''
+  });
   const [selectedStatus, setSelectedStatus] = useState<string>('pending');
   const [dateRange, setDateRange] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null
   });
   const [macJurisdiction, setMacJurisdiction] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [showAdvancedFilters, setShowAdvancedFilters] = useState<boolean>(false);
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+
+  // Fetch orders from API
+  const fetchOrders = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const params: any = {};
+
+      if (filters.search) params.search = filters.search;
+      if (filters.status) params.status = filters.status;
+      if (filters.validation) params.mac_validation = filters.validation;
+      if (filters.eligibility) params.eligibility_status = filters.eligibility;
+
+      const response = await api.orders.getAll(params);
+
+      // Transform the data to match our interface
+      const transformedOrders: Order[] = response.data.map((order: any) => ({
+        id: order.id,
+        order_number: order.order_number,
+        submission_date: order.created_at,
+        provider_name: order.provider?.name || 'Unknown Provider',
+        facility_name: order.facility?.name || 'Unknown Facility',
+        payer_name: order.payer_name || 'Unknown Payer',
+        expected_service_date: order.expected_service_date,
+        products: order.items?.map((item: any) => item.product_name).join(', ') || 'No products',
+        total_order_value: order.total_amount || 0,
+        mac_validation: order.mac_validation_status || 'pending',
+        eligibility_status: order.eligibility_status || 'pending',
+        pre_auth_status: order.pre_auth_status || 'pending',
+        status: order.status
+      }));
+
+      setOrders(transformedOrders);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch orders');
+      console.error('Error fetching orders:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Load data on component mount and when filters change
+  useEffect(() => {
+    fetchOrders();
+  }, [filters]);
+
+  const handleFilterChange = (filterName: keyof Filters, value: string) => {
+    setFilters(prev => ({ ...prev, [filterName]: value }));
+  };
+
+  const handleApprove = async (orderId: string) => {
+    try {
+      await api.orders.approve(orderId, { notes: 'Approved from order approval interface' });
+      // Refresh the orders list
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error approving order:', err);
+      alert('Failed to approve order. Please try again.');
+    }
+  };
+
+  const handleReject = async (orderId: string) => {
+    const reason = prompt('Please provide a reason for rejection:');
+    if (!reason) return;
+
+    try {
+      await api.orders.reject(orderId, { reason });
+      // Refresh the orders list
+      await fetchOrders();
+    } catch (err) {
+      console.error('Error rejecting order:', err);
+      alert('Failed to reject order. Please try again.');
+    }
+  };
 
   // Status badge component
   const StatusBadge = ({ status, type }: { status: string; type: 'mac' | 'eligibility' | 'preAuth' }) => {
@@ -174,8 +224,8 @@ const OrderApproval = () => {
           <div className="relative">
             <input
               type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              value={filters.search}
+              onChange={(e) => handleFilterChange('search', e.target.value)}
               placeholder="Search provider or facility..."
               className="w-full rounded-md border-gray-300 shadow-sm pl-10 focus:border-indigo-500 focus:ring-indigo-500"
             />
@@ -242,7 +292,7 @@ const OrderApproval = () => {
                     className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setSelectedOrders(dummyOrders.map(order => order.id));
+                        setSelectedOrders(orders.map(order => order.id));
                       } else {
                         setSelectedOrders([]);
                       }
@@ -285,7 +335,7 @@ const OrderApproval = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {dummyOrders.map((order) => (
+              {orders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <input
@@ -303,21 +353,21 @@ const OrderApproval = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <Link href={`/admin/orders/${order.id}`} className="text-indigo-600 hover:text-indigo-900">
-                      {order.id}
+                      {order.order_number}
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {order.submissionDate.toLocaleDateString()}
+                    {new Date(order.submission_date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
-                    <div className="text-sm text-gray-900">{order.providerName}</div>
-                    <div className="text-sm text-gray-500">{order.facilityName}</div>
+                    <div className="text-sm text-gray-900">{order.provider_name}</div>
+                    <div className="text-sm text-gray-500">{order.facility_name}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {order.payerName}
+                    {order.payer_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    {order.expectedServiceDate.toLocaleDateString()}
+                    {new Date(order.expected_service_date).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4">
                     <div className="text-sm text-gray-900 max-w-xs">
@@ -334,46 +384,76 @@ const OrderApproval = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    ${order.totalOrderValue.toFixed(2)}
+                    ${order.total_order_value.toFixed(2)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={order.macValidation} type="mac" />
+                    <StatusBadge status={order.mac_validation} type="mac" />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={order.eligibilityStatus} type="eligibility" />
+                    <StatusBadge status={order.eligibility_status} type="eligibility" />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusBadge status={order.preAuthStatus} type="preAuth" />
+                    <StatusBadge status={order.pre_auth_status} type="preAuth" />
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <select className="rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
-                      <option value="">Select Action</option>
-                      <option value="approve">Approve</option>
-                      <option value="request_info">Request Info</option>
-                      <option value="reject">Reject</option>
-                    </select>
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => handleApprove(order.id)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-green-700 bg-green-100 hover:bg-green-200"
+                      >
+                        <FiCheck className="mr-1 h-3 w-3" />
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => handleReject(order.id)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded-md text-red-700 bg-red-100 hover:bg-red-200"
+                      >
+                        <FiX className="mr-1 h-3 w-3" />
+                        Reject
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      </div>
 
-      {/* Pagination */}
-      <div className="mt-4 flex items-center justify-between">
-        <div className="text-sm text-gray-700">
-          Showing <span className="font-medium">1</span> to <span className="font-medium">3</span> of{' '}
-          <span className="font-medium">3</span> results
-        </div>
-        <div className="flex gap-2">
-          <button className="px-3 py-1 border rounded-md text-sm disabled:opacity-50" disabled>
-            Previous
-          </button>
-          <button className="px-3 py-1 border rounded-md text-sm disabled:opacity-50" disabled>
-            Next
-          </button>
-        </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="text-center py-8">
+            <div className="inline-flex items-center">
+              <FiClock className="animate-spin h-5 w-5 mr-2 text-gray-400" />
+              <span className="text-gray-600">Loading orders...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {error && !loading && (
+          <div className="text-center py-8">
+            <div className="text-red-600 mb-4">
+              <FiAlertTriangle className="h-8 w-8 mx-auto mb-2" />
+              <p className="text-lg font-medium">Error Loading Orders</p>
+              <p className="text-sm">{error}</p>
+            </div>
+            <button
+              onClick={fetchOrders}
+              className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+            >
+              Try Again
+            </button>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!loading && !error && orders.length === 0 && (
+          <div className="text-center py-8">
+            <FiPackage className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <p className="text-gray-600 text-lg">No orders found</p>
+            <p className="text-gray-500 text-sm">Try adjusting your filters or check back later.</p>
+          </div>
+        )}
       </div>
     </MainLayout>
   );

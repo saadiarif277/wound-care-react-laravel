@@ -30,12 +30,19 @@ const SideMenu = () => {
                 },
             ],
         },
-        // Facilities - Accessible by all roles except provider
+        // Order Management - Accessible by admin roles
         {
-            label: 'Facilities',
-            icon: 'building',
-            href: '/facilities',
-            roles: ['office_manager', 'msc_rep', 'msc_subrep', 'msc_admin'],
+            label: 'Order Management',
+            icon: 'shopping-cart',
+            href: '/orders/management',
+            roles: ['msc_admin'],
+        },
+        // Organizations & Analytics - Accessible by admin roles
+        {
+            label: 'Organizations & Analytics',
+            icon: 'globe',
+            href: '/admin/organizations',
+            roles: ['msc_admin'],
         },
         // Products - Accessible by all roles
         {
@@ -44,54 +51,25 @@ const SideMenu = () => {
             href: '/products',
             roles: ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin'],
         },
-        // Commissions - Accessible by MSC roles and office managers
+        // Sales Management - Accessible by MSC roles and office managers
         {
-            label: 'Commissions',
-            icon: 'money-bill',
-            href: '/commissions',
+            label: 'Sales Management',
+            icon: 'dollar-sign',
+            href: '/commission/management',
             roles: ['msc_rep', 'msc_subrep', 'msc_admin', 'office_manager'],
-            subItems: [
-                {
-                    label: 'Overview',
-                    href: '/commission/overview',
-                    roles: ['msc_rep', 'msc_subrep', 'msc_admin', 'office_manager'],
-                },
-                {
-                    label: 'Rules',
-                    href: '/commission/rules',
-                    roles: ['msc_admin'],
-                },
-                {
-                    label: 'Records',
-                    href: '/commission/records',
-                    roles: ['msc_rep', 'msc_subrep', 'msc_admin', 'office_manager'],
-                },
-                {
-                    label: 'Payouts',
-                    href: '/commission/payouts',
-                    roles: ['msc_admin'],
-                },
-            ],
-        },
-        // Sales Reps - Accessible by MSC roles
-        {
-            label: 'Sales Representatives',
-            icon: 'users',
-            href: '/sales-reps',
-            roles: ['msc_rep', 'msc_admin'],
         },
         // User Management - Admin only
         {
             label: 'User Management',
             icon: 'user-cog',
-            href: '/users',
+            href: '/admin/users',
             roles: ['msc_admin'],
         },
         // Role Management - Admin only
         {
             label: 'Role Management',
             icon: 'user-shield',
-            href: '/roles',
+            href: '/rbac',
             roles: ['msc_admin'],
         },
     ];

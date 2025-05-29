@@ -11,7 +11,7 @@ use App\Http\Controllers\Api\ClinicalOpportunitiesController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\Auth\AccessRequestController;
@@ -203,11 +203,11 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
 Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
     // Document generation
     Route::post('generate-document', [\App\Http\Controllers\DocusealController::class, 'generateDocument'])->name('generate');
-    
+
     // Submission management
     Route::get('submissions/{submission_id}/status', [\App\Http\Controllers\DocusealController::class, 'getSubmissionStatus'])->name('status');
     Route::get('submissions/{submission_id}/download', [\App\Http\Controllers\DocusealController::class, 'downloadDocument'])->name('download');
-    
+
     // Order submissions
     Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
 });
