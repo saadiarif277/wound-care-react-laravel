@@ -6,10 +6,16 @@ use App\Models\Users\Organization\Organization;
 use App\Models\Fhir\Facility;
 use App\Models\Order\OrderItem; // Assuming OrderItem will be in App\Models\Order namespace
 use App\Models\MscSalesRep;
+use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
+    use BelongsToOrganizationThrough;
+
+    // Define the parent relationship for organization scoping
+    protected string $organizationThroughRelation = 'facility';
+
     protected $fillable = [
         'organization_id',
         'facility_id',
@@ -27,6 +33,22 @@ class Order extends Model
         'order_date' => 'datetime',
         'total_amount' => 'decimal:2',
     ];
+
+    /**
+     * Get the name of the parent relationship that contains organization_id
+     */
+    protected function getOrganizationParentRelationName(): string
+    {
+        return 'facility';
+    }
+
+    /**
+     * Get the name of the organization relationship on the parent
+     */
+    public function getOrganizationRelationName(): string
+    {
+        return 'organization';
+    }
 
     // Relationships to non-PHI data only
     public function organization()

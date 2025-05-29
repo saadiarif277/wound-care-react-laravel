@@ -46,7 +46,11 @@ class Organization extends Model
 
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->where($field ?? 'id', $value)->withTrashed()->firstOrFail();
+        $field = $field ?? 'id';
+        if (!preg_match('/^[a-zA-Z0-9_]+$/', $field)) {
+            throw new \InvalidArgumentException('Invalid column name');
+        }
+        return $this->whereRaw('?? = ?', [$field, $value])->withTrashed()->firstOrFail();
     }
 
     public function account(): BelongsTo

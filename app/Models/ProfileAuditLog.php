@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Users\Organization\Organization;
+use App\Traits\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class ProfileAuditLog extends Model
 {
+    use HasFactory, BelongsToOrganization;
+
     protected $table = 'profile_audit_log';
     protected $keyType = 'string';
     public $incrementing = false;
