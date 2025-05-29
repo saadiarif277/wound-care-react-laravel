@@ -5,7 +5,7 @@ import {
   FiBriefcase, FiMapPin, FiUser, FiTrendingUp, FiPieChart,
   FiPlus, FiEdit, FiEye, FiTrash2, FiSearch, FiFilter,
   FiCheckCircle, FiClock, FiAlertTriangle, FiUsers,
-  FiActivity, FiBarChart3, FiTarget
+  FiActivity, FiBarChart, FiTarget
 } from 'react-icons/fi';
 import { api, handleApiResponse } from '@/lib/api';
 
@@ -164,7 +164,7 @@ export default function OrganizationsIndex() {
     { id: 'facilities', label: 'Facilities', icon: FiMapPin, count: stats.activeFacilities },
     { id: 'providers', label: 'Providers', icon: FiUser, count: stats.activeProviders },
     { id: 'onboarding', label: 'Onboarding Pipeline', icon: FiActivity, count: stats.pendingOnboarding },
-    { id: 'analytics', label: 'Customer Analytics', icon: FiBarChart3, count: null }
+    { id: 'analytics', label: 'Customer Analytics', icon: FiBarChart, count: null }
   ];
 
   const getStatusBadge = (status: string) => {
