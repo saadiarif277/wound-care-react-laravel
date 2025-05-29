@@ -2,13 +2,19 @@
 
 namespace App\Models\Users;
 
+use App\Models\User;
+use App\Models\Fhir\Facility;
+use App\Models\Users\Organization\Organization;
+use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Str;
 
 class OnboardingChecklist extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToOrganizationThrough;
 
     public $incrementing = false;
     protected $keyType = 'string';
@@ -47,5 +53,30 @@ class OnboardingChecklist extends Model
     public function entity()
     {
         return $this->morphTo();
+    }
+
+    /**
+     * Get the organization relationship through the entity
+     */
+    protected function getOrganizationParentRelationName(): string
+    {
+        // The entity could be User, Facility, etc.
+        // We'll need to check the entity type and route accordingly
+        return 'entity';
+    }
+
+    /**
+     * Get the organization relationship name on the parent
+     */
+    public function getOrganizationRelationName(): string
+    {
+        // This will vary based on entity type
+        if ($this->entity_type === 'App\\Models\\Fhir\\Facility') {
+            return 'organization';
+        }
+        if ($this->entity_type === 'App\\Models\\User') {
+            return 'currentOrganization';
+        }
+        return 'organization';
     }
 }

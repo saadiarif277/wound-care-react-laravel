@@ -5,6 +5,7 @@ namespace App\Models\Order;
 use App\Models\User;
 use App\Models\Fhir\Facility;
 use App\Models\MscSalesRep;
+use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -14,7 +15,7 @@ use Carbon\Carbon;
 
 class ProductRequest extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToOrganizationThrough;
 
     protected $fillable = [
         'request_number',
@@ -52,6 +53,22 @@ class ProductRequest extends Model
         'approved_at' => 'datetime',
         'total_order_value' => 'decimal:2',
     ];
+
+    /**
+     * Get the name of the parent relationship that contains organization_id
+     */
+    protected function getOrganizationParentRelationName(): string
+    {
+        return 'facility';
+    }
+
+    /**
+     * Get the name of the organization relationship on the parent
+     */
+    public function getOrganizationRelationName(): string
+    {
+        return 'organization';
+    }
 
     /**
      * Get the provider that created this request.
