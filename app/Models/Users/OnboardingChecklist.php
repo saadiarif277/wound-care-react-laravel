@@ -58,7 +58,7 @@ class OnboardingChecklist extends Model
     /**
      * Get the organization relationship through the entity
      */
-    protected function getOrganizationParentRelationName(): string
+    protected static function getOrganizationParentRelationName(): string
     {
         // The entity could be User, Facility, etc.
         // We'll need to check the entity type and route accordingly

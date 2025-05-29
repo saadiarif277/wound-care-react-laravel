@@ -32,7 +32,7 @@ class CurrentOrganization
     public function getOrganization(): ?Organization
     {
         if ($this->organization === null && $this->organizationId !== null) {
-            $this->organization = Organization::find($this->organizationId);
+            $this->organization = Organization::where('id', $this->organizationId)->first();
         }
 
         return $this->organization;
