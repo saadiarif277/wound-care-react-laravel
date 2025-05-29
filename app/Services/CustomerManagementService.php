@@ -2,14 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Organization;
+use App\Models\Users\Organization\Organization;
 use App\Models\User;
-use App\Models\Facility;
+use App\Models\Users\Facility\Facility;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
-use App\Models\OnboardingDocument;
-use App\Models\OnboardingChecklist;
-use App\Models\ProviderInvitation;
+use App\Models\Users\OnboardingDocument;
+use App\Models\Users\OnboardingChecklist;
+use App\Models\Users\ProviderInvitation;
 
 class CustomerManagementService
 {
@@ -28,12 +28,12 @@ class CustomerManagementService
         ])
         ->withCount(['facilities']) // Get count of facilities
         ->find($organizationId);
-        
+
         // Ensure we have a model instance, not a builder
         if ($organization instanceof \Illuminate\Database\Eloquent\Builder) {
             $organization = $organization->first();
         }
-        
+
         return $organization;
     }
 

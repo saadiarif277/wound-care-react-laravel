@@ -2,7 +2,10 @@
 
 namespace App\Models;
 
+use App\Models\User;
 use App\Models\Users\Organization\Organization;
+use App\Models\Users\Provider\ProviderCredential;
+use App\Models\Users\Provider\ProviderProfile;
 use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
