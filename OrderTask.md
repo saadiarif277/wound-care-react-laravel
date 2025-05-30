@@ -73,10 +73,10 @@ This document tracks the tasks for implementing the minimal MVP of the end-to-en
         - [ ] If valid, call the PHP `SkinSubstituteChecklistService` to generate FHIR bundle and submit to Azure.
         - [ ] Update local Supabase `Order` with `azure_order_checklist_fhir_id` and status.
 - [ ] **Frontend: Remaining Steps Integration**
-    - [ ] `ProductSelectionStep.tsx`: Integrate with `Create.tsx` and `formData.selected_products`.
-    - [ ] `ValidationEligibilityStep.tsx`: Integrate, populate `formData` validation/eligibility fields. Implement backend calls.
-    - [ ] `ClinicalOpportunitiesStep.tsx`: Integrate, populate `formData.clinical_opportunities`. Implement backend calls.
-    - [ ] `ReviewSubmitStep.tsx`: Display summary of `FormData` (including `SkinSubstituteChecklistInput`).
+    - [x] `ProductSelectionStep.tsx`: Integrate with `Create.tsx` and `formData.selected_products`.
+    - [x] `ValidationEligibilityStep.tsx`: Integrate, populate `formData` validation/eligibility fields. Implement backend calls.
+    - [x] `ClinicalOpportunitiesStep.tsx`: Integrate, populate `formData.clinical_opportunities`. Implement backend calls.
+    - [x] `ReviewSubmitStep.tsx`: Display summary of `FormData` (including `SkinSubstituteChecklistInput`).
 
 ## Phase 2: Backend Processing & DocuSeal Integration
 

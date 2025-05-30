@@ -48,6 +48,7 @@ class User extends Authenticatable
         'is_verified',
         'last_activity',
         'current_organization_id',
+        'practitioner_fhir_id',
     ];
 
     /**

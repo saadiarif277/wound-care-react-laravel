@@ -42,6 +42,7 @@ class Organization extends Model
         'region',
         'country',
         'postal_code',
+        'fhir_id', // Added Organization FHIR ID
     ];
 
     public function resolveRouteBinding($value, $field = null)
