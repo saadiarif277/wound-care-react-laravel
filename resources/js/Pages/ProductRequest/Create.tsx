@@ -161,8 +161,61 @@ const ProductRequestCreate: React.FC<Props> = ({
     setFormData(prev => ({ ...prev, ...data }));
   };
 
-  const submitForm = () => {
-    router.post('/product-requests', formData as any);
+  const submitForm = async () => {
+    // Step 1: Create the order with initial patient and order details
+    // We'll exclude clinical_data, selected_products, validation results, and opportunities for the initial order creation.
+    // These will be added/updated in subsequent steps or calls.
+    const { clinical_data, selected_products, mac_validation_results, mac_validation_status, eligibility_results, eligibility_status, clinical_opportunities, ...initialOrderData } = formData;
+
+    try {
+      const orderResponse = await router.post('/api/v1/orders', initialOrderData as any, {
+        preserveState: true, // Keep current form state in case of partial success or needing to resume
+        preserveScroll: true,
+        onSuccess: async (page:any) => {
+          const orderId = page.props.order?.id; // Assuming the order ID is returned in props.order.id
+
+          if (orderId && clinical_data) {
+            // Step 2: Submit the clinical checklist data to the newly created order
+            // Ensure clinical_data matches SkinSubstituteChecklistInput structure
+            const checklistPayload: SkinSubstituteChecklistInput = {
+              patientName: `${formData.patient_api_input.first_name} ${formData.patient_api_input.last_name}`,
+              dateOfBirth: formData.patient_api_input.dob,
+              // Ensure all required fields from SkinSubstituteChecklistInput are mapped
+              // This might require spreading clinical_data and ensuring defaults or transformations
+              ...(clinical_data as SkinSubstituteChecklistInput),
+              // Explicitly set fields that might not be directly in clinical_data or need transformation
+              dateOfProcedure: clinical_data.dateOfProcedure || formData.expected_service_date, // Example default
+              // Map other fields as necessary from formData or context
+            };
+
+            await router.post(`/api/v1/orders/${orderId}/checklist`, checklistPayload as any, {
+              onSuccess: () => {
+                // Handle successful checklist submission, e.g., redirect to an order summary page or show success message
+                router.visit(`/orders/${orderId}`); // Example: redirect to order view page
+              },
+              onError: (errors) => {
+                console.error('Error submitting checklist:', errors);
+                // Handle checklist submission errors (e.g., display to user)
+              }
+            });
+          } else if (!orderId) {
+            console.error('Order ID not found after creating order.');
+            // Handle error: order ID missing
+          } else if (!clinical_data) {
+            console.warn('No clinical data to submit. Order created, but checklist was not sent.');
+            // Potentially redirect to order view or allow adding checklist later
+             router.visit(`/orders/${orderId}`);
+          }
+        },
+        onError: (errors) => {
+          console.error('Error creating order:', errors);
+          // Handle order creation errors (e.g., display to user)
+        }
+      });
+    } catch (error) {
+      console.error('An unexpected error occurred during form submission:', error);
+      // Handle unexpected errors
+    }
   };
 
   const isStepValid = (step: number): boolean => {

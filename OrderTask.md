@@ -55,9 +55,9 @@ This document tracks the tasks for implementing the minimal MVP of the end-to-en
     - [x] Updated `getRequiredFieldsForSection` for SSP UI section keys.
     - [ ] **Further refinement/testing of validation logic within all `validateSsp...` methods is ongoing (e.g., more complex cross-field dependencies, specific value ranges not yet implemented).**
 - [ ] **FHIR Observation Mapping for Clinical Data (Backend PHP Service)**
-    - [ ] Port logic from TypeScript `SkinSubstituteChecklistMapper.mapToFhirBundle` to a new PHP service (`App\Services\HealthData\Services\Fhir\SkinSubstituteChecklistService`).
-    - [ ] This service will take the PHP `SkinSubstituteChecklistInput` DTO and generate a FHIR Bundle array.
-    - [ ] Ensure `AzureFhirClient.php` (PHP) is used by this service to submit the bundle.
+    - [x] Port logic from TypeScript `SkinSubstituteChecklistMapper.mapToFhirBundle` to a new PHP service (`App\Services\HealthData\Services\Fhir\SkinSubstituteChecklistService`).
+    - [x] This service will take the PHP `SkinSubstituteChecklistInput` DTO and generate a FHIR Bundle array.
+    - [x] Ensure `AzureFhirClient.php` (PHP) is used by this service to submit the bundle.
     - [ ] Define necessary custom FHIR extensions (StructureDefinitions) if not already in place on the FHIR server.
 - [ ] **Frontend: `Create.tsx` Form Submission**
     - [ ] Implement the `submitForm` function in `Create.tsx`.

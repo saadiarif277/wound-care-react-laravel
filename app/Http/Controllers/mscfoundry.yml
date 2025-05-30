@@ -1,5 +1,0 @@
-$schema: https://azuremlschemas.azureedge.net/latest/model.schema.json
-#enter name for your model
-name: gpt-4.1-nano
-# To register a model, specify the path for the saved model
-path: https://msc-ai-services.openai.azure.com/openai/deployments/gpt-4.1-nano/chat/completions?api-version=2025-01-01-preview

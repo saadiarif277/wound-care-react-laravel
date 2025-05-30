@@ -87,9 +87,13 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
     try {
       setLoading(true);
       setError(null);
-      // ECWAdapter.searchPatientsByName is expected to return PatientDemographics[]
-      // which is compatible with PatientApiInput[] after Create.tsx changes.
-      const results: PatientApiInput[] = await ecwAdapter.searchPatientsByName(searchTerm);
+      // ECWAdapter.searchPatientsByName returns PatientFormData[] which needs mapping
+      // to ensure gender values match PatientApiInput requirements
+      const rawResults = await ecwAdapter.searchPatientsByName(searchTerm);
+      const results: PatientApiInput[] = rawResults.map(patient => ({
+        ...patient,
+        gender: patient.gender as "male" | "female" | "other" | "unknown" | undefined
+      }));
       setSearchResults(results);
     } catch (err: any) {
       setError(err.message || 'Failed to search patients');

@@ -13,6 +13,8 @@
         "ext-gd": "*",
         "aws/aws-sdk-php": "^3.0",
         "axlon/laravel-postal-code-validation": "^3.8",
+        "dcarbone/php-fhir": "^4.0",
+        "dcarbone/php-fhir-generated": "^3.2",
         "doctrine/dbal": "*",
         "docusealco/docuseal-php": "^1.0",
         "fakerphp/faker": "^1.23",
