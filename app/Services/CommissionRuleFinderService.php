@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\CommissionRule;
-use App\Models\Product;
+use App\Models\Commissions\CommissionRule;
+use App\Models\Order\Product;
 use App\Models\MscSalesRep;
 
 class CommissionRuleFinderService
