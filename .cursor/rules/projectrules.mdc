@@ -6,7 +6,7 @@ alwaysApply: true
 Project Architecture
 
 Hybrid PHI Strategy: Operational data in Supabase, PHI exclusively in Azure Health Data Services via FHIR R4
-Technology Stack: Next.js (App Router), React Server Components, Shadcn UI, Zustand, React Query, Supabase, Azure Health Data Services
+Technology Stack: Next.js (App Router), React Server Components, Zustand, React Query, Supabase, Azure Health Data Services
 Monorepo Structure: apps/web/ for main application, packages/ for shared modules
 HIPAA Compliance: Strict PHI/non-PHI separation with referential integrity
 

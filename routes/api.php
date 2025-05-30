@@ -18,6 +18,8 @@ use App\Http\Controllers\Auth\AccessRequestController;
 use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
 use App\Http\Controllers\Api\V1\ProviderOnboardingController;
 use App\Http\Controllers\Api\V1\ProviderProfileController;
+use App\Http\Controllers\Api\ProductRequestPatientController;
+use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -195,6 +197,12 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
         Route::get('{id}/_history', [FhirController::class, 'patientHistory'])->name('history');
     });
 
+    // Observation Resource Routes
+    Route::prefix('Observation')->name('observation.')->group(function () {
+        Route::get('/', [FhirController::class, 'searchObservations'])->name('search');
+        // Add other Observation specific routes here if needed (e.g., create, read, update)
+    });
+
     // Transaction/Batch endpoint
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });
@@ -276,7 +284,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return response()->json([
             'status' => 'healthy',
             'timestamp' => now()->toISOString(),
-            'version' => config('app.version', '1.0.0')
+            'version' => '1.0.0'
         ]);
     })->name('api.health');
 });
@@ -437,4 +445,12 @@ Route::prefix('api/v1')->group(function () {
         // Route::get('/profile/onboarding-status', [ProviderProfileController::class, 'getOnboardingStatus']);
     });
 });
+
+// Product Request Flow - Patient Information Step (MVP)
+Route::post('/v1/product-requests/patient', [ProductRequestPatientController::class, 'store'])->name('api.v1.product-requests.patient.store');
+
+// Product Request Flow - Clinical Assessment Step (MVP)
+Route::post('/v1/product-requests/clinical-assessment', [ProductRequestClinicalAssessmentController::class, 'store'])->name('api.v1.product-requests.clinical-assessment.store');
+
+// Fallback Route for 404 API requests
 

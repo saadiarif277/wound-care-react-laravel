@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Order;
-use App\Models\ProductRequest;
+use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
 use App\Services\CmsCoverageApiService;
 use App\Services\WoundCareValidationEngine;
 use App\Services\PulmonologyWoundCareValidationEngine;
@@ -555,7 +555,7 @@ class ValidationBuilderEngine
     private function parseIndications(string $indications): array { return []; }
     private function parseCodingInformation(string $codingInfo): array { return []; }
 
-        private function performDirectValidation(array $validationData, string $specialty, array $validationRules): array
+    private function performDirectValidation(array $validationData, string $specialty, array $validationRules): array
     {
         // Extract validation information from direct data
         $issues = [];
