@@ -316,6 +316,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Commission tracking, payouts, sales rep management'
         },
         {
+          name: 'Product Catalog Management',
+          href: '/products/manage',
+          icon: FiPackage,
+          roles: ['msc-admin'],
+          description: 'Manage product catalog and inventory'
+        },
+        {
           name: 'System Administration',
           href: '#',
           icon: FiSettings,
@@ -348,12 +355,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   description: 'Send and manage user invitations'
                 }
               ]
-            },
-            {
-              name: 'Product Catalog Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['msc-admin']
             },
             {
               name: 'System Settings',
@@ -403,6 +404,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Commission tracking, payouts, sales rep management'
         },
         {
+          name: 'Product Catalog Management',
+          href: '/products/manage',
+          icon: FiPackage,
+          roles: ['super-admin', 'superadmin'],
+          description: 'Manage product catalog and inventory'
+        },
+        {
           name: 'System Administration',
           href: '#',
           icon: FiSettings,
@@ -441,12 +449,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   roles: ['super-admin', 'superadmin']
                 }
               ]
-            },
-            {
-              name: 'Product Catalog Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['super-admin', 'superadmin']
             },
             {
               name: 'System Settings',

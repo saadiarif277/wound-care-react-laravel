@@ -268,15 +268,11 @@ Route::middleware(['permission:view-products'])->group(function () {
     // Product API endpoints accessible to all roles with view-products permission
     Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
     Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
-
-    // Specific routes must come before parameterized routes
-    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
-    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
 });
 
 // Product management - restricted to admin roles only
 Route::middleware(['permission:manage-products'])->group(function () {
-    // Specific routes first
+    // Specific routes first (BEFORE parameterized routes)
     Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
     Route::get('products/manage', [ProductController::class, 'manage'])->name('products.manage');
 
@@ -286,6 +282,13 @@ Route::middleware(['permission:manage-products'])->group(function () {
     Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     Route::put('products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+});
+
+// Product view routes (AFTER specific management routes)
+Route::middleware(['permission:view-products'])->group(function () {
+    // Specific routes must come before parameterized routes
+    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
 });
 
 // Users
