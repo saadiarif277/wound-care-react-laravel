@@ -102,6 +102,8 @@ class DatabaseSeeder extends Seeder
             'manage-system-config'                  => 'Manage system configuration',
             'manage-integrations'                   => 'Manage system integrations',
             'manage-api'                            => 'Manage API settings',
+            'view-financials'                       => 'View financial information',
+            'manage-financials'                     => 'Manage financial rules',
         ];
 
         $permissionIds = [];
@@ -199,8 +201,11 @@ class DatabaseSeeder extends Seeder
                     'manage-products',
                     'manage-orders',
                     'view-order-totals',
+                    'view-financials',
+                    'manage-financials',
                     'manage-commission',
                     'view-payouts',
+                    'view-customers',
                     'manage-customers',
                     'manage-facilities',
                     'manage-providers',
@@ -526,6 +531,55 @@ class DatabaseSeeder extends Seeder
         foreach ($productRequests as $request) {
             DB::table('product_requests')->insert($request);
         }
+
+        // Add test orders for current month profit calculation
+        \App\Models\Order\ProductRequest::create([
+            'request_number' => 'TEST-' . uniqid(),
+            'patient_fhir_id' => 'test-patient-1',
+            'patient_display_id' => 'TP001',
+            'wound_type' => 'DFU',
+            'payer_name_submitted' => 'Medicare',
+            'expected_service_date' => now()->addDays(7)->toDateString(),
+            'facility_id' => 1,
+            'provider_id' => 1,
+            'order_status' => 'approved',
+            'total_order_value' => 2500.00,
+            'approved_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \App\Models\Order\ProductRequest::create([
+            'request_number' => 'TEST-' . uniqid(),
+            'patient_fhir_id' => 'test-patient-2',
+            'patient_display_id' => 'TP002',
+            'wound_type' => 'VLU',
+            'payer_name_submitted' => 'Blue Cross',
+            'expected_service_date' => now()->addDays(5)->toDateString(),
+            'facility_id' => 1,
+            'provider_id' => 1,
+            'order_status' => 'approved',
+            'total_order_value' => 3500.00,
+            'approved_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        \App\Models\Order\ProductRequest::create([
+            'request_number' => 'TEST-' . uniqid(),
+            'patient_fhir_id' => 'test-patient-3',
+            'patient_display_id' => 'TP003',
+            'wound_type' => 'PU',
+            'payer_name_submitted' => 'Aetna',
+            'expected_service_date' => now()->addDays(3)->toDateString(),
+            'facility_id' => 1,
+            'provider_id' => 1,
+            'order_status' => 'delivered',
+            'total_order_value' => 1800.00,
+            'approved_at' => now()->subDays(10),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
 
         $this->command->info('Database seeded successfully!');
     }

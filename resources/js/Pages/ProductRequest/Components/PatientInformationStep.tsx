@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiSearch, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
 import EcwConnection from '@/Components/EcwIntegration/EcwConnection';
-import { Facility, WoundType } from '@/types';
+import { Facility } from '@/types';
 import { ECWAdapter } from '@/services/integrations/ECWAdapter';
 
 // Define PatientApiInput locally, matching Create.tsx, if not easily importable
@@ -32,7 +32,7 @@ interface ParentFormData {
 interface PatientInformationStepProps {
   formData: ParentFormData; // Represents FormData from Create.tsx
   updateFormData: (data: Partial<ParentFormData>) => void;
-  woundTypes: WoundType[];
+  woundTypes: Record<string, string>; // Updated to match backend format
   facilities: Facility[];
 }
 
@@ -453,9 +453,9 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
               >
                 <option value="">Select Wound Type</option>
-                {woundTypes.map((wt) => (
-                  <option key={wt.code} value={wt.code}>
-                    {wt.display_name}
+                {Object.entries(woundTypes).map(([code, name]) => (
+                  <option key={code} value={code}>
+                    {name}
                   </option>
                 ))}
               </select>

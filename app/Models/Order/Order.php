@@ -38,7 +38,7 @@ class Order extends Model
     /**
      * Get the name of the parent relationship that contains organization_id
      */
-    protected function getOrganizationParentRelationName(): string
+    protected static function getOrganizationParentRelationName(): string
     {
         return 'facility';
     }

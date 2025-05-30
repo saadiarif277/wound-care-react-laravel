@@ -126,7 +126,7 @@ export default function CustomerManagementDashboard({
     };
 
     const handleFilter = () => {
-        get('/admin/customers', {
+        get('/admin/organizations', {
             preserveState: true,
             replace: true
         });
@@ -149,7 +149,7 @@ export default function CustomerManagementDashboard({
                                 <Download className="h-4 w-4 mr-2" />
                                 Export
                             </Button>
-                            <Link href="/admin/customers/organizations/create">
+                            <Link href="/admin/organizations/create">
                                 <Button>
                                     <Plus className="h-4 w-4 mr-2" />
                                     Add Organization
@@ -430,13 +430,13 @@ export default function CustomerManagementDashboard({
                                                 </td>
                                                 <td className="py-3 px-4">
                                                     <div className="flex items-center gap-2">
-                                                        <Link href={`/admin/customers/${org.id}`}>
-                                                            <Button variant="secondary" className="h-8 w-8">
+                                                        <Link href={`/admin/organizations/${org.id}`}>
+                                                            <Button variant="ghost" size="sm">
                                                                 <Eye className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
-                                                        <Link href={`/admin/customers/${org.id}/edit`}>
-                                                            <Button variant="secondary" className="h-8 w-8">
+                                                        <Link href={`/admin/organizations/${org.id}/edit`}>
+                                                            <Button variant="ghost" size="sm">
                                                                 <Edit className="h-4 w-4" />
                                                             </Button>
                                                         </Link>
@@ -461,7 +461,7 @@ export default function CustomerManagementDashboard({
                                             : "Get started by adding your first organization"}
                                     </p>
                                     {!searchTerm && !Object.values(data).some(v => v) && (
-                                        <Link href="/admin/customers/organizations/create">
+                                        <Link href="/admin/organizations/create">
                                             <Button>
                                                 <Plus className="h-4 w-4 mr-2" />
                                                 Add Organization

@@ -2,9 +2,8 @@
 
 namespace App\Http\Requests;
 
-use App\Models\Facility;
-use App\Models\Organization;
-use App\Models\User;
+use App\Models\Fhir\Facility;
+use App\Models\Users\Organization\Organization;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Validation\Rule;
@@ -23,7 +22,7 @@ class InviteProvidersRequest extends FormRequest
 
         // Get organization ID from route parameter
         $organizationId = $this->route('organizationId');
-        
+
         if (!$organizationId) {
             return false;
         }
@@ -36,12 +35,12 @@ class InviteProvidersRequest extends FormRequest
 
         // Check if user has permission to manage this specific organization
         $user = Auth::user();
-        
+
         // MSC Admins can invite providers to any organization
         if ($user->hasPermission('manage-all-organizations')) {
             return true;
         }
-        
+
         // Office Managers can only invite providers to their own organization
         if ($user->hasPermission('manage-organization') && $user->organization_id == $organizationId) {
             return true;
@@ -58,7 +57,7 @@ class InviteProvidersRequest extends FormRequest
     public function rules(): array
     {
         $organizationId = $this->route('organizationId');
-        
+
         return [
             'providers' => 'required|array|min:1',
             'providers.*.email' => [
@@ -128,19 +127,19 @@ class InviteProvidersRequest extends FormRequest
         // Clean and format NPI numbers
         if ($this->has('providers')) {
             $providers = $this->input('providers');
-            
+
             foreach ($providers as $index => $provider) {
                 if (isset($provider['npi'])) {
                     // Remove any non-digit characters from NPI
                     $providers[$index]['npi'] = preg_replace('/\D/', '', $provider['npi']);
                 }
-                
+
                 // Trim and normalize email
                 if (isset($provider['email'])) {
                     $providers[$index]['email'] = strtolower(trim($provider['email']));
                 }
             }
-            
+
             $this->merge(['providers' => $providers]);
         }
     }
@@ -152,7 +151,7 @@ class InviteProvidersRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             $organizationId = $this->route('organizationId');
-            
+
             // Additional validation: Ensure organization exists and user has access
             if ($organizationId) {
                 $organization = Organization::find($organizationId);
@@ -160,11 +159,11 @@ class InviteProvidersRequest extends FormRequest
                     $validator->errors()->add('organization', 'The specified organization does not exist.');
                 }
             }
-            
+
             // Additional validation: Check facility assignments make sense
             if ($this->has('providers')) {
                 $organizationFacilityIds = Facility::where('organization_id', $organizationId)->pluck('id')->toArray();
-                
+
                 foreach ($this->input('providers') as $index => $provider) {
                     if (isset($provider['facilities'])) {
                         foreach ($provider['facilities'] as $facilityIndex => $facilityId) {

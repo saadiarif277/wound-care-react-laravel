@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\Organization;
+use App\Models\Users\Organization\Organization;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 
@@ -87,7 +87,7 @@ class CustomerManagementController extends Controller
     public function showOrganization(Organization $organization)
     {
         $organization->load(['facilities.providers', 'primaryContact', 'salesRep']);
-        
+
         return Inertia::render('Admin/CustomerManagement/OrganizationDetail', [
             'organization' => $organization,
         ]);
@@ -102,4 +102,4 @@ class CustomerManagementController extends Controller
             'organization' => $organization,
         ]);
     }
-} 
+}

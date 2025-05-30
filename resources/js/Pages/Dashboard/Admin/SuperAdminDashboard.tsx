@@ -5,141 +5,73 @@ import { UserWithRole } from '@/types/roles';
 
 interface SuperAdminDashboardProps {
   user?: UserWithRole;
+  dashboardData?: {
+    system_metrics?: {
+      uptime: number;
+      api_response_time: number;
+      active_users: number;
+      database_performance: number;
+      security_incidents: number;
+      integration_health: number;
+      error_rate: number;
+      storage_utilization: number;
+    };
+    security_alerts?: Array<{
+      id: string;
+      type: string;
+      severity: string;
+      description: string;
+      timestamp: string;
+      status: string;
+      affected_systems: string[];
+    }>;
+    system_health_components?: Array<{
+      id: string;
+      component: string;
+      status: string;
+      response_time: number;
+      uptime: number;
+      last_checked: string;
+      details: string;
+    }>;
+    error_logs?: Array<{
+      id: string;
+      level: string;
+      message: string;
+      component: string;
+      timestamp: string;
+      count: number;
+      resolved: boolean;
+    }>;
+    data_integrity_checks?: Array<{
+      id: string;
+      check: string;
+      status: string;
+      last_run: string;
+      duration: string;
+      records_checked: number;
+      inconsistencies: number;
+    }>;
+  };
 }
 
-// System health and technical metrics
-const systemMetrics = {
-  uptime: 99.8,
-  apiResponseTime: 245,
-  activeUsers: 142,
-  databasePerformance: 87.5,
-  securityIncidents: 0,
-  integrationHealth: 98.2,
-  errorRate: 0.03,
-  storageUtilization: 67.2
-};
+export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminDashboardProps) {
+  const systemMetrics = dashboardData?.system_metrics || {
+    uptime: 0,
+    api_response_time: 0,
+    active_users: 0,
+    database_performance: 0,
+    security_incidents: 0,
+    integration_health: 0,
+    error_rate: 0,
+    storage_utilization: 0,
+  };
 
-const securityAlerts = [
-  {
-    id: 'SEC-2024-001',
-    type: 'Failed Login Attempts',
-    severity: 'medium',
-    description: 'Multiple failed login attempts detected from IP 192.168.1.100',
-    timestamp: '2024-01-15 14:30:22',
-    status: 'investigating',
-    affectedSystems: ['Authentication Service']
-  },
-  {
-    id: 'SEC-2024-002',
-    type: 'Unusual Access Pattern',
-    severity: 'low',
-    description: 'User accessing system from new geographic location',
-    timestamp: '2024-01-15 13:45:15',
-    status: 'resolved',
-    affectedSystems: ['User Portal']
-  }
-];
+  const securityAlerts = dashboardData?.security_alerts || [];
+  const systemHealthComponents = dashboardData?.system_health_components || [];
+  const errorLogs = dashboardData?.error_logs || [];
+  const dataIntegrityChecks = dashboardData?.data_integrity_checks || [];
 
-const systemHealthComponents = [
-  {
-    id: 'SH-001',
-    component: 'Web Application',
-    status: 'healthy',
-    responseTime: 180,
-    uptime: 99.9,
-    lastChecked: '2024-01-15 15:00:00',
-    details: 'All endpoints responding normally'
-  },
-  {
-    id: 'SH-002',
-    component: 'Supabase Database',
-    status: 'healthy',
-    responseTime: 95,
-    uptime: 99.8,
-    lastChecked: '2024-01-15 15:00:00',
-    details: 'Query performance optimal'
-  },
-  {
-    id: 'SH-003',
-    component: 'Azure FHIR Service',
-    status: 'warning',
-    responseTime: 850,
-    uptime: 98.5,
-    lastChecked: '2024-01-15 15:00:00',
-    details: 'Elevated response times detected'
-  },
-  {
-    id: 'SH-004',
-    component: 'Authentication Service',
-    status: 'healthy',
-    responseTime: 120,
-    uptime: 99.9,
-    lastChecked: '2024-01-15 15:00:00',
-    details: 'All authentication flows operational'
-  }
-];
-
-const errorLogs = [
-  {
-    id: 'ERR-2024-001',
-    level: 'error',
-    message: 'Database connection timeout in ProductRecommendationEngine',
-    component: 'Product Service',
-    timestamp: '2024-01-15 14:52:18',
-    count: 3,
-    resolved: false
-  },
-  {
-    id: 'ERR-2024-002',
-    level: 'warning',
-    message: 'High memory usage detected in eligibility validation',
-    component: 'Eligibility Service',
-    timestamp: '2024-01-15 14:30:45',
-    count: 1,
-    resolved: true
-  },
-  {
-    id: 'ERR-2024-003',
-    level: 'error',
-    message: 'Failed to sync patient data with Azure FHIR',
-    component: 'FHIR Integration',
-    timestamp: '2024-01-15 13:15:22',
-    count: 2,
-    resolved: false
-  }
-];
-
-const dataIntegrityChecks = [
-  {
-    id: 'DI-001',
-    check: 'Patient Data Consistency',
-    status: 'passed',
-    lastRun: '2024-01-15 12:00:00',
-    duration: '45 seconds',
-    recordsChecked: 15420,
-    inconsistencies: 0
-  },
-  {
-    id: 'DI-002',
-    check: 'Order-Commission Linkage',
-    status: 'passed',
-    lastRun: '2024-01-15 12:00:00',
-    duration: '23 seconds',
-    recordsChecked: 8734,
-    inconsistencies: 0
-  },
-  {
-    id: 'DI-003',
-    check: 'Financial Data Validation',
-    status: 'warning',
-    lastRun: '2024-01-15 12:00:00',
-    duration: '67 seconds',
-    recordsChecked: 12890,
-    inconsistencies: 3
-  }
-];
-
-export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'healthy':
@@ -193,19 +125,19 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">API Response Time</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{systemMetrics.apiResponseTime}ms</p>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{systemMetrics.api_response_time}ms</p>
           <p className="text-xs text-gray-600 mt-2">Average response</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Users</h3>
-          <p className="text-3xl font-bold text-indigo-600 mt-2">{systemMetrics.activeUsers}</p>
+          <p className="text-3xl font-bold text-indigo-600 mt-2">{systemMetrics.active_users}</p>
           <p className="text-xs text-gray-600 mt-2">Currently online</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Security Status</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">{systemMetrics.securityIncidents}</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">{systemMetrics.security_incidents}</p>
           <p className="text-xs text-gray-600 mt-2">Active incidents</p>
         </div>
       </div>
@@ -254,7 +186,7 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
                     </div>
                     <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
                     <p className="text-xs text-gray-500 mt-2">
-                      {alert.timestamp} | Affected: {alert.affectedSystems.join(', ')}
+                      {alert.timestamp} | Affected: {alert.affected_systems.join(', ')}
                     </p>
                   </div>
                   <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
@@ -291,35 +223,41 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {systemHealthComponents.map((component) => (
-            <div key={component.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{component.component}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(component.status)}`}>
-                      {component.status}
-                    </span>
+          {systemHealthComponents.length > 0 ? (
+            systemHealthComponents.map((component) => (
+              <div key={component.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{component.component}</h3>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(component.status)}`}>
+                        {component.status}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Response Time</p>
+                        <p className="text-sm font-medium">{component.response_time}ms</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Uptime</p>
+                        <p className="text-sm font-medium">{component.uptime}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Last Checked</p>
+                        <p className="text-sm font-medium">{component.last_checked}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-600 mt-2">{component.details}</p>
                   </div>
-                  <div className="mt-2 grid grid-cols-3 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Response Time</p>
-                      <p className="text-sm font-medium">{component.responseTime}ms</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Uptime</p>
-                      <p className="text-sm font-medium">{component.uptime}%</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Last Checked</p>
-                      <p className="text-sm font-medium">{component.lastChecked}</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">{component.details}</p>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No system health data available
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -347,36 +285,42 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {errorLogs.map((error) => (
-            <div key={error.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{error.component}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                      error.level === 'error' ? 'bg-red-100 text-red-800' :
-                      error.level === 'warning' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {error.level}
-                    </span>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                      error.resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {error.resolved ? 'resolved' : 'active'}
-                    </span>
+          {errorLogs.length > 0 ? (
+            errorLogs.map((error) => (
+              <div key={error.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{error.component}</h3>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        error.level === 'error' ? 'bg-red-100 text-red-800' :
+                        error.level === 'warning' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {error.level}
+                      </span>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        error.resolved ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                      }`}>
+                        {error.resolved ? 'resolved' : 'active'}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">{error.message}</p>
+                    <p className="text-xs text-gray-500 mt-2">
+                      {error.timestamp} | Occurrences: {error.count}
+                    </p>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{error.message}</p>
-                  <p className="text-xs text-gray-500 mt-2">
-                    {error.timestamp} | Occurrences: {error.count}
-                  </p>
+                  <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                    Investigate
+                  </button>
                 </div>
-                <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
-                  Investigate
-                </button>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No recent errors to display
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -401,40 +345,46 @@ export default function SuperAdminDashboard({ user }: SuperAdminDashboardProps) 
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {dataIntegrityChecks.map((check) => (
-            <div key={check.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{check.check}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(check.status)}`}>
-                      {check.status}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-4 gap-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Last Run</p>
-                      <p className="text-sm font-medium">{check.lastRun}</p>
+          {dataIntegrityChecks.length > 0 ? (
+            dataIntegrityChecks.map((check) => (
+              <div key={check.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{check.check}</h3>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(check.status)}`}>
+                        {check.status}
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Duration</p>
-                      <p className="text-sm font-medium">{check.duration}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Records Checked</p>
-                      <p className="text-sm font-medium">{check.recordsChecked.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Issues Found</p>
-                      <p className={`text-sm font-medium ${check.inconsistencies > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                        {check.inconsistencies}
-                      </p>
+                    <div className="mt-2 grid grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Last Run</p>
+                        <p className="text-sm font-medium">{check.last_run}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Duration</p>
+                        <p className="text-sm font-medium">{check.duration}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Records Checked</p>
+                        <p className="text-sm font-medium">{check.records_checked.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Issues Found</p>
+                        <p className={`text-sm font-medium ${check.inconsistencies > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                          {check.inconsistencies}
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No data integrity checks available
             </div>
-          ))}
+          )}
         </div>
       </div>
 

@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order;
-use App\Models\MedicareMacValidation;
+use App\Models\Order\Order;
+use App\Models\Insurance\MedicareMacValidation;
 use App\Services\MedicareMacValidationService;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Http\Request;

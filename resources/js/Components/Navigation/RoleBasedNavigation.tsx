@@ -302,7 +302,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Manage product requests and orders'
         },
         {
-          name: 'Organizations & Analytics',
+          name: 'Customer Management',
           href: '/admin/organizations',
           icon: FiGlobe,
           roles: ['msc-admin'],
@@ -316,68 +316,11 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Commission tracking, payouts, sales rep management'
         },
         {
-          name: 'Intelligent Engines',
-          href: '#',
-          icon: FiCpu,
+          name: 'Product Catalog Management',
+          href: '/products/manage',
+          icon: FiPackage,
           roles: ['msc-admin'],
-          children: [
-            {
-              name: 'Clinical Opportunity Engine',
-              href: '/engines/clinical-rules',
-              icon: FiTarget,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Product Recommendation Engine',
-              href: '/engines/recommendation-rules',
-              icon: FiStar,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'MAC Validation Rules',
-              href: '/engines/mac-validation-rules',
-              icon: FiShield,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Commission Rules Configuration',
-              href: '/engines/commission',
-              icon: FiSliders,
-              roles: ['msc-admin']
-            }
-          ]
-        },
-        {
-          name: 'Analytics & Reporting',
-          href: '#',
-          icon: FiPieChart,
-          roles: ['msc-admin'],
-          children: [
-            {
-              name: 'Executive Dashboard',
-              href: '/reports/executive',
-              icon: FiActivity,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Order Analytics',
-              href: '/orders/analytics',
-              icon: FiTrendingUp,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Performance Metrics',
-              href: '/reports/performance',
-              icon: FiBarChart,
-              roles: ['msc-admin']
-            },
-            {
-              name: 'Compliance Reports',
-              href: '/reports/compliance',
-              icon: FiCheckCircle,
-              roles: ['msc-admin']
-            }
-          ]
+          description: 'Manage product catalog and inventory'
         },
         {
           name: 'System Administration',
@@ -414,14 +357,8 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               ]
             },
             {
-              name: 'Product Catalog Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['msc-admin']
-            },
-            {
               name: 'System Settings',
-              href: '/settings/system',
+              href: '/settings',
               icon: FiTool,
               roles: ['msc-admin']
             },
@@ -453,7 +390,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Manage product requests and orders'
         },
         {
-          name: 'Organizations & Analytics',
+          name: 'Customer Management',
           href: '/admin/organizations',
           icon: FiGlobe,
           roles: ['super-admin', 'superadmin'],
@@ -467,68 +404,11 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Commission tracking, payouts, sales rep management'
         },
         {
-          name: 'Intelligent Engines',
-          href: '#',
-          icon: FiCpu,
+          name: 'Product Catalog Management',
+          href: '/products/manage',
+          icon: FiPackage,
           roles: ['super-admin', 'superadmin'],
-          children: [
-            {
-              name: 'Clinical Opportunity Engine',
-              href: '/engines/clinical-rules',
-              icon: FiTarget,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Product Recommendation Engine',
-              href: '/engines/recommendation-rules',
-              icon: FiStar,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'MAC Validation Rules',
-              href: '/engines/mac-validation-rules',
-              icon: FiShield,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Commission Rules Configuration',
-              href: '/engines/commission',
-              icon: FiSliders,
-              roles: ['super-admin', 'superadmin']
-            }
-          ]
-        },
-        {
-          name: 'Analytics & Reporting',
-          href: '#',
-          icon: FiPieChart,
-          roles: ['super-admin', 'superadmin'],
-          children: [
-            {
-              name: 'Executive Dashboard',
-              href: '/reports/executive',
-              icon: FiActivity,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Order Analytics',
-              href: '/orders/analytics',
-              icon: FiTrendingUp,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Performance Metrics',
-              href: '/reports/performance',
-              icon: FiBarChart,
-              roles: ['super-admin', 'superadmin']
-            },
-            {
-              name: 'Compliance Reports',
-              href: '/reports/compliance',
-              icon: FiCheckCircle,
-              roles: ['super-admin', 'superadmin']
-            }
-          ]
+          description: 'Manage product catalog and inventory'
         },
         {
           name: 'System Administration',
@@ -569,12 +449,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   roles: ['super-admin', 'superadmin']
                 }
               ]
-            },
-            {
-              name: 'Product Catalog Management',
-              href: '/products/manage',
-              icon: FiPackage,
-              roles: ['super-admin', 'superadmin']
             },
             {
               name: 'System Settings',

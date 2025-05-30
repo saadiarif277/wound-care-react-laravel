@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\OnboardingService;
-use App\Models\ProviderInvitation;
+use App\Models\Users\Provider\ProviderInvitation;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 // use App\Http\Requests\AcceptInvitationRequest; // To be created if specific validation is needed

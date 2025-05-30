@@ -5,116 +5,65 @@ import { UserWithRole } from '@/types/roles';
 
 interface MscAdminDashboardProps {
   user?: UserWithRole;
+  dashboardData?: {
+    business_metrics?: {
+      total_outstanding_commissions: number;
+      monthly_revenue: number;
+      monthly_target: number;
+      pending_approval_amount: number;
+      collections_efficiency: number;
+      profit_margin: number;
+    };
+    pending_approvals?: Array<{
+      id: string;
+      type: string;
+      customer?: string;
+      sales_rep?: string;
+      amount: number;
+      description: string;
+      priority: string;
+      submitted_date: string;
+      link: string;
+    }>;
+    commission_queue?: Array<{
+      id: string;
+      sales_rep: string;
+      territory: string;
+      amount: number;
+      period: string;
+      status: string;
+      due_date: string;
+    }>;
+    customer_financial_health?: Array<{
+      id: string;
+      customer: string;
+      credit_limit: number;
+      current_balance: number;
+      utilization_percentage: number;
+      payment_history: string;
+      risk_level: string;
+      last_payment: string;
+    }>;
+  };
 }
 
-// Business-focused data for MSC Administrator
-const businessMetrics = {
-  totalOutstandingCommissions: 47850.00,
-  monthlyRevenue: 285400.00,
-  monthlyTarget: 320000.00,
-  pendingApprovalAmount: 125600.00,
-  collectionsEfficiency: 94.2,
-  profitMargin: 18.5
-};
+export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashboardProps) {
+  const businessMetrics = dashboardData?.business_metrics || {
+    total_outstanding_commissions: 0,
+    monthly_revenue: 0,
+    monthly_target: 320000,
+    pending_approval_amount: 0,
+    collections_efficiency: 0,
+    profit_margin: 0,
+  };
 
-const pendingApprovals = [
-  {
-    id: 'PA-2024-001',
-    type: 'High-Value Order',
-    customer: 'St. Mary\'s Wound Center',
-    amount: 12500.00,
-    description: 'Advanced wound matrix therapy - bulk order',
-    priority: 'high',
-    submittedDate: '2024-01-15',
-    link: '/admin/approvals/PA-2024-001'
-  },
-  {
-    id: 'PA-2024-002',
-    type: 'Commission Adjustment',
-    salesRep: 'Johnson, Mike',
-    amount: 3200.00,
-    description: 'Q4 territory bonus calculation',
-    priority: 'medium',
-    submittedDate: '2024-01-14',
-    link: '/admin/approvals/PA-2024-002'
-  },
-  {
-    id: 'PA-2024-003',
-    type: 'Credit Limit Increase',
-    customer: 'Regional Medical Group',
-    amount: 50000.00,
-    description: 'Credit limit increase request',
-    priority: 'high',
-    submittedDate: '2024-01-13',
-    link: '/admin/approvals/PA-2024-003'
-  }
-];
+  const pendingApprovals = dashboardData?.pending_approvals || [];
+  const commissionQueue = dashboardData?.commission_queue || [];
+  const customerFinancialHealth = dashboardData?.customer_financial_health || [];
 
-const commissionQueue = [
-  {
-    id: 'CQ-2024-001',
-    salesRep: 'Smith, Sarah',
-    territory: 'Northeast',
-    amount: 8450.00,
-    period: 'December 2023',
-    status: 'ready_for_payment',
-    dueDate: '2024-01-20'
-  },
-  {
-    id: 'CQ-2024-002',
-    salesRep: 'Johnson, Mike',
-    territory: 'Southeast',
-    amount: 12200.00,
-    period: 'December 2023',
-    status: 'pending_approval',
-    dueDate: '2024-01-20'
-  },
-  {
-    id: 'CQ-2024-003',
-    salesRep: 'Davis, Robert',
-    territory: 'Midwest',
-    amount: 6750.00,
-    period: 'December 2023',
-    status: 'ready_for_payment',
-    dueDate: '2024-01-20'
-  }
-];
-
-const customerFinancialHealth = [
-  {
-    id: 'CFH-001',
-    customer: 'Metro Health System',
-    creditLimit: 75000.00,
-    currentBalance: 45200.00,
-    utilizationPercentage: 60.3,
-    paymentHistory: 'excellent',
-    riskLevel: 'low',
-    lastPayment: '2024-01-10'
-  },
-  {
-    id: 'CFH-002',
-    customer: 'City Medical Center',
-    creditLimit: 50000.00,
-    currentBalance: 48500.00,
-    utilizationPercentage: 97.0,
-    paymentHistory: 'good',
-    riskLevel: 'medium',
-    lastPayment: '2023-12-28'
-  },
-  {
-    id: 'CFH-003',
-    customer: 'Valley Wound Clinic',
-    creditLimit: 25000.00,
-    currentBalance: 23800.00,
-    utilizationPercentage: 95.2,
-    paymentHistory: 'fair',
-    riskLevel: 'high',
-    lastPayment: '2023-12-15'
-  }
-];
-
-export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
-  const revenueProgress = (businessMetrics.monthlyRevenue / businessMetrics.monthlyTarget) * 100;
+  const revenueProgress = businessMetrics.monthly_target > 0
+    ? (businessMetrics.monthly_revenue / businessMetrics.monthly_target) * 100
+    : 0;
 
   return (
     <MainLayout>
@@ -133,17 +82,17 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Outstanding Commissions</h3>
-          <p className="text-3xl font-bold text-red-600 mt-2">${businessMetrics.totalOutstandingCommissions.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-red-600 mt-2">${businessMetrics.total_outstanding_commissions.toLocaleString()}</p>
           <p className="text-xs text-gray-600 mt-2">Awaiting payment</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Monthly Revenue</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">${businessMetrics.monthlyRevenue.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">${businessMetrics.monthly_revenue.toLocaleString()}</p>
           <div className="mt-2">
             <div className="flex items-center justify-between text-xs">
               <span className="text-gray-600">{revenueProgress.toFixed(1)}% of target</span>
-              <span className="text-gray-600">${businessMetrics.monthlyTarget.toLocaleString()}</span>
+              <span className="text-gray-600">${businessMetrics.monthly_target.toLocaleString()}</span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
               <div
@@ -156,14 +105,14 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Pending Approvals</h3>
-          <p className="text-3xl font-bold text-amber-600 mt-2">${businessMetrics.pendingApprovalAmount.toLocaleString()}</p>
+          <p className="text-3xl font-bold text-amber-600 mt-2">${businessMetrics.pending_approval_amount.toLocaleString()}</p>
           <p className="text-xs text-gray-600 mt-2">{pendingApprovals.length} items waiting</p>
         </div>
 
         <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
           <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Profit Margin</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{businessMetrics.profitMargin}%</p>
-          <p className="text-xs text-gray-600 mt-2">Collections: {businessMetrics.collectionsEfficiency}%</p>
+          <p className="text-3xl font-bold text-blue-600 mt-2">{businessMetrics.profit_margin}%</p>
+          <p className="text-xs text-gray-600 mt-2">Collections: {businessMetrics.collections_efficiency}%</p>
         </div>
       </div>
 
@@ -191,39 +140,45 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {pendingApprovals.map((approval) => (
-            <div key={approval.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{approval.type}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                      approval.priority === 'high' ? 'bg-red-100 text-red-800' :
-                      approval.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-blue-100 text-blue-800'
-                    }`}>
-                      {approval.priority} priority
-                    </span>
+          {pendingApprovals.length > 0 ? (
+            pendingApprovals.map((approval) => (
+              <div key={approval.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{approval.type}</h3>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        approval.priority === 'high' ? 'bg-red-100 text-red-800' :
+                        approval.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {approval.priority} priority
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {approval.customer || approval.sales_rep} - ${approval.amount.toLocaleString()}
+                    </p>
+                    <p className="text-sm text-gray-600">{approval.description}</p>
+                    <p className="text-xs text-gray-500 mt-2">Submitted: {approval.submitted_date}</p>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">
-                    {approval.customer || approval.salesRep} - ${approval.amount.toLocaleString()}
-                  </p>
-                  <p className="text-sm text-gray-600">{approval.description}</p>
-                  <p className="text-xs text-gray-500 mt-2">Submitted: {approval.submittedDate}</p>
+                  <Link
+                    href={approval.link}
+                    className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors"
+                  >
+                    Review
+                  </Link>
                 </div>
-                <Link
-                  href={approval.link}
-                  className="ml-4 inline-flex items-center px-3 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 transition-colors"
-                >
-                  Review & Approve
-                </Link>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No pending approvals at this time
             </div>
-          ))}
+          )}
         </div>
       </div>
 
-      {/* Commission Management Center */}
+      {/* Commission Queue */}
       <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-green-50">
           <div className="flex items-center justify-between">
@@ -235,11 +190,11 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
               </div>
               <div className="ml-3">
                 <h2 className="text-xl font-semibold text-gray-900">Commission Payment Queue</h2>
-                <p className="text-sm text-gray-600 mt-1">Process sales representative commission payments</p>
+                <p className="text-sm text-gray-600 mt-1">Ready for payment processing</p>
               </div>
             </div>
             <Link
-              href="/admin/commissions"
+              href="/commission/payouts"
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
             >
               Process Payments
@@ -247,39 +202,50 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {commissionQueue.map((commission) => (
-            <div key={commission.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{commission.salesRep}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                      commission.status === 'ready_for_payment' ? 'bg-green-100 text-green-800' :
-                      commission.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {commission.status.replace('_', ' ')}
-                    </span>
+          {commissionQueue.length > 0 ? (
+            commissionQueue.map((commission) => (
+              <div key={commission.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{commission.sales_rep}</h3>
+                      <span className="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                        {commission.territory}
+                      </span>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        commission.status === 'ready_for_payment' ? 'bg-green-100 text-green-800' :
+                        commission.status === 'pending_approval' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {commission.status.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Amount</p>
+                        <p className="text-sm font-medium">${commission.amount.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Period</p>
+                        <p className="text-sm font-medium">{commission.period}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Due Date</p>
+                        <p className="text-sm font-medium">{commission.due_date}</p>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-600 mt-1">{commission.territory} Territory - {commission.period}</p>
-                  <p className="text-lg font-semibold text-green-600">${commission.amount.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500 mt-1">Due: {commission.dueDate}</p>
-                </div>
-                <div className="flex space-x-2">
-                  {commission.status === 'pending_approval' && (
-                    <button className="px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
-                      Approve
-                    </button>
-                  )}
-                  {commission.status === 'ready_for_payment' && (
-                    <button className="px-3 py-2 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition-colors">
-                      Process Payment
-                    </button>
-                  )}
+                  <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                    Process
+                  </button>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No commissions ready for payment
             </div>
-          ))}
+          )}
         </div>
       </div>
 
@@ -295,66 +261,121 @@ export default function MscAdminDashboard({ user }: MscAdminDashboardProps) {
               </div>
               <div className="ml-3">
                 <h2 className="text-xl font-semibold text-gray-900">Customer Financial Health</h2>
-                <p className="text-sm text-gray-600 mt-1">Monitor credit utilization and payment risk</p>
+                <p className="text-sm text-gray-600 mt-1">Credit utilization and payment history</p>
               </div>
             </div>
             <Link
-              href="/admin/customers/financial"
+              href="/customers/financial"
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
             >
-              Full Report
+              View Details
             </Link>
           </div>
         </div>
         <div className="divide-y divide-gray-200">
-          {customerFinancialHealth.map((customer) => (
-            <div key={customer.id} className="p-6 hover:bg-gray-50 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h3 className="text-sm font-semibold text-gray-900">{customer.customer}</h3>
-                    <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                      customer.riskLevel === 'low' ? 'bg-green-100 text-green-800' :
-                      customer.riskLevel === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {customer.riskLevel} risk
-                    </span>
-                  </div>
-                  <div className="mt-2 flex items-center space-x-4">
-                    <div>
-                      <p className="text-xs text-gray-500">Credit Utilization</p>
-                      <p className="text-sm font-medium">{customer.utilizationPercentage}%</p>
+          {customerFinancialHealth.length > 0 ? (
+            customerFinancialHealth.map((customer) => (
+              <div key={customer.id} className="p-6 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-sm font-semibold text-gray-900">{customer.customer}</h3>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        customer.risk_level === 'low' ? 'bg-green-100 text-green-800' :
+                        customer.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {customer.risk_level} risk
+                      </span>
+                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
+                        customer.payment_history === 'excellent' ? 'bg-green-100 text-green-800' :
+                        customer.payment_history === 'good' ? 'bg-blue-100 text-blue-800' :
+                        customer.payment_history === 'fair' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {customer.payment_history} history
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Current Balance</p>
-                      <p className="text-sm font-medium">${customer.currentBalance.toLocaleString()}</p>
+                    <div className="mt-2 grid grid-cols-4 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Credit Limit</p>
+                        <p className="text-sm font-medium">${customer.credit_limit.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Current Balance</p>
+                        <p className="text-sm font-medium">${customer.current_balance.toLocaleString()}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Utilization</p>
+                        <p className="text-sm font-medium">{customer.utilization_percentage.toFixed(1)}%</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Last Payment</p>
+                        <p className="text-sm font-medium">{customer.last_payment}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Credit Limit</p>
-                      <p className="text-sm font-medium">${customer.creditLimit.toLocaleString()}</p>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Last Payment</p>
-                      <p className="text-sm font-medium">{customer.lastPayment}</p>
-                    </div>
-                  </div>
-                  <div className="mt-2">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className={`h-2 rounded-full ${
-                          customer.utilizationPercentage >= 90 ? 'bg-red-500' :
-                          customer.utilizationPercentage >= 75 ? 'bg-yellow-500' :
-                          'bg-green-500'
-                        }`}
-                        style={{ width: `${customer.utilizationPercentage}%` }}
-                      ></div>
+                    <div className="mt-3">
+                      <div className="w-full bg-gray-200 rounded-full h-2">
+                        <div
+                          className={`h-2 rounded-full ${
+                            customer.utilization_percentage > 90 ? 'bg-red-600' :
+                            customer.utilization_percentage > 75 ? 'bg-yellow-500' :
+                            'bg-green-600'
+                          }`}
+                          style={{ width: `${Math.min(customer.utilization_percentage, 100)}%` }}
+                        ></div>
+                      </div>
                     </div>
                   </div>
                 </div>
               </div>
+            ))
+          ) : (
+            <div className="p-6 text-center text-gray-500">
+              No customer financial data available
             </div>
-          ))}
+          )}
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-xl font-semibold text-gray-900">Quick Actions</h2>
+          <p className="text-sm text-gray-600 mt-1">Common administrative tasks</p>
+        </div>
+        <div className="p-6">
+          <div className="grid gap-4 md:grid-cols-3">
+            <Link
+              href="/admin/users"
+              className="flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all duration-200 group"
+            >
+              <svg className="h-8 w-8 text-blue-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-900">Manage Users</span>
+            </Link>
+
+            <Link
+              href="/commission/management"
+              className="flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:border-green-500 hover:bg-green-50 transition-all duration-200 group"
+            >
+              <svg className="h-8 w-8 text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              </svg>
+              <span className="text-sm font-medium text-gray-900">Commission Management</span>
+            </Link>
+
+            <Link
+              href="/reports"
+              className="flex flex-col items-center p-4 border-2 border-gray-300 rounded-lg hover:border-purple-500 hover:bg-purple-50 transition-all duration-200 group"
+            >
+              <svg className="h-8 w-8 text-purple-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="text-sm font-medium text-gray-900">Generate Reports</span>
+            </Link>
+          </div>
         </div>
       </div>
       </div>

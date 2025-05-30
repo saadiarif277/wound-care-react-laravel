@@ -185,11 +185,27 @@ Route::get('/orders/create', function () {
 // CONSOLIDATED ORGANIZATIONS & ANALYTICS
 // ================================================================
 
-// Consolidated Organizations & Analytics - Organizations, Facilities, Providers, Onboarding, Analytics
+// Temporarily isolated for testing - original middleware: permission:manage-users
+Route::get('/admin/organizations', function () {
+    return Inertia::render('Admin/Organizations/Index');
+})->name('admin.organizations.index')->middleware(['auth']);
+
 Route::middleware(['permission:manage-users'])->group(function () {
-    Route::get('/admin/organizations', function () {
-        return Inertia::render('Admin/Organizations/Index');
-    })->name('admin.organizations.index');
+    // Route::get('/admin/organizations', function () { // Commented out original
+    //     return Inertia::render('Admin/Organizations/Index');
+    // })->name('admin.organizations.index');
+
+    Route::get('/admin/organizations/create', function () {
+        return Inertia::render('Admin/CustomerManagement/OrganizationWizard');
+    })->name('admin.organizations.create');
+
+    Route::get('/admin/organizations/{id}', function ($id) {
+        return Inertia::render('Admin/CustomerManagement/OrganizationDetail', ['organizationId' => $id]);
+    })->name('admin.organizations.show');
+
+    Route::get('/admin/organizations/{id}/edit', function ($id) {
+        return Inertia::render('Admin/CustomerManagement/OrganizationEdit', ['organizationId' => $id]);
+    })->name('admin.organizations.edit');
 });
 
 // Legacy routes (redirect to consolidated page)
@@ -252,15 +268,11 @@ Route::middleware(['permission:view-products'])->group(function () {
     // Product API endpoints accessible to all roles with view-products permission
     Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
     Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
-
-    // Specific routes must come before parameterized routes
-    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
-    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
 });
 
 // Product management - restricted to admin roles only
 Route::middleware(['permission:manage-products'])->group(function () {
-    // Specific routes first
+    // Specific routes first (BEFORE parameterized routes)
     Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
     Route::get('products/manage', [ProductController::class, 'manage'])->name('products.manage');
 
@@ -270,6 +282,13 @@ Route::middleware(['permission:manage-products'])->group(function () {
     Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     Route::put('products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+});
+
+// Product view routes (AFTER specific management routes)
+Route::middleware(['permission:view-products'])->group(function () {
+    // Specific routes must come before parameterized routes
+    Route::get('products/{product}', [ProductController::class, 'show'])->name('products.show');
+    Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
 });
 
 // Users
@@ -317,14 +336,22 @@ Route::get('/img/{path}', [ImagesController::class, 'show'])
 Route::middleware(['auth', 'verified'])->group(function () {
     // Eligibility Verification Routes
     Route::prefix('eligibility')->group(function () {
-        Route::get('/', [EligibilityController::class, 'index'])->name('eligibility.index');
-        Route::post('/verify', [EligibilityController::class, 'verify'])->name('eligibility.verify');
-        Route::post('/prior-auth/submit', [EligibilityController::class, 'submitPriorAuth'])->name('eligibility.prior-auth.submit');
-        Route::post('/prior-auth/status', [EligibilityController::class, 'checkPriorAuthStatus'])->name('eligibility.prior-auth.status');
+        Route::get('/', [EligibilityController::class, 'index'])
+            ->middleware('permission:view-eligibility')
+            ->name('eligibility.index');
+        Route::post('/verify', [EligibilityController::class, 'verify'])
+            ->middleware('permission:manage-eligibility')
+            ->name('eligibility.verify');
+        Route::post('/prior-auth/submit', [EligibilityController::class, 'submitPriorAuth'])
+            ->middleware('permission:manage-pre-authorization')
+            ->name('eligibility.prior-auth.submit');
+        Route::post('/prior-auth/status', [EligibilityController::class, 'checkPriorAuthStatus'])
+            ->middleware('permission:manage-pre-authorization')
+            ->name('eligibility.prior-auth.status');
     });
 
     // MAC Validation Routes - accessible to office managers and admins
-    Route::middleware(['permission:manage-mac-validation'])->prefix('mac-validation')->group(function () {
+    Route::middleware(['permission:view-mac-validation'])->prefix('mac-validation')->group(function () {
         Route::get('/', [MedicareMacValidationController::class, 'index'])->name('mac-validation.index');
         Route::post('/validate', [MedicareMacValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
@@ -339,15 +366,33 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::get('/', [ProductRequestController::class, 'index'])
             ->middleware('permission:view-product-requests')
             ->name('product-requests.index');
-        Route::get('/create', [ProductRequestController::class, 'create'])->name('product-requests.create');
-        Route::post('/', [ProductRequestController::class, 'store'])->name('product-requests.store');
-        Route::get('/{productRequest}', [ProductRequestController::class, 'show'])->name('product-requests.show');
-        Route::post('/{productRequest}/update-step', [ProductRequestController::class, 'updateStep'])->name('product-requests.update-step');
-        Route::post('/{productRequest}/mac-validation', [ProductRequestController::class, 'runMacValidation'])->name('product-requests.mac-validation');
-        Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])->name('product-requests.eligibility-check');
-        Route::post('/{productRequest}/submit-prior-auth', [ProductRequestController::class, 'submitPriorAuth'])->name('product-requests.submit-prior-auth');
-        Route::post('/{productRequest}/check-prior-auth-status', [ProductRequestController::class, 'checkPriorAuthStatus'])->name('product-requests.check-prior-auth-status');
-        Route::post('/{productRequest}/submit', [ProductRequestController::class, 'submit'])->name('product-requests.submit');
+        Route::get('/create', [ProductRequestController::class, 'create'])
+            ->middleware('permission:create-product-requests')
+            ->name('product-requests.create');
+        Route::post('/', [ProductRequestController::class, 'store'])
+            ->middleware('permission:create-product-requests')
+            ->name('product-requests.store');
+        Route::get('/{productRequest}', [ProductRequestController::class, 'show'])
+            ->middleware('permission:view-product-requests')
+            ->name('product-requests.show');
+        Route::post('/{productRequest}/update-step', [ProductRequestController::class, 'updateStep'])
+            ->middleware('permission:create-product-requests')
+            ->name('product-requests.update-step');
+        Route::post('/{productRequest}/mac-validation', [ProductRequestController::class, 'runMacValidation'])
+            ->middleware('permission:manage-mac-validation')
+            ->name('product-requests.mac-validation');
+        Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])
+            ->middleware('permission:manage-eligibility')
+            ->name('product-requests.eligibility-check');
+        Route::post('/{productRequest}/submit-prior-auth', [ProductRequestController::class, 'submitPriorAuth'])
+            ->middleware('permission:manage-pre-authorization')
+            ->name('product-requests.submit-prior-auth');
+        Route::post('/{productRequest}/check-prior-auth-status', [ProductRequestController::class, 'checkPriorAuthStatus'])
+            ->middleware('permission:manage-pre-authorization')
+            ->name('product-requests.check-prior-auth-status');
+        Route::post('/{productRequest}/submit', [ProductRequestController::class, 'submit'])
+            ->middleware('permission:create-product-requests')
+            ->name('product-requests.submit');
     });
 
     // Product Request API Routes
@@ -396,10 +441,11 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ->name('providers.show');
     });
 
-    Route::middleware(['permission:manage-pre-authorization'])->group(function () {
+    Route::middleware(['permission:view-pre-authorization'])->group(function () {
         Route::get('/pre-authorization', [PreAuthorizationController::class, 'index'])
             ->name('pre-authorization.index');
         Route::post('/pre-authorization/submit', [PreAuthorizationController::class, 'submit'])
+            ->middleware('permission:manage-pre-authorization')
             ->name('pre-authorization.submit');
         Route::get('/pre-authorization/status', [PreAuthorizationController::class, 'status'])
             ->name('pre-authorization.status');
@@ -617,4 +663,36 @@ Route::middleware(['auth', 'verified'])->group(function () {
             return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
+
+    // Test route for Provider Dashboard functionality
+    Route::get('/test-provider-permissions', function () {
+        $user = Auth::user()->load('roles');
+        $role = $user->getPrimaryRole();
+
+        return response()->json([
+            'user_email' => $user->email,
+            'role_name' => $role?->slug,
+            'role_display_name' => $role?->name,
+            'permissions' => [
+                'view-dashboard' => $user->hasPermission('view-dashboard'),
+                'create-product-requests' => $user->hasPermission('create-product-requests'),
+                'view-product-requests' => $user->hasPermission('view-product-requests'),
+                'view-mac-validation' => $user->hasPermission('view-mac-validation'),
+                'manage-mac-validation' => $user->hasPermission('manage-mac-validation'),
+                'view-eligibility' => $user->hasPermission('view-eligibility'),
+                'manage-eligibility' => $user->hasPermission('manage-eligibility'),
+                'view-pre-authorization' => $user->hasPermission('view-pre-authorization'),
+                'manage-pre-authorization' => $user->hasPermission('manage-pre-authorization'),
+                'view-products' => $user->hasPermission('view-products'),
+            ],
+            'route_tests' => [
+                'can_access_create_route' => route('product-requests.create'),
+                'can_access_index_route' => route('product-requests.index'),
+                'can_access_eligibility_route' => route('eligibility.index'),
+                'can_access_mac_validation_route' => route('mac-validation.index'),
+                'can_access_pre_auth_route' => route('pre-authorization.index'),
+                'can_access_products_route' => route('products.index'),
+            ]
+        ]);
+    })->name('test.provider-permissions')->middleware('auth');
 });

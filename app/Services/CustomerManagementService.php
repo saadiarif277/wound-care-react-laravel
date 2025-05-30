@@ -4,12 +4,12 @@ namespace App\Services;
 
 use App\Models\Users\Organization\Organization;
 use App\Models\User;
-use App\Models\Users\Facility\Facility;
+use App\Models\Fhir\Facility;
 use Illuminate\Support\Collection;
 use Carbon\Carbon;
 use App\Models\Users\OnboardingDocument;
 use App\Models\Users\OnboardingChecklist;
-use App\Models\Users\ProviderInvitation;
+use App\Models\Users\Provider\ProviderInvitation;
 
 class CustomerManagementService
 {

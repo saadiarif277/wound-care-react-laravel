@@ -4,8 +4,8 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
-use App\Models\Facility;
-use App\Models\Organization;
+use App\Models\Fhir\Facility;
+use App\Models\Users\Organization\Organization;
 use App\Models\Account;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
