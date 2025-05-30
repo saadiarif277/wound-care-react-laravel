@@ -357,7 +357,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
             },
             {
               name: 'System Settings',
-              href: '/settings/system',
+              href: '/settings',
               icon: FiTool,
               roles: ['msc-admin']
             },
