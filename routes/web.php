@@ -333,8 +333,8 @@ Route::middleware(['auth', 'verified'])->group(function () {
 
     // MAC Validation Routes - accessible to office managers and admins
     Route::middleware(['permission:view-mac-validation'])->prefix('mac-validation')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'index'])->name('mac-validation.index');
-        Route::post('/validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'validateMAC'])->name('mac-validation.validate');
+        Route::get('/', [MedicareMacValidationController::class, 'index'])->name('mac-validation.index');
+        Route::post('/validate', [MedicareMacValidationController::class, 'validateMAC'])->name('mac-validation.validate');
     });
 
     // eClinicalWorks Integration Routes
