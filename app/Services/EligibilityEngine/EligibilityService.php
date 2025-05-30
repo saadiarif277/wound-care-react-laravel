@@ -2,8 +2,10 @@
 
 namespace App\Services\EligibilityEngine;
 
-use App\Models\Order;
-use App\Models\PreAuthTask;
+use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
+use App\Models\Insurance\PreAuthTask;
+use App\Services\EligibilityEngine\AvailityEligibilityService;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
@@ -579,6 +581,74 @@ class EligibilityService
                 return "Coverage has been terminated";
             default:
                 return "Coverage status: {$status}";
+        }
+    }
+
+    /**
+     * Check eligibility for a ProductRequest using Availity Coverages API
+     */
+    public function checkProductRequestEligibility(ProductRequest $productRequest): array
+    {
+        Log::info('Starting eligibility check for ProductRequest', ['request_id' => $productRequest->id]);
+
+        try {
+            // Update status to checking
+            $productRequest->update([
+                'eligibility_status' => 'pending',
+            ]);
+
+            // Use Availity service for eligibility checking
+            $availityService = new AvailityEligibilityService();
+            $eligibilityResult = $availityService->checkEligibility($productRequest);
+
+            // Update ProductRequest with results
+            $productRequest->update([
+                'eligibility_results' => $eligibilityResult,
+                'eligibility_status' => $eligibilityResult['status'],
+                'pre_auth_required_determination' => $eligibilityResult['prior_authorization_required'] ? 'required' : 'not_required',
+            ]);
+
+            Log::info('ProductRequest eligibility check completed', [
+                'request_id' => $productRequest->id,
+                'status' => $eligibilityResult['status']
+            ]);
+
+            return $eligibilityResult;
+
+        } catch (\Exception $e) {
+            Log::error('ProductRequest eligibility check failed', [
+                'request_id' => $productRequest->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            $productRequest->update([
+                'eligibility_status' => 'error',
+                'eligibility_results' => [
+                    'error' => $e->getMessage(),
+                    'timestamp' => now()->toISOString()
+                ]
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Get detailed coverage information by coverage ID
+     */
+    public function getCoverageDetails(string $coverageId): array
+    {
+        try {
+            $availityService = new AvailityEligibilityService();
+            return $availityService->getCoverageById($coverageId);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get coverage details', [
+                'coverage_id' => $coverageId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
     }
 }
