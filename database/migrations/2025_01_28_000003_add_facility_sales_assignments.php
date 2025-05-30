@@ -16,7 +16,7 @@ return new class extends Migration
             if (!Schema::hasColumn('users', 'primary_sales_rep_id')) {
                 $table->unsignedBigInteger('primary_sales_rep_id')
                       ->nullable()
-                      ->after('current_organization_id')
+                      ->after('remember_token')
                       ->comment('Primary sales rep for this provider - main business relationship');
                 $table->foreign('primary_sales_rep_id')
                       ->references('id')
@@ -56,14 +56,14 @@ return new class extends Migration
                       ->on('facilities')
                       ->onDelete('cascade');
 
-                // Indexes
-                $table->index(['provider_id', 'is_active']);
-                $table->index(['sales_rep_id', 'is_active']);
-                $table->index(['facility_id', 'is_active']);
-                $table->index(['provider_id', 'relationship_type']);
+                // Indexes with shorter names
+                $table->index(['provider_id', 'is_active'], 'psra_provider_active_idx');
+                $table->index(['sales_rep_id', 'is_active'], 'psra_rep_active_idx');
+                $table->index(['facility_id', 'is_active'], 'psra_facility_active_idx');
+                $table->index(['provider_id', 'relationship_type'], 'psra_provider_rel_idx');
 
                 // Unique constraint: only one primary rep per provider at a time
-                $table->unique(['provider_id', 'relationship_type', 'assigned_until'], 'provider_primary_rep_unique');
+                $table->unique(['provider_id', 'relationship_type', 'assigned_until'], 'psra_provider_primary_unique');
             });
         }
 
@@ -92,10 +92,10 @@ return new class extends Migration
                       ->on('users')
                       ->onDelete('cascade');
 
-                // Indexes
-                $table->index(['facility_id', 'is_active']);
-                $table->index(['sales_rep_id', 'is_active']);
-                $table->index(['facility_id', 'relationship_type']);
+                // Indexes with shorter names
+                $table->index(['facility_id', 'is_active'], 'fsra_facility_active_idx');
+                $table->index(['sales_rep_id', 'is_active'], 'fsra_rep_active_idx');
+                $table->index(['facility_id', 'relationship_type'], 'fsra_facility_rel_idx');
             });
         }
 

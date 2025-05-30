@@ -316,7 +316,7 @@ class DashboardController extends Controller
         // Get clinical opportunities from product requests
         $opportunities = ProductRequest::where('provider_id', $user->id)
             ->whereNotNull('clinical_opportunities')
-            ->whereRaw("json_array_length(clinical_opportunities::json) > 0")
+            ->whereRaw("JSON_LENGTH(clinical_opportunities) > 0")
             ->orderBy('created_at', 'desc')
             ->limit(5)
             ->get()
