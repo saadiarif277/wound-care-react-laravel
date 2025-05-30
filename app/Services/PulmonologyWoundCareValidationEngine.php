@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
-use App\Models\Order;
-use App\Models\ProductRequest;
+use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
 use App\Services\CmsCoverageApiService;
 use App\Services\WoundCareValidationEngine;
 use Illuminate\Support\Facades\Log;

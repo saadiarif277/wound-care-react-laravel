@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Traits\HasPermissions;
+use App\Traits\CrossOrganizationAccess;
 use App\Models\Fhir\Facility;
 use App\Models\Users\Organization\Organization;
 use App\Models\Users\Provider\ProviderInvitation;
@@ -22,7 +23,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasPermissions;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasPermissions, CrossOrganizationAccess;
 
     /**
      * The attributes that are mass assignable.
@@ -46,6 +47,8 @@ class User extends Authenticatable
         'credentials',
         'is_verified',
         'last_activity',
+        'current_organization_id',
+        'practitioner_fhir_id',
     ];
 
     /**
@@ -86,6 +89,72 @@ class User extends Authenticatable
     }
 
     /**
+     * Get organizations this user belongs to (many-to-many with pivot data)
+     */
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_users')
+            ->withPivot(['role', 'is_primary', 'is_active', 'permissions', 'assigned_at', 'activated_at'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get active organization relationships
+     */
+    public function activeOrganizations(): BelongsToMany
+    {
+        return $this->organizations()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get the user's primary organization
+     */
+    public function primaryOrganization(): ?Organization
+    {
+        return $this->organizations()->wherePivot('is_primary', true)->first();
+    }
+
+    /**
+     * Get the user's current organization (for session context)
+     */
+    public function currentOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'current_organization_id');
+    }
+
+    /**
+     * Switch the user's current organization context
+     */
+    public function switchOrganization(Organization $organization): bool
+    {
+        // Verify user has access to this organization
+        if (!$this->organizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return false;
+        }
+
+        $this->update(['current_organization_id' => $organization->id]);
+        return true;
+    }
+
+    /**
+     * Get organizations assigned to this sales rep (for sales reps accessing multiple organizations)
+     */
+    public function assignedOrganizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'sales_rep_organizations')
+            ->withPivot(['relationship_type', 'is_active', 'commission_override', 'assigned_at', 'territory_notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get active sales rep organization assignments
+     */
+    public function activeAssignedOrganizations(): BelongsToMany
+    {
+        return $this->assignedOrganizations()->wherePivot('is_active', true);
+    }
+
+    /**
      * Get facilities this user is associated with
      */
     public function facilities(): BelongsToMany
@@ -109,6 +178,69 @@ class User extends Authenticatable
     public function activeFacilities(): BelongsToMany
     {
         return $this->facilities()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get patient associations for this provider
+     */
+    public function patientAssociations(): HasMany
+    {
+        return $this->hasMany(PatientAssociation::class, 'provider_id');
+    }
+
+    /**
+     * Get active patient associations
+     */
+    public function activePatientAssociations(): HasMany
+    {
+        return $this->patientAssociations()->active();
+    }
+
+    /**
+     * Check if user has access to a specific organization
+     */
+    public function hasAccessToOrganization(Organization $organization): bool
+    {
+        if ($this->canAccessAllOrganizations()) {
+            return true;
+        }
+
+        // Check direct organization membership
+        if ($this->organizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return true;
+        }
+
+        // Check sales rep assignments
+        if ($this->assignedOrganizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has a specific role in an organization
+     */
+    public function hasRoleInOrganization(string $role, Organization $organization): bool
+    {
+        return $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->wherePivot('role', $role)
+            ->wherePivot('is_active', true)
+            ->exists();
+    }
+
+    /**
+     * Get user's role in a specific organization
+     */
+    public function getRoleInOrganization(Organization $organization): ?string
+    {
+        $membership = $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->wherePivot('is_active', true)
+            ->first();
+
+        return $membership?->pivot->role;
     }
 
     public function getNameAttribute()

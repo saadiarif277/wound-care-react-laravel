@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
-  FiBuilding, FiMapPin, FiUser, FiTrendingUp, FiPieChart,
+  FiBriefcase, FiMapPin, FiUser, FiTrendingUp, FiPieChart,
   FiPlus, FiEdit, FiEye, FiTrash2, FiSearch, FiFilter,
   FiCheckCircle, FiClock, FiAlertTriangle, FiUsers,
-  FiActivity, FiBarChart3, FiTarget
+  FiActivity, FiBarChart, FiTarget
 } from 'react-icons/fi';
 import { api, handleApiResponse } from '@/lib/api';
 
@@ -160,11 +160,11 @@ export default function OrganizationsIndex() {
   }, [activeTab, searchTerm]);
 
   const tabs = [
-    { id: 'organizations', label: 'Organizations', icon: FiBuilding, count: stats.totalOrganizations },
+    { id: 'organizations', label: 'Organizations', icon: FiBriefcase, count: stats.totalOrganizations },
     { id: 'facilities', label: 'Facilities', icon: FiMapPin, count: stats.activeFacilities },
     { id: 'providers', label: 'Providers', icon: FiUser, count: stats.activeProviders },
     { id: 'onboarding', label: 'Onboarding Pipeline', icon: FiActivity, count: stats.pendingOnboarding },
-    { id: 'analytics', label: 'Customer Analytics', icon: FiBarChart3, count: null }
+    { id: 'analytics', label: 'Customer Analytics', icon: FiBarChart, count: null }
   ];
 
   const getStatusBadge = (status: string) => {

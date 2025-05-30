@@ -8,6 +8,7 @@ use App\Models\Users\Organization\Organization;
 use App\Models\Fhir\Address;
 use App\Models\Users\OnboardingChecklist;
 use App\Models\Users\OnboardingDocument;
+use App\Traits\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -19,7 +20,7 @@ use Illuminate\Database\Eloquent\Relations\MorphOne;
 
 class Facility extends Model
 {
-    use HasFactory, SoftDeletes;
+    use HasFactory, SoftDeletes, BelongsToOrganization;
 
     protected $fillable = [
         'organization_id',

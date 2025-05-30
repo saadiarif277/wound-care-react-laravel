@@ -493,4 +493,67 @@ class FhirService
 
         return $bundle;
     }
+
+    /**
+     * Search Observation resources in Azure FHIR
+     */
+    public function searchObservations(array $searchParams): array
+    {
+        try {
+            $queryParams = [];
+
+            // Map search parameters to FHIR search format
+            // Add more parameters as needed based on FHIR Observation search capabilities
+            if (!empty($searchParams['patient'])) {
+                $queryParams['patient'] = $searchParams['patient']; // Or subject, depending on how you store patient reference
+            }
+            if (!empty($searchParams['subject'])) {
+                $queryParams['subject'] = $searchParams['subject'];
+            }
+            if (!empty($searchParams['category'])) {
+                $queryParams['category'] = $searchParams['category'];
+            }
+            if (!empty($searchParams['code'])) {
+                $queryParams['code'] = $searchParams['code'];
+            }
+            if (!empty($searchParams['date'])) {
+                $queryParams['date'] = $searchParams['date']; // Can be a date or a period
+            }
+            if (!empty($searchParams['status'])) {
+                $queryParams['status'] = $searchParams['status'];
+            }
+             if (!empty($searchParams['encounter'])) {
+                $queryParams['encounter'] = $searchParams['encounter'];
+            }
+
+            // Pagination
+            if (!empty($searchParams['_count'])) {
+                $queryParams['_count'] = min(100, max(1, (int)$searchParams['_count']));
+            }
+            // _page is not a standard FHIR search parameter for pagination directly.
+            // FHIR uses link relations in the bundle (next, previous) for pagination.
+            // However, if your service layer or Azure FHIR supports an offset or page-like param, handle it here.
+            // For simplicity, we're not implementing full cursor-based pagination here but relying on _count.
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/Observation", $queryParams);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error searching Observations: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Update URLs to point to our FHIR server instead of Azure
+            $bundle = $this->updateBundleUrls($bundle);
+
+            return $bundle;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to search FHIR Observations in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
 }

@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
-  FiDollarSign, FiTrendingUp, FiUsers, FiCheckCircle,
-  FiClock, FiAlertTriangle, FiPlus, FiEdit, FiEye,
-  FiDownload, FiSearch, FiFilter, FiBarChart3,
+  FiDollarSign, FiUsers, FiTrendingUp, FiCalendar,
+  FiCheckCircle, FiClock, FiAlertTriangle, FiPlus, FiEdit, FiEye,
+  FiDownload, FiSearch, FiFilter, FiBarChart,
   FiUserCheck, FiCreditCard, FiTarget, FiActivity
 } from 'react-icons/fi';
 import { api, handleApiResponse } from '@/lib/api';
@@ -161,7 +161,7 @@ export default function SalesManagementIndex() {
   }, [activeTab, searchTerm]);
 
   const tabs = [
-    { id: 'overview', label: 'Overview', icon: FiBarChart3, count: null },
+    { id: 'overview', label: 'Overview', icon: FiBarChart, count: null },
     { id: 'commissions', label: 'Commission Tracking', icon: FiDollarSign, count: analytics.pending_commissions },
     { id: 'payouts', label: 'Payout Management', icon: FiCreditCard, count: null },
     { id: 'reps', label: 'Sales Rep Management', icon: FiUsers, count: analytics.active_reps },
