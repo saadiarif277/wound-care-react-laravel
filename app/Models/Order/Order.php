@@ -17,8 +17,9 @@ class Order extends Model
     protected string $organizationThroughRelation = 'facility';
 
     protected $fillable = [
-        'organization_id',
+        // 'organization_id', // organization_id is derived via facility typically
         'facility_id',
+        'provider_id', // Added provider_id
         'sales_rep_id',
         'patient_fhir_id', // Reference to PHI in Azure FHIR, not actual PHI
         'azure_order_checklist_fhir_id', // Reference to order checklist in Azure FHIR
@@ -69,5 +70,13 @@ class Order extends Model
     public function salesRep()
     {
         return $this->belongsTo(MscSalesRep::class, 'sales_rep_id');
+    }
+
+    /**
+     * Get the provider (User) associated with this order.
+     */
+    public function provider()
+    {
+        return $this->belongsTo(\App\Models\User::class, 'provider_id');
     }
 }
