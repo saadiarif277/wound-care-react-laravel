@@ -302,7 +302,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Manage product requests and orders'
         },
         {
-          name: 'Organizations & Analytics',
+          name: 'Customer Management',
           href: '/admin/organizations',
           icon: FiGlobe,
           roles: ['msc-admin'],
@@ -389,7 +389,7 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           description: 'Manage product requests and orders'
         },
         {
-          name: 'Organizations & Analytics',
+          name: 'Customer Management',
           href: '/admin/organizations',
           icon: FiGlobe,
           roles: ['super-admin', 'superadmin'],

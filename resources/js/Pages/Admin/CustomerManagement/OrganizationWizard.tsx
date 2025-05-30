@@ -307,7 +307,7 @@ export default function OrganizationWizard() {
     };
 
     const handleSubmit = () => {
-        post('/api/v1/admin/customers/organizations', {
+        post('/api/organizations', {
             onSuccess: () => {
                 // Handle success
                 console.log('Organization created successfully');

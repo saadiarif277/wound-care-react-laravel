@@ -652,7 +652,7 @@ export default function OrganizationsIndex() {
   if (loading) {
     return (
       <MainLayout>
-        <Head title="Organizations & Analytics" />
+        <Head title="Customer Management" />
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
@@ -665,13 +665,13 @@ export default function OrganizationsIndex() {
 
   return (
     <MainLayout>
-      <Head title="Organizations & Analytics" />
+      <Head title="Customer Management" />
 
       <div className="space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">Organizations & Analytics</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Customer Management</h1>
             <p className="text-gray-500">
               Manage organizations, facilities, providers, onboarding, and customer analytics
             </p>

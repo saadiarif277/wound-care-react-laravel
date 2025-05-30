@@ -456,24 +456,16 @@ Route::post('/v1/product-requests/clinical-assessment', [ProductRequestClinicalA
 Route::middleware(['web', 'auth'])->group(function () {
     Route::prefix('organizations')->name('api.organizations.')->group(function () {
         // View organizations
-        Route::middleware('permission:view-organizations')->group(function () {
+        Route::middleware('permission:view-customers')->group(function () {
             Route::get('/', [\App\Http\Controllers\OrganizationsController::class, 'apiIndex'])->name('index');
             Route::get('/stats', [\App\Http\Controllers\OrganizationsController::class, 'apiStats'])->name('stats');
             Route::get('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiShow'])->name('show');
         });
 
-        // Create organizations
-        Route::middleware('permission:create-organizations')->group(function () {
+        // Manage organizations (Create, Update, Delete)
+        Route::middleware('permission:manage-customers')->group(function () {
             Route::post('/', [\App\Http\Controllers\OrganizationsController::class, 'apiStore'])->name('store');
-        });
-
-        // Update organizations
-        Route::middleware('permission:edit-organizations')->group(function () {
             Route::put('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiUpdate'])->name('update');
-        });
-
-        // Delete organizations
-        Route::middleware('permission:delete-organizations')->group(function () {
             Route::delete('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiDestroy'])->name('destroy');
         });
     });

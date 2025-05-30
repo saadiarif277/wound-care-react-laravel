@@ -16,10 +16,8 @@ class OrganizationsController extends Controller
     public function __construct()
     {
         $this->middleware('auth');
-        $this->middleware('permission:view-organizations')->only(['index', 'show', 'apiIndex', 'apiShow']);
-        $this->middleware('permission:create-organizations')->only(['create', 'store', 'apiStore']);
-        $this->middleware('permission:edit-organizations')->only(['edit', 'update', 'apiUpdate']);
-        $this->middleware('permission:delete-organizations')->only(['destroy', 'apiDestroy']);
+        $this->middleware('permission:view-customers')->only(['index', 'show', 'apiIndex', 'apiShow', 'apiStats']);
+        $this->middleware('permission:manage-customers')->only(['create', 'store', 'edit', 'update', 'destroy', 'apiStore', 'apiUpdate', 'apiDestroy']);
     }
 
     public function index(): Response

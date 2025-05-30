@@ -91,7 +91,7 @@ export default function ProviderInvitationsIndex({ invitations }: ProviderInvita
                         Manage provider invitation workflow and track status
                     </p>
                 </div>
-                <Button onClick={() => router.visit('/admin/customer-management')}>
+                <Button onClick={() => router.visit('/admin/organizations')}>
                     Invite New Providers
                 </Button>
             </div>
@@ -258,4 +258,4 @@ export default function ProviderInvitationsIndex({ invitations }: ProviderInvita
             </Card>
         </div>
     );
-} 
+}

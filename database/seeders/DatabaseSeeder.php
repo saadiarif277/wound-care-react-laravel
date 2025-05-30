@@ -201,6 +201,7 @@ class DatabaseSeeder extends Seeder
                     'view-order-totals',
                     'manage-commission',
                     'view-payouts',
+                    'view-customers',
                     'manage-customers',
                     'manage-facilities',
                     'manage-providers',

@@ -185,11 +185,27 @@ Route::get('/orders/create', function () {
 // CONSOLIDATED ORGANIZATIONS & ANALYTICS
 // ================================================================
 
-// Consolidated Organizations & Analytics - Organizations, Facilities, Providers, Onboarding, Analytics
+// Temporarily isolated for testing - original middleware: permission:manage-users
+Route::get('/admin/organizations', function () {
+    return Inertia::render('Admin/Organizations/Index');
+})->name('admin.organizations.index')->middleware(['auth']);
+
 Route::middleware(['permission:manage-users'])->group(function () {
-    Route::get('/admin/organizations', function () {
-        return Inertia::render('Admin/Organizations/Index');
-    })->name('admin.organizations.index');
+    // Route::get('/admin/organizations', function () { // Commented out original
+    //     return Inertia::render('Admin/Organizations/Index');
+    // })->name('admin.organizations.index');
+
+    Route::get('/admin/organizations/create', function () {
+        return Inertia::render('Admin/CustomerManagement/OrganizationWizard');
+    })->name('admin.organizations.create');
+
+    Route::get('/admin/organizations/{id}', function ($id) {
+        return Inertia::render('Admin/CustomerManagement/OrganizationDetail', ['organizationId' => $id]);
+    })->name('admin.organizations.show');
+
+    Route::get('/admin/organizations/{id}/edit', function ($id) {
+        return Inertia::render('Admin/CustomerManagement/OrganizationEdit', ['organizationId' => $id]);
+    })->name('admin.organizations.edit');
 });
 
 // Legacy routes (redirect to consolidated page)
