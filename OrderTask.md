@@ -34,6 +34,14 @@ This document tracks the tasks for implementing the minimal MVP of the end-to-en
     - [x] Aligned data update calls to use parent's `updateFormData` with the correct structure.
     - [x] Simplified/removed internal `PatientStepFormData` and `PatientDemographics` types.
     - [x] Re-integrated general wound characteristic fields (tissue type, exudate, infection signs) into the SSP wound description section.
+- [x] **Pre-Authorization Integration (NEW)**
+    - [x] Created `AvailityServiceReviewsService.php` to integrate with Availity Service Reviews 2.0 API
+    - [x] Added pre-authorization submission and status checking endpoints to `ProductRequestController`
+    - [x] Updated `ValidationEligibilityStep.tsx` to handle pre-auth when required from eligibility
+    - [x] Added automatic pre-auth submission with clinical data generation
+    - [x] Implemented real-time status checking and updates
+    - [x] Added database fields to track pre-authorization status
+    - [x] Created relationship between ProductRequest and PreAuthorization models
 
 ### Linter Error Resolution (Frontend)
 - [x] **`PatientInformationStep.tsx`**

@@ -2,7 +2,7 @@
 
 namespace App\Services\EligibilityEngine;
 
-use App\Models\Order;
+use App\Models\Order\Order;
 use Carbon\Carbon;
 
 class EligibilityRequestMapper

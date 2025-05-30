@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class ProductRequest extends Model
 {
@@ -34,6 +35,10 @@ class ProductRequest extends Model
         'eligibility_results',
         'eligibility_status',
         'pre_auth_required_determination',
+        'pre_auth_status',
+        'pre_auth_submitted_at',
+        'pre_auth_approved_at',
+        'pre_auth_denied_at',
         'clinical_opportunities',
         'order_status',
         'step',
@@ -51,6 +56,9 @@ class ProductRequest extends Model
         'clinical_opportunities' => 'array',
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
+        'pre_auth_submitted_at' => 'datetime',
+        'pre_auth_approved_at' => 'datetime',
+        'pre_auth_denied_at' => 'datetime',
         'total_order_value' => 'decimal:2',
     ];
 
@@ -92,6 +100,14 @@ class ProductRequest extends Model
     public function acquiringRep(): BelongsTo
     {
         return $this->belongsTo(MscSalesRep::class, 'acquiring_rep_id', 'rep_id');
+    }
+
+    /**
+     * Get the pre-authorizations for this product request.
+     */
+    public function preAuthorizations(): HasMany
+    {
+        return $this->hasMany(\App\Models\Insurance\PreAuthorization::class, 'product_request_id');
     }
 
     /**

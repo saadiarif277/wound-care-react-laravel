@@ -5,7 +5,7 @@ namespace App\Services\EligibilityEngine;
 use App\Models\Order\Order;
 use App\Models\Order\ProductRequest;
 use App\Models\Insurance\PreAuthTask;
-use App\Services\EligibilityEngine\AvailityEligibilityService;
+use App\Services\EligibilityEngine\EligibilityRequestMapper;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
