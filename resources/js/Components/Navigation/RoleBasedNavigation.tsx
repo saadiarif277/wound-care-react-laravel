@@ -295,18 +295,11 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-admin']
         },
         {
-          name: 'Order Management',
-          href: '/orders/management',
+          name: 'Order Center',
+          href: '/orders/center',
           icon: FiShoppingCart,
           roles: ['msc-admin'],
-          description: 'Order processing, document generation, manual creation'
-        },
-        {
-          name: 'Product Request Review',
-          href: '/product-requests/review',
-          icon: FiEye,
-          roles: ['msc-admin'],
-          description: 'Review and approve product requests'
+          description: 'Manage product requests and orders'
         },
         {
           name: 'Organizations & Analytics',
@@ -453,18 +446,11 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin']
         },
         {
-          name: 'Order Management',
-          href: '/orders/management',
+          name: 'Order Center',
+          href: '/orders/center',
           icon: FiShoppingCart,
           roles: ['super-admin', 'superadmin'],
-          description: 'Order processing, document generation, manual creation'
-        },
-        {
-          name: 'Product Request Review',
-          href: '/product-requests/review',
-          icon: FiEye,
-          roles: ['super-admin', 'superadmin'],
-          description: 'Review and approve product requests'
+          description: 'Manage product requests and orders'
         },
         {
           name: 'Organizations & Analytics',
