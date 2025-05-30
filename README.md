@@ -7,7 +7,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 ### Prerequisites
 - PHP 8.1+
 - Composer
-- Node.js 18+
+- Node.js 22 (LTS recommended for production)
 - Supabase account
 - Azure Health Data Services (for PHI)
 
@@ -24,6 +24,8 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
    composer install
    npm install
    ```
+
+   **Note**: This project requires Node.js 22 (LTS). See [`docs/NODE_VERSION_STRATEGY.md`](./docs/NODE_VERSION_STRATEGY.md) for detailed version requirements and setup instructions.
 
 3. **Configure Supabase for Non-PHI Data**
    

@@ -3,8 +3,8 @@
 namespace App\Services;
 
 use App\Models\User;
-use App\Models\Order;
-use App\Models\ProductRequest;
+use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
 use App\Services\CmsCoverageApiService;
 use App\Services\WoundCareValidationEngine;
 use App\Services\PulmonologyWoundCareValidationEngine;
@@ -83,7 +83,7 @@ class ValidationBuilderEngine
     /**
      * Validate a product request against specialty-specific rules
      */
-    public function validateProductRequest(ProductRequest $productRequest, ?string $specialty = null): array
+    public function validateProductRequest(ProductRequest $productRequest, ?string $specialty = null, ?array $placeOfService = null): array
     {
         $specialty = $specialty ?? $this->getProductRequestSpecialty($productRequest);
         $state = $this->getProductRequestState($productRequest);
@@ -94,6 +94,20 @@ class ValidationBuilderEngine
             'pulmonology_wound_care' => $this->pulmonologyWoundCareEngine->validateProductRequest($productRequest, $state),
             default => $this->performProductRequestValidation($productRequest, [], $specialty)
         };
+    }
+
+    /**
+     * Validate direct request data (from frontend forms)
+     */
+    public function validateDirectRequest(array $validationData): array
+    {
+        $specialty = $validationData['provider_specialty'] ?? 'wound_care_specialty';
+        $state = $validationData['state'] ?? null;
+
+        // For now, perform a simplified validation using existing methods
+        $validationRules = $this->buildValidationRulesForSpecialty($specialty, $state);
+
+        return $this->performDirectValidation($validationData, $specialty, $validationRules);
     }
 
     /**
@@ -540,4 +554,51 @@ class ValidationBuilderEngine
     private function parseLimitations(string $limitations): array { return []; }
     private function parseIndications(string $indications): array { return []; }
     private function parseCodingInformation(string $codingInfo): array { return []; }
+
+    private function performDirectValidation(array $validationData, string $specialty, array $validationRules): array
+    {
+        // Extract validation information from direct data
+        $issues = [];
+        $requirementsMet = [];
+        $complianceScore = 100;
+
+        // Basic validation checks
+        if (empty($validationData['patient_data'])) {
+            $issues[] = 'Patient data is required';
+            $complianceScore -= 20;
+        } else {
+            $requirementsMet[] = 'Patient data provided';
+        }
+
+        if (empty($validationData['clinical_data'])) {
+            $issues[] = 'Clinical data is required';
+            $complianceScore -= 20;
+        } else {
+            $requirementsMet[] = 'Clinical data provided';
+        }
+
+        if (empty($validationData['wound_type'])) {
+            $issues[] = 'Wound type classification is required';
+            $complianceScore -= 15;
+        } else {
+            $requirementsMet[] = 'Wound type classified';
+        }
+
+        // MAC information
+        $state = $validationData['state'] ?? 'CA';
+        $macInfo = $this->cmsService->getMACJurisdiction($state);
+
+        $overallStatus = count($issues) === 0 ? 'passed' : (count($issues) > 2 ? 'failed' : 'requires_review');
+
+        return [
+            'overall_status' => $overallStatus,
+            'compliance_score' => max(0, $complianceScore),
+            'mac_contractor' => $macInfo['contractor'] ?? 'Unknown',
+            'jurisdiction' => $macInfo['jurisdiction'] ?? 'Unknown',
+            'cms_compliance' => $validationRules,
+            'issues' => $issues,
+            'requirements_met' => $requirementsMet,
+            'reimbursement_risk' => count($issues) > 2 ? 'high' : (count($issues) > 0 ? 'medium' : 'low')
+        ];
+    }
 }

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { AlertTriangle, CheckCircle, Clock, Shield, Info, Loader2, ExternalLink, FileText, Database } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Clock, Shield, Info, Loader2, ExternalLink, FileText, XCircle } from 'lucide-react';
 import { apiPost, apiGet, handleApiResponse } from '@/lib/api';
+import { usePage } from '@inertiajs/react';
 
 interface ValidationEligibilityStepProps {
   formData: any;
@@ -42,14 +43,31 @@ interface ValidationResult {
 
 interface EligibilityResult {
   status: 'eligible' | 'not_eligible' | 'needs_review' | 'pending';
+  coverage_id?: string | null;
+  control_number?: string | null;
+  payer?: {
+    id?: string;
+    name?: string;
+    response_name?: string;
+  };
   benefits: {
-    copay?: number;
-    deductible?: number;
-    coinsurance?: number;
-    out_of_pocket_max?: number;
+    plans?: any[];
+    copay?: number | undefined;
+    deductible?: number | undefined;
+    coinsurance?: number | undefined;
+    out_of_pocket_max?: number | undefined;
   };
   prior_authorization_required: boolean;
-  coverage_details: string;
+  coverage_details: any;
+  validation_messages?: Array<{
+    field?: string;
+    code?: string;
+    message?: string;
+    errorMessage?: string;
+  }>;
+  checked_at?: string;
+  raw_response?: any;
+  error?: string;
 }
 
 const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
@@ -64,6 +82,12 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
   const [autoValidationEnabled, setAutoValidationEnabled] = useState(true);
   const [cmsData, setCmsData] = useState<any>(null);
   const [isLoadingCmsData, setIsLoadingCmsData] = useState(false);
+  const [isSubmittingPreAuth, setIsSubmittingPreAuth] = useState(false);
+  const [preAuthResult, setPreAuthResult] = useState<any>(null);
+  const [preAuthStatusCheckInterval, setPreAuthStatusCheckInterval] = useState<NodeJS.Timeout | null>(null);
+
+  // Get authenticated user from Inertia.js page props
+  const { auth } = usePage<{ auth: { user: any } }>().props;
 
   // Determine validation type based on specialty and wound type
   const getValidationType = () => {
@@ -240,30 +264,117 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
     }
   };
 
-  // Run eligibility check
+  // Run comprehensive eligibility check with Availity Coverages API
   const runEligibilityCheck = async () => {
     setIsCheckingEligibility(true);
     try {
-      const response = await apiPost('/api/v1/eligibility/check', {
-        patient_data: formData.patient_api_input,
-        payer_name: formData.payer_name,
-        service_date: formData.expected_service_date,
-        procedure_codes: formData.selected_products?.map((p: any) => p.hcpcs_code) || [],
-      });
-
+      const response = await apiPost(`/api/product-requests/${formData.id}/eligibility-check`, {});
       const result = await handleApiResponse(response);
 
       if (result.success) {
-        setEligibilityResult(result.data);
+        // Transform Availity response to our expected format
+        const eligibilityData = result.results || {};
+
+        const eligibilityResult = {
+          status: eligibilityData.status || 'needs_review',
+          coverage_id: eligibilityData.coverage_id,
+          control_number: eligibilityData.control_number,
+          payer: eligibilityData.payer || {},
+          benefits: {
+            plans: eligibilityData.benefits?.plans || [],
+            copay: eligibilityData.benefits?.copay_amount,
+            deductible: eligibilityData.benefits?.deductible_amount,
+            coinsurance: eligibilityData.benefits?.coinsurance_percentage,
+            out_of_pocket_max: eligibilityData.benefits?.out_of_pocket_max
+          },
+          prior_authorization_required: eligibilityData.prior_authorization_required || false,
+          coverage_details: eligibilityData.coverage_details || {},
+          validation_messages: eligibilityData.validation_messages || [],
+          checked_at: eligibilityData.checked_at || new Date().toISOString(),
+          raw_response: eligibilityData.response_raw
+        };
+
+        setEligibilityResult(eligibilityResult);
         updateFormData({
-          eligibility_results: result.data,
-          eligibility_status: result.data.status
+          eligibility_results: eligibilityResult,
+          eligibility_status: eligibilityResult.status,
+          pre_auth_required_determination: eligibilityResult.prior_authorization_required ? 'required' : 'not_required'
         });
       } else {
         console.error('Eligibility check failed:', result.message);
+
+        // Show fallback eligibility result
+        const fallbackResult = {
+          status: 'needs_review' as const,
+          coverage_id: null,
+          control_number: null,
+          payer: {
+            name: formData.payer_name || 'Unknown Payer'
+          },
+          benefits: {
+            plans: [],
+            copay: undefined,
+            deductible: undefined,
+            coinsurance: undefined,
+            out_of_pocket_max: undefined
+          },
+          prior_authorization_required: false,
+          coverage_details: {
+            status: 'Manual review required - API unavailable'
+          },
+          validation_messages: [{
+            field: 'eligibility_check',
+            code: 'API_ERROR',
+            errorMessage: result.message || 'Unable to verify eligibility automatically'
+          }],
+          checked_at: new Date().toISOString(),
+          error: result.message
+        };
+
+        setEligibilityResult(fallbackResult);
+        updateFormData({
+          eligibility_results: fallbackResult,
+          eligibility_status: fallbackResult.status,
+          pre_auth_required_determination: 'pending'
+        });
       }
     } catch (error) {
-      console.error('Eligibility check error:', error);
+      console.error('Error during eligibility check:', error);
+
+      // Show error state
+      const errorResult = {
+        status: 'needs_review' as const,
+        coverage_id: null,
+        control_number: null,
+        payer: {
+          name: formData.payer_name || 'Unknown Payer'
+        },
+        benefits: {
+          plans: [],
+          copay: undefined,
+          deductible: undefined,
+          coinsurance: undefined,
+          out_of_pocket_max: undefined
+        },
+        prior_authorization_required: false,
+        coverage_details: {
+          status: 'Error occurred during eligibility verification'
+        },
+        validation_messages: [{
+          field: 'eligibility_check',
+          code: 'SYSTEM_ERROR',
+          errorMessage: 'System error occurred during eligibility verification'
+        }],
+        checked_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+
+      setEligibilityResult(errorResult);
+      updateFormData({
+        eligibility_results: errorResult,
+        eligibility_status: errorResult.status,
+        pre_auth_required_determination: 'pending'
+      });
     } finally {
       setIsCheckingEligibility(false);
     }
@@ -325,7 +436,7 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
     return (
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="flex items-start">
-          <Database className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
+          <FileText className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
           <div className="flex-1">
             <h3 className="text-sm font-medium text-blue-900">CMS Coverage Data Loaded</h3>
             <p className="text-sm text-blue-700 mt-1">
@@ -608,19 +719,129 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
 
         {/* Benefits Information */}
         {eligibilityResult?.benefits && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(eligibilityResult.benefits).map(([benefit, value]) => (
-              value !== undefined && (
-                <div key={benefit} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {benefit.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-sm text-gray-900">
-                    {typeof value === 'number' ? `$${value.toFixed(2)}` : value}
-                  </span>
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-gray-900">Coverage Benefits</h4>
+
+            {/* Payer Information */}
+            {eligibilityResult.payer && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Payer Information</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  {eligibilityResult.payer.name && (
+                    <div><span className="font-medium">Name:</span> {eligibilityResult.payer.name}</div>
+                  )}
+                  {eligibilityResult.payer.response_name && (
+                    <div><span className="font-medium">Response Name:</span> {eligibilityResult.payer.response_name}</div>
+                  )}
+                  {eligibilityResult.payer.id && (
+                    <div><span className="font-medium">Payer ID:</span> {eligibilityResult.payer.id}</div>
+                  )}
+                  {eligibilityResult.control_number && (
+                    <div><span className="font-medium">Control Number:</span> {eligibilityResult.control_number}</div>
+                  )}
                 </div>
-              )
+              </div>
+            )}
+
+            {/* Plans Information */}
+            {eligibilityResult.benefits.plans && eligibilityResult.benefits.plans.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Plan Information</h5>
+                {eligibilityResult.benefits.plans.map((plan: any, index: number) => (
+                  <div key={index} className="border-b border-gray-200 last:border-b-0 pb-2 mb-2 last:mb-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      {plan.plan_name && (
+                        <div><span className="font-medium">Plan:</span> {plan.plan_name}</div>
+                      )}
+                      {plan.group_number && (
+                        <div><span className="font-medium">Group:</span> {plan.group_number}</div>
+                      )}
+                      {plan.insurance_type && (
+                        <div><span className="font-medium">Type:</span> {plan.insurance_type}</div>
+                      )}
+                      {plan.effective_date && (
+                        <div><span className="font-medium">Effective:</span> {new Date(plan.effective_date).toLocaleDateString()}</div>
+                      )}
+                      {plan.termination_date && (
+                        <div><span className="font-medium">Expires:</span> {new Date(plan.termination_date).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Financial Benefits */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {eligibilityResult.benefits.copay !== null && eligibilityResult.benefits.copay !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Copay</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.copay.toFixed(2)}</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.deductible !== null && eligibilityResult.benefits.deductible !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Deductible</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.deductible.toFixed(2)}</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.coinsurance !== null && eligibilityResult.benefits.coinsurance !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Coinsurance</span>
+                  <span className="text-sm text-gray-900">{eligibilityResult.benefits.coinsurance}%</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.out_of_pocket_max !== null && eligibilityResult.benefits.out_of_pocket_max !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Out of Pocket Max</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.out_of_pocket_max.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Validation Messages */}
+        {eligibilityResult?.validation_messages && eligibilityResult.validation_messages.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900">Validation Messages</h4>
+            {eligibilityResult.validation_messages.map((message: any, index: number) => (
+              <div key={index} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 mr-3" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-900">
+                      {message.code || 'Validation Message'}
+                    </p>
+                    <p className="text-sm text-yellow-700">{message.errorMessage || message.message}</p>
+                    {message.field && (
+                      <p className="text-xs text-yellow-600 mt-1">Field: {message.field}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* Coverage Details */}
+        {eligibilityResult?.coverage_details && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Coverage Details</h5>
+            <div className="text-sm space-y-1">
+              {eligibilityResult.coverage_details.status && (
+                <div><span className="font-medium">Status:</span> {eligibilityResult.coverage_details.status}</div>
+              )}
+              {eligibilityResult.coverage_details.as_of_date && (
+                <div><span className="font-medium">As of Date:</span> {new Date(eligibilityResult.coverage_details.as_of_date).toLocaleDateString()}</div>
+              )}
+              {eligibilityResult.coverage_details.to_date && (
+                <div><span className="font-medium">To Date:</span> {new Date(eligibilityResult.coverage_details.to_date).toLocaleDateString()}</div>
+              )}
+              {eligibilityResult.checked_at && (
+                <div><span className="font-medium">Checked:</span> {new Date(eligibilityResult.checked_at).toLocaleString()}</div>
+              )}
+            </div>
           </div>
         )}
 
@@ -629,14 +850,45 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
             <div className="flex items-start">
               <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 mr-3" />
-              <div>
+              <div className="flex-1">
                 <h4 className="text-sm font-medium text-yellow-900">Prior Authorization Required</h4>
                 <p className="text-sm text-yellow-700 mt-1">
                   This service requires prior authorization from the insurance provider before proceeding.
                 </p>
-                <button className="mt-2 inline-flex items-center px-3 py-2 border border-yellow-300 shadow-sm text-sm leading-4 font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100">
-                  Initiate Prior Authorization
-                </button>
+                {!preAuthResult && (
+                  <button
+                    onClick={initiatePreAuth}
+                    disabled={isSubmittingPreAuth}
+                    className="mt-2 inline-flex items-center px-3 py-2 border border-yellow-300 shadow-sm text-sm leading-4 font-medium rounded-md text-yellow-700 bg-yellow-50 hover:bg-yellow-100 disabled:opacity-50"
+                  >
+                    {isSubmittingPreAuth ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <FileText className="h-4 w-4 mr-2" />
+                    )}
+                    {isSubmittingPreAuth ? 'Submitting...' : 'Submit Prior Authorization'}
+                  </button>
+                )}
+                {preAuthResult && (
+                  <div className="mt-3 p-3 bg-white border border-yellow-200 rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          Authorization #{preAuthResult.authorization_number}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          Status: {preAuthResult.status} | Service Review ID: {preAuthResult.service_review_id}
+                        </p>
+                      </div>
+                      <button
+                        onClick={checkPreAuthStatus}
+                        className="text-xs text-blue-600 hover:text-blue-800"
+                      >
+                        Check Status
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -644,6 +896,173 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
       </div>
     );
   };
+
+  // Submit prior authorization when required
+  const initiatePreAuth = async () => {
+    if (!formData.id) {
+      console.error('Product request ID is required to submit pre-authorization');
+      return;
+    }
+
+    setIsSubmittingPreAuth(true);
+    try {
+      // Gather clinical data for pre-authorization
+      const clinicalData = {
+        primary_diagnosis: formData.clinical_data?.ssp_diagnosis?.primary_diagnosis,
+        secondary_diagnoses: formData.clinical_data?.ssp_diagnosis?.secondary_diagnoses || [],
+        clinical_justification: generateClinicalJustification(),
+        wound_assessment: generateWoundAssessment(),
+        treatment_history: generateTreatmentHistory(),
+        urgency: 'routine'
+      };
+
+      const response = await apiPost(`/api/product-requests/${formData.id}/submit-prior-auth`, {
+        clinical_data: clinicalData
+      });
+
+      const result = await handleApiResponse(response);
+
+      if (result.success) {
+        setPreAuthResult((prev: any) => ({
+          ...prev,
+          status: result.status,
+          expires_at: result.expires_at,
+          certification_number: result.certification_number,
+          payer_notes: result.payer_notes,
+          last_checked: result.last_checked
+        }));
+
+        // Start periodic status checking
+        const interval = setInterval(() => {
+          checkPreAuthStatus();
+        }, 30000); // Check every 30 seconds
+        setPreAuthStatusCheckInterval(interval);
+
+        updateFormData({
+          pre_auth_status: 'submitted',
+          pre_auth_submitted_at: new Date().toISOString(),
+          pre_auth_authorization_number: result.authorization_number
+        });
+      } else {
+        console.error('Pre-authorization submission failed:', result.message);
+      }
+    } catch (error) {
+      console.error('Pre-authorization submission error:', error);
+    } finally {
+      setIsSubmittingPreAuth(false);
+    }
+  };
+
+  // Check pre-authorization status
+  const checkPreAuthStatus = async () => {
+    if (!formData.id) return;
+
+    try {
+      const response = await apiPost(`/api/product-requests/${formData.id}/check-prior-auth-status`, {});
+      const result = await handleApiResponse(response);
+
+      if (result.success) {
+        setPreAuthResult((prev: any) => ({
+          ...prev,
+          status: result.status,
+          expires_at: result.expires_at,
+          certification_number: result.certification_number,
+          payer_notes: result.payer_notes,
+          last_checked: result.last_checked
+        }));
+
+        // Update form data with latest status
+        updateFormData({
+          pre_auth_status: result.status,
+          ...(result.status === 'approved' && { pre_auth_approved_at: new Date().toISOString() }),
+          ...(result.status === 'denied' && { pre_auth_denied_at: new Date().toISOString() })
+        });
+
+        // Stop checking if we have a final status
+        if (['approved', 'denied', 'cancelled'].includes(result.status) && preAuthStatusCheckInterval) {
+          clearInterval(preAuthStatusCheckInterval);
+          setPreAuthStatusCheckInterval(null);
+        }
+      }
+    } catch (error) {
+      console.error('Pre-authorization status check error:', error);
+    }
+  };
+
+  // Generate clinical justification for pre-auth
+  const generateClinicalJustification = (): string => {
+    const clinicalData = formData.clinical_data;
+    if (!clinicalData) return '';
+
+    const parts: string[] = [];
+
+    // Wound characteristics
+    if (clinicalData.ssp_wound_description) {
+      const wound = clinicalData.ssp_wound_description;
+      parts.push(`Patient presents with ${formData.wound_type} measuring ${wound.length}cm x ${wound.width}cm x ${wound.depth}cm.`);
+
+      if (wound.tissue_type) {
+        parts.push(`Wound bed shows ${wound.tissue_type} tissue.`);
+      }
+
+      if (wound.exudate_amount) {
+        parts.push(`Exudate amount: ${wound.exudate_amount}.`);
+      }
+
+      if (wound.duration_weeks) {
+        parts.push(`Wound duration: ${wound.duration_weeks} weeks.`);
+      }
+    }
+
+    // Conservative care
+    if (clinicalData.ssp_conservative_measures?.duration_weeks) {
+      parts.push(`Conservative treatment attempted for ${clinicalData.ssp_conservative_measures.duration_weeks} weeks without adequate healing.`);
+    }
+
+    // Lab results if available
+    if (clinicalData.ssp_lab_results?.albumin_level) {
+      parts.push(`Albumin level: ${clinicalData.ssp_lab_results.albumin_level} g/dL.`);
+    }
+
+    parts.push('Skin substitute application is medically necessary for wound closure and healing.');
+
+    return parts.join(' ');
+  };
+
+  // Generate wound assessment summary
+  const generateWoundAssessment = (): string => {
+    const clinicalData = formData.clinical_data;
+    if (!clinicalData?.ssp_wound_description) return '';
+
+    const wound = clinicalData.ssp_wound_description;
+    return `Wound Assessment: ${formData.wound_type} of ${wound.length}x${wound.width}x${wound.depth}cm with ${wound.tissue_type} tissue, ${wound.exudate_amount} exudate. Location: ${wound.anatomical_location}. Duration: ${wound.duration_weeks} weeks.`;
+  };
+
+  // Generate treatment history
+  const generateTreatmentHistory = (): string => {
+    const clinicalData = formData.clinical_data;
+    if (!clinicalData?.ssp_conservative_measures) return '';
+
+    const conservative = clinicalData.ssp_conservative_measures;
+    const treatments: string[] = [];
+
+    if (conservative.offloading) treatments.push('offloading');
+    if (conservative.compression_therapy) treatments.push('compression therapy');
+    if (conservative.wound_care) treatments.push('standard wound care');
+    if (conservative.debridement) treatments.push('debridement');
+    if (conservative.infection_control) treatments.push('infection control');
+
+    return `Conservative treatments included: ${treatments.join(', ')}. Duration: ${conservative.duration_weeks} weeks.`;
+  };
+
+  // Cleanup interval on unmount
+  useEffect(() => {
+    return () => {
+      if (preAuthStatusCheckInterval) {
+        clearInterval(preAuthStatusCheckInterval);
+      }
+    };
+  }, [preAuthStatusCheckInterval]);
 
   return (
     <div className="space-y-8">

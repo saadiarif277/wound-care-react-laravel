@@ -761,7 +761,7 @@ const CreateOrderPage = () => {
                 <NumberInput
                   label="Secondary Payer Amount (20%)"
                   value={parseFloat(secondaryPayer) || 0}
-                  onChange={(value) => setSecondaryPayer(value.toString())}
+                  onChange={(value: number) => setSecondaryPayer(value.toString())}
                   min="0"
                   required
                   disabled
@@ -1055,23 +1055,23 @@ const CreateOrderPage = () => {
                     <Input
                       label="Name"
                       value={newDoctorFacility.name}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, name: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, name: value }))}
                       required
                     />
                     <Input
                       label="Address"
                       value={newDoctorFacility.address}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, address: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, address: value }))}
                     />
                     <Input
                       label="Phone"
                       value={newDoctorFacility.phone}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, phone: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, phone: value }))}
                     />
                     <Input
                       label="Email"
                       value={newDoctorFacility.email}
-                      onChange={(value) => setNewDoctorFacility(prev => ({ ...prev, email: value }))}
+                      onChange={(value: string) => setNewDoctorFacility(prev => ({ ...prev, email: value }))}
                       type="email"
                     />
                     </div>
@@ -1105,33 +1105,33 @@ const CreateOrderPage = () => {
                     <Input
                       label="Product Name"
                       value={newProduct.name}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, name: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, name: value }))}
                       required
                     />
                     <Input
                       label="SKU"
                       value={newProduct.sku}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, sku: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, sku: value }))}
                       required
                     />
                     <NumberInput
                       label="National ASP"
                       value={newProduct.nationalAsp}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, nationalAsp: value }))}
+                      onChange={(value: number) => setNewProduct(prev => ({ ...prev, nationalAsp: value }))}
                       min="0"
                       required
                     />
                     <NumberInput
                       label="Price per sq cm"
                       value={newProduct.pricePerSqCm}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, pricePerSqCm: value }))}
+                      onChange={(value: number) => setNewProduct(prev => ({ ...prev, pricePerSqCm: value }))}
                       min="0"
                       required
                     />
                     <Input
                       label="Q Code"
                       value={newProduct.qCode}
-                      onChange={(value) => setNewProduct(prev => ({ ...prev, qCode: value }))}
+                      onChange={(value: string) => setNewProduct(prev => ({ ...prev, qCode: value }))}
                       required
                     />
                     <div>
@@ -1139,7 +1139,7 @@ const CreateOrderPage = () => {
                       <input
                         type="text"
                         value={newProduct.graphTypes.join(', ')}
-                        onChange={(e) => setNewProduct(prev => ({
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewProduct(prev => ({
                           ...prev,
                           graphTypes: e.target.value.split(',').map(t => t.trim()).filter(Boolean)
                         }))}
@@ -1152,7 +1152,7 @@ const CreateOrderPage = () => {
                       <input
                         type="text"
                         value={newProduct.graphSizes.join(', ')}
-                        onChange={(e) => setNewProduct(prev => ({
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setNewProduct(prev => ({
                           ...prev,
                           graphSizes: e.target.value.split(',').map(s => s.trim()).filter(Boolean)
                         }))}

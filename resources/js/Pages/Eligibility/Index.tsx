@@ -1,22 +1,17 @@
-import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { useForm, Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import {
-    FiUser, FiCalendar, FiCreditCard, FiFileText,
-    FiCheck, FiAlertCircle, FiClock, FiDollarSign,
-    FiInfo, FiPlus, FiX, FiSearch, FiHome, FiHash
-} from 'react-icons/fi';
-import axios from 'axios';
-import Select from 'react-select/async';
-import { components } from 'react-select';
-import PriorAuthForm from './PriorAuthForm';
-import { toast } from 'react-hot-toast';
-import { Toaster } from 'react-hot-toast';
+import Alert from '@/Components/Alert/Alert';
+import AsyncSelect from 'react-select/async';
+import { FiCheck, FiAlertTriangle, FiX, FiLoader, FiDownload, FiClock } from 'react-icons/fi';
+import { api, handleApiResponse } from '@/lib/api';
 
-interface ServiceCode {
-    code: string;
-    type: 'cpt' | 'hcpcs';
-    description?: string;
+interface Provider {
+    value: string;
+    label: string;
+    payer_id: string;
+    payer_name: string;
+    npi: string;
 }
 
 interface FormData {
@@ -36,67 +31,27 @@ interface FormData {
     service_codes: ServiceCode[];
 }
 
+interface ServiceCode {
+    code: string;
+    type: 'hcpcs' | 'cpt' | 'icd10';
+}
+
 interface EligibilityResponse {
-    eligibility_status: string;
-    benefits: {
-        deductible: {
-            individual: number;
-            family: number;
-            remaining: number;
-        };
-        coinsurance: {
-            percentage: number;
-            applies_after_deductible: boolean;
-        };
-        copay: {
-            office_visit: number;
-            specialist: number;
-        };
-        out_of_pocket: {
-            individual: number;
-            family: number;
-            remaining: number;
-        };
+    eligible: boolean;
+    coverage_details: {
+        active: boolean;
+        copay?: number;
+        deductible?: number;
+        out_of_pocket_max?: number;
+        benefits?: string[];
     };
-    pre_auth_required: boolean;
-    pre_auth_status: string;
-    cost_estimate: {
-        total_cost: number;
-        insurance_pays: number;
-        patient_responsibility: number;
-        breakdown: {
-            deductible_applied: number;
-            coinsurance_amount: number;
-            copay_amount: number;
-        };
-    };
-    care_reminders: Array<{
-        id: number;
-        type: string;
-        description: string;
-        due_date: string;
-        priority: string;
-    }>;
-    transaction_id: string;
-    timestamp: string;
-}
-
-interface Provider {
-    value: string;
-    label: string;
+    prior_auth_required: boolean;
+    limitations?: string[];
+    effective_date?: string;
+    termination_date?: string;
+    member_id: string;
     payer_id: string;
-    payer_name: string;
-    npi: string;
 }
-
-// Mock providers data - replace with actual API call
-const mockProviders: Provider[] = [
-    { value: '1', label: 'Dr. John Smith - Main Hospital', payer_id: 'MEDICARE', payer_name: 'Medicare', npi: '1234567890' },
-    { value: '2', label: 'Downtown Medical Center', payer_id: 'AETNA', payer_name: 'Aetna', npi: '0987654321' },
-    { value: '3', label: 'Dr. Sarah Johnson - Northside Clinic', payer_id: 'BCBS', payer_name: 'Blue Cross Blue Shield', npi: '1122334455' },
-    { value: '4', label: 'City General Hospital', payer_id: 'CIGNA', payer_name: 'Cigna', npi: '5544332211' },
-    { value: '5', label: 'Dr. Michael Brown - Specialty Care', payer_id: 'UNITED', payer_name: 'UnitedHealthcare', npi: '6677889900' },
-];
 
 interface ValidationErrors {
     patient?: {
@@ -115,42 +70,6 @@ interface ValidationErrors {
     service_codes?: string[];
 }
 
-interface InputProps {
-    label: string;
-    value: string;
-    onChange: (value: string) => void;
-    type?: string;
-    required?: boolean;
-    icon?: React.ReactNode;
-    disabled?: boolean;
-    placeholder?: string;
-}
-
-const Input = ({ label, value, onChange, type = 'text', required = false, icon = null, disabled = false, placeholder }: InputProps) => (
-    <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-            {label}
-            {required && <span className="text-red-500">*</span>}
-        </label>
-        <div className="relative">
-            {icon && (
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    {icon}
-                </div>
-            )}
-            <input
-                type={type}
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                className={`w-full py-2 ${icon ? 'pl-10' : 'pl-3'} pr-3 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${disabled ? 'bg-gray-100' : ''}`}
-                required={required}
-                disabled={disabled}
-                placeholder={placeholder}
-            />
-        </div>
-    </div>
-);
-
 const EligibilityPage = () => {
     const [step, setStep] = useState(1);
     const [verificationResult, setVerificationResult] = useState<EligibilityResponse | null>(null);
@@ -161,6 +80,7 @@ const EligibilityPage = () => {
     const [selectedProvider, setSelectedProvider] = useState<Provider | null>(null);
     const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [eligibilityHistory, setEligibilityHistory] = useState<any[]>([]);
 
     const { data, setData, post, processing, errors, reset } = useForm<FormData>({
         patient: {
@@ -179,733 +99,643 @@ const EligibilityPage = () => {
         service_codes: serviceCodes,
     });
 
-    // Load provider options for the searchable dropdown
-    const loadProviderOptions = (inputValue: string): Promise<Provider[]> => {
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                const filtered = mockProviders.filter(option =>
-                    option.label.toLowerCase().includes(inputValue.toLowerCase())
-                );
-                resolve(filtered);
-            }, 300);
-        });
-    };
-
-    // Handle provider selection
-    const handleProviderChange = (selected: Provider | null) => {
-        setSelectedProvider(selected);
-        if (selected) {
-            setData('payer', {
-                name: selected.payer_name,
-                id: selected.payer_id,
-                insurance_type: data.payer.insurance_type
-            });
-        } else {
-            setData('payer', {
-                name: '',
-                id: '',
-                insurance_type: data.payer.insurance_type
-            });
-        }
-    };
-
-    // Custom provider option component
-    const ProviderOption = (props: any) => (
-        <components.Option {...props}>
-            <div className="flex flex-col">
-                <span className="font-medium">{props.data.label}</span>
-                <span className="text-sm text-gray-500">
-                    {props.data.payer_name} | NPI: {props.data.npi}
-                </span>
-            </div>
-        </components.Option>
-    );
-
-    // Validate form data before submission
-    const validateForm = (): boolean => {
-        const errors: ValidationErrors = {};
-        let isValid = true;
-
-        // Validate patient information
-        if (!data.patient.first_name.trim()) {
-            errors.patient = {
-                ...errors.patient,
-                first_name: ['First name is required']
-            };
-            isValid = false;
-        }
-
-        if (!data.patient.last_name.trim()) {
-            errors.patient = {
-                ...errors.patient,
-                last_name: ['Last name is required']
-            };
-            isValid = false;
-        }
-
-        if (!data.patient.date_of_birth) {
-            errors.patient = {
-                ...errors.patient,
-                date_of_birth: ['Date of birth is required']
-            };
-            isValid = false;
-        } else {
-            // Validate date of birth is not in the future
-            const dob = new Date(data.patient.date_of_birth);
-            if (dob > new Date()) {
-                errors.patient = {
-                    ...errors.patient,
-                    date_of_birth: ['Date of birth cannot be in the future']
-                };
-                isValid = false;
-            }
-        }
-
-        if (!data.patient.gender) {
-            errors.patient = {
-                ...errors.patient,
-                gender: ['Gender is required']
-            };
-            isValid = false;
-        }
-
-        if (!data.patient.member_id.trim()) {
-            errors.patient = {
-                ...errors.patient,
-                member_id: ['Member ID is required']
-            };
-            isValid = false;
-        }
-
-        // Validate payer information
-        if (!data.payer.id || !data.payer.name) {
-            errors.payer = {
-                ...errors.payer,
-                id: ['Provider must be selected'],
-                name: ['Provider must be selected']
-            };
-            isValid = false;
-        }
-
-        // Validate service date
-        if (!data.service_date) {
-            errors.service_date = ['Service date is required'];
-            isValid = false;
-        } else {
-            // Validate service date is not in the past
-            const serviceDate = new Date(data.service_date);
-            if (serviceDate < new Date(new Date().setHours(0, 0, 0, 0))) {
-                errors.service_date = ['Service date cannot be in the past'];
-                isValid = false;
-            }
-        }
-
-        // Validate service codes
-        const hasEmptyServiceCodes = data.service_codes.some(code => !code.code.trim());
-        if (hasEmptyServiceCodes) {
-            errors.service_codes = ['All service codes must be filled'];
-            isValid = false;
-        }
-
-        setValidationErrors(errors);
-        return isValid;
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-
-        // Clear previous errors
-        setValidationErrors({});
-
-        // Validate form
-        if (!validateForm()) {
-            toast.error('Please fix the validation errors before submitting');
-            return;
-        }
-
-        setIsSubmitting(true);
-        setIsVerifying(true);
-
+    // Load provider options from API
+    const loadProviderOptions = async (inputValue: string): Promise<Provider[]> => {
         try {
-            const response = await axios.post('/eligibility/verify', data);
-            setVerificationResult(response.data);
-            toast.success('Eligibility verification completed successfully');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-        } catch (error: any) {
-            console.error('Verification failed:', error);
+            if (inputValue.length < 2) return [];
 
-            if (error.response?.status === 422) {
-                // Handle validation errors from the server
-                const serverErrors = error.response.data.errors;
-                setValidationErrors(serverErrors);
-                toast.error('Please check the form for errors');
-            } else {
-                // Handle other types of errors
-                toast.error(error.response?.data?.message || 'Failed to verify eligibility. Please try again.');
+            const results = await api.providers.search(inputValue);
+
+            return results.map((provider: any) => ({
+                value: provider.id,
+                label: `${provider.name} - ${provider.facility?.name || 'Unknown Facility'}`,
+                payer_id: provider.primary_payer_id || '',
+                payer_name: provider.primary_payer_name || '',
+                npi: provider.npi || ''
+            }));
+        } catch (error) {
+            console.error('Error loading provider options:', error);
+            return [];
+        }
+    };
+
+    // Load eligibility history on component mount
+    useEffect(() => {
+        const loadHistory = async () => {
+            try {
+                const history = await api.eligibility.getHistory();
+                setEligibilityHistory(history);
+            } catch (error) {
+                console.error('Error loading eligibility history:', error);
             }
-        } finally {
-            setIsSubmitting(false);
-            setIsVerifying(false);
+        };
+
+        loadHistory();
+    }, []);
+
+    const handleProviderSelection = (selectedProvider: Provider | null) => {
+        setSelectedProvider(selectedProvider);
+        if (selectedProvider) {
+            setData('payer', {
+                name: selectedProvider.payer_name,
+                id: selectedProvider.payer_id,
+                insurance_type: 'commercial', // Default, can be updated
+            });
         }
     };
 
     const addServiceCode = () => {
-        setServiceCodes([...serviceCodes, { code: '', type: 'hcpcs' }]);
+        const newCodes = [...serviceCodes, { code: '', type: 'hcpcs' as const }];
+        setServiceCodes(newCodes);
+        setData('service_codes', newCodes);
     };
 
     const removeServiceCode = (index: number) => {
-        setServiceCodes(serviceCodes.filter((_, i) => i !== index));
+        const newCodes = serviceCodes.filter((_, i) => i !== index);
+        setServiceCodes(newCodes);
+        setData('service_codes', newCodes);
     };
 
     const updateServiceCode = (index: number, field: keyof ServiceCode, value: string) => {
-        const newServiceCodes = [...serviceCodes];
-        newServiceCodes[index] = { ...newServiceCodes[index], [field]: value };
-        setServiceCodes(newServiceCodes);
-        setData('service_codes', newServiceCodes);
+        const newCodes = [...serviceCodes];
+        newCodes[index] = { ...newCodes[index], [field]: value };
+        setServiceCodes(newCodes);
+        setData('service_codes', newCodes);
     };
 
-    const handlePriorAuthSuccess = (response: any) => {
-        setPriorAuthResult(response);
-        setShowPriorAuthForm(false);
-        // Update the verification result with the new prior auth status
-        if (verificationResult) {
-            setVerificationResult({
-                ...verificationResult,
-                pre_auth_status: response.prior_auth_status,
+    const handleEligibilityCheck = async () => {
+        setIsVerifying(true);
+        setValidationErrors({});
+
+        try {
+            // Validate required fields
+            const validation = validateForm();
+            if (!validation.isValid) {
+                setValidationErrors(validation.errors);
+                setIsVerifying(false);
+                return;
+            }
+
+            const response = await api.eligibility.checkEligibility(data);
+            setVerificationResult(response);
+            setStep(2);
+        } catch (error) {
+            console.error('Eligibility check failed:', error);
+            setValidationErrors({
+                patient: { first_name: [error instanceof Error ? error.message : 'Eligibility check failed'] }
             });
+        } finally {
+            setIsVerifying(false);
         }
     };
 
-    const BenefitCard = ({ title, value, icon: Icon, className = '' }: any) => (
-        <div className={`bg-white rounded-lg p-4 shadow ${className}`}>
-            <div className="flex items-center gap-2 text-gray-600 mb-2">
-                <Icon className="w-5 h-5" />
-                <h3 className="font-medium">{title}</h3>
-            </div>
-            <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        </div>
-    );
+    const validateForm = () => {
+        const errors: ValidationErrors = {};
+        let isValid = true;
 
-    const ReminderCard = ({ reminder }: { reminder: EligibilityResponse['care_reminders'][0] }) => (
-        <div className={`bg-white rounded-lg p-4 shadow ${
-            reminder.priority === 'high' ? 'border-l-4 border-red-500' :
-            reminder.priority === 'medium' ? 'border-l-4 border-yellow-500' :
-            'border-l-4 border-blue-500'
-        }`}>
-            <div className="flex items-start justify-between">
-                <div>
-                    <h4 className="font-medium text-gray-900">{reminder.type.replace('_', ' ').toUpperCase()}</h4>
-                    <p className="text-gray-600 mt-1">{reminder.description}</p>
-                    <p className="text-sm text-gray-500 mt-2">Due: {new Date(reminder.due_date).toLocaleDateString()}</p>
-                </div>
-                <span className={`px-2 py-1 rounded text-xs font-medium ${
-                    reminder.priority === 'high' ? 'bg-red-100 text-red-800' :
-                    reminder.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-blue-100 text-blue-800'
-                }`}>
-                    {reminder.priority.toUpperCase()}
-                </span>
-            </div>
-        </div>
-    );
+        // Patient validation
+        if (!data.patient.first_name.trim()) {
+            errors.patient = { ...errors.patient, first_name: ['First name is required'] };
+            isValid = false;
+        }
+        if (!data.patient.last_name.trim()) {
+            errors.patient = { ...errors.patient, last_name: ['Last name is required'] };
+            isValid = false;
+        }
+        if (!data.patient.date_of_birth) {
+            errors.patient = { ...errors.patient, date_of_birth: ['Date of birth is required'] };
+            isValid = false;
+        }
+        if (!data.patient.member_id.trim()) {
+            errors.patient = { ...errors.patient, member_id: ['Member ID is required'] };
+            isValid = false;
+        }
+
+        // Payer validation
+        if (!data.payer.name.trim()) {
+            errors.payer = { ...errors.payer, name: ['Payer name is required'] };
+            isValid = false;
+        }
+
+        // Service date validation
+        if (!data.service_date) {
+            errors.service_date = ['Service date is required'];
+            isValid = false;
+        }
+
+        // Service codes validation
+        const validCodes = serviceCodes.filter(code => code.code.trim());
+        if (validCodes.length === 0) {
+            errors.service_codes = ['At least one service code is required'];
+            isValid = false;
+        }
+
+        return { isValid, errors };
+    };
+
+    const handlePriorAuthRequest = async () => {
+        if (!verificationResult) return;
+
+        setIsSubmitting(true);
+        try {
+            // This would typically submit a prior auth request
+            // For now, we'll just simulate success
+            setPriorAuthResult({
+                request_id: 'PA-' + Date.now(),
+                status: 'submitted',
+                estimated_processing_time: '3-5 business days'
+            });
+            setShowPriorAuthForm(false);
+        } catch (error) {
+            console.error('Prior auth request failed:', error);
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const resetForm = () => {
+        setStep(1);
+        setVerificationResult(null);
+        setPriorAuthResult(null);
+        setShowPriorAuthForm(false);
+        setSelectedProvider(null);
+        setServiceCodes([{ code: '', type: 'hcpcs' }]);
+        setValidationErrors({});
+        reset();
+    };
+
+    const getFieldError = (field: string, subfield?: string) => {
+        if (subfield) {
+            return validationErrors[field as keyof ValidationErrors]?.[subfield as any]?.[0];
+        }
+        return validationErrors[field as keyof ValidationErrors] as string[] | undefined;
+    };
 
     return (
         <MainLayout>
             <Head title="Eligibility Verification" />
-            <Toaster position="top-right" />
 
-            <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
-                <div className="px-4 py-6 sm:px-0">
-                    <div className="flex justify-between items-center mb-8">
-                        <div>
-                            <h1 className="text-3xl font-bold text-gray-900">Eligibility Verification</h1>
-                            <p className="mt-2 text-lg text-gray-600">
-                                Verify patient insurance eligibility and benefits
-                            </p>
-                        </div>
+            <div className="max-w-4xl mx-auto space-y-6">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">Eligibility Verification</h1>
+                        <p className="text-gray-600">Verify patient insurance coverage and benefits</p>
                     </div>
 
-                    {/* Verification Results */}
-                    {verificationResult && (
-                        <div className="mb-8 space-y-6 animate-fade-in">
-                            {/* Eligibility Status Card */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                                        <FiInfo className="text-indigo-600" />
-                                        Eligibility Status
-                                    </h2>
-                                    <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                                        verificationResult.eligibility_status === 'eligible'
-                                            ? 'bg-green-100 text-green-800'
-                                            : 'bg-red-100 text-red-800'
-                                    }`}>
-                                        {verificationResult.eligibility_status.toUpperCase()}
-                                    </span>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    <BenefitCard
-                                        title="Individual Deductible"
-                                        value={`$${verificationResult.benefits.deductible.individual.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-indigo-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Remaining Deductible"
-                                        value={`$${verificationResult.benefits.deductible.remaining.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-green-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Coinsurance"
-                                        value={`${verificationResult.benefits.coinsurance.percentage}%`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-blue-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Out of Pocket Remaining"
-                                        value={`$${verificationResult.benefits.out_of_pocket.remaining.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-purple-50 to-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Cost Estimate Card */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FiDollarSign className="text-indigo-600" />
-                                    Cost Estimate
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                                    <BenefitCard
-                                        title="Total Cost"
-                                        value={`$${verificationResult.cost_estimate.total_cost.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-indigo-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Insurance Pays"
-                                        value={`$${verificationResult.cost_estimate.insurance_pays.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-green-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Patient Responsibility"
-                                        value={`$${verificationResult.cost_estimate.patient_responsibility.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-blue-50 to-white"
-                                    />
-                                    <BenefitCard
-                                        title="Deductible Applied"
-                                        value={`$${verificationResult.cost_estimate.breakdown.deductible_applied.toFixed(2)}`}
-                                        icon={FiDollarSign}
-                                        className="bg-gradient-to-br from-purple-50 to-white"
-                                    />
-                                </div>
-                            </div>
-
-                            {/* Prior Authorization Card */}
-                            {verificationResult.pre_auth_required && (
-                                <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                    <div className="flex items-center justify-between mb-6">
-                                        <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-                                            <FiAlertCircle className="text-indigo-600" />
-                                            Prior Authorization Required
-                                        </h2>
-                                        <span className={`px-4 py-2 rounded-full text-sm font-medium ${
-                                            verificationResult.pre_auth_status === 'approved'
-                                                ? 'bg-green-100 text-green-800'
-                                                : verificationResult.pre_auth_status === 'denied'
-                                                ? 'bg-red-100 text-red-800'
-                                                : 'bg-yellow-100 text-yellow-800'
-                                        }`}>
-                                            {verificationResult.pre_auth_status.toUpperCase()}
-                                        </span>
-                                    </div>
-
-                                    {priorAuthResult && (
-                                        <div className="mb-6 p-6 bg-indigo-50 rounded-xl">
-                                            <div className="flex items-center justify-between">
-                                                <div className="space-y-2">
-                                                    <p className="font-medium text-gray-900">
-                                                        Prior Auth Number: {priorAuthResult.prior_auth_number}
-                                                    </p>
-                                                    <p className="text-sm text-gray-600">
-                                                        Submitted: {new Date(priorAuthResult.submission_date).toLocaleDateString()}
-                                                    </p>
-                                                    <p className="text-sm text-gray-600">
-                                                        Estimated Processing: {priorAuthResult.estimated_processing_time}
-                                                    </p>
-                                                </div>
-                                                <button
-                                                    onClick={() => {/* Handle status check */}}
-                                                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-colors"
-                                                >
-                                                    Check Status
-                                                </button>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {!showPriorAuthForm && !priorAuthResult && (
-                                        <div className="text-center py-6">
-                                            <p className="text-gray-600 mb-4">
-                                                This service requires prior authorization. Please submit a prior authorization request.
-                                            </p>
-                                            <button
-                                                onClick={() => setShowPriorAuthForm(true)}
-                                                className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                                            >
-                                                Submit Prior Authorization
-                                            </button>
-                                        </div>
-                                    )}
-
-                                    {showPriorAuthForm && (
-                                        <PriorAuthForm
-                                            eligibilityTransactionId={verificationResult.transaction_id}
-                                            onSuccess={handlePriorAuthSuccess}
-                                            onCancel={() => setShowPriorAuthForm(false)}
-                                        />
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Care Reminders Card */}
-                            {verificationResult.care_reminders.length > 0 && (
-                                <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                    <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                        <FiInfo className="text-indigo-600" />
-                                        Care Reminders
-                                    </h2>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                        {verificationResult.care_reminders.map(reminder => (
-                                            <ReminderCard key={reminder.id} reminder={reminder} />
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Reset Button */}
-                            <div className="flex justify-center">
-                                <button
-                                    onClick={() => {
-                                        setVerificationResult(null);
-                                        reset();
-                                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                    className="inline-flex items-center px-6 py-3 border border-gray-300 text-base font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors"
-                                >
-                                    <FiX className="mr-2 h-5 w-5" />
-                                    Start New Verification
-                                </button>
-                            </div>
-                        </div>
+                    {step > 1 && (
+                        <button
+                            onClick={resetForm}
+                            className="bg-gray-500 text-white px-4 py-2 rounded-lg hover:bg-gray-600"
+                        >
+                            New Verification
+                        </button>
                     )}
+                </div>
 
-                    {/* Verification Form */}
-                    {!verificationResult && (
-                        <form onSubmit={handleSubmit} className="space-y-8">
+                {/* Step Indicator */}
+                <div className="flex items-center space-x-4 bg-white p-4 rounded-lg shadow-sm border">
+                    <div className={`flex items-center ${step >= 1 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            step >= 1 ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                        }`}>
+                            1
+                        </div>
+                        <span className="ml-2 font-medium">Patient Info</span>
+                    </div>
+                    <div className="w-8 h-0.5 bg-gray-300"></div>
+                    <div className={`flex items-center ${step >= 2 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                            step >= 2 ? 'bg-blue-600 text-white' : 'bg-gray-200'
+                        }`}>
+                            2
+                        </div>
+                        <span className="ml-2 font-medium">Results</span>
+                    </div>
+                </div>
+
+                {step === 1 && (
+                    <div className="bg-white rounded-lg shadow-sm border p-6">
+                        <h2 className="text-lg font-semibold mb-6">Patient & Insurance Information</h2>
+
+                        <div className="space-y-6">
                             {/* Provider Selection */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FiHome className="text-indigo-600" />
-                                    Provider Information
-                                </h2>
-                                <div className="max-w-2xl">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Select Provider
+                            <div>
+                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    Provider/Facility
+                                </label>
+                                <AsyncSelect
+                                    loadOptions={loadProviderOptions}
+                                    onChange={handleProviderSelection}
+                                    value={selectedProvider}
+                                    placeholder="Search for provider or facility..."
+                                    className="react-select-container"
+                                    classNamePrefix="react-select"
+                                    isClearable
+                                />
+                                <p className="text-sm text-gray-500 mt-1">
+                                    This will auto-populate payer information
+                                </p>
+                            </div>
+
+                            {/* Patient Information */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        First Name *
                                     </label>
-                                    <Select
-                                        value={selectedProvider}
-                                        onChange={handleProviderChange}
-                                        loadOptions={loadProviderOptions}
-                                        defaultOptions
-                                        components={{ Option: ProviderOption }}
-                                        placeholder="Search provider..."
-                                        className={`react-select-container ${validationErrors.payer?.id ? 'border-red-500' : ''}`}
-                                        classNamePrefix="react-select"
-                                        isClearable
-                                        required
+                                    <input
+                                        type="text"
+                                        value={data.patient.first_name}
+                                        onChange={(e) => setData('patient', { ...data.patient, first_name: e.target.value })}
+                                        className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                            getFieldError('patient', 'first_name') ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                        placeholder="Patient's first name"
                                     />
-                                    {validationErrors.payer?.id && (
-                                        <p className="mt-1 text-sm text-red-600">{validationErrors.payer.id[0]}</p>
+                                    {getFieldError('patient', 'first_name') && (
+                                        <p className="text-red-500 text-sm mt-1">{getFieldError('patient', 'first_name')}</p>
                                     )}
-                                    {selectedProvider && (
-                                        <div className="mt-4 p-4 bg-indigo-50 rounded-lg">
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <div>
-                                                    <p className="text-sm text-gray-600">Payer</p>
-                                                    <p className="font-medium text-gray-900">{selectedProvider.payer_name}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-600">Payer ID</p>
-                                                    <p className="font-medium text-gray-900">{selectedProvider.payer_id}</p>
-                                                </div>
-                                                <div>
-                                                    <p className="text-sm text-gray-600">NPI</p>
-                                                    <p className="font-medium text-gray-900">{selectedProvider.npi}</p>
-                                                </div>
-                                            </div>
-                                        </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Last Name *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.patient.last_name}
+                                        onChange={(e) => setData('patient', { ...data.patient, last_name: e.target.value })}
+                                        className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                            getFieldError('patient', 'last_name') ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                        placeholder="Patient's last name"
+                                    />
+                                    {getFieldError('patient', 'last_name') && (
+                                        <p className="text-red-500 text-sm mt-1">{getFieldError('patient', 'last_name')}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Date of Birth *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={data.patient.date_of_birth}
+                                        onChange={(e) => setData('patient', { ...data.patient, date_of_birth: e.target.value })}
+                                        className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                            getFieldError('patient', 'date_of_birth') ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                    />
+                                    {getFieldError('patient', 'date_of_birth') && (
+                                        <p className="text-red-500 text-sm mt-1">{getFieldError('patient', 'date_of_birth')}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Gender
+                                    </label>
+                                    <select
+                                        value={data.patient.gender}
+                                        onChange={(e) => setData('patient', { ...data.patient, gender: e.target.value as 'male' | 'female' | 'other' })}
+                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                    >
+                                        <option value="male">Male</option>
+                                        <option value="female">Female</option>
+                                        <option value="other">Other</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Member ID *
+                                    </label>
+                                    <input
+                                        type="text"
+                                        value={data.patient.member_id}
+                                        onChange={(e) => setData('patient', { ...data.patient, member_id: e.target.value })}
+                                        className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                            getFieldError('patient', 'member_id') ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                        placeholder="Insurance member ID"
+                                    />
+                                    {getFieldError('patient', 'member_id') && (
+                                        <p className="text-red-500 text-sm mt-1">{getFieldError('patient', 'member_id')}</p>
+                                    )}
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                        Service Date *
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={data.service_date}
+                                        onChange={(e) => setData('service_date', e.target.value)}
+                                        className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                            getFieldError('service_date') ? 'border-red-500' : 'border-gray-300'
+                                        }`}
+                                    />
+                                    {getFieldError('service_date') && (
+                                        <p className="text-red-500 text-sm mt-1">{getFieldError('service_date')?.[0]}</p>
                                     )}
                                 </div>
                             </div>
 
                             {/* Payer Information */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FiCreditCard className="text-indigo-600" />
-                                    Payer Information
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="border-t pt-6">
+                                <h3 className="text-md font-semibold mb-4">Insurance/Payer Information</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                                            Insurance Type *
+                                            Payer Name *
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.payer.name}
+                                            onChange={(e) => setData('payer', { ...data.payer, name: e.target.value })}
+                                            className={`w-full px-3 py-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 ${
+                                                getFieldError('payer', 'name') ? 'border-red-500' : 'border-gray-300'
+                                            }`}
+                                            placeholder="e.g., Aetna, BCBS, Medicare"
+                                        />
+                                        {getFieldError('payer', 'name') && (
+                                            <p className="text-red-500 text-sm mt-1">{getFieldError('payer', 'name')}</p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Payer ID
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={data.payer.id}
+                                            onChange={(e) => setData('payer', { ...data.payer, id: e.target.value })}
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                            placeholder="Payer identifier"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                                            Insurance Type
                                         </label>
                                         <select
                                             value={data.payer.insurance_type}
                                             onChange={(e) => setData('payer', { ...data.payer, insurance_type: e.target.value })}
-                                            className={`w-full py-2 pl-3 pr-8 border border-gray-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500 ${
-                                                validationErrors.payer?.insurance_type ? 'border-red-500' : ''
-                                            }`}
-                                            required
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
                                         >
-                                            <option value="">Select Insurance Type</option>
+                                            <option value="">Select type</option>
+                                            <option value="commercial">Commercial</option>
                                             <option value="medicare">Medicare</option>
                                             <option value="medicaid">Medicaid</option>
-                                            <option value="commercial">Commercial</option>
-                                            <option value="tricare">TRICARE</option>
-                                            <option value="va">VA</option>
-                                            <option value="workers_comp">Workers Compensation</option>
+                                            <option value="medicare_advantage">Medicare Advantage</option>
                                             <option value="other">Other</option>
                                         </select>
-                                        {validationErrors.payer?.insurance_type && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.payer.insurance_type[0]}</p>
-                                        )}
                                     </div>
-                                    <Input
-                                        label="Payer Name"
-                                        value={data.payer.name}
-                                        onChange={(value) => setData('payer', { ...data.payer, name: value })}
-                                        required
-                                        icon={<FiCreditCard className="text-gray-400" />}
-                                    />
-                                    <Input
-                                        label="Payer ID"
-                                        value={data.payer.id}
-                                        onChange={(value) => setData('payer', { ...data.payer, id: value })}
-                                        required
-                                        icon={<FiHash className="text-gray-400" />}
-                                    />
                                 </div>
                             </div>
 
-                            {/* Patient Information */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FiUser className="text-indigo-600" />
-                                    Patient Information
-                                </h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    <Input
-                                        label="First Name"
-                                        value={data.patient.first_name}
-                                        onChange={(value) => setData('patient', { ...data.patient, first_name: value })}
-                                        required
-                                        icon={<FiUser className="text-gray-400" />}
-                                    />
-                                    <Input
-                                        label="Last Name"
-                                        value={data.patient.last_name}
-                                        onChange={(value) => setData('patient', { ...data.patient, last_name: value })}
-                                        required
-                                        icon={<FiUser className="text-gray-400" />}
-                                    />
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Date of Birth
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <FiCalendar className="text-gray-400" />
-                                            </div>
-                                            <input
-                                                type="date"
-                                                value={data.patient.date_of_birth}
-                                                onChange={(e) => setData('patient', { ...data.patient, date_of_birth: e.target.value })}
-                                                className={`pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
-                                                    validationErrors.patient?.date_of_birth ? 'border-red-500' : ''
-                                                }`}
-                                                required
-                                            />
-                                        </div>
-                                        {validationErrors.patient?.date_of_birth && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.patient.date_of_birth[0]}</p>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Gender
-                                        </label>
-                                        <select
-                                            value={data.patient.gender}
-                                            onChange={(e) => setData('patient', { ...data.patient, gender: e.target.value as 'male' | 'female' | 'other' })}
-                                            className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
-                                                validationErrors.patient?.gender ? 'border-red-500' : ''
-                                            }`}
-                                            required
-                                        >
-                                            <option value="male">Male</option>
-                                            <option value="female">Female</option>
-                                            <option value="other">Other</option>
-                                        </select>
-                                        {validationErrors.patient?.gender && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.patient.gender[0]}</p>
-                                        )}
-                                    </div>
-                                    <Input
-                                        label="Member ID"
-                                        value={data.patient.member_id}
-                                        onChange={(value) => setData('patient', { ...data.patient, member_id: value })}
-                                        required
-                                        icon={<FiUser className="text-gray-400" />}
-                                    />
+                            {/* Service Codes */}
+                            <div className="border-t pt-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-md font-semibold">Service Codes</h3>
+                                    <button
+                                        type="button"
+                                        onClick={addServiceCode}
+                                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                                    >
+                                        Add Code
+                                    </button>
                                 </div>
-                            </div>
 
-                            {/* Service Information */}
-                            <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
-                                <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                                    <FiFileText className="text-indigo-600" />
-                                    Service Information
-                                </h2>
-                                <div className="space-y-6">
-                                    <div className="max-w-md">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Service Date
-                                        </label>
-                                        <div className="relative">
-                                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                                <FiCalendar className="text-gray-400" />
-                                            </div>
+                                {serviceCodes.map((serviceCode, index) => (
+                                    <div key={index} className="flex gap-4 mb-3">
+                                        <div className="flex-1">
                                             <input
-                                                type="date"
-                                                value={data.service_date}
-                                                onChange={e => setData('service_date', e.target.value)}
-                                                className={`pl-10 block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
-                                                    validationErrors.service_date ? 'border-red-500' : ''
-                                                }`}
-                                                required
+                                                type="text"
+                                                value={serviceCode.code}
+                                                onChange={(e) => updateServiceCode(index, 'code', e.target.value)}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                                placeholder="Service code"
                                             />
                                         </div>
-                                        {validationErrors.service_date && (
-                                            <p className="mt-1 text-sm text-red-600">{validationErrors.service_date[0]}</p>
-                                        )}
-                                    </div>
-
-                                    <div>
-                                        <div className="flex items-center justify-between mb-4">
-                                            <label className="block text-sm font-medium text-gray-700">
-                                                Service Codes
-                                            </label>
+                                        <div className="w-32">
+                                            <select
+                                                value={serviceCode.type}
+                                                onChange={(e) => updateServiceCode(index, 'type', e.target.value as 'hcpcs' | 'cpt' | 'icd10')}
+                                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                                            >
+                                                <option value="hcpcs">HCPCS</option>
+                                                <option value="cpt">CPT</option>
+                                                <option value="icd10">ICD-10</option>
+                                            </select>
+                                        </div>
+                                        {serviceCodes.length > 1 && (
                                             <button
                                                 type="button"
-                                                onClick={addServiceCode}
-                                                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg text-indigo-700 bg-indigo-100 hover:bg-indigo-200 transition-colors"
+                                                onClick={() => removeServiceCode(index)}
+                                                className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
                                             >
-                                                <FiPlus className="w-4 h-4 mr-2" />
-                                                Add Code
+                                                Remove
                                             </button>
-                                        </div>
-                                        {validationErrors.service_codes && (
-                                            <p className="mb-2 text-sm text-red-600">{validationErrors.service_codes[0]}</p>
                                         )}
-                                        <div className="space-y-3">
-                                            {serviceCodes.map((code, index) => (
-                                                <div key={index} className="flex gap-4 items-start">
-                                                    <div className="flex-grow">
-                                                        <input
-                                                            type="text"
-                                                            value={code.code}
-                                                            onChange={e => updateServiceCode(index, 'code', e.target.value)}
-                                                            placeholder="Enter service code"
-                                                            className={`block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 ${
-                                                                validationErrors.service_codes ? 'border-red-500' : ''
-                                                            }`}
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div className="w-40">
-                                                        <select
-                                                            value={code.type}
-                                                            onChange={e => updateServiceCode(index, 'type', e.target.value as 'cpt' | 'hcpcs')}
-                                                            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                                                        >
-                                                            <option value="cpt">CPT</option>
-                                                            <option value="hcpcs">HCPCS</option>
-                                                        </select>
-                                                    </div>
-                                                    {index > 0 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeServiceCode(index)}
-                                                            className="inline-flex items-center p-2 border border-transparent rounded-lg text-red-700 bg-red-100 hover:bg-red-200 transition-colors"
-                                                        >
-                                                            <FiX className="w-4 h-4" />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            ))}
-                                        </div>
                                     </div>
-                                </div>
+                                ))}
+                                {getFieldError('service_codes') && (
+                                    <p className="text-red-500 text-sm mt-1">{getFieldError('service_codes')?.[0]}</p>
+                                )}
                             </div>
 
+                            {/* Submit Button */}
                             <div className="flex justify-end">
                                 <button
-                                    type="submit"
-                                    disabled={processing || isVerifying || isSubmitting}
-                                    className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-lg shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 transition-colors"
+                                    onClick={handleEligibilityCheck}
+                                    disabled={isVerifying}
+                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
                                 >
-                                    {isVerifying || isSubmitting ? (
+                                    {isVerifying ? (
                                         <>
-                                            <FiClock className="animate-spin -ml-1 mr-2 h-5 w-5" />
+                                            <FiLoader className="animate-spin mr-2" />
                                             Verifying...
                                         </>
                                     ) : (
-                                        <>
-                                            <FiCheck className="-ml-1 mr-2 h-5 w-5" />
-                                            Verify Eligibility
-                                        </>
+                                        'Check Eligibility'
                                     )}
                                 </button>
                             </div>
-                        </form>
-                    )}
-                </div>
+                        </div>
+                    </div>
+                )}
+
+                {step === 2 && verificationResult && (
+                    <div className="space-y-6">
+                        {/* Eligibility Results */}
+                        <div className="bg-white rounded-lg shadow-sm border">
+                            <div className="p-6 border-b">
+                                <div className="flex items-center">
+                                    {verificationResult.eligible ? (
+                                        <FiCheck className="h-6 w-6 text-green-500 mr-3" />
+                                    ) : (
+                                        <FiX className="h-6 w-6 text-red-500 mr-3" />
+                                    )}
+                                    <h2 className="text-lg font-semibold">
+                                        Eligibility Status: {verificationResult.eligible ? 'Eligible' : 'Not Eligible'}
+                                    </h2>
+                                </div>
+                            </div>
+
+                            <div className="p-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-3">Coverage Details</h3>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Status:</span>
+                                                <span className={verificationResult.coverage_details.active ? 'text-green-600' : 'text-red-600'}>
+                                                    {verificationResult.coverage_details.active ? 'Active' : 'Inactive'}
+                                                </span>
+                                            </div>
+                                            {verificationResult.coverage_details.copay && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Copay:</span>
+                                                    <span>${verificationResult.coverage_details.copay}</span>
+                                                </div>
+                                            )}
+                                            {verificationResult.coverage_details.deductible && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Deductible:</span>
+                                                    <span>${verificationResult.coverage_details.deductible}</span>
+                                                </div>
+                                            )}
+                                            {verificationResult.effective_date && (
+                                                <div className="flex justify-between">
+                                                    <span className="text-gray-600">Effective Date:</span>
+                                                    <span>{new Date(verificationResult.effective_date).toLocaleDateString()}</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <h3 className="font-medium text-gray-900 mb-3">Authorization</h3>
+                                        <div className="space-y-2 text-sm">
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-600">Prior Auth Required:</span>
+                                                <span className={verificationResult.prior_auth_required ? 'text-yellow-600' : 'text-green-600'}>
+                                                    {verificationResult.prior_auth_required ? 'Yes' : 'No'}
+                                                </span>
+                                            </div>
+                                            {verificationResult.limitations && verificationResult.limitations.length > 0 && (
+                                                <div>
+                                                    <span className="text-gray-600">Limitations:</span>
+                                                    <ul className="list-disc list-inside mt-1">
+                                                        {verificationResult.limitations.map((limitation, index) => (
+                                                            <li key={index} className="text-gray-700">{limitation}</li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {verificationResult.prior_auth_required && !priorAuthResult && (
+                                    <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
+                                        <div className="flex items-center">
+                                            <FiAlertTriangle className="h-5 w-5 text-yellow-600 mr-2" />
+                                            <p className="text-yellow-800">
+                                                Prior authorization is required for this service. Would you like to submit a request?
+                                            </p>
+                                        </div>
+                                        <div className="mt-3">
+                                            <button
+                                                onClick={() => setShowPriorAuthForm(true)}
+                                                className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700"
+                                            >
+                                                Request Prior Authorization
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {priorAuthResult && (
+                                    <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-md">
+                                        <div className="flex items-center">
+                                            <FiCheck className="h-5 w-5 text-green-600 mr-2" />
+                                            <p className="text-green-800">
+                                                Prior authorization request submitted successfully.
+                                            </p>
+                                        </div>
+                                        <div className="mt-2 text-sm text-green-700">
+                                            <p>Request ID: {priorAuthResult.request_id}</p>
+                                            <p>Estimated processing time: {priorAuthResult.estimated_processing_time}</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Prior Auth Form Modal */}
+                        {showPriorAuthForm && (
+                            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                                <div className="bg-white rounded-lg max-w-md w-full p-6">
+                                    <h3 className="text-lg font-semibold mb-4">Request Prior Authorization</h3>
+                                    <p className="text-gray-600 mb-4">
+                                        This will submit a prior authorization request to the payer. The request typically takes 3-5 business days to process.
+                                    </p>
+                                    <div className="flex justify-end space-x-3">
+                                        <button
+                                            onClick={() => setShowPriorAuthForm(false)}
+                                            className="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            onClick={handlePriorAuthRequest}
+                                            disabled={isSubmitting}
+                                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
+                                        >
+                                            {isSubmitting ? 'Submitting...' : 'Submit Request'}
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Recent Eligibility History */}
+                {eligibilityHistory.length > 0 && (
+                    <div className="bg-white rounded-lg shadow-sm border">
+                        <div className="p-6 border-b">
+                            <h3 className="text-lg font-semibold">Recent Eligibility Checks</h3>
+                        </div>
+                        <div className="divide-y">
+                            {eligibilityHistory.slice(0, 5).map((item: any, index) => (
+                                <div key={index} className="p-4 hover:bg-gray-50">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <p className="font-medium">{item.patient_name}</p>
+                                            <p className="text-sm text-gray-600">{item.payer_name}</p>
+                                            <p className="text-xs text-gray-500">{new Date(item.created_at).toLocaleString()}</p>
+                                        </div>
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                            item.eligible ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                                        }`}>
+                                            {item.eligible ? 'Eligible' : 'Not Eligible'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </MainLayout>
     );
 };
-
-// Add some custom styles for animations
-const styles = `
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out;
-}
-`;
-
-// Add styles to the document
-const styleSheet = document.createElement("style");
-styleSheet.innerText = styles;
-document.head.appendChild(styleSheet);
 
 export default EligibilityPage;

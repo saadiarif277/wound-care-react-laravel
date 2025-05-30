@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Product;
-use App\Models\ProductRequest;
+use App\Models\Order\Product;
+use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -501,5 +501,108 @@ class ProductController extends Controller
         }
 
         return $productArray;
+    }
+
+    /**
+     * Display the product management interface for admins
+     */
+    public function manage(Request $request): Response
+    {
+        $user = Auth::user();
+
+        // Authorization check
+        if (!$user->hasPermission('manage-products')) {
+            abort(403, 'Unauthorized');
+        }
+
+        // Get products with pagination (including soft deleted)
+        $products = Product::withTrashed()
+            ->with(['category', 'manufacturer'])
+            ->when($request->search, function ($query, $search) {
+                $query->search($search);
+            })
+            ->when($request->category, function ($query, $category) {
+                $query->byCategory($category);
+            })
+            ->when($request->manufacturer, function ($query, $manufacturer) {
+                $query->byManufacturer($manufacturer);
+            })
+            ->when($request->status, function ($query, $status) {
+                if ($status === 'active') {
+                    $query->whereNull('deleted_at');
+                } elseif ($status === 'inactive') {
+                    $query->onlyTrashed();
+                }
+            })
+            ->when($request->sort, function ($query, $sort) use ($request) {
+                $direction = $request->direction === 'desc' ? 'desc' : 'asc';
+
+                switch ($sort) {
+                    case 'name':
+                        $query->orderBy('name', $direction);
+                        break;
+                    case 'category':
+                        $query->orderBy('category', $direction);
+                        break;
+                    case 'manufacturer':
+                        $query->orderBy('manufacturer', $direction);
+                        break;
+                    case 'price':
+                        $query->orderBy('national_asp', $direction);
+                        break;
+                    case 'created_at':
+                        $query->orderBy('created_at', $direction);
+                        break;
+                    default:
+                        $query->orderBy('name', 'asc');
+                }
+            }, function ($query) {
+                $query->orderBy('name', 'asc');
+            })
+            ->paginate(15);
+
+        // Transform products for display
+        $products->getCollection()->transform(function ($product) {
+            return [
+                'id' => $product->id,
+                'sku' => $product->sku,
+                'name' => $product->name,
+                'manufacturer' => $product->manufacturer,
+                'category' => $product->category,
+                'q_code' => $product->q_code,
+                'national_asp' => $product->national_asp,
+                'price_per_sq_cm' => $product->price_per_sq_cm,
+                'commission_rate' => $product->commission_rate,
+                'is_active' => $product->is_active,
+                'deleted_at' => $product->deleted_at,
+                'created_at' => $product->created_at->format('M j, Y'),
+                'updated_at' => $product->updated_at->format('M j, Y'),
+                'image_url' => $product->image_url,
+                'available_sizes' => $product->available_sizes,
+            ];
+        });
+
+        // Get summary statistics
+        $stats = [
+            'total_products' => Product::count(),
+            'active_products' => Product::whereNull('deleted_at')->count(),
+            'inactive_products' => Product::onlyTrashed()->count(),
+            'categories_count' => Product::distinct('category')->count('category'),
+            'manufacturers_count' => Product::distinct('manufacturer')->count('manufacturer'),
+        ];
+
+        return Inertia::render('Products/Manage', [
+            'products' => $products,
+            'filters' => $request->only(['search', 'category', 'manufacturer', 'status', 'sort', 'direction']),
+            'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
+            'manufacturers' => Product::distinct()->pluck('manufacturer')->filter()->sort()->values(),
+            'stats' => $stats,
+            'permissions' => [
+                'can_create' => $user->hasPermission('manage-products'),
+                'can_edit' => $user->hasPermission('manage-products'),
+                'can_delete' => $user->hasPermission('manage-products'),
+                'can_restore' => $user->hasPermission('manage-products'),
+            ],
+        ]);
     }
 }

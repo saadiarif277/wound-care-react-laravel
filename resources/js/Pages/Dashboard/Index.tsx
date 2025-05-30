@@ -18,57 +18,52 @@ import SuperAdminDashboard from './Admin/SuperAdminDashboard';
 import MscRepDashboard from './Sales/MscRepDashboard';
 import MscSubrepDashboard from './Sales/MscSubrepDashboard';
 
-// Define the types
-interface Verification {
-  id: string;
-  customerId: string;
-  requestDate?: string;
-  patientInfo: {
-    firstName: string;
-    lastName: string;
-  };
-  insuranceInfo: {
-    payerId: string;
-  };
-}
-
-interface VerificationResult {
-  id: string;
-  status: 'active' | 'inactive' | 'pending' | 'error';
-}
-
+// Define the types - updated to match backend data
 interface ActionItem {
   id: string;
   type: 'document_required' | 'pa_approval' | 'mac_validation' | 'review_needed';
-  title: string;
+  patient_name: string;
   description: string;
   priority: 'high' | 'medium' | 'low';
-  dueDate?: string;
-  link: string;
+  due_date?: string;
+  request_id: string;
 }
 
-interface ClinicalOpportunity {
+interface RecentRequest {
   id: string;
-  patientName: string;
-  opportunity: string;
-  rationale: string;
-  potentialValue: string;
-  urgency: 'high' | 'medium' | 'low';
+  request_number: string;
+  patient_name: string;
+  wound_type: string;
+  status: string;
+  created_at: string;
+  facility_name: string;
+  total_amount?: number;
 }
 
-interface Request {
-  id: string;
-  type: 'product_request' | 'eligibility_check' | 'pa_request' | 'order';
-  patientName: string;
-  status: 'pending' | 'approved' | 'denied' | 'in_review' | 'completed';
-  requestDate: string;
-  description: string;
+interface DashboardMetrics {
+  total_requests: number;
+  pending_requests: number;
+  approved_requests: number;
+  monthly_requests: number;
+  monthly_revenue?: number;
 }
 
 interface DashboardData {
-  recent_requests: any[];
-  action_items: any[];
-  metrics: any;
+  recent_requests: RecentRequest[];
+  action_items: ActionItem[];
+  metrics: DashboardMetrics;
+  // Role-specific data will be added here
+  clinical_opportunities?: any[];
+  eligibility_status?: any[];
+  facility_metrics?: any;
+  provider_activity?: any[];
+  commission_summary?: any[];
+  territory_performance?: any[];
+  business_metrics?: any;
+  pending_approvals?: any[];
+  system_metrics?: any;
+  security_overview?: any;
+  platform_health?: any;
 }
 
 interface DashboardProps {
@@ -78,200 +73,51 @@ interface DashboardProps {
   roleRestrictions: RoleRestrictions;
 }
 
-// Create dummy data
-const dummyVerifications: Verification[] = [
-  {
-    id: 'ver-001',
-    customerId: 'customer-001',
-    requestDate: '2023-06-15',
-    patientInfo: {
-      firstName: 'John',
-      lastName: 'Doe'
-    },
-    insuranceInfo: {
-      payerId: 'AETNA-123'
-    }
-  },
-  {
-    id: 'ver-002',
-    customerId: 'customer-002',
-    requestDate: '2023-06-14',
-    patientInfo: {
-      firstName: 'Jane',
-      lastName: 'Smith'
-    },
-    insuranceInfo: {
-      payerId: 'BCBS-456'
-    }
-  },
-  {
-    id: 'ver-003',
-    customerId: 'customer-003',
-    requestDate: '2023-06-13',
-    patientInfo: {
-      firstName: 'Robert',
-      lastName: 'Johnson'
-    },
-    insuranceInfo: {
-      payerId: 'MEDICARE-789'
-    }
-  },
-  {
-    id: 'ver-004',
-    customerId: 'customer-001',
-    requestDate: '2023-06-12',
-    patientInfo: {
-      firstName: 'Sarah',
-      lastName: 'Williams'
-    },
-    insuranceInfo: {
-      payerId: 'UNITED-101'
-    }
-  },
-  {
-    id: 'ver-005',
-    customerId: 'customer-002',
-    requestDate: '2023-06-11',
-    patientInfo: {
-      firstName: 'Michael',
-      lastName: 'Brown'
-    },
-    insuranceInfo: {
-      payerId: 'CIGNA-202'
-    }
-  }
-];
-
-const dummyResults: Record<string, VerificationResult> = {
-  'ver-001': { id: 'ver-001', status: 'active' },
-  'ver-002': { id: 'ver-002', status: 'inactive' },
-  'ver-003': { id: 'ver-003', status: 'pending' },
-  'ver-004': { id: 'ver-004', status: 'error' },
-  'ver-005': { id: 'ver-005', status: 'active' }
-};
-
-// New dummy data for enhanced dashboard
-const dummyActionItems: ActionItem[] = [
-  {
-    id: 'action-001',
-    type: 'document_required',
-    title: 'Additional Documentation Required',
-    description: 'Wound assessment photos needed for Request #WC-2024-001',
-    priority: 'high',
-    dueDate: '2024-01-20',
-    link: '/orders/WC-2024-001'
-  },
-  {
-    id: 'action-002',
-    type: 'pa_approval',
-    title: 'Prior Authorization Pending',
-    description: 'PA request for Smith, Jane - Advanced wound dressing',
-    priority: 'medium',
-    dueDate: '2024-01-22',
-    link: '/pa/PA-2024-015'
-  },
-  {
-    id: 'action-003',
-    type: 'mac_validation',
-    title: 'MAC Validation Warning',
-    description: 'Missing osteomyelitis documentation for DFU case',
-    priority: 'high',
-    link: '/mac-validation/MV-2024-008'
-  }
-];
-
-const dummyClinicalOpportunities: ClinicalOpportunity[] = [
-  {
-    id: 'opp-001',
-    patientName: 'Robert Johnson',
-    opportunity: 'Consider Offloading DME L4631',
-    rationale: 'Wagner Grade 3 DFU detected - offloading recommended for optimal healing',
-    potentialValue: 'Improved healing outcomes',
-    urgency: 'high'
-  },
-  {
-    id: 'opp-002',
-    patientName: 'Sarah Williams',
-    opportunity: 'Advanced Wound Matrix Therapy',
-    rationale: 'Chronic wound >12 weeks with poor healing response to standard care',
-    potentialValue: '$2,400 potential revenue',
-    urgency: 'medium'
-  }
-];
-
-const dummyRecentRequests: Request[] = [
-  {
-    id: 'req-001',
-    type: 'product_request',
-    patientName: 'John Doe',
-    status: 'pending',
-    requestDate: '2024-01-15',
-    description: 'Advanced alginate dressing for diabetic foot ulcer'
-  },
-  {
-    id: 'req-002',
-    type: 'pa_request',
-    patientName: 'Jane Smith',
-    status: 'approved',
-    requestDate: '2024-01-14',
-    description: 'Prior authorization for negative pressure wound therapy'
-  },
-  {
-    id: 'req-003',
-    type: 'eligibility_check',
-    patientName: 'Robert Johnson',
-    status: 'completed',
-    requestDate: '2024-01-13',
-    description: 'Medicare coverage verification'
-  },
-  {
-    id: 'req-004',
-    type: 'order',
-    patientName: 'Sarah Williams',
-    status: 'in_review',
-    requestDate: '2024-01-12',
-    description: 'Hydrocolloid dressing order - 30 units'
-  }
-];
-
 export default function Dashboard({ user, dashboardData, roleRestrictions }: DashboardProps) {
-  const { auth } = usePage().props as any;
-  const currentUserWithRole = auth?.user || user;
-  // Map to expected User shape for dashboards
-  const currentUser = {
-    ...currentUserWithRole,
-    name: currentUserWithRole.first_name + ' ' + currentUserWithRole.last_name,
-    role_display_name: currentUserWithRole.role || '',
-  };
-  const currentRoleRestrictions = roleRestrictions || {} as RoleRestrictions;
-  const currentDashboardData = dashboardData || { recent_requests: [], action_items: [], metrics: {} };
-
-  // Use user.role for switch
-  const userRole = currentUserWithRole.role || '';
-
   const renderRoleSpecificDashboard = () => {
-    switch (userRole) {
+    const role = user.role;
+
+    // Pass real data from backend instead of mock data
+    const commonProps = {
+      user,
+      dashboardData,
+      roleRestrictions
+    };
+
+    switch (role) {
       case 'provider':
-        return <ProviderDashboard user={currentUser} dashboardData={currentDashboardData} roleRestrictions={currentRoleRestrictions} />;
+        return <ProviderDashboard {...commonProps} />;
       case 'office-manager':
-        return <OfficeManagerDashboard user={currentUser} dashboardData={currentDashboardData} roleRestrictions={currentRoleRestrictions} />;
-      case 'msc-admin':
-        return <MscAdminDashboard user={currentUser} />;
-      case 'super-admin':
-      case 'superadmin':
-        return <SuperAdminDashboard user={currentUser} />;
+        return <OfficeManagerDashboard {...commonProps} />;
       case 'msc-rep':
-        return <MscRepDashboard user={currentUser} />;
+        return <MscRepDashboard {...commonProps} />;
       case 'msc-subrep':
-        return <MscSubrepDashboard user={currentUser} />;
+        return <MscSubrepDashboard {...commonProps} />;
+      case 'msc-admin':
+        return <MscAdminDashboard {...commonProps} />;
+      case 'super-admin':
+        return <SuperAdminDashboard {...commonProps} />;
       default:
-        return null;
+        return <ProviderDashboard {...commonProps} />;
     }
   };
 
   return (
-    <MainLayout user={currentUser} dashboardData={currentDashboardData} roleRestrictions={currentRoleRestrictions}>
-      {renderRoleSpecificDashboard()}
+    <MainLayout>
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {getDashboardTitle(user.role)}
+            </h1>
+            <p className="text-gray-600">
+              {getDashboardDescription(user.role)}
+            </p>
+          </div>
+        </div>
+
+        {renderRoleSpecificDashboard()}
+      </div>
     </MainLayout>
   );
 }

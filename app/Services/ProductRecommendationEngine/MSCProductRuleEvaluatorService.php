@@ -2,7 +2,7 @@
 
 namespace App\Services\ProductRecommendationEngine;
 
-use App\Models\MscProductRecommendationRule;
+use App\Models\Order\MscProductRecommendationRule;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Collection;
 

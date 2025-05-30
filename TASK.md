@@ -1,354 +1,124 @@
-# MSC Wound Care Portal - Development Task List
+# MVP End-to-End Ordering: TASK LIST
 
-> **RBAC Architecture**: This project uses a robust Role + Permission based access control system with `User ↔ Role ↔ Permission` relationships. All access control is handled through permission-based middleware (`$this->middleware('permission:permission-name')`) and the `$user->hasPermission()` method. **No hardcoded role checks are used.**
+This task list outlines the **required (not nice-to-have)** steps to implement a minimal viable product (MVP) for the end-to-end ordering flow, from product request by a provider to document signing via DocuSeal.
 
-## 🚨 CRITICAL RBAC FIXES NEEDED - Office Manager Role
+## Phase 1: Foundational Setup (Backend & Infrastructure)
 
-### Office Manager API Endpoint Failures 🔥 IMMEDIATE PRIORITY
-*Multiple 403/500 errors due to missing permissions and route protection issues*
+-   [ ] **Database Schema:**
+    -   [ ] Implement migrations for `orders` table and related entities for product requests (e.g., `order_items`, `patient_display_sequences` if using the "JoSm001" ID).
+    -   [ ] Execute DocuSeal schema migrations:
+        -   `docuseal_templates` table
+        -   `docuseal_submissions` table
+        -   `docuseal_folders` table
+        -   `ALTER TABLE orders` to add DocuSeal-related columns (`docuseal_generation_status`, `docuseal_folder_id`, `manufacturer_delivery_status`).
+-   [ ] **Database Seeding (Initial Data):**
+    -   [ ] Seed at least one `manufacturers` record.
+    -   [ ] Seed at least one `docuseal_folders` record linked to a manufacturer.
+    -   [ ] Seed default `docuseal_templates` (InsuranceVerification, OrderForm - with basic field mappings placeholder `{}`).
+-   [ ] **Environment Configuration (`.env`):**
+    -   [ ] Supabase connection details.
+    -   [ ] Azure FHIR service endpoint and authentication details (or mock/dev connection for MVP).
+    -   [ ] DocuSeal API Key (`DOCUSEAL_API_KEY`).
+    -   [ ] DocuSeal API URL (`DOCUSEAL_API_URL`).
+    -   [ ] DocuSeal Webhook Secret (`DOCUSEAL_WEBHOOK_SECRET`).
+    -   [ ] Application base URL (`APP_URL`) for redirect and webhook construction.
 
-**Current Failures:**
-- [x] **`/products` endpoint**: ✅ FIXED - Added proper permission-based route protection
-- [x] **`/providers` endpoint**: ✅ FIXED - Added `view-providers` permission to Office Manager role
-- [x] **`/mac-validation` endpoint**: ✅ FIXED - Added `manage-mac-validation` permission to Office Manager role
-- [x] **`/pre-authorization` endpoint**: ✅ FIXED - Added `manage-pre-authorization` permission to Office Manager role
+## Phase 2: Product Request Flow (Provider Portal - MVP Core)
 
-**Required Permission Updates:**
-- [x] **Add to Office Manager role**: ✅ COMPLETED - Added `view-providers`, `view-product-requests`, `view-products`
-- [x] **Add MAC validation permissions**: ✅ COMPLETED - Office managers now have `manage-mac-validation` permission
-- [x] **Add Pre-Auth permissions**: ✅ COMPLETED - Office managers now have `manage-pre-authorization` permission
-- [x] **Add proper route protection**: ✅ COMPLETED - Products routes now use `permission:view-products` middleware
+-   [ ] **Patient Information:**
+    -   [ ] Frontend: Patient Information Form (capture minimal required PHI for FHIR Patient resource, and non-PHI like facility, expected service date, payer name).
+    -   [ ] Backend API:
+        -   Receives patient data.
+        -   Creates/updates Patient resource in Azure FHIR.
+        -   Returns `patient_fhir_id` (and `patient_display_id` if implementing simplified version).
+-   [ ] **Clinical Assessment:**
+    -   [ ] Frontend: Clinical Assessment Form (capture minimal wound data for MVP, e.g., wound type, basic location).
+    -   [ ] Backend API:
+        -   Receives assessment data.
+        -   Creates relevant FHIR resources (e.g., DocumentReference or Observation) in Azure FHIR, linked to the Patient.
+        -   Returns FHIR reference ID(s) (e.g., `azure_order_checklist_fhir_id`).
+-   [ ] **Product Selection:**
+    -   [ ] Frontend: Simple product selection mechanism (e.g., dropdown or basic search from `msc_products` table).
+    -   [ ] Frontend: Allow adding selected products (with quantity) to the request.
+-   [ ] **Eligibility & Validation Stubs (MVP Simplification):**
+    -   [ ] Frontend: Display placeholders for eligibility status and MAC validation. For MVP, these can be non-functional or default to a "pending" / "assumed pass" state.
+    -   [ ] Backend: `orders` table to store these statuses with default values.
+-   [ ] **Review & Submit Order:**
+    -   [ ] Frontend: Consolidate review page for the request.
+    -   [ ] Backend API (`POST /api/v1/orders` or similar):
+        -   Receives all collected non-PHI data and FHIR reference IDs.
+        -   Creates an `orders` record in Supabase with initial status (e.g., 'Pending Approval' or 'Submitted').
+        -   Stores `patient_fhir_id`, `azure_order_checklist_fhir_id`, selected products, etc.
 
-**RBAC Compliance Requirements:**
-Based on MSC-MVP Product Request Flow documentation, Office Managers should:
-- ✅ **Can see product catalog** (but without MSC pricing/savings)
-- ✅ **Can create product requests** for their facility
-- ✅ **Can view providers** in their facility for request management
-- ✅ **Can manage pre-authorization** requests for their patients
-- ✅ **Can access MAC validation** for compliance checking
-- ❌ **Cannot see MSC pricing** or financial savings data
-- ❌ **Cannot see commission rates** or financial analytics
+## Phase 3: Order Approval (Admin Portal - MVP Core)
 
-**Technical Implementation:**
-1. ✅ **Update UserRoleSeeder.php**: COMPLETED - Added missing permissions to office-manager role
-2. ✅ **Update Product Routes**: COMPLETED - Added proper permission middleware to product routes
-3. ✅ **Create MAC Validation permissions**: COMPLETED - Added limited MAC validation access for office managers
-4. ✅ **Test Permission Filtering**: COMPLETED - Financial data filtering maintained at API level
+-   [ ] **Admin Order Review & Approval:**
+    -   [ ] Backend API (`POST /api/v1/admin/orders/{orderId}/approve`):
+        -   Updates `orders.status` to 'Approved'.
+        -   Sets `orders.docuseal_generation_status` to 'pending_generation' (or similar, to flag readiness for document creation).
+    -   [ ] Frontend (Admin Portal):
+        -   List orders with 'Pending Approval' (or 'Submitted') status.
+        -   Provide a button/action to call the `/approve` API for a selected order.
 
-**Implementation Summary:**
-- **New Permissions Added**: `view-products`, `view-providers`, `view-product-requests`, `manage-pre-authorization`, `manage-mac-validation`
-- **Routes Updated**: Products routes now use permission-based middleware instead of just `auth`
-- **MAC Controller Updated**: Updated to use `manage-mac-validation` permission consistently
-- **Database Seeded**: All new permissions applied to Office Manager role in database
-- **RBAC Compliance**: Maintained 100% permission-based access control (no hardcoded role checks)
+## Phase 4: DocuSeal Document Generation & Signing (MVP Core)
 
-**Security Notes:**
-- Office managers need functional access to complete product request workflow
-- Financial data filtering must be maintained at API level (already implemented in ProductController)
-- All new permissions must follow existing RBAC patterns (no hardcoded role checks)
+-   [ ] **Backend: DocuSeal Client & Services:**
+    -   [ ] `DocuSealClient` (e.g., in `packages/integrations/docuseal/client.ts`):
+        -   `createSubmission(templateId, submitters, prefill_data, folderId, metadata, redirect_url)` method.
+        -   `getSigningLink(submissionId, submitterEmail, role)` method (if needed, or rely on DocuSeal's redirect/email flow).
+    -   [ ] `OrderDataAggregator` Service (e.g., in `packages/health-data/services/order-data-aggregator.ts`):
+        -   `aggregateOrderData(orderId)`: Fetches order from Supabase, related PHI (Patient, Coverage, Clinical) from Azure FHIR.
+    -   [ ] `DocumentGenerator` Service (e.g., in `packages/documents/services/document-generator.ts`):
+        -   `generateInsuranceVerification(orderId, aggregatedData)`:
+            -   Retrieves appropriate `docuseal_templates.docuseal_template_id` for 'InsuranceVerification'.
+            -   Retrieves `docuseal_folders.docuseal_folder_id` for the manufacturer.
+            -   Maps `aggregatedData` to DocuSeal prefill fields (hardcoded/simple mapping for MVP).
+            -   Defines submitters (e.g., admin as reviewer, provider as signer).
+            -   Calls `DocuSealClient.createSubmission`.
+            -   Stores submission details (ID, type, order_id, folder_id, status) in `docuseal_submissions` table.
+        -   `generateOrderForm(orderId, aggregatedData)`: Similar to above for 'OrderForm'.
+-   [ ] **Backend: API Endpoints for Document Management:**
+    -   [ ] Document Generation API (`POST /api/v1/admin/orders/{orderId}/generate-documents`):
+        -   Calls `OrderDataAggregator.aggregateOrderData(orderId)`.
+        -   Calls `DocumentGenerator` methods for 'InsuranceVerification' and 'OrderForm'.
+        -   Updates `orders.docuseal_generation_status` to 'generated' or 'documents_sent'.
+    -   [ ] Get Signing Links API (`GET /api/v1/orders/{orderId}/signing-links` or similar for provider):
+        -   Retrieves active signing URLs for an order's documents from `docuseal_submissions` (or generates them if DocuSeal client provides such). This might be simplified if DocuSeal emails links directly.
+-   [ ] **Backend: DocuSeal Webhook Handler:**
+    -   [ ] API Endpoint (`POST /api/webhooks/docuseal`):
+        -   Verify webhook signature using `DOCUSEAL_WEBHOOK_SECRET`.
+        -   Handle `submission.completed` (or `submission.signed` by all parties) event:
+            -   Update `docuseal_submissions.status`, `document_url`, `completed_at`.
+        -   Logic to check if all required submissions for an `order_id` are completed.
+            -   If all complete, update `orders.status` (e.g., to 'Pending Manufacturer Delivery' or 'Documents Signed').
+-   [ ] **Frontend: Admin Portal Document Actions:**
+    -   [ ] Button/action on an 'Approved' order to trigger the `/generate-documents` API.
+    -   [ ] Display document status (from `docuseal_submissions` or `orders.docuseal_generation_status`).
+    -   [ ] Display generated signing links (if admin needs to share them manually, or for reference).
+-   [ ] **Frontend: Provider Portal Document Signing:**
+    -   [ ] Notification/section for orders with documents pending provider signature.
+    -   [ ] Provide direct links to the DocuSeal signing pages for the provider (using `/signing-links` API or links received from DocuSeal if it emails them).
 
----
+## Phase 5: MVP Testing & Minimal Deployment
 
-## 🎯 System Overview
-
-### Core Architecture Status ✅ COMPLETE
-- **Backend**: Laravel 11 + PHP 8.1+
-- **Frontend**: React 18 + TypeScript + Inertia.js + Tailwind CSS
-- **Database**: Supabase PostgreSQL (operational data) + Azure Health Data Services (PHI)
-- **Authentication**: Laravel Sanctum with session-based auth
-- **RBAC**: Complete Role + Permission system with middleware protection
-- **Storage**: AWS S3 (documents) + Azure FHIR (PHI)
-
-### Completed Foundation Systems ✅
-
-#### ✅ Infrastructure & Database
-- **Supabase Setup**: PostgreSQL, S3-compatible storage, TypeScript types
-- **Core Tables**: Users, roles, permissions, organizations, facilities, contacts
-- **Business Tables**: Products, orders, commissions, product requests  
-- **RBAC Tables**: Role-user pivot, permission-role pivot, granular permissions
-- **Performance**: Database indexes, soft deletes, query optimization
-
-#### ✅ Authentication & Authorization (Robust RBAC)
-- **Laravel Sanctum**: Session-based authentication with CSRF protection
-- **Role System**: 6 roles (Provider, Office Manager, MSC Rep/SubRep, MSC Admin, Super Admin)
-- **Permission System**: 19 granular permissions (view-users, edit-financials, manage-products, etc.)
-- **Middleware Protection**: All routes protected with `permission:permission-name` middleware
-- **Access Control**: Role-based financial restrictions, commission access levels
-- **Frontend Integration**: roleRestrictions passed from controllers to React components
-- **Complete Audit**: 100% compliance - zero hardcoded role checks across entire application
-
-#### ✅ User Management & Access
-- **Modern Login**: MSC-branded authentication with gradient design
-- **Access Request System**: Role-based application forms with admin approval workflow
-- **User CRUD**: Complete user management with role assignments
-- **Organization Management**: Multi-level organization/facility structure
-- **Test Users**: 6 test users with proper role assignments for all roles
-
-#### ✅ Product Catalog & Business Logic
-- **Product System**: 25+ MSC wound care products with comprehensive data
-- **Pricing Engine**: National ASP vs MSC pricing (40% discount) with role-based access
-- **Product API**: Search, filtering, recommendations with role-aware responses
-- **Commission Tracking**: Product-level commission rates and calculations
-- **Role-Based UI**: Financial data hidden from restricted roles (Office Manager)
-
-#### ✅ Dashboard & Navigation
-- **Role-Based Dashboards**: 6 unique dashboards with role-specific content and metrics
-- **Navigation System**: Dynamic menu generation based on user permissions
-- **Quick Actions**: Role-appropriate action buttons and workflow shortcuts
-- **Clinical Opportunities**: AI-powered clinical decision support widget
-- **Financial Restrictions**: Complete financial data blocking for unauthorized roles
-
-#### ✅ API & Integration Foundation
-- **FHIR R4 Server**: Azure Health Data Services proxy with MSC extensions
-- **CMS Integration**: Live coverage data from api.coverage.cms.gov
-- **Validation Engine**: Comprehensive wound care MAC validation rules
-- **Medicare MAC Routes**: 45+ API endpoints for compliance and validation
-- **Security**: SQL injection protection, XSS protection, audit logging
-
-#### ✅ Quality & Documentation
-- **Testing Suite**: Feature tests, unit tests, validation engine tests
-- **API Documentation**: Swagger/OpenAPI with comprehensive endpoint documentation
-- **Comprehensive Docs**: 20+ documentation files covering all aspects
-- **Code Quality**: 100% RBAC compliance audit, zero hardcoded role checks
-
-#### ✅ MSC Admin Access Control Fixes
-- **Permission System**: Added missing permissions (`view-customers`, `view-analytics`, `create-orders`) to MSC Admin role
-- **Route Implementation**: Created `/orders/analytics` route with comprehensive analytics dashboard
-- **Route Protection**: Moved `/orders/create` to proper permission-based middleware protection
-- **Analytics Dashboard**: Built Order/Analytics.tsx with role-aware financial data, interactive charts, and comprehensive metrics
-- **Database Integration**: Updated UserRoleSeeder with all required MSC Admin permissions
-- **Technical Excellence**: Maintained 100% RBAC compliance with zero hardcoded role checks
-
-### 2. Product Request Management System 🔥 HIGH PRIORITY
-*Complete product request lifecycle from submission through manufacturer order*
-
-**What's Needed:**
-- [ ] **Admin Product Request Review Dashboard**
-  - Pending requests queue with clinical documentation
-  - Accept/reject/request more information workflow
-  - Review clinical assessments and eligibility results
-  - MAC validation compliance verification
-- [ ] **Request Status Management**
-  - Status tracking (submitted, under review, approved, rejected, sent to manufacturer)
-  - Automated notifications for status changes
-  - "Additional information needed" workflow with provider response
-- [ ] **Manufacturer Order Submission**
-  - Integration with manufacturer APIs/portals
-  - Order tracking from manufacturer to delivery
-  - Delivery confirmation and status updates
-  - Returns and exchanges processing
-
-**Technical Implementation:**
-- Enhance existing product_requests table with full workflow states
-- Create admin interfaces for request review and approval
-- Build provider response system for additional information requests
-- Integrate with existing RBAC system for role-appropriate access
-
-### 3. Real Payer Integration 🔥 HIGH PRIORITY
-*Live API connections for eligibility and prior authorization*
-
-**What's Needed:**
-- [ ] **Live Payer APIs**
-  - Optum API integration
-  - Availity API connection
-  - Office Ally integration
-  - Change Healthcare APIs
-- [ ] **Real-time Eligibility Verification**
-  - Replace mock responses with live data
-  - Cache eligibility results appropriately
-  - Handle API failures gracefully
-- [ ] **Prior Authorization Management**
-  - PA request submission APIs
-  - Status tracking and updates
-  - Document submission workflows
-  - Appeal process management
-
-**Security Considerations:**
-- Implement secure credential management
-- Add comprehensive audit logging
-- Handle PHI data properly (Azure FHIR integration)
-- Rate limiting and error handling
+-   [ ] **Test Data Setup:**
+    -   [ ] Ensure a test patient exists in Azure FHIR with relevant demographic and (mocked) coverage data.
+    -   [ ] Ensure a test provider and facility exist in Supabase.
+    -   [ ] Ensure a test manufacturer and linked DocuSeal folder/templates exist.
+-   [ ] **End-to-End (E2E) Manual Test - Happy Path:**
+    1.  Provider: Submit a new product request for the test patient.
+    2.  Admin: Approve the submitted order.
+    3.  Admin: Trigger document generation for the approved order.
+    4.  Provider: Access signing links and complete document signing in DocuSeal.
+    5.  System: Verify DocuSeal webhook is received and correctly updates `docuseal_submissions` and `orders` status.
+    6.  Verify final order status reflects completion of document signing.
+-   [ ] **Deployment (UAT Environment):**
+    -   [ ] Deploy all code changes.
+    -   [ ] Run database migrations and seed scripts in the UAT environment.
+    -   [ ] Configure all environment variables correctly in UAT.
+-   [ ] **Monitoring (Basic):**
+    -   [ ] Implement basic server-side logging for critical API calls (order submission, approval, document generation, webhook processing).
+    -   [ ] Basic logging for DocuSeal API client calls and responses.
 
 ---
-
-## 🎯 Medium Priority Features
-
-### 4. Enhanced Clinical Features 📊 MEDIUM PRIORITY
-*Advanced clinical decision support and documentation*
-
-**Remaining Tasks:**
-- [ ] **Clinical Photography System**
-  - Secure image upload to Azure FHIR
-  - Comparison tools (before/after)
-  - Measurement overlay tools
-  - HIPAA-compliant image handling
-- [ ] **Advanced Reporting**
-  - Outcome tracking reports
-  - Compliance dashboards
-  - Quality metrics visualization
-  - Treatment effectiveness analysis
-- [ ] **Clinical Decision Support**
-  - Treatment protocol recommendations
-  - Drug interaction checking
-  - Best practice alerts
-  - Evidence-based guidelines
-
-### 5. Advanced Business Intelligence 📈 MEDIUM PRIORITY
-*Enhanced analytics and reporting for all user roles*
-
-**Remaining Tasks:**
-- [ ] **Sales Analytics**
-  - Territory performance tracking
-  - Revenue forecasting
-  - Commission trend analysis
-  - Customer acquisition metrics
-- [ ] **Clinical Analytics**
-  - Healing rate statistics
-  - Treatment effectiveness metrics
-  - Cost-effectiveness analysis
-  - Quality improvement indicators
-- [ ] **Financial Reporting**
-  - Revenue cycle management
-  - Accounts receivable aging
-  - Profit/loss analysis by product/territory
-
-### 6. System Optimization 🔧 MEDIUM PRIORITY
-*Performance, monitoring, and operational improvements*
-
-**Remaining Tasks:**
-- [ ] **Performance Optimization**
-  - Database query optimization
-  - Frontend code splitting
-  - Image optimization and CDN
-  - Caching strategy refinement
-- [ ] **Monitoring & Alerting**
-  - Application performance monitoring
-  - Error tracking and notifications
-  - System health dashboards
-  - Automated alerts for critical issues
-- [ ] **DevOps Improvements**
-  - Automated testing pipeline
-  - Security scanning integration
-  - Environment management
-  - Database migration automation
-
----
-
-## 🔮 Future Enhancements (Low Priority)
-
-### 7. Advanced Integration Features
-- [ ] **Third-party EMR Integration**
-  - Epic MyChart integration
-  - Cerner APIs
-  - Additional EHR connectors
-- [ ] **Advanced Document Management**
-  - DocuSeal e-signature automation
-  - Document template management
-  - Version control and audit trails
-- [ ] **Machine Learning Features**
-  - Predictive healing models
-  - Risk stratification algorithms
-  - Personalized treatment recommendations
-
-### 8. Mobile & Accessibility
-- [ ] **Native Mobile App**
-  - React Native implementation
-  - Offline capability
-  - Push notifications
-- [ ] **Accessibility Compliance**
-  - WCAG 2.1 AA compliance
-  - Screen reader optimization
-  - Keyboard navigation support
-
----
-
-## ⚠️ Known Technical Debt & Maintenance
-
-### Critical Maintenance Items
-- [ ] **Security Updates**
-  - Regular dependency updates
-  - Security patch management
-  - Penetration testing
-- [ ] **HIPAA Compliance Verification**
-  - Regular compliance audits
-  - Business Associate Agreement updates
-  - Risk assessment documentation
-- [ ] **Performance Monitoring**
-  - Database performance tuning
-  - API response time optimization
-  - Frontend bundle size management
-
-### Documentation Updates Needed
-- [ ] **User Training Materials**
-  - Role-specific user guides
-  - Video tutorial creation
-  - FAQ documentation
-- [ ] **Technical Documentation**
-  - Architecture decision records
-  - Deployment procedures
-  - Troubleshooting guides
-
----
-
-## 🏆 Success Metrics & KPIs
-
-### Technical Excellence
-- **Code Quality**: 100% RBAC compliance maintained
-- **Security**: Zero security vulnerabilities
-- **Performance**: < 2 second page load times
-- **Uptime**: 99.9% system availability
-
-### Business Impact
-- **User Adoption**: 90%+ user satisfaction scores
-- **Process Efficiency**: 50% reduction in administrative time
-- **Compliance**: 100% MAC validation accuracy
-- **Revenue**: Measurable increase in order processing efficiency
-
----
-
-## 📋 Best Practices & Development Guidelines
-
-### RBAC Development Pattern
-```php
-// ✅ Correct: Permission-based middleware
-$this->middleware('permission:view-financials')->only(['index']);
-
-// ✅ Correct: Check user permissions
-if ($request->user()->hasPermission('edit-products')) {
-    // Allow action
-}
-
-// ❌ Wrong: Direct role checks
-if ($user->hasRole('admin')) { // Don't do this
-```
-
-### Frontend Role Handling
-```typescript
-// ✅ Correct: Use roleRestrictions from backend
-const { roleRestrictions } = usePage().props;
-if (roleRestrictions.can_view_financials) {
-    // Show financial data
-}
-
-// ❌ Wrong: Hardcoded role checks
-if (user.role === 'admin') { // Don't do this
-```
-
-### API Development
-- Use permission middleware for all protected routes
-- Pass roleRestrictions to frontend in all API responses
-- Filter sensitive data at the API level based on permissions
-- Implement comprehensive audit logging for all actions
-
-### Testing Strategy
-- Write feature tests for all RBAC scenarios
-- Test permission boundaries thoroughly
-- Include integration tests for external APIs
-- Maintain high test coverage (>80%)
-
----
-
-**Last Updated**: January 2025  
-**RBAC System**: Fully Implemented & Audited ✅  
-**Overall Progress**: ~77% Complete  
-**Next Sprint Focus**: Provider Portal Clinical Workflows
+**Note:** This list prioritizes functionality for the core "happy path" to demonstrate the E2E flow for UAT. Error handling, advanced features, UI polish, and optimizations are deferred. 

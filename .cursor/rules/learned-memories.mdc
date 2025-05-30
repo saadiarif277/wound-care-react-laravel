@@ -14,6 +14,7 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **User prefers comprehensive permission-based access control over hardcoded role checks**
 - **User wants all routes properly protected with middleware**
 - **User values detailed documentation and task tracking**
+- **Database IDs**: User strongly prefers UUID primary keys over auto-incrementing integers throughout the application. Use UUIDs whenever possible for all models and database tables.
 
 ## Technical Decisions
 
@@ -51,6 +52,65 @@ This file stores project-specific knowledge, conventions, and user preferences l
 - **Permission names follow kebab-case convention (e.g., `view-customers`, `create-orders`)**
 - **React components receive `roleRestrictions` prop for conditional rendering**
 - **Financial data is always permission-gated with `view-financials` permission**
+
+## Frontend Component Decisions
+
+- **Product Request Flow - Patient Information**: `resources/js/Pages/ProductRequest/Components/PatientInformationForm.tsx` is used for initial patient demographic capture and optional initial clinical notes. It calls `/api/v1/product-requests/patient` and updates `useProductRequestStore`.
+- **Product Request Flow - Clinical Assessment**: The existing `resources/js/Pages/ProductRequest/Components/ClinicalAssessmentStep.tsx` will be used for detailed clinical assessment data collection. This component (or its parent) will be responsible for ultimately gathering the necessary data (including `patientFhirId` from Zustand) and triggering a call to `/api/v1/product-requests/clinical-assessment`, then updating `useProductRequestStore` with the `azure_order_checklist_fhir_id`. No new, simpler clinical assessment form will be created for the MVP.
+- **Product Request Flow - Product Selection**: The existing `resources/js/Pages/ProductRequest/Components/ProductSelectionStep.tsx` (which utilizes `@/Components/ProductCatalog/ProductSelector`) will be used. It will display products from the live catalog (not a mocked list) and integrate with the product recommendation engine. The parent component will handle updating `useProductRequestStore` with selected products.
+
+## Project Task: E2E MVP Order Flow (Current Focus)
+
+This section tracks the progress and decisions related to implementing the minimal MVP for the end-to-end ordering flow, from product request to DocuSeal document generation.
+
+**Key Decisions & Architecture:**
+- **Stack:** Laravel backend with Inertia.js, React frontend (TypeScript).
+- **Frontend Adapters Location:** `resources/js/services/integrations/` for `FHIRAdapter.ts`, `ECWAdapter.ts`, and `DocuSealService.ts`.
+- **Backend Services Location:** PHP services like `FhirService.php`, `EcwFhirService.php` are in `app/Services/`.
+- **Frontend/Backend Interaction:** Frontend adapters call Laravel API routes which then use backend services to interact with external systems (Azure FHIR, eCW, DocuSeal).
+- **Parent Component for Product Request:** `resources/js/Pages/ProductRequest/Create.tsx` orchestrates the multi-step product request form.
+
+**Completed Steps:**
+- Initial setup of frontend adapter files (`FHIRAdapter.ts`, `ECWAdapter.ts`, `DocuSealService.ts`) in the correct directory.
+- Refinement of `FHIRAdapter.ts`:
+    - Calls Laravel backend API endpoints (e.g., `/api/v1/fhir/patient`, `/api/v1/fhir/observation`).
+    - Defined `PatientFormData` (now `PatientApiInput` in `Create.tsx`) and FHIR base types.
+- Refinement of `ECWAdapter.ts`:
+    - Calls Laravel backend API endpoints (e.g., `/api/v1/ecw/patient/{ecwPatientId}`).
+    - Added `searchPatientsByName` method.
+- Refinement of `DocuSealService.ts`:
+    - Calls Laravel backend API endpoints (e.g., `/api/v1/docuseal/generate`).
+    - Defined placeholder types for DocuSeal interactions.
+- Backend API Endpoint Adjustments:
+    - `EcwController.php` and `EcwFhirService.php`: Existing `searchPatients` and `getPatientConditions` methods confirmed suitable.
+    - `FhirController.php` (`createPatient`): Modified to validate `PatientFormData` (now `PatientApiInput`), transform to FHIR Patient, and call `FhirService`.
+    - `FhirService.php` (`createPatient`): Confirmed expects FHIR Patient resource array.
+    - `FhirController.php` and `FhirService.php`: Added `searchObservations` methods.
+    - `routes/api.php`: Added `GET /fhir/Observation` route.
+- Parent Component (`resources/js/Pages/ProductRequest/Create.tsx`):
+    - Confirmed as the multi-step form manager.
+    - `PatientApiInput` interface updated (added optional `id`).
+    - Removed redundant `updatePatientData` function and prop.
+    - Unused inline step components removed from the end of the file.
+- Child Component (`resources/js/Pages/ProductRequest/Components/PatientInformationStep.tsx`):
+    - Refactored to align with `Create.tsx`:
+        - Props updated to receive `formData` (as `ParentFormData`) and `updateFormData` from `Create.tsx`.
+        - Data access and updates now use `formData.patient_api_input` and `formData` directly, calling the parent's `updateFormData`.
+        - Local `PatientStepFormData` and `PatientDemographics` types removed/simplified.
+
+**Next Steps (High-Level):**
+- Refine/Integrate `ClinicalAssessmentStep.tsx` with `Create.tsx`.
+    - Define specific types for `formData.clinical_data` in `Create.tsx`.
+    - Ensure `ClinicalAssessmentStep.tsx` uses and updates this structure.
+    - Review backend validation for clinical assessment sections (`/api/v1/validation-builder/validate-section`).
+- Implement/Refine `ProductSelectionStep.tsx`.
+- Implement/Refine `ValidationEligibilityStep.tsx`.
+- Implement/Refine `ClinicalOpportunitiesStep.tsx`.
+- Implement/Refine `ReviewSubmitStep.tsx`.
+- Connect the `submitForm` in `Create.tsx` to the appropriate backend endpoint for creating the initial product request/order.
+- Implement the order approval flow in the Admin portal.
+- Integrate DocuSeal document generation and signature workflow.
+- Conduct E2E testing of the MVP flow.
 
 ## MSC Portal Workflow Architecture
 
@@ -219,6 +279,22 @@ This file stores project-specific knowledge, conventions, and user preferences l
   - Ensured all menu items maintain proper icons and href routes
 - **Documentation Compliance**: All role menus now exactly match the structure defined in `docs/ui-ux/Sidebar_Menu_Structure.md`
 
+### **CORRECTED Comprehensive Eligibility, MAC Validation & Pre-Authorization Plan (COMPLETED)** ✅
+- **Key Correction**: MAC jurisdiction determined by **patient address**, not facility address
+- **Implementation**: Complete workflow for eligibility → MAC validation → pre-authorization
+- **Services Created**:
+  - **OptumEligibilityService**: Optum V3 API integration with facility address as place of service
+  - **Enhanced MedicareMacValidationService**: Correct patient address for MAC jurisdiction determination
+  - **AvailityPreAuthService**: Pre-authorization submissions with proper addressing
+  - **CmsCoverageApiService**: Enhanced with `checkCoverageWithAddressing()` method
+- **Addressing Logic**:
+  - **MAC Jurisdiction**: Patient's permanent address (with DME expatriate exception)
+  - **Place of Service**: Facility address for service location and POS codes
+  - **CMS-1500 Compliance**: Service location address required on claims
+- **Flow**: Patient Data → Eligibility Check → MAC Validation (patient address) → Coverage Check → Pre-Auth (if required)
+- **Integration**: All services work together with correct addressing methodology
+- **Documentation**: Follows CMS guidelines for beneficiary address vs. place of service distinction
+
 ## MSC Portal User Roles (Actual System Requirements)
 
 ### **1. Provider**
@@ -346,3 +422,31 @@ This file stores project-specific knowledge, conventions, and user preferences l
   - Created Order/Analytics.tsx React component with charts and role-based restrictions
   - Installed recharts package for data visualization
 - **Result**: All MSC Admin routes now properly accessible with consistent RBAC pattern
+
+## E2E Order and DocuSeal Workflow
+
+1.  **Patient Data Entry/Retrieval (Provider Portal)**:
+    *   Patient information can be entered manually OR pulled from an integration (e.g., eClinicalWorks) via FHIR if a connection exists.
+    *   If entered manually, the patient data is used to create a new FHIR Patient resource, and demographics are sent to the FHIR server.
+2.  **Clinical Assessment (Provider Portal)**:
+    *   Clinical assessment data can be entered manually OR pulled from an integration (e.g., eClinicalWorks documentation) via FHIR if a connection exists (similar to patient data retrieval).
+    *   **This step is mandatory.** The assessment data is crucial for:
+        *   MAC (Medicare Administrative Contractor) validation.
+        *   Eligibility checks.
+        *   Pre-authorization determination and submission (if needed).
+3.  **Order Submission & Admin Approval (Transition from Provider to Admin Portal)**:
+    *   Once patient data and clinical assessment are complete, the product request is submitted and becomes an "order" awaiting admin approval.
+4.  **Document Generation (Backend)**:
+    *   Upon admin approval (or potentially triggered earlier depending on exact flow for pre-auth needs):
+        *   Relevant patient data (from FHIR).
+        *   Clinical assessment data (from FHIR/order).
+        *   Provider/Customer data (from Supabase).
+    *   This combined data is used to pre-populate the correct forms (e.g., Insurance Verification, Order Form, Onboarding Form) within the designated manufacturer's folder in DocuSeal.
+5.  **Admin Review of Documents (Admin Portal)**:
+    *   The Admin reviews the auto-populated DocuSeal forms for accuracy and completeness.
+6.  **Provider Signature (Provider Portal via DocuSeal)**:
+    *   Admin sends the reviewed documents to the provider for electronic signature via DocuSeal.
+7.  **Final Admin Review & Submission to Manufacturer (Admin Portal)**:
+    *   Upon receiving the completed (signed) documents from the provider:
+        *   Admin performs a final review (optional, may be automated).
+        *   Admin submits the signed documents to the manufacturer (e.g., via API delivery to manufacturer's system or by placing in their DocuSeal folder for retrieval).

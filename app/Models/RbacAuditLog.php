@@ -6,10 +6,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Support\Facades\Auth;
+use App\Models\Users\Organization\Organization;
+use App\Traits\BelongsToOrganization;
+use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class RbacAuditLog extends Model
 {
-    use HasFactory;
+    use HasFactory, BelongsToOrganization;
 
     protected $fillable = [
         'event_type',

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Role, Permission } from '@/types';
 import {
     ShieldCheckIcon,
     UserGroupIcon,
@@ -13,6 +12,20 @@ import {
     XMarkIcon
 } from '@heroicons/react/24/outline';
 import { toast } from 'react-hot-toast';
+
+interface Role {
+    id: number;
+    name: string;
+    slug: string;
+    description: string;
+    permissions: Permission[];
+}
+
+interface Permission {
+    id: number;
+    name: string;
+    description: string;
+}
 
 interface RoleManagementProps {
     roles: Role[];

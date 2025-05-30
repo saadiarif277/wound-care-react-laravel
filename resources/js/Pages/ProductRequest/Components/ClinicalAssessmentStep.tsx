@@ -4,10 +4,41 @@ import WoundCareAssessmentForm from './ClinicalAssessment/WoundCareAssessmentFor
 import PulmonaryWoundAssessmentForm from './ClinicalAssessment/PulmonaryWoundAssessmentForm';
 import VascularAssessmentForm from './ClinicalAssessment/VascularAssessmentForm';
 import { apiPost, handleApiResponse } from '@/lib/api';
+import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
+
+// Define UI Section Keys for the SSP Checklist
+const SSP_UI_SECTIONS = {
+  DIAGNOSIS: 'ssp_checklist_diagnosis',
+  LAB_RESULTS: 'ssp_checklist_lab_results',
+  WOUND_DESCRIPTION: 'ssp_checklist_wound',
+  CIRCULATION: 'ssp_checklist_circulation',
+  CONSERVATIVE_TREATMENT: 'ssp_checklist_conservative',
+  // CLINICAL_PHOTOS: 'ssp_checklist_photos', // If it becomes a distinct section for UI
+} as const; // Use 'as const' for literal types
+
+type SspUiSectionKey = typeof SSP_UI_SECTIONS[keyof typeof SSP_UI_SECTIONS];
+
+export type GenericSectionKey =
+  'wound_details' | 'conservative_care' | 'vascular_evaluation' | 'lab_results' |
+  'pulmonary_history' | 'tissue_oxygenation' | 'coordinated_care' | 'clinical_photos';
+
+export type UiSectionKey = SspUiSectionKey | GenericSectionKey;
+
+interface ParentFormData {
+  patient_api_input: any;
+  facility_id: number | null;
+  expected_service_date: string;
+  payer_name: string;
+  payer_id: string;
+  wound_type: string;
+  clinical_data?: Partial<SkinSubstituteChecklistInput>;
+  legacy_generic_assessment_data?: Record<GenericSectionKey, any>; // For other assessment types
+  [key: string]: any;
+}
 
 interface ClinicalAssessmentStepProps {
-  formData: any;
-  updateFormData: (data: any) => void;
+  formData: ParentFormData;
+  updateFormData: (data: Partial<ParentFormData>) => void;
   userSpecialty?: string;
 }
 
@@ -16,154 +47,149 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
   updateFormData,
   userSpecialty = 'wound_care_specialty'
 }) => {
-  const [activeSection, setActiveSection] = useState('wound_details');
+
+  const getAssessmentFormType = (): 'wound_care' | 'pulmonary_wound' | 'vascular' => {
+    const isPulmonaryRelated = userSpecialty === 'pulmonology';
+    if (isPulmonaryRelated) return 'pulmonary_wound';
+    if (userSpecialty === 'vascular_surgery' || formData.wound_type === 'arterial_ulcer') return 'vascular';
+    return 'wound_care';
+  };
+  const assessmentType = getAssessmentFormType();
+
+  const getDefaultActiveUiSection = (): UiSectionKey => {
+    if (assessmentType === 'wound_care') return SSP_UI_SECTIONS.DIAGNOSIS;
+    if (assessmentType === 'pulmonary_wound') return 'pulmonary_history';
+    return SSP_UI_SECTIONS.DIAGNOSIS;
+  };
+
+  const [activeUiSection, setActiveUiSection] = useState<UiSectionKey>(getDefaultActiveUiSection());
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isValidating, setIsValidating] = useState(false);
 
-  // Determine which assessment form to show based on specialty and wound type
-  const getAssessmentForm = () => {
-    // Check if patient has pulmonary conditions
-    const hasPulmonaryConditions = formData.clinical_data?.medical_history?.pulmonary_conditions?.length > 0;
+  useEffect(() => {
+    setActiveUiSection(getDefaultActiveUiSection());
+  }, [assessmentType]);
 
-    // Check provider specialty
-    if (userSpecialty === 'pulmonology' || hasPulmonaryConditions) {
-      return 'pulmonary_wound';
-    }
-
-    if (userSpecialty === 'vascular_surgery' || formData.wound_type === 'arterial_ulcer') {
-      return 'vascular';
-    }
-
-    // Default to standard wound care assessment
-    return 'wound_care';
-  };
-
-  const assessmentType = getAssessmentForm();
-
-  // Define sections based on assessment type
-  const getSections = () => {
+  const getSections = (): Array<{ id: UiSectionKey; label: string; required: boolean }> => {
     switch (assessmentType) {
+      case 'wound_care':
+        return [
+          { id: SSP_UI_SECTIONS.DIAGNOSIS, label: 'Diagnosis (SSP)', required: true },
+          { id: SSP_UI_SECTIONS.LAB_RESULTS, label: 'Lab Results (SSP)', required: true },
+          { id: SSP_UI_SECTIONS.WOUND_DESCRIPTION, label: 'Wound Description (SSP)', required: true },
+          { id: SSP_UI_SECTIONS.CIRCULATION, label: 'Circulation (SSP)', required: true },
+          { id: SSP_UI_SECTIONS.CONSERVATIVE_TREATMENT, label: 'Conservative Measures (SSP)', required: true },
+          // { id: SSP_UI_SECTIONS.CLINICAL_PHOTOS, label: 'Clinical Photos', required: false },
+        ];
       case 'pulmonary_wound':
         return [
           { id: 'pulmonary_history', label: 'Pulmonary History', required: true },
-          { id: 'wound_details', label: 'Wound Assessment', required: true },
+          { id: 'wound_details', label: 'Wound Assessment (Pulm)', required: true },
           { id: 'tissue_oxygenation', label: 'Tissue Oxygenation', required: true },
-          { id: 'conservative_care', label: 'Conservative Care', required: true },
+          { id: 'conservative_care', label: 'Conservative Care (Pulm)', required: true },
           { id: 'coordinated_care', label: 'Coordinated Care Planning', required: false },
         ];
       case 'vascular':
         return [
-          { id: 'vascular_history', label: 'Vascular History', required: true },
-          { id: 'wound_details', label: 'Wound Assessment', required: true },
+          { id: 'wound_details', label: 'Wound Assessment (Vasc)', required: true },
           { id: 'vascular_evaluation', label: 'Vascular Studies', required: true },
-          { id: 'conservative_care', label: 'Conservative Care', required: true },
-          { id: 'lab_results', label: 'Laboratory Values', required: false },
+          { id: 'conservative_care', label: 'Conservative Care (Vasc)', required: true },
+          { id: 'lab_results', label: 'Laboratory Values (Vasc)', required: false },
         ];
       default:
-        return [
-          { id: 'wound_details', label: 'Wound Details', required: true },
-          { id: 'conservative_care', label: 'Conservative Care', required: true },
-          { id: 'vascular_evaluation', label: 'Vascular Evaluation', required: false },
-          { id: 'lab_results', label: 'Lab Results', required: false },
-          { id: 'clinical_photos', label: 'Clinical Photos', required: false },
-        ];
+        return [];
     }
   };
 
   const sections = getSections();
 
-  // Validate current section
-  const validateSection = async (sectionId: string) => {
+  const validateSection = async (uiSectionKey: UiSectionKey) => {
     setIsValidating(true);
     try {
-      // Call validation API based on assessment type
+      let dataToValidate = {};
+      const sectionKeyForApi = String(uiSectionKey);
+
+      if (assessmentType === 'wound_care') {
+        dataToValidate = formData.clinical_data || {};
+      } else {
+        dataToValidate = (formData as any)[`legacy_${uiSectionKey as string}`] || {};
+      }
+
       const response = await apiPost('/api/v1/validation-builder/validate-section', {
-        section: sectionId,
-        data: formData.clinical_data[sectionId] || {},
+        section: sectionKeyForApi,
+        data: dataToValidate,
         wound_type: formData.wound_type,
         assessment_type: assessmentType,
       });
-
       const result = await handleApiResponse(response);
-
       if (result.errors) {
-        setValidationErrors(prev => ({
-          ...prev,
-          [sectionId]: result.errors
-        }));
+        setValidationErrors(prev => ({ ...prev, [sectionKeyForApi]: result.errors }));
       } else {
-        setValidationErrors(prev => {
-          const newErrors = { ...prev };
-          delete newErrors[sectionId];
-          return newErrors;
-        });
+        setValidationErrors(prev => { const newErrors = { ...prev }; delete newErrors[sectionKeyForApi]; return newErrors; });
       }
-    } catch (error) {
-      console.error('Validation error:', error);
-    } finally {
-      setIsValidating(false);
-    }
+    } catch (error) { console.error('Validation error:', error); } finally { setIsValidating(false); }
   };
 
-  // Update clinical data
-  const updateClinicalData = (section: string, data: any) => {
+  const handleChecklistInputChange = (
+    fieldName: keyof SkinSubstituteChecklistInput,
+    value: any
+  ) => {
     updateFormData({
       clinical_data: {
-        ...formData.clinical_data,
-        [section]: {
-          ...formData.clinical_data?.[section],
-          ...data
-        }
-      }
+        ...(formData.clinical_data || {}),
+        [fieldName]: value,
+      } as Partial<SkinSubstituteChecklistInput>,
     });
   };
 
-  // Calculate section completion
-  const getSectionCompletion = (sectionId: string) => {
-    const sectionData = formData.clinical_data?.[sectionId];
-    if (!sectionData) return 0;
+  const getSectionCompletion = (uiSectionKey: UiSectionKey) => {
+    if (assessmentType === 'wound_care') {
+      const dataKey = uiSectionKey as SspUiSectionKey;
+      const sectionData = (formData.clinical_data && dataKey in formData.clinical_data) ? formData.clinical_data[dataKey] : null;
 
-    const fields = Object.keys(sectionData);
-    const filledFields = fields.filter(field =>
-      sectionData[field] !== null &&
-      sectionData[field] !== '' &&
-      sectionData[field] !== undefined
-    );
+      if (typeof sectionData !== 'object' || sectionData === null) return 0;
 
-    return fields.length > 0 ? Math.round((filledFields.length / fields.length) * 100) : 0;
+      const keys = Object.keys(sectionData as Record<string, any>); // Cast to Record for Object.keys
+      if (keys.length === 0) return 0;
+
+      let filledCount = 0;
+      for (const key of keys) {
+        const value = (sectionData as Record<string, any>)[key];
+        let isFilled = true;
+        if (value === null || value === '' || value === undefined) isFilled = false;
+        if (Array.isArray(value) && value.length === 0) isFilled = false;
+        if (typeof value === 'object' && !Array.isArray(value) && value !== null && Object.keys(value).length === 0) isFilled = false;
+        if (isFilled) filledCount++;
+      }
+      return Math.round((filledCount / keys.length) * 100);
+    }
+    return 0;
   };
 
-  // Render the appropriate assessment form
   const renderAssessmentForm = () => {
-    switch (assessmentType) {
-      case 'pulmonary_wound':
+    if (assessmentType === 'wound_care') {
+      return (
+        <WoundCareAssessmentForm
+          formData={formData.clinical_data || {}}
+          activeSection={activeUiSection as SspUiSectionKey}
+          handleChange={handleChecklistInputChange}
+          validationErrors={validationErrors}
+          parentWoundType={formData.wound_type}
+        />
+      );
+    } else if (assessmentType === 'pulmonary_wound' || assessmentType === 'vascular') {
+        const currentGenericSectionData = (formData as any)[`legacy_${activeUiSection as string}`] || {};
+        const FormComponent = assessmentType === 'pulmonary_wound' ? PulmonaryWoundAssessmentForm : VascularAssessmentForm;
         return (
-          <PulmonaryWoundAssessmentForm
-            formData={formData}
-            updateClinicalData={updateClinicalData}
-            activeSection={activeSection}
-            validationErrors={validationErrors}
-          />
-        );
-      case 'vascular':
-        return (
-          <VascularAssessmentForm
-            formData={formData}
-            updateClinicalData={updateClinicalData}
-            activeSection={activeSection}
-            validationErrors={validationErrors}
-          />
-        );
-      default:
-        return (
-          <WoundCareAssessmentForm
-            formData={formData}
-            updateClinicalData={updateClinicalData}
-            activeSection={activeSection}
-            validationErrors={validationErrors}
+          <FormComponent
+            formData={currentGenericSectionData}
+            updateClinicalData={(data: any) => updateFormData({ [`legacy_${activeUiSection as string}`]: data }) }
+            activeSection={activeUiSection as string}
+            validationErrors={validationErrors[activeUiSection as string] ? {[activeUiSection as string]: validationErrors[activeUiSection as string]} : {}}
           />
         );
     }
+    return <div>Select an assessment type or section.</div>;
   };
 
   return (
@@ -176,7 +202,6 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
         </p>
       </div>
 
-      {/* Assessment Type Indicator */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
         <div className="flex items-start">
           <Info className="h-5 w-5 text-blue-600 mt-0.5 mr-3 flex-shrink-0" />
@@ -184,7 +209,7 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
             <h3 className="text-sm font-medium text-blue-900">
               {assessmentType === 'pulmonary_wound' && 'Pulmonary & Wound Care Assessment'}
               {assessmentType === 'vascular' && 'Vascular Surgery Assessment'}
-              {assessmentType === 'wound_care' && 'Standard Wound Care Assessment'}
+              {assessmentType === 'wound_care' && 'Skin Substitute Pre-Application Checklist'}
             </h3>
             <p className="text-sm text-blue-700 mt-1">
               This assessment has been selected based on your specialty and the patient's condition.
@@ -194,22 +219,20 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Section Navigation */}
         <div className="lg:col-span-1">
           <nav className="space-y-1">
             {sections.map((section) => {
-              const completion = getSectionCompletion(section.id);
-              const hasErrors = validationErrors[section.id]?.length > 0;
-
+              const completion = getSectionCompletion(section.id as UiSectionKey);
+              const hasErrors = validationErrors[section.id as string]?.length > 0;
               return (
                 <button
                   key={section.id}
                   onClick={() => {
-                    setActiveSection(section.id);
-                    validateSection(section.id);
+                    setActiveUiSection(section.id as UiSectionKey);
+                    validateSection(section.id as UiSectionKey);
                   }}
                   className={`w-full text-left px-3 py-2 rounded-md transition-colors ${
-                    activeSection === section.id
+                    activeUiSection === section.id
                       ? 'bg-blue-50 text-blue-700 border-l-4 border-blue-700'
                       : 'text-gray-600 hover:bg-gray-50'
                   }`}
@@ -233,7 +256,7 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
                         </span>
                       )}
                       <ChevronRight className={`h-4 w-4 ${
-                        activeSection === section.id ? 'text-blue-700' : 'text-gray-400'
+                        activeUiSection === section.id ? 'text-blue-700' : 'text-gray-400'
                       }`} />
                     </div>
                   </div>
@@ -242,12 +265,11 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
             })}
           </nav>
 
-          {/* Overall Progress */}
           <div className="mt-6 p-4 bg-gray-50 rounded-lg">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Overall Progress</h4>
             <div className="space-y-2">
               {sections.map((section) => {
-                const completion = getSectionCompletion(section.id);
+                const completion = getSectionCompletion(section.id as UiSectionKey);
                 return (
                   <div key={section.id}>
                     <div className="flex justify-between text-xs text-gray-600 mb-1">
@@ -269,21 +291,18 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
           </div>
         </div>
 
-        {/* Form Content */}
         <div className="lg:col-span-3">
-          <div className="bg-white rounded-lg border border-gray-200 p-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-6 relative">
             {isValidating && (
-              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10">
+              <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-10 rounded-lg">
                 <Loader2 className="h-8 w-8 text-blue-600 animate-spin" />
               </div>
             )}
-
             {renderAssessmentForm()}
           </div>
         </div>
       </div>
 
-      {/* MSC Assist Integration */}
       <div className="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
         <div className="flex items-start">
           <Info className="h-5 w-5 text-yellow-600 mt-0.5 mr-3 flex-shrink-0" />

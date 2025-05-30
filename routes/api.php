@@ -11,10 +11,15 @@ use App\Http\Controllers\Api\ClinicalOpportunitiesController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\CommissionController;
+use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\RBACController;
 use App\Http\Controllers\AccessControlController;
 use App\Http\Controllers\Auth\AccessRequestController;
+use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+use App\Http\Controllers\Api\V1\ProviderOnboardingController;
+use App\Http\Controllers\Api\V1\ProviderProfileController;
+use App\Http\Controllers\Api\ProductRequestPatientController;
+use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -100,6 +105,10 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
             Route::get('mac-contractor-analysis', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getMacContractorAnalysis'])->name('mac_contractor_analysis');
             Route::get('validation-trends', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidationTrends'])->name('validation_trends');
         });
+
+        // Frontend validation endpoints
+        Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('quick_check');
+        Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('thorough_validate');
     });
 });
 
@@ -188,9 +197,31 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
         Route::get('{id}/_history', [FhirController::class, 'patientHistory'])->name('history');
     });
 
+    // Observation Resource Routes
+    Route::prefix('Observation')->name('observation.')->group(function () {
+        Route::get('/', [FhirController::class, 'searchObservations'])->name('search');
+        // Add other Observation specific routes here if needed (e.g., create, read, update)
+    });
+
     // Transaction/Batch endpoint
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });
+
+// DocuSeal Integration Routes
+Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
+    // Document generation
+    Route::post('generate-document', [\App\Http\Controllers\DocusealController::class, 'generateDocument'])->name('generate');
+
+    // Submission management
+    Route::get('submissions/{submission_id}/status', [\App\Http\Controllers\DocusealController::class, 'getSubmissionStatus'])->name('status');
+    Route::get('submissions/{submission_id}/download', [\App\Http\Controllers\DocusealController::class, 'downloadDocument'])->name('download');
+
+    // Order submissions
+    Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
+});
+
+// DocuSeal Webhook (no auth required for external webhooks)
+Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
 
 // eClinicalWorks Integration Routes
 Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function () {
@@ -253,7 +284,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
         return response()->json([
             'status' => 'healthy',
             'timestamp' => now()->toISOString(),
-            'version' => config('app.version', '1.0.0')
+            'version' => '1.0.0'
         ]);
     })->name('api.health');
 });
@@ -372,3 +403,127 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::get('pending-verification', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getPendingVerification'])->name('pending');
     });
 });
+
+Route::prefix('api/v1/admin')->middleware(['auth:sanctum'])->group(function () {
+    // Organization Management - Require specific customer management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-customers'])->group(function () {
+        Route::get('/customers/organizations', [CustomerManagementController::class, 'listOrganizations']);
+        Route::post('/customers/organizations', [CustomerManagementController::class, 'createOrganization']);
+        Route::get('/customers/organizations/{organizationId}/hierarchy', [CustomerManagementController::class, 'getOrganizationHierarchy'])->name('admin.customers.organizations.hierarchy');
+        Route::get('/customers/organizations/{organizationId}/onboarding', [CustomerManagementController::class, 'getOnboardingStatus'])->name('admin.customers.organizations.onboarding');
+    });
+
+    // Facility Management - Require specific facility management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/facilities', [CustomerManagementController::class, 'addFacility'])->name('admin.customers.facilities.add');
+    });
+
+    // Provider Management - Require specific provider management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-providers'])->group(function () {
+        Route::post('/customers/organizations/{organizationId}/invite-providers', [CustomerManagementController::class, 'inviteProviders'])->name('admin.customers.providers.invite');
+    });
+
+    // Document Management - Require document management permission
+    Route::middleware(['role:msc-admin', 'permission:manage-documents'])->group(function () {
+        Route::post('/customers/documents/upload', [CustomerManagementController::class, 'uploadDocument'])->name('admin.customers.documents.upload');
+    });
+});
+
+// Provider Self-Service Routes
+Route::prefix('api/v1')->group(function () {
+    // Public invitation acceptance
+    // Route::get('/invitations/verify/{token}', [ProviderOnboardingController::class, 'verifyInvitation']);
+    // Route::post('/invitations/accept/{token}', [ProviderOnboardingController::class, 'acceptInvitation']);
+
+    // Authenticated provider routes
+    Route::middleware(['auth:sanctum', 'role:provider'])->group(function () {
+        // Route::get('/profile', [ProviderProfileController::class, 'show']);
+        // Route::put('/profile', [ProviderProfileController::class, 'update']);
+        // Route::post('/profile/verify-npi', [ProviderProfileController::class, 'verifyNPI']);
+        // Route::post('/profile/credentials', [ProviderProfileController::class, 'addCredential']);
+        // Route::post('/profile/documents', [ProviderProfileController::class, 'uploadDocument']); // This might conflict with admin upload or be different
+        // Route::get('/profile/onboarding-status', [ProviderProfileController::class, 'getOnboardingStatus']);
+    });
+});
+
+// Product Request Flow - Patient Information Step (MVP)
+Route::post('/v1/product-requests/patient', [ProductRequestPatientController::class, 'store'])->name('api.v1.product-requests.patient.store');
+
+// Product Request Flow - Clinical Assessment Step (MVP)
+Route::post('/v1/product-requests/clinical-assessment', [ProductRequestClinicalAssessmentController::class, 'store'])->name('api.v1.product-requests.clinical-assessment.store');
+
+// Organization Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('organizations')->name('api.organizations.')->group(function () {
+        // View organizations
+        Route::middleware('permission:view-customers')->group(function () {
+            Route::get('/', [\App\Http\Controllers\OrganizationsController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\OrganizationsController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiShow'])->name('show');
+        });
+
+        // Manage organizations (Create, Update, Delete)
+        Route::middleware('permission:manage-customers')->group(function () {
+            Route::post('/', [\App\Http\Controllers\OrganizationsController::class, 'apiStore'])->name('store');
+            Route::put('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiUpdate'])->name('update');
+            Route::delete('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
+// Facility Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('facilities')->name('api.facilities.')->group(function () {
+        // View facilities
+        Route::middleware('permission:view-facilities')->group(function () {
+            Route::get('/', [\App\Http\Controllers\FacilityController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\FacilityController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiShow'])->name('show');
+        });
+
+        // Create facilities
+        Route::middleware('permission:create-facilities')->group(function () {
+            Route::post('/', [\App\Http\Controllers\FacilityController::class, 'apiStore'])->name('store');
+        });
+
+        // Update facilities
+        Route::middleware('permission:edit-facilities')->group(function () {
+            Route::put('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiUpdate'])->name('update');
+        });
+
+        // Delete facilities
+        Route::middleware('permission:delete-facilities')->group(function () {
+            Route::delete('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
+// Provider Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('providers')->name('api.providers.')->group(function () {
+        // View providers
+        Route::middleware('permission:view-providers')->group(function () {
+            Route::get('/', [\App\Http\Controllers\ProviderController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\ProviderController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiShow'])->name('show');
+        });
+
+        // Create providers
+        Route::middleware('permission:create-providers')->group(function () {
+            Route::post('/', [\App\Http\Controllers\ProviderController::class, 'apiStore'])->name('store');
+        });
+
+        // Update providers
+        Route::middleware('permission:edit-providers')->group(function () {
+            Route::put('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiUpdate'])->name('update');
+        });
+
+        // Delete providers
+        Route::middleware('permission:delete-providers')->group(function () {
+            Route::delete('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
+// Fallback Route for 404 API requests
+

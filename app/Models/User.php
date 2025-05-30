@@ -3,9 +3,18 @@
 namespace App\Models;
 
 use App\Traits\HasPermissions;
+use App\Traits\CrossOrganizationAccess;
+use App\Models\Fhir\Facility;
+use App\Models\Users\Organization\Organization;
+use App\Models\Users\Provider\ProviderInvitation;
+use App\Models\Users\OnboardingChecklist;
+use App\Models\Users\OnboardingDocument;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -14,7 +23,7 @@ use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasPermissions;
+    use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasPermissions, CrossOrganizationAccess;
 
     /**
      * The attributes that are mass assignable.
@@ -38,6 +47,8 @@ class User extends Authenticatable
         'credentials',
         'is_verified',
         'last_activity',
+        'current_organization_id',
+        'practitioner_fhir_id',
     ];
 
     /**
@@ -77,7 +88,71 @@ class User extends Authenticatable
         return $this->belongsTo(Account::class);
     }
 
+    /**
+     * Get organizations this user belongs to (many-to-many with pivot data)
+     */
+    public function organizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'organization_users')
+            ->withPivot(['role', 'is_primary', 'is_active', 'permissions', 'assigned_at', 'activated_at'])
+            ->withTimestamps();
+    }
 
+    /**
+     * Get active organization relationships
+     */
+    public function activeOrganizations(): BelongsToMany
+    {
+        return $this->organizations()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get the user's primary organization
+     */
+    public function primaryOrganization(): ?Organization
+    {
+        return $this->organizations()->wherePivot('is_primary', true)->first();
+    }
+
+    /**
+     * Get the user's current organization (for session context)
+     */
+    public function currentOrganization(): BelongsTo
+    {
+        return $this->belongsTo(Organization::class, 'current_organization_id');
+    }
+
+    /**
+     * Switch the user's current organization context
+     */
+    public function switchOrganization(Organization $organization): bool
+    {
+        // Verify user has access to this organization
+        if (!$this->organizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return false;
+        }
+
+        $this->update(['current_organization_id' => $organization->id]);
+        return true;
+    }
+
+    /**
+     * Get organizations assigned to this sales rep (for sales reps accessing multiple organizations)
+     */
+    public function assignedOrganizations(): BelongsToMany
+    {
+        return $this->belongsToMany(Organization::class, 'sales_rep_organizations')
+            ->withPivot(['relationship_type', 'is_active', 'commission_override', 'assigned_at', 'territory_notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Get active sales rep organization assignments
+     */
+    public function activeAssignedOrganizations(): BelongsToMany
+    {
+        return $this->assignedOrganizations()->wherePivot('is_active', true);
+    }
 
     /**
      * Get facilities this user is associated with
@@ -103,6 +178,69 @@ class User extends Authenticatable
     public function activeFacilities(): BelongsToMany
     {
         return $this->facilities()->wherePivot('is_active', true);
+    }
+
+    /**
+     * Get patient associations for this provider
+     */
+    public function patientAssociations(): HasMany
+    {
+        return $this->hasMany(PatientAssociation::class, 'provider_id');
+    }
+
+    /**
+     * Get active patient associations
+     */
+    public function activePatientAssociations(): HasMany
+    {
+        return $this->patientAssociations()->active();
+    }
+
+    /**
+     * Check if user has access to a specific organization
+     */
+    public function hasAccessToOrganization(Organization $organization): bool
+    {
+        if ($this->canAccessAllOrganizations()) {
+            return true;
+        }
+
+        // Check direct organization membership
+        if ($this->organizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return true;
+        }
+
+        // Check sales rep assignments
+        if ($this->assignedOrganizations()->where('organization_id', $organization->id)->wherePivot('is_active', true)->exists()) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Check if user has a specific role in an organization
+     */
+    public function hasRoleInOrganization(string $role, Organization $organization): bool
+    {
+        return $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->wherePivot('role', $role)
+            ->wherePivot('is_active', true)
+            ->exists();
+    }
+
+    /**
+     * Get user's role in a specific organization
+     */
+    public function getRoleInOrganization(Organization $organization): ?string
+    {
+        $membership = $this->organizations()
+            ->where('organization_id', $organization->id)
+            ->wherePivot('is_active', true)
+            ->first();
+
+        return $membership?->pivot->role;
     }
 
     public function getNameAttribute()
@@ -254,6 +392,63 @@ class User extends Authenticatable
                 $query->onlyTrashed();
             }
         });
+    }
+
+    /**
+     * Get the organizations this user is a sales representative for.
+     */
+    public function representedOrganizations(): HasMany
+    {
+        return $this->hasMany(Organization::class, 'sales_rep_id');
+    }
+
+    /**
+     * Provider invitations initiated by this user.
+     */
+    public function initiatedProviderInvitations(): HasMany
+    {
+        return $this->hasMany(ProviderInvitation::class, 'invited_by_user_id');
+    }
+
+    /**
+     * Provider invitation that led to the creation of this user account.
+     * (If this user was created via an invitation)
+     */
+    public function createdViaInvitation(): HasOne
+    {
+        return $this->hasOne(ProviderInvitation::class, 'created_user_id');
+    }
+
+    /**
+     * Onboarding documents uploaded by this user.
+     */
+    public function uploadedOnboardingDocuments(): HasMany
+    {
+        return $this->hasMany(OnboardingDocument::class, 'uploaded_by');
+    }
+
+    /**
+     * Onboarding documents reviewed by this user.
+     */
+    public function reviewedOnboardingDocuments(): HasMany
+    {
+        return $this->hasMany(OnboardingDocument::class, 'reviewed_by');
+    }
+
+    /**
+     * Get all onboarding checklists associated with the user (e.g., as a provider).
+     */
+    public function onboardingChecklists(): MorphMany
+    {
+        return $this->morphMany(OnboardingChecklist::class, 'entity');
+    }
+
+    /**
+     * Get all onboarding documents associated with the user (e.g. credentials).
+     */
+    public function onboardingDocuments(): MorphMany
+    {
+        return $this->morphMany(OnboardingDocument::class, 'entity');
     }
 
     // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait

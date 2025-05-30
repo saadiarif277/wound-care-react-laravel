@@ -2,16 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ProductRequest;
-use App\Models\Product;
+use App\Models\Order\ProductRequest;
+use App\Models\Order\Product;
 use App\Models\User;
-use App\Models\Facility;
+use App\Models\Fhir\Facility;
 use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
+use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class ProductRequestController extends Controller
 {
@@ -355,13 +357,140 @@ class ProductRequestController extends Controller
         $productRequest->update([
             'eligibility_results' => $eligibilityResults,
             'eligibility_status' => $eligibilityResults['status'],
-            'pre_auth_required_determination' => $eligibilityResults['prior_auth_required'] ? 'required' : 'not_required',
+            'pre_auth_required_determination' => $eligibilityResults['prior_authorization_required'] ? 'required' : 'not_required',
         ]);
 
         return response()->json([
             'success' => true,
             'results' => $eligibilityResults,
         ]);
+    }
+
+    /**
+     * Submit prior authorization request when required from eligibility
+     */
+    public function submitPriorAuth(ProductRequest $productRequest)
+    {
+        // Ensure the provider can only submit prior auth for their own requests
+        if ($productRequest->provider_id !== Auth::id()) {
+            abort(403);
+        }
+
+        // Check if prior auth is actually required
+        if (!$productRequest->isPriorAuthRequired()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Prior authorization is not required for this request.',
+            ], 400);
+        }
+
+        try {
+            // Use the Availity Service Reviews API for pre-authorization
+            $serviceReviewsService = new \App\Services\EligibilityEngine\AvailityServiceReviewsService();
+
+            // Get additional clinical data from request if provided
+            $additionalData = request()->input('clinical_data', []);
+
+            $result = $serviceReviewsService->submitServiceReview($productRequest, $additionalData);
+
+            // Update product request with pre-auth submission info
+            $productRequest->update([
+                'pre_auth_status' => 'submitted',
+                'pre_auth_submitted_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Prior authorization submitted successfully.',
+                'service_review_id' => $result['service_review']['id'],
+                'authorization_number' => $result['pre_authorization']->authorization_number,
+                'status' => $result['status'],
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Prior authorization submission failed', [
+                'request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to submit prior authorization: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Check prior authorization status
+     */
+    public function checkPriorAuthStatus(ProductRequest $productRequest)
+    {
+        // Ensure the provider can only check status for their own requests
+        if ($productRequest->provider_id !== Auth::id()) {
+            abort(403);
+        }
+
+        try {
+            // Get the latest pre-authorization record for this request
+            $preAuth = $productRequest->preAuthorizations()->latest()->first();
+
+            if (!$preAuth || !$preAuth->payer_transaction_id) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'No prior authorization record found.',
+                ], 404);
+            }
+
+            // Check status with Availity Service Reviews API
+            $serviceReviewsService = new \App\Services\EligibilityEngine\AvailityServiceReviewsService();
+            $statusResult = $serviceReviewsService->checkServiceReviewStatus($preAuth->payer_transaction_id);
+
+            // Update local pre-authorization record with latest status
+            $status = $this->mapServiceReviewStatusToPreAuthStatus($statusResult['status']);
+            $preAuth->update([
+                'status' => $status,
+                'payer_response' => $statusResult,
+                'last_status_check' => now(),
+                'approved_at' => $status === 'approved' ? now() : $preAuth->approved_at,
+                'denied_at' => $status === 'denied' ? now() : $preAuth->denied_at,
+                'expires_at' => $statusResult['certification_expiration_date'] ?
+                    Carbon::parse($statusResult['certification_expiration_date']) : $preAuth->expires_at,
+            ]);
+
+            // Update product request status if pre-auth is approved
+            if ($status === 'approved') {
+                $productRequest->update([
+                    'pre_auth_status' => 'approved',
+                    'pre_auth_approved_at' => now(),
+                ]);
+            } elseif ($status === 'denied') {
+                $productRequest->update([
+                    'pre_auth_status' => 'denied',
+                    'pre_auth_denied_at' => now(),
+                ]);
+            }
+
+            return response()->json([
+                'success' => true,
+                'status' => $status,
+                'authorization_number' => $preAuth->authorization_number,
+                'certification_number' => $statusResult['certification_number'],
+                'expires_at' => $statusResult['certification_expiration_date'],
+                'payer_notes' => $statusResult['payer_notes'],
+                'last_checked' => now()->toISOString(),
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Prior authorization status check failed', [
+                'request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to check prior authorization status: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 
     public function submit(ProductRequest $productRequest)
@@ -469,7 +598,7 @@ class ProductRequestController extends Controller
             'mac_validation_status' => $macResults['overall_status'],
             'eligibility_results' => $eligibilityResults,
             'eligibility_status' => $eligibilityResults['status'],
-            'pre_auth_required_determination' => $eligibilityResults['prior_auth_required'] ? 'required' : 'not_required',
+            'pre_auth_required_determination' => $eligibilityResults['prior_authorization_required'] ? 'required' : 'not_required',
         ]);
     }
 
@@ -510,17 +639,37 @@ class ProductRequestController extends Controller
 
     private function performEligibilityCheck(ProductRequest $productRequest): array
     {
-        // TODO: Implement actual eligibility checking with payer APIs
-        return [
-            'status' => 'eligible',
-            'coverage_details' => [
-                'plan_type' => 'Medicare Part B',
-                'active' => true,
-                'effective_date' => '2024-01-01'
-            ],
-            'prior_auth_required' => false,
-            'copay_amount' => 20.00,
-        ];
+        try {
+            // Use the Availity Eligibility Service
+            $eligibilityService = new \App\Services\EligibilityEngine\AvailityEligibilityService();
+            return $eligibilityService->checkEligibility($productRequest);
+
+        } catch (\Exception $e) {
+            Log::error('Eligibility check failed for ProductRequest', [
+                'request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return mock data structure for development when API is not available
+            return [
+                'status' => 'needs_review',
+                'coverage_id' => null,
+                'payer' => [
+                    'name' => $productRequest->payer_name_submitted,
+                ],
+                'benefits' => [
+                    'plans' => [],
+                    'copay_amount' => null,
+                    'deductible_amount' => null,
+                ],
+                'prior_authorization_required' => false,
+                'coverage_details' => [
+                    'status' => 'API unavailable - manual review required',
+                ],
+                'error' => $e->getMessage(),
+                'checked_at' => now(),
+            ];
+        }
     }
 
     private function performClinicalOpportunityScanning(ProductRequest $productRequest): array
@@ -553,5 +702,19 @@ class ProductRequestController extends Controller
 
         // No special pricing access - only National ASP
         return 'national_asp_only';
+    }
+
+    /**
+     * Map service review status to pre-authorization status
+     */
+    private function mapServiceReviewStatusToPreAuthStatus(string $status): string
+    {
+        return match(strtolower($status)) {
+            'approved', 'certified' => 'approved',
+            'denied', 'rejected' => 'denied',
+            'pending', 'submitted' => 'pending',
+            'cancelled', 'voided' => 'cancelled',
+            default => 'pending'
+        };
     }
 }
