@@ -324,7 +324,7 @@ class ProviderController extends Controller
             $provider = User::create($userData);
 
             // Assign provider role
-            $provider->assignRole('provider');
+            $provider->assignRole(\App\Models\Role::where('slug', 'provider')->first());
 
             // Attach facilities if provided
             if ($request->has('facility_ids') && is_array($request->facility_ids)) {
@@ -414,7 +414,7 @@ class ProviderController extends Controller
             $provider->facilities()->detach();
 
             // Remove roles
-            $provider->removeRole('provider');
+            $provider->removeRole(\App\Models\Role::where('slug', 'provider')->first());
 
             // Soft delete the user
             $provider->delete();
