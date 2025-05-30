@@ -682,60 +682,56 @@ class ValidationBuilderController extends Controller
     /**
      * Validate a specific clinical section based on assessment type and wound type
      */
-    private function validateClinicalSection(string $section, array $data, string $woundType, string $assessmentType): array
+    private function validateClinicalSection(string $sectionUiKey, array $fullChecklistData, string $woundType, string $assessmentType): array
     {
         $errors = [];
         $warnings = [];
         $score = 100;
 
-        // Validation logic based on section type
-        switch ($section) {
+        // Validation logic based on the UI section key
+        // The $fullChecklistData is the entire SkinSubstituteChecklistInput DTO data
+        switch ($sectionUiKey) {
+            // Case for old generic sections if assessmentType is not 'wound_care'
             case 'wound_details':
-                $errors = array_merge($errors, $this->validateWoundDetails($data, $woundType));
+                if ($assessmentType !== 'wound_care') $errors = array_merge($errors, $this->validateWoundDetails($fullChecklistData, $woundType));
                 break;
-
             case 'conservative_care':
-                $errors = array_merge($errors, $this->validateConservativeCare($data));
+                if ($assessmentType !== 'wound_care') $errors = array_merge($errors, $this->validateConservativeCare($fullChecklistData));
                 break;
-
             case 'vascular_evaluation':
-                $errors = array_merge($errors, $this->validateVascularEvaluation($data));
+                if ($assessmentType !== 'wound_care') $errors = array_merge($errors, $this->validateVascularEvaluation($fullChecklistData));
+                break;
+            case 'pulmonary_history': // Assuming this is only for pulmonary_wound assessmentType
+                if ($assessmentType === 'pulmonary_wound') $errors = array_merge($errors, $this->validatePulmonaryHistory($fullChecklistData));
+                break;
+            case 'tissue_oxygenation': // Assuming this is only for pulmonary_wound assessmentType
+                if ($assessmentType === 'pulmonary_wound') $errors = array_merge($errors, $this->validateTissueOxygenation($fullChecklistData));
+                break;
+            case 'coordinated_care': // Assuming this is only for pulmonary_wound assessmentType
+                if ($assessmentType === 'pulmonary_wound') $warnings = array_merge($warnings, $this->validateCoordinatedCare($fullChecklistData));
+                break;
+            case 'lab_results': // Generic lab results for non-wound_care types
+                if ($assessmentType !== 'wound_care') $warnings = array_merge($warnings, $this->validateLabResults($fullChecklistData, $woundType));
                 break;
 
-            case 'pulmonary_history':
-                $errors = array_merge($errors, $this->validatePulmonaryHistory($data));
+            // New SSP Checklist Sections - use the constants for case matching
+            case 'ssp_checklist_diagnosis': // Matches SSP_UI_SECTIONS.DIAGNOSIS
+                $errors = array_merge($errors, $this->validateSspDiagnosis($fullChecklistData, $woundType));
                 break;
-
-            case 'tissue_oxygenation':
-                $errors = array_merge($errors, $this->validateTissueOxygenation($data));
+            case 'ssp_checklist_lab_results': // Matches SSP_UI_SECTIONS.LAB_RESULTS
+                $errors = array_merge($errors, $this->validateSspLabResults($fullChecklistData, $woundType));
                 break;
-
-            case 'coordinated_care':
-                $warnings = array_merge($warnings, $this->validateCoordinatedCare($data));
+            case 'ssp_checklist_wound': // Matches SSP_UI_SECTIONS.WOUND_DESCRIPTION
+                $errors = array_merge($errors, $this->validateSspWoundDescription($fullChecklistData, $woundType));
                 break;
-
-            case 'lab_results':
-                if ($assessmentType !== 'wound_care') {
-                    $warnings = array_merge($warnings, $this->validateLabResults($data, $woundType));
-                }
+            case 'ssp_checklist_circulation': // Matches SSP_UI_SECTIONS.CIRCULATION
+                $errors = array_merge($errors, $this->validateSspCirculation($fullChecklistData, $woundType));
                 break;
-
-            case 'ssp_diagnosis':
-                $errors = array_merge($errors, $this->validateSspDiagnosis($data, $woundType));
-                break;
-            case 'ssp_lab_results':
-                $errors = array_merge($errors, $this->validateSspLabResults($data, $woundType));
-                break;
-            case 'ssp_wound_description':
-                $errors = array_merge($errors, $this->validateSspWoundDescription($data, $woundType));
-                break;
-            case 'ssp_circulation':
-                $errors = array_merge($errors, $this->validateSspCirculation($data, $woundType));
-                break;
-            case 'ssp_conservative_measures':
-                $errors = array_merge($errors, $this->validateSspConservativeMeasures($data, $woundType));
+            case 'ssp_checklist_conservative_measures': // Matches SSP_UI_SECTIONS.CONSERVATIVE_TREATMENT
+                $errors = array_merge($errors, $this->validateSspConservativeMeasures($fullChecklistData, $woundType));
                 break;
             case 'clinical_photos':
+                // Validation for clinical_photos section data if any
                 break;
         }
 
@@ -749,7 +745,7 @@ class ValidationBuilderController extends Controller
             'score' => $score,
             'errors' => $errors,
             'warnings' => $warnings,
-            'section_complete' => $this->isSectionComplete($section, $data, $assessmentType)
+            'section_complete' => $this->isSectionComplete($sectionUiKey, $fullChecklistData, $assessmentType)
         ];
     }
 
@@ -934,17 +930,17 @@ class ValidationBuilderController extends Controller
             // SSP (Skin Substitute Pre-application) Checklist Sections
             // Define required fields for each SSP section based on what makes them minimally complete for progression
             // These might differ from fields that only throw validation errors if malformed but aren't strictly required to exist.
-            'ssp_diagnosis' => ['date_of_procedure', 'laterality', 'location_general'], // Requires at least one diagnosis type indicated too.
-            'ssp_lab_results' => ['hba1c_value', 'hba1c_date', 'albumin_prealbumin_value', 'albumin_prealbumin_date'],
-            'ssp_wound_description' => [
+            'ssp_checklist_diagnosis' => ['date_of_procedure', 'laterality', 'location_general'], // Requires at least one diagnosis type indicated too.
+            'ssp_checklist_lab_results' => ['hba1c_value', 'hba1c_date', 'albumin_prealbumin_value', 'albumin_prealbumin_date'],
+            'ssp_checklist_wound' => [
                 'location_detailed', 'depth_type', 'duration_overall', 'exposed_structure',
                 'length_cm', 'width_cm',
                 'infection_osteomyelitis_evidence', 'necrotic_tissue_evidence',
                 'charcot_deformity_active', 'malignancy_suspected',
                 'tissue_type', 'exudate_amount', 'exudate_type'
             ],
-            'ssp_circulation' => ['doppler_waveforms_adequate', 'imaging_type'], // Plus at least one set of test results (ABI, Pedal, TcPO2) with their dates
-            'ssp_conservative_measures' => [
+            'ssp_checklist_circulation' => ['doppler_waveforms_adequate', 'imaging_type'], // Plus at least one set of test results (ABI, Pedal, TcPO2) with their dates
+            'ssp_checklist_conservative_measures' => [
                 // All Yes/No questions from the checklist are generally required for a complete assessment here.
                 'debridement_performed', 'moist_dressings_applied', 'non_weight_bearing_regimen',
                 'pressure_reducing_footwear', 'compression_therapy_vsu', 'hbot_current',
@@ -965,337 +961,258 @@ class ValidationBuilderController extends Controller
             }
             // If it's a generic section key but assessment is 'wound_care', decide if it has SSP equivalent or is separate
             // For example, 'wound_details' for 'wound_care' type should map to 'ssp_wound_description' requirements.
-            if ($section === 'wound_details') return $requiredFields['ssp_wound_description'] ?? [];
-            if ($section === 'conservative_care') return $requiredFields['ssp_conservative_measures'] ?? [];
-            if ($section === 'lab_results') return $requiredFields['ssp_lab_results'] ?? [];
-            if ($section === 'vascular_evaluation') return $requiredFields['ssp_circulation'] ?? [];
+            if ($section === 'wound_details') return $requiredFields['ssp_checklist_wound'] ?? [];
+            if ($section === 'conservative_care') return $requiredFields['ssp_checklist_conservative_measures'] ?? [];
+            if ($section === 'lab_results') return $requiredFields['ssp_checklist_lab_results'] ?? [];
+            if ($section === 'vascular_evaluation') return $requiredFields['ssp_checklist_circulation'] ?? [];
         }
 
         return $requiredFields[$section] ?? [];
     }
 
     // --- SSP VALIDATION METHODS START ---
-    private function validateSspDiagnosis(array $data, string $woundType): array
+    private function validateSspDiagnosis(array $checklistData, string $woundType): array
     {
         $errors = [];
-        if (empty($data['date_of_procedure'])) {
+        if (empty($checklistData['dateOfProcedure'])) {
             $errors[] = 'SSP Diagnosis: Date of Procedure is required.';
-        } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['date_of_procedure'])) {
+        } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['dateOfProcedure'])) {
             $errors[] = 'SSP Diagnosis: Date of Procedure must be in YYYY-MM-DD format.';
         }
 
-        // Diagnosis structure from SkinSubstituteChecklistInput: $data is the 'diagnosis' object
-        $hasDiabetes = $data['diabetes']['present'] ?? false;
-        $diabetesType = $data['diabetes']['type'] ?? null;
-        $isVenousStasisUlcer = $data['venousStasisUlcer'] ?? false;
-        $isPressureUlcer = $data['pressureUlcer']['present'] ?? false;
-        $pressureUlcerStage = $data['pressureUlcer']['stage'] ?? null;
+        $hasDiabetes = $checklistData['hasDiabetes'] ?? false;
+        $diabetesType = $checklistData['diabetesType'] ?? null;
+        $hasVenousStasisUlcer = $checklistData['hasVenousStasisUlcer'] ?? false;
+        $hasPressureUlcer = $checklistData['hasPressureUlcer'] ?? false;
+        $pressureUlcerStage = $checklistData['pressureUlcerStage'] ?? null;
 
-        if (!$hasDiabetes && !$isVenousStasisUlcer && !$isPressureUlcer) {
+        if (!$hasDiabetes && !$hasVenousStasisUlcer && !$hasPressureUlcer) {
             $errors[] = 'SSP Diagnosis: At least one primary diagnosis condition (Diabetes, Venous Stasis Ulcer, or Pressure Ulcer) must be indicated as present.';
         }
 
         if ($hasDiabetes && empty($diabetesType)){
             $errors[] = 'SSP Diagnosis: If Diabetes is present, a Type (1 or 2) must be selected.';
         } elseif ($hasDiabetes && !in_array($diabetesType, ['1', '2'])) {
-            // Note: SkinSubstituteChecklistInput allows diabetes_type to be 'none' if present is false.
-            // Here, if present is true, type must be 1 or 2.
             $errors[] = 'SSP Diagnosis: Invalid value for Diabetes Type (must be 1 or 2 if present).';
         }
 
-        // Laterality might be associated with the wound itself, not the general diagnosis section in the new structure.
-        // The checklist shows laterality under the diabetes radio buttons. This should be $data['diabetes']['laterality']
-        // if (empty($data['laterality'])) {
-        //     $errors[] = 'SSP Diagnosis: Laterality is required.';
-        // } elseif (!in_array($data['laterality'], ['right', 'left', 'bilateral'])) {
-        //     $errors[] = 'SSP Diagnosis: Invalid value for Laterality.';
-        // }
-        // If laterality is tied to a specific diagnosis like DFU:
-        if ($hasDiabetes && empty($data['diabetes']['laterality'])) {
-             $errors[] = 'SSP Diagnosis: Laterality for diabetic condition is required if Diabetes is present.';
-        } elseif ($hasDiabetes && !empty($data['diabetes']['laterality']) && !in_array($data['diabetes']['laterality'], ['right', 'left', 'bilateral'])) {
-             $errors[] = 'SSP Diagnosis: Invalid value for diabetic condition Laterality.';
+        if (empty($checklistData['location'])) {
+            $errors[] = 'SSP Diagnosis: General Diagnosis Location/Laterality is required.';
         }
 
-
-        if (empty($data['location'])) { // This is diagnosis.location from SkinSubstituteChecklistInput
-            $errors[] = 'SSP Diagnosis: General Location for diagnosis context is required.';
-        }
-
-        if ($isPressureUlcer && empty($pressureUlcerStage)) {
+        if ($hasPressureUlcer && empty($pressureUlcerStage)) {
              $errors[] = 'SSP Diagnosis: Stage is required if Pressure Ulcer is indicated.';
         }
-        // Consider validating format of $pressureUlcerStage if it has expected values
-
         return $errors;
     }
 
-    private function validateSspLabResults(array $data, string $woundType): array
+    private function validateSspLabResults(array $checklistData, string $woundType): array
     {
         $errors = [];
-
-        // HbA1c
-        if (isset($data['hba1c'])) {
-            if (empty($data['hba1c']['value']) && $data['hba1c']['value'] !== 0) { // Allow 0 as a value
-                $errors[] = 'SSP Lab Results: HbA1c value is required if HbA1c section is provided.';
-            } elseif (!is_numeric($data['hba1c']['value'])) {
+        if (isset($checklistData['hba1cResult']) || isset($checklistData['hba1cDate'])) {
+            if (!isset($checklistData['hba1cResult']) || $checklistData['hba1cResult'] === '' || $checklistData['hba1cResult'] === null) {
+                $errors[] = 'SSP Lab Results: HbA1c value is required if date is provided (or vice-versa).';
+            } elseif (!is_numeric($checklistData['hba1cResult'])) {
                 $errors[] = 'SSP Lab Results: HbA1c value must be a number.';
             }
-            if (empty($data['hba1c']['date'])) {
-                $errors[] = 'SSP Lab Results: Date for HbA1c is required if HbA1c section is provided.';
-            } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['hba1c']['date'])) {
+            if (empty($checklistData['hba1cDate'])) {
+                $errors[] = 'SSP Lab Results: Date for HbA1c is required if value is provided.';
+            } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['hba1cDate'])) {
                 $errors[] = 'SSP Lab Results: HbA1c Date must be in YYYY-MM-DD format.';
             }
         } elseif ($woundType === 'diabetic_foot_ulcer') {
-            // If DFU, and hba1c section itself is missing, it might be an error or warning.
-            // The checklist has HbA1c result (last 90 days) without an outer "if applicable"
             $errors[] = 'SSP Lab Results: HbA1c information (value and date) is required for diabetic foot ulcers.';
         }
 
-        // Albumin
-        if (isset($data['albumin'])) {
-            if (empty($data['albumin']['value']) && $data['albumin']['value'] !== 0) { // Allow 0
-                $errors[] = 'SSP Lab Results: Albumin value is required if Albumin section is provided.';
-            } elseif (!is_numeric($data['albumin']['value'])) {
+        if (isset($checklistData['albuminResult']) || isset($checklistData['albuminDate'])) {
+            if (!isset($checklistData['albuminResult']) || $checklistData['albuminResult'] === '' || $checklistData['albuminResult'] === null) {
+                $errors[] = 'SSP Lab Results: Albumin value is required if date is provided (or vice-versa).';
+            } elseif (!is_numeric($checklistData['albuminResult'])) {
                 $errors[] = 'SSP Lab Results: Albumin value must be a number.';
             }
-            if (empty($data['albumin']['date'])) {
-                $errors[] = 'SSP Lab Results: Date for Albumin is required if Albumin section is provided.';
-            } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['albumin']['date'])) {
+            if (empty($checklistData['albuminDate'])) {
+                $errors[] = 'SSP Lab Results: Date for Albumin is required if value is provided.';
+            } elseif (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['albuminDate'])) {
                 $errors[] = 'SSP Lab Results: Albumin Date must be in YYYY-MM-DD format.';
             }
         } else {
-            // Checklist has Pre-Albumin/Albumin results without "if applicable"
             $errors[] = 'SSP Lab Results: Albumin information (value and date) is required.';
         }
 
-        // Other lab fields from the "If Applicable" section of the checklist, now part of labResults in SkinSubstituteChecklistInput
-        if (isset($data['crp']) && !is_numeric($data['crp'])) {
+        // Assuming DTO uses 'crpResult' not 'crapResult' as in previous version of code_edit
+        if (isset($checklistData['crpResult']) && !is_numeric($checklistData['crpResult'])) {
             $errors[] = 'SSP Lab Results: CRP value must be a number if provided.';
         }
-        if (isset($data['sedRate']) && !is_numeric($data['sedRate'])) {
+        if (isset($checklistData['sedRate']) && !is_numeric($checklistData['sedRate'])) {
             $errors[] = 'SSP Lab Results: Sed Rate must be a number if provided.';
         }
-        if (!empty($data['cultureDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['cultureDate'])) {
+        if (!empty($checklistData['cultureDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['cultureDate'])) {
             $errors[] = 'SSP Lab Results: Culture Date must be in YYYY-MM-DD format if provided.';
         }
-        if (isset($data['treated']) && !is_bool($data['treated'])) {
-             $errors[] = 'SSP Lab Results: Invalid value for \'Treated for infection?\'.';
+        if (isset($checklistData['treated']) && !is_bool($checklistData['treated'])) {
+             $errors[] = 'SSP Lab Results: Invalid value for \'Treated for infection?\'. Must be true or false.';
         }
-        // cbc (boolean) and hh (string) don't have specific format validation here beyond type correctness if set.
-
         return $errors;
     }
 
-    private function validateSspWoundDescription(array $data, string $woundType): array
+    private function validateSspWoundDescription(array $checklistData, string $woundType): array
     {
         $errors = [];
-        if (empty($data['location_detailed'])) $errors[] = 'SSP Wound Description: Detailed location of ulcer is required.';
+        // Fields from PHP DTO structure (which is flatter for wound than the TS interface's nested 'wound' object)
+        if (empty($checklistData['ulcerLocation'])) $errors[] = 'SSP Wound Description: Specific Ulcer Location is required.';
 
-        if (empty($data['depth_type'])) {
-            $errors[] = 'SSP Wound Description: Depth Type (full/partial) is required.';
-        } elseif (!in_array($data['depth_type'], ['full', 'partial'])) {
-            $errors[] = 'SSP Wound Description: Invalid value for Depth Type.';
+        if (empty($checklistData['depth'])) { // This is top-level 'depth' in DTO, maps to depth_type (full/partial)
+            $errors[] = 'SSP Wound Description: Wound Depth Classification (full-thickness/partial-thickness) is required.';
+        } elseif (!in_array($checklistData['depth'], ['full-thickness', 'partial-thickness'])) {
+            $errors[] = 'SSP Wound Description: Invalid value for Wound Depth Classification.';
         }
 
-        if (empty($data['duration_overall'])) $errors[] = 'SSP Wound Description: Duration of Ulcer is required.';
+        if (empty($checklistData['ulcerDuration'])) $errors[] = 'SSP Wound Description: Ulcer Duration is required.';
 
-        if (empty($data['exposed_structure'])) {
-            $errors[] = 'SSP Wound Description: Exposed Structure indication is required.';
-        } elseif (!in_array($data['exposed_structure'], ['muscle', 'tendon', 'bone', 'none'])) {
-            $errors[] = 'SSP Wound Description: Invalid value for Exposed Structure.';
+        // exposedStructures is an array
+        if (isset($checklistData['exposedStructures']) && !is_array($checklistData['exposedStructures'])) {
+            $errors[] = 'SSP Wound Description: Exposed Structures must be a list.';
+        } elseif (isset($checklistData['exposedStructures']) && is_array($checklistData['exposedStructures'])) {
+            $validStructures = ['muscle', 'tendon', 'bone']; // 'none' is represented by empty array or not set based on DTO
+            foreach($checklistData['exposedStructures'] as $structure){
+                if(!in_array($structure, $validStructures)) $errors[] = "SSP Wound Description: Invalid exposed structure '{$structure}'. Allowed: muscle, tendon, bone.";
+            }
         }
 
-        if (!isset($data['length_cm']) || !is_numeric($data['length_cm']) || $data['length_cm'] <= 0) {
+        if (!isset($checklistData['length']) || !is_numeric($checklistData['length']) || $checklistData['length'] <= 0) {
             $errors[] = 'SSP Wound Description: Length (cm) must be a number greater than 0.';
         }
-        if (!isset($data['width_cm']) || !is_numeric($data['width_cm']) || $data['width_cm'] <= 0) {
+        if (!isset($checklistData['width']) || !is_numeric($checklistData['width']) || $checklistData['width'] <= 0) {
             $errors[] = 'SSP Wound Description: Width (cm) must be a number greater than 0.';
         }
-        if (isset($data['depth_cm']) && (!is_numeric($data['depth_cm']) || $data['depth_cm'] < 0)) {
-            $errors[] = 'SSP Wound Description: Depth (cm) must be a number equal to or greater than 0.';
+        // 'woundDepth' is numeric depth from DTO
+        if (isset($checklistData['woundDepth']) && (!is_numeric($checklistData['woundDepth']) || $checklistData['woundDepth'] < 0)) {
+            $errors[] = 'SSP Wound Description: Numeric Wound Depth (cm) must be a number equal to or greater than 0.';
         }
 
-        if (!isset($data['infection_osteomyelitis_evidence']) || !is_bool($data['infection_osteomyelitis_evidence'])) {
-            $errors[] = 'SSP Wound Description: Indication for Evidence of Infection/Osteomyelitis is required (Yes/No).';
+        if (!isset($checklistData['hasInfection']) || !is_bool($checklistData['hasInfection'])) {
+            $errors[] = 'SSP Wound Description: Indication for \'Evidence of Infection/Osteomyelitis\' is required (Yes/No).';
         }
-        if (!isset($data['necrotic_tissue_evidence']) || !is_bool($data['necrotic_tissue_evidence'])) {
-            $errors[] = 'SSP Wound Description: Indication for Evidence of necrotic tissue is required (Yes/No).';
+        if (!isset($checklistData['hasNecroticTissue']) || !is_bool($checklistData['hasNecroticTissue'])) {
+            $errors[] = 'SSP Wound Description: Indication for \'Evidence of necrotic tissue\' is required (Yes/No).';
         }
-        if (!isset($data['charcot_deformity_active']) || !is_bool($data['charcot_deformity_active'])) {
-            $errors[] = 'SSP Wound Description: Indication for Active Charcot deformity is required (Yes/No).';
+        if (!isset($checklistData['hasCharcotDeformity']) || !is_bool($checklistData['hasCharcotDeformity'])) {
+            $errors[] = 'SSP Wound Description: Indication for \'Active Charcot deformity\' is required (Yes/No).';
         }
-        if (!isset($data['malignancy_suspected']) || !is_bool($data['malignancy_suspected'])) {
-            $errors[] = 'SSP Wound Description: Indication for Known or suspected malignancy is required (Yes/No).';
-        }
-
-        // General Wound Characteristics from original form section
-        if ($woundType === 'diabetic_foot_ulcer') {
-            if (empty($data['wagner_grade']) && ($data['wagner_grade'] !== '0' && $data['wagner_grade'] !== 0)) { // Allow '0' or 0 as a valid non-empty value
-                 $errors[] = 'SSP Wound Description: Wagner grade is required for diabetic foot ulcers.';
-            } elseif (isset($data['wagner_grade']) && !in_array(strval($data['wagner_grade']), ['0', '1', '2', '3', '4', '5'])) {
-                 $errors[] = 'SSP Wound Description: Invalid Wagner grade selected. Must be one of: 0, 1, 2, 3, 4, 5.';
-            }
+        if (!isset($checklistData['hasMalignancy']) || !is_bool($checklistData['hasMalignancy'])) {
+            $errors[] = 'SSP Wound Description: Indication for \'Known or suspected malignancy\' is required (Yes/No).';
         }
 
-        $validTissueTypes = ['granulation', 'slough', 'eschar', 'epithelial', 'mixed'];
-        if (empty($data['tissue_type'])) {
-            $errors[] = 'SSP Wound Description: Predominant Tissue Type is required.';
-        } elseif (!in_array($data['tissue_type'], $validTissueTypes)) {
-            $errors[] = 'SSP Wound Description: Invalid Predominant Tissue Type selected. Must be one of: ' . implode(', ', $validTissueTypes) . '.';
-        }
-
-        $validExudateAmounts = ['none', 'minimal', 'moderate', 'heavy'];
-        if (empty($data['exudate_amount'])) {
-            $errors[] = 'SSP Wound Description: Exudate Amount is required.';
-        } elseif (!in_array($data['exudate_amount'], $validExudateAmounts)) {
-            $errors[] = 'SSP Wound Description: Invalid Exudate Amount selected. Must be one of: ' . implode(', ', $validExudateAmounts) . '.';
-        }
-
-        $validExudateTypes = ['serous', 'serosanguinous', 'sanguinous', 'purulent'];
-        if (empty($data['exudate_type'])) {
-            $errors[] = 'SSP Wound Description: Exudate Type is required.';
-        } elseif (!in_array($data['exudate_type'], $validExudateTypes)) {
-            $errors[] = 'SSP Wound Description: Invalid Exudate Type selected. Must be one of: ' . implode(', ', $validExudateTypes) . '.';
-        }
-
-        if (isset($data['infection_signs']) && is_array($data['infection_signs'])) {
-            $allowedSigns = ['erythema', 'warmth', 'swelling', 'pain', 'purulent_drainage', 'odor', 'delayed_healing', 'friable_granulation'];
-            foreach ($data['infection_signs'] as $sign) {
-                if (!in_array($sign, $allowedSigns)) {
-                    $errors[] = "SSP Wound Description: Invalid infection sign '{$sign}' selected.";
-                    break;
-                }
-            }
-        } elseif (isset($data['infection_signs']) && !is_array($data['infection_signs'])) {
-            $errors[] = 'SSP Wound Description: Signs of Infection must be a list of selected signs.';
-        }
+        // Fields like wagner_grade, tissue_type, exudate_amount, exudate_type, infection_signs
+        // are NOT in the provided PHP DTO for SkinSubstituteChecklistInput at the top level or under a 'wound' sub-object.
+        // If they are needed, the PHP DTO needs to be updated to include them.
+        // Removing validation for them here to align with the provided DTO.
 
         return $errors;
     }
 
-    private function validateSspCirculation(array $data, string $woundType): array
+    private function validateSspCirculation(array $checklistData, string $woundType): array
     {
         $errors = [];
-        $hasAbi = !empty($data['abi_result_value']);
-        $hasPedalPulses = !empty($data['pedal_pulses_result']);
-        $hasTcpo2 = !empty($data['tcpo2_value_text']);
+        $hasAbi = isset($checklistData['abiResult']);
+        $hasPedalPulses = !empty($checklistData['pedalPulsesResult']);
+        $hasTcpo2 = isset($checklistData['tcpo2Result']);
 
         if (!$hasAbi && !$hasPedalPulses && !$hasTcpo2) {
-            // This could be a warning or a less severe error depending on strictness
             $errors[] = 'SSP Circulation: At least one circulation test result (ABI, Pedal Pulses, or TcPO2) is strongly recommended.';
         }
 
-        if ($hasAbi && empty($data['abi_date'])) {
+        if ($hasAbi && (!isset($checklistData['abiResult']) || !is_numeric($checklistData['abiResult']))) $errors[] = 'SSP Circulation: ABI Result must be numeric.';
+        if ($hasAbi && empty($checklistData['abiDate'])) {
             $errors[] = 'SSP Circulation: Date for ABI result is required if ABI result is provided.';
-        } elseif (!empty($data['abi_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['abi_date'])) {
+        } elseif (!empty($checklistData['abiDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['abiDate'])) {
             $errors[] = 'SSP Circulation: ABI Date must be in YYYY-MM-DD format.';
         }
 
-        if ($hasPedalPulses && empty($data['pedal_pulses_date'])) {
+        if ($hasPedalPulses && empty($checklistData['pedalPulsesDate'])) {
             $errors[] = 'SSP Circulation: Date for Pedal pulses result is required if result is provided.';
-        } elseif (!empty($data['pedal_pulses_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['pedal_pulses_date'])) {
+        } elseif (!empty($checklistData['pedalPulsesDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['pedalPulsesDate'])) {
             $errors[] = 'SSP Circulation: Pedal Pulses Date must be in YYYY-MM-DD format.';
         }
 
-        if ($hasTcpo2 && empty($data['tcpo2_date'])) {
+        if ($hasTcpo2 && (!isset($checklistData['tcpo2Result']) || !is_numeric($checklistData['tcpo2Result']))) $errors[] = 'SSP Circulation: TcPO2 Result must be numeric.';
+        if ($hasTcpo2 && empty($checklistData['tcpo2Date'])) {
             $errors[] = 'SSP Circulation: Date for TcPO2 result is required if result is provided.';
-        } elseif (!empty($data['tcpo2_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['tcpo2_date'])) {
+        } elseif (!empty($checklistData['tcpo2Date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['tcpo2Date'])) {
             $errors[] = 'SSP Circulation: TcPO2 Date must be in YYYY-MM-DD format.';
         }
 
-        if (!isset($data['doppler_waveforms_adequate']) || !is_bool($data['doppler_waveforms_adequate'])) {
+        if (!isset($checklistData['hasTriphasicWaveforms']) || !is_bool($checklistData['hasTriphasicWaveforms'])) {
             $errors[] = 'SSP Circulation: Indication for Doppler arterial waveforms (Yes/No) is required.';
         }
 
-        $hasDopplerResultNotes = !empty($data['doppler_result_notes']);
-        if ($hasDopplerResultNotes && empty($data['doppler_date'])) {
+        $hasWaveformResult = !empty($checklistData['waveformResult']);
+        if ($hasWaveformResult && empty($checklistData['waveformDate'])) {
             $errors[] = 'SSP Circulation: Date for Doppler result is required if Doppler result notes are provided.';
-        } elseif (!empty($data['doppler_date']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $data['doppler_date'])) {
+        } elseif (!empty($checklistData['waveformDate']) && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $checklistData['waveformDate'])) {
             $errors[] = 'SSP Circulation: Doppler Date must be in YYYY-MM-DD format.';
         }
 
-        if (empty($data['imaging_type'])) {
-            $errors[] = 'SSP Circulation: Imaging type selection is required.';
-        } elseif (!in_array($data['imaging_type'], ['xray', 'ctscan', 'mri', 'none'])) {
+        if (empty($checklistData['imagingType']) && $checklistData['imagingType'] !== null && $checklistData['imagingType'] !== 'none') { // if it's empty string, but not explicitly 'none' or null
+            $errors[] = 'SSP Circulation: Imaging type selection is required (select None if not applicable).';
+        } elseif (isset($checklistData['imagingType']) && $checklistData['imagingType'] !== null && !in_array($checklistData['imagingType'], ['xray', 'ct', 'mri', 'none', ''])) {
             $errors[] = 'SSP Circulation: Invalid value for Imaging type.';
         }
 
         return $errors;
     }
 
-    private function validateSspConservativeMeasures(array $data, string $woundType): array
+    private function validateSspConservativeMeasures(array $checklistData, string $woundType): array
     {
         $errors = [];
 
-        // Fields that are direct Yes/No questions and should have a boolean value if answered
         $boolean_fields_to_check = [
-            'debridement_performed' => 'Debridement of necrotic tissue was performed',
-            'moist_dressings_applied' => 'Application of dressings to maintain a moist wound environment',
-            'non_weight_bearing_regimen' => 'Non-weight bearing regimen',
-            'pressure_reducing_footwear' => 'Uses pressure-reducing footwear',
-            'hbot_current' => 'Current HBOT',
-            'smoking_cessation_counselled' => 'If Smoker, has patient been counselled on smoking cessation', // Conditional
-            'radiation_chemo_current' => 'Is Patient receiving radiation therapy or chemotherapy',
-            'immune_modulators_current' => 'Is Patient taking medications considered to be immune system modulators',
-            'autoimmune_ctd_diagnosis' => 'Does Patient have an autoimmune connective tissue disease diagnosis'
+            'debridementPerformed' => 'Debridement of necrotic tissue was performed',
+            'moistDressingsApplied' => 'Application of dressings to maintain a moist wound environment',
+            'nonWeightBearing' => 'Non-weight bearing regimen',
+            'pressureReducingFootwear' => 'Uses pressure-reducing footwear',
+            'standardCompression' => 'Standard compression therapy used',
+            'currentHbot' => 'Current HBOT',
+            'smokingCounselingProvided' => 'If Smoker, has patient been counselled on smoking cessation',
+            'receivingRadiationOrChemo' => 'Is Patient receiving radiation therapy or chemotherapy',
+            'takingImmuneModulators' => 'Is Patient taking medications considered to be immune system modulators',
+            'hasAutoimmuneDiagnosis' => 'Does Patient have an autoimmune connective tissue disease diagnosis'
         ];
 
         foreach ($boolean_fields_to_check as $field => $label) {
-            // Skip smoking cessation counselling if not a smoker, it's handled conditionally later
-            if ($field === 'smoking_cessation_counselled' && ($data['smoking_status'] ?? '') !== 'smoker') {
+            if ($field === 'smokingCounselingProvided' && ($checklistData['smokingStatus'] ?? '') !== 'smoker') {
                 continue;
             }
-            if (!isset($data[$field]) || !is_bool($data[$field])) {
+            if (!isset($checklistData[$field]) || !is_bool($checklistData[$field])) {
                  $errors[] = "SSP Conservative Measures: A Yes/No answer for '{$label}' is required.";
             }
         }
 
-        // Conditional requirement for non_weight_bearing_type
-        if (($data['non_weight_bearing_regimen'] ?? false) === true && empty($data['non_weight_bearing_type'])) {
-            $errors[] = 'SSP Conservative Measures: Type of non-weight bearing regimen is required if regimen is indicated Yes.';
+        if (($checklistData['nonWeightBearing'] ?? false) === true && empty($checklistData['footwearType'])) {
+            // DTO has footwearType, which could serve as nonWeightBearing type if nonWeightBearing is true
+            // This logic might need adjustment based on how these two fields are intended to interact from the DTO perspective.
+        }
+         if (($checklistData['pressureReducingFootwear'] ?? false) === true && empty($checklistData['footwearType'])) {
+            $errors[] = 'SSP Conservative Measures: Type of pressure reducing footwear is required if indicated Yes.';
         }
 
-        // Compression therapy for VSU (Venous Stasis Ulcer)
-        if (empty($data['compression_therapy_vsu'])) {
-            $errors[] = 'SSP Conservative Measures: Response for \'Used Standard compression therapy for venous stasis ulcers\' is required.';
-        } elseif (!in_array($data['compression_therapy_vsu'], ['yes', 'no', 'na'])) {
-            $errors[] = 'SSP Conservative Measures: Invalid value for \'Used Standard compression therapy for venous stasis ulcers\'.';
-        }
-
-        // Smoking Status
-        if (empty($data['smoking_status'])) {
+        if (empty($checklistData['smokingStatus'])) {
             $errors[] = 'SSP Conservative Measures: Smoking Status is required.';
-        } elseif (!in_array($data['smoking_status'], ['smoker', 'previous', 'non_smoker'])) {
+        } elseif (!in_array($checklistData['smokingStatus'], ['smoker', 'previous-smoker', 'non-smoker'])) {
             $errors[] = 'SSP Conservative Measures: Invalid value for Smoking Status.';
         }
 
-        // Conditional requirement for smoking_cessation_counselled
-        if (($data['smoking_status'] ?? '') === 'smoker' && !isset($data['smoking_cessation_counselled'])) {
-            // This will be caught by the loop above if we make it strictly required there when smoker.
-            // Re-evaluating the boolean_fields_to_check logic for this specific case.
-            // For now, ensuring it triggers an error if smoker and not set.
-            if(!isset($data['smoking_cessation_counselled']) || !is_bool($data['smoking_cessation_counselled'])){
+        if (($checklistData['smokingStatus'] ?? '') === 'smoker' && !isset($checklistData['smokingCounselingProvided'])) {
+            if(!isset($checklistData['smokingCounselingProvided']) || !is_bool($checklistData['smokingCounselingProvided'])){
                  $errors[] = 'SSP Conservative Measures: If Smoker, counselling status on smoking cessation (Yes/No) is required.';
             }
         }
 
-        // Conditional requirement for pressure_ulcer_leading_type
-        // Note: $woundType is the overall wound type for the request, e.g. 'pressure_ulcer'
-        if ($woundType === 'pressure_ulcer') {
-            if (empty($data['pressure_ulcer_leading_type'])) {
-                $errors[] = 'SSP Conservative Measures: Leading type for pressure ulcer is required if the main wound type is pressure ulcer.';
-            } elseif (!in_array($data['pressure_ulcer_leading_type'], ['bed', 'wheelchair_cushion'])) {
-                $errors[] = 'SSP Conservative Measures: Invalid value for leading type of pressure ulcer.';
-            }
+        if ($woundType === 'pressure_ulcer' && empty($checklistData['pressureUlcerLeadingType'])) {
+            $errors[] = 'SSP Conservative Measures: Leading type for pressure ulcer is required if the main wound type is pressure ulcer.';
+        } elseif (!empty($checklistData['pressureUlcerLeadingType']) && !in_array($checklistData['pressureUlcerLeadingType'], ['bed', 'wheelchair-cushion'])) {
+            $errors[] = 'SSP Conservative Measures: Invalid value for leading type of pressure ulcer.';
         }
-
-        // Validate response_to_conservative_care and conservative_care_notes (if deemed required for SSP)
-        // These were from the original generic form. Checklist does not explicitly show them, but they are good practice.
-        // For now, let's assume they are optional for SSP unless specified.
-        // if (empty($data['response_to_conservative_care'])) $errors[] = 'Response to conservative care is required.';
-        // if (empty($data['conservative_care_notes'])) $errors[] = 'Conservative care notes are required.';
-
         return $errors;
     }
     // --- SSP VALIDATION METHODS END ---

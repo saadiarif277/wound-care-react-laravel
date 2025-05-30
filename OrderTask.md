@@ -47,37 +47,36 @@ This document tracks the tasks for implementing the minimal MVP of the end-to-en
 
 ### Pending
 - [ ] **Backend Validation for Clinical Assessment (`ValidationBuilderController.php`)**
-    - [x] Added cases for `ssp_` sections to `validateClinicalSection` switch statement.
-    - [x] Created initial shells for `validateSspDiagnosis`, `validateSspLabResults`, `validateSspWoundDescription`, `validateSspCirculation`, `validateSspConservativeMeasures`.
-    - [x] `ssp_additional_clinical` section and validation method removed as fields merged into `labResults`.
-    - [x] Refined `validateSspDiagnosis` with more detailed checks.
-    - [x] Refined `validateSspLabResults` with more detailed checks.
-    - [x] Refined `validateSspWoundDescription` with enum/array checks.
-    - [x] Refined `validateSspCirculation` with conditional date checks.
-    - [x] Refined `validateSspConservativeMeasures` with boolean and conditional checks.
-    - [x] Updated `getRequiredFieldsForSection` for SSP sections.
-    - [ ] **Further refine validation logic within all `validateSsp...` methods (e.g., numeric ranges, specific regex patterns, more complex cross-field dependencies based on checklist logic).**
-- [ ] **FHIR Observation Mapping for Clinical Data**
-    - [ ] Design mapping from `ClinicalAssessmentData` (especially SSP sections) to FHIR Observation resources.
-    - [ ] Decide where mapping occurs (frontend/backend) and implement.
-- [ ] **Product Selection Step Component (`resources/js/Pages/ProductRequest/Components/ProductSelectionStep.tsx`)**
-    - [ ] Review integration with `Create.tsx`.
-    - [ ] Ensure `formData.selected_products` is correctly populated.
-    - [ ] Integrate with Product Recommendation Engine if applicable for MVP.
-- [ ] **Validation & Eligibility Step Component (`resources/js/Pages/ProductRequest/Components/ValidationEligibilityStep.tsx`)**
-    - [ ] Review integration with `Create.tsx`.
-    - [ ] Ensure `formData.mac_validation_results`, `mac_validation_status`, `eligibility_results`, `eligibility_status` are correctly populated.
-    - [ ] Implement calls to backend for MAC validation and eligibility checks.
-- [ ] **Clinical Opportunities Step Component (`resources/js/Pages/ProductRequest/Components/ClinicalOpportunitiesStep.tsx`)**
-    - [ ] Review integration with `Create.tsx`.
-    - [ ] Ensure `formData.clinical_opportunities` is correctly populated.
-    - [ ] Implement calls to Clinical Opportunity Engine if applicable for MVP.
-- [ ] **Review & Submit Step Component (`resources/js/Pages/ProductRequest/Components/ReviewSubmitStep.tsx`)**
-    - [ ] Implement component to display a summary of all collected `formData`.
-    - [ ] Allow for `provider_notes` to be added to `formData`.
-- [ ] **Form Submission (`resources/js/Pages/ProductRequest/Create.tsx`)**
-    - [ ] Ensure `submitForm` function in `Create.tsx` posts the complete `formData` to the correct Laravel backend endpoint (e.g., `/api/v1/product-requests` or `/api/v1/orders`).
-    - [ ] Create the backend controller and service method to handle this submission, store the initial order/request, and potentially trigger the next phase (e.g., admin review).
+    - [x] Added cases for `ssp_checklist_` prefixed UI section keys to `validateClinicalSection` switch statement.
+    - [x] Updated `validateSspDiagnosis`, `validateSspLabResults`, `validateSspWoundDescription`, `validateSspCirculation`, `validateSspConservativeMeasures` methods to accept the full checklist data and validate fields based on the PHP DTO (`SkinSubstituteChecklistInput`) structure.
+    - [x] Removed `ssp_additional_clinical` validation method and case (fields merged into `validateSspLabResults`).
+    - [x] Refined validation logic within SSP methods for required fields, formats (date, numeric, boolean), and enums based on checklist and DTO.
+    - [x] Corrected PHP syntax errors from unescaped quotes in error messages.
+    - [x] Updated `getRequiredFieldsForSection` for SSP UI section keys.
+    - [ ] **Further refinement/testing of validation logic within all `validateSsp...` methods is ongoing (e.g., more complex cross-field dependencies, specific value ranges not yet implemented).**
+- [ ] **FHIR Observation Mapping for Clinical Data (Backend PHP Service)**
+    - [ ] Port logic from TypeScript `SkinSubstituteChecklistMapper.mapToFhirBundle` to a new PHP service (`App\Services\HealthData\Services\Fhir\SkinSubstituteChecklistService`).
+    - [ ] This service will take the PHP `SkinSubstituteChecklistInput` DTO and generate a FHIR Bundle array.
+    - [ ] Ensure `AzureFhirClient.php` (PHP) is used by this service to submit the bundle.
+    - [ ] Define necessary custom FHIR extensions (StructureDefinitions) if not already in place on the FHIR server.
+- [ ] **Frontend: `Create.tsx` Form Submission**
+    - [ ] Implement the `submitForm` function in `Create.tsx`.
+    - [ ] It should gather all `FormData` (including `patient_api_input` and `clinical_data` as `SkinSubstituteChecklistInput`).
+    - [ ] Determine `orderId` to submit to (may need to create a draft order first or have it passed in).
+    - [ ] POST the `clinical_data` (as `SkinSubstituteChecklistInput`) to the new Laravel backend API endpoint (e.g., `/api/v1/orders/{orderId}/checklist` handled by `ChecklistController.php`).
+- [ ] **Backend: `ChecklistController.php` and `SkinSubstituteChecklistRequest.php**
+    - [ ] Create `App\Http\Requests\SkinSubstituteChecklistRequest.php` to validate incoming raw checklist data against the `SkinSubstituteChecklistInput` DTO structure (required fields, types, enums).
+    - [ ] Implement `App\Http\Controllers\Api\V1\Orders\ChecklistController@store` method:
+        - [ ] Authorize request.
+        - [ ] Use `SkinSubstituteChecklistRequest` for initial validation & DTO creation.
+        - [ ] Call a PHP `ChecklistValidationService` (ported from TS version) to perform business logic/MAC validation on the DTO.
+        - [ ] If valid, call the PHP `SkinSubstituteChecklistService` to generate FHIR bundle and submit to Azure.
+        - [ ] Update local Supabase `Order` with `azure_order_checklist_fhir_id` and status.
+- [ ] **Frontend: Remaining Steps Integration**
+    - [ ] `ProductSelectionStep.tsx`: Integrate with `Create.tsx` and `formData.selected_products`.
+    - [ ] `ValidationEligibilityStep.tsx`: Integrate, populate `formData` validation/eligibility fields. Implement backend calls.
+    - [ ] `ClinicalOpportunitiesStep.tsx`: Integrate, populate `formData.clinical_opportunities`. Implement backend calls.
+    - [ ] `ReviewSubmitStep.tsx`: Display summary of `FormData` (including `SkinSubstituteChecklistInput`).
 
 ## Phase 2: Backend Processing & DocuSeal Integration
 
