@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import OrganizationModal from '@/Components/ui/OrganizationModal';
 import {
   FiBriefcase, FiMapPin, FiUser, FiTrendingUp, FiPieChart,
   FiPlus, FiEdit, FiEye, FiTrash2, FiSearch, FiFilter,
@@ -85,6 +86,11 @@ export default function OrganizationsIndex() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Modal states
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingOrganization, setEditingOrganization] = useState<Organization | null>(null);
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
+
   // Data states
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [facilities, setFacilities] = useState<Facility[]>([]);
@@ -102,6 +108,37 @@ export default function OrganizationsIndex() {
     totalRevenue: 0
   });
 
+  // Modal handlers
+  const handleAddOrganization = () => {
+    setEditingOrganization(null);
+    setModalMode('create');
+    setIsModalOpen(true);
+  };
+
+  const handleEditOrganization = (organization: Organization) => {
+    setEditingOrganization(organization);
+    setModalMode('edit');
+    setIsModalOpen(true);
+  };
+
+  const handleModalSave = (organization: any) => {
+    if (modalMode === 'create') {
+      setOrganizations(prev => [organization, ...prev]);
+      setStats(prev => ({ ...prev, totalOrganizations: prev.totalOrganizations + 1 }));
+    } else {
+      setOrganizations(prev =>
+        prev.map(org => org.id === organization.id ? organization : org)
+      );
+    }
+    setIsModalOpen(false);
+    setEditingOrganization(null);
+  };
+
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    setEditingOrganization(null);
+  };
+
   // Fetch data based on active tab
   const fetchData = async () => {
     setLoading(true);
@@ -111,27 +148,27 @@ export default function OrganizationsIndex() {
       switch (activeTab) {
         case 'organizations':
           const orgsResponse = await api.organizations.getAll({ search: searchTerm });
-          setOrganizations(orgsResponse.data);
+          setOrganizations(orgsResponse.data || []);
           break;
 
         case 'facilities':
-          const facilitiesResponse = await api.facilities.getAll({ search: searchTerm });
-          setFacilities(facilitiesResponse.data);
+          // Placeholder - would need to implement facilities API
+          setFacilities([]);
           break;
 
         case 'providers':
-          const providersResponse = await api.providers.getAll({ search: searchTerm });
-          setProviders(providersResponse.data);
+          // Placeholder - would need to implement providers API
+          setProviders([]);
           break;
 
         case 'onboarding':
-          const onboardingResponse = await api.onboarding.getRecords({ search: searchTerm });
-          setOnboardingRecords(onboardingResponse.data);
+          // Placeholder - would need to implement onboarding API
+          setOnboardingRecords([]);
           break;
 
         case 'analytics':
-          const analyticsResponse = await api.analytics.getCustomerAnalytics({ search: searchTerm });
-          setAnalytics(analyticsResponse.data);
+          // Placeholder - would need to implement analytics API
+          setAnalytics([]);
           break;
       }
 
@@ -149,9 +186,25 @@ export default function OrganizationsIndex() {
   const fetchStats = async () => {
     try {
       const statsResponse = await api.organizations.getStats();
-      setStats(statsResponse);
+      setStats({
+        totalOrganizations: statsResponse.data?.total || 0,
+        activeFacilities: statsResponse.data?.active || 0,
+        activeProviders: 0, // Would need to implement
+        pendingOnboarding: 0, // Would need to implement
+        avgSatisfactionScore: 0, // Would need to implement
+        totalRevenue: 0 // Would need to implement
+      });
     } catch (err) {
       console.error('Error fetching stats:', err);
+      // Set default stats if API fails
+      setStats({
+        totalOrganizations: organizations.length,
+        activeFacilities: 0,
+        activeProviders: 0,
+        pendingOnboarding: 0,
+        avgSatisfactionScore: 0,
+        totalRevenue: 0
+      });
     }
   };
 
@@ -205,52 +258,79 @@ export default function OrganizationsIndex() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Organizations</h3>
-        <Link
-          href="/admin/organizations/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
+        <button
+          onClick={handleAddOrganization}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
         >
           <FiPlus className="w-4 h-4" />
           Add Organization
-        </Link>
+        </button>
       </div>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {organizations.map((org) => (
-            <li key={org.id} className="px-6 py-4 hover:bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h4 className="text-sm font-medium text-gray-900">{org.name}</h4>
-                    <span className={getStatusBadge(org.status)}>
-                      {org.status}
-                    </span>
+        {organizations.length === 0 ? (
+          <div className="text-center py-12">
+            <FiBriefcase className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No organizations</h3>
+            <p className="mt-1 text-sm text-gray-500">Get started by adding a new organization.</p>
+            <div className="mt-6">
+              <button
+                onClick={handleAddOrganization}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                <FiPlus className="w-4 h-4 mr-2" />
+                Add Organization
+              </button>
+            </div>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {organizations.map((org) => (
+              <li key={org.id} className="px-6 py-4 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <h4 className="text-sm font-medium text-gray-900">{org.name}</h4>
+                      <span className={getStatusBadge(org.status)}>
+                        {org.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{org.type}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                      <span className="flex items-center">
+                        <FiMapPin className="w-3 h-3 mr-1" />
+                        {org.facilities_count || 0} facilities
+                      </span>
+                      <span className="flex items-center">
+                        <FiUser className="w-3 h-3 mr-1" />
+                        {org.providers_count || 0} providers
+                      </span>
+                      <span>Created: {formatDate(org.created_at)}</span>
+                    </div>
+                    {org.contact_email && (
+                      <p className="text-xs text-gray-500 mt-1">{org.contact_email}</p>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{org.type}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                    <span>{org.facilities_count} facilities</span>
-                    <span>{org.providers_count} providers</span>
-                    <span>Created: {formatDate(org.created_at)}</span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => handleEditOrganization(org)}
+                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
+                      title="Edit organization"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                      title="View details"
+                    >
+                      <FiEye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Link
-                    href={`/admin/organizations/${org.id}`}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    <FiEye className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href={`/admin/organizations/${org.id}/edit`}
-                    className="text-yellow-600 hover:text-yellow-900"
-                  >
-                    <FiEdit className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -259,52 +339,64 @@ export default function OrganizationsIndex() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Facilities</h3>
-        <Link
-          href="/admin/facilities/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
+        <button
+          onClick={() => {/* TODO: Implement facility modal */}}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
         >
           <FiPlus className="w-4 h-4" />
           Add Facility
-        </Link>
+        </button>
       </div>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {facilities.map((facility) => (
-            <li key={facility.id} className="px-6 py-4 hover:bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h4 className="text-sm font-medium text-gray-900">{facility.name}</h4>
-                    <span className={getStatusBadge(facility.status)}>
-                      {facility.status}
-                    </span>
+        {facilities.length === 0 ? (
+          <div className="text-center py-12">
+            <FiMapPin className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No facilities</h3>
+            <p className="mt-1 text-sm text-gray-500">Facilities management coming soon.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {facilities.map((facility) => (
+              <li key={facility.id} className="px-6 py-4 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <h4 className="text-sm font-medium text-gray-900">{facility.name}</h4>
+                      <span className={getStatusBadge(facility.status)}>
+                        {facility.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{facility.organization_name}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                      <span className="flex items-center">
+                        <FiUser className="w-3 h-3 mr-1" />
+                        {facility.providers_count} providers
+                      </span>
+                      <span>{facility.orders_count} orders</span>
+                      <span>Type: {facility.type}</span>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{facility.organization_name}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                    <span>{facility.providers_count} providers</span>
-                    <span>{facility.orders_count} orders</span>
-                    <span>Type: {facility.type}</span>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {/* TODO: Implement facility edit */}}
+                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
+                      title="Edit facility"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                      title="View details"
+                    >
+                      <FiEye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Link
-                    href={`/admin/facilities/${facility.id}`}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    <FiEye className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href={`/admin/facilities/${facility.id}/edit`}
-                    className="text-yellow-600 hover:text-yellow-900"
-                  >
-                    <FiEdit className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -313,54 +405,63 @@ export default function OrganizationsIndex() {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium text-gray-900">Providers</h3>
-        <Link
-          href="/admin/providers/create"
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2"
+        <button
+          onClick={() => {/* TODO: Implement provider modal */}}
+          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
         >
           <FiPlus className="w-4 h-4" />
           Add Provider
-        </Link>
+        </button>
       </div>
 
       <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {providers.map((provider) => (
-            <li key={provider.id} className="px-6 py-4 hover:bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h4 className="text-sm font-medium text-gray-900">{provider.name}</h4>
-                    <span className={getStatusBadge(provider.status)}>
-                      {provider.status}
-                    </span>
+        {providers.length === 0 ? (
+          <div className="text-center py-12">
+            <FiUser className="mx-auto h-12 w-12 text-gray-400" />
+            <h3 className="mt-2 text-sm font-medium text-gray-900">No providers</h3>
+            <p className="mt-1 text-sm text-gray-500">Provider management coming soon.</p>
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-200">
+            {providers.map((provider) => (
+              <li key={provider.id} className="px-6 py-4 hover:bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center space-x-3">
+                      <h4 className="text-sm font-medium text-gray-900">{provider.name}</h4>
+                      <span className={getStatusBadge(provider.status)}>
+                        {provider.status}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">{provider.specialty} • NPI: {provider.npi}</p>
+                    <p className="text-sm text-gray-500">{provider.facility_name}</p>
+                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
+                      <span>{provider.orders_count} orders</span>
+                      {provider.last_order_date && (
+                        <span>Last order: {formatDate(provider.last_order_date)}</span>
+                      )}
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">{provider.specialty} • NPI: {provider.npi}</p>
-                  <p className="text-sm text-gray-500">{provider.facility_name}</p>
-                  <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                    <span>{provider.orders_count} orders</span>
-                    {provider.last_order_date && (
-                      <span>Last order: {formatDate(provider.last_order_date)}</span>
-                    )}
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => {/* TODO: Implement provider edit */}}
+                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
+                      title="Edit provider"
+                    >
+                      <FiEdit className="w-4 h-4" />
+                    </button>
+                    <button
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
+                      title="View details"
+                    >
+                      <FiEye className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-                <div className="flex space-x-2">
-                  <Link
-                    href={`/admin/providers/${provider.id}`}
-                    className="text-blue-600 hover:text-blue-900"
-                  >
-                    <FiEye className="w-4 h-4" />
-                  </Link>
-                  <Link
-                    href={`/admin/providers/${provider.id}/edit`}
-                    className="text-yellow-600 hover:text-yellow-900"
-                  >
-                    <FiEdit className="w-4 h-4" />
-                  </Link>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
@@ -636,6 +737,15 @@ export default function OrganizationsIndex() {
           {activeTab === 'analytics' && renderAnalytics()}
         </div>
       </div>
+
+      {/* Organization Modal */}
+      <OrganizationModal
+        isOpen={isModalOpen}
+        onClose={handleModalClose}
+        onSave={handleModalSave}
+        organization={editingOrganization}
+        mode={modalMode}
+      />
     </MainLayout>
   );
 }
