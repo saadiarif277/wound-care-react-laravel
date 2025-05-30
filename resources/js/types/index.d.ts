@@ -22,8 +22,6 @@ export interface Account {
   updated_at: string;
 }
 
-
-
 export interface Organization {
   id: number;
   name: string;
@@ -35,7 +33,6 @@ export interface Organization {
   country: string;
   postal_code: string;
   deleted_at: string;
-
 }
 
 export type PaginatedData<T> = {
@@ -78,4 +75,20 @@ export interface PageProps {
     [key: string]: any;
   };
   [key: string]: any;
+}
+
+export interface Facility {
+  id: number;
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  full_address?: string; // If available from backend
+  npi?: string; // If available from backend
+}
+
+export interface WoundType {
+  code: string; // e.g., 'diabetic_foot_ulcer'
+  display_name: string; // e.g., 'Diabetic Foot Ulcer'
 }

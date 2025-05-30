@@ -24,26 +24,94 @@ class FhirController extends Controller
     public function createPatient(Request $request): JsonResponse
     {
         try {
+            // Validate the incoming PatientFormData structure
             $validator = Validator::make($request->all(), [
-                'resourceType' => 'required|string|in:Patient',
-                'name' => 'array',
-                'gender' => 'string|in:male,female,other,unknown',
-                'birthDate' => 'date_format:Y-m-d',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'required|string|max:255',
+                'dob' => 'required|date_format:Y-m-d',
+                'member_id' => 'sometimes|nullable|string|max:255',
+                'gender' => 'sometimes|nullable|string|in:male,female,other,unknown',
+                'id' => 'sometimes|nullable|string|max:255', // e.g., eCW internal ID, if provided
             ]);
 
             if ($validator->fails()) {
-                return $this->fhirError('invalid', 'Invalid resource format', 400);
+                return $this->fhirError('invalid', 'Invalid patient data format', 400, $validator->errors()->toArray());
             }
 
-            $fhirPatient = $this->fhirService->createPatient($request->all());
+            $validatedData = $validator->validated();
 
-            return response()->json($fhirPatient, 201)
+            // Transform validated data to FHIR Patient resource structure
+            $fhirPatientStructure = [
+                'resourceType' => 'Patient',
+                'name' => [
+                    [
+                        'use' => 'official',
+                        'family' => $validatedData['last_name'],
+                        'given' => [$validatedData['first_name']],
+                    ],
+                ],
+                'birthDate' => $validatedData['dob'],
+            ];
+
+            if (!empty($validatedData['gender'])) {
+                $fhirPatientStructure['gender'] = $validatedData['gender'];
+            }
+
+            // Add member_id as an identifier
+            // The system for member_id needs to be defined (e.g., from config or a constant)
+            // For now, using a placeholder system.
+            $memberIdSystem = config('app.fhir_identifier_systems.member_id', 'urn:oid:2.16.840.1.113883.3.4.5.6'); // Example system
+            if (!empty($validatedData['member_id'])) {
+                $fhirPatientStructure['identifier'][] = [
+                    'use' => 'usual',
+                    'type' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                                'code' => 'MB', // Member Number
+                                'display' => 'Member Number',
+                            ],
+                        ],
+                        'text' => 'Member Number',
+                    ],
+                    'system' => $memberIdSystem,
+                    'value' => $validatedData['member_id'],
+                ];
+            }
+
+            // If an external ID (like eCW ID) was passed, store it as another identifier
+            $externalIdSystem = config('app.fhir_identifier_systems.ecw_id', 'urn:oid:1.2.3.4.5.ecw'); // Example system for eCW ID
+            if (!empty($validatedData['id'])) {
+                 $fhirPatientStructure['identifier'][] = [
+                    'use' => 'secondary',
+                     'type' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                                'code' => 'PI', // Patient internal identifier
+                                'display' => 'Patient internal identifier',
+                            ],
+                        ],
+                        'text' => 'External Patient ID',
+                    ],
+                    'system' => $externalIdSystem, // Define a system for this ID
+                    'value' => $validatedData['id'],
+                ];
+            }
+
+            // TODO: Consider adding other fields: active, telecom, address if available from a more comprehensive form
+
+            // The fhirService->createPatient method should expect a FHIR resource array
+            $createdFhirPatient = $this->fhirService->createPatient($fhirPatientStructure);
+
+            return response()->json($createdFhirPatient, 201)
                 ->header('Content-Type', 'application/fhir+json')
-                ->header('Location', url("/fhir/Patient/{$fhirPatient['id']}"));
+                // Ensure $createdFhirPatient has an 'id' before using it here
+                ->header('Location', url("/api/v1/fhir/patient/" . ($createdFhirPatient['id'] ?? 'unknown')));
 
         } catch (\Exception $e) {
-            Log::error('FHIR Patient creation failed', ['error' => $e->getMessage()]);
-            return $this->fhirError('processing', 'Internal server error', 500);
+            Log::error('FHIR Patient creation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+            return $this->fhirError('processing', 'Internal server error: ' . $e->getMessage(), 500);
         }
     }
 
@@ -178,6 +246,46 @@ class FhirController extends Controller
     }
 
     /**
+     * Search Observation resources
+     * GET /fhir/Observation
+     */
+    public function searchObservations(Request $request): JsonResponse
+    {
+        try {
+            // Define allowed search parameters for Observation
+            // Common parameters: patient, category, code, date, status, _count, _page
+            $allowedParams = [
+                'patient', 'category', 'code', 'date', 'status',
+                '_count', '_page', 'subject', 'encounter' // Add other relevant params
+            ];
+
+            $searchParams = [];
+            foreach ($allowedParams as $param) {
+                if ($request->has($param)) {
+                    $searchParams[$param] = $request->query($param);
+                }
+            }
+
+            // Ensure _count and _page are integers if provided
+            if (isset($searchParams['_count'])) {
+                $searchParams['_count'] = (int) $searchParams['_count'];
+            }
+            if (isset($searchParams['_page'])) {
+                $searchParams['_page'] = (int) $searchParams['_page'];
+            }
+
+            $bundle = $this->fhirService->searchObservations($searchParams);
+
+            return response()->json($bundle)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (\Exception $e) {
+            Log::error('FHIR Observation search failed', ['params' => $request->query(), 'error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error during Observation search', 500);
+        }
+    }
+
+    /**
      * View version history for a Patient resource
      * GET /fhir/Patient/{id}/_history
      */
@@ -266,20 +374,23 @@ class FhirController extends Controller
     /**
      * Generate FHIR-compliant error response
      */
-    private function fhirError(string $code, string $diagnostics, int $httpStatus): JsonResponse
+    private function fhirError(string $code, string $diagnostics, int $httpStatus, ?array $operationOutcomeDetails = null): JsonResponse
     {
-        $operationOutcome = [
+        $outcome = [
             'resourceType' => 'OperationOutcome',
             'issue' => [
                 [
-                    'severity' => $httpStatus >= 500 ? 'error' : 'warning',
+                    'severity' => 'error',
                     'code' => $code,
                     'diagnostics' => $diagnostics,
-                ]
-            ]
+                ],
+            ],
         ];
+        if ($operationOutcomeDetails) {
+            $outcome['issue'][0]['details'] = ['text' => json_encode($operationOutcomeDetails)];
+        }
 
-        return response()->json($operationOutcome, $httpStatus)
+        return response()->json($outcome, $httpStatus)
             ->header('Content-Type', 'application/fhir+json');
     }
 }
