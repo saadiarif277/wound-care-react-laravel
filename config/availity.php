@@ -13,6 +13,18 @@ return [
 
     'api_base_url' => env('AVAILITY_API_BASE_URL', 'https://api.availity.com/availity/development-partner/v1'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Availity Service Reviews API Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the Availity Service Reviews API integration.
+    | Used for prior authorization (278) requests.
+    |
+    */
+
+    'service_reviews_base_url' => env('AVAILITY_SERVICE_REVIEWS_BASE_URL', 'https://api.availity.com/availity/development-partner/v2'),
+
     'client_id' => env('AVAILITY_CLIENT_ID'),
     'client_secret' => env('AVAILITY_CLIENT_SECRET'),
 

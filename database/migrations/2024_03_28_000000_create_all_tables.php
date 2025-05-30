@@ -384,6 +384,10 @@ return new class extends Migration
             $table->json('eligibility_results')->nullable();
             $table->string('eligibility_status')->nullable();
             $table->enum('pre_auth_required_determination', ['required', 'not_required', 'pending'])->nullable();
+            $table->string('pre_auth_status')->nullable();
+            $table->timestamp('pre_auth_submitted_at')->nullable();
+            $table->timestamp('pre_auth_approved_at')->nullable();
+            $table->timestamp('pre_auth_denied_at')->nullable();
             $table->json('clinical_opportunities')->nullable();
             $table->enum('order_status', ['draft', 'submitted', 'processing', 'approved', 'rejected', 'shipped', 'delivered', 'cancelled'])->default('draft');
             $table->integer('step')->default(1);

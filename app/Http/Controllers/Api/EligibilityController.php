@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\EligibilityEngine\EligibilityService;
-use App\Models\Order;
-use App\Models\PreAuthTask;
+use App\Models\Order\Order;
+use App\Models\Insurance\PreAuthTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
