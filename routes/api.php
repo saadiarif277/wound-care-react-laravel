@@ -452,5 +452,86 @@ Route::post('/v1/product-requests/patient', [ProductRequestPatientController::cl
 // Product Request Flow - Clinical Assessment Step (MVP)
 Route::post('/v1/product-requests/clinical-assessment', [ProductRequestClinicalAssessmentController::class, 'store'])->name('api.v1.product-requests.clinical-assessment.store');
 
+// Organization Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('organizations')->name('api.organizations.')->group(function () {
+        // View organizations
+        Route::middleware('permission:view-organizations')->group(function () {
+            Route::get('/', [\App\Http\Controllers\OrganizationsController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\OrganizationsController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiShow'])->name('show');
+        });
+
+        // Create organizations
+        Route::middleware('permission:create-organizations')->group(function () {
+            Route::post('/', [\App\Http\Controllers\OrganizationsController::class, 'apiStore'])->name('store');
+        });
+
+        // Update organizations
+        Route::middleware('permission:edit-organizations')->group(function () {
+            Route::put('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiUpdate'])->name('update');
+        });
+
+        // Delete organizations
+        Route::middleware('permission:delete-organizations')->group(function () {
+            Route::delete('/{id}', [\App\Http\Controllers\OrganizationsController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
+// Facility Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('facilities')->name('api.facilities.')->group(function () {
+        // View facilities
+        Route::middleware('permission:view-facilities')->group(function () {
+            Route::get('/', [\App\Http\Controllers\FacilityController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\FacilityController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiShow'])->name('show');
+        });
+
+        // Create facilities
+        Route::middleware('permission:create-facilities')->group(function () {
+            Route::post('/', [\App\Http\Controllers\FacilityController::class, 'apiStore'])->name('store');
+        });
+
+        // Update facilities
+        Route::middleware('permission:edit-facilities')->group(function () {
+            Route::put('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiUpdate'])->name('update');
+        });
+
+        // Delete facilities
+        Route::middleware('permission:delete-facilities')->group(function () {
+            Route::delete('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
+// Provider Management API Routes
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::prefix('providers')->name('api.providers.')->group(function () {
+        // View providers
+        Route::middleware('permission:view-providers')->group(function () {
+            Route::get('/', [\App\Http\Controllers\ProviderController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [\App\Http\Controllers\ProviderController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiShow'])->name('show');
+        });
+
+        // Create providers
+        Route::middleware('permission:create-providers')->group(function () {
+            Route::post('/', [\App\Http\Controllers\ProviderController::class, 'apiStore'])->name('store');
+        });
+
+        // Update providers
+        Route::middleware('permission:edit-providers')->group(function () {
+            Route::put('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiUpdate'])->name('update');
+        });
+
+        // Delete providers
+        Route::middleware('permission:delete-providers')->group(function () {
+            Route::delete('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiDestroy'])->name('destroy');
+        });
+    });
+});
+
 // Fallback Route for 404 API requests
 

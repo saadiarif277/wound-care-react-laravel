@@ -240,30 +240,117 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
     }
   };
 
-  // Run eligibility check
+  // Run comprehensive eligibility check with Availity Coverages API
   const runEligibilityCheck = async () => {
     setIsCheckingEligibility(true);
     try {
-      const response = await apiPost('/api/v1/eligibility/check', {
-        patient_data: formData.patient_api_input,
-        payer_name: formData.payer_name,
-        service_date: formData.expected_service_date,
-        procedure_codes: formData.selected_products?.map((p: any) => p.hcpcs_code) || [],
-      });
-
+      const response = await apiPost(`/api/product-requests/${formData.id}/eligibility-check`, {});
       const result = await handleApiResponse(response);
 
       if (result.success) {
-        setEligibilityResult(result.data);
+        // Transform Availity response to our expected format
+        const eligibilityData = result.results || {};
+
+        const eligibilityResult = {
+          status: eligibilityData.status || 'needs_review',
+          coverage_id: eligibilityData.coverage_id,
+          control_number: eligibilityData.control_number,
+          payer: eligibilityData.payer || {},
+          benefits: {
+            plans: eligibilityData.benefits?.plans || [],
+            copay: eligibilityData.benefits?.copay_amount,
+            deductible: eligibilityData.benefits?.deductible_amount,
+            coinsurance: eligibilityData.benefits?.coinsurance_percentage,
+            out_of_pocket_max: eligibilityData.benefits?.out_of_pocket_max
+          },
+          prior_authorization_required: eligibilityData.prior_authorization_required || false,
+          coverage_details: eligibilityData.coverage_details || {},
+          validation_messages: eligibilityData.validation_messages || [],
+          checked_at: eligibilityData.checked_at || new Date().toISOString(),
+          raw_response: eligibilityData.response_raw
+        };
+
+        setEligibilityResult(eligibilityResult);
         updateFormData({
-          eligibility_results: result.data,
-          eligibility_status: result.data.status
+          eligibility_results: eligibilityResult,
+          eligibility_status: eligibilityResult.status,
+          pre_auth_required_determination: eligibilityResult.prior_authorization_required ? 'required' : 'not_required'
         });
       } else {
         console.error('Eligibility check failed:', result.message);
+
+        // Show fallback eligibility result
+        const fallbackResult = {
+          status: 'needs_review' as const,
+          coverage_id: null,
+          control_number: null,
+          payer: {
+            name: formData.payer_name || 'Unknown Payer'
+          },
+          benefits: {
+            plans: [],
+            copay: null,
+            deductible: null,
+            coinsurance: null,
+            out_of_pocket_max: null
+          },
+          prior_authorization_required: false,
+          coverage_details: {
+            status: 'Manual review required - API unavailable'
+          },
+          validation_messages: [{
+            field: 'eligibility_check',
+            code: 'API_ERROR',
+            errorMessage: result.message || 'Unable to verify eligibility automatically'
+          }],
+          checked_at: new Date().toISOString(),
+          error: result.message
+        };
+
+        setEligibilityResult(fallbackResult);
+        updateFormData({
+          eligibility_results: fallbackResult,
+          eligibility_status: fallbackResult.status,
+          pre_auth_required_determination: 'pending'
+        });
       }
     } catch (error) {
-      console.error('Eligibility check error:', error);
+      console.error('Error during eligibility check:', error);
+
+      // Show error state
+      const errorResult = {
+        status: 'needs_review' as const,
+        coverage_id: null,
+        control_number: null,
+        payer: {
+          name: formData.payer_name || 'Unknown Payer'
+        },
+        benefits: {
+          plans: [],
+          copay: null,
+          deductible: null,
+          coinsurance: null,
+          out_of_pocket_max: null
+        },
+        prior_authorization_required: false,
+        coverage_details: {
+          status: 'Error occurred during eligibility verification'
+        },
+        validation_messages: [{
+          field: 'eligibility_check',
+          code: 'SYSTEM_ERROR',
+          errorMessage: 'System error occurred during eligibility verification'
+        }],
+        checked_at: new Date().toISOString(),
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+
+      setEligibilityResult(errorResult);
+      updateFormData({
+        eligibility_results: errorResult,
+        eligibility_status: errorResult.status,
+        pre_auth_required_determination: 'pending'
+      });
     } finally {
       setIsCheckingEligibility(false);
     }
@@ -608,19 +695,129 @@ const ValidationEligibilityStep: React.FC<ValidationEligibilityStepProps> = ({
 
         {/* Benefits Information */}
         {eligibilityResult?.benefits && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(eligibilityResult.benefits).map(([benefit, value]) => (
-              value !== undefined && (
-                <div key={benefit} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="text-sm font-medium text-gray-700 capitalize">
-                    {benefit.replace(/_/g, ' ')}
-                  </span>
-                  <span className="text-sm text-gray-900">
-                    {typeof value === 'number' ? `$${value.toFixed(2)}` : value}
-                  </span>
+          <div className="space-y-4">
+            <h4 className="text-sm font-medium text-gray-900">Coverage Benefits</h4>
+
+            {/* Payer Information */}
+            {eligibilityResult.payer && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Payer Information</h5>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  {eligibilityResult.payer.name && (
+                    <div><span className="font-medium">Name:</span> {eligibilityResult.payer.name}</div>
+                  )}
+                  {eligibilityResult.payer.response_name && (
+                    <div><span className="font-medium">Response Name:</span> {eligibilityResult.payer.response_name}</div>
+                  )}
+                  {eligibilityResult.payer.id && (
+                    <div><span className="font-medium">Payer ID:</span> {eligibilityResult.payer.id}</div>
+                  )}
+                  {eligibilityResult.control_number && (
+                    <div><span className="font-medium">Control Number:</span> {eligibilityResult.control_number}</div>
+                  )}
                 </div>
-              )
+              </div>
+            )}
+
+            {/* Plans Information */}
+            {eligibilityResult.benefits.plans && eligibilityResult.benefits.plans.length > 0 && (
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h5 className="text-sm font-medium text-gray-700 mb-2">Plan Information</h5>
+                {eligibilityResult.benefits.plans.map((plan: any, index: number) => (
+                  <div key={index} className="border-b border-gray-200 last:border-b-0 pb-2 mb-2 last:mb-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                      {plan.plan_name && (
+                        <div><span className="font-medium">Plan:</span> {plan.plan_name}</div>
+                      )}
+                      {plan.group_number && (
+                        <div><span className="font-medium">Group:</span> {plan.group_number}</div>
+                      )}
+                      {plan.insurance_type && (
+                        <div><span className="font-medium">Type:</span> {plan.insurance_type}</div>
+                      )}
+                      {plan.effective_date && (
+                        <div><span className="font-medium">Effective:</span> {new Date(plan.effective_date).toLocaleDateString()}</div>
+                      )}
+                      {plan.termination_date && (
+                        <div><span className="font-medium">Expires:</span> {new Date(plan.termination_date).toLocaleDateString()}</div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Financial Benefits */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {eligibilityResult.benefits.copay !== null && eligibilityResult.benefits.copay !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Copay</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.copay.toFixed(2)}</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.deductible !== null && eligibilityResult.benefits.deductible !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Deductible</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.deductible.toFixed(2)}</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.coinsurance !== null && eligibilityResult.benefits.coinsurance !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Coinsurance</span>
+                  <span className="text-sm text-gray-900">{eligibilityResult.benefits.coinsurance}%</span>
+                </div>
+              )}
+              {eligibilityResult.benefits.out_of_pocket_max !== null && eligibilityResult.benefits.out_of_pocket_max !== undefined && (
+                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                  <span className="text-sm font-medium text-gray-700">Out of Pocket Max</span>
+                  <span className="text-sm text-gray-900">${eligibilityResult.benefits.out_of_pocket_max.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Validation Messages */}
+        {eligibilityResult?.validation_messages && eligibilityResult.validation_messages.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-900">Validation Messages</h4>
+            {eligibilityResult.validation_messages.map((message: any, index: number) => (
+              <div key={index} className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 mr-3" />
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-yellow-900">
+                      {message.code || 'Validation Message'}
+                    </p>
+                    <p className="text-sm text-yellow-700">{message.errorMessage || message.message}</p>
+                    {message.field && (
+                      <p className="text-xs text-yellow-600 mt-1">Field: {message.field}</p>
+                    )}
+                  </div>
+                </div>
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* Coverage Details */}
+        {eligibilityResult?.coverage_details && (
+          <div className="bg-gray-50 rounded-lg p-3">
+            <h5 className="text-sm font-medium text-gray-700 mb-2">Coverage Details</h5>
+            <div className="text-sm space-y-1">
+              {eligibilityResult.coverage_details.status && (
+                <div><span className="font-medium">Status:</span> {eligibilityResult.coverage_details.status}</div>
+              )}
+              {eligibilityResult.coverage_details.as_of_date && (
+                <div><span className="font-medium">As of Date:</span> {new Date(eligibilityResult.coverage_details.as_of_date).toLocaleDateString()}</div>
+              )}
+              {eligibilityResult.coverage_details.to_date && (
+                <div><span className="font-medium">To Date:</span> {new Date(eligibilityResult.coverage_details.to_date).toLocaleDateString()}</div>
+              )}
+              {eligibilityResult.checked_at && (
+                <div><span className="font-medium">Checked:</span> {new Date(eligibilityResult.checked_at).toLocaleString()}</div>
+              )}
+            </div>
           </div>
         )}
 

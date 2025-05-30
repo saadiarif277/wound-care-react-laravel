@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
+use Illuminate\Support\Facades\Log;
 
 class ProductRequestController extends Controller
 {
@@ -510,17 +511,37 @@ class ProductRequestController extends Controller
 
     private function performEligibilityCheck(ProductRequest $productRequest): array
     {
-        // TODO: Implement actual eligibility checking with payer APIs
-        return [
-            'status' => 'eligible',
-            'coverage_details' => [
-                'plan_type' => 'Medicare Part B',
-                'active' => true,
-                'effective_date' => '2024-01-01'
-            ],
-            'prior_auth_required' => false,
-            'copay_amount' => 20.00,
-        ];
+        try {
+            // Use the Availity Eligibility Service
+            $eligibilityService = new \App\Services\EligibilityEngine\AvailityEligibilityService();
+            return $eligibilityService->checkEligibility($productRequest);
+
+        } catch (\Exception $e) {
+            Log::error('Eligibility check failed for ProductRequest', [
+                'request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return mock data structure for development when API is not available
+            return [
+                'status' => 'needs_review',
+                'coverage_id' => null,
+                'payer' => [
+                    'name' => $productRequest->payer_name_submitted,
+                ],
+                'benefits' => [
+                    'plans' => [],
+                    'copay_amount' => null,
+                    'deductible_amount' => null,
+                ],
+                'prior_authorization_required' => false,
+                'coverage_details' => [
+                    'status' => 'API unavailable - manual review required',
+                ],
+                'error' => $e->getMessage(),
+                'checked_at' => now(),
+            ];
+        }
     }
 
     private function performClinicalOpportunityScanning(ProductRequest $productRequest): array

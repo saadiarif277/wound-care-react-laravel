@@ -1,0 +1,1719 @@
+{
+  "swagger": "2.0",
+  "x-availity-options": {
+    "x-ibm-name": "service-reviews",
+    "securityProviders": [
+      "HIPAA_EXTERNAL"
+    ],
+    "assemblyConfig": "STANDARD",
+    "pathReplace": {
+      "/": "/"
+    }
+  },
+  "info": {
+    "title": "Service Reviews",
+    "version": "2.0.0",
+    "description": "This resource represents a request to obtain authorization to perform a service or refer a patient to another provider. Your application can use the endpoints defined for it to find, create, and manage these requests.",
+    "contact": {
+      "name": "Unknown",
+      "email": "noreply@availity.com"
+    },
+    "x-ibm-name": "service-reviews"
+  },
+  "schemes": [
+    "https"
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/xml",
+    "application/json"
+  ],
+  "securityDefinitions": {
+    "oauth2": {
+      "type": "oauth2",
+      "x-ibm-oauth-provider": "availity-partner-oauth2-provider-1-0-0",
+      "description": "",
+      "flow": "application",
+      "scopes": {
+        "hipaa": "Realtime - Live HIPAA API"
+      },
+      "tokenUrl": "https://api.availity.com/availity/v1/token"
+    }
+  },
+  "basePath": "/availity/development-partner/v2",
+  "paths": {
+    "/service-reviews": {
+      "get": {
+        "summary": "Initiate a new service review inquiery request or view an existing request.",
+        "operationId": "findServiceReviews",
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "parameters": [
+          {
+            "name": "payer.id",
+            "type": "string",
+            "in": "query",
+            "description": "The Availity payer id of the member."
+          },
+          {
+            "name": "requestingProvider.specialtyCode",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's specialty code."
+          },
+          {
+            "name": "requestingProvider.lastName",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's last or business name."
+          },
+          {
+            "name": "requestingProvider.firstName",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's first name."
+          },
+          {
+            "name": "requestingProvider.middleName",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's middle name."
+          },
+          {
+            "name": "requestingProvider.suffix",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's suffix."
+          },
+          {
+            "name": "requestingProvider.npi",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's national provider id."
+          },
+          {
+            "name": "requestingProvider.taxId",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's tax id."
+          },
+          {
+            "name": "requestingProvider.payerAssignedProviderId",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's payer assigned provider id."
+          },
+          {
+            "name": "requestingProvider.submitterId",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's submitter id."
+          },
+          {
+            "name": "requestingProvider.addressLine1",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's address."
+          },
+          {
+            "name": "requestingProvider.addressLine2",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's address."
+          },
+          {
+            "name": "requestingProvider.city",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's city."
+          },
+          {
+            "name": "requestingProvider.stateCode",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's state code."
+          },
+          {
+            "name": "requestingProvider.zipCode",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's ZIP code."
+          },
+          {
+            "name": "requestingProvider.contactName",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's contact name."
+          },
+          {
+            "name": "requestingProvider.phone",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's phone."
+          },
+          {
+            "name": "requestingProvider.extension",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's extension."
+          },
+          {
+            "name": "requestingProvider.fax",
+            "type": "string",
+            "in": "query",
+            "description": "The requesting provider's fax."
+          },
+          {
+            "name": "subscriber.memberId",
+            "type": "string",
+            "in": "query",
+            "description": "The subcriber's member id."
+          },
+          {
+            "name": "subscriber.firstName",
+            "type": "string",
+            "in": "query",
+            "description": "The subcriber's first name."
+          },
+          {
+            "name": "subscriber.lastName",
+            "type": "string",
+            "in": "query",
+            "description": "The subcriber's last name."
+          },
+          {
+            "name": "subscriber.middleName",
+            "type": "string",
+            "in": "query",
+            "description": "The subcriber's middle name."
+          },
+          {
+            "name": "subscriber.suffix",
+            "type": "string",
+            "in": "query",
+            "description": "The subcriber's suffix."
+          },
+          {
+            "name": "patient.lastName",
+            "type": "string",
+            "in": "query",
+            "description": "The patient's last name."
+          },
+          {
+            "name": "patient.firstName",
+            "type": "string",
+            "in": "query",
+            "description": "The patient's first name."
+          },
+          {
+            "name": "patient.middleName",
+            "type": "string",
+            "in": "query",
+            "description": "The patient's middle name."
+          },
+          {
+            "name": "patient.suffix",
+            "type": "string",
+            "in": "query",
+            "description": "The patient's suffix."
+          },
+          {
+            "name": "patient.birthDate",
+            "type": "string",
+            "format": "date",
+            "in": "query",
+            "description": "The patient's birth date."
+          },
+          {
+            "name": "patient.subscriberRelationshipCode",
+            "type": "string",
+            "in": "query",
+            "description": "The patient's relationship to subscriber code."
+          },
+          {
+            "name": "requestTypeCode",
+            "type": "string",
+            "in": "query",
+            "description": "The request type code."
+          },
+          {
+            "name": "fromDate",
+            "type": "string",
+            "format": "date",
+            "in": "query",
+            "description": "The service from date."
+          },
+          {
+            "name": "toDate",
+            "type": "string",
+            "format": "date",
+            "in": "query",
+            "description": "The service to date."
+          },
+          {
+            "name": "certificationIssueDate",
+            "type": "string",
+            "format": "date",
+            "in": "query",
+            "description": "The certification issue date."
+          },
+          {
+            "name": "certificationNumber",
+            "type": "string",
+            "in": "query",
+            "description": "The certification number."
+          },
+          {
+            "name": "referenceNumber",
+            "type": "string",
+            "in": "query",
+            "description": "The reference number."
+          },
+          {
+            "name": "statusCode",
+            "type": "string",
+            "in": "query",
+            "description": "The status code."
+          },
+          {
+            "name": "sessionId",
+            "type": "string",
+            "in": "query",
+            "description": "The session id."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ResultSet"
+            }
+          },
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "Location of the service review inquiry."
+              },
+              "X-Status-Message": {
+                "type": "string",
+                "description": "Current status of the pending request."
+              }
+            },
+            "schema": {
+              "$ref": "#/definitions/ResultSet"
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Not Authorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create a new service review.",
+        "operationId": "createServiceReview",
+        "consumes": [
+          "application/json",
+          "application/xml"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "servicereview",
+            "schema": {
+              "$ref": "#/definitions/ServiceReview"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "Location of the service review."
+              },
+              "X-Status-Message": {
+                "type": "string",
+                "description": "Current status of the pending request."
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Not Authorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "Update a service review.",
+        "operationId": "updateServiceReview",
+        "consumes": [
+          "application/json",
+          "application/xml"
+        ],
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "parameters": [
+          {
+            "in": "body",
+            "name": "servicereview",
+            "schema": {
+              "$ref": "#/definitions/ServiceReview"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "Location of the service review."
+              },
+              "X-Status-Message": {
+                "type": "string",
+                "description": "Current status of the pending request."
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Not Authorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      }
+    },
+    "/service-reviews/{id}": {
+      "get": {
+        "summary": "Get the a service review by id.",
+        "operationId": "getServiceReviewById",
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": {
+              "$ref": "#/definitions/ServiceReview"
+            }
+          },
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "Location of the service review."
+              },
+              "X-Status-Message": {
+                "type": "string",
+                "description": "Current status of the pending request."
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Not Authorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "delete": {
+        "summary": "Void a service review.",
+        "operationId": "voidServiceReview",
+        "produces": [
+          "application/json",
+          "application/xml"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Location": {
+                "type": "string",
+                "description": "Location of the service review."
+              },
+              "X-Status-Message": {
+                "type": "string",
+                "description": "Current status of the pending request."
+              }
+            }
+          },
+          "204": {
+            "description": "No Content"
+          },
+          "400": {
+            "description": "Bad Request",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "401": {
+            "description": "Not Authorized",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "schema": {
+              "$ref": "#/definitions/ErrorResponse"
+            }
+          }
+        }
+      },
+      "parameters": [
+        {
+          "name": "id",
+          "type": "string",
+          "required": true,
+          "in": "path",
+          "description": "A service review id"
+        }
+      ]
+    }
+  },
+  "definitions": {
+    "ResultSet": {
+      "type": "object",
+      "properties": {
+        "totalCount": {
+          "type": "integer",
+          "description": "Total number of assets."
+        },
+        "count": {
+          "type": "integer",
+          "description": "Number of assets in the result set."
+        },
+        "offset": {
+          "type": "integer",
+          "description": "Paging offset."
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Paging limit."
+        },
+        "links": {
+          "type": "object",
+          "description": "Links.",
+          "additionalProperties": {
+            "$ref": "#/definitions/Link"
+          }
+        },
+        "serviceReviews": {
+          "type": "array",
+          "description": "list of service reviews",
+          "items": {
+            "$ref": "#/definitions/ServiceReview"
+          }
+        }
+      }
+    },
+    "Link": {
+      "type": "object",
+      "properties": {
+        "href": {
+          "type": "string",
+          "description": "The URL."
+        }
+      }
+    },
+    "ServiceReview": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The service review id."
+        },
+        "customerId": {
+          "type": "string",
+          "description": "The Availity Customer ID of the customer that owns this service review."
+        },
+        "controlNumber": {
+          "type": "string",
+          "description": "The control number of the X12 request that this service review was created from."
+        },
+        "userId": {
+          "type": "string",
+          "description": "The User ID of the customer that owns this service review."
+        },
+        "shortFormIndicator": {
+          "type": "boolean",
+          "description": "short form indicator"
+        },
+        "updatable": {
+          "type": "boolean",
+          "description": "Indicates if this service review is updateable."
+        },
+        "deletable": {
+          "type": "boolean",
+          "description": "Indicates if this service review is deletable."
+        },
+        "updatableFields": {
+          "type": "array",
+          "description": "Updatable fields.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the service review."
+        },
+        "statusCode": {
+          "type": "string",
+          "description": "The status code of the service review."
+        },
+        "statusReasons": {
+          "type": "array",
+          "description": "Status reasons",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Status reason code."
+              },
+              "value": {
+                "type": "string",
+                "description": "Status reason."
+              }
+            }
+          }
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date this coverage entry was created."
+        },
+        "updatedDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date when this coverage entry was last updated."
+        },
+        "expirationDate": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date when this coverage entry expires."
+        },
+        "validationMessages": {
+          "type": "array",
+          "description": "Messages after validation.",
+          "items": {
+            "$ref": "#/definitions/FieldError"
+          }
+        },
+        "providerNotes": {
+          "type": "array",
+          "description": "Notes from the provider.",
+          "items": {
+            "$ref": "#/definitions/Note"
+          }
+        },
+        "payerNotes": {
+          "type": "array",
+          "description": "Notes from the payer.",
+          "items": {
+            "$ref": "#/definitions/Note"
+          }
+        },
+        "payer": {
+          "$ref": "#/definitions/Payer"
+        },
+        "requestingProvider": {
+          "$ref": "#/definitions/RequestingProvider"
+        },
+        "subscriber": {
+          "$ref": "#/definitions/Subscriber"
+        },
+        "patient": {
+          "$ref": "#/definitions/Patient"
+        },
+        "diagnoses": {
+          "type": "array",
+          "description": "Diagnoses.",
+          "items": {
+            "$ref": "#/definitions/Diagnosis"
+          }
+        },
+        "certificationIssueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date this service review was created."
+        },
+        "certificationEffectiveDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date this service review became effective."
+        },
+        "certificationExpirationDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date this service review expires."
+        },
+        "certificationNumber": {
+          "type": "string",
+          "description": "The service review number."
+        },
+        "referenceNumber": {
+          "type": "string",
+          "description": "The reference number."
+        },
+        "traceNumbers": {
+          "type": "array",
+          "description": "Trace numbers added to this Service Review by the payer.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "requestType": {
+          "type": "string",
+          "description": "type of request."
+        },
+        "requestTypeCode": {
+          "type": "string",
+          "description": "request type code"
+        },
+        "serviceType": {
+          "type": "string",
+          "description": "type of service."
+        },
+        "serviceTypeCode": {
+          "type": "string",
+          "description": "type code."
+        },
+        "additionalServiceTypes": {
+          "type": "array",
+          "description": "Additional service types.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Additional service type code."
+              },
+              "value": {
+                "type": "string",
+                "description": "Additional service type."
+              }
+            }
+          }
+        },
+        "placeOfService": {
+          "type": "string",
+          "description": "place of service."
+        },
+        "placeOfServiceCode": {
+          "type": "string",
+          "description": "place of service code."
+        },
+        "serviceLevel": {
+          "type": "string",
+          "description": "level of service."
+        },
+        "serviceLevelCode": {
+          "type": "string",
+          "description": "level of service code."
+        },
+        "fromDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the service started."
+        },
+        "toDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the service ended."
+        },
+        "quantity": {
+          "type": "string",
+          "description": "the quantity of the procedure."
+        },
+        "quantityType": {
+          "type": "string",
+          "description": "the unit of measure for quantity of the procedure."
+        },
+        "quantityTypeCode": {
+          "type": "string",
+          "description": "the code for the unit of measure for quantity of the procedure."
+        },
+        "admissionType": {
+          "type": "string",
+          "description": "the admission type."
+        },
+        "admissionTypeCode": {
+          "type": "string",
+          "description": "the admission type code."
+        },
+        "admissionSource": {
+          "type": "string",
+          "description": "the admission source."
+        },
+        "admissionSourceCode": {
+          "type": "string",
+          "description": "the admission source code."
+        },
+        "nursingHomeResidentialStatus": {
+          "type": "string",
+          "description": "The nursing home residential status."
+        },
+        "nursingHomeResidentialStatusCode": {
+          "type": "string",
+          "description": "The nursing home residential status code."
+        },
+        "homeHealthStartDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the home health service started."
+        },
+        "homeHealthCertificationPeriodStartDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the home health service started."
+        },
+        "homeHealthCertificationPeriodEndDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the home health service started."
+        },
+        "transportType": {
+          "type": "string",
+          "description": "The type of medically related tranport."
+        },
+        "transportTypeCode": {
+          "type": "string",
+          "description": "The type code of medically related tranport."
+        },
+        "transportDistance": {
+          "type": "string",
+          "description": "The distance of medically related tranport."
+        },
+        "transportPurpose": {
+          "type": "string",
+          "description": "The purpose of medically related tranport."
+        },
+        "chiropracticTreatmentCount": {
+          "type": "string",
+          "description": "The chiropractic treatment count."
+        },
+        "beginningSubluxationLevel": {
+          "type": "string",
+          "description": "The beginning subluxation level."
+        },
+        "beginningSubluxationLevelCode": {
+          "type": "string",
+          "description": "The beginning subluxation level code."
+        },
+        "endingSubluxationLevel": {
+          "type": "string",
+          "description": "The ending subluxation level."
+        },
+        "endingSubluxationLevelCode": {
+          "type": "string",
+          "description": "The ending subluxation level code."
+        },
+        "spinalCondition": {
+          "type": "string",
+          "description": "The spinal condition."
+        },
+        "spinalConditionCode": {
+          "type": "string",
+          "description": "The spinal condition code."
+        },
+        "spinalConditionDescription": {
+          "type": "string",
+          "description": "A description of the spinal condition."
+        },
+        "oxygenEquipmentType": {
+          "type": "string",
+          "description": "The oxygen equipment type."
+        },
+        "oxygenEquipmentTypeCode": {
+          "type": "string",
+          "description": "The oxygen equipment type code."
+        },
+        "oxygenFlowRate": {
+          "type": "string",
+          "description": "The oxygen flow rate."
+        },
+        "oxygenDailyUseCount": {
+          "type": "string",
+          "description": "The oxygen daily use count."
+        },
+        "oxygenUsePeriodHourCount": {
+          "type": "string",
+          "description": "The oxygen use period hour count."
+        },
+        "oxygenOrderText": {
+          "type": "string",
+          "description": "The oxygen order text."
+        },
+        "oxygenDeliverySystemType": {
+          "type": "string",
+          "description": "The oxygen delivery system type."
+        },
+        "oxygenDeliverySystemTypeCode": {
+          "type": "string",
+          "description": "The oxygen delivery system type code."
+        },
+        "transportLocations": {
+          "type": "array",
+          "description": "The locations of medically related tranport.",
+          "items": {
+            "$ref": "#/definitions/TransportLocation"
+          }
+        },
+        "procedures": {
+          "type": "array",
+          "description": "The medical procedures to be performed.",
+          "items": {
+            "$ref": "#/definitions/Procedures"
+          }
+        },
+        "renderingProviders": {
+          "type": "array",
+          "description": "The rendering providers to perform the procedures.",
+          "items": {
+            "$ref": "#/definitions/RenderingProvider"
+          }
+        },
+        "supplementalInformation": {
+          "$ref": "#/definitions/SupplementalInformation"
+        }
+      }
+    },
+    "Note": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "The type of note."
+        },
+        "typeCode": {
+          "type": "string",
+          "description": "The type code of the note."
+        },
+        "message": {
+          "type": "string",
+          "description": "The message from the payer."
+        }
+      }
+    },
+    "Payer": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Service review payer id"
+        },
+        "name": {
+          "type": "string",
+          "description": "Service review payer name"
+        },
+        "contactName": {
+          "type": "string",
+          "description": "Full Name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone Number"
+        },
+        "extension": {
+          "type": "string",
+          "description": "Extension"
+        },
+        "fax": {
+          "type": "string",
+          "description": "Fax"
+        },
+        "emailAddress": {
+          "type": "string",
+          "description": "E-mail Address"
+        },
+        "url": {
+          "type": "string",
+          "description": "Website URL"
+        }
+      }
+    },
+    "RequestingProvider": {
+      "type": "object",
+      "properties": {
+        "lastName": {
+          "type": "string",
+          "description": "The last name of an individual provider or the name of an organizational provider."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of an individual provider."
+        },
+        "middleName": {
+          "type": "string",
+          "description": "The middle name of an individual provider."
+        },
+        "suffix": {
+          "type": "string",
+          "description": "The suffix of an individual provider."
+        },
+        "npi": {
+          "type": "string",
+          "description": "The NPI of a provider."
+        },
+        "taxId": {
+          "type": "string",
+          "description": "The tax id of a provider."
+        },
+        "payerAssignedProviderId": {
+          "type": "string",
+          "description": "The payer assigned provider id of the provider."
+        },
+        "submitterId": {
+          "type": "string",
+          "description": "The payer assigned provider reference number."
+        },
+        "specialty": {
+          "type": "string",
+          "description": "The speciality of a provider."
+        },
+        "specialtyCode": {
+          "type": "string",
+          "description": "The speciality code of a provider."
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The street line 1."
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "The street line 2."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "stateCode": {
+          "type": "string",
+          "description": "The state code."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The ZIP code."
+        },
+        "contactName": {
+          "type": "string",
+          "description": "Full Name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone Number"
+        },
+        "extension": {
+          "type": "string",
+          "description": "Phone Extension"
+        },
+        "fax": {
+          "type": "string",
+          "description": "Fax"
+        },
+        "emailAddress": {
+          "type": "string",
+          "description": "E-mail Address"
+        },
+        "url": {
+          "type": "string",
+          "description": "Website URL"
+        }
+      }
+    },
+    "Subscriber": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "description": "The subscriber's first name."
+        },
+        "middleName": {
+          "type": "string",
+          "description": "The subscriber's middle name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The subscriber's last name."
+        },
+        "suffix": {
+          "type": "string",
+          "description": "The subscriber's suffix."
+        },
+        "memberId": {
+          "type": "string",
+          "description": "The health plan member id of the subscriber."
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The street line 1."
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "The street line 2."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "stateCode": {
+          "type": "string",
+          "description": "The state code."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The ZIP code."
+        }
+      }
+    },
+    "Patient": {
+      "type": "object",
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "description": "The patient's first name."
+        },
+        "middleName": {
+          "type": "string",
+          "description": "The patient's middle name."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The patient's last name."
+        },
+        "suffix": {
+          "type": "string",
+          "description": "The patient's suffix."
+        },
+        "subscriberRelationship": {
+          "type": "string",
+          "description": "The patient's relationship to the subscriber or policy holder."
+        },
+        "subscriberRelationshipCode": {
+          "type": "string",
+          "description": "The patient's relationship code to the subscriber or policy holder."
+        },
+        "birthDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The patient's date of birth."
+        },
+        "gender": {
+          "type": "string",
+          "description": "The patient's gender."
+        },
+        "genderCode": {
+          "type": "string",
+          "description": "The patient's gender code."
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The street line 1."
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "The street line 2."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "stateCode": {
+          "type": "string",
+          "description": "The state code."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The ZIP code."
+        },
+        "status": {
+          "type": "string",
+          "description": "The patient's status"
+        },
+        "statusCode": {
+          "type": "string",
+          "description": "The patient's status code"
+        },
+        "condition": {
+          "type": "string",
+          "description": "The condition"
+        },
+        "conditionCode": {
+          "type": "string",
+          "description": "The condition code"
+        },
+        "medicareCoverage": {
+          "type": "boolean",
+          "description": "The patient is covered by Medicare"
+        },
+        "prognosis": {
+          "type": "string",
+          "description": "The prognosis"
+        },
+        "prognosisCode": {
+          "type": "string",
+          "description": "The prognosis code"
+        }
+      }
+    },
+    "Diagnosis": {
+      "type": "object",
+      "properties": {
+        "qualifier": {
+          "type": "string",
+          "description": "The qualifier for the diagnosis."
+        },
+        "qualifierCode": {
+          "type": "string",
+          "description": "The qualifier code for the diagnosis."
+        },
+        "value": {
+          "type": "string",
+          "description": "The value or description of the diagnosis."
+        },
+        "code": {
+          "type": "string",
+          "description": "The code for the diagnosis."
+        },
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the diagnosis was reached."
+        }
+      }
+    },
+    "TransportLocation": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the transport location"
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The address line 1 of the transport location"
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "The address line 2 of the transport location"
+        },
+        "city": {
+          "type": "string",
+          "description": "The city of the transport location"
+        },
+        "state": {
+          "type": "string",
+          "description": "The state of the transport location"
+        },
+        "stateCode": {
+          "type": "string",
+          "description": "The state code of the transport location"
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The ZIP code of the transport location"
+        }
+      }
+    },
+    "Procedures": {
+      "type": "object",
+      "properties": {
+        "revenueValue": {
+          "type": "string",
+          "description": "for institutional procedure the revenue value of the procedure."
+        },
+        "revenueCode": {
+          "type": "string",
+          "description": "for institutional procedure the revenue code of the procedure."
+        },
+        "qualifier": {
+          "type": "string",
+          "description": "the qualifier for the procedure."
+        },
+        "qualifierCode": {
+          "type": "string",
+          "description": "the qualifier code for the procedure."
+        },
+        "value": {
+          "type": "string",
+          "description": "the value or description for the procedure."
+        },
+        "code": {
+          "type": "string",
+          "description": "the code for the procedure."
+        },
+        "modifier1": {
+          "type": "string",
+          "description": "modifier for the procedure"
+        },
+        "modifierCode1": {
+          "type": "string",
+          "description": "modifier code for the procedure"
+        },
+        "modifier2": {
+          "type": "string",
+          "description": "modifier for the procedure"
+        },
+        "modifierCode2": {
+          "type": "string",
+          "description": "modifier code for the procedure"
+        },
+        "modifier3": {
+          "type": "string",
+          "description": "modifier for the procedure"
+        },
+        "modifierCode3": {
+          "type": "string",
+          "description": "modifier code for the procedure"
+        },
+        "modifier4": {
+          "type": "string",
+          "description": "modifier for the procedure"
+        },
+        "modifierCode4": {
+          "type": "string",
+          "description": "modifier code for the procedure"
+        },
+        "description": {
+          "type": "string",
+          "description": "description of the procedure."
+        },
+        "quantity": {
+          "type": "string",
+          "description": "the quantity of the procedure."
+        },
+        "quantityType": {
+          "type": "string",
+          "description": "the unit of measure for quantity of the procedure."
+        },
+        "quantityTypeCode": {
+          "type": "string",
+          "description": "the code for the unit of measure for quantity of the procedure."
+        },
+        "fromDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the procedure started."
+        },
+        "toDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the procedure ended."
+        },
+        "status": {
+          "type": "string",
+          "description": "the status of the procedure."
+        },
+        "statusCode": {
+          "type": "string",
+          "description": "the status code of the procedure."
+        },
+        "statusReasons": {
+          "type": "array",
+          "description": "Status reasons",
+          "items": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "Status reason code."
+              },
+              "value": {
+                "type": "string",
+                "description": "Status reason."
+              }
+            }
+          }
+        },
+        "certificationIssueDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the authorization was issued."
+        },
+        "certificationEffectiveDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the authorization became effective."
+        },
+        "certificationExpirationDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The date the authorization expired."
+        },
+        "certificationNumber": {
+          "type": "string",
+          "description": "the authorization number."
+        },
+        "traceNumbers": {
+          "type": "array",
+          "description": "Trace numbers added to this Service Review by the payer.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "array",
+          "description": "Notes, disclaimers, and descriptions.",
+          "items": {
+            "$ref": "#/definitions/Note"
+          }
+        }
+      }
+    },
+    "RenderingProvider": {
+      "type": "object",
+      "properties": {
+        "lastName": {
+          "type": "string",
+          "description": "The last name of an individual provider or the name of an organizational provider."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of an individual provider."
+        },
+        "middleName": {
+          "type": "string",
+          "description": "The middle name of an individual provider."
+        },
+        "suffix": {
+          "type": "string",
+          "description": "The suffix of an individual provider."
+        },
+        "npi": {
+          "type": "string",
+          "description": "The NPI of a provider."
+        },
+        "taxId": {
+          "type": "string",
+          "description": "The tax id of a provider."
+        },
+        "payerAssignedProviderId": {
+          "type": "string",
+          "description": "The payer assigned provider id of a provider."
+        },
+        "specialty": {
+          "type": "string",
+          "description": "The speciality of a provider."
+        },
+        "specialtyCode": {
+          "type": "string",
+          "description": "The speciality code of a provider."
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of a provider."
+        },
+        "roleCode": {
+          "type": "string",
+          "description": "The role code of a provider."
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The street line 1."
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "The street line 2."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state."
+        },
+        "stateCode": {
+          "type": "string",
+          "description": "The state code."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The ZIP code."
+        },
+        "contactName": {
+          "type": "string",
+          "description": "Full Name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Phone Number"
+        },
+        "extension": {
+          "type": "string",
+          "description": "Phone Extension"
+        },
+        "fax": {
+          "type": "string",
+          "description": "fax"
+        },
+        "emailAddress": {
+          "type": "string",
+          "description": "E-mail Address"
+        },
+        "url": {
+          "type": "string",
+          "description": "Website URL"
+        }
+      }
+    },
+    "SupplementalInformation": {
+      "type": "object",
+      "properties": {
+        "diagnoses": {
+          "type": "array",
+          "description": "The diagnosis information.",
+          "items": {
+            "$ref": "#/definitions/Diagnosis"
+          }
+        },
+        "procedures": {
+          "type": "array",
+          "description": "The procedure information.",
+          "items": {
+            "$ref": "#/definitions/Diagnosis"
+          }
+        },
+        "refAuthNumber": {
+          "type": "string",
+          "description": "The authorization or referral number."
+        },
+        "sequence": {
+          "type": "string",
+          "description": "The sequence number."
+        },
+        "updateType": {
+          "type": "string",
+          "description": "The update type."
+        }
+      }
+    },
+    "ErrorResponse": {
+      "type": "object",
+      "properties": {
+        "userMessage": {
+          "type": "string",
+          "description": "A high level error message."
+        },
+        "developerMessage": {
+          "type": "string",
+          "description": "A more technical error message."
+        },
+        "reasonCode": {
+          "type": "integer",
+          "description": "A reason code."
+        },
+        "statusCode": {
+          "type": "integer",
+          "description": "The status code."
+        },
+        "errors": {
+          "type": "array",
+          "description": "A list of detailed user friendly messages.",
+          "items": {
+            "$ref": "#/definitions/FieldError"
+          }
+        }
+      }
+    },
+    "FieldError": {
+      "type": "object",
+      "properties": {
+        "field": {
+          "type": "string",
+          "description": "The field or parameter associated with this error."
+        },
+        "code": {
+          "type": "string",
+          "description": "A code for the error."
+        },
+        "errorMessage": {
+          "type": "string",
+          "description": "The message associated with this error."
+        },
+        "index": {
+          "type": "integer",
+          "description": "The array index of the item associated with this error."
+        }
+      }
+    }
+  },
+  "x-ibm-configuration": {
+    "enforced": true,
+    "testable": false,
+    "phase": "realized",
+    "cors": {
+      "enabled": false
+    },
+    "type": "rest",
+    "servers": [
+      {
+        "url": "https://api.availity.com/availity/development-partner/v2",
+        "description": "",
+        "type": [
+          "production",
+          "development"
+        ]
+      }
+    ],
+    "oauth-servers": {
+      "oauth2": {
+        "tokenUrls": [
+          "https://api.availity.com/availity/v1/token"
+        ],
+        "authorizationUrls": [],
+        "refreshUrls": []
+      }
+    }
+  },
+  "security": [
+    {
+      "oauth2": [
+        "hipaa"
+      ]
+    }
+  ],
+  "host": "api.availity.com"
+}

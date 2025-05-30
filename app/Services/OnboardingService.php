@@ -2,10 +2,10 @@
 
 namespace App\Services;
 
-use App\Models\Organization;
+use App\Models\Users\Organization\Organization;
 use App\Models\User;
-use App\Models\ProviderInvitation;
-use App\Models\OnboardingChecklist;
+use App\Models\Users\Provider\ProviderInvitation;
+use App\Models\Users\OnboardingChecklist;
 use App\Mail\ProviderInvitationMail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -14,7 +14,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
-use App\Models\Facility;
+use App\Models\Fhir\Facility;
 
 class OnboardingService
 {
@@ -81,7 +81,7 @@ class OnboardingService
         DB::beginTransaction();
         try {
             $onboardingRecordId = $this->generateSecureUuid();
-            
+
             DB::table('organization_onboarding')->insert([
                 'id' => $onboardingRecordId,
                 'organization_id' => $organization->id,
@@ -97,9 +97,9 @@ class OnboardingService
 
             // Create onboarding checklist
             $this->createChecklist(
-                $organization->id, 
-                self::ENTITY_TYPE_ORGANIZATION, 
-                self::CHECKLIST_TYPE_ORGANIZATION, 
+                $organization->id,
+                self::ENTITY_TYPE_ORGANIZATION,
+                self::CHECKLIST_TYPE_ORGANIZATION,
                 $this->organizationChecklist
             );
 
@@ -121,13 +121,13 @@ class OnboardingService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Failed to initiate organization onboarding', [
                 'organization_id' => $organization->id,
                 'manager_id' => $managerId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Failed to initiate onboarding: ' . $e->getMessage()
@@ -155,7 +155,7 @@ class OnboardingService
                 $this->validateSingleProviderInvitation($provider, $index);
 
                 $invitationToken = $this->generateSecureToken();
-                
+
                 $invitation = ProviderInvitation::create([
                     'email' => strtolower(trim($provider['email'])),
                     'first_name' => trim($provider['first_name']),
@@ -250,9 +250,9 @@ class OnboardingService
 
             // Create provider checklist
             $this->createChecklist(
-                $user->id, 
-                self::ENTITY_TYPE_USER, 
-                self::CHECKLIST_TYPE_PROVIDER, 
+                $user->id,
+                self::ENTITY_TYPE_USER,
+                self::CHECKLIST_TYPE_PROVIDER,
                 $this->providerChecklist
             );
 
@@ -281,12 +281,12 @@ class OnboardingService
             ];
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Provider registration failed', [
                 'token' => substr($token, 0, 8) . '...',
                 'error' => $e->getMessage()
             ]);
-            
+
             return [
                 'success' => false,
                 'message' => 'Registration failed: ' . $e->getMessage()
@@ -327,13 +327,13 @@ class OnboardingService
 
         $checklist->items = $items;
         $checklist->completed_items = collect($items)->where('completed', true)->count();
-        
+
         if ($checklist->total_items > 0) {
             $checklist->completion_percentage = ($checklist->completed_items / $checklist->total_items) * 100;
         } else {
             $checklist->completion_percentage = 0;
         }
-        
+
         $checklist->last_activity_at = now();
         $checklist->save();
 
@@ -403,7 +403,7 @@ class OnboardingService
                 'organization_id' => $organizationId,
                 'error' => $e->getMessage()
             ]);
-            
+
             return ['error' => 'Failed to retrieve onboarding dashboard data.'];
         }
     }
@@ -420,9 +420,9 @@ class OnboardingService
 
         try {
             $this->createChecklist(
-                $facility->id, 
-                self::ENTITY_TYPE_FACILITY, 
-                self::CHECKLIST_TYPE_FACILITY, 
+                $facility->id,
+                self::ENTITY_TYPE_FACILITY,
+                self::CHECKLIST_TYPE_FACILITY,
                 $this->facilityChecklist
             );
 
@@ -614,7 +614,7 @@ class OnboardingService
     private function updateOrganizationOnboardingStatus(int $organizationId): void
     {
         $checklist = $this->getChecklistStatus(self::ENTITY_TYPE_ORGANIZATION, $organizationId);
-        
+
         if (empty($checklist) || !isset($checklist['items'])) {
             Log::warning('Cannot update organization status - checklist not found', [
                 'organization_id' => $organizationId
@@ -645,33 +645,33 @@ class OnboardingService
     private function determineOrganizationStatus(array $checklist): string
     {
         $items = $checklist['items'];
-        
+
         // Check for completion first
         if (isset($checklist['completion_percentage']) && $checklist['completion_percentage'] >= 100) {
             return 'completed';
         }
 
         // Check for providers_invited
-        if ($this->isItemCompleted($items, 'add_facilities') && 
+        if ($this->isItemCompleted($items, 'add_facilities') &&
             $this->isItemCompleted($items, 'invite_providers')) {
             return 'providers_invited';
         }
 
         // Check for facilities_added
-        if ($this->isItemCompleted($items, 'billing_setup') && 
+        if ($this->isItemCompleted($items, 'billing_setup') &&
             $this->isItemCompleted($items, 'add_facilities')) {
             return 'facilities_added';
         }
 
         // Check for billing_setup_complete
-        if ($this->isItemCompleted($items, 'basic_information') && 
-            $this->isItemCompleted($items, 'tax_documentation') && 
+        if ($this->isItemCompleted($items, 'basic_information') &&
+            $this->isItemCompleted($items, 'tax_documentation') &&
             $this->isItemCompleted($items, 'billing_setup')) {
             return 'billing_setup_complete';
         }
 
         // Check for basic_info_complete
-        if ($this->isItemCompleted($items, 'basic_information') && 
+        if ($this->isItemCompleted($items, 'basic_information') &&
             $this->isItemCompleted($items, 'tax_documentation')) {
             return 'basic_info_complete';
         }
@@ -693,7 +693,7 @@ class OnboardingService
     private function getFacilityChecklists(int $organizationId): \Illuminate\Support\Collection
     {
         $facilities = Facility::where('organization_id', $organizationId)->pluck('id');
-        
+
         return OnboardingChecklist::whereIn('entity_id', $facilities)
             ->where('entity_type', self::ENTITY_TYPE_FACILITY)
             ->get();
