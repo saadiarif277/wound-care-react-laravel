@@ -155,28 +155,30 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 // CONSOLIDATED ORDER MANAGEMENT
 // ================================================================
 
-// Consolidated Order Management - Order Processing, Document Generation, Manual Creation
+// Consolidated Order Center - Request Reviews + Order Management
 Route::middleware(['permission:manage-orders'])->group(function () {
-    Route::get('/orders/management', function () {
-        return Inertia::render('Order/Management');
-    })->name('orders.management');
+    Route::get('/orders/center', [OrderController::class, 'center'])->name('orders.center');
 });
 
-// Legacy order routes (redirect to consolidated page)
+// Legacy order routes (redirect to consolidated order center)
 Route::get('/orders', function () {
-    return redirect()->route('orders.management');
+    return redirect()->route('orders.center');
 })->name('orders')->middleware('auth');
 
+Route::get('/orders/management', function () {
+    return redirect()->route('orders.center');
+})->name('orders.management')->middleware('auth');
+
 Route::get('/orders/approvals', function () {
-    return redirect()->route('orders.management');
+    return redirect()->route('orders.center');
 })->name('orders.approval')->middleware('auth');
 
 Route::get('/orders/manage', function () {
-    return redirect()->route('orders.management');
+    return redirect()->route('orders.center');
 })->name('orders.manage')->middleware('auth');
 
 Route::get('/orders/create', function () {
-    return redirect()->route('orders.management');
+    return redirect()->route('orders.center');
 })->name('orders.create')->middleware('auth');
 
 // ================================================================

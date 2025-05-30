@@ -39,7 +39,7 @@ class ChecklistController extends Controller
             $validatedData = $request->validated();
             $checklistDto = SkinSubstituteChecklistInput::fromArray($validatedData);
 
-            $order = \App\Models\Order\Order::find($orderId); // Using fully qualified class name as per user's change
+            $order = Order::find($orderId); // Using fully qualified class name as per user's change
             if (!$order) {
                 return response()->json(['message' => 'Order not found.'], 404);
             }
