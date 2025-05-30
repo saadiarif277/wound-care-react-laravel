@@ -9,7 +9,7 @@ import {
   FiSearch,
   FiFilter,
   FiPackage,
-  FiBarChart3,
+  FiBarChart,
   FiUsers,
   FiTag
 } from 'react-icons/fi';
@@ -149,7 +149,7 @@ export default function Manage({
             </div>
             <div className="bg-white p-4 rounded-lg shadow">
               <div className="flex items-center gap-3">
-                <FiBarChart3 className="w-8 h-8 text-green-600" />
+                <FiBarChart className="w-8 h-8 text-green-600" />
                 <div>
                   <p className="text-sm text-gray-600">Active</p>
                   <p className="text-xl font-bold">{stats.active_products}</p>
