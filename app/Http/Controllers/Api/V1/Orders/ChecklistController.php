@@ -99,7 +99,7 @@ class ChecklistController extends Controller
             return response()->json(['error' => 'Order not found.'], 404);
         } catch (\Illuminate\Auth\Access\AuthorizationException $e) {
             DB::rollBack();
-            Log::warning("Unauthorized checklist submission attempt for order {$orderId}", ['user_id' => auth()->id(), 'exception' => $e]);
+            Log::warning("Unauthorized checklist submission attempt for order {$orderId}", ['user_id' => auth()?->id(), 'exception' => $e]);
             return response()->json(['error' => $e->getMessage() ?: 'Forbidden.'], 403);
         } catch (\Illuminate\Validation\ValidationException $e) {
             DB::rollBack(); // Should not happen if SkinSubstituteChecklistRequest handles it, but as a safeguard.
