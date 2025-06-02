@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Organization;
+use App\Models\Users\Organization\Organization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
@@ -22,7 +22,7 @@ class OnboardingController extends Controller
     {
         // Get user's organization
         $user = Auth::user();
-        
+
         // Check if user has permission to complete organization onboarding
         if (!$user->hasPermission('complete-organization-onboarding')) {
             abort(403, 'You do not have permission to access organization onboarding.');
@@ -30,7 +30,7 @@ class OnboardingController extends Controller
 
         // Get user's organization
         $organization = $user->organization;
-        
+
         if (!$organization) {
             abort(404, 'No organization found for this user.');
         }
@@ -64,14 +64,14 @@ class OnboardingController extends Controller
     public function saveProgress(Request $request)
     {
         $user = Auth::user();
-        
+
         // Check permission
         if (!$user->hasPermission('complete-organization-onboarding')) {
             abort(403, 'You do not have permission to update organization onboarding.');
         }
 
         $organization = $user->organization;
-        
+
         if (!$organization) {
             abort(404, 'No organization found for this user.');
         }
@@ -83,7 +83,7 @@ class OnboardingController extends Controller
 
         // Update onboarding progress
         $completedSteps = $organization->onboarding_completed_steps ?? [];
-        
+
         if (!in_array($request->step, $completedSteps)) {
             $completedSteps[] = $request->step;
         }
@@ -110,4 +110,4 @@ class OnboardingController extends Controller
             ]
         ]);
     }
-} 
+}

@@ -160,24 +160,8 @@ class User extends Authenticatable
     public function facilities(): BelongsToMany
     {
         return $this->belongsToMany(Facility::class, 'facility_user')
-            ->withPivot(['relationship_type', 'is_primary', 'is_active', 'notes'])
+            ->withPivot(['relationship_type', 'role', 'created_at', 'updated_at'])
             ->withTimestamps();
-    }
-
-    /**
-     * Get the user's primary facility
-     */
-    public function primaryFacility()
-    {
-        return $this->facilities()->wherePivot('is_primary', true)->first();
-    }
-
-    /**
-     * Get active facility relationships
-     */
-    public function activeFacilities(): BelongsToMany
-    {
-        return $this->facilities()->wherePivot('is_active', true);
     }
 
     /**

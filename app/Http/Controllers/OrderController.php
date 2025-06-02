@@ -6,6 +6,8 @@ use App\Models\Order\Order;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class OrderController extends Controller
 {
@@ -38,97 +40,114 @@ class OrderController extends Controller
     {
         $user = $request->user();
 
-        // ===== REQUEST REVIEWS TAB DATA =====
-        // Build base query for product requests (similar to ProductRequestReviewController)
-        $query = \App\Models\Order\ProductRequest::with([
-            'provider:id,first_name,last_name,email,npi_number',
-            'facility:id,name,city,state',
-            'products'
-        ])
-        ->whereIn('order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
-        ->orderBy('submitted_at', 'desc');
+        // Build base query for product requests using DB
+        $query = DB::table('product_requests')
+            ->select([
+                'product_requests.*',
+                'facilities.name as facility_name',
+                'facilities.city as facility_city',
+                'facilities.state as facility_state',
+                'users.first_name as provider_first_name',
+                'users.last_name as provider_last_name',
+                'users.email as provider_email',
+                'users.npi_number as provider_npi_number',
+                DB::raw('(SELECT COUNT(*) FROM product_request_products WHERE product_request_products.product_request_id = product_requests.id) as products_count')
+            ])
+            ->leftJoin('facilities', 'product_requests.facility_id', '=', 'facilities.id')
+            ->leftJoin('users', 'product_requests.provider_id', '=', 'users.id')
+            ->whereIn('product_requests.order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
+            ->orderBy('product_requests.submitted_at', 'desc');
 
-        // Apply filters for request reviews
+        // Apply filters
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
-                $q->where('request_number', 'like', "%{$search}%")
-                  ->orWhere('patient_display_id', 'like', "%{$search}%")
-                  ->orWhere('patient_fhir_id', 'like', "%{$search}%")
-                  ->orWhereHas('provider', function ($q) use ($search) {
-                      $q->where('first_name', 'like', "%{$search}%")
-                        ->orWhere('last_name', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                  });
+                $q->where('product_requests.request_number', 'like', "%{$search}%")
+                    ->orWhere('product_requests.patient_display_id', 'like', "%{$search}%")
+                    ->orWhere('product_requests.patient_fhir_id', 'like', "%{$search}%")
+                    ->orWhere('users.first_name', 'like', "%{$search}%")
+                    ->orWhere('users.last_name', 'like', "%{$search}%")
+                    ->orWhere('users.email', 'like', "%{$search}%");
             });
         }
 
         if ($request->filled('status')) {
-            $query->where('order_status', $request->input('status'));
+            $query->where('product_requests.order_status', $request->input('status'));
         }
 
         if ($request->filled('facility')) {
-            $query->where('facility_id', $request->input('facility'));
+            $query->where('product_requests.facility_id', $request->input('facility'));
         }
 
         if ($request->filled('days_pending')) {
             $days = (int) $request->input('days_pending');
-            $query->whereDate('submitted_at', '<=', now()->subDays($days));
+            $query->whereDate('product_requests.submitted_at', '<=', now()->subDays($days));
         }
 
         if ($request->filled('priority')) {
             $priority = $request->input('priority');
             if ($priority === 'high') {
                 $query->where(function ($q) {
-                    $q->where('pre_auth_required_determination', 'required')
-                      ->orWhere('mac_validation_status', 'failed')
-                      ->orWhereRaw('DATEDIFF(NOW(), submitted_at) > 3');
+                    $q->where('product_requests.pre_auth_required_determination', 'required')
+                      ->orWhere('product_requests.mac_validation_status', 'failed')
+                      ->orWhereRaw('DATEDIFF(NOW(), product_requests.submitted_at) > 3');
                 });
             } elseif ($priority === 'urgent') {
-                $query->whereRaw('DATEDIFF(NOW(), submitted_at) > 7');
+                $query->whereRaw('DATEDIFF(NOW(), product_requests.submitted_at) > 7');
             }
         }
 
         // Get paginated results
-        $requests = $query->paginate(20)->withQueryString();
+        $requests = $query->paginate(20)
+            ->withQueryString()
+            ->through(function ($request) {
+                // Calculate priority score
+                $score = 0;
+                $daysSince = $request->submitted_at ? Carbon::parse($request->submitted_at)->diffInDays(now()) : 0;
+                if ($daysSince > 7) $score += 40;
+                elseif ($daysSince > 3) $score += 20;
+                elseif ($daysSince > 1) $score += 10;
 
-        // Transform for frontend (matching ProductRequestReviewController logic)
-        $requests->getCollection()->transform(function ($request) {
-            return [
-                'id' => $request->id,
-                'request_number' => $request->request_number,
-                'patient_display' => $request->formatPatientDisplay(),
-                'patient_fhir_id' => $request->patient_fhir_id,
-                'order_status' => $request->order_status,
-                'wound_type' => $request->wound_type,
-                'expected_service_date' => $request->expected_service_date?->format('Y-m-d'),
-                'submitted_at' => $request->submitted_at?->format('Y-m-d H:i:s'),
-                'total_order_value' => $request->total_order_value,
-                'facility' => [
-                    'id' => $request->facility->id,
-                    'name' => $request->facility->name,
-                    'city' => $request->facility->city ?? '',
-                    'state' => $request->facility->state ?? '',
-                ],
-                'provider' => [
-                    'id' => $request->provider->id,
-                    'name' => $request->provider->first_name . ' ' . $request->provider->last_name,
-                    'email' => $request->provider->email,
-                    'npi_number' => $request->provider->npi_number,
-                ],
-                'payer_name' => $request->payer_name_submitted,
-                'mac_validation_status' => $request->mac_validation_status,
-                'eligibility_status' => $request->eligibility_status,
-                'pre_auth_required' => $request->isPriorAuthRequired(),
-                'clinical_summary' => $request->clinical_summary,
-                'products_count' => $request->products->count(),
-                'days_since_submission' => $request->submitted_at ? $request->submitted_at->diffInDays(now()) : 0,
-                'priority_score' => $this->calculatePriorityScore($request),
-            ];
-        });
+                if ($request->pre_auth_required_determination === 'required') $score += 30;
+                if ($request->mac_validation_status === 'failed') $score += 25;
+                if ($request->total_order_value > 1000) $score += 15;
 
-        // Get status counts for request reviews
-        $statusCounts = \App\Models\Order\ProductRequest::whereIn('order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
+                return [
+                    'id' => $request->id,
+                    'request_number' => $request->request_number,
+                    'patient_display' => $this->formatPatientDisplay($request->patient_display_id, $request->patient_fhir_id),
+                    'patient_fhir_id' => $request->patient_fhir_id,
+                    'order_status' => $request->order_status,
+                    'wound_type' => $request->wound_type,
+                    'expected_service_date' => $request->expected_service_date,
+                    'submitted_at' => $request->submitted_at,
+                    'total_order_value' => $request->total_order_value,
+                    'facility' => [
+                        'id' => $request->facility_id,
+                        'name' => $request->facility_name,
+                        'city' => $request->facility_city,
+                        'state' => $request->facility_state,
+                    ],
+                    'provider' => [
+                        'id' => $request->provider_id,
+                        'name' => $request->provider_first_name . ' ' . $request->provider_last_name,
+                        'email' => $request->provider_email,
+                        'npi_number' => $request->provider_npi_number,
+                    ],
+                    'payer_name' => $request->payer_name_submitted,
+                    'mac_validation_status' => $request->mac_validation_status,
+                    'eligibility_status' => $request->eligibility_status,
+                    'pre_auth_required' => $request->pre_auth_required_determination === 'required',
+                    'clinical_summary' => json_decode($request->clinical_summary, true),
+                    'products_count' => $request->products_count,
+                    'days_since_submission' => $daysSince,
+                    'priority_score' => min($score, 100),
+                ];
+            });
+
+        // Get status counts using DB
+        $statusCounts = DB::table('product_requests')
+            ->whereIn('order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
             ->selectRaw('order_status, count(*) as count')
             ->groupBy('order_status')
             ->pluck('count', 'order_status')
@@ -142,11 +161,12 @@ class OrderController extends Controller
             'rejected' => $statusCounts['rejected'] ?? 0,
         ];
 
-        // Get facilities for filter dropdown
-        $facilities = \App\Models\Fhir\Facility::where('active', true)
+        // Get facilities for filter dropdown using DB
+        $facilities = DB::table('facilities')
+            ->where('active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
-        
+
         return Inertia::render('Order/OrderCenter', [
             'requests' => $requests,
             'filters' => $request->only(['search', 'status', 'priority', 'facility', 'days_pending']),
@@ -163,6 +183,17 @@ class OrderController extends Controller
                 'access_level' => $this->getUserAccessLevel($user),
             ]
         ]);
+    }
+
+    /**
+     * Format patient display for UI using sequential display ID.
+     */
+    private function formatPatientDisplay(?string $displayId, string $fhirId): string
+    {
+        if (!$displayId) {
+            return 'Patient ' . substr($fhirId, -4);
+        }
+        return $displayId; // "JoSm001" format - no age for better privacy
     }
 
     /**

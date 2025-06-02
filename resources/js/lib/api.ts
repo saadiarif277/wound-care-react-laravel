@@ -212,12 +212,25 @@ export async function apiCall<T = any>(url: string, options: RequestInit = {}): 
 // Configure axios defaults
 axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 axios.defaults.headers.common['Accept'] = 'application/json';
+axios.defaults.withCredentials = true; // Enable sending cookies with requests
 
 // Add CSRF token if available
 const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
 if (csrfToken) {
     axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
 }
+
+// Add request interceptor to handle 401 responses
+axios.interceptors.response.use(
+    response => response,
+    error => {
+        if (error.response?.status === 401) {
+            // Redirect to login page if unauthorized
+            window.location.href = '/login';
+        }
+        return Promise.reject(error);
+    }
+);
 
 // API Error handling
 export class ApiError extends Error {

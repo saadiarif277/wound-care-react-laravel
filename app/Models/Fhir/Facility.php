@@ -69,36 +69,16 @@ class Facility extends Model
     public function users(): BelongsToMany
     {
         return $this->belongsToMany(User::class, 'facility_user')
-            ->withPivot(['relationship_type', 'is_primary', 'is_active', 'notes'])
+            ->withPivot(['relationship_type', 'role', 'created_at', 'updated_at'])
             ->withTimestamps();
     }
 
     /**
-     * Get active users for this facility
+     * Get users with the 'provider' role associated with this facility
      */
-    public function activeUsers(): BelongsToMany
+    public function providers()
     {
-        return $this->users()->wherePivot('is_active', true);
-    }
-
-    /**
-     * Get office managers for this facility
-     */
-    public function officeManagers(): BelongsToMany
-    {
-        return $this->users()->whereHas('roles', function ($q) {
-            $q->where('slug', 'office-manager');
-        });
-    }
-
-    /**
-     * Get providers for this facility
-     */
-    public function providers(): BelongsToMany
-    {
-        return $this->users()->whereHas('roles', function ($q) {
-            $q->where('slug', 'provider');
-        });
+        return $this->users()->wherePivot('role', 'provider');
     }
 
     /**

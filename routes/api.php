@@ -21,6 +21,8 @@ use App\Http\Controllers\Api\V1\ProviderProfileController;
 use App\Http\Controllers\Api\ProductRequestPatientController;
 use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\Api\MedicareMacValidationController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
@@ -112,20 +114,16 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     });
 });
 
-// Eligibility & Pre-Authorization Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
-    // Order-specific eligibility routes
-    Route::post('orders/{order_id}/eligibility-check', [EligibilityController::class, 'checkEligibility'])->name('eligibility.check');
-    Route::get('orders/{order_id}/eligibility', [EligibilityController::class, 'getEligibility'])->name('eligibility.get');
-    Route::post('orders/{order_id}/preauth', [EligibilityController::class, 'requestPreAuth'])->name('preauth.request');
-    Route::get('orders/{order_id}/preauth/tasks', [EligibilityController::class, 'getPreAuthTasks'])->name('preauth.tasks');
+// MAC Validation & Eligibility Routes (Public)
+Route::prefix('v1')->group(function () {
+    // MAC Validation Routes
+    Route::post('mac-validation/quick-check', [MedicareMacValidationController::class, 'quickCheck'])->name('mac-validation.quick-check');
+    Route::post('mac-validation/thorough-validate', [MedicareMacValidationController::class, 'thoroughValidate'])->name('mac-validation.thorough-validate');
 
-    // Eligibility summary and management
-    Route::get('eligibility/summary', [EligibilityController::class, 'getSummary'])->name('eligibility.summary');
-    Route::get('eligibility/health-check', [EligibilityController::class, 'healthCheck'])->name('eligibility.health');
-
-    // General eligibility check (not order-specific)
+    // Eligibility Check Routes
     Route::post('eligibility/check', [EligibilityController::class, 'checkGeneralEligibility'])->name('eligibility.check_general');
+    Route::post('product-requests/{productRequest}/eligibility-check', [EligibilityController::class, 'checkEligibility'])->name('eligibility.check');
+    Route::get('product-requests/{productRequest}/eligibility', [EligibilityController::class, 'getEligibility'])->name('eligibility.get');
 });
 
 // Clinical Opportunities Engine Routes
@@ -522,6 +520,24 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::middleware('permission:delete-providers')->group(function () {
             Route::delete('/{id}', [\App\Http\Controllers\ProviderController::class, 'apiDestroy'])->name('destroy');
         });
+    });
+});
+
+// Facility Management API Routes
+Route::middleware(['auth:sanctum'])->group(function () {
+    // Admin Facility Management
+    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->prefix('admin')->group(function () {
+        Route::get('/facilities', [FacilityController::class, 'apiIndex'])->name('api.admin.facilities.index');
+        Route::post('/facilities', [FacilityController::class, 'apiStore'])->name('api.admin.facilities.store');
+        Route::get('/facilities/{facility}', [FacilityController::class, 'apiShow'])->name('api.admin.facilities.show');
+        Route::put('/facilities/{facility}', [FacilityController::class, 'apiUpdate'])->name('api.admin.facilities.update');
+        Route::delete('/facilities/{facility}', [FacilityController::class, 'apiDestroy'])->name('api.admin.facilities.destroy');
+    });
+
+    // Provider Facility Management
+    Route::middleware(['role:provider', 'permission:view-facilities'])->prefix('provider')->group(function () {
+        Route::get('/facilities', [FacilityController::class, 'apiProviderIndex'])->name('api.provider.facilities.index');
+        Route::get('/facilities/{facility}', [FacilityController::class, 'apiProviderShow'])->name('api.provider.facilities.show');
     });
 });
 
