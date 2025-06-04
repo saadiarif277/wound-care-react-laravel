@@ -409,9 +409,27 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 type="date"
                 id="expected_service_date"
                 value={formData.expected_service_date || ''}
-                onChange={(e) => handleFieldChange('expected_service_date', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                onChange={(e) => {
+                  const selectedDate = new Date(e.target.value);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0); // Reset time to start of day
+
+                  if (selectedDate < today) {
+                    // If selected date is in the past, show error and don't update
+                    setError('Expected service date must be a future date');
+                    return;
+                  }
+                  setError(null);
+                  handleFieldChange('expected_service_date', e.target.value);
+                }}
+                min={new Date().toISOString().split('T')[0]} // Set minimum date to today
+                className={`mt-1 block w-full rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm ${
+                  error ? 'border-red-300' : 'border-gray-300'
+                }`}
               />
+              {error && (
+                <p className="mt-1 text-sm text-red-600">{error}</p>
+              )}
             </div>
             {/* Payer Name */}
             <div className="sm:col-span-3">

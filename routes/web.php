@@ -38,6 +38,7 @@ use Illuminate\Http\Request;
 use App\Http\Controllers\Auth\ProviderInvitationController;
 use App\Models\ProviderInvitation;
 use Illuminate\Support\Str;
+use App\Http\Controllers\FacilityController;
 
 /*
 |--------------------------------------------------------------------------
@@ -333,7 +334,7 @@ Route::get('/img/{path}', [ImagesController::class, 'show'])
     ->where('path', '.*')
     ->name('image');
 
-Route::middleware(['auth', 'verified'])->group(function () {
+Route::middleware(['web', 'auth'])->group(function () {
     // Eligibility Verification Routes
     Route::prefix('eligibility')->group(function () {
         Route::get('/', [EligibilityController::class, 'index'])
@@ -378,7 +379,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         Route::post('/{productRequest}/update-step', [ProductRequestController::class, 'updateStep'])
             ->middleware('permission:create-product-requests')
             ->name('product-requests.update-step');
-        Route::post('/{productRequest}/mac-validation', [ProductRequestController::class, 'runMacValidation'])
+        Route::post('/mac-validation', [ProductRequestController::class, 'runMacValidation'])
             ->middleware('permission:manage-mac-validation')
             ->name('product-requests.mac-validation');
         Route::post('/{productRequest}/eligibility-check', [ProductRequestController::class, 'runEligibilityCheck'])
@@ -695,4 +696,20 @@ Route::middleware(['auth', 'verified'])->group(function () {
             ]
         ]);
     })->name('test.provider-permissions')->middleware('auth');
+
+    // Facility Management Routes
+    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->prefix('admin')->group(function () {
+        Route::get('/facilities', [FacilityController::class, 'index'])->name('admin.facilities.index');
+        Route::get('/facilities/create', [FacilityController::class, 'create'])->name('admin.facilities.create');
+        Route::post('/facilities', [FacilityController::class, 'store'])->name('admin.facilities.store');
+        Route::get('/facilities/{facility}/edit', [FacilityController::class, 'edit'])->name('admin.facilities.edit');
+        Route::put('/facilities/{facility}', [FacilityController::class, 'update'])->name('admin.facilities.update');
+        Route::delete('/facilities/{facility}', [FacilityController::class, 'destroy'])->name('admin.facilities.destroy');
+    });
+
+    // Provider Facility Management
+    Route::middleware(['role:provider', 'permission:view-facilities'])->prefix('provider')->group(function () {
+        Route::get('/facilities', [FacilityController::class, 'providerIndex'])->name('provider.facilities.index');
+        Route::get('/facilities/{facility}', [FacilityController::class, 'providerShow'])->name('provider.facilities.show');
+    });
 });

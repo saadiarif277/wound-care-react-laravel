@@ -3,283 +3,447 @@
 namespace App\Http\Controllers;
 
 use App\Models\Fhir\Facility;
-use Illuminate\Http\JsonResponse;
+use App\Models\Users\Organization\Organization;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Request as FacadeRequest;
 use Inertia\Inertia;
-use Inertia\Response;
+use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 class FacilityController extends Controller
 {
-    public function __construct()
+    /**
+     * Display a listing of facilities for admin users.
+     */
+    public function index()
     {
-        $this->middleware('auth');
-        $this->middleware('permission:view-facilities')->only(['index', 'show', 'apiIndex', 'apiShow']);
-        $this->middleware('permission:create-facilities')->only(['create', 'store', 'apiStore']);
-        $this->middleware('permission:edit-facilities')->only(['edit', 'update', 'apiUpdate']);
-        $this->middleware('permission:delete-facilities')->only(['destroy', 'apiDestroy']);
-    }
+        // Use a raw query (DB::table('facilities')->select(...)->get()) to load all records (including soft-deleted ones) from the facilities table.
+        $allfacility_raw = DB::table('facilities')->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at', 'deleted_at')->get();
+        // Hydrate (using Facility::hydrate) so that the select (for Order requests) also loads all facilities.
+        $allfacility = Facility::hydrate($allfacility_raw->toArray());
+        $facilities = $allfacility_raw->map(function ($fac) {
+            $org = DB::table('organizations')->where('id', $fac->organization_id)->first();
+            $prov_count = DB::table('facility_user')->where('facility_id', $fac->id)->where('role', 'provider')->count();
+            return (object) [
+                'id' => $fac->id,
+                'name' => $fac->name,
+                'address' => $fac->address,
+                'organization_id' => $fac->organization_id,
+                'organization_name' => ($org) ? $org->name : null,
+                'provider_count' => $prov_count,
+                'created_at' => $fac->created_at,
+                'updated_at' => $fac->updated_at,
+            ];
+         });
 
-    public function index(): Response
-    {
-        return Inertia::render('Facilities/Index', [
-            'filters' => FacadeRequest::only(['search', 'trashed']),
-            'facilities' => Facility::with(['organization', 'users'])
-                ->orderBy('name')
-                ->paginate()
-                ->appends(FacadeRequest::all()),
+        $organizations = Organization::select('id', 'name')->get();
+
+        return Inertia::render('Admin/Facilities/Index', [
+            'facilities' => $facilities,
+            'organizations' => $organizations,
         ]);
     }
 
     /**
-     * Get facilities for API (JSON response)
+     * Show the form for creating a new facility.
      */
-    public function apiIndex(Request $request): JsonResponse
+    public function create()
     {
-        try {
-            $query = Facility::with(['organization', 'users']);
+        $organizations = Organization::select('id', 'name')->get();
+        $salesReps = User::withRole('msc-rep')
+            ->select('id', 'first_name', 'last_name')
+            ->get()
+            ->map(function ($rep) {
+                return [
+                    'id' => $rep->id,
+                    'name' => $rep->first_name . ' ' . $rep->last_name,
+                ];
+            });
 
-            // Apply search filter if provided
-            if ($request->has('search') && $request->search) {
-                $query->where('name', 'like', '%' . $request->search . '%')
-                      ->orWhere('email', 'like', '%' . $request->search . '%')
-                      ->orWhere('phone', 'like', '%' . $request->search . '%');
-            }
+        return Inertia::render('Admin/Facilities/Form', [
+            'organizations' => $organizations,
+            'salesReps' => $salesReps,
+            'isEdit' => false,
+        ]);
+    }
 
-            // Apply status filter if provided
-            if ($request->has('status') && $request->status) {
-                if ($request->status === 'active') {
-                    $query->where('active', true);
-                } elseif ($request->status === 'inactive') {
-                    $query->where('active', false);
-                }
-            }
+    /**
+     * Show the form for editing the specified facility.
+     */
+    public function edit(Facility $facility)
+    {
+        $organizations = Organization::select('id', 'name')->get();
+        $salesReps = User::withRole('msc-rep')
+            ->select('id', 'first_name', 'last_name')
+            ->get()
+            ->map(function ($rep) {
+                return [
+                    'id' => $rep->id,
+                    'name' => $rep->first_name . ' ' . $rep->last_name,
+                ];
+            });
 
-            // Apply organization filter if provided
-            if ($request->has('organization_id') && $request->organization_id) {
-                $query->where('organization_id', $request->organization_id);
-            }
+        return Inertia::render('Admin/Facilities/Form', [
+            'facility' => [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'facility_type' => $facility->facility_type,
+                'address' => $facility->address,
+                'city' => $facility->city,
+                'state' => $facility->state,
+                'zip_code' => $facility->zip_code,
+                'phone' => $facility->phone,
+                'email' => $facility->email,
+                'npi' => $facility->npi,
+                'business_hours' => $facility->business_hours,
+                'active' => $facility->active,
+                'coordinating_sales_rep_id' => $facility->coordinating_sales_rep_id,
+                'organization_id' => $facility->organization_id,
+            ],
+            'organizations' => $organizations,
+            'salesReps' => $salesReps,
+            'isEdit' => true,
+        ]);
+    }
 
-            // Apply trashed filter if provided
-            if ($request->has('trashed')) {
-                if ($request->trashed === 'with') {
-                    $query->withTrashed();
-                } elseif ($request->trashed === 'only') {
-                    $query->onlyTrashed();
-                }
-            }
-
-            // Apply pagination
-            $perPage = $request->get('per_page', 15);
-            $facilities = $query->orderBy('name')
-                                ->paginate($perPage);
-
-            // Transform the data for API response
-            $transformedData = $facilities->getCollection()->map(function ($facility) {
+    /**
+     * Display a listing of facilities for provider users.
+     */
+    public function providerIndex()
+    {
+        $user = Auth::user();
+        $facilities = $user->facilities()
+            ->with('organization')
+            ->select('facilities.id', 'facilities.name', 'facilities.address', 'facilities.organization_id', 'facilities.created_at', 'facilities.updated_at')
+            ->get()
+            ->map(function ($facility) {
                 return [
                     'id' => $facility->id,
                     'name' => $facility->name,
-                    'facility_type' => $facility->facility_type,
-                    'group_npi' => $facility->group_npi,
-                    'status' => $facility->status,
-                    'active' => $facility->active,
-                    'email' => $facility->email,
-                    'phone' => $facility->formatted_phone,
-                    'address' => $facility->full_address,
-                    'city' => $facility->city,
-                    'state' => $facility->state,
-                    'zip_code' => $facility->zip_code,
-                    'organization' => $facility->organization ? [
-                        'id' => $facility->organization->id,
-                        'name' => $facility->organization->name,
-                    ] : null,
-                    'providers_count' => $facility->providers()->count(),
-                    'users_count' => $facility->users()->count(),
-                    'orders_count' => $facility->orders()->count(),
+                    'address' => $facility->address,
+                    'organization_name' => $facility->organization->name,
                     'created_at' => $facility->created_at,
                     'updated_at' => $facility->updated_at,
                 ];
             });
 
-            return response()->json([
-                'data' => $transformedData,
-                'meta' => [
-                    'current_page' => $facilities->currentPage(),
-                    'last_page' => $facilities->lastPage(),
-                    'per_page' => $facilities->perPage(),
-                    'total' => $facilities->total(),
-                ],
-                'links' => [
-                    'first' => $facilities->url(1),
-                    'last' => $facilities->url($facilities->lastPage()),
-                    'prev' => $facilities->previousPageUrl(),
-                    'next' => $facilities->nextPageUrl(),
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error fetching facilities.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        return Inertia::render('Provider/Facilities/Index', [
+            'facilities' => $facilities,
+        ]);
     }
 
     /**
-     * Get a specific facility for API
+     * Display the specified facility for provider users.
      */
-    public function apiShow(string $id): JsonResponse
+    public function providerShow(Facility $facility)
     {
-        try {
-            $facility = Facility::with(['organization', 'users', 'providers', 'officeManagers', 'orders'])
-                               ->findOrFail($id);
+        $user = Auth::user();
 
-            $facilityData = [
+        // Check if provider has access to this facility
+        if (!$user->facilities()->where('facilities.id', $facility->id)->exists()) {
+            abort(403, 'You do not have access to this facility.');
+        }
+
+        $facility->load(['organization', 'providers' => function ($query) {
+            $query->select('users.id', 'users.first_name', 'users.last_name', 'users.email')
+                ->withPivot('role');
+        }]);
+
+        return Inertia::render('Provider/Facilities/Show', [
+            'facility' => [
                 'id' => $facility->id,
                 'name' => $facility->name,
-                'facility_type' => $facility->facility_type,
-                'group_npi' => $facility->group_npi,
-                'status' => $facility->status,
-                'active' => $facility->active,
-                'email' => $facility->email,
-                'phone' => $facility->phone,
-                'formatted_phone' => $facility->formatted_phone,
                 'address' => $facility->address,
-                'city' => $facility->city,
-                'state' => $facility->state,
-                'zip_code' => $facility->zip_code,
-                'full_address' => $facility->full_address,
-                'business_hours' => $facility->business_hours,
-                'organization' => $facility->organization,
-                'providers' => $facility->providers,
-                'office_managers' => $facility->officeManagers,
-                'users_count' => $facility->users()->count(),
-                'orders_count' => $facility->orders()->count(),
+                'organization' => [
+                    'id' => $facility->organization->id,
+                    'name' => $facility->organization->name,
+                ],
+                'providers' => $facility->providers->map(function ($provider) {
+                    return [
+                        'id' => $provider->id,
+                        'name' => $provider->first_name . ' ' . $provider->last_name,
+                        'email' => $provider->email,
+                        'role' => $provider->pivot->role,
+                    ];
+                }),
+                'created_at' => $facility->created_at,
+                'updated_at' => $facility->updated_at,
+            ],
+        ]);
+    }
+
+    /**
+     * API: Get a listing of facilities for admin users.
+     */
+    public function apiIndex(Request $request)
+    {
+        $query = Facility::with('organization')
+            ->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at')
+            ->withCount('providers');
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('address', 'like', "%{$search}%")
+                    ->orWhereHas('organization', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($request->has('organization_id')) {
+            $query->where('organization_id', $request->organization_id);
+        }
+
+        $facilities = $query->get()->map(function ($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization_id' => $facility->organization_id,
+                'organization_name' => $facility->organization->name,
+                'provider_count' => $facility->providers_count,
                 'created_at' => $facility->created_at,
                 'updated_at' => $facility->updated_at,
             ];
+        });
 
-            return response()->json(['data' => $facilityData]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Facility not found.',
-                'error' => $e->getMessage()
-            ], 404);
-        }
+        return response()->json(['facilities' => $facilities]);
     }
 
     /**
-     * Store a new facility via API
+     * API: Store a newly created facility.
      */
-    public function apiStore(Request $request): JsonResponse
+    public function apiStore(Request $request)
     {
-        $request->validate([
+        $validated = $request->validate([
             'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
             'organization_id' => 'required|exists:organizations,id',
-            'facility_type' => 'nullable|string|max:100',
-            'group_npi' => 'nullable|string|max:20',
-            'status' => 'nullable|string|in:active,pending,inactive',
-            'email' => 'required|email|unique:facilities,email',
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'zip_code' => 'nullable|string|max:20',
-            'business_hours' => 'nullable|array',
-            'active' => 'boolean',
         ]);
 
-        try {
-            $facility = Facility::create($request->all());
-            return response()->json([
-                'message' => 'Facility created successfully.',
-                'data' => $facility->load(['organization'])
-            ], 201);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error creating facility.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $facility = Facility::create($validated);
+
+        return response()->json([
+            'message' => 'Facility created successfully',
+            'facility' => [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization_id' => $facility->organization_id,
+            ],
+        ], 201);
     }
 
     /**
-     * Update a facility via API
+     * API: Display the specified facility.
      */
-    public function apiUpdate(Request $request, string $id): JsonResponse
+    public function apiShow(Facility $facility)
     {
-        $request->validate([
-            'name' => 'sometimes|required|string|max:255',
-            'organization_id' => 'sometimes|required|exists:organizations,id',
-            'facility_type' => 'nullable|string|max:100',
-            'group_npi' => 'nullable|string|max:20',
-            'status' => 'nullable|string|in:active,pending,inactive',
-            'email' => 'sometimes|required|email|unique:facilities,email,' . $id,
-            'phone' => 'nullable|string|max:20',
-            'address' => 'nullable|string',
-            'city' => 'nullable|string|max:100',
-            'state' => 'nullable|string|max:100',
-            'zip_code' => 'nullable|string|max:20',
-            'business_hours' => 'nullable|array',
-            'active' => 'boolean',
+        $facility->load(['organization', 'providers' => function ($query) {
+            $query->select('users.id', 'users.first_name', 'users.last_name', 'users.email')
+                ->withPivot('role');
+        }]);
+
+        return response()->json([
+            'facility' => [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization' => [
+                    'id' => $facility->organization->id,
+                    'name' => $facility->organization->name,
+                ],
+                'providers' => $facility->providers->map(function ($provider) {
+                    return [
+                        'id' => $provider->id,
+                        'name' => $provider->first_name . ' ' . $provider->last_name,
+                        'email' => $provider->email,
+                        'role' => $provider->pivot->role,
+                    ];
+                }),
+                'created_at' => $facility->created_at,
+                'updated_at' => $facility->updated_at,
+            ],
+        ]);
+    }
+
+    /**
+     * API: Update the specified facility.
+     */
+    public function apiUpdate(Request $request, Facility $facility)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'address' => 'nullable|string|max:255',
+            'organization_id' => 'required|exists:organizations,id',
         ]);
 
-        try {
-            $facility = Facility::findOrFail($id);
-            $facility->update($request->all());
-            return response()->json([
-                'message' => 'Facility updated successfully.',
-                'data' => $facility->load(['organization'])
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error updating facility.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $facility->update($validated);
+
+        return response()->json([
+            'message' => 'Facility updated successfully',
+            'facility' => [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization_id' => $facility->organization_id,
+            ],
+        ]);
     }
 
     /**
-     * Delete a facility via API
+     * API: Remove the specified facility.
      */
-    public function apiDestroy(string $id): JsonResponse
+    public function apiDestroy(Facility $facility)
     {
-        try {
-            $facility = Facility::findOrFail($id);
-            $facility->delete();
-            return response()->json([
-                'message' => 'Facility deleted successfully.'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error deleting facility.',
-                'error' => $e->getMessage()
-            ], 500);
-        }
+        $facility->delete();
+
+        return response()->json([
+            'message' => 'Facility deleted successfully'
+        ]);
     }
 
     /**
-     * Get facility stats for API
+     * API: Get a listing of facilities for provider users.
      */
-    public function apiStats(): JsonResponse
+    public function apiProviderIndex(Request $request)
     {
-        try {
-            $stats = [
-                'total' => Facility::count(),
-                'active' => Facility::where('active', true)->count(),
-                'inactive' => Facility::where('active', false)->count(),
-                'recent' => Facility::where('created_at', '>=', now()->subDays(30))->count(),
-                'by_type' => Facility::selectRaw('facility_type, count(*) as count')
-                                   ->groupBy('facility_type')
-                                   ->pluck('count', 'facility_type'),
+        $user = Auth::user();
+        $query = $user->facilities()
+            ->with('organization')
+            ->select('facilities.id', 'facilities.name', 'facilities.address', 'facilities.organization_id', 'facilities.created_at', 'facilities.updated_at')
+            ->withCount('providers');
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('facilities.name', 'like', "%{$search}%")
+                    ->orWhere('facilities.address', 'like', "%{$search}%")
+                    ->orWhereHas('organization', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        $facilities = $query->get()->map(function ($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization_name' => $facility->organization->name,
+                'provider_count' => $facility->providers_count,
+                'created_at' => $facility->created_at,
+                'updated_at' => $facility->updated_at,
             ];
+        });
 
-            return response()->json(['data' => $stats]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Error fetching facility stats.',
-                'error' => $e->getMessage()
-            ], 500);
+        return response()->json(['facilities' => $facilities]);
+    }
+
+    /**
+     * API: Display the specified facility for provider users.
+     */
+    public function apiProviderShow(Facility $facility)
+    {
+        $user = Auth::user();
+
+        // Check if provider has access to this facility
+        if (!$user->facilities()->where('facilities.id', $facility->id)->exists()) {
+            return response()->json(['message' => 'You do not have access to this facility.'], 403);
         }
+
+        $facility->load(['organization', 'providers' => function ($query) {
+            $query->select('users.id', 'users.first_name', 'users.last_name', 'users.email')
+                ->withPivot('role');
+        }]);
+
+        return response()->json([
+            'facility' => [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->address,
+                'organization' => [
+                    'id' => $facility->organization->id,
+                    'name' => $facility->organization->name,
+                ],
+                'providers' => $facility->providers->map(function ($provider) {
+                    return [
+                        'id' => $provider->id,
+                        'name' => $provider->first_name . ' ' . $provider->last_name,
+                        'email' => $provider->email,
+                        'role' => $provider->pivot->role,
+                    ];
+                }),
+                'created_at' => $facility->created_at,
+                'updated_at' => $facility->updated_at,
+            ],
+        ]);
+    }
+
+    /**
+     * Store a newly created facility.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'facility_type' => 'required|string|in:clinic,hospital_outpatient,wound_center,asc',
+            'address' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'zip_code' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'npi' => 'nullable|string|max:255',
+            'business_hours' => 'nullable|string',
+            'active' => 'boolean',
+            'coordinating_sales_rep_id' => 'nullable|exists:users,id',
+            'organization_id' => 'required|exists:organizations,id',
+        ]);
+
+        $facility = Facility::create($validated);
+
+        return redirect()->route('admin.facilities.index')
+            ->with('success', 'Facility created successfully');
+    }
+
+    /**
+     * Update the specified facility.
+     */
+    public function update(Request $request, Facility $facility)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'facility_type' => 'required|string|in:clinic,hospital_outpatient,wound_center,asc',
+            'address' => 'required|string|max:255',
+            'city' => 'required|string|max:255',
+            'state' => 'required|string|max:255',
+            'zip_code' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:255',
+            'email' => 'nullable|email|max:255',
+            'npi' => 'nullable|string|max:255',
+            'business_hours' => 'nullable|string',
+            'active' => 'boolean',
+            'coordinating_sales_rep_id' => 'nullable|exists:users,id',
+            'organization_id' => 'required|exists:organizations,id',
+        ]);
+
+        $facility->update($validated);
+
+        return redirect()->route('admin.facilities.index')
+            ->with('success', 'Facility updated successfully');
+    }
+
+    /**
+     * Remove the specified facility.
+     */
+    public function destroy(Facility $facility)
+    {
+        $facility->delete();
+
+        return redirect()->route('admin.facilities.index')
+            ->with('success', 'Facility deleted successfully');
     }
 }

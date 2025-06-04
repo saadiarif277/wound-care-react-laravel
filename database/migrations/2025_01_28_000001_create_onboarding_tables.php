@@ -50,7 +50,6 @@ return new class extends Migration
                 $table->timestamp('last_activity_at')->nullable();
                 $table->timestamps();
 
-                $table->index(['entity_type', 'entity_id']);
                 $table->index('checklist_type');
             });
         }
@@ -81,7 +80,6 @@ return new class extends Migration
             $table->foreign('uploaded_by')->references('id')->on('users')->onDelete('cascade');
             $table->foreign('reviewed_by')->references('id')->on('users')->onDelete('set null');
 
-            $table->index(['entity_type', 'entity_id']);
             $table->index('document_type');
             $table->index('status');
         });

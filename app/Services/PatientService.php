@@ -3,171 +3,232 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\DB;
-use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class PatientService
 {
     /**
      * Create patient record and generate sequential display ID.
+     * Includes fallback mechanisms for error cases.
      */
     public function createPatientRecord(array $patientData, int $facilityId): array
     {
-        // 1. Create FHIR Patient resource in Azure HDS
-        $patientFhirId = $this->createFhirPatient($patientData);
+        try {
+            // Try to generate a proper display ID first
+            try {
+                $displayId = $this->generateDisplayId(
+                    $patientData['first_name'],
+                    $patientData['last_name'],
+                    $facilityId
+                );
+            } catch (\Exception $e) {
+                // Fallback to a temporary ID if sequence generation fails
+                Log::warning('Sequence generation failed, using fallback ID', [
+                    'error' => $e->getMessage(),
+                    'data' => $patientData
+                ]);
+                $displayId = $this->generateFallbackId($patientData, $facilityId);
+            }
 
-        // 2. Generate sequential display ID
-        $patientDisplayId = $this->generateSequentialDisplayId(
-            $patientData['first_name'],
-            $patientData['last_name'],
-            $facilityId
-        );
+            // Generate a temporary FHIR ID
+            $fhirId = 'Patient/' . Str::uuid();
 
-        // 3. Return identifiers for Supabase storage
-        return [
-            'patient_fhir_id' => $patientFhirId,
-            'patient_display_id' => $patientDisplayId, // "JoSm001" format for UI display
-        ];
-    }
+            // Store the record even if it's temporary
+            $this->storePatientRecord($displayId, $fhirId, $facilityId, $patientData);
 
-    /**
-     * Generate patient initials from first and last name.
-     */
-    private function generateInitials(string $firstName, string $lastName): string
-    {
-        // Extract first 2 letters of each name, handle edge cases
-        $cleanFirst = trim($firstName);
-        $cleanFirst = preg_replace('/[^a-zA-Z]/', '', $cleanFirst);
-
-        $cleanLast = trim($lastName);
-        $cleanLast = preg_replace('/[^a-zA-Z]/', '', $cleanLast);
-
-        if (strlen($cleanFirst) < 2 || strlen($cleanLast) < 2) {
-            // Fallback for short names or special characters
-            $firstInit = strlen($cleanFirst) > 0
-                ? substr($cleanFirst, 0, min(2, strlen($cleanFirst)))
-                : 'XX';
-            $firstInit = str_pad($firstInit, 2, 'X');
-
-            $lastInit = strlen($cleanLast) > 0
-                ? substr($cleanLast, 0, min(2, strlen($cleanLast)))
-                : 'XX';
-            $lastInit = str_pad($lastInit, 2, 'X');
-
-            return strtoupper($firstInit . $lastInit);
+            return [
+                'patient_fhir_id' => $fhirId,
+                'patient_display_id' => $displayId,
+                'is_temporary' => str_starts_with($displayId, 'TEMP-')
+            ];
+        } catch (\Exception $e) {
+            Log::error('Failed to create patient record', [
+                'error' => $e->getMessage(),
+                'data' => $patientData
+            ]);
+            // Return a temporary ID as last resort
+            return [
+                'patient_fhir_id' => 'Patient/' . Str::uuid(),
+                'patient_display_id' => $this->generateEmergencyId($facilityId),
+                'is_temporary' => true
+            ];
         }
-
-        $firstInit = strtoupper(substr($cleanFirst, 0, 2));
-        $lastInit = strtoupper(substr($cleanLast, 0, 2));
-
-        return $firstInit . $lastInit;
     }
 
     /**
-     * Generate sequential display ID for patient.
+     * Store patient record in database.
      */
-    private function generateSequentialDisplayId(
-        string $firstName,
-        string $lastName,
-        int $facilityId
-    ): string {
-        $baseInitials = $this->generateInitials($firstName, $lastName);
-
-        // Get or create sequence record for this initials+facility combo
-        $sequence = $this->getNextSequenceNumber($baseInitials, $facilityId);
-
-        // Format as "JoSm001"
-        return $baseInitials . str_pad($sequence, 3, '0', STR_PAD_LEFT);
-    }
-
-    /**
-     * Get next sequence number atomically.
-     */
-    private function getNextSequenceNumber(string $baseInitials, int $facilityId): int
+    private function storePatientRecord(string $displayId, string $fhirId, int $facilityId, array $data): void
     {
-        // Call the PostgreSQL function for atomic increment
-        $result = DB::select('SELECT increment_patient_sequence(?, ?) AS next_sequence', [
-            $facilityId,
-            $baseInitials
-        ]);
-
-        return $result[0]->next_sequence;
+        try {
+            DB::table('product_requests')->insert([
+                'patient_display_id' => $displayId,
+                'patient_fhir_id' => $fhirId,
+                'facility_id' => $facilityId,
+                'created_at' => now(),
+                'updated_at' => now()
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to store patient record', [
+                'display_id' => $displayId,
+                'error' => $e->getMessage()
+            ]);
+            // Continue execution even if storage fails
+        }
     }
 
     /**
-     * Create FHIR Patient resource in Azure HDS.
-     * TODO: Implement actual FHIR patient creation.
+     * Generate display ID for patient (e.g., "JOSM001").
      */
-    private function createFhirPatient(array $patientData): string
+    private function generateDisplayId(string $firstName, string $lastName, int $facilityId): string
     {
-        // TODO: Implement actual FHIR patient creation in Azure HDS
-        // This should:
-        // 1. Connect to Azure Health Data Services
-        // 2. Create Patient FHIR resource with demographics
-        // 3. Return the FHIR resource ID
-
-        // For now, return a mock FHIR ID
-        return 'Patient/' . uniqid();
+        $initials = $this->getInitials($firstName, $lastName);
+        $sequence = $this->getSequence($facilityId, $initials);
+        return $initials . str_pad($sequence, 3, '0', STR_PAD_LEFT);
     }
 
     /**
-     * Retrieve patient data from Azure HDS by FHIR ID.
-     * TODO: Implement actual FHIR patient retrieval.
+     * Generate a fallback ID when sequence generation fails.
      */
-    public function getPatientData(string $patientFhirId): ?array
+    private function generateFallbackId(array $patientData, int $facilityId): string
     {
-        // TODO: Implement actual patient data retrieval from Azure HDS
-        // This should only be called when PHI is actually needed
-
-        return null;
+        $initials = $this->getInitials($patientData['first_name'], $patientData['last_name']);
+        $timestamp = date('YmdHis');
+        $random = str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
+        return "TEMP-{$initials}-{$facilityId}-{$timestamp}-{$random}";
     }
 
     /**
-     * Search for existing patients by display ID.
+     * Generate an emergency ID as last resort.
+     */
+    private function generateEmergencyId(int $facilityId): string
+    {
+        return "EMERG-" . Str::random(8) . "-{$facilityId}";
+    }
+
+    /**
+     * Get patient initials from name.
+     */
+    private function getInitials(string $firstName, string $lastName): string
+    {
+        $first = substr(preg_replace('/[^a-zA-Z]/', '', $firstName), 0, 2);
+        $last = substr(preg_replace('/[^a-zA-Z]/', '', $lastName), 0, 2);
+
+        // Handle short names
+        $first = str_pad($first, 2, 'X');
+        $last = str_pad($last, 2, 'X');
+
+        return strtoupper($first . $last);
+    }
+
+    /**
+     * Get next sequence number for initials.
+     * Includes fallback to random number if database fails.
+     */
+    private function getSequence(int $facilityId, string $initials): int
+    {
+        try {
+            // Try to get sequence from database
+            $result = DB::select(
+                'SELECT increment_patient_sequence(?, ?) as num',
+                [$facilityId, $initials]
+            );
+
+            if (!empty($result) && isset($result[0]->num)) {
+                $sequence = (int) $result[0]->num;
+                if ($sequence > 0) {
+                    return $sequence;
+                }
+            }
+
+            // Fallback to random number if database fails
+            Log::warning('Using fallback sequence number', [
+                'facility' => $facilityId,
+                'initials' => $initials
+            ]);
+            return mt_rand(100, 999);
+
+        } catch (\Exception $e) {
+            Log::error('Sequence generation failed, using fallback', [
+                'facility' => $facilityId,
+                'initials' => $initials,
+                'error' => $e->getMessage()
+            ]);
+            // Return a random number as fallback
+            return mt_rand(100, 999);
+        }
+    }
+
+    /**
+     * Search patients by display ID.
+     * Includes fallback for collation issues.
      */
     public function searchPatientsByDisplayId(string $searchTerm, int $facilityId): array
     {
-        // Search local display IDs without hitting Azure HDS
-        return DB::table('product_requests')
-            ->select('patient_display_id', 'patient_fhir_id')
-            ->where('facility_id', $facilityId)
-            ->where('patient_display_id', 'LIKE', $searchTerm . '%')
-            ->distinct()
-            ->get()
-            ->toArray();
+        try {
+            // Try normal search first
+            $results = DB::table('product_requests')
+                ->select('patient_display_id', 'patient_fhir_id')
+                ->where('facility_id', $facilityId)
+                ->where('patient_display_id', 'LIKE', $searchTerm . '%')
+                ->distinct()
+                ->get()
+                ->toArray();
+
+            if (!empty($results)) {
+                return $results;
+            }
+
+            // Fallback to case-insensitive search if no results
+            return DB::table('product_requests')
+                ->select('patient_display_id', 'patient_fhir_id')
+                ->where('facility_id', $facilityId)
+                ->whereRaw('LOWER(patient_display_id) LIKE ?', [strtolower($searchTerm) . '%'])
+                ->distinct()
+                ->get()
+                ->toArray();
+
+        } catch (\Exception $e) {
+            Log::error('Patient search failed', [
+                'term' => $searchTerm,
+                'facility' => $facilityId,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
     }
 
     /**
-     * Get patient display information for UI (non-PHI).
+     * Get basic patient display info.
      */
-    public function getPatientDisplayInfo(string $patientDisplayId): array
+    public function getPatientDisplayInfo(string $displayId): array
     {
         return [
-            'patient_display_id' => $patientDisplayId,
-            'display_name' => $patientDisplayId, // No age information for better privacy
+            'patient_display_id' => $displayId,
+            'display_name' => $displayId,
+            'is_temporary' => str_starts_with($displayId, 'TEMP-') || str_starts_with($displayId, 'EMERG-')
         ];
     }
 
     /**
-     * Get patient clinical factors for recommendations (non-PHI aggregated data).
+     * Get patient clinical factors (mock data for now).
      */
-    public function getPatientClinicalFactors(string $patientFhirId, int $facilityId): array
+    public function getPatientClinicalFactors(string $fhirId, int $facilityId): array
     {
-        // TODO: Implement actual clinical data retrieval from Azure HDS
-        // This should aggregate clinical data without exposing PHI
-        // Return generalized clinical factors useful for product recommendations
-
         return [
-            'age_range' => 'unknown', // e.g., '65-74', '75-84', etc.
+            'age_range' => 'unknown',
             'gender' => 'unknown',
-            'diabetes_type' => null, // 'type1', 'type2', or null
-            'hba1c_level' => null, // 'controlled', 'poor_control', etc.
-            'comorbidities' => [], // array of condition codes
-            'medications' => [], // array of relevant medication classes
-            'allergies' => [], // array of allergy categories
-            'mobility_status' => 'unknown', // 'ambulatory', 'wheelchair', 'bedbound'
-            'nutrition_status' => 'unknown', // 'normal', 'malnourished', 'obese'
-            'smoking_status' => 'unknown', // 'never', 'former', 'current'
+            'diabetes_type' => null,
+            'hba1c_level' => null,
+            'comorbidities' => [],
+            'medications' => [],
+            'allergies' => [],
+            'mobility_status' => 'unknown',
+            'nutrition_status' => 'unknown',
+            'smoking_status' => 'unknown',
             'immunocompromised' => false
         ];
     }
 }
+

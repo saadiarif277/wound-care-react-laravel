@@ -27,11 +27,14 @@ const ClinicalOpportunitiesStep: React.FC<ClinicalOpportunitiesStepProps> = ({
   const [opportunities, setOpportunities] = useState<ClinicalOpportunity[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedOpportunities, setSelectedOpportunities] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Scan for clinical opportunities based on assessment
   const scanOpportunities = async () => {
-    setIsLoading(true);
     try {
+      setIsLoading(true);
+      setError(null);
+
       const response = await apiPost('/api/v1/clinical-opportunities/scan', {
         clinical_data: formData.clinical_data,
         wound_type: formData.wound_type,
@@ -47,8 +50,8 @@ const ClinicalOpportunitiesStep: React.FC<ClinicalOpportunitiesStepProps> = ({
         // Mock opportunities for demo
         setOpportunities(getMockOpportunities());
       }
-    } catch (error) {
-      console.error('Clinical opportunities scan error:', error);
+    } catch (err: any) {
+      console.error('Clinical opportunities scan error:', err);
       // Mock opportunities for demo
       setOpportunities(getMockOpportunities());
     } finally {

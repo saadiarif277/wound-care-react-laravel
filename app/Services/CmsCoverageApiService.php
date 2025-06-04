@@ -3019,4 +3019,70 @@ class CmsCoverageApiService
             ]
         ];
     }
+
+    /**
+     * Get CMS data for validation based on specialty and state
+     *
+     * @param string $specialty The medical specialty
+     * @param string $state The state code
+     * @return array The CMS data needed for validation
+     */
+    public function getCmsDataForValidation(string $specialty, string $state): array
+    {
+        try {
+            // Get LCDs, NCDs, and Articles for the specialty
+            $lcds = $this->getLCDsBySpecialty($specialty, $state);
+            $ncds = $this->getNCDsBySpecialty($specialty);
+            $articles = $this->getArticlesBySpecialty($specialty, $state);
+
+            // Get MAC jurisdiction information
+            $macInfo = $this->getMACJurisdiction($state);
+
+            // Get quick counts for the state
+            $quickCounts = $this->getQuickCounts($state);
+
+            return [
+                'lcds' => $lcds,
+                'ncds' => $ncds,
+                'articles' => $articles,
+                'mac_info' => $macInfo,
+                'quick_counts' => $quickCounts,
+                'state' => $state,
+                'specialty' => $specialty,
+                'timestamp' => now()->toISOString(),
+                'data_source' => 'cms_api',
+                'performance_metrics' => [
+                    'api_calls_made' => $this->apiCallCount,
+                    'cache_hit_ratio' => $this->getCacheHitRatio(),
+                    'total_requests' => $this->cacheHits + $this->cacheMisses
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Error getting CMS data for validation', [
+                'specialty' => $specialty,
+                'state' => $state,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return empty data structure with error information
+            return [
+                'lcds' => [],
+                'ncds' => [],
+                'articles' => [],
+                'mac_info' => null,
+                'quick_counts' => [],
+                'state' => $state,
+                'specialty' => $specialty,
+                'timestamp' => now()->toISOString(),
+                'data_source' => 'error',
+                'error' => $e->getMessage(),
+                'performance_metrics' => [
+                    'api_calls_made' => $this->apiCallCount,
+                    'cache_hit_ratio' => $this->getCacheHitRatio(),
+                    'total_requests' => $this->cacheHits + $this->cacheMisses
+                ]
+            ];
+        }
+    }
 }

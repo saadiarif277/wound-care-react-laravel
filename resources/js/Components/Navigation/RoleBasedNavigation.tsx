@@ -132,6 +132,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiPackage,
           roles: ['provider']
         },
+        {
+          name: 'Facilities',
+          href: '/provider/facilities',
+          icon: FiMapPin,
+          roles: ['provider'],
+          description: 'View facilities you have access to'
+        },
       ];
 
     case 'office-manager':
@@ -321,6 +328,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiPackage,
           roles: ['msc-admin'],
           description: 'Manage product catalog and inventory'
+        },
+        {
+          name: 'Facility Management',
+          href: '/admin/facilities',
+          icon: FiMapPin,
+          roles: ['msc-admin'],
+          description: 'Manage facilities and their providers'
         },
         {
           name: 'System Administration',

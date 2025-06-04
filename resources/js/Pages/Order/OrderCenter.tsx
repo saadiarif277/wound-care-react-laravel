@@ -54,7 +54,7 @@ interface ProductRequest {
 interface ReviewTabProps {
   requests: {
     data: ProductRequest[]; // Now uses ProductRequest
-    links: any[]; 
+    links: any[];
     current_page: number;
     last_page: number;
     per_page: number;
@@ -71,7 +71,7 @@ interface ReviewTabProps {
     [key: string]: number;
   };
   facilities: Array<{ id: number; name: string }>;
-  roleRestrictions: any; 
+  roleRestrictions: any;
 }
 // --- Interface for ReviewTabProps --- END ---
 
@@ -570,10 +570,14 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
     });
   };
 
-  const formatCurrency = (amount: number | undefined) => amount !== undefined ? `$${amount.toFixed(2)}` : '$0.00';
+  const formatCurrency = (amount: number | string | undefined | null): string => {
+    if (amount === undefined || amount === null) return '$0.00';
+    const numericValue = typeof amount === 'number' ? amount : parseFloat(amount) || 0;
+    return `$${numericValue.toFixed(2)}`;
+  };
 
   if (!requests || !requests.data) {
-    return <div className="p-4">Loading request reviews or no requests found...</div>; 
+    return <div className="p-4">Loading request reviews or no requests found...</div>;
   }
 
   return (
@@ -611,7 +615,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
               className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
               defaultValue={filters.search}
               onChange={(e) => {
-                router.get(router.page.url, 
+                router.get(router.page.url,
                   { ...filters, search: e.target.value },
                   { preserveState: true, replace: true, only: ['requests'] }
                 );
@@ -946,7 +950,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
                         href={link.url || '#'}
                         preserveScroll
                         preserveState
-                        className={`relative inline-flex items-center px-3 py-1.5 border text-xs font-medium 
+                        className={`relative inline-flex items-center px-3 py-1.5 border text-xs font-medium
                           ${link.active ? 'z-10 bg-red-50 border-red-500 text-red-600' : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'}
                           ${index === 0 ? 'rounded-l-md' : ''}
                           ${index === requests.links.length - 1 ? 'rounded-r-md' : ''}
@@ -1009,8 +1013,8 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
                   onClick={() => handleSingleAction(reviewModal.requestId, reviewModal.action)}
                   disabled={ (reviewModal.action === 'reject' || reviewModal.action === 'request_info') && !reviewNotes.trim() }
                   className={`px-4 py-2 text-sm font-medium text-white rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2
-                    ${reviewModal.action === 'approve' ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500' 
-                    : reviewModal.action === 'reject' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500' 
+                    ${reviewModal.action === 'approve' ? 'bg-green-600 hover:bg-green-700 focus:ring-green-500'
+                    : reviewModal.action === 'reject' ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
                     : 'bg-yellow-500 hover:bg-yellow-600 focus:ring-yellow-400'}
                     disabled:opacity-60 disabled:cursor-not-allowed`}
                 >
@@ -1096,11 +1100,11 @@ const OrderCenter: React.FC<OrderCenterProps> = (props) => {
           {/* Pass all props to the active tab. Ensure 'props' matches what ActiveTabContent expects. */}
           {/* If ActiveTabContent is RequestReviewsTabContent, it expects ReviewTabProps. */}
           {/* If ActiveTabContent is OrderManagementTabContent, it currently expects no props. */}
-          <ActiveTabContent {...props} /> 
+          <ActiveTabContent {...props} />
         </div>
       </div>
     </MainLayout>
   );
 };
 
-export default OrderCenter; 
+export default OrderCenter;
