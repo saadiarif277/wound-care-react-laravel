@@ -23,6 +23,8 @@ interface ProductRequest {
   pre_auth_required?: boolean;
   submitted_at?: string;
   approved_at?: string;
+  wound_type?: string;
+  expected_service_date?: string;
 }
 
 interface Props {
@@ -308,7 +310,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters, facilities, s
                       Patient
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status & Progress
+                      Status
                     </th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Validation
@@ -324,7 +326,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters, facilities, s
                 <tbody className="bg-white divide-y divide-gray-200">
                   {requests.data.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center">
+                      <td colSpan={6} className="px-6 py-12 text-center">
                         <div className="text-gray-500">
                           <p className="text-lg font-medium">No product requests found</p>
                           <p className="mt-1">Get started by creating your first product request.</p>
@@ -384,15 +386,6 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters, facilities, s
                                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${statusInfo.color}`}>
                                     {statusInfo.label}
                                   </span>
-                                </div>
-                                <div className="w-full bg-gray-200 rounded-full h-2">
-                                  <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                                    style={{ width: `${getStepProgress(request.step)}%` }}
-                                  />
-                                </div>
-                                <div className="text-xs text-gray-600">
-                                  Step {request.step}/6: {request.step_description}
                                 </div>
                               </div>
                             </td>
@@ -459,7 +452,7 @@ const ProductRequestIndex: React.FC<Props> = ({ requests, filters, facilities, s
                           </tr>
                           {isExpanded && (
                             <tr>
-                              <td colSpan={7} className="px-6 py-4 bg-gray-50">
+                              <td colSpan={6} className="px-6 py-4 bg-gray-50">
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                   <div>
                                     <h4 className="text-sm font-medium text-gray-900 mb-2">Timeline</h4>

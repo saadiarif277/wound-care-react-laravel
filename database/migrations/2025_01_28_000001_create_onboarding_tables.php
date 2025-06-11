@@ -22,8 +22,8 @@ return new class extends Migration
                 'go_live',
                 'completed'
             ])->default('initiated');
-            $table->json('completed_steps')->default('[]');
-            $table->json('pending_items')->default('[]');
+            $table->json('completed_steps')->nullable();
+            $table->json('pending_items')->nullable();
             $table->unsignedBigInteger('onboarding_manager_id')->nullable();
             $table->timestamp('initiated_at');
             $table->timestamp('target_go_live_date')->nullable();

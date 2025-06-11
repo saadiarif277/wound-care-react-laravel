@@ -19,6 +19,7 @@ interface MainLayoutProps {
 
 interface PageProps extends Record<string, unknown> {
   userRole?: UserRole;
+  permissions?: string[];
   user?: any;
   auth?: {
     user?: {
@@ -83,7 +84,7 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
         `}>
           <div className="flex flex-col h-full">
             {/* Brand Logo */}
-            <div className={`flex items-center h-20 px-6 bg-white border-b border-gray-200 ${
+            <div className={`flex items-center px-6 py-5 bg-white border-b border-gray-200 ${
               isCollapsed ? 'justify-center' : 'justify-between'
             }`}>
               <Link href="/" className="flex items-center">
@@ -127,7 +128,7 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
             />
 
             {/* User Profile and Logout */}
-            <div className="p-4 bg-gray-50 border-t border-gray-200">
+            <div className="p-4 border-t border-gray-200">
               {!isCollapsed ? (
                 <>
                   <div className="flex items-center mb-4 p-3 bg-white rounded-lg shadow-sm">
@@ -200,7 +201,7 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col">
           {/* Top Header Bar for Mobile */}
           <div className="md:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
             <div className="flex items-center justify-between">

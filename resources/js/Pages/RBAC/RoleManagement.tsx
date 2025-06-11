@@ -114,7 +114,7 @@ export default function RoleManagement({ roles, permissions, roleStats, permissi
         e.preventDefault();
 
         if (selectedRole) {
-            put(route('roles.update', selectedRole.id), {
+            put(route('web.roles.update', selectedRole.id), {
                 onSuccess: () => {
                     toast.success('Role updated successfully');
                     setIsEditing(false);
@@ -125,7 +125,7 @@ export default function RoleManagement({ roles, permissions, roleStats, permissi
                 },
             });
         } else {
-            post(route('roles.store'), {
+            post(route('web.roles.store'), {
                 onSuccess: () => {
                     toast.success('Role created successfully');
                     setIsEditing(false);
@@ -145,7 +145,7 @@ export default function RoleManagement({ roles, permissions, roleStats, permissi
 
     const confirmDelete = () => {
         if (selectedRole) {
-            destroy(route('roles.destroy', selectedRole.id), {
+            destroy(route('web.roles.destroy', selectedRole.id), {
                 onSuccess: () => {
                     toast.success('Role deleted successfully');
                     setShowDeleteConfirm(false);

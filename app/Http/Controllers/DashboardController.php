@@ -530,14 +530,6 @@ class DashboardController extends Controller
 
         $collectionsEfficiency = $totalApprovedValue > 0 ? ($deliveredValue / $totalApprovedValue) * 100 : 0;
 
-        // If no data available, show reasonable defaults to avoid showing 0
-        if ($profitMargin == 0 && $totalRevenue == 0) {
-            $profitMargin = 18.5;
-        }
-        if ($collectionsEfficiency == 0 && $totalApprovedValue == 0) {
-            $collectionsEfficiency = 94.2;
-        }
-
         return [
             'total_outstanding_commissions' => $totalOutstandingCommissions,
             'monthly_revenue' => $monthlyRevenue,

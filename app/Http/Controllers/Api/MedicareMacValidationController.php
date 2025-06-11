@@ -1230,8 +1230,10 @@ class MedicareMacValidationController extends Controller
         }
 
         // Prior care considerations
-        if ($analysis['prior_care_analysis']['status'] === 'no_prior_care_documented') {
+        if (isset($analysis['prior_care_analysis']['status']) && $analysis['prior_care_analysis']['status'] === 'no_prior_care_documented') {
             $deductions += 8;
+        } elseif (isset($analysis['prior_care_analysis']['care_progression']) && $analysis['prior_care_analysis']['care_progression'] === 'extended') {
+            $deductions += 3; // Extended care without improvement may indicate issues
         }
 
         return max(0, $score - $deductions);
@@ -1838,5 +1840,67 @@ class MedicareMacValidationController extends Controller
         ];
 
         return $adjustments[$state] ?? 1.00;
+    }
+
+    private function getEstimatedPricing(string $code): array
+    {
+        // Base estimates for common wound care codes
+        $estimates = [
+            'Q4151' => [
+                'code' => 'Q4151',
+                'description' => 'Skin substitute, per sq cm',
+                'estimated_reimbursement' => 250.00,
+                'unit' => 'per sq cm'
+            ],
+            'Q4152' => [
+                'code' => 'Q4152',
+                'description' => 'Dermagraft, per sq cm',
+                'estimated_reimbursement' => 280.00,
+                'unit' => 'per sq cm'
+            ],
+            '97597' => [
+                'code' => '97597',
+                'description' => 'Debridement, open wound, first 20 sq cm',
+                'estimated_reimbursement' => 75.00,
+                'unit' => 'per session'
+            ],
+            '97598' => [
+                'code' => '97598',
+                'description' => 'Debridement, each additional 20 sq cm',
+                'estimated_reimbursement' => 35.00,
+                'unit' => 'per session'
+            ],
+            '11042' => [
+                'code' => '11042',
+                'description' => 'Debridement, subcutaneous tissue, first 20 sq cm',
+                'estimated_reimbursement' => 120.00,
+                'unit' => 'per session'
+            ]
+        ];
+
+        // Default estimate for unknown codes
+        $default = [
+            'code' => $code,
+            'description' => 'Healthcare service',
+            'estimated_reimbursement' => 100.00,
+            'unit' => 'per service'
+        ];
+
+        return $estimates[$code] ?? $default;
+    }
+
+    private function getCodeDescription(string $code): string
+    {
+        $descriptions = [
+            'Q4151' => 'Skin substitute, per sq cm',
+            'Q4152' => 'DermaGraft, per sq cm',
+            'Q4153' => 'Dermavest, per sq cm',
+            '97597' => 'Debridement, open wound, first 20 sq cm',
+            '97598' => 'Debridement, each additional 20 sq cm',
+            '11042' => 'Debridement, subcutaneous tissue, first 20 sq cm',
+            '11043' => 'Debridement, subcutaneous tissue, each additional 20 sq cm'
+        ];
+
+        return $descriptions[$code] ?? 'Healthcare service code ' . $code;
     }
 }

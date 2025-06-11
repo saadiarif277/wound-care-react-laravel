@@ -68,11 +68,31 @@ class RBACController extends Controller
             ];
         });
 
+        // Transform roles to match frontend expectations
+        $userRoles = $roles->map(function ($role) {
+            return [
+                'id' => $role->id,
+                'name' => $role->slug,
+                'display_name' => $role->name,
+                'description' => $role->description ?? '',
+                'user_count' => $role->users->count(),
+                'hierarchy_level' => $this->getHierarchyLevel($role->slug),
+                'is_active' => $role->is_active ?? true,
+                'permissions' => $role->permissions->pluck('slug')->toArray(),
+                'dashboard_config' => [
+                    'financial_access' => $role->permissions->contains('slug', 'view-financials'),
+                    'pricing_access' => $this->getPricingAccess($role),
+                    'admin_capabilities' => $this->getAdminCapabilities($role),
+                    'customer_data_restrictions' => $this->getDataRestrictions($role),
+                ],
+            ];
+        });
+
         return Inertia::render('RBAC/Index', [
-            'roles' => $roles,
+            'userRoles' => $userRoles,
             'permissions' => $permissions,
             'users' => $users,
-            'roleStats' => $roleStats,
+            'roleStats' => $userRoles,
             'permissionStats' => $permissionStats,
             'userDistribution' => $userDistribution,
             'totalUsers' => $users->count(),
@@ -385,5 +405,95 @@ class RBACController extends Controller
         }
 
         return $formatted;
+    }
+
+    /**
+     * Get hierarchy level for a role
+     */
+    private function getHierarchyLevel($roleSlug)
+    {
+        $hierarchy = [
+            'super-admin' => 1,
+            'superadmin' => 1,
+            'msc-admin' => 2,
+            'msc-rep' => 3,
+            'msc-subrep' => 4,
+            'office-manager' => 4,
+            'provider' => 5,
+        ];
+
+        return $hierarchy[$roleSlug] ?? 6;
+    }
+
+    /**
+     * Get pricing access level for a role
+     */
+    private function getPricingAccess($role)
+    {
+        if ($role->permissions->contains('slug', 'view-msc-pricing') && 
+            $role->permissions->contains('slug', 'view-discounts')) {
+            return 'full';
+        }
+        
+        if ($role->permissions->contains('slug', 'view-financials')) {
+            return 'limited';
+        }
+        
+        return 'national_asp_only';
+    }
+
+    /**
+     * Get admin capabilities for a role
+     */
+    private function getAdminCapabilities($role)
+    {
+        $capabilities = [];
+        
+        if ($role->permissions->contains('slug', 'manage-users')) {
+            $capabilities[] = 'user_management';
+        }
+        
+        if ($role->permissions->contains('slug', 'manage-products')) {
+            $capabilities[] = 'product_management';
+        }
+        
+        if ($role->permissions->contains('slug', 'manage-orders')) {
+            $capabilities[] = 'order_management';
+        }
+        
+        if ($role->permissions->contains('slug', 'manage-rbac')) {
+            $capabilities[] = 'rbac_management';
+        }
+        
+        if ($role->permissions->contains('slug', 'manage-system-config')) {
+            $capabilities[] = 'system_configuration';
+        }
+        
+        return $capabilities;
+    }
+
+    /**
+     * Get data restrictions for a role
+     */
+    private function getDataRestrictions($role)
+    {
+        $restrictions = [];
+        
+        // Check if role has PHI restrictions
+        if (in_array($role->slug, ['msc-rep', 'msc-subrep'])) {
+            $restrictions[] = 'no_phi';
+        }
+        
+        // Check for financial data restrictions
+        if (!$role->permissions->contains('slug', 'view-financials')) {
+            $restrictions[] = 'no_financial_data';
+        }
+        
+        // Check for customer data restrictions
+        if (!$role->permissions->contains('slug', 'view-customers')) {
+            $restrictions[] = 'limited_customer_data';
+        }
+        
+        return $restrictions;
     }
 }

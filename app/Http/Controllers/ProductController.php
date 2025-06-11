@@ -56,7 +56,14 @@ class ProductController extends Controller
 
         // Filter product data based on user permissions
         $products->getCollection()->transform(function ($product) use ($user) {
-            return $this->filterProductPricingData($product, $user);
+            $filtered = $this->filterProductPricingData($product, $user);
+            
+            // Add onboarding status for providers
+            if ($user->isProvider()) {
+                $filtered->is_onboarded = $product->isAvailableForProvider($user->id);
+            }
+            
+            return $filtered;
         });
 
         return Inertia::render('Products/Index', [
@@ -210,6 +217,14 @@ class ProductController extends Controller
 
         $query = Product::active();
 
+        // Filter by provider's onboarded products if they are a provider
+        if ($user->isProvider() && !$request->boolean('show_all', false)) {
+            // Only show products the provider is onboarded with
+            $query->whereHas('activeProviders', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
+
         if ($request->filled('q')) {
             $query->search($request->q);
         }
@@ -219,7 +234,7 @@ class ProductController extends Controller
         }
 
         $products = $query
-            ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'price_per_sq_cm', 'available_sizes'])
+            ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'category', 'price_per_sq_cm', 'available_sizes'])
             ->limit(20)
             ->get()
             ->map(function ($product) use ($user) {
@@ -230,6 +245,7 @@ class ProductController extends Controller
                     'sku' => $product->sku,
                     'q_code' => $product->q_code,
                     'manufacturer' => $product->manufacturer,
+                    'category' => $product->category,
                     'nationalAsp' => $product->price_per_sq_cm,
                     'graphSizes' => $product->available_sizes ?? [],
                 ];
@@ -243,7 +259,15 @@ class ProductController extends Controller
                 return $data;
             });
 
-        return response()->json($products);
+        // Also get categories and manufacturers for filtering
+        $categories = $query->distinct()->pluck('category')->filter()->sort()->values();
+        $manufacturers = $query->distinct()->pluck('manufacturer')->filter()->sort()->values();
+
+        return response()->json([
+            'products' => $products,
+            'categories' => $categories,
+            'manufacturers' => $manufacturers,
+        ]);
     }
 
     /**
@@ -287,6 +311,15 @@ class ProductController extends Controller
         $user = Auth::user()->load('roles');
 
         $query = Product::active();
+
+        // Filter by provider's onboarded products if they are a provider
+        // The 'show_all' parameter allows showing all products for catalog viewing
+        if ($user->isProvider() && !$request->boolean('show_all', false)) {
+            // Only show products the provider is onboarded with
+            $query->whereHas('activeProviders', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            });
+        }
 
         // Apply search filter
         if ($request->filled('q')) {
@@ -333,6 +366,11 @@ class ProductController extends Controller
                 // Add commission data only if user has permission
                 if ($user->hasAnyPermission(['view-financials', 'manage-financials'])) {
                     $data['commission_rate'] = $product->commission_rate;
+                }
+
+                // Add onboarding status for providers
+                if ($user->isProvider()) {
+                    $data['is_onboarded'] = $product->isAvailableForProvider($user->id);
                 }
 
                 return $data;

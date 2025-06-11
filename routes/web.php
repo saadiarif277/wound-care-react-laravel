@@ -9,6 +9,7 @@ use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\UsersController as AdminUsersController;
+use App\Http\Controllers\Admin\AdminOrderCenterController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
@@ -39,6 +40,7 @@ use App\Http\Controllers\Auth\ProviderInvitationController;
 use App\Models\ProviderInvitation;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
+use App\Http\Controllers\DocuSealWebhookController;
 
 /*
 |--------------------------------------------------------------------------
@@ -50,6 +52,34 @@ use App\Http\Controllers\FacilityController;
 | contains the "web" middleware group. Now create something great!
 |
 */
+
+// CSRF Token Management Routes
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'token' => csrf_token(),
+        'session_id' => session()->getId(),
+        'timestamp' => time(),
+    ]);
+})->name('csrf.token');
+
+// Test routes for debugging CSRF issues
+Route::get('/test/csrf', function () {
+    return response()->json([
+        'message' => 'CSRF test endpoint',
+        'token' => csrf_token(),
+        'session_id' => session()->getId(),
+        'headers' => request()->headers->all(),
+    ]);
+})->name('test.csrf');
+
+Route::post('/test/csrf', function () {
+    return response()->json([
+        'message' => 'CSRF POST test successful',
+        'token' => csrf_token(),
+        'session_id' => session()->getId(),
+        'received_data' => request()->all(),
+    ]);
+})->name('test.csrf.post');
 
 // Auth
 
@@ -161,6 +191,21 @@ Route::middleware(['permission:manage-orders'])->group(function () {
     Route::get('/orders/center', [OrderController::class, 'center'])->name('orders.center');
 });
 
+// Admin Order Center Routes
+Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function () {
+    Route::get('/orders', [AdminOrderCenterController::class, 'index'])->name('admin.orders.index');
+    Route::get('/orders/{id}', [AdminOrderCenterController::class, 'show'])->name('admin.orders.show');
+    Route::post('/orders/{id}/generate-ivr', [AdminOrderCenterController::class, 'generateIvr'])->name('admin.orders.generate-ivr');
+    Route::post('/orders/{id}/send-ivr-to-manufacturer', [AdminOrderCenterController::class, 'sendIvrToManufacturer'])->name('admin.orders.send-ivr-to-manufacturer');
+    Route::post('/orders/{id}/manufacturer-approval', [AdminOrderCenterController::class, 'confirmManufacturerApproval'])->name('admin.orders.manufacturer-approval');
+    Route::post('/orders/{id}/approve', [AdminOrderCenterController::class, 'approve'])->name('admin.orders.approve');
+    Route::post('/orders/{id}/send-back', [AdminOrderCenterController::class, 'sendBack'])->name('admin.orders.send-back');
+    Route::post('/orders/{id}/deny', [AdminOrderCenterController::class, 'deny'])->name('admin.orders.deny');
+    Route::post('/orders/{id}/submit-to-manufacturer', [AdminOrderCenterController::class, 'submitToManufacturer'])->name('admin.orders.submit-to-manufacturer');
+    Route::get('/orders/create', [AdminOrderCenterController::class, 'create'])->name('admin.orders.create');
+    Route::post('/orders', [AdminOrderCenterController::class, 'store'])->name('admin.orders.store');
+});
+
 // Legacy order routes (redirect to consolidated order center)
 Route::get('/orders', function () {
     return redirect()->route('orders.center');
@@ -186,27 +231,18 @@ Route::get('/orders/create', function () {
 // CONSOLIDATED ORGANIZATIONS & ANALYTICS
 // ================================================================
 
-// Temporarily isolated for testing - original middleware: permission:manage-users
-Route::get('/admin/organizations', function () {
-    return Inertia::render('Admin/Organizations/Index');
-})->name('admin.organizations.index')->middleware(['auth']);
+// Organization Management Routes
+Route::middleware(['permission:manage-users'])->prefix('admin')->group(function () {
+    Route::get('/organizations', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'index'])->name('admin.organizations.index');
+});
 
-Route::middleware(['permission:manage-users'])->group(function () {
-    // Route::get('/admin/organizations', function () { // Commented out original
-    //     return Inertia::render('Admin/Organizations/Index');
-    // })->name('admin.organizations.index');
-
-    Route::get('/admin/organizations/create', function () {
-        return Inertia::render('Admin/CustomerManagement/OrganizationWizard');
-    })->name('admin.organizations.create');
-
-    Route::get('/admin/organizations/{id}', function ($id) {
-        return Inertia::render('Admin/CustomerManagement/OrganizationDetail', ['organizationId' => $id]);
-    })->name('admin.organizations.show');
-
-    Route::get('/admin/organizations/{id}/edit', function ($id) {
-        return Inertia::render('Admin/CustomerManagement/OrganizationEdit', ['organizationId' => $id]);
-    })->name('admin.organizations.edit');
+Route::middleware(['permission:manage-users'])->prefix('admin')->group(function () {
+    Route::get('/organizations/create', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'create'])->name('admin.organizations.create');
+    Route::post('/organizations', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'store'])->name('admin.organizations.store');
+    Route::get('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'show'])->name('admin.organizations.show');
+    Route::get('/organizations/{organization}/edit', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'edit'])->name('admin.organizations.edit');
+    Route::put('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'update'])->name('admin.organizations.update');
+    Route::delete('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'destroy'])->name('admin.organizations.destroy');
 });
 
 // Legacy routes (redirect to consolidated page)
@@ -442,6 +478,16 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('providers.show');
     });
 
+    // Provider Credential Management
+    Route::middleware(['permission:manage-providers'])->group(function () {
+        Route::get('/providers/credentials', [ProviderController::class, 'credentials'])
+            ->name('providers.credentials');
+        Route::post('/api/v1/provider/credentials', [ProviderController::class, 'storeCredential'])
+            ->name('api.provider.credentials.store');
+        Route::put('/api/v1/provider/credentials/{credential}', [ProviderController::class, 'updateCredential'])
+            ->name('api.provider.credentials.update');
+    });
+
     Route::middleware(['permission:view-pre-authorization'])->group(function () {
         Route::get('/pre-authorization', [PreAuthorizationController::class, 'index'])
             ->name('pre-authorization.index');
@@ -473,6 +519,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     // RBAC Management Routes
     Route::middleware(['auth', 'permission:manage-rbac', 'role:msc-admin'])->group(function () {
         Route::get('/rbac', [RBACController::class, 'index'])->name('web.rbac.index');
+        Route::get('/rbac/role/{role}/config', [RBACController::class, 'getRoleConfig'])->name('web.rbac.role-config');
+        Route::post('/rbac/role/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus'])->name('web.rbac.toggle-status');
+        Route::get('/rbac/role/{role}/permissions', [RBACController::class, 'getRolePermissions'])->name('web.rbac.role-permissions');
+        Route::put('/rbac/role/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('web.rbac.update-permissions');
+        Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit'])->name('web.rbac.security-audit');
     });
 
     // Access Control Management Routes
@@ -616,6 +667,29 @@ Route::middleware(['web', 'auth'])->group(function () {
         ]);
     })->name('test.role-restrictions');
 
+    // Test RBAC functionality
+    Route::get('/test-rbac', function () {
+        $roles = \App\Models\Role::with(['permissions', 'users'])->get();
+        $permissions = \App\Models\Permission::all();
+
+        return response()->json([
+            'roles_count' => $roles->count(),
+            'permissions_count' => $permissions->count(),
+            'roles' => $roles->map(function ($role) {
+                return [
+                    'id' => $role->id,
+                    'name' => $role->name,
+                    'slug' => $role->slug,
+                    'is_active' => $role->is_active ?? true,
+                    'users_count' => $role->users->count(),
+                    'permissions_count' => $role->permissions->count(),
+                    'permissions' => $role->permissions->pluck('slug')->toArray()
+                ];
+            }),
+            'rbac_audit_logs' => \App\Models\RbacAuditLog::latest()->take(5)->get()
+        ]);
+    })->name('test.rbac')->middleware('auth');
+
     // Test route for Office Manager permissions
     Route::get('/test-office-manager-permissions', function () {
         $user = Auth::user();
@@ -707,9 +781,155 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::delete('/facilities/{facility}', [FacilityController::class, 'destroy'])->name('admin.facilities.destroy');
     });
 
-    // Provider Facility Management
-    Route::middleware(['role:provider', 'permission:view-facilities'])->prefix('provider')->group(function () {
-        Route::get('/facilities', [FacilityController::class, 'providerIndex'])->name('provider.facilities.index');
-        Route::get('/facilities/{facility}', [FacilityController::class, 'providerShow'])->name('provider.facilities.show');
+    // Provider Management Routes
+    Route::middleware(['permission:view-providers'])->prefix('admin')->group(function () {
+        Route::get('/providers', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'index'])->name('admin.providers.index');
     });
+
+    Route::middleware(['permission:manage-providers'])->prefix('admin')->group(function () {
+        Route::get('/providers/create', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'create'])->name('admin.providers.create');
+        Route::post('/providers', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'store'])->name('admin.providers.store');
+        Route::get('/providers/{provider}/edit', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'edit'])->name('admin.providers.edit');
+        Route::put('/providers/{provider}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'update'])->name('admin.providers.update');
+        Route::put('/providers/{provider}/products', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'updateProducts'])->name('admin.providers.products.update');
+    });
+
+    Route::middleware(['permission:view-providers'])->prefix('admin')->group(function () {
+        Route::get('/providers/{provider}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'show'])->name('admin.providers.show');
+    });
+
+    // Provider Management API Routes
+    Route::middleware(['permission:manage-providers'])->prefix('admin/providers')->group(function () {
+        Route::post('/{provider}/facilities', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'addFacility'])->name('admin.providers.facilities.add');
+        Route::delete('/{provider}/facilities/{facility}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeFacility'])->name('admin.providers.facilities.remove');
+        Route::post('/{provider}/products', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'addProduct'])->name('admin.providers.products.add');
+        Route::delete('/{provider}/products/{product}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeProduct'])->name('admin.providers.products.remove');
+        Route::put('/{provider}/products/{product}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'updateProduct'])->name('admin.providers.products.update-single');
+        Route::delete('/{provider}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'destroy'])->name('admin.providers.destroy');
+    });
+
+    Route::middleware(['permission:manage-payments'])->prefix('admin')->group(function () {
+        // Payments Management Routes
+        Route::get('/payments', [\App\Http\Controllers\Admin\PaymentsController::class, 'index'])->name('admin.payments.index');
+        Route::post('/payments', [\App\Http\Controllers\Admin\PaymentsController::class, 'store'])->name('admin.payments.store');
+        Route::get('/payments/history', [\App\Http\Controllers\Admin\PaymentsController::class, 'history'])->name('admin.payments.history');
+    });
+
+    // Menu Management Routes
+    // Route::middleware(['permission:manage-menus'])->prefix('admin/menu')->group(function () {
+    //     Route::get('/', [\App\Http\Controllers\Admin\MenuManagementController::class, 'index'])->name('admin.menu.index');
+    //     Route::get('/create', [\App\Http\Controllers\Admin\MenuManagementController::class, 'create'])->name('admin.menu.create');
+    //     Route::post('/', [\App\Http\Controllers\Admin\MenuManagementController::class, 'store'])->name('admin.menu.store');
+    //     Route::get('/{menuItem}/edit', [\App\Http\Controllers\Admin\MenuManagementController::class, 'edit'])->name('admin.menu.edit');
+    //     Route::put('/{menuItem}', [\App\Http\Controllers\Admin\MenuManagementController::class, 'update'])->name('admin.menu.update');
+    //     Route::delete('/{menuItem}', [\App\Http\Controllers\Admin\MenuManagementController::class, 'destroy'])->name('admin.menu.destroy');
+    //     Route::post('/update-order', [\App\Http\Controllers\Admin\MenuManagementController::class, 'updateOrder'])->name('admin.menu.update-order');
+    //     Route::get('/{menuItem}/badges', [\App\Http\Controllers\Admin\MenuManagementController::class, 'badges'])->name('admin.menu.badges');
+    //     Route::post('/{menuItem}/badges', [\App\Http\Controllers\Admin\MenuManagementController::class, 'storeBadge'])->name('admin.menu.badges.store');
+    //     Route::delete('/{menuItem}/badges/{badge}', [\App\Http\Controllers\Admin\MenuManagementController::class, 'destroyBadge'])->name('admin.menu.badges.destroy');
+    //     Route::get('/analytics', [\App\Http\Controllers\Admin\MenuManagementController::class, 'analytics'])->name('admin.menu.analytics');
+    // });
+
+    // API route for fetching provider's outstanding orders
+    Route::get('/api/providers/{provider}/outstanding-orders', [\App\Http\Controllers\Admin\PaymentsController::class, 'getProviderOrders'])
+        ->middleware(['auth', 'permission:manage-payments']);
+
+    // Facility Management - Role-based access
+    Route::middleware(['permission:view-facilities'])->group(function () {
+        Route::get('/facilities', [FacilityController::class, 'index'])->name('facilities.index');
+        Route::get('/facilities/{facility}', [FacilityController::class, 'show'])->name('facilities.show');
+    });
+
+    // Test route to check if orders exist
+    Route::get('/test-orders', function() {
+        $orders = \App\Models\Order\ProductRequest::take(5)->get(['id', 'request_number', 'order_status']);
+        return response()->json($orders);
+    });
+
+    // Test route with manual model finding
+    Route::get('/test-order/{id}', function($id) {
+        $order = \App\Models\Order\ProductRequest::find($id);
+        if (!$order) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+        return response()->json([
+            'id' => $order->id,
+            'request_number' => $order->request_number,
+            'order_status' => $order->order_status
+        ]);
+    });
+
+    // Test route with manual model finding
+    Route::get('/test-order/{id}', function($id) {
+        $order = \App\Models\Order\ProductRequest::find($id);
+        if (!$order) {
+            return response()->json(['error' => 'Order not found'], 404);
+        }
+        return response()->json([
+            'id' => $order->id,
+            'request_number' => $order->request_number,
+            'order_status' => $order->order_status
+        ]);
+    });
+});
+
+// Demo Showcase Routes for DocuSeal Integration (accessible with specific login)
+Route::middleware(['auth'])->group(function () {
+    Route::get('/demo', function() {
+        return Inertia::render('Demo/Index');
+    })->name('demo.index');
+
+    Route::get('/demo/order-showcase', function() {
+        return Inertia::render('Demo/OrderShowcase');
+    })->name('demo.order-showcase');
+
+    Route::get('/demo/complete-order-flow', function() {
+        return Inertia::render('Demo/CompleteOrderFlow');
+    })->name('demo.complete-order-flow');
+
+    Route::get('/demo/docuseal-ivr', function() {
+        return Inertia::render('Demo/DocuSealIVRDemo');
+    })->name('demo.docuseal-ivr');
+});
+
+// DocuSeal Routes
+Route::middleware(['auth'])->group(function () {
+    // Create DocuSeal submission with pre-filled data
+    Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createSubmission'])
+        ->name('docuseal.create-submission')
+        ->middleware('permission:manage-orders');
+
+    // Demo-specific DocuSeal submission (only requires authentication, not manage-orders permission)
+    Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createDemoSubmission'])
+        ->name('docuseal.demo.create-submission');
+});
+
+// DocuSeal Webhook (outside auth middleware)
+Route::post('/webhooks/docuseal', [DocuSealWebhookController::class, 'handle'])
+    ->name('webhooks.docuseal')
+    ->withoutMiddleware(['web', 'auth']);
+
+// Simple test route to check if routing works
+Route::get('/test-routing', function() {
+    return response()->json(['message' => 'Routing works!']);
+});
+
+// Test route to check CSRF and session status
+Route::get('/test-csrf', function() {
+    return response()->json([
+        'csrf_token' => csrf_token(),
+        'session_id' => session()->getId(),
+        'session_lifetime' => config('session.lifetime'),
+        'session_driver' => config('session.driver'),
+        'has_session' => session()->isStarted(),
+    ]);
+});
+
+// Simple test form to verify CSRF
+Route::get('/test-form', function() {
+    return view('test-form');
+});
+
+Route::post('/test-form', function() {
+    return response()->json(['success' => true, 'message' => 'CSRF token is working!']);
 });

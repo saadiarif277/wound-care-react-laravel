@@ -32,10 +32,13 @@ return [
     ],
 
     'azure' => [
-        'tenant_id' => env('AZURE_TENANT_ID'),
-        'client_id' => env('AZURE_CLIENT_ID'),
-        'client_secret' => env('AZURE_CLIENT_SECRET'),
-        'fhir_endpoint' => env('AZURE_FHIR_ENDPOINT'),
+        'tenant_id' => env('AZURE_FHIR_TENANT_ID', env('AZURE_TENANT_ID')),
+        'client_id' => env('AZURE_FHIR_CLIENT_ID', env('AZURE_CLIENT_ID')),
+        'client_secret' => env('AZURE_FHIR_CLIENT_SECRET', env('AZURE_CLIENT_SECRET')),
+        'fhir_endpoint' => env('AZURE_FHIR_BASE_URL', env('AZURE_FHIR_ENDPOINT')),
+        'fhir' => [
+            'base_url' => env('AZURE_FHIR_BASE_URL', env('AZURE_FHIR_ENDPOINT')),
+        ],
         'key_vault' => [
             'vault_url' => env('AZURE_KEY_VAULT_URL'),
             'use_managed_identity' => env('AZURE_USE_MANAGED_IDENTITY', false),

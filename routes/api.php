@@ -23,9 +23,10 @@ use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\Api\MedicareMacValidationController;
+use App\Http\Controllers\Admin\ProviderManagementController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('v1')->group(function () {
 
     // Order-specific Medicare validation routes
     Route::prefix('orders/{order_id}')->group(function () {
@@ -127,7 +128,7 @@ Route::prefix('v1')->group(function () {
 });
 
 // Clinical Opportunities Engine Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('v1')->group(function () {
     Route::prefix('clinical-opportunities')->name('clinical_opportunities.')->group(function () {
         // Scan for opportunities based on clinical data
         Route::post('scan', [ClinicalOpportunitiesController::class, 'scanOpportunities'])->name('scan');
@@ -147,7 +148,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
 });
 
 // CMS Coverage API & Validation Builder Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('v1')->group(function () {
     Route::prefix('validation-builder')->name('validation_builder.')->group(function () {
         // Validation Rules
         Route::get('rules', [ValidationBuilderController::class, 'getValidationRules'])->name('rules');
@@ -206,7 +207,10 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
 });
 
 // DocuSeal Integration Routes
-Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
+Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->name('docuseal.')->group(function () {
+    // JWT token generation for form embedding
+    Route::post('generate-token', [\App\Http\Controllers\DocusealController::class, 'generateToken'])->name('generate-token');
+    
     // Document generation
     Route::post('generate-document', [\App\Http\Controllers\DocusealController::class, 'generateDocument'])->name('generate');
 
@@ -222,7 +226,7 @@ Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:mana
 Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
 
 // eClinicalWorks Integration Routes
-Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('ecw')->name('ecw.')->group(function () {
     Route::get('auth', [EcwController::class, 'authenticate'])->name('auth');
     Route::get('callback', [EcwController::class, 'callback'])->name('callback');
     Route::get('status', [EcwController::class, 'status'])->name('status');
@@ -251,12 +255,12 @@ Route::prefix('ecw')->name('ecw.')->middleware(['auth:sanctum'])->group(function
 Route::get('.well-known/jwks.json', [EcwController::class, 'jwks'])->name('jwks');
 
 // Commission Management Routes
-Route::middleware(['auth:sanctum', 'permission:view-commissions'])->group(function () {
+Route::middleware(['permission:view-commissions'])->group(function () {
     Route::get('/commissions', [CommissionController::class, 'index']);
     Route::get('/commissions/{commission}', [CommissionController::class, 'show']);
 });
 
-Route::middleware(['auth:sanctum', 'permission:create-commissions'])->group(function () {
+Route::middleware(['permission:create-commissions'])->group(function () {
     Route::post('/commissions', [CommissionController::class, 'store']);
 });
 
@@ -364,7 +368,7 @@ Route::middleware(['auth:sanctum'])->group(function () {
 });
 
 // Provider Profile Management Routes
-Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('v1')->group(function () {
     Route::prefix('providers/{provider_id}')->name('providers.')->group(function () {
         // Profile management
         Route::get('profile', [\App\Http\Controllers\Api\ProviderProfileController::class, 'show'])->name('profile.show');
@@ -402,7 +406,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     });
 });
 
-Route::prefix('api/v1/admin')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('api/v1/admin')->group(function () {
     // Organization Management - Require specific customer management permission
     Route::middleware(['role:msc-admin', 'permission:manage-customers'])->group(function () {
         Route::get('/customers/organizations', [CustomerManagementController::class, 'listOrganizations']);
@@ -539,6 +543,41 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/facilities', [FacilityController::class, 'apiProviderIndex'])->name('api.provider.facilities.index');
         Route::get('/facilities/{facility}', [FacilityController::class, 'apiProviderShow'])->name('api.provider.facilities.show');
     });
+});
+
+// Provider Management - Facilities and Products
+Route::group([], function () {
+    // Provider Facility Management
+    Route::post('/providers/{provider}/facilities', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'addFacility'])
+        ->name('api.providers.facilities.add');
+    Route::delete('/providers/{provider}/facilities/{facility}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeFacility'])
+        ->name('api.providers.facilities.remove');
+
+    // Provider Product Management
+    Route::post('/providers/{provider}/products', [ProviderManagementController::class, 'addProduct'])
+        ->name('api.providers.products.add');
+    Route::delete('/providers/{provider}/products/{product}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeProduct'])
+        ->name('api.providers.products.remove');
+});
+
+// Menu API Routes
+Route::prefix('menu')->middleware(['auth:sanctum'])->group(function () {
+    // Route::get('/', [\App\Http\Controllers\Api\MenuController::class, 'index'])->name('api.menu.index');
+    // Route::post('/search', [\App\Http\Controllers\Api\MenuController::class, 'search'])->name('api.menu.search');
+    // Route::post('/toggle-favorite', [\App\Http\Controllers\Api\MenuController::class, 'toggleFavorite'])->name('api.menu.toggle-favorite');
+    // Route::post('/toggle-visibility', [\App\Http\Controllers\Api\MenuController::class, 'toggleVisibility'])->name('api.menu.toggle-visibility');
+    // Route::post('/update-order', [\App\Http\Controllers\Api\MenuController::class, 'updateOrder'])->name('api.menu.update-order');
+    // Route::get('/preferences', [\App\Http\Controllers\Api\MenuController::class, 'preferences'])->name('api.menu.preferences');
+    // Route::post('/track-click', [\App\Http\Controllers\Api\MenuController::class, 'trackClick'])->name('api.menu.track-click');
+    // Route::get('/badges', [\App\Http\Controllers\Api\MenuController::class, 'badges'])->name('api.menu.badges');
+});
+
+// Sales Rep Analytics Routes
+Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subrep,msc-admin'])->group(function () {
+    Route::get('/analytics', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'index'])->name('api.sales-reps.analytics');
+    Route::get('/analytics/summary', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'summary'])->name('api.sales-reps.analytics.summary');
+    Route::get('/analytics/performance', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'performance'])->name('api.sales-reps.analytics.performance');
+    Route::get('/analytics/territories', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'territories'])->name('api.sales-reps.analytics.territories');
 });
 
 // Fallback Route for 404 API requests

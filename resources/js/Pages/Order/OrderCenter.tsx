@@ -202,6 +202,29 @@ const OrderManagementTabContent: React.FC = () => {
                   </td>
                 </tr>
               )}
+              {orders.map((order) => (
+                <tr key={order.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div>
+                      <Link href={`/admin/orders/${order.id}`} className="text-sm font-medium text-blue-600 hover:text-blue-900">
+                        {order.order_number}
+                      </Link>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900">{order.facility?.name || ''}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={getStatusBadge(order.status)}>{order.status}</span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    {formatCurrency(order.total)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    {/* Add any action buttons here if needed */}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -615,7 +638,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
               className="pl-10 w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
               defaultValue={filters.search}
               onChange={(e) => {
-                router.get(router.page.url,
+                router.get(window.location.pathname,
                   { ...filters, search: e.target.value },
                   { preserveState: true, replace: true, only: ['requests'] }
                 );
@@ -626,7 +649,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
             className="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
             defaultValue={filters.status}
             onChange={(e) => {
-              router.get(router.page.url,
+              router.get(window.location.pathname,
                 { ...filters, status: e.target.value },
                 { preserveState: true, replace: true, only: ['requests'] }
               );
@@ -642,7 +665,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
             className="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
             defaultValue={filters.priority}
             onChange={(e) => {
-              router.get(router.page.url,
+              router.get(window.location.pathname,
                 { ...filters, priority: e.target.value },
                 { preserveState: true, replace: true, only: ['requests'] }
               );
@@ -657,7 +680,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
             className="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
             defaultValue={filters.facility}
             onChange={(e) => {
-              router.get(router.page.url,
+              router.get(window.location.pathname,
                 { ...filters, facility: e.target.value },
                 { preserveState: true, replace: true, only: ['requests'] }
               );
@@ -674,7 +697,7 @@ const RequestReviewsTabContent: React.FC<ReviewTabProps> = ({
             className="rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
             defaultValue={filters.days_pending}
             onChange={(e) => {
-              router.get(router.page.url,
+              router.get(window.location.pathname,
                 { ...filters, days_pending: e.target.value },
                 { preserveState: true, replace: true, only: ['requests'] }
               );

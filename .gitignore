@@ -24,3 +24,48 @@ npm-debug.log
 test-patient-id.txt
 *.test.tmp
 test-*.log
+
+# Laravel Storage (more specific)
+  /storage/framework/sessions/*
+  /storage/framework/views/*
+  /storage/debugbar/
+  /storage/logs/*
+
+  # Additional IDE files
+  *.swp
+  *.swo
+  *~
+  .project
+  .phpstorm.meta.php
+  _ide_helper.php
+
+  # OS files
+  Thumbs.db
+  ehthumbs.db
+  Desktop.ini
+
+  # Backup files
+  *.bak
+  *.backup
+  *.tmp
+  *.temp
+
+  # Database files
+  *.sqlite
+  *.sqlite3
+  *.db
+
+  # Certificates and keys (additional patterns)
+  *.pem
+  *.key
+  *.crt
+  *.csr
+  *.der
+  *.p12
+  *.pfx
+
+  # Package manager
+  yarn-error.log
+  yarn.lock
+  package-lock.json
+  composer.lock

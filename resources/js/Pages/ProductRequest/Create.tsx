@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { router, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { ArrowLeft, ArrowRight, Check, Layout } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, Layout, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import ProductSelectionStep from './Components/ProductSelectionStep';
 import ClinicalAssessmentStep from './Components/ClinicalAssessmentStep';
 import ValidationEligibilityStep from './Components/ValidationEligibilityStep';
@@ -10,7 +10,6 @@ import PatientInformationStep from './Components/PatientInformationStep';
 import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
 import { api } from '@/lib/api';
 import { Progress } from '@/Components/ui/progress';
-import { Head } from '@inertiajs/react';
 
 interface Props {
   woundTypes: Record<string, string>;
@@ -49,9 +48,13 @@ interface FormData {
   // Step 1: Patient Information
   patient_api_input: PatientApiInput;
   facility_id: number | null;
+  place_of_service: string;
+  medicare_part_b_authorized: boolean;
   expected_service_date: string;
   payer_name: string;
   payer_id: string;
+  second_payer?: string;
+  shipping_speed?: string;
   wound_type: string;
 
   // Step 2: Clinical Assessment - Now using SkinSubstituteChecklistInput
@@ -137,6 +140,20 @@ const ProductRequestCreate: React.FC<Props> = ({
   const { props } = usePage<any>();
   const userRole = props.userRole || 'provider';
 
+  // Restrict access to providers and office managers only
+  if (userRole !== 'provider' && userRole !== 'office_manager') {
+    return (
+      <MainLayout title="Access Denied">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="bg-white p-8 rounded shadow text-center">
+            <h1 className="text-2xl font-bold mb-4 text-red-600">Access Denied</h1>
+            <p className="text-gray-700">You do not have permission to create a product request.</p>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<FormData>({
     patient_api_input: {
@@ -147,9 +164,13 @@ const ProductRequestCreate: React.FC<Props> = ({
       // member_id: '', // Handled by PatientInformationStep
     },
     facility_id: Number(userFacilityId) || (facilities[0]?.id ? Number(facilities[0].id) : 1),
+    place_of_service: '',
+    medicare_part_b_authorized: false,
     expected_service_date: '',
     payer_name: '',
     payer_id: '',
+    second_payer: '',
+    shipping_speed: '',
     wound_type: '',
     clinical_data: initialSkinSubstituteChecklistData, // Initialize with the structured default
     selected_products: [],
@@ -251,23 +272,41 @@ const ProductRequestCreate: React.FC<Props> = ({
 
   const submitForm = async () => {
     try {
-      // Create and submit the product request in a single step
+      console.log('🚀 Submitting product request form...');
+
+      // Convert patient_api_input to a plain object
+      const patientApiInput = { ...formData.patient_api_input };
+      // Remove clinical_assessment_progress from payload
+      const { clinical_assessment_progress, ...formDataToSend } = formData;
+
       const response = await router.post('/product-requests', {
-        ...formData,
+        ...formDataToSend,
+        patient_api_input: patientApiInput,
+        order_status: 'submitted', // Ensure new requests are pending for admin
         submit_immediately: true // Add flag to indicate immediate submission
       }, {
         preserveState: true,
         preserveScroll: true,
         onSuccess: () => {
+          console.log('✅ Form submitted successfully');
           // Redirect to the product requests index page
           router.visit('/product-requests', { replace: true });
         },
         onError: (errors) => {
-          console.error('Error creating and submitting product request:', errors);
+          console.error('❌ Error creating and submitting product request:', errors);
+
+          // Handle validation errors
+          if (errors && typeof errors === 'object') {
+            const errorMessages = Object.values(errors).flat();
+            alert(`Validation errors: ${errorMessages.join(', ')}`);
+          } else {
+            alert('An error occurred while submitting the form. Please try again.');
+          }
         }
       });
     } catch (error) {
-      console.error('An unexpected error occurred during form submission:', error);
+      console.error('❌ An unexpected error occurred during form submission:', error);
+      alert('An unexpected error occurred. Please try again or contact support.');
     }
   };
 
@@ -279,9 +318,10 @@ const ProductRequestCreate: React.FC<Props> = ({
           formData.patient_api_input.last_name &&
           formData.patient_api_input.dob &&
           formData.patient_api_input.member_id &&
-          formData.facility_id &&
+          formData.place_of_service &&
           formData.expected_service_date &&
           formData.payer_name &&
+          formData.shipping_speed &&
           formData.wound_type
         );
       case 2:
@@ -454,58 +494,50 @@ const ProductRequestCreate: React.FC<Props> = ({
         member_id: 'M123456789'
       },
       facility_id: Number(userFacilityId) || (facilities[0]?.id ? Number(facilities[0].id) : 1),
+      place_of_service: '11', // Office
+      medicare_part_b_authorized: false,
       expected_service_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
       payer_name: 'Test Insurance',
       payer_id: 'INS123456',
+      second_payer: '',
+      shipping_speed: '',
       wound_type: 'DFU',
 
       // Step 2: Clinical Assessment
       clinical_data: {
-        woundLocation: 'Left Foot',
-        woundAge: '30 days',
-        woundSize: '4x4 cm',
-        woundDepth: '2 cm',
-        woundBed: 'granulation',
-        woundEdges: 'defined',
-        woundExudate: 'moderate',
-        woundInfection: false,
-        woundPain: 'mild',
-        woundOdor: false,
-        woundTunneling: false,
-        woundUndermining: false,
-        woundSlough: false,
-        woundNecrosis: false,
-        woundEdema: false,
-        woundErythema: false,
-        woundTemperature: 'normal',
-        woundPerfusion: 'adequate',
-        woundSensation: 'intact',
-        woundMobility: 'ambulatory',
-        woundNutrition: 'adequate',
-        woundComorbidities: ['diabetes', 'hypertension'],
-        woundMedications: ['insulin', 'metformin'],
-        woundAllergies: ['latex'],
-        woundSmoking: 'former',
-        woundAlcohol: 'none',
-        woundDrugUse: 'none',
-        woundCompliance: 'good',
-        woundSupport: 'family',
-        woundEnvironment: 'clean',
-        woundDressings: 'changed daily',
-        woundDebridement: 'none',
-        woundOffloading: 'total contact cast',
-        woundCompression: 'none',
-        woundAntibiotics: 'none',
-        woundAnticoagulants: 'none',
-        woundAnalgesics: 'as needed',
-        woundOther: 'none'
+        patientName: 'John Smith',
+        dateOfBirth: '1980-01-01',
+        dateOfProcedure: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        hasDiabetes: true,
+        diabetesType: '2',
+        hasVenousStasisUlcer: false,
+        hasPressureUlcer: false,
+        location: 'Left Foot',
+        ulcerLocation: 'Plantar surface',
+        depth: 'partial-thickness',
+        ulcerDuration: '30 days',
+        length: 4,
+        width: 4,
+        woundDepth: 2,
+        hasInfection: false,
+        hasNecroticTissue: false,
+        hasCharcotDeformity: false,
+        hasMalignancy: false,
+        hasTriphasicWaveforms: false,
+        debridementPerformed: false,
+        moistDressingsApplied: false,
+        nonWeightBearing: false,
+        pressureReducingFootwear: false,
+        standardCompression: false,
+        currentHbot: false,
+        smokingStatus: 'non-smoker',
+        receivingRadiationOrChemo: false,
+        takingImmuneModulators: false,
+        hasAutoimmuneDiagnosis: false,
       },
 
       // Step 3: Product Selection
-      selected_products: [
-        { product_id: 1, quantity: 2, size: '4x4' },
-        { product_id: 2, quantity: 1, size: '6x6' }
-      ],
+      selected_products: [],
 
       // Step 4: Validation Results
       mac_validation_results: {
@@ -678,13 +710,6 @@ const ProductRequestCreate: React.FC<Props> = ({
                 </div>
 
                 <div className="flex space-x-3">
-                  <button
-                    type="button"
-                    className="flex-1 sm:flex-none px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
-                  >
-                    Save Draft
-                  </button>
-
                   {currentStep < steps.length ? (
                     <button
                       type="button"
@@ -837,9 +862,22 @@ const ReviewSubmitStep: React.FC<{
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Facility</dt>
+                  <dt className="text-sm font-medium text-gray-500">Place of Service</dt>
                   <dd className="mt-1 text-sm text-gray-900">
-                    {formData.facility_id ? facilities.find(f => f.id === formData.facility_id)?.name : 'Not selected'}
+                    {formData.place_of_service ? (
+                      <>
+                        ({formData.place_of_service}) {
+                          formData.place_of_service === '11' ? 'Office' :
+                          formData.place_of_service === '12' ? 'Home' :
+                          formData.place_of_service === '32' ? 'Nursing Home' :
+                          formData.place_of_service === '31' ? 'Skilled Nursing' :
+                          'Unknown'
+                        }
+                        {formData.place_of_service === '31' && formData.medicare_part_b_authorized && (
+                          <span className="ml-2 text-xs text-blue-600">(Medicare Part B Authorized)</span>
+                        )}
+                      </>
+                    ) : 'Not selected'}
                   </dd>
                 </div>
                 <div>
@@ -1000,28 +1038,6 @@ const ReviewSubmitStep: React.FC<{
                 </div>
               </div>
             )}
-          </div>
-
-          {/* Submit Button */}
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                  </svg>
-                  Submitting...
-                </>
-              ) : (
-                'Submit Request'
-              )}
-            </button>
           </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Head } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
   FiUsers,
@@ -17,6 +17,10 @@ import {
   FiActivity,
   FiClock
 } from 'react-icons/fi';
+import { toast } from 'react-hot-toast';
+import axios from 'axios';
+import { Modal } from '@/Components/Modal';
+import { useForm } from '@inertiajs/react';
 
 interface UserRole {
   id: number;
@@ -27,7 +31,12 @@ interface UserRole {
   hierarchy_level: number;
   is_active: boolean;
   permissions: string[];
-  dashboard_config: any;
+  dashboard_config: {
+    financial_access?: boolean;
+    pricing_access?: string;
+    admin_capabilities?: string[];
+    customer_data_restrictions?: string[];
+  };
 }
 
 interface Permission {
@@ -41,13 +50,16 @@ interface Permission {
 
 interface User {
   id: number;
-  name: string;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
   email: string;
-  role: UserRole;
-  is_active: boolean;
-  last_login: string;
+  roles?: any[];
+  is_active?: boolean;
+  last_login?: string;
+  last_login_at?: string;
   created_at: string;
-  access_requests_count: number;
+  access_requests_count?: number;
 }
 
 interface RoleStats {
@@ -81,6 +93,11 @@ export default function RBACIndex({
 }: Props) {
   const [activeTab, setActiveTab] = useState<'overview' | 'roles' | 'permissions' | 'audit'>('overview');
   const [selectedRole, setSelectedRole] = useState<UserRole | null>(null);
+  const [editingRole, setEditingRole] = useState<UserRole | null>(null);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
 
   const getRiskLevel = (role: UserRole) => {
           if (role.name === 'super-admin') return 'critical';
@@ -97,6 +114,66 @@ export default function RBACIndex({
       default: return 'text-green-600 bg-green-50';
     }
   };
+
+  const handleToggleRoleStatus = async (role: UserRole) => {
+    if (loading) return;
+    
+    // Prevent disabling critical roles
+    if (['super-admin', 'msc-admin'].includes(role.name) && role.is_active) {
+      toast.error('System roles cannot be disabled');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await router.post(`/rbac/role/${role.id}/toggle-status`, {}, {
+        preserveScroll: true,
+        onSuccess: () => {
+          toast.success(`Role ${role.is_active ? 'disabled' : 'enabled'} successfully`);
+        },
+        onError: () => {
+          toast.error('Failed to update role status');
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const [showViewModal, setShowViewModal] = useState(false);
+  
+  const handleViewRole = (role: UserRole) => {
+    setSelectedRole(role);
+    setShowViewModal(true);
+  };
+
+  const handleEditRole = (role: UserRole) => {
+    setEditingRole(role);
+    setShowRoleModal(true);
+  };
+
+  const handleCloseModal = () => {
+    setShowRoleModal(false);
+    setEditingRole(null);
+  };
+
+  const loadAuditLogs = async () => {
+    setLoadingAudit(true);
+    try {
+      const response = await axios.get('/rbac/security-audit');
+      setAuditLogs(response.data.audit_logs?.data || []);
+    } catch (error) {
+      toast.error('Failed to load audit logs');
+    } finally {
+      setLoadingAudit(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'audit' && auditLogs.length === 0) {
+      loadAuditLogs();
+    }
+  }, [activeTab]);
 
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
     <div className="bg-white rounded-lg shadow p-6">
@@ -253,8 +330,8 @@ export default function RBACIndex({
                             {getRiskLevel(role).toUpperCase()}
                           </div>
                           <div>
-                            <h4 className="text-lg font-medium text-gray-900">{role.display_name}</h4>
-                            <p className="text-sm text-gray-600">{role.description}</p>
+                            <h4 className="text-lg font-medium text-gray-900">{role.display_name || role.name}</h4>
+                            <p className="text-sm text-gray-600">{role.description || ''}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-4">
@@ -264,15 +341,25 @@ export default function RBACIndex({
                           </div>
                           <div className="flex items-center space-x-2">
                             <button
-                              onClick={() => setSelectedRole(role)}
+                              onClick={() => handleViewRole(role)}
                               className="p-2 text-gray-400 hover:text-gray-600"
+                              title="View role details"
                             >
                               <FiEye className="h-4 w-4" />
                             </button>
-                            <button className="p-2 text-gray-400 hover:text-gray-600">
+                            <button 
+                              onClick={() => handleEditRole(role)}
+                              className="p-2 text-gray-400 hover:text-gray-600"
+                              title="Edit role permissions"
+                            >
                               <FiEdit3 className="h-4 w-4" />
                             </button>
-                            <button className="p-2 text-gray-400 hover:text-gray-600">
+                            <button 
+                              onClick={() => handleToggleRoleStatus(role)}
+                              className="p-2 text-gray-400 hover:text-gray-600"
+                              title={role.is_active ? 'Disable role' : 'Enable role'}
+                              disabled={loading}
+                            >
                               {role.is_active ? (
                                 <FiToggleRight className="h-4 w-4 text-green-500" />
                               ) : (
@@ -360,19 +447,400 @@ export default function RBACIndex({
                 <p className="text-sm text-gray-600">Monitor RBAC changes and security events</p>
               </div>
               <div className="p-6">
-                <div className="space-y-4">
-                  {/* Placeholder for audit logs */}
+                {loadingAudit ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading audit logs...</p>
+                  </div>
+                ) : auditLogs.length === 0 ? (
                   <div className="text-center py-8 text-gray-500">
                     <FiActivity className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Security audit logs will appear here</p>
-                    <p className="text-sm">Track role changes, permission updates, and access modifications</p>
+                    <p>No audit logs found</p>
+                    <p className="text-sm">Security events will appear here when they occur</p>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {auditLogs.map((log: any) => (
+                      <div key={log.id} className={`p-4 rounded-lg border ${
+                        log.risk_level === 'high' ? 'border-red-200 bg-red-50' :
+                        log.risk_level === 'medium' ? 'border-yellow-200 bg-yellow-50' :
+                        'border-gray-200 bg-gray-50'
+                      }`}>
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center">
+                              <span className={`text-sm font-medium ${
+                                log.risk_level === 'high' ? 'text-red-700' :
+                                log.risk_level === 'medium' ? 'text-yellow-700' :
+                                'text-gray-700'
+                              }`}>
+                                {log.event_type}
+                              </span>
+                              {log.risk_level && (
+                                <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                                  log.risk_level === 'high' ? 'bg-red-100 text-red-700' :
+                                  log.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-700'
+                                }`}>
+                                  {log.risk_level} risk
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-600 mt-1">
+                              {log.entity_type}: {log.entity_name}
+                            </p>
+                            {log.performed_by && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                By: {log.performed_by.name} ({log.performed_by.email})
+                              </p>
+                            )}
+                            {log.reason && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Reason: {log.reason}
+                              </p>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(log.created_at).toLocaleString()}
+                          </div>
+                        </div>
+                        {log.changes && Object.keys(log.changes).length > 0 && (
+                          <div className="mt-2 text-xs text-gray-600">
+                            Changes: {JSON.stringify(log.changes)}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Role Edit Modal */}
+      <RoleEditModal
+        show={showRoleModal}
+        role={editingRole}
+        permissions={permissions}
+        onClose={handleCloseModal}
+        onSuccess={() => {
+          handleCloseModal();
+          router.reload({ only: ['userRoles', 'roleStats'] });
+        }}
+      />
+
+      {/* Role View Modal */}
+      <RoleViewModal
+        show={showViewModal}
+        role={selectedRole}
+        permissions={permissions}
+        onClose={() => {
+          setShowViewModal(false);
+          setSelectedRole(null);
+        }}
+      />
     </MainLayout>
+  );
+}
+
+// Role Edit Modal Component
+interface RoleEditModalProps {
+  show: boolean;
+  role: UserRole | null;
+  permissions: Permission[];
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+function RoleEditModal({ show, role, permissions, onClose, onSuccess }: RoleEditModalProps) {
+  const { data, setData, put, processing, errors, reset } = useForm({
+    permission_ids: [] as number[],
+    reason: ''
+  });
+
+  useEffect(() => {
+    if (role) {
+      // Get permission IDs from the role's permissions
+      const permissionIds = permissions
+        .filter(p => role.permissions.includes(p.slug))
+        .map(p => p.id);
+      setData('permission_ids', permissionIds);
+    }
+  }, [role, permissions]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!role) return;
+
+    put(`/rbac/role/${role.id}/permissions`, {
+      preserveScroll: true,
+      onSuccess: () => {
+        toast.success('Role permissions updated successfully');
+        reset();
+        onSuccess();
+      },
+      onError: () => {
+        toast.error('Failed to update role permissions');
+      }
+    });
+  };
+
+  const togglePermission = (permissionId: number) => {
+    setData('permission_ids', 
+      data.permission_ids.includes(permissionId)
+        ? data.permission_ids.filter(id => id !== permissionId)
+        : [...data.permission_ids, permissionId]
+    );
+  };
+
+  if (!role) return null;
+
+  // Group permissions by category
+  const permissionGroups = permissions.reduce((groups, permission) => {
+    const category = permission.slug.split('-')[0];
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(permission);
+    return groups;
+  }, {} as Record<string, Permission[]>);
+
+  return (
+    <Modal show={show} onClose={onClose} maxWidth="2xl">
+      <form onSubmit={handleSubmit}>
+        <div className="p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            Edit Role: {role.display_name}
+          </h2>
+          <p className="text-sm text-gray-600 mb-6">
+            {role.description}
+          </p>
+
+          {/* Permission Groups */}
+          <div className="space-y-6 max-h-96 overflow-y-auto">
+            {Object.entries(permissionGroups).map(([category, perms]) => (
+              <div key={category} className="border rounded-lg p-4">
+                <h3 className="font-medium text-gray-900 mb-3 capitalize">
+                  {category} Permissions
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {perms.map((permission) => (
+                    <label
+                      key={permission.id}
+                      className="flex items-start space-x-3 cursor-pointer"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={data.permission_ids.includes(permission.id)}
+                        onChange={() => togglePermission(permission.id)}
+                        className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        disabled={['super-admin', 'msc-admin'].includes(role.name) && 
+                                 ['manage-rbac', 'manage-all-organizations'].includes(permission.slug)}
+                      />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {permission.name}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {permission.description}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Reason for Change */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Reason for Change (Required)
+            </label>
+            <textarea
+              value={data.reason}
+              onChange={(e) => setData('reason', e.target.value)}
+              rows={3}
+              className="w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              placeholder="Please provide a reason for these permission changes..."
+              required
+            />
+            {errors.reason && (
+              <p className="mt-1 text-sm text-red-600">{errors.reason}</p>
+            )}
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="bg-gray-50 px-6 py-4 flex justify-between items-center">
+          <div className="text-sm text-gray-600">
+            {role.user_count} user{role.user_count !== 1 ? 's' : ''} will be affected
+          </div>
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={processing || !data.reason}
+              className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {processing ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// Role View Modal Component
+interface RoleViewModalProps {
+  show: boolean;
+  role: UserRole | null;
+  permissions: Permission[];
+  onClose: () => void;
+}
+
+function RoleViewModal({ show, role, permissions, onClose }: RoleViewModalProps) {
+  if (!role) return null;
+
+  // Get full permission details for this role
+  const rolePermissions = permissions.filter(p => role.permissions.includes(p.slug));
+
+  // Group permissions by category
+  const permissionGroups = rolePermissions.reduce((groups, permission) => {
+    const category = permission.slug.split('-')[0];
+    if (!groups[category]) {
+      groups[category] = [];
+    }
+    groups[category].push(permission);
+    return groups;
+  }, {} as Record<string, Permission[]>);
+
+  return (
+    <Modal show={show} onClose={onClose} maxWidth="2xl">
+      <div className="p-6">
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">
+              {role.display_name}
+            </h2>
+            <p className="text-sm text-gray-600 mt-1">
+              {role.description}
+            </p>
+          </div>
+          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+            role.is_active 
+              ? 'bg-green-100 text-green-800' 
+              : 'bg-red-100 text-red-800'
+          }`}>
+            {role.is_active ? 'Active' : 'Inactive'}
+          </div>
+        </div>
+
+        {/* Role Statistics */}
+        <div className="grid grid-cols-3 gap-4 mb-6">
+          <div className="bg-gray-50 rounded-lg p-4 text-center">
+            <p className="text-2xl font-semibold text-gray-900">{role.user_count}</p>
+            <p className="text-sm text-gray-600">Users</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4 text-center">
+            <p className="text-2xl font-semibold text-gray-900">{role.permissions.length}</p>
+            <p className="text-sm text-gray-600">Permissions</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg p-4 text-center">
+            <p className="text-2xl font-semibold text-gray-900">Level {role.hierarchy_level}</p>
+            <p className="text-sm text-gray-600">Hierarchy</p>
+          </div>
+        </div>
+
+        {/* Dashboard Configuration */}
+        <div className="mb-6">
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Dashboard Configuration</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${
+                role.dashboard_config.financial_access ? 'bg-green-500' : 'bg-red-500'
+              }`} />
+              <span className="text-sm text-gray-700">Financial Access</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <div className={`w-3 h-3 rounded-full ${
+                role.dashboard_config.pricing_access === 'full' ? 'bg-green-500' : 
+                role.dashboard_config.pricing_access === 'limited' ? 'bg-yellow-500' : 
+                'bg-red-500'
+              }`} />
+              <span className="text-sm text-gray-700">
+                Pricing Access: {role.dashboard_config.pricing_access || 'None'}
+              </span>
+            </div>
+            {role.dashboard_config.admin_capabilities && role.dashboard_config.admin_capabilities.length > 0 && (
+              <div className="col-span-2">
+                <p className="text-sm text-gray-700 mb-1">Admin Capabilities:</p>
+                <div className="flex flex-wrap gap-2">
+                  {role.dashboard_config.admin_capabilities.map((cap, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded">
+                      {cap.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+            {role.dashboard_config.customer_data_restrictions && role.dashboard_config.customer_data_restrictions.length > 0 && (
+              <div className="col-span-2">
+                <p className="text-sm text-gray-700 mb-1">Data Restrictions:</p>
+                <div className="flex flex-wrap gap-2">
+                  {role.dashboard_config.customer_data_restrictions.map((restriction, idx) => (
+                    <span key={idx} className="px-2 py-1 bg-red-100 text-red-800 text-xs rounded">
+                      {restriction.replace(/_/g, ' ')}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Permissions by Category */}
+        <div>
+          <h3 className="text-sm font-medium text-gray-900 mb-3">Permissions ({rolePermissions.length})</h3>
+          <div className="space-y-4 max-h-64 overflow-y-auto">
+            {Object.entries(permissionGroups).map(([category, perms]) => (
+              <div key={category} className="border rounded-lg p-3">
+                <h4 className="font-medium text-gray-800 mb-2 capitalize">
+                  {category} ({perms.length})
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {perms.map((permission) => (
+                    <div key={permission.id} className="text-sm">
+                      <p className="font-medium text-gray-700">{permission.name}</p>
+                      <p className="text-xs text-gray-500">{permission.description}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Modal Footer */}
+      <div className="bg-gray-50 px-6 py-4 flex justify-end">
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Close
+        </button>
+      </div>
+    </Modal>
   );
 }

@@ -32,6 +32,7 @@ class DatabaseSeeder extends Seeder
             'orders',
             'msc_products',
             'msc_sales_reps',
+            'facility_user',
             'facilities',
             'organizations',
             'users',
@@ -52,9 +53,13 @@ class DatabaseSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // 4. Create permissions
+        // 4. Call OrganizationSeeder to create multiple organizations
+        $this->call(OrganizationSeeder::class);
+
+        // 5. Create permissions
         $permissions = [
             'view-dashboard'                        => 'View dashboard and analytics',
+            'view-products'                         => 'View product catalog',
             'create-product-requests'               => 'Create new product requests',
             'view-product-requests'                 => 'View product requests',
             'view-facility-requests'                => 'View facility product requests',
@@ -66,7 +71,6 @@ class DatabaseSeeder extends Seeder
             'manage-eligibility'                    => 'Manage eligibility checks',
             'view-pre-authorization'                => 'View pre-authorization',
             'manage-pre-authorization'              => 'Manage pre-authorization',
-            'view-products'                         => 'View product catalog',
             'manage-products'                       => 'Manage product catalog',
             'view-msc-pricing'                      => 'View MSC pricing',
             'view-discounts'                        => 'View discounts',
@@ -104,6 +108,13 @@ class DatabaseSeeder extends Seeder
             'manage-api'                            => 'Manage API settings',
             'view-financials'                       => 'View financial information',
             'manage-financials'                     => 'Manage financial rules',
+            'view-reports'                          => 'View reports and analytics',
+            'manage-payments'                       => 'Manage payment processing',
+            'view-analytics'                        => 'View analytics dashboard',
+            'manage-menus'                          => 'Manage navigation menus',
+            'manage-roles'                          => 'Manage user roles',
+            'manage-permissions'                    => 'Manage permissions',
+            'manage-all-organizations'              => 'Manage all organizations (super admin)',
         ];
 
         $permissionIds = [];
@@ -118,7 +129,7 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // 5. Create roles and assign permissions
+        // 6. Create roles and assign permissions
         $rolesWithPermissions = [
             'provider' => [
                 'name'        => 'Healthcare Provider',
@@ -149,15 +160,21 @@ class DatabaseSeeder extends Seeder
                     'view-product-requests',
                     'view-facility-requests',
                     'view-provider-requests',
+                    'view-request-status',
+                    'view-mac-validation',
                     'manage-mac-validation',
+                    'view-eligibility',
                     'manage-eligibility',
+                    'view-pre-authorization',
                     'manage-pre-authorization',
                     'view-products',
                     'view-national-asp',
                     'view-providers',
                     'manage-providers',
+                    'view-facilities',
                     'view-orders',
                     'create-orders',
+                    'view-reports',
                 ],
             ],
             'msc-rep' => [
@@ -177,6 +194,8 @@ class DatabaseSeeder extends Seeder
                     'view-products',
                     'view-msc-pricing',
                     'view-discounts',
+                    'view-reports',
+                    'view-financials',
                 ],
             ],
             'msc-subrep' => [
@@ -190,6 +209,7 @@ class DatabaseSeeder extends Seeder
                     'view-products',
                     'view-msc-pricing',
                     'view-discounts',
+                    'view-reports',
                 ],
             ],
             'msc-admin' => [
@@ -207,20 +227,29 @@ class DatabaseSeeder extends Seeder
                     'view-payouts',
                     'view-customers',
                     'manage-customers',
+                    'view-facilities',
                     'manage-facilities',
+                    'view-providers',
                     'manage-providers',
                     'manage-documents',
                     'manage-team',
+                    'view-users',
                     'manage-users',
+                    'view-organizations',
                     'manage-organizations',
                     'manage-access-requests',
                     'manage-subrep-approvals',
+                    'view-settings',
                     'manage-settings',
                     'view-audit-logs',
                     'manage-rbac',
                     'manage-system-config',
                     'manage-integrations',
                     'manage-api',
+                    'view-reports',
+                    'manage-payments',
+                    'view-analytics',
+                    'manage-menus',
                 ],
             ],
             'super-admin' => [
@@ -265,7 +294,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // 6. Create users
+        // 7. Create users
         $users = [
             [
                 'account_id' => $accountId,
@@ -324,7 +353,7 @@ class DatabaseSeeder extends Seeder
             $userIds[$user['email']] = DB::table('users')->insertGetId($user);
         }
 
-        // 7. Assign roles to users
+        // 8. Assign roles to users
         $roleAssignments = [
             'msc-admin'     => 'admin@msc.com',
             'provider'      => 'provider@example.com',
@@ -344,7 +373,7 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // 8. Create organization
+        // 9. Create organization (legacy - kept for facilities association)
         $organizationId = DB::table('organizations')->insertGetId([
             'account_id'  => $accountId,
             'name'        => 'Test Healthcare Network',
@@ -359,7 +388,7 @@ class DatabaseSeeder extends Seeder
             'updated_at'  => now(),
         ]);
 
-        // 9. Create facilities
+        // 10. Create facilities
         $facilities = [
             [
                 'organization_id' => $organizationId,
@@ -412,6 +441,19 @@ class DatabaseSeeder extends Seeder
         foreach ($facilities as $facility) {
             $facilityIds[] = DB::table('facilities')->insertGetId($facility);
         }
+
+        // Associate provider with facilities
+        DB::table('facility_user')->insert([
+            ['user_id' => $userIds['provider@example.com'], 'facility_id' => $facilityIds[0], 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $userIds['provider@example.com'], 'facility_id' => $facilityIds[1], 'created_at' => now(), 'updated_at' => now()],
+        ]);
+
+        // Associate office manager with facilities
+        DB::table('facility_user')->insert([
+            ['user_id' => $userIds['manager@example.com'], 'facility_id' => $facilityIds[0], 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $userIds['manager@example.com'], 'facility_id' => $facilityIds[1], 'created_at' => now(), 'updated_at' => now()],
+            ['user_id' => $userIds['manager@example.com'], 'facility_id' => $facilityIds[2], 'created_at' => now(), 'updated_at' => now()],
+        ]);
 
         // 10. Create sales reps
         $salesReps = [
@@ -579,6 +621,13 @@ class DatabaseSeeder extends Seeder
             'approved_at' => now()->subDays(10),
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+
+        // Call other seeders
+        $this->call([
+            CategoriesAndManufacturersSeeder::class,
+            DocusealTemplateSeeder::class,
+            DocusealFolderSeeder::class,
         ]);
 
         $this->command->info('Database seeded successfully!');

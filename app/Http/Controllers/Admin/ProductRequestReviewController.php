@@ -159,7 +159,7 @@ class ProductRequestReviewController extends Controller
             }
         ]);
 
-        return Inertia::render('Admin/ProductRequests/Detail', [
+        return Inertia::render('Admin/OrderCenter/Show', [
             'request' => [
                 'id' => $productRequest->id,
                 'request_number' => $productRequest->request_number,
@@ -217,7 +217,7 @@ class ProductRequestReviewController extends Controller
 
         DB::transaction(function () use ($productRequest, $validated) {
             $productRequest->update([
-                'order_status' => 'approved',
+                'order_status' => 'pending_ivr', // Move to IVR generation stage
                 'approved_at' => now(),
                 'approved_by' => Auth::id(),
                 'approval_comments' => $validated['comments'] ?? null,
@@ -421,7 +421,7 @@ class ProductRequestReviewController extends Controller
     private function performBulkApproval(ProductRequest $request, array $data): void
     {
         $request->update([
-            'order_status' => 'approved',
+            'order_status' => 'pending_ivr', // Move to IVR generation stage
             'approved_at' => now(),
             'approved_by' => Auth::id(),
             'approval_comments' => $data['comments'] ?? 'Bulk approval',

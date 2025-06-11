@@ -162,4 +162,5 @@ return [
             'sslmode' => env('SUPABASE_DB_SSL_MODE', 'require'),
         ],
 
+
 ];

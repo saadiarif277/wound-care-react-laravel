@@ -3,9 +3,11 @@
 namespace App\Http\Middleware;
 
 use App\Http\Resources\UserResource;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Inertia\Middleware;
+use Tighten\Ziggy\Ziggy;
 
 class HandleInertiaRequests extends Middleware
 {
@@ -23,7 +25,7 @@ class HandleInertiaRequests extends Middleware
      *
      * @see https://inertiajs.com/asset-versioning
      */
-    public function version(Request $request): ?string
+    public function version(Request $request): string|null
     {
         return parent::version($request);
     }
@@ -37,7 +39,9 @@ class HandleInertiaRequests extends Middleware
             return null;
         }
 
-        $user = Auth::user()->load('roles');
+        /** @var User $user */
+        $user = Auth::user();
+        $user->load('roles');
         return $user->getPrimaryRoleSlug() ?? 'provider';
     }
 
@@ -51,21 +55,50 @@ class HandleInertiaRequests extends Middleware
         $effectiveUserRole = $this->getEffectiveUserRole($request);
 
         return array_merge(parent::share($request), [
-            'auth' => function () {
-                $user = Auth::check() ? Auth::user()->load(['account', 'roles']) : null;
-                return [
-                    'user' => $user ? new UserResource($user) : null,
-                ];
+            'auth' => [
+                'user' => $request->user(),
+            ],
+            'ziggy' => function () use ($request) {
+                return array_merge((new Ziggy)->toArray(), [
+                    'location' => $request->url(),
+                ]);
             },
+            'csrf_token' => csrf_token(),
+            'session_token' => session()->token(),
+            'session_id' => session()->getId(),
+            'flash' => [
+                'message' => fn () => $request->session()->get('message')
+            ],
             'userRole' => function () use ($effectiveUserRole) {
                 return $effectiveUserRole;
+            },
+            'permissions' => function () use ($request) {
+                if (!Auth::check()) {
+                    return [];
+                }
+
+                /** @var User $user */
+                $user = Auth::user();
+                $user->load(['roles.permissions']);
+
+                // Get all permission slugs the user has
+                $permissions = [];
+                foreach ($user->roles as $role) {
+                    foreach ($role->permissions as $permission) {
+                        $permissions[] = $permission->slug;
+                    }
+                }
+
+                return array_unique($permissions);
             },
             'roleRestrictions' => function () use ($request) {
                 if (!Auth::check()) {
                     return null;
                 }
 
-                $user = Auth::user()->load('roles');
+                /** @var User $user */
+                $user = Auth::user();
+                $user->load('roles');
                 return [
                     'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
                     'can_see_discounts' => $user->hasPermission('view-discounts'),
@@ -75,12 +108,6 @@ class HandleInertiaRequests extends Middleware
                     'is_super_admin' => $user->isSuperAdmin(),
                     'is_msc_admin' => $user->isMscAdmin(),
                     'is_provider' => $user->isProvider(),
-                ];
-            },
-            'flash' => function () use ($request) {
-                return [
-                    'success' => $request->session()->get('success'),
-                    'error' => $request->session()->get('error'),
                 ];
             },
         ]);
