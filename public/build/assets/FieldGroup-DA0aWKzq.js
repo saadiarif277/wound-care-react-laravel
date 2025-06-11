@@ -1,0 +1,1 @@
+import{j as s}from"./app-taSqzBVs.js";function r({label:e,name:a,error:t,children:c}){return s.jsxs("div",{className:"space-y-2",children:[e&&s.jsxs("label",{className:"block text-gray-800 select-none",htmlFor:a,children:[e,":"]}),c,t&&s.jsx("div",{className:"text-red-500 mt-2 text-sm",children:t})]})}export{r as F};

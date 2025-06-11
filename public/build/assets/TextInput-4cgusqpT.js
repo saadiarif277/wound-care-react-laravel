@@ -1,0 +1,1 @@
+import{j as e}from"./app-taSqzBVs.js";function s({name:r,className:o,error:n,...u}){return e.jsx("input",{id:r,name:r,...u,className:`form-input w-full focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 border-gray-300 rounded ${n?"border-red-400 focus:border-red-400 focus:ring-red-400":""} ${o}`})}export{s as T};

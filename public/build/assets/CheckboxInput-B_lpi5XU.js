@@ -1,0 +1,1 @@
+import{j as s}from"./app-taSqzBVs.js";function n({label:t,name:e,...o}){return s.jsxs("label",{className:"flex items-center select-none",htmlFor:e,children:[s.jsx("input",{id:e,name:e,type:"checkbox",className:"mr-2 form-checkbox rounded text-indigo-600 focus:ring-indigo-600",...o}),s.jsx("span",{className:"text-sm",children:t})]})}export{n as C};
