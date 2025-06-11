@@ -1,14 +1,22 @@
-import React, { useState, useEffect } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import React, { useState } from 'react';
+import { Head, router, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import OrganizationModal from '@/Components/ui/OrganizationModal';
+import { Card } from '@/Components/ui/card';
+import { Badge } from '@/Components/ui/badge';
 import {
-  FiBriefcase, FiMapPin, FiUser, FiTrendingUp, FiPieChart,
-  FiPlus, FiEdit, FiEye, FiTrash2, FiSearch, FiFilter,
-  FiCheckCircle, FiClock, FiAlertTriangle, FiUsers,
-  FiActivity, FiBarChart, FiTarget
-} from 'react-icons/fi';
-import { api, handleApiResponse } from '@/lib/api';
+  Search,
+  Building,
+  Users,
+  MapPin,
+  Plus,
+  Edit,
+  Eye,
+  Trash2,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  TrendingUp
+} from 'lucide-react';
 
 interface Organization {
   id: string;
@@ -16,233 +24,80 @@ interface Organization {
   type: string;
   status: string;
   contact_email: string;
-  phone: string;
-  address: string;
+  phone?: string;
+  address?: string;
   facilities_count: number;
   providers_count: number;
+  users_count: number;
   created_at: string;
+  updated_at: string;
 }
 
-interface Facility {
-  id: string;
-  name: string;
-  organization_name: string;
-  type: string;
-  status: string;
-  address: string;
-  contact_name: string;
-  contact_email: string;
-  providers_count: number;
-  orders_count: number;
-  created_at: string;
+interface Props {
+  organizations: {
+    data: Organization[];
+    links: any;
+    meta: any;
+  };
+  filters: {
+    search?: string;
+    status?: string;
+    type?: string;
+  };
+  summary: {
+    total_organizations: number;
+    active_organizations: number;
+    pending_organizations: number;
+    total_facilities: number;
+    total_providers: number;
+  };
 }
 
-interface Provider {
-  id: string;
-  name: string;
-  specialty: string;
-  npi: string;
-  facility_name: string;
-  organization_name: string;
-  email: string;
-  phone: string;
-  status: string;
-  orders_count: number;
-  last_order_date?: string;
-  created_at: string;
-}
+export default function OrganizationsIndex({ organizations, filters, summary }: Props) {
+  const [searchTerm, setSearchTerm] = useState(filters.search || '');
+  const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
+  const [selectedType, setSelectedType] = useState(filters.type || '');
 
-interface OnboardingRecord {
-  id: string;
-  provider_name: string;
-  facility_name: string;
-  organization_name: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
-  stage: string;
-  completion_percentage: number;
-  assigned_to: string;
-  created_at: string;
-  target_completion_date: string;
-}
-
-interface CustomerAnalytic {
-  organization_id: string;
-  organization_name: string;
-  total_orders: number;
-  total_revenue: number;
-  avg_order_value: number;
-  last_order_date: string;
-  growth_rate: number;
-  churn_risk: 'low' | 'medium' | 'high';
-  lifetime_value: number;
-  satisfaction_score: number;
-}
-
-type TabType = 'organizations' | 'facilities' | 'providers' | 'onboarding' | 'analytics';
-
-export default function OrganizationsIndex() {
-  const [activeTab, setActiveTab] = useState<TabType>('organizations');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
-
-  // Modal states
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingOrganization, setEditingOrganization] = useState<Organization | null>(null);
-  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-
-  // Data states
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [facilities, setFacilities] = useState<Facility[]>([]);
-  const [providers, setProviders] = useState<Provider[]>([]);
-  const [onboardingRecords, setOnboardingRecords] = useState<OnboardingRecord[]>([]);
-  const [analytics, setAnalytics] = useState<CustomerAnalytic[]>([]);
-
-  // Stats
-  const [stats, setStats] = useState({
-    totalOrganizations: 0,
-    activeFacilities: 0,
-    activeProviders: 0,
-    pendingOnboarding: 0,
-    avgSatisfactionScore: 0,
-    totalRevenue: 0
-  });
-
-  // Modal handlers
-  const handleAddOrganization = () => {
-    setEditingOrganization(null);
-    setModalMode('create');
-    setIsModalOpen(true);
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    router.get(route('admin.organizations.index'), {
+      search: searchTerm,
+      status: selectedStatus,
+      type: selectedType
+    });
   };
 
-  const handleEditOrganization = (organization: Organization) => {
-    setEditingOrganization(organization);
-    setModalMode('edit');
-    setIsModalOpen(true);
-  };
-
-  const handleModalSave = (organization: any) => {
-    if (modalMode === 'create') {
-      setOrganizations(prev => [organization, ...prev]);
-      setStats(prev => ({ ...prev, totalOrganizations: prev.totalOrganizations + 1 }));
-    } else {
-      setOrganizations(prev =>
-        prev.map(org => org.id === organization.id ? organization : org)
-      );
-    }
-    setIsModalOpen(false);
-    setEditingOrganization(null);
-  };
-
-  const handleModalClose = () => {
-    setIsModalOpen(false);
-    setEditingOrganization(null);
-  };
-
-  // Fetch data based on active tab
-  const fetchData = async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      switch (activeTab) {
-        case 'organizations':
-          const orgsResponse = await api.organizations.getAll({ search: searchTerm });
-          setOrganizations(orgsResponse.data || []);
-          break;
-
-        case 'facilities':
-          // Placeholder - would need to implement facilities API
-          setFacilities([]);
-          break;
-
-        case 'providers':
-          // Placeholder - would need to implement providers API
-          setProviders([]);
-          break;
-
-        case 'onboarding':
-          // Placeholder - would need to implement onboarding API
-          setOnboardingRecords([]);
-          break;
-
-        case 'analytics':
-          // Placeholder - would need to implement analytics API
-          setAnalytics([]);
-          break;
-      }
-
-      // Fetch stats for the dashboard
-      await fetchStats();
-
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch data');
-      console.error('Error fetching data:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchStats = async () => {
-    try {
-      const statsResponse = await api.organizations.getStats();
-      setStats({
-        totalOrganizations: statsResponse.data?.total || 0,
-        activeFacilities: statsResponse.data?.active || 0,
-        activeProviders: 0, // Would need to implement
-        pendingOnboarding: 0, // Would need to implement
-        avgSatisfactionScore: 0, // Would need to implement
-        totalRevenue: 0 // Would need to implement
-      });
-    } catch (err) {
-      console.error('Error fetching stats:', err);
-      // Set default stats if API fails
-      setStats({
-        totalOrganizations: organizations.length,
-        activeFacilities: 0,
-        activeProviders: 0,
-        pendingOnboarding: 0,
-        avgSatisfactionScore: 0,
-        totalRevenue: 0
+  const handleDelete = (organization: Organization) => {
+    if (window.confirm(`Are you sure you want to delete ${organization.name}?`)) {
+      router.delete(route('admin.organizations.destroy', organization.id), {
+        onSuccess: () => {
+          // Page will refresh automatically
+        }
       });
     }
   };
-
-  useEffect(() => {
-    fetchData();
-  }, [activeTab, searchTerm]);
-
-  const tabs = [
-    { id: 'organizations', label: 'Organizations', icon: FiBriefcase, count: stats.totalOrganizations },
-    { id: 'facilities', label: 'Facilities', icon: FiMapPin, count: stats.activeFacilities },
-    { id: 'providers', label: 'Providers', icon: FiUser, count: stats.activeProviders },
-    { id: 'onboarding', label: 'Onboarding Pipeline', icon: FiActivity, count: stats.pendingOnboarding },
-    { id: 'analytics', label: 'Customer Analytics', icon: FiBarChart, count: null }
-  ];
 
   const getStatusBadge = (status: string) => {
-    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
-
-    switch (status.toLowerCase()) {
+    switch (status) {
       case 'active':
-      case 'completed':
-        return `${baseClasses} bg-green-100 text-green-800`;
+        return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="w-3 h-3 mr-1" />Active</Badge>;
       case 'pending':
-      case 'in_progress':
-        return `${baseClasses} bg-yellow-100 text-yellow-800`;
+        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
       case 'inactive':
-      case 'rejected':
-        return `${baseClasses} bg-red-100 text-red-800`;
+        return <Badge className="bg-red-100 text-red-800"><AlertTriangle className="w-3 h-3 mr-1" />Inactive</Badge>;
       default:
-        return `${baseClasses} bg-gray-100 text-gray-800`;
+        return <Badge className="bg-gray-100 text-gray-800">{status}</Badge>;
     }
   };
 
-  const formatCurrency = (amount: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+  const getTypeBadge = (type: string) => {
+    const typeLabels: Record<string, string> = {
+      healthcare: 'Healthcare',
+      clinic: 'Clinic',
+      hospital: 'Hospital',
+      other: 'Other'
+    };
+    return typeLabels[type] || type;
   };
 
   const formatDate = (dateString: string) => {
@@ -253,499 +108,293 @@ export default function OrganizationsIndex() {
     });
   };
 
-  // Render functions for each tab
-  const renderOrganizations = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Organizations</h3>
-        <button
-          onClick={handleAddOrganization}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
-        >
-          <FiPlus className="w-4 h-4" />
-          Add Organization
-        </button>
-      </div>
-
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        {organizations.length === 0 ? (
-          <div className="text-center py-12">
-            <FiBriefcase className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No organizations</h3>
-            <p className="mt-1 text-sm text-gray-500">Get started by adding a new organization.</p>
-            <div className="mt-6">
-              <button
-                onClick={handleAddOrganization}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-              >
-                <FiPlus className="w-4 h-4 mr-2" />
-                Add Organization
-              </button>
-            </div>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {organizations.map((org) => (
-              <li key={org.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <h4 className="text-sm font-medium text-gray-900">{org.name}</h4>
-                      <span className={getStatusBadge(org.status)}>
-                        {org.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{org.type}</p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <FiMapPin className="w-3 h-3 mr-1" />
-                        {org.facilities_count || 0} facilities
-                      </span>
-                      <span className="flex items-center">
-                        <FiUser className="w-3 h-3 mr-1" />
-                        {org.providers_count || 0} providers
-                      </span>
-                      <span>Created: {formatDate(org.created_at)}</span>
-                    </div>
-                    {org.contact_email && (
-                      <p className="text-xs text-gray-500 mt-1">{org.contact_email}</p>
-                    )}
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => handleEditOrganization(org)}
-                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
-                      title="Edit organization"
-                    >
-                      <FiEdit className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
-                      title="View details"
-                    >
-                      <FiEye className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderFacilities = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Facilities</h3>
-        <button
-          onClick={() => {/* TODO: Implement facility modal */}}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
-        >
-          <FiPlus className="w-4 h-4" />
-          Add Facility
-        </button>
-      </div>
-
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        {facilities.length === 0 ? (
-          <div className="text-center py-12">
-            <FiMapPin className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No facilities</h3>
-            <p className="mt-1 text-sm text-gray-500">Facilities management coming soon.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {facilities.map((facility) => (
-              <li key={facility.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <h4 className="text-sm font-medium text-gray-900">{facility.name}</h4>
-                      <span className={getStatusBadge(facility.status)}>
-                        {facility.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{facility.organization_name}</p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                      <span className="flex items-center">
-                        <FiUser className="w-3 h-3 mr-1" />
-                        {facility.providers_count} providers
-                      </span>
-                      <span>{facility.orders_count} orders</span>
-                      <span>Type: {facility.type}</span>
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => {/* TODO: Implement facility edit */}}
-                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
-                      title="Edit facility"
-                    >
-                      <FiEdit className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
-                      title="View details"
-                    >
-                      <FiEye className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderProviders = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Providers</h3>
-        <button
-          onClick={() => {/* TODO: Implement provider modal */}}
-          className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 flex items-center gap-2 transition-colors"
-        >
-          <FiPlus className="w-4 h-4" />
-          Add Provider
-        </button>
-      </div>
-
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        {providers.length === 0 ? (
-          <div className="text-center py-12">
-            <FiUser className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No providers</h3>
-            <p className="mt-1 text-sm text-gray-500">Provider management coming soon.</p>
-          </div>
-        ) : (
-          <ul className="divide-y divide-gray-200">
-            {providers.map((provider) => (
-              <li key={provider.id} className="px-6 py-4 hover:bg-gray-50">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <h4 className="text-sm font-medium text-gray-900">{provider.name}</h4>
-                      <span className={getStatusBadge(provider.status)}>
-                        {provider.status}
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-500 mt-1">{provider.specialty} • NPI: {provider.npi}</p>
-                    <p className="text-sm text-gray-500">{provider.facility_name}</p>
-                    <div className="flex items-center space-x-4 mt-2 text-xs text-gray-500">
-                      <span>{provider.orders_count} orders</span>
-                      {provider.last_order_date && (
-                        <span>Last order: {formatDate(provider.last_order_date)}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => {/* TODO: Implement provider edit */}}
-                      className="text-blue-600 hover:text-blue-900 p-1 rounded transition-colors"
-                      title="Edit provider"
-                    >
-                      <FiEdit className="w-4 h-4" />
-                    </button>
-                    <button
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded transition-colors"
-                      title="View details"
-                    >
-                      <FiEye className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
-  );
-
-  const renderOnboarding = () => (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium text-gray-900">Onboarding Pipeline</h3>
-        <div className="flex space-x-2">
-          <select className="border border-gray-300 rounded-md px-3 py-2 text-sm">
-            <option value="">All Stages</option>
-            <option value="documentation">Documentation</option>
-            <option value="training">Training</option>
-            <option value="verification">Verification</option>
-            <option value="approval">Approval</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <ul className="divide-y divide-gray-200">
-          {onboardingRecords.map((record) => (
-            <li key={record.id} className="px-6 py-4 hover:bg-gray-50">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center">
-                    <h4 className="text-sm font-medium text-gray-900">{record.provider_name}</h4>
-                    <span className={getStatusBadge(record.status)}>
-                      {record.status.replace('_', ' ')}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-500 mt-1">{record.facility_name} • {record.organization_name}</p>
-                  <div className="flex items-center space-x-4 mt-2">
-                    <span className="text-xs text-gray-500">Stage: {record.stage}</span>
-                    <div className="flex items-center">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{ width: `${record.completion_percentage}%` }}
-                        ></div>
-                      </div>
-                      <span className="ml-2 text-xs text-gray-500">{record.completion_percentage}%</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm text-gray-500">Assigned to: {record.assigned_to}</p>
-                  <p className="text-xs text-gray-500">Due: {formatDate(record.target_completion_date)}</p>
-                </div>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-    </div>
-  );
-
-  const renderAnalytics = () => (
-    <div className="space-y-6">
-      <h3 className="text-lg font-medium text-gray-900">Customer Analytics</h3>
-
-      {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FiTrendingUp className="h-8 w-8 text-green-600" />
-            </div>
-            <div className="ml-5">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500">Total Revenue</dt>
-                <dd className="text-2xl font-semibold text-gray-900">
-                  {formatCurrency(stats.totalRevenue)}
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FiTarget className="h-8 w-8 text-blue-600" />
-            </div>
-            <div className="ml-5">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500">Avg Satisfaction</dt>
-                <dd className="text-2xl font-semibold text-gray-900">
-                  {stats.avgSatisfactionScore}/10
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <FiUsers className="h-8 w-8 text-purple-600" />
-            </div>
-            <div className="ml-5">
-              <dl>
-                <dt className="text-sm font-medium text-gray-500">Active Customers</dt>
-                <dd className="text-2xl font-semibold text-gray-900">
-                  {analytics.length}
-                </dd>
-              </dl>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Analytics Table */}
-      <div className="bg-white shadow overflow-hidden sm:rounded-md">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Organization
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Total Orders
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Revenue
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Avg Order Value
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Growth Rate
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Churn Risk
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Satisfaction
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {analytics.map((analytic) => (
-                <tr key={analytic.organization_id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">
-                      {analytic.organization_name}
-                    </div>
-                    <div className="text-sm text-gray-500">
-                      Last order: {formatDate(analytic.last_order_date)}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {analytic.total_orders}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatCurrency(analytic.total_revenue)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {formatCurrency(analytic.avg_order_value)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      analytic.growth_rate >= 0
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {analytic.growth_rate >= 0 ? '+' : ''}{analytic.growth_rate.toFixed(1)}%
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={getStatusBadge(analytic.churn_risk)}>
-                      {analytic.churn_risk}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {analytic.satisfaction_score}/10
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-
-  if (loading) {
-    return (
-      <MainLayout>
-        <Head title="Customer Management" />
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading data...</p>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
-
   return (
     <MainLayout>
-      <Head title="Customer Management" />
+      <Head title="Organizations" />
 
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Customer Management</h1>
-            <p className="text-gray-500">
-              Manage organizations, facilities, providers, onboarding, and customer analytics
-            </p>
-          </div>
-
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search..."
-              className="w-64 pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="border-b border-gray-200">
-          <nav className="-mb-px flex space-x-8">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id as TabType)}
-                  className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2 ${
-                    activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  {tab.label}
-                  {tab.count !== null && (
-                    <span className="bg-gray-100 text-gray-600 py-0.5 px-2.5 rounded-full text-xs">
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-md p-4">
-            <div className="text-red-700">
-              <p className="font-medium">Error loading data</p>
-              <p className="text-sm">{error}</p>
+      <div className="py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Header */}
+          <div className="mb-6 flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Organizations</h1>
+              <p className="text-gray-600">Manage organizations and their facilities</p>
             </div>
+            <Link
+              href="/admin/organizations/create"
+              className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Plus className="w-5 h-5 mr-2" />
+              Add Organization
+            </Link>
           </div>
-        )}
 
-        {/* Tab Content */}
-        <div className="min-h-96">
-          {activeTab === 'organizations' && renderOrganizations()}
-          {activeTab === 'facilities' && renderFacilities()}
-          {activeTab === 'providers' && renderProviders()}
-          {activeTab === 'onboarding' && renderOnboarding()}
-          {activeTab === 'analytics' && renderAnalytics()}
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Organizations</p>
+                  <p className="text-2xl font-bold">{summary.total_organizations}</p>
+                </div>
+                <Building className="w-8 h-8 text-gray-400" />
+              </div>
+            </Card>
+            
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Active</p>
+                  <p className="text-2xl font-bold text-green-600">{summary.active_organizations}</p>
+                </div>
+                <CheckCircle2 className="w-8 h-8 text-green-400" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Pending</p>
+                  <p className="text-2xl font-bold text-yellow-600">{summary.pending_organizations}</p>
+                </div>
+                <Clock className="w-8 h-8 text-yellow-400" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Facilities</p>
+                  <p className="text-2xl font-bold">{summary.total_facilities}</p>
+                </div>
+                <MapPin className="w-8 h-8 text-blue-400" />
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Providers</p>
+                  <p className="text-2xl font-bold">{summary.total_providers}</p>
+                </div>
+                <Users className="w-8 h-8 text-purple-400" />
+              </div>
+            </Card>
+          </div>
+
+          {/* Search and Filters */}
+          <Card className="p-4 mb-6">
+            <form onSubmit={handleSearch} className="flex flex-wrap gap-4">
+              <div className="flex-1 min-w-[300px] relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search organizations by name, email, or phone..."
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                />
+              </div>
+              
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="">All Statuses</option>
+                <option value="active">Active</option>
+                <option value="pending">Pending</option>
+                <option value="inactive">Inactive</option>
+              </select>
+
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+              >
+                <option value="">All Types</option>
+                <option value="healthcare">Healthcare</option>
+                <option value="clinic">Clinic</option>
+                <option value="hospital">Hospital</option>
+                <option value="other">Other</option>
+              </select>
+
+              <button
+                type="submit"
+                className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Search
+              </button>
+            </form>
+          </Card>
+
+          {/* Organizations Table */}
+          <Card className="overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Organization
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Type
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Facilities
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Providers
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Contact
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Created
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {organizations.data.length === 0 ? (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-8 text-center">
+                        <Building className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+                        <p className="text-gray-500">No organizations found</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    organizations.data.map((organization) => (
+                      <tr key={organization.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div>
+                            <div className="text-sm font-medium text-gray-900">{organization.name}</div>
+                            {organization.address && (
+                              <div className="text-sm text-gray-500">{organization.address}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-900">{getTypeBadge(organization.type)}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          {getStatusBadge(organization.status)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <MapPin className="w-4 h-4 mr-1 text-gray-400" />
+                            {organization.facilities_count}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center text-sm text-gray-900">
+                            <Users className="w-4 h-4 mr-1 text-gray-400" />
+                            {organization.providers_count}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm">
+                            <div className="text-gray-900">{organization.contact_email}</div>
+                            {organization.phone && (
+                              <div className="text-gray-500">{organization.phone}</div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {formatDate(organization.created_at)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex items-center justify-end space-x-2">
+                            <Link
+                              href={`/admin/organizations/${organization.id}`}
+                              className="text-gray-600 hover:text-gray-900 p-1"
+                              title="View details"
+                            >
+                              <Eye className="w-5 h-5" />
+                            </Link>
+                            <Link
+                              href={`/admin/organizations/${organization.id}/edit`}
+                              className="text-blue-600 hover:text-blue-900 p-1"
+                              title="Edit"
+                            >
+                              <Edit className="w-5 h-5" />
+                            </Link>
+                            <button
+                              onClick={() => handleDelete(organization)}
+                              className="text-red-600 hover:text-red-900 p-1"
+                              title="Delete"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {organizations.meta && organizations.meta.last_page > 1 && (
+              <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+                <div className="flex-1 flex justify-between sm:hidden">
+                  {organizations.links.prev && (
+                    <Link
+                      href={organizations.links.prev}
+                      className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Previous
+                    </Link>
+                  )}
+                  {organizations.links.next && (
+                    <Link
+                      href={organizations.links.next}
+                      className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Next
+                    </Link>
+                  )}
+                </div>
+                <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm text-gray-700">
+                      Showing <span className="font-medium">{organizations.meta.from}</span> to{' '}
+                      <span className="font-medium">{organizations.meta.to}</span> of{' '}
+                      <span className="font-medium">{organizations.meta.total}</span> results
+                    </p>
+                  </div>
+                  <div>
+                    <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                      {organizations.links.prev && (
+                        <Link
+                          href={organizations.links.prev}
+                          className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        >
+                          Previous
+                        </Link>
+                      )}
+                      {organizations.links.next && (
+                        <Link
+                          href={organizations.links.next}
+                          className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50"
+                        >
+                          Next
+                        </Link>
+                      )}
+                    </nav>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
-
-      {/* Organization Modal */}
-      <OrganizationModal
-        isOpen={isModalOpen}
-        onClose={handleModalClose}
-        onSave={handleModalSave}
-        organization={editingOrganization}
-        mode={modalMode}
-      />
     </MainLayout>
   );
 }

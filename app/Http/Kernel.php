@@ -33,7 +33,7 @@ class Kernel extends HttpKernel
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-            \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
+          //  \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class,
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             // \App\Http\Middleware\SetLocale::class, // Optional: if you have this for localization
         ],
@@ -68,6 +68,11 @@ class Kernel extends HttpKernel
 
         'role' => \App\Http\Middleware\CheckRole::class, // Your custom middleware
         'permission' => \App\Http\Middleware\CheckPermission::class, // Your custom middleware
+        'menu.access' => \App\Http\Middleware\CheckMenuAccess::class,
+        'menu.analytics' => \App\Http\Middleware\TrackMenuAnalytics::class,
+        'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
+        'organization.context' => \App\Http\Middleware\EnsureOrganizationContext::class,
+        'validation.builder' => \App\Http\Middleware\ValidationBuilderSecurity::class,
     ];
 
     /**

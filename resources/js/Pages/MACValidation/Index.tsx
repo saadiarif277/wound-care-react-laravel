@@ -298,7 +298,7 @@ const MACValidationPage = () => {
                 return;
             }
 
-            const response = await fetch('/api/mac-validation/quick-check', {
+            const response = await fetch('/api/v1/mac-validation/quick-check', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -335,7 +335,7 @@ const MACValidationPage = () => {
         setIsValidating(true);
 
         try {
-            const response = await fetch('/api/mac-validation/thorough-validate', {
+            const response = await fetch('/api/v1/mac-validation/thorough-validate', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Fhir\Facility;
 use App\Models\Users\Organization\Organization;
+use App\Models\Scopes\OrganizationScope;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -13,34 +14,70 @@ use Illuminate\Support\Facades\DB;
 class FacilityController extends Controller
 {
     /**
-     * Display a listing of facilities for admin users.
+     * Display a listing of facilities based on user role.
      */
     public function index()
     {
-        // Use a raw query (DB::table('facilities')->select(...)->get()) to load all records (including soft-deleted ones) from the facilities table.
-        $allfacility_raw = DB::table('facilities')->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at', 'deleted_at')->get();
-        // Hydrate (using Facility::hydrate) so that the select (for Order requests) also loads all facilities.
-        $allfacility = Facility::hydrate($allfacility_raw->toArray());
-        $facilities = $allfacility_raw->map(function ($fac) {
-            $org = DB::table('organizations')->where('id', $fac->organization_id)->first();
-            $prov_count = DB::table('facility_user')->where('facility_id', $fac->id)->where('role', 'provider')->count();
-            return (object) [
-                'id' => $fac->id,
-                'name' => $fac->name,
-                'address' => $fac->address,
-                'organization_id' => $fac->organization_id,
-                'organization_name' => ($org) ? $org->name : null,
-                'provider_count' => $prov_count,
-                'created_at' => $fac->created_at,
-                'updated_at' => $fac->updated_at,
-            ];
-         });
+        $user = Auth::user();
+        
+        // Admin users see all facilities
+        if ($user->hasRole('msc-admin') || $user->hasRole('super-admin')) {
+            // Use a raw query (DB::table('facilities')->select(...)->get()) to load all records (including soft-deleted ones) from the facilities table.
+            $allfacility_raw = DB::table('facilities')->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at', 'deleted_at')->get();
+            // Hydrate (using Facility::hydrate) so that the select (for Order requests) also loads all facilities.
+            $allfacility = Facility::hydrate($allfacility_raw->toArray());
+            $facilities = $allfacility_raw->map(function ($fac) {
+                $org = DB::table('organizations')->where('id', $fac->organization_id)->first();
+                $prov_count = DB::table('facility_user')->where('facility_id', $fac->id)->where('role', 'provider')->count();
+                return (object) [
+                    'id' => $fac->id,
+                    'name' => $fac->name,
+                    'address' => $fac->address,
+                    'organization_id' => $fac->organization_id,
+                    'organization_name' => ($org) ? $org->name : null,
+                    'provider_count' => $prov_count,
+                    'created_at' => $fac->created_at,
+                    'updated_at' => $fac->updated_at,
+                ];
+             });
 
-        $organizations = Organization::select('id', 'name')->get();
+            $organizations = Organization::select('id', 'name')->get();
 
-        return Inertia::render('Admin/Facilities/Index', [
+            return Inertia::render('Admin/Facilities/Index', [
+                'facilities' => $facilities,
+                'organizations' => $organizations,
+            ]);
+        }
+        
+        // Other users (providers, office managers) see only their assigned facilities
+        $facilities = $user->facilities()
+            ->withoutGlobalScope(OrganizationScope::class)
+            ->with('organization')
+            ->select('facilities.id', 'facilities.name', 'facilities.address', 'facilities.organization_id', 'facilities.created_at', 'facilities.updated_at')
+            ->get()
+            ->map(function ($facility) {
+                // Get provider count for this facility
+                $providerCount = DB::table('facility_user')
+                    ->where('facility_id', $facility->id)
+                    ->where('relationship_type', 'provider')
+                    ->count();
+                
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->address,
+                    'organization_name' => $facility->organization->name,
+                    'provider_count' => $providerCount,
+                    'created_at' => $facility->created_at,
+                    'updated_at' => $facility->updated_at,
+                ];
+            });
+
+        // Use the appropriate view based on role
+        $viewName = $user->hasRole('provider') ? 'Provider/Facilities/Index' : 'Facilities/Index';
+        
+        return Inertia::render($viewName, [
             'facilities' => $facilities,
-            'organizations' => $organizations,
         ]);
     }
 
@@ -106,42 +143,22 @@ class FacilityController extends Controller
         ]);
     }
 
-    /**
-     * Display a listing of facilities for provider users.
-     */
-    public function providerIndex()
-    {
-        $user = Auth::user();
-        $facilities = $user->facilities()
-            ->with('organization')
-            ->select('facilities.id', 'facilities.name', 'facilities.address', 'facilities.organization_id', 'facilities.created_at', 'facilities.updated_at')
-            ->get()
-            ->map(function ($facility) {
-                return [
-                    'id' => $facility->id,
-                    'name' => $facility->name,
-                    'address' => $facility->address,
-                    'organization_name' => $facility->organization->name,
-                    'created_at' => $facility->created_at,
-                    'updated_at' => $facility->updated_at,
-                ];
-            });
 
-        return Inertia::render('Provider/Facilities/Index', [
-            'facilities' => $facilities,
-        ]);
-    }
 
     /**
-     * Display the specified facility for provider users.
+     * Display the specified facility based on user role.
      */
-    public function providerShow(Facility $facility)
+    public function show(Facility $facility)
     {
         $user = Auth::user();
 
-        // Check if provider has access to this facility
-        if (!$user->facilities()->where('facilities.id', $facility->id)->exists()) {
-            abort(403, 'You do not have access to this facility.');
+        // Check if non-admin user has access to this facility
+        if (!$user->hasRole('msc-admin') && !$user->hasRole('super-admin')) {
+            // Note: Using withoutGlobalScope to bypass OrganizationScope for authorization check
+            // since the CurrentOrganization service may not be properly bound in all contexts
+            if (!$user->facilities()->withoutGlobalScope(OrganizationScope::class)->where('facilities.id', $facility->id)->exists()) {
+                abort(403, 'You do not have access to this facility.');
+            }
         }
 
         $facility->load(['organization', 'providers' => function ($query) {
@@ -149,7 +166,11 @@ class FacilityController extends Controller
                 ->withPivot('role');
         }]);
 
-        return Inertia::render('Provider/Facilities/Show', [
+        // Use the appropriate view based on role
+        $viewName = $user->hasRole('provider') ? 'Provider/Facilities/Show' : 
+                   ($user->hasRole('msc-admin') || $user->hasRole('super-admin') ? 'Admin/Facilities/Show' : 'Facilities/Show');
+
+        return Inertia::render($viewName, [
             'facility' => [
                 'id' => $facility->id,
                 'name' => $facility->name,
@@ -350,7 +371,8 @@ class FacilityController extends Controller
         $user = Auth::user();
 
         // Check if provider has access to this facility
-        if (!$user->facilities()->where('facilities.id', $facility->id)->exists()) {
+        // Note: Using withoutGlobalScope to bypass OrganizationScope for authorization check
+        if (!$user->facilities()->withoutGlobalScope(OrganizationScope::class)->where('facilities.id', $facility->id)->exists()) {
             return response()->json(['message' => 'You do not have access to this facility.'], 403);
         }
 

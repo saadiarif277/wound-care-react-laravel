@@ -62,6 +62,15 @@ class User extends Authenticatable
     ];
 
     /**
+     * The accessors to append to the model's array form.
+     *
+     * @var array<int, string>
+     */
+    protected $appends = [
+        'full_name',
+    ];
+
+    /**
      * Get the attributes that should be cast.
      *
      * @return array<string, string>
@@ -147,6 +156,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Get the user's full name.
+     */
+    public function getFullNameAttribute(): string
+    {
+        return trim($this->first_name . ' ' . $this->last_name);
+    }
+
+    /**
      * Get active sales rep organization assignments
      */
     public function activeAssignedOrganizations(): BelongsToMany
@@ -160,7 +177,7 @@ class User extends Authenticatable
     public function facilities(): BelongsToMany
     {
         return $this->belongsToMany(Facility::class, 'facility_user')
-            ->withPivot(['relationship_type', 'role', 'created_at', 'updated_at'])
+            ->withPivot(['relationship_type', 'role', 'is_primary', 'created_at', 'updated_at'])
             ->withTimestamps();
     }
 
@@ -433,6 +450,48 @@ class User extends Authenticatable
     public function onboardingDocuments(): MorphMany
     {
         return $this->morphMany(OnboardingDocument::class, 'entity');
+    }
+
+    /**
+     * Products that this provider has been onboarded with
+     */
+    public function products(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Order\Product::class, 'provider_products', 'user_id', 'product_id')
+            ->withPivot(['onboarded_at', 'onboarding_status', 'expiration_date', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
+     * Active products that this provider can use in product requests
+     */
+    public function activeProducts(): BelongsToMany
+    {
+        return $this->products()
+            ->wherePivot('onboarding_status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('provider_products.expiration_date')
+                    ->orWhere('provider_products.expiration_date', '>=', now());
+            });
+    }
+
+    /**
+     * Check if provider is onboarded with a specific product
+     */
+    public function isOnboardedWithProduct($productId): bool
+    {
+        return $this->activeProducts()->where('msc_products.id', $productId)->exists();
+    }
+
+    /**
+     * Get products available for a specific category
+     */
+    public function getAvailableProductsForCategory(string $category)
+    {
+        return $this->activeProducts()
+            ->where('category', $category)
+            ->where('is_active', true)
+            ->get();
     }
 
     // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait

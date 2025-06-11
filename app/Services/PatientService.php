@@ -5,11 +5,19 @@ namespace App\Services;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use App\Services\FhirService;
 
 class PatientService
 {
+    private FhirService $fhirService;
+
+    public function __construct(FhirService $fhirService)
+    {
+        $this->fhirService = $fhirService;
+    }
     /**
      * Create patient record and generate sequential display ID.
+     * Creates actual FHIR Patient resource in Azure Health Data Services.
      * Includes fallback mechanisms for error cases.
      */
     public function createPatientRecord(array $patientData, int $facilityId): array
@@ -31,16 +39,18 @@ class PatientService
                 $displayId = $this->generateFallbackId($patientData, $facilityId);
             }
 
-            // Generate a temporary FHIR ID
-            $fhirId = 'Patient/' . Str::uuid();
+            // Create FHIR Patient resource in Azure
+            $fhirPatient = $this->createFhirPatient($patientData, $displayId);
+            $fhirId = 'Patient/' . $fhirPatient['id'];
 
-            // Store the record even if it's temporary
+            // Store the record mapping
             $this->storePatientRecord($displayId, $fhirId, $facilityId, $patientData);
 
             return [
                 'patient_fhir_id' => $fhirId,
                 'patient_display_id' => $displayId,
-                'is_temporary' => str_starts_with($displayId, 'TEMP-')
+                'is_temporary' => str_starts_with($displayId, 'TEMP-'),
+                'fhir_resource' => $fhirPatient
             ];
         } catch (\Exception $e) {
             Log::error('Failed to create patient record', [
@@ -48,12 +58,138 @@ class PatientService
                 'data' => $patientData
             ]);
             // Return a temporary ID as last resort
+            $tempId = 'Patient/' . Str::uuid();
+            $tempDisplayId = $this->generateEmergencyId($facilityId);
+            
+            // Try to store the temporary mapping
+            try {
+                $this->storePatientRecord($tempDisplayId, $tempId, $facilityId, $patientData);
+            } catch (\Exception $storeError) {
+                Log::error('Failed to store temporary patient mapping', ['error' => $storeError->getMessage()]);
+            }
+            
             return [
-                'patient_fhir_id' => 'Patient/' . Str::uuid(),
-                'patient_display_id' => $this->generateEmergencyId($facilityId),
+                'patient_fhir_id' => $tempId,
+                'patient_display_id' => $tempDisplayId,
                 'is_temporary' => true
             ];
         }
+    }
+
+    /**
+     * Create FHIR Patient resource in Azure Health Data Services.
+     */
+    private function createFhirPatient(array $patientData, string $displayId): array
+    {
+        $fhirData = [
+            'resourceType' => 'Patient',
+            'identifier' => [
+                [
+                    'use' => 'usual',
+                    'type' => [
+                        'coding' => [
+                            [
+                                'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                                'code' => 'MR',
+                                'display' => 'Medical record number'
+                            ]
+                        ]
+                    ],
+                    'value' => $displayId,
+                    'assigner' => [
+                        'display' => 'MSC Wound Portal'
+                    ]
+                ]
+            ],
+            'active' => true,
+            'name' => [
+                [
+                    'use' => 'official',
+                    'family' => $patientData['last_name'] ?? '',
+                    'given' => [$patientData['first_name'] ?? '']
+                ]
+            ],
+            'gender' => $this->mapGenderToFhir($patientData['gender'] ?? null),
+            'birthDate' => $patientData['date_of_birth'] ?? null
+        ];
+
+        // Add member ID if provided
+        if (!empty($patientData['member_id'])) {
+            $fhirData['identifier'][] = [
+                'use' => 'usual',
+                'type' => [
+                    'coding' => [
+                        [
+                            'system' => 'http://terminology.hl7.org/CodeSystem/v2-0203',
+                            'code' => 'MB',
+                            'display' => 'Member number'
+                        ]
+                    ]
+                ],
+                'value' => $patientData['member_id']
+            ];
+        }
+
+        // Add contact information if provided
+        if (!empty($patientData['phone']) || !empty($patientData['email'])) {
+            $fhirData['telecom'] = [];
+            if (!empty($patientData['phone'])) {
+                $fhirData['telecom'][] = [
+                    'system' => 'phone',
+                    'value' => $patientData['phone'],
+                    'use' => 'mobile'
+                ];
+            }
+            if (!empty($patientData['email'])) {
+                $fhirData['telecom'][] = [
+                    'system' => 'email',
+                    'value' => $patientData['email'],
+                    'use' => 'home'
+                ];
+            }
+        }
+
+        // Add address if provided
+        if (!empty($patientData['address'])) {
+            $fhirData['address'] = [
+                [
+                    'use' => 'home',
+                    'line' => [$patientData['address']['line1']],
+                    'city' => $patientData['address']['city'] ?? null,
+                    'state' => $patientData['address']['state'] ?? null,
+                    'postalCode' => $patientData['address']['zip'] ?? null,
+                    'country' => 'US'
+                ]
+            ];
+            if (!empty($patientData['address']['line2'])) {
+                $fhirData['address'][0]['line'][] = $patientData['address']['line2'];
+            }
+        }
+
+        return $this->fhirService->createPatient($fhirData);
+    }
+
+    /**
+     * Map gender value to FHIR-compliant value.
+     */
+    private function mapGenderToFhir(?string $gender): string
+    {
+        if (!$gender) {
+            return 'unknown';
+        }
+
+        $genderMap = [
+            'm' => 'male',
+            'male' => 'male',
+            'f' => 'female',
+            'female' => 'female',
+            'o' => 'other',
+            'other' => 'other',
+            'u' => 'unknown',
+            'unknown' => 'unknown'
+        ];
+
+        return $genderMap[strtolower($gender)] ?? 'unknown';
     }
 
     /**
@@ -79,11 +215,40 @@ class PatientService
     }
 
     /**
-     * Generate display ID for patient (e.g., "JOSM001").
+     * Generate display ID for patient with random numbers (e.g., "JOSM473").
+     * Uses first 2 letters of first name + first 2 letters of last name + 3 random digits.
      */
     private function generateDisplayId(string $firstName, string $lastName, int $facilityId): string
     {
         $initials = $this->getInitials($firstName, $lastName);
+        
+        // Generate random 3-digit number
+        $randomNumber = mt_rand(100, 999);
+        
+        // Check if this combination already exists for the facility
+        $attempts = 0;
+        $maxAttempts = 10;
+        
+        while ($attempts < $maxAttempts) {
+            $displayId = $initials . $randomNumber;
+            
+            // Check if this ID already exists
+            $exists = DB::table('product_requests')
+                ->where('facility_id', $facilityId)
+                ->where('patient_display_id', $displayId)
+                ->exists();
+            
+            if (!$exists) {
+                return $displayId;
+            }
+            
+            // Try a new random number
+            $randomNumber = mt_rand(100, 999);
+            $attempts++;
+        }
+        
+        // If we couldn't find a unique ID after max attempts, 
+        // fall back to sequential approach
         $sequence = $this->getSequence($facilityId, $initials);
         return $initials . str_pad($sequence, 3, '0', STR_PAD_LEFT);
     }

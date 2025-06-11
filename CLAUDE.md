@@ -1,0 +1,7 @@
+- remember to always use roles not permissions, and never use mock data for the remainer of the project
+- remember there's organizations that can have multiple facilities and providers, facilities that have only one office manager and providers that can have relationships with multiple facitilies and organizations.
+- remember to always fully finish a page or feature before moving on, including all buttons, functions and other feature functionality before moving on to the next task, feature or function.
+- always use uuid when appropriate and like has been used in other tables and migrations.
+- remember they can only request one product and multiple sizes not multiple products
+- patient info should be shown as first two letters of first name, first two letters of last name and random # sequence known as PATITENT_DISPLAY_ID
+- only go from documentation saved under @docs/newest/

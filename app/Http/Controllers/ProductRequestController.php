@@ -153,6 +153,35 @@ class ProductRequestController extends Controller
 
     public function store(Request $request)
     {
+        // Debug CSRF token information
+        \Log::info('Product Request Store - CSRF Debug', [
+            'has_csrf_token' => $request->hasHeader('X-CSRF-TOKEN'),
+            'csrf_token_header' => $request->header('X-CSRF-TOKEN'),
+            'session_token' => session()->token(),
+            'request_method' => $request->method(),
+            'request_url' => $request->url(),
+            'session_id' => session()->getId(),
+            'session_lifetime' => config('session.lifetime'),
+            'token_matches' => $request->header('X-CSRF-TOKEN') === session()->token(),
+            'session_has_token' => session()->has('_token'),
+            'session_token_created_at' => session()->get('_token_created_at'),
+        ]);
+
+        // Check if CSRF token is valid
+        if (!$request->hasHeader('X-CSRF-TOKEN') || $request->header('X-CSRF-TOKEN') !== session()->token()) {
+            \Log::error('CSRF token validation failed', [
+                'provided_token' => $request->header('X-CSRF-TOKEN'),
+                'session_token' => session()->token(),
+                'session_id' => session()->getId(),
+            ]);
+
+            return response()->json([
+                'error' => 'CSRF token mismatch',
+                'message' => 'Your session has expired. Please refresh the page and try again.',
+                'status' => 419
+            ], 419);
+        }
+
         $validated = $request->validate([
             // Step 1: Patient Information
             'patient_api_input' => 'required|array',
@@ -163,6 +192,8 @@ class ProductRequestController extends Controller
             'patient_api_input.member_id' => 'required|string|max:255',
 
             'facility_id' => 'required|exists:facilities,id',
+            'place_of_service' => 'required|string|in:11,12,31,32',
+            'medicare_part_b_authorized' => 'boolean',
             'expected_service_date' => 'required|date|after:today',
             'payer_name' => 'required|string|max:255',
             'payer_id' => 'nullable|string|max:255',
@@ -194,6 +225,8 @@ class ProductRequestController extends Controller
             'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
             'patient_display_id' => $patientIdentifiers['patient_display_id'], // "JoSm001" format
             'facility_id' => $validated['facility_id'],
+            'place_of_service' => $validated['place_of_service'],
+            'medicare_part_b_authorized' => $validated['medicare_part_b_authorized'] ?? false,
             'payer_name_submitted' => $validated['payer_name'],
             'payer_id' => $validated['payer_id'],
             'expected_service_date' => $validated['expected_service_date'],
@@ -215,6 +248,35 @@ class ProductRequestController extends Controller
                 ]);
             }
         }
+
+        // --- Create Order and OrderItems from ProductRequest ---
+        $order = \App\Models\Order\Order::create([
+            'order_number' => 'ORD-' . strtoupper(uniqid()),
+            'patient_fhir_id' => $productRequest->patient_fhir_id,
+            'facility_id' => $productRequest->facility_id,
+            'provider_id' => $productRequest->provider_id,
+            'date_of_service' => $productRequest->expected_service_date,
+            'status' => 'pending',
+            'order_status' => 'pending_ivr',
+            'total_amount' => $productRequest->total_order_value ?? 0,
+            'payment_status' => 'pending',
+            // Use defaults for credit_terms, etc.
+        ]);
+
+        // Create OrderItems for each selected product
+        if (!empty($validated['selected_products'])) {
+            foreach ($validated['selected_products'] as $productData) {
+                $product = Product::find($productData['product_id']);
+                $order->items()->create([
+                    'product_id' => $productData['product_id'],
+                    'quantity' => $productData['quantity'],
+                    'graph_size' => $productData['size'] ?? null,
+                    'price' => $product->price ?? 0,
+                    'total_amount' => ($product->price ?? 0) * $productData['quantity'],
+                ]);
+            }
+        }
+        // --- End Order creation logic ---
 
         // If immediate submission is requested, redirect to index page
         if ($request->boolean('submit_immediately')) {
@@ -789,9 +851,104 @@ class ProductRequestController extends Controller
 
     private function storeClinicalDataInAzure(array $clinicalData, ProductRequest $productRequest): string
     {
-        // TODO: Implement actual clinical data storage in Azure HDS as FHIR resources
-        // This should create Condition, Observation, and DocumentReference resources
-        return 'DocumentReference/' . uniqid();
+        try {
+            // Get the skin substitute checklist service
+            $checklistService = app(\App\Services\HealthData\Services\Fhir\SkinSubstituteChecklistService::class);
+
+            // Prepare the checklist input data
+            $checklistInput = new \App\Services\HealthData\DTO\SkinSubstituteChecklistInput(
+                patientId: $productRequest->patient_fhir_id,
+                providerId: 'Practitioner/' . auth()->id(), // Using provider's user ID as practitioner ID
+                facilityId: 'Organization/' . $productRequest->facility_id,
+
+                // Wound characteristics
+                woundType: $clinicalData['wound_type'] ?? $productRequest->wound_type,
+                woundLocation: $clinicalData['wound_location'] ?? null,
+                woundLength: $clinicalData['wound_length'] ?? null,
+                woundWidth: $clinicalData['wound_width'] ?? null,
+                woundDepth: $clinicalData['wound_depth'] ?? null,
+                woundArea: $clinicalData['wound_area'] ?? null,
+                woundDuration: $clinicalData['wound_duration'] ?? null,
+
+                // Conservative care
+                conservativeCareWeeks: $clinicalData['conservative_care_weeks'] ?? null,
+                conservativeCareTypes: $clinicalData['conservative_care_types'] ?? [],
+
+                // Medical conditions
+                diabetesType: $clinicalData['diabetes_type'] ?? null,
+                hba1cLevel: $clinicalData['hba1c_level'] ?? null,
+                venousInsufficiency: $clinicalData['venous_insufficiency'] ?? false,
+                arterialInsufficiency: $clinicalData['arterial_insufficiency'] ?? false,
+
+                // Circulation tests
+                ankleArmIndex: $clinicalData['ankle_arm_index'] ?? null,
+                tcpo2Level: $clinicalData['tcpo2_level'] ?? null,
+
+                // Documentation compliance
+                woundPhotosTaken: $clinicalData['wound_photos_taken'] ?? false,
+                measurementDocumented: $clinicalData['measurement_documented'] ?? false,
+                conservativeCareDocumented: $clinicalData['conservative_care_documented'] ?? false,
+
+                // Additional clinical data
+                infectionPresent: $clinicalData['infection_present'] ?? false,
+                osteoMyelitisPresent: $clinicalData['osteo_myelitis_present'] ?? false,
+                healingProgress: $clinicalData['healing_progress'] ?? null,
+                painLevel: $clinicalData['pain_level'] ?? null,
+
+                // Provider assessment
+                clinicalNotes: $clinicalData['clinical_notes'] ?? null,
+                recommendedProducts: $clinicalData['recommended_products'] ?? []
+            );
+
+            // Create FHIR Bundle and send to Azure
+            $bundleResponse = $checklistService->createChecklistBundle($checklistInput);
+
+            // Extract the DocumentReference ID from the bundle response
+            $documentReferenceId = null;
+            if (isset($bundleResponse['entry']) && is_array($bundleResponse['entry'])) {
+                foreach ($bundleResponse['entry'] as $entry) {
+                    if (isset($entry['response']['location'])) {
+                        // Location header contains the resource type and ID
+                        if (str_contains($entry['response']['location'], 'DocumentReference/')) {
+                            $parts = explode('/', $entry['response']['location']);
+                            $documentReferenceId = 'DocumentReference/' . end($parts);
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!$documentReferenceId) {
+                // Fallback: try to find DocumentReference in the bundle
+                foreach ($bundleResponse['entry'] as $entry) {
+                    if (isset($entry['resource']['resourceType']) &&
+                        $entry['resource']['resourceType'] === 'DocumentReference') {
+                        $documentReferenceId = 'DocumentReference/' . $entry['resource']['id'];
+                        break;
+                    }
+                }
+            }
+
+            // If still no DocumentReference ID, generate a temporary one
+            if (!$documentReferenceId) {
+                Log::warning('Could not extract DocumentReference ID from bundle response', [
+                    'product_request_id' => $productRequest->id,
+                    'bundle_response' => $bundleResponse
+                ]);
+                $documentReferenceId = 'DocumentReference/' . uniqid('temp-');
+            }
+
+            return $documentReferenceId;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to store clinical data in Azure FHIR', [
+                'error' => $e->getMessage(),
+                'product_request_id' => $productRequest->id
+            ]);
+
+            // Return a temporary ID on failure
+            return 'DocumentReference/' . uniqid('error-');
+        }
     }
 
     private function generateClinicalSummary(array $clinicalData): array

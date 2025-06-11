@@ -18,7 +18,9 @@ import {
   AlertCircle,
   CheckCircle,
   Clock,
-  DollarSign
+  DollarSign,
+  Package,
+  Edit3
 } from 'lucide-react';
 import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
 
@@ -161,6 +163,24 @@ const ProductSelector: React.FC<Props> = ({
   const [recommendationError, setRecommendationError] = useState<string | null>(null);
   const [showAIRecommendations, setShowAIRecommendations] = useState(true);
 
+  // Enhanced UI state for single product selection
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [showSizeManager, setShowSizeManager] = useState(false);
+
+  // Get the currently selected product
+  const getCurrentSelectedProduct = (): Product | null => {
+    if (selectedProducts.length === 0) return null;
+    const firstProduct = selectedProducts[0];
+    return firstProduct.product || products.find(p => p.id === firstProduct.product_id) || null;
+  };
+
+  // Update selected product when selectedProducts changes
+  useEffect(() => {
+    const currentProduct = getCurrentSelectedProduct();
+    setSelectedProduct(currentProduct);
+    setShowSizeManager(currentProduct !== null);
+  }, [selectedProducts, products]);
+
   // Fetch products and catalog data
   useEffect(() => {
     fetchProducts();
@@ -199,15 +219,19 @@ const ProductSelector: React.FC<Props> = ({
 
   const fetchProducts = async () => {
     try {
-      setLoading(true);
       const response = await fetch('/api/products/search');
       const data = await response.json();
+      const productsData = data.products || [];
+      setProducts(productsData);
+      setFilteredProducts(productsData);
 
-      setProducts(data.products || []);
-      setCategories(data.categories || []);
-      setManufacturers(data.manufacturers || []);
+      // Extract unique categories and manufacturers
+      const uniqueCategories = [...new Set(productsData.map((p: Product) => p.category))];
+      const uniqueManufacturers = [...new Set(productsData.map((p: Product) => p.manufacturer))];
+      setCategories(uniqueCategories);
+      setManufacturers(uniqueManufacturers);
     } catch (error) {
-      console.error('Failed to fetch products:', error);
+      console.error('Error fetching products:', error);
     } finally {
       setLoading(false);
     }
@@ -216,69 +240,55 @@ const ProductSelector: React.FC<Props> = ({
   const fetchAIRecommendations = async () => {
     if (!productRequestId) return;
 
-    try {
-      setLoadingRecommendations(true);
-      setRecommendationError(null);
+    setLoadingRecommendations(true);
+    setRecommendationError(null);
 
+    try {
       const response = await fetch(`/api/product-requests/${productRequestId}/recommendations`);
       const data = await response.json();
 
-      if (data.success) {
-        setAiRecommendations(data.recommendations || []);
+      if (data.recommendations) {
+        setAiRecommendations(data.recommendations);
       } else {
-        setRecommendationError(data.message || 'Failed to load recommendations');
-        // Still show basic recommendations as fallback
-        setShowAIRecommendations(false);
+        setAiRecommendations([]);
       }
     } catch (error) {
-      console.error('Failed to fetch AI recommendations:', error);
-      setRecommendationError('Unable to load AI recommendations');
-      setShowAIRecommendations(false);
+      console.error('Error fetching AI recommendations:', error);
+      setRecommendationError('Failed to load AI recommendations');
+      setAiRecommendations([]);
     } finally {
       setLoadingRecommendations(false);
     }
   };
 
   const addProductToSelection = (product: Product, quantity: number = 1, size?: string) => {
-    const existingIndex = selectedProducts.findIndex(
-      p => p.product_id === product.id && p.size === size
-    );
-
-    let updatedProducts = [...selectedProducts];
-
-    if (existingIndex >= 0) {
-      updatedProducts[existingIndex].quantity += quantity;
+    // If this is a different product, clear all existing selections
+    if (selectedProducts.length > 0 && selectedProducts[0].product_id !== product.id) {
+      onProductsChange([{ product_id: product.id, quantity, size, product }]);
     } else {
-      updatedProducts.push({
-        product_id: product.id,
-        quantity,
-        size,
-        product
-      });
-    }
+      // Check if this size already exists
+      const existingIndex = selectedProducts.findIndex(item =>
+        item.product_id === product.id && item.size === size
+      );
 
-    onProductsChange(updatedProducts);
+      if (existingIndex >= 0) {
+        // Update existing size/quantity
+        const updated = [...selectedProducts];
+        updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + quantity };
+        onProductsChange(updated);
+      } else {
+        // Add new size/quantity
+        onProductsChange([...selectedProducts, { product_id: product.id, quantity, size, product }]);
+      }
+    }
   };
 
   const addRecommendationToSelection = (recommendation: AIRecommendation, quantity: number = 1) => {
-    // Convert AI recommendation to Product for selection
-    const product: Product = {
-      id: recommendation.product_id,
-      name: recommendation.product_name,
-      sku: '', // Not available from AI recommendation
-      q_code: recommendation.q_code,
-      manufacturer: recommendation.manufacturer,
-      category: recommendation.category,
-      description: recommendation.reasoning, // Use reasoning as description
-      price_per_sq_cm: recommendation.product_details.msc_price ?? recommendation.estimated_cost.national_asp,
-      msc_price: recommendation.product_details.msc_price ?? recommendation.estimated_cost.national_asp,
-      available_sizes: recommendation.product_details.available_sizes,
-      image_url: recommendation.product_details.image_url,
-      commission_rate: 0 // Not available from AI recommendation
-    };
+    const product = products.find(p => p.id === recommendation.product_id);
+    if (!product) return;
 
-    const suggestedSize = recommendation.suggested_size?.toString();
-    addProductToSelection(product, quantity, suggestedSize);
+    const size = recommendation.suggested_size?.toString();
+    addProductToSelection(product, quantity, size);
   };
 
   const updateProductQuantity = (productId: number, size: string | undefined, newQuantity: number) => {
@@ -287,21 +297,25 @@ const ProductSelector: React.FC<Props> = ({
       return;
     }
 
-    const updatedProducts = selectedProducts.map(p =>
-      p.product_id === productId && p.size === size
-        ? { ...p, quantity: newQuantity }
-        : p
+    const updated = selectedProducts.map(item =>
+      item.product_id === productId && item.size === size
+        ? { ...item, quantity: newQuantity }
+        : item
     );
-
-    onProductsChange(updatedProducts);
+    onProductsChange(updated);
   };
 
   const removeProduct = (productId: number, size: string | undefined) => {
-    const updatedProducts = selectedProducts.filter(
-      p => !(p.product_id === productId && p.size === size)
+    const updated = selectedProducts.filter(item =>
+      !(item.product_id === productId && item.size === size)
     );
+    onProductsChange(updated);
+  };
 
-    onProductsChange(updatedProducts);
+  const clearAllProducts = () => {
+    onProductsChange([]);
+    setSelectedProduct(null);
+    setShowSizeManager(false);
   };
 
   const calculateTotal = () => {
@@ -309,9 +323,16 @@ const ProductSelector: React.FC<Props> = ({
       const product = item.product || products.find(p => p.id === item.product_id);
       if (!product) return total;
 
-      // Use appropriate pricing based on role restrictions
       const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-      const unitPrice = item.size ? pricePerUnit * parseFloat(item.size) : pricePerUnit;
+      let unitPrice = pricePerUnit;
+
+      if (item.size) {
+        const sizeValue = parseFloat(item.size);
+        if (!isNaN(sizeValue)) {
+          unitPrice = pricePerUnit * sizeValue;
+        }
+      }
+
       return total + (unitPrice * item.quantity);
     }, 0);
   };
@@ -319,17 +340,7 @@ const ProductSelector: React.FC<Props> = ({
   const getRecommendedProducts = () => {
     if (!recommendationContext) return [];
 
-    // Basic recommendation logic based on context (e.g., wound type)
-    const recommendations = {
-      'DFU': ['Biologic', 'SkinSubstitute'],
-      'VLU': ['SkinSubstitute', 'Biologic'],
-      'PU': ['SkinSubstitute'],
-      'TW': ['Biologic'],
-      'AU': ['SkinSubstitute', 'Biologic'],
-      'OTHER': ['SkinSubstitute', 'Biologic']
-    };
-
-    const recommendedCategories = recommendations[recommendationContext as keyof typeof recommendations] || [];
+    const recommendedCategories = ['Skin Substitute', 'Wound Care', 'Dressing'];
     return products.filter(p => recommendedCategories.includes(p.category));
   };
 
@@ -359,6 +370,11 @@ const ProductSelector: React.FC<Props> = ({
             <p className="text-sm text-gray-600">
               {description} {recommendationContext && `(Optimized for ${recommendationContext})`}
             </p>
+            {userRole === 'provider' && (
+              <p className="text-xs text-blue-600 mt-1">
+                Showing only products you are onboarded with
+              </p>
+            )}
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-sm text-gray-500">
@@ -455,6 +471,7 @@ const ProductSelector: React.FC<Props> = ({
                     onAdd={addRecommendationToSelection}
                     rank={index + 1}
                     roleRestrictions={currentRoleRestrictions}
+                    isDisabled={selectedProduct !== null && selectedProduct.id !== recommendation.product_id}
                   />
                 ))}
               </div>
@@ -485,6 +502,8 @@ const ProductSelector: React.FC<Props> = ({
                 onAdd={addProductToSelection}
                 isRecommended={true}
                 roleRestrictions={currentRoleRestrictions}
+                isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
+                canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
               />
             ))}
           </div>
@@ -494,6 +513,48 @@ const ProductSelector: React.FC<Props> = ({
       <div className={`grid gap-6 ${showCart ? 'grid-cols-1 lg:grid-cols-3' : 'grid-cols-1'}`}>
         {/* Product Grid */}
         <div className={showCart ? 'lg:col-span-2' : 'col-span-1'}>
+          {/* Enhanced Product Selection Notice */}
+          {selectedProduct ? (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <CheckCircle className="w-5 h-5 mr-2 text-blue-600" />
+                  <div>
+                    <h4 className="text-sm font-semibold text-blue-900">
+                      Selected: {selectedProduct.name}
+                    </h4>
+                    <p className="text-xs text-blue-700">
+                      Q{selectedProduct.q_code} • {selectedProduct.manufacturer}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => setShowSizeManager(!showSizeManager)}
+                    className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
+                  >
+                    <Edit3 className="w-3 h-3 mr-1" />
+                    Manage Sizes
+                  </button>
+                  <button
+                    onClick={clearAllProducts}
+                    className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    Change Product
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md flex items-center">
+              <Info className="w-4 h-4 mr-2 text-yellow-600" />
+              <span className="text-sm text-yellow-800">
+                Select one product type. You can then add multiple sizes and quantities for that product.
+              </span>
+            </div>
+          )}
+
           <div className="space-y-4">
             {filteredProducts.length === 0 ? (
               <div className="text-center py-12 bg-gray-50 rounded-lg">
@@ -517,6 +578,9 @@ const ProductSelector: React.FC<Props> = ({
                     product={product}
                     onAdd={addProductToSelection}
                     roleRestrictions={currentRoleRestrictions}
+                    isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
+                    canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
+                    isSelected={selectedProduct?.id === product.id}
                   />
                 ))}
               </div>
@@ -524,45 +588,86 @@ const ProductSelector: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Selected Products Cart */}
+        {/* Enhanced Selected Products Cart */}
         {showCart && (
           <div className="lg:col-span-1">
             <div className="bg-white border border-gray-200 rounded-lg p-4 sticky top-4">
               <div className="flex items-center justify-between mb-4">
                 <h4 className="text-lg font-semibold text-gray-900 flex items-center">
                   <ShoppingCart className="w-5 h-5 mr-2" />
-                  Selected Products
+                  {selectedProduct ? 'Product Details' : 'Selected Product'}
                 </h4>
                 <span className="text-sm text-gray-500">
-                  {selectedProducts.length} items
+                  {selectedProducts.length} {selectedProducts.length === 1 ? 'size/qty' : 'sizes/qtys'}
                 </span>
               </div>
 
               {selectedProducts.length === 0 ? (
-                <p className="text-gray-500 text-center py-8">
-                  No products selected yet
-                </p>
+                <div className="text-center py-8">
+                  <Package className="w-12 h-12 mx-auto text-gray-300 mb-3" />
+                  <p className="text-gray-500 mb-2">
+                    No product selected yet
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    Select one product type - you can add multiple sizes and quantities
+                  </p>
+                </div>
               ) : (
                 <div className="space-y-3">
+                  {/* Product Summary */}
+                  {selectedProduct && (
+                    <div className="p-3 bg-blue-50 rounded-md mb-4">
+                      <h5 className="text-sm font-semibold text-blue-900 mb-1">
+                        {selectedProduct.name}
+                      </h5>
+                      <div className="text-xs text-blue-700 space-y-1">
+                        <p>Q{selectedProduct.q_code} • {selectedProduct.sku}</p>
+                        <p>{selectedProduct.manufacturer}</p>
+                        <p className="text-blue-600">{selectedProduct.category}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Size/Quantity Items */}
                   {selectedProducts.map((item, index) => {
                     const product = item.product || products.find(p => p.id === item.product_id);
                     if (!product) return null;
 
-                    const unitPrice = item.size
-                      ? product.msc_price * parseFloat(item.size)
-                      : product.msc_price;
+                    // Use appropriate pricing based on role restrictions
+                    const pricePerUnit = currentRoleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+
+                    let unitPrice = pricePerUnit;
+                    if (item.size) {
+                      const sizeValue = parseFloat(item.size);
+                      if (!isNaN(sizeValue)) {
+                        unitPrice = pricePerUnit * sizeValue;
+                      }
+                    }
+
                     const totalPrice = unitPrice * item.quantity;
 
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className="border border-gray-200 rounded-md p-3">
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
-                            <h5 className="text-sm font-medium text-gray-900 line-clamp-1">
-                              {product.name}
-                            </h5>
-                            <p className="text-xs text-gray-500">Q{product.q_code}</p>
-                            {item.size && (
-                              <p className="text-xs text-blue-600">Size: {item.size} cm²</p>
+                            {item.size ? (
+                              <div>
+                                <h5 className="text-sm font-medium text-gray-900">
+                                  Size: {item.size} cm²
+                                </h5>
+                                <p className="text-xs text-gray-500">
+                                  {formatPrice(unitPrice)} per unit
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <h5 className="text-sm font-medium text-gray-900">
+                                  Standard Size
+                                </h5>
+                                <p className="text-xs text-gray-500">
+                                  {formatPrice(unitPrice)} per unit
+                                </p>
+                              </div>
                             )}
                           </div>
                           <button
@@ -596,7 +701,7 @@ const ProductSelector: React.FC<Props> = ({
                               {formatPrice(totalPrice)}
                             </p>
                             <p className="text-xs text-gray-500">
-                              {formatPrice(unitPrice)} each
+                              {item.quantity} × {formatPrice(unitPrice)}
                             </p>
                           </div>
                         </div>
@@ -634,7 +739,10 @@ const ProductCard: React.FC<{
   onAdd: (product: Product, quantity: number, size?: string) => void;
   isRecommended?: boolean;
   roleRestrictions: RoleRestrictions;
-}> = ({ product, onAdd, isRecommended = false, roleRestrictions }) => {
+  isDisabled?: boolean;
+  canAddMoreSizes?: boolean;
+  isSelected?: boolean;
+}> = ({ product, onAdd, isRecommended = false, roleRestrictions, isDisabled = false, canAddMoreSizes = false, isSelected = false }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -654,16 +762,28 @@ const ProductCard: React.FC<{
   const calculatePrice = () => {
     const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
     if (selectedSize) {
-      return pricePerUnit * parseFloat(selectedSize) * quantity;
+      const sizeValue = parseFloat(selectedSize);
+      if (isNaN(sizeValue)) {
+        return pricePerUnit * quantity;
+      }
+      return pricePerUnit * sizeValue * quantity;
     }
     return pricePerUnit * quantity;
   };
 
   return (
     <div className={`border rounded-lg p-4 hover:shadow-md transition-shadow ${
+      isSelected ? 'border-blue-500 bg-blue-50' :
       isRecommended ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-white'
-    }`}>
-      {isRecommended && (
+    } ${isDisabled ? 'opacity-50' : ''}`}>
+      {isSelected && (
+        <div className="mb-2">
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+            Currently Selected
+          </span>
+        </div>
+      )}
+      {isRecommended && !isSelected && (
         <div className="mb-2">
           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
             Recommended
@@ -726,6 +846,7 @@ const ProductCard: React.FC<{
             value={selectedSize}
             onChange={(e) => setSelectedSize(e.target.value)}
             className="w-full text-xs border border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={isDisabled}
           >
             <option value="">Select size...</option>
             {product.available_sizes.map(size => (
@@ -748,6 +869,7 @@ const ProductCard: React.FC<{
           value={quantity}
           onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
           className="w-full text-xs border border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+          disabled={isDisabled}
         />
       </div>
 
@@ -760,10 +882,15 @@ const ProductCard: React.FC<{
 
       <button
         onClick={handleAddProduct}
-        disabled={product.available_sizes?.length > 0 && !selectedSize}
-        className="w-full bg-blue-600 text-white text-sm font-medium py-2 px-3 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        disabled={(product.available_sizes?.length > 0 && !selectedSize) || isDisabled}
+        className={`w-full text-sm font-medium py-2 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+          isSelected
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
+            : 'bg-blue-600 text-white hover:bg-blue-700'
+        }`}
       >
-        Add to Selection
+        {isDisabled ? 'Different Product Selected' :
+         isSelected ? 'Add Another Size' : 'Select This Product'}
       </button>
     </div>
   );
@@ -775,7 +902,8 @@ const AIRecommendationCard: React.FC<{
   onAdd: (recommendation: AIRecommendation, quantity: number) => void;
   rank: number;
   roleRestrictions: RoleRestrictions;
-}> = ({ recommendation, onAdd, rank, roleRestrictions }) => {
+  isDisabled?: boolean;
+}> = ({ recommendation, onAdd, rank, roleRestrictions, isDisabled = false }) => {
   const [quantity, setQuantity] = useState(1);
 
   const formatPrice = (price: number) => {
@@ -797,7 +925,7 @@ const AIRecommendationCard: React.FC<{
   };
 
   return (
-    <div className="border border-blue-200 rounded-lg p-4 bg-white hover:shadow-md transition-all duration-200">
+    <div className={`border border-blue-200 rounded-lg p-4 bg-white hover:shadow-md transition-all duration-200 ${isDisabled ? 'opacity-50' : ''}`}>
       {/* Header with rank and confidence */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center space-x-2">
@@ -914,17 +1042,23 @@ const AIRecommendationCard: React.FC<{
           value={quantity}
           onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
           className="w-full text-xs border border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+          disabled={isDisabled}
         />
       </div>
 
       {/* Add Button */}
       <button
         onClick={handleAddProduct}
-        className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white text-sm font-medium py-2 px-3 rounded-md hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200"
+        disabled={isDisabled}
+        className={`w-full text-sm font-medium py-2 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 ${
+          isDisabled
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700'
+        }`}
       >
         <div className="flex items-center justify-center">
           <CheckCircle className="w-4 h-4 mr-2" />
-          Add Recommended Product
+          {isDisabled ? 'Different Product Selected' : 'Add Recommended Product'}
         </div>
       </button>
     </div>

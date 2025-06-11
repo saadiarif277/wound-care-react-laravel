@@ -8,6 +8,8 @@ use App\Models\ProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 
 class ProviderController extends Controller
@@ -480,5 +482,137 @@ class ProviderController extends Controller
         });
 
         return round($totalDays / $completedRequests->count(), 1);
+    }
+
+    /**
+     * Show credential management page
+     */
+    public function credentials(Request $request)
+    {
+        $providerId = $request->query('provider_id');
+        
+        if (!$providerId) {
+            return redirect()->route('admin.providers.index')
+                ->with('error', 'Provider ID is required');
+        }
+
+        $provider = User::whereHas('roles', function ($q) {
+                $q->where('slug', 'provider');
+            })
+            ->findOrFail($providerId);
+
+        // Get credentials if table exists
+        $credentials = [];
+        if (Schema::hasTable('provider_credentials')) {
+            $credentials = DB::table('provider_credentials')
+                ->where('provider_id', $provider->id)
+                ->orderBy('expiration_date')
+                ->get()
+                ->map(function ($credential) {
+                    return [
+                        'id' => $credential->id,
+                        'type' => $credential->credential_type ?? $credential->type ?? 'license',
+                        'name' => $credential->credential_name ?? $credential->name ?? 'Medical License',
+                        'number' => $credential->credential_number ?? $credential->number ?? '',
+                        'issuing_state' => $credential->issuing_state ?? null,
+                        'issuing_organization' => $credential->issuing_organization ?? '',
+                        'issue_date' => $credential->issue_date ?? now()->subYear()->format('Y-m-d'),
+                        'expiration_date' => $credential->expiration_date,
+                        'status' => $credential->status ?? 'active',
+                        'verification_status' => $credential->verification_status ?? 'pending',
+                        'document_url' => $credential->document_url ?? null,
+                        'notes' => $credential->notes ?? null,
+                        'last_verified' => $credential->last_verified ?? $credential->updated_at ?? now()->format('Y-m-d'),
+                    ];
+                })
+                ->toArray();
+        }
+
+        return Inertia::render('Providers/CredentialManagement', [
+            'credentials' => $credentials,
+            'user' => [
+                'id' => $provider->id,
+                'name' => $provider->name,
+                'email' => $provider->email,
+                'verification_status' => $provider->is_verified ? 'verified' : 'pending',
+            ],
+        ]);
+    }
+
+    /**
+     * Store a new credential
+     */
+    public function storeCredential(Request $request)
+    {
+        $validated = $request->validate([
+            'provider_id' => 'required|exists:users,id',
+            'type' => 'required|string',
+            'name' => 'required|string',
+            'number' => 'required|string',
+            'issuing_state' => 'nullable|string',
+            'issuing_organization' => 'required|string',
+            'issue_date' => 'required|date',
+            'expiration_date' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        if (!Schema::hasTable('provider_credentials')) {
+            return response()->json(['error' => 'Credentials table not found'], 500);
+        }
+
+        $credentialId = DB::table('provider_credentials')->insertGetId([
+            'provider_id' => $validated['provider_id'],
+            'credential_type' => $validated['type'],
+            'credential_name' => $validated['name'],
+            'credential_number' => $validated['number'],
+            'issuing_state' => $validated['issuing_state'],
+            'issuing_organization' => $validated['issuing_organization'],
+            'issue_date' => $validated['issue_date'],
+            'expiration_date' => $validated['expiration_date'],
+            'verification_status' => 'pending',
+            'status' => 'active',
+            'notes' => $validated['notes'],
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return response()->json(['success' => true, 'id' => $credentialId]);
+    }
+
+    /**
+     * Update a credential
+     */
+    public function updateCredential(Request $request, $credentialId)
+    {
+        $validated = $request->validate([
+            'type' => 'required|string',
+            'name' => 'required|string',
+            'number' => 'required|string',
+            'issuing_state' => 'nullable|string',
+            'issuing_organization' => 'required|string',
+            'issue_date' => 'required|date',
+            'expiration_date' => 'required|date',
+            'notes' => 'nullable|string',
+        ]);
+
+        if (!Schema::hasTable('provider_credentials')) {
+            return response()->json(['error' => 'Credentials table not found'], 500);
+        }
+
+        DB::table('provider_credentials')
+            ->where('id', $credentialId)
+            ->update([
+                'credential_type' => $validated['type'],
+                'credential_name' => $validated['name'],
+                'credential_number' => $validated['number'],
+                'issuing_state' => $validated['issuing_state'],
+                'issuing_organization' => $validated['issuing_organization'],
+                'issue_date' => $validated['issue_date'],
+                'expiration_date' => $validated['expiration_date'],
+                'notes' => $validated['notes'],
+                'updated_at' => now(),
+            ]);
+
+        return response()->json(['success' => true]);
     }
 }

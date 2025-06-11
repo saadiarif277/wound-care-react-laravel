@@ -1,0 +1,39 @@
+# Azure Health Data Services (FHIR) Configuration
+# Add these to your .env file
+
+# Azure AD Tenant ID (Directory ID)
+# Found in Azure Portal > Azure Active Directory > Overview
+AZURE_TENANT_ID=your-tenant-id-here
+
+# Azure AD Application (Client) ID
+# Found in Azure Portal > App registrations > Your App > Overview
+AZURE_CLIENT_ID=your-client-id-here
+
+# Azure AD Client Secret
+# Found in Azure Portal > App registrations > Your App > Certificates & secrets
+# Note: You need to create a new client secret and copy the value immediately
+AZURE_CLIENT_SECRET=your-client-secret-here
+
+# Azure FHIR Endpoint
+# Found in Azure Portal > Your Health Data Services workspace > FHIR service > Overview
+# Format: https://your-workspace-your-fhir-service.fhir.azurehealthcareapis.com
+AZURE_FHIR_ENDPOINT=https://your-workspace-your-fhir-service.fhir.azurehealthcareapis.com
+
+# Optional: Azure Key Vault Configuration (if using Key Vault for secrets)
+AZURE_KEY_VAULT_URL=https://your-keyvault.vault.azure.net/
+AZURE_USE_MANAGED_IDENTITY=false
+
+# Example values (DO NOT USE IN PRODUCTION):
+# AZURE_TENANT_ID=12345678-1234-1234-1234-123456789012
+# AZURE_CLIENT_ID=87654321-4321-4321-4321-210987654321
+# AZURE_CLIENT_SECRET=your-secret-value-here
+# AZURE_FHIR_ENDPOINT=https://mscwoundcare-fhir.fhir.azurehealthcareapis.com
+
+# Setup Instructions:
+# 1. Create an Azure Health Data Services workspace
+# 2. Create a FHIR service within the workspace
+# 3. Create an App registration in Azure AD
+# 4. Grant the app "FHIR Data Contributor" role on the FHIR service
+# 5. Create a client secret for the app
+# 6. Copy the values into your .env file
+# 7. Run: php test-azure-fhir-connection.php to verify the connection

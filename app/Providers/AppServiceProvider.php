@@ -11,6 +11,10 @@ use Illuminate\Support\Facades\Route;
 use Illuminate\Support\ServiceProvider;
 use App\Services\CmsCoverageApiService;
 use App\Services\ValidationBuilderEngine;
+use App\Services\PatientService;
+use App\Services\FhirService;
+use App\Services\DocusealService;
+use App\Services\IvrDocusealService;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -56,6 +60,32 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(CmsCoverageApiService::class),
                 $app->make(\App\Services\WoundCareValidationEngine::class),
                 $app->make(\App\Services\PulmonologyWoundCareValidationEngine::class)
+            );
+        });
+
+        // Register FhirService
+        $this->app->singleton(FhirService::class, function ($app) {
+            return new FhirService();
+        });
+
+        // Register PatientService with FhirService injection
+        $this->app->singleton(PatientService::class, function ($app) {
+            return new PatientService(
+                $app->make(FhirService::class)
+            );
+        });
+
+        // Register DocusealService
+        $this->app->singleton(DocusealService::class, function ($app) {
+            return new DocusealService();
+        });
+
+        // Register IvrDocusealService
+        $this->app->singleton(IvrDocusealService::class, function ($app) {
+            return new IvrDocusealService(
+                $app->make(DocusealService::class),
+                $app->make(FhirService::class),
+                $app->make(\App\Services\IvrFieldMappingService::class)
             );
         });
     }

@@ -56,48 +56,52 @@ const ProviderFacilitiesIndex: React.FC<Props> = ({ facilities }) => {
           </div>
 
           {/* Facilities Grid */}
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredFacilities.map((facility) => (
-              <div
-                key={facility.id}
-                className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200"
-              >
-                <div className="p-6">
-                  <div className="flex items-center">
-                    <MapPin className="h-5 w-5 text-gray-400 mr-2" />
-                    <h3 className="text-lg font-medium text-gray-900 truncate">
-                      {facility.name}
-                    </h3>
-                  </div>
+          {filteredFacilities.length > 0 ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredFacilities.map((facility) => (
+                <div
+                  key={facility.id}
+                  className="bg-white overflow-hidden shadow rounded-lg hover:shadow-md transition-shadow duration-200"
+                >
+                  <div className="p-6">
+                    <div className="flex items-center">
+                      <MapPin className="h-5 w-5 text-gray-400 mr-2" />
+                      <h3 className="text-lg font-medium text-gray-900 truncate">
+                        {facility.name}
+                      </h3>
+                    </div>
 
-                  <div className="mt-2">
-                    <p className="text-sm text-gray-500">
-                      {facility.address || 'No address provided'}
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1">
-                      Organization: {facility.organization_name}
-                    </p>
-                  </div>
+                    <div className="mt-2">
+                      <p className="text-sm text-gray-500">
+                        {facility.address || 'No address provided'}
+                      </p>
+                      <p className="text-sm text-gray-500 mt-1">
+                        Organization: {facility.organization_name}
+                      </p>
+                    </div>
 
-                  <div className="mt-4 flex items-center text-sm text-gray-500">
-                    <Users className="h-4 w-4 mr-1" />
-                    <span>{facility.provider_count} Providers</span>
-                  </div>
+                    <div className="mt-4 flex items-center text-sm text-gray-500">
+                      <Users className="h-4 w-4 mr-1" />
+                      <span>{facility.provider_count} Providers</span>
+                    </div>
 
-                  <div className="mt-4 flex justify-end">
-                    <button
-                      onClick={() => router.visit(`/provider/facilities/${facility.id}`)}
-                      className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    >
-                      View Details
-                    </button>
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={() => {
+                          console.log('Navigating to facility:', facility.id);
+                          console.log('Full URL:', `/facilities/${facility.id}`);
+                          router.visit(`/facilities/${facility.id}`);
+                        }}
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      >
+                        View Details
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
-
-          {filteredFacilities.length === 0 && (
+              ))}
+            </div>
+          ) : (
             <div className="text-center py-12">
               <MapPin className="mx-auto h-12 w-12 text-gray-400" />
               <h3 className="mt-2 text-sm font-medium text-gray-900">No facilities found</h3>

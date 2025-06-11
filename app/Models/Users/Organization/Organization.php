@@ -13,6 +13,7 @@ use App\Models\Fhir\Address;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
@@ -51,7 +52,7 @@ class Organization extends Model
         if (!preg_match('/^[a-zA-Z0-9_]+$/', $field)) {
             throw new \InvalidArgumentException('Invalid column name');
         }
-        return $this->whereRaw('?? = ?', [$field, $value])->withTrashed()->firstOrFail();
+        return $this->where($field, $value)->withTrashed()->firstOrFail();
     }
 
     public function account(): BelongsTo
@@ -73,6 +74,15 @@ class Organization extends Model
     public function salesRep(): BelongsTo
     {
         return $this->belongsTo(User::class, 'sales_rep_id');
+    }
+
+    /**
+     * Get the users that belong to this organization.
+     */
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class, 'organization_users', 'organization_id', 'user_id')
+            ->withTimestamps();
     }
 
     /**

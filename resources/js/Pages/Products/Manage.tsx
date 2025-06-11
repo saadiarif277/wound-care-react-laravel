@@ -286,7 +286,7 @@ export default function Manage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {products.data.map((product) => (
+                  {products?.data?.length > 0 ? products.data.map((product) => (
                     <tr key={product.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -315,9 +315,9 @@ export default function Manage({
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         <div>
-                          <div>ASP: ${product.national_asp?.toFixed(2) || 'N/A'}</div>
+                          <div>ASP: ${product.national_asp ? Number(product.national_asp).toFixed(2) : 'N/A'}</div>
                           <div className="text-xs text-gray-500">
-                            Per cm²: ${product.price_per_sq_cm?.toFixed(4) || 'N/A'}
+                            Per cm²: ${product.price_per_sq_cm ? Number(product.price_per_sq_cm).toFixed(4) : 'N/A'}
                           </div>
                         </div>
                       </td>
@@ -370,13 +370,23 @@ export default function Manage({
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )) : (
+                    <tr>
+                      <td colSpan={8} className="px-6 py-12 text-center">
+                        <div className="text-gray-500">
+                          <FiPackage className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                          <p className="text-lg font-medium">No products found</p>
+                          <p className="text-sm mt-1">Try adjusting your filters or add a new product</p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
 
             {/* Pagination */}
-            {products.meta.links && (
+            {products.meta?.links && (
               <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
                 <div className="flex items-center justify-between">
                   <div className="flex justify-between flex-1 sm:hidden">
@@ -403,17 +413,17 @@ export default function Manage({
                     <div>
                       <p className="text-sm text-gray-700">
                         Showing{' '}
-                        <span className="font-medium">{products.meta.from}</span>
+                        <span className="font-medium">{products.meta?.from || 0}</span>
                         {' '}to{' '}
-                        <span className="font-medium">{products.meta.to}</span>
+                        <span className="font-medium">{products.meta?.to || 0}</span>
                         {' '}of{' '}
-                        <span className="font-medium">{products.meta.total}</span>
+                        <span className="font-medium">{products.meta?.total || 0}</span>
                         {' '}results
                       </p>
                     </div>
                     <div>
                       <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                        {products.meta.links.map((link: any, index: number) => (
+                        {products.meta?.links?.map((link: any, index: number) => (
                           <Link
                             key={index}
                             href={link.url || '#'}
@@ -426,7 +436,7 @@ export default function Manage({
                             } ${
                               index === 0 ? 'rounded-l-md' : ''
                             } ${
-                              index === products.meta.links.length - 1 ? 'rounded-r-md' : ''
+                              index === products.meta?.links?.length - 1 ? 'rounded-r-md' : ''
                             }`}
                             dangerouslySetInnerHTML={{ __html: link.label }}
                           />

@@ -181,6 +181,24 @@ return new class extends Migration
             $table->index(['user_id', 'role_id']);
         });
 
+        // Create manufacturers table
+        Schema::create('manufacturers', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->string('contact_email')->nullable();
+            $table->string('contact_phone')->nullable();
+            $table->text('address')->nullable();
+            $table->string('website')->nullable();
+            $table->text('notes')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->index('name');
+            $table->index('is_active');
+        });
+
         // 5. Product and order related tables
         Schema::create('msc_products', function (Blueprint $table) {
             $table->bigIncrements('id');
@@ -277,7 +295,7 @@ return new class extends Migration
             $table->string('target_type');
             $table->unsignedBigInteger('target_id');
             $table->decimal('percentage_rate', 5, 2);
-            $table->timestamp('valid_from');
+            $table->timestamp('valid_from')->useCurrent();
             $table->timestamp('valid_to')->nullable();
             $table->boolean('is_active')->default(true);
             $table->text('description')->nullable();
@@ -291,6 +309,37 @@ return new class extends Migration
             $table->index('percentage_rate');
         });
 
+        // Create commission_payouts before commission_records since it's referenced
+        Schema::create('commission_payouts', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('rep_id');
+            $table->timestamp('period_start')->nullable();
+            $table->timestamp('period_end')->nullable();
+            $table->decimal('total_amount', 10, 2);
+            $table->string('status')->default('calculated');
+            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->timestamp('approved_at')->nullable();
+            $table->timestamp('processed_at')->nullable();
+            $table->string('payment_reference')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('rep_id')
+                  ->references('id')
+                  ->on('msc_sales_reps')
+                  ->onDelete('cascade');
+
+            $table->foreign('approved_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            $table->index('status');
+            $table->index(['period_start', 'period_end']);
+            $table->index('payment_reference');
+        });
+
         Schema::create('commission_records', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->unsignedBigInteger('order_id');
@@ -301,7 +350,7 @@ return new class extends Migration
             $table->decimal('percentage_rate', 5, 2);
             $table->string('type');
             $table->string('status')->default('pending');
-            $table->timestamp('calculation_date');
+            $table->timestamp('calculation_date')->useCurrent();
             $table->unsignedBigInteger('approved_by')->nullable();
             $table->timestamp('approved_at')->nullable();
             $table->unsignedBigInteger('payout_id')->nullable();
@@ -333,36 +382,17 @@ return new class extends Migration
                   ->references('id')
                   ->on('users')
                   ->onDelete('set null');
-        });
 
-        Schema::create('commission_payouts', function (Blueprint $table) {
-            $table->bigIncrements('id');
-            $table->unsignedBigInteger('rep_id');
-            $table->timestamp('period_start')->useCurrent();
-            $table->timestamp('period_end')->useCurrent();
-            $table->decimal('total_amount', 10, 2);
-            $table->string('status')->default('calculated');
-            $table->unsignedBigInteger('approved_by')->nullable();
-            $table->timestamp('approved_at')->nullable();
-            $table->timestamp('processed_at')->nullable();
-            $table->string('payment_reference')->nullable();
-            $table->text('notes')->nullable();
-            $table->timestamps();
-            $table->softDeletes();
-
-            $table->foreign('rep_id')
+            $table->foreign('payout_id')
                   ->references('id')
-                  ->on('msc_sales_reps')
-                  ->onDelete('cascade');
-
-            $table->foreign('approved_by')
-                  ->references('id')
-                  ->on('users')
+                  ->on('commission_payouts')
                   ->onDelete('set null');
 
-            $table->index('status');
-            $table->index(['period_start', 'period_end']);
-            $table->index('payment_reference');
+            // Enhanced performance indexes
+            $table->index(['rep_id', 'status']);
+            $table->index(['calculation_date', 'status']);
+            $table->index('payout_id');
+            $table->index('type');
         });
 
         // 7. Product requests and related tables
@@ -395,6 +425,8 @@ return new class extends Migration
             $table->timestamp('approved_at')->nullable();
             $table->decimal('total_order_value', 10, 2)->nullable();
             $table->unsignedBigInteger('acquiring_rep_id')->nullable();
+            $table->string('place_of_service', 10)->nullable();
+            $table->boolean('medicare_part_b_authorized')->default(false);
             $table->timestamps();
             $table->softDeletes();
 
@@ -418,9 +450,512 @@ return new class extends Migration
             $table->index('order_status');
             $table->index('patient_display_id');
             $table->index(['facility_id', 'patient_display_id']);
+            $table->index('wound_type');
+            $table->index('expected_service_date');
+            $table->index(['order_status', 'step']);
+            $table->index('request_number');
+            $table->index('place_of_service');
         });
 
-        // 8. Audit and logging tables
+        // 8. Pre-authorizations table
+        Schema::create('pre_authorizations', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('product_request_id');
+            $table->string('authorization_number')->nullable();
+            $table->string('payer_name');
+            $table->string('patient_id');
+            $table->text('clinical_documentation')->nullable();
+            $table->enum('urgency', ['routine', 'urgent', 'emergency'])->default('routine');
+            $table->enum('status', ['pending', 'submitted', 'approved', 'denied', 'cancelled'])->default('pending');
+            $table->timestamp('submitted_at')->nullable();
+            $table->unsignedBigInteger('submitted_by')->nullable();
+            $table->timestamp('approved_at')->nullable();
+            $table->timestamp('denied_at')->nullable();
+            $table->timestamp('last_status_check')->nullable();
+            $table->string('payer_transaction_id')->nullable();
+            $table->string('payer_confirmation')->nullable();
+            $table->json('payer_response')->nullable();
+            $table->timestamp('estimated_approval_date')->nullable();
+            $table->timestamp('expires_at')->nullable();
+            $table->text('notes')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('product_request_id')
+                  ->references('id')
+                  ->on('product_requests')
+                  ->onDelete('cascade');
+
+            $table->foreign('submitted_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            $table->index('product_request_id');
+            $table->index('status');
+            $table->index('authorization_number');
+            $table->index('payer_transaction_id');
+            $table->index('submitted_at');
+            $table->index('expires_at');
+            $table->index('urgency');
+        });
+
+        // 9. Payments table
+        Schema::create('payments', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('provider_id');
+            $table->unsignedBigInteger('order_id');
+            $table->decimal('amount', 10, 2);
+            $table->enum('payment_method', ['check', 'wire', 'ach', 'credit_card', 'other'])->default('check');
+            $table->string('reference_number')->nullable();
+            $table->date('payment_date');
+            $table->text('notes')->nullable();
+            $table->enum('status', ['pending', 'posted', 'cancelled'])->default('posted');
+            $table->unsignedBigInteger('posted_by_user_id');
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('provider_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->foreign('order_id')
+                  ->references('id')
+                  ->on('orders')
+                  ->onDelete('cascade');
+
+            $table->foreign('posted_by_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('restrict');
+
+            $table->index('payment_date');
+            $table->index('status');
+            $table->index(['provider_id', 'order_id']);
+            $table->index('payment_method');
+            $table->index('reference_number');
+        });
+
+        // 10. Sales rep organizations table
+        Schema::create('sales_rep_organizations', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('user_id');
+            $table->unsignedBigInteger('organization_id');
+            $table->enum('relationship_type', ['primary', 'secondary', 'referral'])->default('primary');
+            $table->decimal('commission_override', 5, 2)->nullable();
+            $table->boolean('can_create_orders')->default(false);
+            $table->boolean('can_view_all_data')->default(true);
+            $table->date('assigned_from')->useCurrent();
+            $table->date('assigned_until')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->foreign('organization_id')
+                  ->references('id')
+                  ->on('organizations')
+                  ->onDelete('cascade');
+
+            $table->unique(['user_id', 'organization_id'], 'user_organization_unique_idx');
+            $table->index(['user_id', 'relationship_type'], 'user_relationship_type_idx');
+            $table->index(['user_id', 'assigned_until'], 'user_assigned_until_idx');
+            $table->index('relationship_type');
+        });
+
+        // 11. Provider sales rep assignments table
+        Schema::create('provider_sales_rep_assignments', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('provider_id');
+            $table->unsignedBigInteger('sales_rep_id');
+            $table->unsignedBigInteger('facility_id')->nullable();
+            $table->enum('relationship_type', ['primary', 'secondary', 'referral', 'coverage'])->default('primary');
+            $table->decimal('commission_split_percentage', 5, 2)->default(100.00);
+            $table->boolean('can_create_orders')->default(true);
+            $table->date('assigned_from')->useCurrent();
+            $table->date('assigned_until')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->text('notes')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('provider_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->foreign('sales_rep_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
+
+            $table->index(['provider_id', 'is_active'], 'psra_provider_active_idx');
+            $table->index(['sales_rep_id', 'is_active'], 'psra_rep_active_idx');
+            $table->index(['facility_id', 'is_active'], 'psra_facility_active_idx');
+            $table->index(['provider_id', 'relationship_type'], 'psra_provider_rel_idx');
+            $table->unique(['provider_id', 'relationship_type', 'assigned_until'], 'psra_provider_primary_unique');
+        });
+
+        // 12. Facility sales rep assignments table
+        Schema::create('facility_sales_rep_assignments', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('facility_id');
+            $table->unsignedBigInteger('sales_rep_id');
+            $table->enum('relationship_type', ['coordinator', 'backup', 'manager'])->default('coordinator');
+            $table->decimal('commission_split_percentage', 5, 2)->default(0.00);
+            $table->boolean('can_create_orders')->default(false);
+            $table->date('assigned_from')->useCurrent();
+            $table->date('assigned_until')->nullable();
+            $table->boolean('is_active')->default(true);
+            $table->text('notes')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
+
+            $table->foreign('sales_rep_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->index(['facility_id', 'is_active']);
+            $table->index(['sales_rep_id', 'is_active']);
+            $table->index('relationship_type');
+            $table->index('assigned_until');
+        });
+
+        // 13. Medicare MAC validations table
+        Schema::create('medicare_mac_validations', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->char('validation_id', 36)->unique();
+            $table->unsignedBigInteger('order_id');
+            $table->string('patient_fhir_id')->nullable();
+            $table->unsignedBigInteger('facility_id');
+            $table->string('mac_contractor')->nullable();
+            $table->string('mac_jurisdiction')->nullable();
+            $table->string('mac_region')->nullable();
+            $table->string('patient_zip_code')->nullable()->comment('Patient ZIP code used for MAC jurisdiction determination');
+            $table->string('addressing_method')->nullable()->comment('Method used for MAC addressing (patient_address, zip_code_specific, state_based, etc.)');
+            $table->enum('validation_type', ['vascular_wound_care', 'wound_care_only', 'vascular_only'])->default('wound_care_only');
+            $table->enum('validation_status', ['pending', 'validated', 'failed', 'requires_review', 'revalidated'])->default('pending');
+            $table->json('validation_results')->nullable();
+            $table->json('coverage_policies')->nullable();
+            $table->boolean('coverage_met')->default(false);
+            $table->text('coverage_notes')->nullable();
+            $table->json('coverage_requirements')->nullable();
+            $table->json('procedures_validated')->nullable();
+            $table->json('cpt_codes_validated')->nullable();
+            $table->json('hcpcs_codes_validated')->nullable();
+            $table->json('icd10_codes_validated')->nullable();
+            $table->boolean('documentation_complete')->default(false);
+            $table->json('required_documentation')->nullable();
+            $table->json('missing_documentation')->nullable();
+            $table->json('documentation_status')->nullable();
+            $table->boolean('frequency_compliant')->default(false);
+            $table->text('frequency_notes')->nullable();
+            $table->boolean('medical_necessity_met')->default(false);
+            $table->text('medical_necessity_notes')->nullable();
+            $table->boolean('prior_auth_required')->default(false);
+            $table->boolean('prior_auth_obtained')->default(false);
+            $table->string('prior_auth_number')->nullable();
+            $table->date('prior_auth_expiry')->nullable();
+            $table->boolean('billing_compliant')->default(false);
+            $table->json('billing_issues')->nullable();
+            $table->decimal('estimated_reimbursement', 10, 2)->nullable();
+            $table->enum('reimbursement_risk', ['low', 'medium', 'high'])->default('medium');
+            $table->timestamp('validated_at')->nullable();
+            $table->timestamp('last_revalidated_at')->nullable();
+            $table->timestamp('next_validation_due')->nullable();
+            $table->string('validated_by')->nullable();
+            $table->string('validation_source')->default('system');
+            $table->json('validation_errors')->nullable();
+            $table->json('validation_warnings')->nullable();
+            $table->boolean('daily_monitoring_enabled')->default(false);
+            $table->timestamp('last_monitored_at')->nullable();
+            $table->integer('validation_count')->default(1);
+            $table->json('audit_trail')->nullable();
+            $table->string('provider_specialty')->nullable();
+            $table->string('provider_npi')->nullable();
+            $table->json('specialty_requirements')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('order_id')
+                  ->references('id')
+                  ->on('orders')
+                  ->onDelete('cascade');
+
+            $table->foreign('facility_id')
+                  ->references('id')
+                  ->on('facilities')
+                  ->onDelete('cascade');
+
+            $table->index(['order_id', 'validation_status']);
+            $table->index(['facility_id', 'validation_type']);
+            $table->index(['mac_contractor', 'mac_jurisdiction']);
+            $table->index(['validation_status', 'validated_at']);
+            $table->index('next_validation_due');
+            $table->index(['daily_monitoring_enabled', 'last_monitored_at'], 'mmv_daily_mon_last_mon_idx');
+            $table->index(['provider_specialty', 'validation_type'], 'mmv_prov_spec_valtype_idx');
+            $table->index('patient_zip_code');
+            $table->index('addressing_method');
+        });
+
+        // 14. ICD-10 and CPT codes tables
+        Schema::create('icd10_codes', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('code', 10)->unique();
+            $table->text('description');
+            $table->string('category', 10)->nullable();
+            $table->string('subcategory', 10)->nullable();
+            $table->boolean('is_billable')->default(true);
+            $table->boolean('is_active')->default(true);
+            $table->string('version', 10)->default('2024');
+            $table->timestamps();
+
+            $table->index('code');
+            $table->index('category');
+            $table->index('subcategory');
+            $table->index('is_billable');
+            $table->index('is_active');
+            $table->index(['category', 'is_active']);
+            $table->fullText(['code', 'description']);
+        });
+
+        Schema::create('cpt_codes', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->string('code', 10)->unique();
+            $table->text('description');
+            $table->string('category', 10)->nullable();
+            $table->boolean('is_billable')->default(true);
+            $table->boolean('is_active')->default(true);
+            $table->string('version', 10)->default('2024');
+            $table->timestamps();
+
+            $table->index('code');
+            $table->index('category');
+            $table->index('is_billable');
+            $table->index('is_active');
+            $table->index(['category', 'is_active']);
+            $table->fullText(['code', 'description']);
+        });
+
+        // 15. Pre-authorization related tables
+        Schema::create('pre_authorization_diagnosis_codes', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('pre_authorization_id');
+            $table->unsignedBigInteger('icd10_code_id');
+            $table->enum('type', ['primary', 'secondary', 'other'])->default('secondary');
+            $table->integer('sequence')->default(1);
+            $table->timestamps();
+
+            $table->foreign('pre_authorization_id')
+                  ->references('id')
+                  ->on('pre_authorizations')
+                  ->onDelete('cascade');
+
+            $table->foreign('icd10_code_id')
+                  ->references('id')
+                  ->on('icd10_codes')
+                  ->onDelete('cascade');
+
+            $table->unique(['pre_authorization_id', 'icd10_code_id'], 'pre_auth_dx_codes_unique');
+            $table->index('pre_authorization_id', 'pre_auth_dx_pre_auth_idx');
+            $table->index('icd10_code_id', 'pre_auth_dx_icd10_idx');
+            $table->index(['pre_authorization_id', 'type'], 'pre_auth_dx_type_idx');
+            $table->index(['pre_authorization_id', 'sequence'], 'pre_auth_dx_seq_idx');
+        });
+
+        Schema::create('pre_authorization_procedure_codes', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('pre_authorization_id');
+            $table->unsignedBigInteger('cpt_code_id');
+            $table->integer('quantity')->default(1);
+            $table->string('modifier', 10)->nullable();
+            $table->integer('sequence')->default(1);
+            $table->timestamps();
+
+            $table->foreign('pre_authorization_id')
+                  ->references('id')
+                  ->on('pre_authorizations')
+                  ->onDelete('cascade');
+
+            $table->foreign('cpt_code_id')
+                  ->references('id')
+                  ->on('cpt_codes')
+                  ->onDelete('cascade');
+
+            $table->unique(['pre_authorization_id', 'cpt_code_id', 'modifier'], 'pre_auth_cpt_modifier_unique');
+            $table->index('pre_authorization_id', 'pre_auth_cpt_pre_auth_idx');
+            $table->index('cpt_code_id', 'pre_auth_cpt_code_idx');
+            $table->index(['pre_authorization_id', 'sequence'], 'pre_auth_cpt_seq_idx');
+        });
+
+        // 16. Patient associations table
+        Schema::create('patient_associations', function (Blueprint $table) {
+            $table->id();
+            $table->string('patient_fhir_id')->index();
+            $table->foreignId('provider_id')->constrained('users');
+            $table->foreignId('facility_id')->constrained('facilities');
+            $table->foreignId('organization_id')->constrained('organizations');
+            $table->enum('association_type', ['treatment', 'billing', 'administrative'])->default('treatment');
+            $table->boolean('is_primary_provider')->default(false);
+            $table->timestamp('established_at')->useCurrent();
+            $table->timestamp('terminated_at')->nullable();
+            $table->boolean('active')->default(true);
+            $table->timestamps();
+
+            $table->unique(['patient_fhir_id', 'provider_id', 'facility_id', 'terminated_at'], 'patient_provider_facility_term_unique');
+            $table->index(['patient_fhir_id', 'provider_id', 'active']);
+            $table->index(['facility_id', 'active']);
+            $table->index(['organization_id', 'association_type']);
+            $table->index(['established_at', 'terminated_at']);
+        });
+
+        // 17. Provider credentials table
+        Schema::create('provider_credentials', function (Blueprint $table) {
+            $table->bigIncrements('id');
+            $table->unsignedBigInteger('provider_id');
+            $table->enum('credential_type', [
+                'medical_license',
+                'board_certification',
+                'dea_registration',
+                'npi_number',
+                'hospital_privileges',
+                'malpractice_insurance',
+                'continuing_education',
+                'state_license',
+                'specialty_certification'
+            ]);
+            $table->string('credential_number');
+            $table->string('credential_display_name')->nullable();
+            $table->string('issuing_authority');
+            $table->string('issuing_state')->nullable();
+            $table->date('issue_date')->nullable();
+            $table->date('expiration_date')->nullable();
+            $table->date('effective_date')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('provider_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('cascade');
+
+            $table->index(['provider_id', 'credential_type']);
+            $table->index('expiration_date');
+            $table->index('credential_number');
+        });
+
+        // 18. MSC product recommendation rules table
+        Schema::create('msc_product_recommendation_rules', function (Blueprint $table) {
+            $table->id();
+            $table->string('name')->index();
+            $table->text('description')->nullable();
+            $table->integer('priority')->default(0);
+            $table->boolean('is_active')->default(true);
+            $table->enum('wound_type', ['DFU', 'VLU', 'PU', 'TW', 'AU', 'OTHER'])->nullable();
+            $table->string('wound_stage')->nullable();
+            $table->string('wound_depth')->nullable();
+            $table->json('conditions')->nullable();
+            $table->json('recommended_msc_product_qcodes_ranked');
+            $table->json('reasoning_templates')->nullable();
+            $table->string('default_size_suggestion_key')->nullable();
+            $table->json('contraindications')->nullable();
+            $table->json('clinical_evidence')->nullable();
+            $table->unsignedBigInteger('created_by_user_id')->nullable();
+            $table->unsignedBigInteger('last_updated_by_user_id')->nullable();
+            $table->date('effective_date')->nullable();
+            $table->date('expiration_date')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('created_by_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            $table->foreign('last_updated_by_user_id')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            $table->index(['is_active', 'wound_type']);
+            $table->index(['effective_date', 'expiration_date'], 'msc_prr_eff_exp_idx');
+            $table->index('priority');
+        });
+
+        // 19. Clinical opportunities and actions
+        Schema::create('clinical_opportunities', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('product_request_id');
+            $table->string('opportunity_type');
+            $table->string('status')->default('open');
+            $table->text('description');
+            $table->json('clinical_data')->nullable();
+            $table->json('recommendations')->nullable();
+            $table->unsignedBigInteger('assigned_to')->nullable();
+            $table->timestamp('due_date')->nullable();
+            $table->timestamp('resolved_at')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('product_request_id')
+                  ->references('id')
+                  ->on('product_requests')
+                  ->onDelete('cascade');
+
+            $table->foreign('assigned_to')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            // Use shorter custom index names
+            $table->index(['product_request_id', 'status'], 'co_req_status_idx');
+            $table->index('opportunity_type', 'co_type_idx');
+            $table->index('assigned_to', 'co_assigned_idx');
+            $table->index('due_date', 'co_due_date_idx');
+        });
+
+        Schema::create('clinical_opportunity_actions', function (Blueprint $table) {
+            $table->id();
+            $table->unsignedBigInteger('clinical_opportunity_id');
+            $table->string('action_type');
+            $table->text('description')->nullable();
+            $table->json('metadata')->nullable();
+            $table->unsignedBigInteger('performed_by')->nullable();
+            $table->timestamps();
+            $table->softDeletes();
+
+            $table->foreign('clinical_opportunity_id')
+                  ->references('id')
+                  ->on('clinical_opportunities')
+                  ->onDelete('cascade');
+
+            $table->foreign('performed_by')
+                  ->references('id')
+                  ->on('users')
+                  ->onDelete('set null');
+
+            // Use shorter custom index names
+            $table->index(['clinical_opportunity_id', 'created_at'], 'coa_opp_created_idx');
+            $table->index('action_type', 'coa_action_type_idx');
+            $table->index('performed_by', 'coa_performed_by_idx');
+        });
+
+        // 20. Audit and logging tables
         Schema::create('profile_audit_log', function (Blueprint $table) {
             $table->bigIncrements('id');
             $table->enum('entity_type', [
@@ -449,7 +984,7 @@ return new class extends Migration
             ]);
             $table->string('action_description')->nullable();
             $table->json('field_changes')->nullable();
-            $table->json('metadata')->default('{}');
+            $table->json('metadata')->nullable(); // FIXED: Removed default value
             $table->timestamps();
 
             $table->foreign('user_id')
@@ -495,7 +1030,7 @@ return new class extends Migration
             $table->index('created_at');
         });
 
-        // 9. System tables
+        // 15. System tables
         Schema::create('failed_jobs', function (Blueprint $table) {
             $table->id();
             $table->string('uuid')->unique();
@@ -560,9 +1095,24 @@ return new class extends Migration
         Schema::dropIfExists('failed_jobs');
         Schema::dropIfExists('rbac_audit_logs');
         Schema::dropIfExists('profile_audit_log');
+        Schema::dropIfExists('clinical_opportunity_actions');
+        Schema::dropIfExists('clinical_opportunities');
+        Schema::dropIfExists('msc_product_recommendation_rules');
+        Schema::dropIfExists('provider_credentials');
+        Schema::dropIfExists('patient_associations');
+        Schema::dropIfExists('pre_authorization_procedure_codes');
+        Schema::dropIfExists('pre_authorization_diagnosis_codes');
+        Schema::dropIfExists('cpt_codes');
+        Schema::dropIfExists('icd10_codes');
+        Schema::dropIfExists('medicare_mac_validations');
+        Schema::dropIfExists('facility_sales_rep_assignments');
+        Schema::dropIfExists('provider_sales_rep_assignments');
+        Schema::dropIfExists('sales_rep_organizations');
+        Schema::dropIfExists('payments');
+        Schema::dropIfExists('pre_authorizations');
         Schema::dropIfExists('product_requests');
-        Schema::dropIfExists('commission_payouts');
         Schema::dropIfExists('commission_records');
+        Schema::dropIfExists('commission_payouts');
         Schema::dropIfExists('commission_rules');
         Schema::dropIfExists('order_items');
         Schema::dropIfExists('orders');

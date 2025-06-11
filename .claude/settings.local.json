@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan test:mac-validation-api:*)",
+      "Bash(php:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:msc-wound-portal.test)"
+    ],
+    "deny": []
+  }
+}

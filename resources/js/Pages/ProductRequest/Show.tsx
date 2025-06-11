@@ -69,6 +69,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  can_approve_requests?: boolean;
 }
 
 interface Props {
@@ -160,6 +161,19 @@ const ProductRequestShow: React.FC<Props> = ({ request, roleRestrictions }) => {
     <MainLayout>
       <Head title={`Product Request ${request.request_number}`} />
 
+      {/* Status badge at the very top */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+        <div className="flex items-center justify-between">
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(request.order_status)}`}>
+            {getStatusIcon(request.order_status)}
+            <span className="ml-1 capitalize">{request.order_status}</span>
+          </span>
+          <span className="text-sm text-gray-500">
+            Step {request.step}: {request.step_description}
+          </span>
+        </div>
+      </div>
+
       <div className="py-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
@@ -215,15 +229,6 @@ const ProductRequestShow: React.FC<Props> = ({ request, roleRestrictions }) => {
                   <p className="text-sm text-gray-600 mt-1">
                     Created on {request.created_at}
                   </p>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(request.order_status)}`}>
-                    {getStatusIcon(request.order_status)}
-                    <span className="ml-1 capitalize">{request.order_status}</span>
-                  </span>
-                  <span className="text-sm text-gray-500">
-                    Step {request.step}: {request.step_description}
-                  </span>
                 </div>
               </div>
             </div>

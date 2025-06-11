@@ -18,16 +18,28 @@ trait CrossOrganizationAccess
      */
     public function canAccessAllOrganizations(): bool
     {
-        // Ensure the User model has `hasRole` and `hasPermissionTo` methods.
-        // These typically come from a permissions package (e.g., Spatie Laravel Permission).
-        if (method_exists($this, 'hasRole') && method_exists($this, 'hasPermissionTo')) {
-            return $this->hasRole('msc_admin') ||
-                   $this->hasRole('super_admin') || // It's common to have a super_admin role
-                   $this->hasPermissionTo('view_all_organizations');
-                   // Add other roles like 'msc_sales_rep' if they should see all data without org switching.
-                   // If 'msc_sales_rep' sees specific assigned orgs, that's handled differently (not a full bypass).
+        // Check if user has the appropriate role
+        if (method_exists($this, 'hasRole')) {
+            if ($this->hasRole('msc-admin') || $this->hasRole('super-admin')) {
+                return true;
+            }
         }
-        return false; // Default to no cross-organization access if methods don't exist.
+        
+        // Check for specific permission if hasPermissionTo method exists
+        if (method_exists($this, 'hasPermissionTo')) {
+            if ($this->hasPermissionTo('view_all_organizations')) {
+                return true;
+            }
+        }
+        
+        // Check for specific permission using hasPermission method (alternative naming)
+        if (method_exists($this, 'hasPermission')) {
+            if ($this->hasPermission('manage-all-organizations')) {
+                return true;
+            }
+        }
+        
+        return false; // Default to no cross-organization access
     }
 
     /**

@@ -4,7 +4,10 @@ namespace App\Models\Order;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Product extends Model
 {
     use HasFactory, SoftDeletes;
@@ -77,6 +80,32 @@ class Product extends Model
     }
 
     /**
+     * Get the manufacturer that owns this product
+     */
+    public function manufacturer(): BelongsTo
+    {
+        return $this->belongsTo(Manufacturer::class, 'manufacturer_id');
+    }
+
+    /**
+     * Get the category that owns this product
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class, 'category_id');
+    }
+
+    /**
+     * Get the product requests that include this product
+     */
+    public function productRequests(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductRequest::class, 'product_request_products')
+            ->withPivot(['quantity', 'size', 'unit_price', 'total_price'])
+            ->withTimestamps();
+    }
+
+    /**
      * Calculate MSC price (40% discount from National ASP)
      */
     public function getMscPriceAttribute()
@@ -143,5 +172,34 @@ class Product extends Model
             ->values();
     }
 
+    /**
+     * Providers that have been onboarded with this product
+     */
+    public function providers(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\User::class, 'provider_products', 'product_id', 'user_id')
+            ->withPivot(['onboarded_at', 'onboarding_status', 'expiration_date', 'notes'])
+            ->withTimestamps();
+    }
 
+    /**
+     * Active providers who can use this product
+     */
+    public function activeProviders(): BelongsToMany
+    {
+        return $this->providers()
+            ->wherePivot('onboarding_status', 'active')
+            ->where(function ($query) {
+                $query->whereNull('provider_products.expiration_date')
+                    ->orWhere('provider_products.expiration_date', '>=', now());
+            });
+    }
+
+    /**
+     * Check if product is available for a specific provider
+     */
+    public function isAvailableForProvider($userId): bool
+    {
+        return $this->activeProviders()->where('users.id', $userId)->exists();
+    }
 }
