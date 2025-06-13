@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
+import { getCsrfToken } from '@/utils/csrf';
 
 interface OrderDetail {
   id: string;
@@ -208,6 +209,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
     router.post(`/admin/orders/${order.id}/generate-ivr`, {
       ivr_required: ivrRequired,
       justification: ivrJustification,
+      _token: getCsrfToken(),
     }, {
       onSuccess: () => {
         setShowIvrModal(false);
@@ -238,6 +240,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
     router.post(endpoint, {
       notes: actionNotes,
       notify_provider: true,
+      _token: getCsrfToken(),
     }, {
       onSuccess: () => {
         setShowActionModal(null);
@@ -248,7 +251,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
 
   const handleSubmitToManufacturer = () => {
     if (confirm('Are you sure you want to submit this order to the manufacturer?')) {
-      router.post(`/admin/orders/${order.id}/submit-to-manufacturer`);
+      router.post(`/admin/orders/${order.id}/submit-to-manufacturer`, { _token: getCsrfToken() });
     }
   };
 

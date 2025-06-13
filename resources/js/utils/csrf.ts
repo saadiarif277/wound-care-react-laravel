@@ -122,15 +122,6 @@ export function setupCsrfTokenRefresh(): void {
     // Refresh token on page load
     refreshCsrfToken();
 
-    // Refresh token before form submissions
-    document.addEventListener('submit', async (event) => {
-        const form = event.target as HTMLFormElement;
-        if (form && !form.hasAttribute('data-csrf-refreshed')) {
-            await refreshCsrfToken();
-            form.setAttribute('data-csrf-refreshed', 'true');
-        }
-    });
-
     console.log('🛡️ CSRF token refresh system initialized');
 }
 

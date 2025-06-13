@@ -1,9 +1,10 @@
 ---
 openapi: 3.0.0
 servers:
-- url: https://api.docuseal.com
+
+- url: <https://api.docuseal.com>
   description: Global Server
-- url: https://api.docuseal.eu
+- url: <https://api.docuseal.eu>
   description: EU Server
 info:
   version: 1.0.9
@@ -11,8 +12,8 @@ info:
   description: DocuSeal API specs
   contact:
     name: DocuSeal
-    email: admin@docuseal.com
-    url: https://www.docuseal.com
+    email: <admin@docuseal.com>
+    url: <https://www.docuseal.com>
 components:
   securitySchemes:
     AuthToken:
@@ -440,12 +441,12 @@ paths:
                     id: 1
                     first_name: John
                     last_name: Doe
-                    email: john.doe@example.com
+                    email: <john.doe@example.com>
                   documents:
                   - id: 5
                     uuid: d94e615f-76e3-46d5-8f98-36bdacb8664a
-                    url: https://docuseal.com/file/hash/sample-document.pdf
-                    preview_image_url: https://docuseal.com/file/hash/0.jpg
+                    url: <https://docuseal.com/file/hash/sample-document.pdf>
+                    preview_image_url: <https://docuseal.com/file/hash/0.jpg>
                     filename: example-document.pdf
                 pagination:
                   count: 1
@@ -775,12 +776,12 @@ paths:
                   id: 1
                   first_name: John
                   last_name: Doe
-                  email: john.doe@example.com
+                  email: <john.doe@example.com>
                 documents:
                 - id: 5
                   uuid: d94e615f-76e3-46d5-8f98-36bdacb8664a
-                  url: https://docuseal.com/file/hash/sample-document.pdf
-                  preview_image_url: https://docuseal.com/file/hash/0.jpg
+                  url: <https://docuseal.com/file/hash/sample-document.pdf>
+                  preview_image_url: <https://docuseal.com/file/hash/0.jpg>
                   filename: example-document.pdf
     delete:
       security:
@@ -1231,7 +1232,7 @@ paths:
                   submitters_order: random
                   slug: VyL4szTwYoSvXq
                   status: completed
-                  audit_log_url: https://docuseal.com/file/hash/example.pdf
+                  audit_log_url: <https://docuseal.com/file/hash/example.pdf>
                   combined_document_url:
                   expire_at:
                   completed_at: '2023-12-10T15:49:21.895Z'
@@ -1242,7 +1243,7 @@ paths:
                   - id: 1
                     submission_id: 1
                     uuid: '0954d146-db8c-4772-aafe-2effc7c0e0c0'
-                    email: submitter@example.com
+                    email: <submitter@example.com>
                     slug: dsEeWrhRD8yDXT
                     sent_at: '2023-12-14T15:45:49.011Z'
                     opened_at: '2023-12-14T15:48:23.011Z'
@@ -1267,7 +1268,7 @@ paths:
                     id: 1
                     first_name: Bob
                     last_name: Smith
-                    email: bob.smith@example.com
+                    email: <bob.smith@example.com>
                 pagination:
                   count: 1
                   next: 1
@@ -1367,7 +1368,7 @@ paths:
                         type: string
                         description: The email address of the submitter.
                         format: email
-                        example: john.doe@example.com
+                        example: <john.doe@example.com>
                       phone:
                         type: string
                         description: The phone number of the submitter, formatted
@@ -1467,7 +1468,7 @@ paths:
                             validation_pattern:
                               type: string
                               description: HTML field validation pattern string based
-                                on https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/pattern
+                                on <https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/pattern>
                                 specification.
                               example: "[A-Z]{4}"
                             invalid_message:
@@ -1702,7 +1703,7 @@ paths:
               - id: 1
                 submission_id: 1
                 uuid: 884d545b-3396-49f1-8c07-05b8b2a78755
-                email: john.doe@example.com
+                email: <john.doe@example.com>
                 slug: pAMimKcyrLjqVt
                 sent_at: '2023-12-13T23:04:04.252Z'
                 opened_at:
@@ -1723,7 +1724,7 @@ paths:
                   send_email: true
                   send_sms: false
                 role: First Party
-                embed_src: https://docuseal.com/s/pAMimKcyrLjqVt
+                embed_src: <https://docuseal.com/s/pAMimKcyrLjqVt>
   "/submissions/{id}":
     get:
       security:
@@ -2072,7 +2073,7 @@ paths:
                 source: link
                 submitters_order: random
                 slug: VyL4szTwYoSvXq
-                audit_log_url: https://docuseal.com/blobs/proxy/hash/example.pdf
+                audit_log_url: <https://docuseal.com/blobs/proxy/hash/example.pdf>
                 combined_document_url:
                 completed_at: '2023-12-14T15:49:21.701Z'
                 expire_at:
@@ -2083,7 +2084,7 @@ paths:
                 - id: 1
                   submission_id: 1
                   uuid: '0954d146-db8c-4772-aafe-2effc7c0e0c0'
-                  email: submitter@example.com
+                  email: <submitter@example.com>
                   slug: dsEeWrhRD8yDXT
                   sent_at: '2023-12-14T15:45:49.011Z'
                   opened_at: '2023-12-14T15:48:23.011Z'
@@ -2101,7 +2102,7 @@ paths:
                     value: John Doe
                   documents:
                   - name: example
-                    url: https://docuseal.com/blobs/proxy/hash/example.pdf
+                    url: <https://docuseal.com/blobs/proxy/hash/example.pdf>
                   role: First Party
                 template:
                   id: 1
@@ -2114,7 +2115,7 @@ paths:
                   id: 1
                   first_name: Bob
                   last_name: Smith
-                  email: bob.smith@example.com
+                  email: <bob.smith@example.com>
                 submission_events:
                 - id: 1
                   submitter_id: 2
@@ -2122,7 +2123,7 @@ paths:
                   event_timestamp: '2023-12-14T15:47:24.566Z'
                 documents:
                 - name: example
-                  url: https://docuseal.com/file/hash/example.pdf
+                  url: <https://docuseal.com/file/hash/example.pdf>
                 status: completed
     delete:
       security:
@@ -2212,7 +2213,7 @@ paths:
                 id: 1
                 documents:
                 - name: example
-                  url: https://docuseal.com/file/hash/example.pdf
+                  url: <https://docuseal.com/file/hash/example.pdf>
   "/submissions/emails":
     post:
       security:
@@ -2403,7 +2404,7 @@ paths:
               - id: 1
                 submission_id: 1
                 uuid: 884d545b-3396-49f1-8c07-05b8b2a78755
-                email: john.doe@example.com
+                email: <john.doe@example.com>
                 slug: pAMimKcyrLjqVt
                 sent_at: '2023-12-13T23:04:04.252Z'
                 opened_at:
@@ -2424,11 +2425,11 @@ paths:
                   send_email: true
                   send_sms: false
                 role: First Party
-                embed_src: https://docuseal.com/s/pAMimKcyrLjqVt
+                embed_src: <https://docuseal.com/s/pAMimKcyrLjqVt>
               - id: 2
                 submission_id: 1
                 uuid: 884d545b-3396-49f1-8c07-05b8b2a78755
-                email: alan.smith@example.com
+                email: <alan.smith@example.com>
                 slug: SEwc65vHNDH3QS
                 sent_at: '2023-12-13T23:04:04.252Z'
                 opened_at:
@@ -2677,7 +2678,7 @@ paths:
                 id: 7
                 submission_id: 3
                 uuid: '0954d146-db8c-4772-aafe-2effc7c0e0c0'
-                email: submitter@example.com
+                email: <submitter@example.com>
                 slug: dsEeWrhRD8yDXT
                 sent_at: '2023-12-14T15:45:49.011Z'
                 opened_at: '2023-12-14T15:48:23.011Z'
@@ -2706,7 +2707,7 @@ paths:
                   value: John Doe
                 documents:
                 - name: sample-document
-                  url: https://docuseal.com/file/hash/sample-document.pdf
+                  url: <https://docuseal.com/file/hash/sample-document.pdf>
                 role: First Party
     put:
       security:
@@ -2741,7 +2742,7 @@ paths:
                   type: string
                   description: The email address of the submitter.
                   format: email
-                  example: john.doe@example.com
+                  example: <john.doe@example.com>
                 phone:
                   type: string
                   description: The phone number of the submitter, formatted according
@@ -2830,7 +2831,7 @@ paths:
                       validation_pattern:
                         type: string
                         description: HTML field validation pattern string based on
-                          https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/pattern
+                          <https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/pattern>
                           specification.
                         example: "[A-Z]{4}"
                       invalid_message:
@@ -3064,7 +3065,7 @@ paths:
                 id: 1
                 submission_id: 12
                 uuid: '0954d146-db8c-4772-aafe-2effc7c0e0c0'
-                email: submitter@example.com
+                email: <submitter@example.com>
                 slug: dsEeWrhRD8yDXT
                 sent_at: '2023-12-14T15:45:49.011Z'
                 opened_at: '2023-12-14T15:48:23.011Z'
@@ -3083,7 +3084,7 @@ paths:
                   value: John Doe
                 documents: []
                 role: First Party
-                embed_src: https://docuseal.com/s/pAMimKcyrLjqVt
+                embed_src: <https://docuseal.com/s/pAMimKcyrLjqVt>
   "/submitters":
     get:
       security:
@@ -3376,7 +3377,7 @@ paths:
                 - id: 7
                   submission_id: 3
                   uuid: '0954d146-db8c-4772-aafe-2effc7c0e0c0'
-                  email: submitter@example.com
+                  email: <submitter@example.com>
                   slug: dsEeWrhRD8yDXT
                   sent_at: '2023-12-14T15:45:49.011Z'
                   opened_at: '2023-12-14T15:48:23.011Z'
@@ -3405,7 +3406,7 @@ paths:
                     value: John Doe
                   documents:
                   - name: sample-document
-                    url: https://docuseal.com/file/eyJfcmFpbHMiOnsiIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--f9758362acced0f3c86cdffad02800e/sample-document.pdf
+                    url: <https://docuseal.com/file/eyJfcmFpbHMiOnsiIiwiZXhwIjpudWxsLCJwdXIiOiJibG9iX2lkIn19--f9758362acced0f3c86cdffad02800e/sample-document.pdf>
                   role: First Party
                 pagination:
                   count: 1
@@ -3784,11 +3785,11 @@ paths:
                   id: 1
                   first_name: John
                   last_name: Doe
-                  email: john.doe@example.com
+                  email: <john.doe@example.com>
                 documents:
                 - id: 3
                   uuid: '09a8bc73-a7a9-4fd9-8173-95752bdf0af5'
-                  url: https://docuseal.com/file/hash/Test%20Template.pdf
+                  url: <https://docuseal.com/file/hash/Test%20Template.pdf>
   "/templates/{id}/clone":
     post:
       security:
@@ -4130,7 +4131,7 @@ paths:
                   id: 1
                   first_name: John
                   last_name: Doe
-                  email: john.doe@example.com
+                  email: <john.doe@example.com>
                 documents:
                 - id: 9
                   uuid: ded62277-9705-4fac-b5dc-58325d4102eb
@@ -4542,11 +4543,11 @@ paths:
                   id: 1
                   first_name: John
                   last_name: Doe
-                  email: john.doe@example.com
+                  email: <john.doe@example.com>
                 documents:
                 - id: 3
                   uuid: '09a8bc73-a7a9-4fd9-8173-95752bdf0af5'
-                  url: https://docuseal.com/file/hash/Test%20Template.pdf
+                  url: <https://docuseal.com/file/hash/Test%20Template.pdf>
   "/templates/docx":
     post:
       security:
@@ -5969,7 +5970,7 @@ paths:
                   id: 1
                   first_name: John
                   last_name: Doe
-                  email: john.doe@example.com
+                  email: <john.doe@example.com>
                 documents:
                 - id: 9
                   uuid: ded62277-9705-4fac-b5dc-58325d4102eb

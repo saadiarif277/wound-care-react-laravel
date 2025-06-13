@@ -17,6 +17,7 @@ class Payment extends Model
         'notes',
         'status',
         'posted_by_user_id',
+        'paid_to', // 'msc' or 'manufacturer'
     ];
 
     protected $casts = [

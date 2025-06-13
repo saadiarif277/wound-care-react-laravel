@@ -1,31 +1,84 @@
 import { ComponentProps } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface SelectInputProps extends ComponentProps<'select'> {
+  label?: string;
   error?: string;
-  options: { value: string; label: string }[];
+  required?: boolean;
+  options?: { value: string; label: string }[];
 }
 
 export default function SelectInput({
+  label,
   name,
   error,
-  className,
+  required = false,
+  className = '',
   options = [],
+  children,
   ...props
 }: SelectInputProps) {
-  return (
+  // Theme setup with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
+  const select = (
     <select
       id={name}
       name={name}
       {...props}
-      className={`form-select w-full focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 border-gray-300 rounded ${
-        error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''
-      }`}
+      className={cn(
+        t.input.base,
+        t.input.focus,
+        'appearance-none cursor-pointer',
+        error ? t.input.error : '',
+        className
+      )}
     >
-      {options?.map(({ value, label }, index) => (
-        <option key={index} value={value}>
+      {/* Render children if provided, otherwise use options */}
+      {children || options?.map(({ value, label }, index) => (
+        <option
+          key={index}
+          value={value}
+          className={cn(
+            theme === 'dark'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white text-gray-900'
+          )}
+        >
           {label}
         </option>
       ))}
     </select>
+  );
+
+  // If no label, return just the select
+  if (!label) {
+    return select;
+  }
+
+  // Return labeled select
+  return (
+    <div>
+      <label htmlFor={name} className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
+        {label}
+        {required && <span className={cn("ml-1", t.status.error.split(' ')[0])}>*</span>}
+      </label>
+      {select}
+      {error && (
+        <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>
+          {error}
+        </p>
+      )}
+    </div>
   );
 }

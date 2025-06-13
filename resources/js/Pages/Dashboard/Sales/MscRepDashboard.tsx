@@ -2,6 +2,11 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import MetricCard from '@/Components/ui/MetricCard';
+import { FiDollarSign, FiUsers, FiTrendingUp, FiUserCheck } from 'react-icons/fi';
 
 interface MscRepDashboardProps {
   user?: UserWithRole;
@@ -147,37 +152,53 @@ const activeOpportunities = [
 ];
 
 export default function MscRepDashboard({ user }: MscRepDashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const commissionProgress = (salesMetrics.monthlyCommission / salesMetrics.monthlyTarget) * 100;
   const quarterlyProgress = (salesMetrics.monthlyCommission / salesMetrics.quarterlyTarget) * 100;
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'paid':
-      case 'excellent':
-        return 'text-green-600 bg-green-100';
-      case 'pending_approval':
-      case 'good':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'at_risk':
-      case 'fair':
-        return 'text-red-600 bg-red-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+    const colors = theme === 'dark' ? {
+      active: 'bg-green-500/20 text-green-300 border-green-500/30',
+      paid: 'bg-green-500/20 text-green-300 border-green-500/30',
+      excellent: 'bg-green-500/20 text-green-300 border-green-500/30',
+      pending_approval: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      good: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      at_risk: 'bg-red-500/20 text-red-300 border-red-500/30',
+      fair: 'bg-red-500/20 text-red-300 border-red-500/30'
+    } : {
+      active: 'bg-green-100 text-green-600',
+      paid: 'bg-green-100 text-green-600',
+      excellent: 'bg-green-100 text-green-600',
+      pending_approval: 'bg-yellow-100 text-yellow-600',
+      good: 'bg-yellow-100 text-yellow-600',
+      at_risk: 'bg-red-100 text-red-600',
+      fair: 'bg-red-100 text-red-600'
+    };
+    return colors[status] || (theme === 'dark' ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600');
   };
 
   const getStageColor = (stage: string) => {
-    switch (stage) {
-      case 'closing':
-        return 'text-green-600 bg-green-100';
-      case 'negotiation':
-        return 'text-blue-600 bg-blue-100';
-      case 'proposal':
-        return 'text-purple-600 bg-purple-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+    const colors = theme === 'dark' ? {
+      closing: 'bg-green-500/20 text-green-300 border-green-500/30',
+      negotiation: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      proposal: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+    } : {
+      closing: 'bg-green-100 text-green-600',
+      negotiation: 'bg-blue-100 text-blue-600',
+      proposal: 'bg-purple-100 text-purple-600'
+    };
+    return colors[stage] || (theme === 'dark' ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600');
   };
 
   return (
@@ -188,48 +209,50 @@ export default function MscRepDashboard({ user }: MscRepDashboardProps) {
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header - Mobile Optimized */}
         <div className="pt-4 sm:pt-6 pb-2 sm:pb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sales Territory Dashboard</h1>
-          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 leading-relaxed">
+          <h1 className={cn("text-2xl sm:text-3xl font-bold", t.text.primary)}>Sales Territory Dashboard</h1>
+          <p className={cn("mt-1 sm:mt-2 text-sm sm:text-base leading-relaxed", t.text.secondary)}>
             Manage your territory, track commission performance, oversee sub-representatives, and drive customer growth.
           </p>
         </div>
 
         {/* Key Sales Metrics - Mobile First Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Monthly Commission</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1 sm:mt-2">${salesMetrics.monthlyCommission.toLocaleString()}</p>
-            <div className="mt-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-gray-600">{commissionProgress.toFixed(1)}% of target</span>
-                <span className="text-gray-600">${salesMetrics.monthlyTarget.toLocaleString()}</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-                <div
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${Math.min(commissionProgress, 100)}%` }}
-                ></div>
-              </div>
-            </div>
-          </div>
+          <MetricCard
+            title="Monthly Commission"
+            value={`$${salesMetrics.monthlyCommission.toLocaleString()}`}
+            subtitle={`${commissionProgress.toFixed(1)}% of $${salesMetrics.monthlyTarget.toLocaleString()}`}
+            icon={<FiDollarSign className="h-8 w-8" />}
+            status="success"
+            trend={commissionProgress > 80 ? 15 : -5}
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Territory Customers</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1 sm:mt-2">{salesMetrics.territoryCustomers}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">Active accounts</p>
-          </div>
+          <MetricCard
+            title="Territory Customers"
+            value={salesMetrics.territoryCustomers}
+            subtitle="Active accounts"
+            icon={<FiUsers className="h-8 w-8" />}
+            status="info"
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Deals</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1 sm:mt-2">{salesMetrics.activeDeals}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">In pipeline</p>
-          </div>
+          <MetricCard
+            title="Active Deals"
+            value={salesMetrics.activeDeals}
+            subtitle="In pipeline"
+            icon={<FiTrendingUp className="h-8 w-8" />}
+            status="warning"
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Sub-Reps</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1 sm:mt-2">{salesMetrics.teamSubReps}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">Team members</p>
-          </div>
+          <MetricCard
+            title="Sub-Reps"
+            value={salesMetrics.teamSubReps}
+            subtitle="Team members"
+            icon={<FiUserCheck className="h-8 w-8" />}
+            status="default"
+            size="sm"
+          />
         </div>
 
         {/* Commission Tracking - Mobile Optimized */}

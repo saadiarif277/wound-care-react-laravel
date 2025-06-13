@@ -43,13 +43,12 @@ class IvrFieldMappingService
 
         // Load all required relationships
         $productRequest->load([
-            'patient',
+            // 'patient', // no local patient table; patient data is in FHIR
             'provider',
             'provider.profile',
             'facility',
-            'organization',
-            'products',
-            'order'
+            'facility.organization',
+            'products'
         ]);
 
         // Get field mappings for this manufacturer
@@ -457,13 +456,19 @@ class IvrFieldMappingService
             }
         }
 
-        if (!$needsFhir || !$productRequest->patient?->fhir_id) {
+        if (!$needsFhir || !$productRequest->patient_fhir_id) {
             return $mappedFields;
         }
 
         try {
-            // Fetch patient data from FHIR
-            $fhirPatient = $this->fhirService->getPatient($productRequest->patient->fhir_id);
+            // Fetch patient data from FHIR using stored FHIR ID (no local patient table)
+            if (!$productRequest->patient_fhir_id) {
+                return $mappedFields; // No patient reference available
+            }
+
+            // patient_fhir_id may be stored as 'Patient/{uuid}' or just UUID
+            $patientId = str_replace('Patient/', '', $productRequest->patient_fhir_id);
+            $fhirPatient = $this->fhirService->getPatientById($patientId);
 
             if ($fhirPatient) {
                 // Map FHIR address data
@@ -505,7 +510,7 @@ class IvrFieldMappingService
             }
         } catch (\Exception $e) {
             Log::error('Failed to fetch FHIR data for IVR mapping', [
-                'patient_fhir_id' => $productRequest->patient->fhir_id,
+                'patient_fhir_id' => $productRequest->patient_fhir_id,
                 'error' => $e->getMessage()
             ]);
         }
@@ -516,7 +521,7 @@ class IvrFieldMappingService
     /**
      * Get manufacturer configuration
      */
-    private function getManufacturerConfig(string $manufacturerKey): ?array
+    public function getManufacturerConfig(string $manufacturerKey): ?array
     {
         return $this->fieldMappings['manufacturers'][$manufacturerKey] ?? null;
     }

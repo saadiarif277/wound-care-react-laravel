@@ -95,7 +95,6 @@ interface ProviderProfile {
     expiration_date?: string;
   }>;
   financial_summary: {
-    credit_limit: number;
     total_outstanding: number;
     current_balance: number;
     past_due_amount: number;
@@ -130,7 +129,8 @@ interface ProviderProfile {
     amount: number;
     method: string;
     reference: string;
-    applied_to_orders: string[];
+    order_number: string;
+    paid_to: 'msc' | 'manufacturer';
     posted_by: string;
   }>;
   activity_log: Array<{
@@ -370,8 +370,8 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-sm text-gray-500">Credit Limit</div>
-                  <div className="text-xl font-bold">{formatCurrency(provider.financial_summary.credit_limit)}</div>
+                  <div className="text-sm text-gray-500">Outstanding Balance</div>
+                  <div className="text-xl font-bold">{formatCurrency(provider.financial_summary.total_outstanding)}</div>
                   <div className="mt-2">
                     {provider.financial_summary.past_due_amount > 0 ? (
                       <Badge className="bg-red-100 text-red-800">
@@ -552,7 +552,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                           {provider.recent_orders.slice(0, 5).map((order) => (
                             <tr key={order.id}>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <a href={route('admin.orders.show', order.id)} className="text-red-600 hover:text-red-900">
+                                <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                   #{order.order_number}
                                 </a>
                               </td>
@@ -753,21 +753,25 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                       <div>
-                        <h4 className="text-sm font-medium text-gray-500">Credit Information</h4>
+                        <h4 className="text-sm font-medium text-gray-500">Payment Information</h4>
                         <dl className="mt-2 space-y-2">
-                          <div className="flex justify-between">
-                            <dt className="text-sm text-gray-600">Credit Limit</dt>
-                            <dd className="text-sm font-medium">{formatCurrency(provider.financial_summary.credit_limit)}</dd>
-                          </div>
-                          <div className="flex justify-between">
-                            <dt className="text-sm text-gray-600">Available Credit</dt>
-                            <dd className="text-sm font-medium text-green-600">
-                              {formatCurrency(provider.financial_summary.credit_limit - provider.financial_summary.total_outstanding)}
-                            </dd>
-                          </div>
                           <div className="flex justify-between">
                             <dt className="text-sm text-gray-600">Payment Terms</dt>
                             <dd className="text-sm font-medium">{provider.financial_summary.payment_terms}</dd>
+                          </div>
+                          {provider.financial_summary.last_payment && (
+                            <div className="flex justify-between">
+                              <dt className="text-sm text-gray-600">Last Payment</dt>
+                              <dd className="text-sm font-medium">
+                                {formatCurrency(provider.financial_summary.last_payment.amount)} on {format(new Date(provider.financial_summary.last_payment.date), 'MMM d, yyyy')}
+                              </dd>
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <dt className="text-sm text-gray-600">Days Past Due</dt>
+                            <dd className={`text-sm font-medium ${provider.financial_summary.days_past_due > 60 ? 'text-red-600' : 'text-green-600'}`}>
+                              {provider.financial_summary.days_past_due} days
+                            </dd>
                           </div>
                         </dl>
                       </div>
@@ -868,7 +872,8 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Method</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reference</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Applied To</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paid To</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Posted By</th>
                           </tr>
                         </thead>
@@ -887,14 +892,15 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {payment.reference}
                               </td>
-                              <td className="px-6 py-4 text-sm text-gray-500">
-                                <div className="flex flex-wrap gap-1">
-                                  {payment.applied_to_orders.map((order, index) => (
-                                    <Badge key={index} variant="secondary" className="text-xs">
-                                      {order}
-                                    </Badge>
-                                  ))}
-                                </div>
+                              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                <a href={route('admin.product-requests.show', payment.order_number?.replace('#', ''))} className="text-red-600 hover:text-red-900">
+                                  {payment.order_number}
+                                </a>
+                              </td>
+                              <td className="px-6 py-4 whitespace-nowrap">
+                                <Badge className={payment.paid_to === 'msc' ? 'bg-blue-100 text-blue-800' : 'bg-purple-100 text-purple-800'}>
+                                  {payment.paid_to === 'msc' ? 'MSC' : 'Manufacturer'}
+                                </Badge>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {payment.posted_by}
@@ -932,7 +938,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                         {provider.recent_orders.map((order) => (
                           <tr key={order.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <a href={route('admin.orders.show', order.id)} className="text-red-600 hover:text-red-900">
+                              <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                 #{order.order_number}
                               </a>
                             </td>
@@ -952,7 +958,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                               {getPaymentStatusBadge(order.payment_status, order.days_outstanding)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <a href={route('admin.orders.show', order.id)} className="text-red-600 hover:text-red-900">
+                              <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                 View
                               </a>
                             </td>

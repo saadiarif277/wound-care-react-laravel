@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { GlassTable, Table, Thead, Tbody, Tr, Th, Td } from '@/Components/ui/GlassTable';
+import { glassTheme, themes, cn } from '@/theme/glass-theme';
+import { useTheme } from '@/contexts/ThemeContext';
 import {
   FiUsers,
   FiShield,
@@ -61,6 +64,18 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
   const [selectedRole, setSelectedRole] = useState<string>('all');
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+  // Get theme context with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
+
   const filteredUsers = users.data.filter(user => {
     const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email.toLowerCase().includes(searchTerm.toLowerCase());
@@ -71,8 +86,8 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
 
   const getStatusColor = (isActive: boolean) => {
     return isActive 
-      ? 'text-green-600 bg-green-50' 
-      : 'text-red-600 bg-red-50';
+      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' 
+      : 'bg-red-500/20 text-red-300 border border-red-500/30';
   };
 
   const handleUserAction = (action: string, userId: number) => {
@@ -97,20 +112,30 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
         {/* Header with Stats */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">User Management</h1>
-            <p className="text-sm text-gray-600">Manage users, roles, and access permissions</p>
+            <h1 className={cn("text-2xl font-semibold", t.text.primary)}>User Management</h1>
+            <p className={cn("text-sm", t.text.secondary)}>Manage users, roles, and access permissions</p>
           </div>
           <div className="flex items-center space-x-3">
             <Link
               href="/admin/provider-invitations"
-              className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+              className={cn(
+                "inline-flex items-center px-4 py-2 border rounded-lg text-sm font-medium transition-colors",
+                theme === 'dark' 
+                  ? "border-white/20 text-white/90 bg-white/[0.05] hover:bg-white/[0.10]" 
+                  : "border-gray-300 text-gray-700 bg-white hover:bg-gray-50"
+              )}
             >
               <FiMail className="w-4 h-4 mr-2" />
               Provider Invitations
             </Link>
             <Link
               href="/admin/users/create"
-              className="inline-flex items-center px-4 py-2 bg-blue-600 border border-transparent rounded-lg text-sm font-medium text-white hover:bg-blue-700"
+              className={cn(
+                "inline-flex items-center px-4 py-2 border border-transparent rounded-lg text-sm font-medium transition-colors",
+                theme === 'dark' 
+                  ? "bg-blue-600 text-white hover:bg-blue-700" 
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              )}
             >
               <FiPlus className="w-4 h-4 mr-2" />
               Add User
@@ -120,23 +145,23 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
 
         {/* Stats Cards */}
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className={cn("overflow-hidden shadow rounded-lg", t.glass.card)}>
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
-                  <FiUsers className="h-6 w-6 text-gray-400" />
+                  <FiUsers className={cn("h-6 w-6", t.text.muted)} />
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Users</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats.total_users}</dd>
+                    <dt className={cn("text-sm font-medium truncate", t.text.secondary)}>Total Users</dt>
+                    <dd className={cn("text-lg font-medium", t.text.primary)}>{stats.total_users}</dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className={cn("overflow-hidden shadow rounded-lg", t.glass.card)}>
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -144,15 +169,15 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Active Users</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats.active_users}</dd>
+                    <dt className={cn("text-sm font-medium truncate", t.text.secondary)}>Active Users</dt>
+                    <dd className={cn("text-lg font-medium", t.text.primary)}>{stats.active_users}</dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className={cn("overflow-hidden shadow rounded-lg", t.glass.card)}>
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -160,15 +185,15 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Pending Invitations</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats.pending_invitations}</dd>
+                    <dt className={cn("text-sm font-medium truncate", t.text.secondary)}>Pending Invitations</dt>
+                    <dd className={cn("text-lg font-medium", t.text.primary)}>{stats.pending_invitations}</dd>
                   </dl>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="bg-white overflow-hidden shadow rounded-lg">
+          <div className={cn("overflow-hidden shadow rounded-lg", t.glass.card)}>
             <div className="p-5">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -176,8 +201,8 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
                 </div>
                 <div className="ml-5 w-0 flex-1">
                   <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Recent Logins</dt>
-                    <dd className="text-lg font-medium text-gray-900">{stats.recent_logins}</dd>
+                    <dt className={cn("text-sm font-medium truncate", t.text.secondary)}>Recent Logins</dt>
+                    <dd className={cn("text-lg font-medium", t.text.primary)}>{stats.recent_logins}</dd>
                   </dl>
                 </div>
               </div>
@@ -186,27 +211,37 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
         </div>
 
         {/* Filters and Search */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
+        <div className={cn("shadow rounded-lg", t.glass.card)}>
+          <div className={cn("px-6 py-4 border-b", theme === 'dark' ? 'border-white/10' : 'border-gray-200')}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-gray-900">Users</h3>
+              <h3 className={cn("text-lg font-medium", t.text.primary)}>Users</h3>
               <div className="flex items-center space-x-4">
                 {/* Search */}
                 <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <FiSearch className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                   <input
                     type="text"
                     placeholder="Search users..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className={cn(
+                      "pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors",
+                      theme === 'dark'
+                        ? "bg-white/[0.05] border-white/20 text-white placeholder-white/50 focus:border-blue-400"
+                        : "bg-white border-gray-300 text-gray-900 placeholder-gray-500 focus:border-blue-500"
+                    )}
                   />
                 </div>
                 {/* Role Filter */}
                 <select
                   value={selectedRole}
                   onChange={(e) => setSelectedRole(e.target.value)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 transition-colors",
+                    theme === 'dark'
+                      ? "bg-white/[0.05] border-white/20 text-white focus:border-blue-400"
+                      : "bg-white border-gray-300 text-gray-900 focus:border-blue-500"
+                  )}
                 >
                   <option value="all">All Roles</option>
                   {roles.map((role) => (
@@ -218,106 +253,101 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
           </div>
 
           {/* Users Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Roles
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Last Login
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredUsers.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+          <GlassTable>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>User</Th>
+                  <Th>Roles</Th>
+                  <Th>Status</Th>
+                  <Th>Last Login</Th>
+                  <Th className="text-right">Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {filteredUsers.map((user, index) => (
+                  <Tr key={user.id} isEven={index % 2 === 0}>
+                    <Td>
                       <div className="flex items-center">
                         <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-r from-[#1925c3] to-[#c71719] flex items-center justify-center">
                             <span className="text-white font-medium text-sm">
                               {user.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
                         </div>
                         <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm font-medium">{user.name}</div>
+                          <div className="text-sm opacity-75">{user.email}</div>
                         </div>
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <div className="flex flex-wrap gap-1">
                         {user.roles.map((role) => (
                           <span
                             key={role.id}
-                            className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800"
+                            className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/30"
                           >
                             {role.display_name}
                           </span>
                         ))}
                       </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    </Td>
+                    <Td>
                       <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
                         getStatusColor(user.is_active)
                       }`}>
                         {user.is_active ? 'Active' : 'Inactive'}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    </Td>
+                    <Td className="text-sm opacity-75">
                       {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    </Td>
+                    <Td className="text-right">
                       <div className="flex items-center justify-end space-x-2">
                         <button
                           onClick={() => handleUserAction('edit', user.id)}
-                          className="text-blue-600 hover:text-blue-900"
+                          className="text-blue-300 hover:text-blue-200 transition-colors"
                           title="Edit User"
                         >
                           <FiEdit3 className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => setSelectedUser(user)}
-                          className="text-gray-600 hover:text-gray-900"
+                          className={cn(
+                            "transition-colors",
+                            theme === 'dark' 
+                              ? "text-white/60 hover:text-white/90" 
+                              : "text-gray-600 hover:text-gray-900"
+                          )}
                           title="View Details"
                         >
                           <FiEye className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleUserAction('deactivate', user.id)}
-                          className="text-red-600 hover:text-red-900"
+                          className="text-red-300 hover:text-red-200 transition-colors"
                           title="Deactivate User"
                         >
                           <FiUserX className="h-4 w-4" />
                         </button>
                       </div>
-                    </td>
-                  </tr>
+                    </Td>
+                  </Tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Tbody>
+            </Table>
+          </GlassTable>
 
           {/* Pagination */}
           {users.pagination.last_page > 1 && (
-            <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+            <div className={cn("backdrop-blur-xl border px-6 py-3 mt-4 rounded-xl", t.glass.card)}>
               <div className="flex items-center justify-between">
-                <p className="text-sm text-gray-700">
-                  Showing {((users.pagination.current_page - 1) * users.pagination.per_page) + 1} to{' '}
-                  {Math.min(users.pagination.current_page * users.pagination.per_page, users.pagination.total)} of{' '}
-                  {users.pagination.total} results
+                <p className={cn("text-sm", t.text.secondary)}>
+                  Showing <span className={cn("font-medium", t.text.primary)}>{((users.pagination.current_page - 1) * users.pagination.per_page) + 1}</span> to{' '}
+                  <span className={cn("font-medium", t.text.primary)}>{Math.min(users.pagination.current_page * users.pagination.per_page, users.pagination.total)}</span> of{' '}
+                  <span className={cn("font-medium", t.text.primary)}>{users.pagination.total}</span> results
                 </p>
                 {/* Add pagination controls here */}
               </div>
@@ -329,16 +359,24 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
           <Link
             href="/access-requests"
-            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
+            className={cn(
+              "relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow",
+              t.glass.card
+            )}
           >
             <div>
-              <span className="rounded-lg inline-flex p-3 bg-blue-50 text-blue-600 group-hover:bg-blue-100">
+              <span className={cn(
+                "rounded-lg inline-flex p-3 text-blue-600 transition-colors",
+                theme === 'dark'
+                  ? "bg-blue-500/20 group-hover:bg-blue-500/30"
+                  : "bg-blue-50 group-hover:bg-blue-100"
+              )}>
                 <FiUserCheck className="h-6 w-6" />
               </span>
             </div>
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-900">Access Requests</h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <h3 className={cn("text-lg font-medium", t.text.primary)}>Access Requests</h3>
+              <p className={cn("mt-2 text-sm", t.text.secondary)}>
                 Review and approve user access requests
               </p>
             </div>
@@ -346,16 +384,24 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
 
           <Link
             href="/rbac"
-            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
+            className={cn(
+              "relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow",
+              t.glass.card
+            )}
           >
             <div>
-              <span className="rounded-lg inline-flex p-3 bg-purple-50 text-purple-600 group-hover:bg-purple-100">
+              <span className={cn(
+                "rounded-lg inline-flex p-3 text-purple-600 transition-colors",
+                theme === 'dark'
+                  ? "bg-purple-500/20 group-hover:bg-purple-500/30"
+                  : "bg-purple-50 group-hover:bg-purple-100"
+              )}>
                 <FiShield className="h-6 w-6" />
               </span>
             </div>
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-900">Role Management</h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <h3 className={cn("text-lg font-medium", t.text.primary)}>Role Management</h3>
+              <p className={cn("mt-2 text-sm", t.text.secondary)}>
                 Configure roles and permissions
               </p>
             </div>
@@ -363,16 +409,24 @@ export default function AdminUsersIndex({ users, roles, stats }: Props) {
 
           <Link
             href="/subrep-approvals"
-            className="relative group bg-white p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow"
+            className={cn(
+              "relative group p-6 focus-within:ring-2 focus-within:ring-inset focus-within:ring-blue-500 rounded-lg shadow hover:shadow-md transition-shadow",
+              t.glass.card
+            )}
           >
             <div>
-              <span className="rounded-lg inline-flex p-3 bg-green-50 text-green-600 group-hover:bg-green-100">
+              <span className={cn(
+                "rounded-lg inline-flex p-3 text-green-600 transition-colors",
+                theme === 'dark'
+                  ? "bg-green-500/20 group-hover:bg-green-500/30"
+                  : "bg-green-50 group-hover:bg-green-100"
+              )}>
                 <FiUserPlus className="h-6 w-6" />
               </span>
             </div>
             <div className="mt-4">
-              <h3 className="text-lg font-medium text-gray-900">Sub-Rep Approvals</h3>
-              <p className="mt-2 text-sm text-gray-500">
+              <h3 className={cn("text-lg font-medium", t.text.primary)}>Sub-Rep Approvals</h3>
+              <p className={cn("mt-2 text-sm", t.text.secondary)}>
                 Approve pending sub-representative requests
               </p>
             </div>

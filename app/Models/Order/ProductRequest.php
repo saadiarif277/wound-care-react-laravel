@@ -144,6 +144,15 @@ class ProductRequest extends Model
     }
 
     /**
+     * Get the patient (FHIR record) associated with this request.
+     * Links patient_fhir_id (stored on this model) to Patient.azure_fhir_id.
+     */
+    public function patient(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Fhir\Patient::class, 'patient_fhir_id', 'azure_fhir_id');
+    }
+
+    /**
      * Get the acquiring sales rep.
      */
     public function acquiringRep(): BelongsTo

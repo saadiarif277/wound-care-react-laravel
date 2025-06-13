@@ -1,4 +1,6 @@
 import React, { ReactNode } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface Props {
     show: boolean;
@@ -9,6 +11,18 @@ interface Props {
 
 export const Modal: React.FC<Props> = ({ show, onClose, children, maxWidth = 'md' }) => {
     if (!show) return null;
+    
+    // Theme setup
+    let theme: 'dark' | 'light' = 'dark';
+    let t = themes.dark;
+    
+    try {
+        const themeContext = useTheme();
+        theme = themeContext.theme;
+        t = themes[theme];
+    } catch (e) {
+        // If not in ThemeProvider, use dark theme
+    }
 
     const maxWidthClasses = {
         sm: 'max-w-sm',
@@ -20,16 +34,20 @@ export const Modal: React.FC<Props> = ({ show, onClose, children, maxWidth = 'md
 
     return (
         <div className="fixed inset-0 z-50 overflow-y-auto">
-            {/* Backdrop */}
+            {/* Glass Backdrop */}
             <div
-                className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+                className={cn("fixed inset-0 transition-opacity", t.modal.backdrop)}
                 onClick={onClose}
             />
 
             {/* Modal Container */}
             <div className="flex min-h-full items-center justify-center p-4">
                 <div
-                    className={`relative w-full ${maxWidthClasses[maxWidth]} transform overflow-hidden rounded-lg bg-white shadow-xl transition-all`}
+                    className={cn(
+                        "relative w-full transform overflow-hidden transition-all",
+                        maxWidthClasses[maxWidth],
+                        t.modal.container
+                    )}
                     onClick={(e) => e.stopPropagation()}
                 >
                     {children}

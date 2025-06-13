@@ -3,6 +3,7 @@ import { Head, Link } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import Logo from '@/Components/Logo/Logo';
 import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
+import { refreshCsrfToken } from '@/utils/csrf';
 
 export default function LoginPage() {
   const { data, setData, errors, post, processing } = useForm({
@@ -51,6 +52,11 @@ export default function LoginPage() {
     };
   }, []);
 
+  // Always refresh CSRF token on mount (handles post-logout/session expiry)
+  useEffect(() => {
+    refreshCsrfToken();
+  }, []);
+
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     post(route('login.store'));
@@ -68,10 +74,10 @@ export default function LoginPage() {
         playsInline
         preload="auto"
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ 
+        style={{
           willChange: 'auto',
           backfaceVisibility: 'hidden',
-          perspective: 1000 
+          perspective: 1000
         }}
       >
         <source src="/envato_video_gen_Jun_05_2025_7_40_02.mp4" type="video/mp4" />
@@ -115,7 +121,7 @@ export default function LoginPage() {
                           : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400'
                       }`}
                       style={{
-                        '--tw-ring-color': errors.email ? '#ef4444' : '#1822cf'
+                                                    '--tw-ring-color': errors.email ? '#ef4444' : '#1925c3'
                       } as React.CSSProperties}
                       value={data.email}
                       onChange={(e) => setData('email', e.target.value)}
@@ -150,7 +156,7 @@ export default function LoginPage() {
                           : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400'
                       }`}
                       style={{
-                        '--tw-ring-color': errors.password ? '#ef4444' : '#1822cf'
+                                                    '--tw-ring-color': errors.password ? '#ef4444' : '#1925c3'
                       } as React.CSSProperties}
                       value={data.password}
                       onChange={(e) => setData('password', e.target.value)}
@@ -177,7 +183,7 @@ export default function LoginPage() {
                       onChange={(e) => setData('remember', e.target.checked)}
                       disabled={processing}
                       className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                      style={{ color: '#1822cf' }}
+                      style={{ color: '#1925c3' }}
                     />
                     <label htmlFor="remember" className="ml-2 text-sm text-gray-600">
                       Remember me
@@ -187,7 +193,7 @@ export default function LoginPage() {
                   <a
                     href="#reset-password"
                     className="text-sm font-medium hover:underline transition-colors"
-                    style={{ color: '#1822cf' }}
+                    style={{ color: '#1925c3' }}
                     tabIndex={-1}
                   >
                     Forgot password?
@@ -200,17 +206,17 @@ export default function LoginPage() {
                   disabled={processing}
                   className="w-full py-4 px-4 rounded-xl text-white font-semibold text-base transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-offset-2 shadow-lg transform hover:scale-105"
                   style={{
-                    backgroundColor: '#1822cf',
-                    '--tw-ring-color': '#1822cf'
+                    backgroundColor: '#1925c3',
+                    '--tw-ring-color': '#1925c3'
                   } as React.CSSProperties}
                   onMouseEnter={(e) => {
                     if (!processing) {
-                      e.currentTarget.style.backgroundColor = '#1219b8';
+                      e.currentTarget.style.backgroundColor = '#141c9a';
                     }
                   }}
                   onMouseLeave={(e) => {
                     if (!processing) {
-                      e.currentTarget.style.backgroundColor = '#1822cf';
+                      e.currentTarget.style.backgroundColor = '#1925c3';
                     }
                   }}
                 >

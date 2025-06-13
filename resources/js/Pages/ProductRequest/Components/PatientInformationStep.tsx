@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FiSearch, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
 import { Facility } from '@/types';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 // Define PatientApiInput locally, matching Create.tsx, if not easily importable
 // This should ideally be shared from Create.tsx or a common types file.
@@ -44,6 +46,18 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
   woundTypes,
   facilities,
 }) => {
+  // Theme context
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
+
   const [error, setError] = useState<string | null>(null);
   const [shippingError, setShippingError] = useState<string | null>(null);
 
@@ -100,15 +114,15 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
   return (
     <div className="space-y-6">
       {/* Manual Patient Data Input */}
-      <div className="bg-white shadow sm:rounded-lg">
+      <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">
+          <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
             Enter Patient Details
           </h3>
           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             {/* First Name */}
             <div className="sm:col-span-3">
-              <label htmlFor="first-name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="first-name" className={cn("block text-sm font-medium", t.text.secondary)}>
                 First Name
               </label>
               <input
@@ -116,12 +130,12 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 id="first-name"
                 value={formData.patient_api_input.first_name || ''}
                 onChange={(e) => handlePatientDemographicsChange({ first_name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* Last Name */}
             <div className="sm:col-span-3">
-              <label htmlFor="last-name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="last-name" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Last Name
               </label>
               <input
@@ -129,12 +143,12 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 id="last-name"
                 value={formData.patient_api_input.last_name || ''}
                 onChange={(e) => handlePatientDemographicsChange({ last_name: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* DOB */}
             <div className="sm:col-span-3">
-              <label htmlFor="dob" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="dob" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Date of Birth
               </label>
               <input
@@ -142,19 +156,19 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 id="dob"
                 value={formData.patient_api_input.dob || ''}
                 onChange={(e) => handlePatientDemographicsChange({ dob: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* Gender */}
             <div className="sm:col-span-3">
-              <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="gender" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Gender
               </label>
               <select
                 id="gender"
                 value={formData.patient_api_input.gender || 'unknown'}
                 onChange={(e) => handlePatientDemographicsChange({ gender: e.target.value as PatientApiInput['gender'] })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               >
                 <option value="male">Male</option>
                 <option value="female">Female</option>
@@ -164,7 +178,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
             </div>
             {/* Member ID */}
             <div className="sm:col-span-3">
-              <label htmlFor="member_id" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="member_id" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Member ID (Insurance)
               </label>
               <input
@@ -172,7 +186,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 id="member_id"
                 value={formData.patient_api_input.member_id || ''}
                 onChange={(e) => handlePatientDemographicsChange({ member_id: e.target.value })}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
           </div>
@@ -180,15 +194,15 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
       </div>
 
       {/* Service & Payer Information */}
-      <div className="bg-white shadow sm:rounded-lg">
+      <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">
+          <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
             Service & Payer Information
           </h3>
           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             {/* Place of Service */}
             <div className="sm:col-span-3">
-              <label htmlFor="place_of_service" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="place_of_service" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Place of Service
               </label>
               <select
@@ -201,7 +215,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                     handleFieldChange('medicare_part_b_authorized', false);
                   }
                 }}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               >
                 <option value="">Select Place of Service</option>
                 <option value="11">(11) Office</option>
@@ -220,7 +234,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                       onChange={(e) => handleFieldChange('medicare_part_b_authorized', e.target.checked)}
                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
-                    <label htmlFor="medicare_part_b_authorized" className="ml-2 block text-sm text-gray-700">
+                    <label htmlFor="medicare_part_b_authorized" className={cn("ml-2 block text-sm", t.text.secondary)}>
                       Only if Medicare Part B Authorized
                     </label>
                   </div>
@@ -229,7 +243,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
             </div>
             {/* Expected Service Date */}
             <div className="sm:col-span-3">
-              <label htmlFor="expected_service_date" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="expected_service_date" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Expected Service Date
               </label>
               <input
@@ -255,12 +269,12 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 }`}
               />
               {error && (
-                <p className="mt-1 text-sm text-red-600">{error}</p>
+                <p className={cn("mt-1 text-sm", theme === 'dark' ? 'text-red-400' : 'text-red-600')}>{error}</p>
               )}
             </div>
             {/* Payer Name */}
             <div className="sm:col-span-3">
-              <label htmlFor="payer_name" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="payer_name" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Payer Name
               </label>
               <input
@@ -269,12 +283,12 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 value={formData.payer_name || ''}
                 onChange={(e) => handleFieldChange('payer_name', e.target.value)}
                 placeholder="e.g., Medicare, Aetna"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* Payer ID */}
             <div className="sm:col-span-3">
-              <label htmlFor="payer_id" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="payer_id" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Payer ID
               </label>
               <input
@@ -283,12 +297,12 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 value={formData.payer_id || ''}
                 onChange={(e) => handleFieldChange('payer_id', e.target.value)}
                 placeholder="Payer-specific ID"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* Second Payer */}
             <div className="sm:col-span-3">
-              <label htmlFor="second_payer" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="second_payer" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Second Payer (Optional)
               </label>
               <input
@@ -297,19 +311,19 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 value={formData.second_payer || ''}
                 onChange={(e) => handleFieldChange('second_payer', e.target.value)}
                 placeholder="Secondary insurance provider"
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
             {/* Wound Type */}
             <div className="sm:col-span-3">
-              <label htmlFor="wound_type" className="block text-sm font-medium text-gray-700">
+              <label htmlFor="wound_type" className={cn("block text-sm font-medium", t.text.secondary)}>
                 Wound Type
               </label>
               <select
                 id="wound_type"
                 value={formData.wound_type || ''}
                 onChange={(e) => handleFieldChange('wound_type', e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               >
                 <option value="">Select Wound Type</option>
                 {Object.entries(woundTypes).map(([code, name]) => (
@@ -324,9 +338,9 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
       </div>
 
       {/* Shipping Speed Selection */}
-      <div className="bg-white shadow sm:rounded-lg">
+      <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
         <div className="px-4 py-5 sm:p-6">
-          <h3 className="text-lg font-medium leading-6 text-gray-900">
+          <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
             Shipping Speed
           </h3>
           <div className="mt-6 space-y-4">
@@ -341,7 +355,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                   onChange={(e) => handleShippingSpeedChange(e.target.value)}
                   className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                 />
-                <label htmlFor={option.value} className="ml-3 block text-sm font-medium text-gray-700">
+                <label htmlFor={option.value} className={cn("ml-3 block text-sm font-medium", t.text.secondary)}>
                   {option.label}
                 </label>
               </div>
@@ -354,7 +368,7 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
               }`}>
                 <p className={`text-sm ${
                   shippingError.includes('cannot be fulfilled')
-                    ? 'text-red-800'
+                    ? (theme === 'dark' ? 'text-red-400' : 'text-red-800')
                     : 'text-blue-800'
                 }`}>
                   {shippingError}

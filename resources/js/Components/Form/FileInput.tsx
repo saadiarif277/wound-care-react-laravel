@@ -1,13 +1,35 @@
 import React, { useState, useRef, ComponentProps } from 'react';
 import { fileSize } from '@/utils';
 import { Omit } from 'lodash';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface FileInputProps extends Omit<ComponentProps<'input'>, 'onChange'> {
+  label?: string;
   error?: string;
+  required?: boolean;
   onChange?: (file: File | null) => void;
 }
 
-export default function FileInput({ name, error, onChange }: FileInputProps) {
+export default function FileInput({
+  name,
+  label,
+  error,
+  required = false,
+  onChange
+}: FileInputProps) {
+  // Theme setup with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const fileInput = useRef<HTMLInputElement>(null);
   const [file, setFile] = useState<File | null>(null);
 
@@ -18,8 +40,6 @@ export default function FileInput({ name, error, onChange }: FileInputProps) {
   function handleRemove() {
     setFile(null);
     onChange?.(null);
-
-    // fileInput?.current?.value = '';
   }
 
   function handleChange(e: React.FormEvent<HTMLInputElement>) {
@@ -31,33 +51,51 @@ export default function FileInput({ name, error, onChange }: FileInputProps) {
   }
 
   return (
-    <div
-      className={`form-input w-full focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 border-gray-300 rounded p-0 ${
-        error && 'border-red-400 focus:border-red-400 focus:ring-red-400'
-      }`}
-    >
-      <input
-        id={name}
-        ref={fileInput}
-        type="file"
-        className="hidden"
-        onChange={handleChange}
-      />
-      {!file && (
-        <div className="p-2">
-          <BrowseButton text="Browse" onClick={handleBrowse} />
-        </div>
+    <div>
+      {label && (
+        <label className={cn(
+          'block text-sm font-medium mb-1',
+          t.text.secondary
+        )}>
+          {label}
+          {required && <span className={cn("ml-1", t.status.error.split(' ')[0])}>*</span>}
+        </label>
       )}
-      {file && (
-        <div className="flex items-center justify-between p-2">
-          <div className="flex-1 pr-1">
-            {file?.name}
-            <span className="ml-1 text-xs text-gray-600">
-              ({fileSize(file?.size)})
-            </span>
+      <div
+        className={cn(
+          'w-full rounded-xl transition-all duration-200 p-0 overflow-hidden',
+          t.input.base,
+          error ? t.input.error : ''
+        )}
+      >
+        <input
+          id={name}
+          ref={fileInput}
+          type="file"
+          className="hidden"
+          onChange={handleChange}
+        />
+        {!file && (
+          <div className="p-2">
+            <BrowseButton text="Browse" onClick={handleBrowse} theme={theme} />
           </div>
-          <BrowseButton text="Remove" onClick={handleRemove} />
-        </div>
+        )}
+        {file && (
+          <div className="flex items-center justify-between p-2">
+            <div className={cn('flex-1 pr-1', t.text.primary)}>
+              {file?.name}
+              <span className={cn('ml-1 text-xs', t.text.muted)}>
+                ({fileSize(file?.size)})
+              </span>
+            </div>
+            <BrowseButton text="Remove" onClick={handleRemove} theme={theme} />
+          </div>
+        )}
+      </div>
+      {error && (
+        <p className={cn('mt-1 text-sm', t.status.error.split(' ')[0])}>
+          {error}
+        </p>
       )}
     </div>
   );
@@ -65,14 +103,21 @@ export default function FileInput({ name, error, onChange }: FileInputProps) {
 
 interface BrowseButtonProps extends ComponentProps<'button'> {
   text: string;
+  theme: 'dark' | 'light';
 }
 
-function BrowseButton({ text, onClick, ...props }: BrowseButtonProps) {
+function BrowseButton({ text, theme, onClick, ...props }: BrowseButtonProps) {
+  const t = themes[theme];
+
   return (
     <button
       {...props}
       type="button"
-      className="px-4 py-1 text-xs font-medium text-white bg-gray-600 rounded-sm focus:outline-none hover:bg-gray-700"
+      className={cn(
+        'px-4 py-1.5 text-xs font-medium rounded-lg transition-all duration-200',
+        t.button.secondary.base,
+        t.button.secondary.hover
+      )}
       onClick={onClick}
     >
       {text}

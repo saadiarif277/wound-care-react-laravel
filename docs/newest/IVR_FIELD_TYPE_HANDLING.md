@@ -9,14 +9,17 @@ The MSC Wound Portal handles various field types for DocuSeal IVR forms with aut
 ### 1. **Checkboxes**
 
 Checkboxes are automatically detected when field names contain keywords like:
+
 - `status`, `is_`, `has_`, `permission`, `required`, `attached`
 
 **Input Formats Accepted:**
+
 - Boolean: `true/false`
 - String: `"yes"/"no"`, `"y"/"n"`, `"checked"/"unchecked"`, `"x"/""`, `"1"/"0"`
 - Numeric: `1/0`
 
 **Output Formats (varies by manufacturer):**
+
 ```php
 // Standard format
 true → "Yes"
@@ -36,6 +39,7 @@ false → ""
 ```
 
 **Example Fields:**
+
 - `Is Patient in Hospice` → Checkbox
 - `Global Period Status` → Checkbox
 - `Prior Auth Permission` → Checkbox
@@ -46,12 +50,14 @@ false → ""
 Date fields are detected by keywords: `date`, `dob`, `_at`, `birth`
 
 **Input Formats Accepted:**
+
 - ISO: `"2024-01-15"`
 - US Format: `"01/15/2024"`
 - DateTime objects
 - Carbon instances
 
 **Output Formats:**
+
 ```php
 // Standard (most manufacturers)
 "2024-01-15" → "01/15/2024"
@@ -61,6 +67,7 @@ Date fields are detected by keywords: `date`, `dob`, `_at`, `birth`
 ```
 
 **Example Fields:**
+
 - `Patient DOB` → Date
 - `Surgery Date` → Date
 - `Anticipated Treatment Date` → Date
@@ -70,18 +77,21 @@ Date fields are detected by keywords: `date`, `dob`, `_at`, `birth`
 Phone fields are detected by keywords: `phone`, `fax`, `tel`
 
 **Input Formats Accepted:**
+
 - `"3055551234"`
 - `"305-555-1234"`
 - `"(305) 555-1234"`
 - `"1-305-555-1234"`
 
 **Output Format:**
+
 ```php
 // Standard US format
 "3055551234" → "(305) 555-1234"
 ```
 
 **Example Fields:**
+
 - `Phone #` → Phone
 - `Patient Phone` → Phone
 - `Primary Payer Phone` → Phone
@@ -91,6 +101,7 @@ Phone fields are detected by keywords: `phone`, `fax`, `tel`
 Single-choice fields detected by keywords: `type`, `status`, `place_of_service`, `plan_type`
 
 **Place of Service Mapping:**
+
 ```php
 "11" → "Physician Office (POS 11)"
 "22" → "Hospital Outpatient (POS 22)"  
@@ -100,6 +111,7 @@ Single-choice fields detected by keywords: `type`, `status`, `place_of_service`,
 ```
 
 **Network Status Mapping:**
+
 ```php
 "in_network" → "In-Network"
 "out_of_network" → "Out-of-Network"
@@ -111,15 +123,18 @@ Single-choice fields detected by keywords: `type`, `status`, `place_of_service`,
 Multiple-choice fields detected by keywords: `codes`, `products`, `services`
 
 **Input Formats:**
+
 - Array: `["L97.419", "E11.621"]`
 - Comma-separated: `"L97.419, E11.621"`
 
 **Output Format:**
+
 ```php
 ["L97.419", "E11.621"] → "L97.419, E11.621"
 ```
 
 **Example Fields:**
+
 - `ICD-10 Codes` → Multi-select
 - `Application CPT(s)` → Multi-select
 - `Selected Products` → Multi-select
@@ -129,10 +144,12 @@ Multiple-choice fields detected by keywords: `codes`, `products`, `services`
 Numeric fields detected by keywords: `number`, `count`, `qty`, `quantity`, `days`, `size`
 
 **Formatting:**
+
 - Removes non-numeric characters except decimal
 - Defaults to "0" if empty
 
 **Example Fields:**
+
 - `Total Wound Size` → Number
 - `Number of Days in SNF` → Number
 - `Number of Applications` → Number
@@ -142,6 +159,7 @@ Numeric fields detected by keywords: `number`, `count`, `qty`, `quantity`, `days
 Money fields detected by keywords: `price`, `cost`, `amount`, `fee`, `charge`
 
 **Formatting:**
+
 ```php
 "1234.5" → "$1,234.50"
 "" → "$0.00"
@@ -152,6 +170,7 @@ Money fields detected by keywords: `price`, `cost`, `amount`, `fee`, `charge`
 Default field type for all other fields.
 
 **Formatting:**
+
 - Trims whitespace
 - Handles special quotes and apostrophes
 - Preserves line breaks for textarea
@@ -159,21 +178,25 @@ Default field type for all other fields.
 ## Manufacturer-Specific Rules
 
 ### ACZ Distribution
+
 - Checkboxes: Uppercase `YES/NO`
 - Permission fields: `YES` or blank (no `NO`)
 - Standard date format: `MM/DD/YYYY`
 
 ### Advanced Health Solutions
+
 - Checkboxes: Checkmark `✓` or blank
 - Contact permission uses checkmark
 - Standard phone formatting
 
 ### Amnio AMP / MedLife
+
 - Checkboxes: `X` for checked, blank for unchecked
 - Insurance card attachment uses `X` mark
 - Standard date format
 
 ### BioWound Solutions
+
 - Dates use dashes: `MM-DD-YYYY`
 - Standard checkbox format
 - Multi-line address support

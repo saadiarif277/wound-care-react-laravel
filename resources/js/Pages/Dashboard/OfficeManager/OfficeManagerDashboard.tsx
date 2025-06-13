@@ -2,6 +2,11 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { RoleRestrictions } from '@/types/roles';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import MetricCard from '@/Components/ui/MetricCard';
+import { FiUsers, FiFileText, FiClock, FiCheckCircle } from 'react-icons/fi';
 
 interface User {
   id: number;
@@ -123,51 +128,63 @@ const adminTasks = [
 ];
 
 export default function OfficeManagerDashboard({ user, dashboardData, roleRestrictions }: OfficeManagerDashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return 'bg-green-100 text-green-800';
-      case 'inactive':
-        return 'bg-gray-100 text-gray-800';
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      active: 'bg-green-500/20 text-green-300 border-green-500/30',
+      inactive: 'bg-white/10 text-white/60 border-white/20',
+      pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30'
+    } : {
+      active: 'bg-green-100 text-green-800',
+      inactive: 'bg-gray-100 text-gray-800',
+      pending: 'bg-yellow-100 text-yellow-800'
+    };
+    return colors[status] || colors.inactive;
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high':
-        return 'bg-red-100 text-red-800';
-      case 'medium':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'low':
-        return 'bg-green-100 text-green-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      high: 'bg-red-500/20 text-red-300 border-red-500/30',
+      medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      low: 'bg-green-500/20 text-green-300 border-green-500/30'
+    } : {
+      high: 'bg-red-100 text-red-800',
+      medium: 'bg-yellow-100 text-yellow-800',
+      low: 'bg-green-100 text-green-800'
+    };
+    return colors[priority] || colors.medium;
   };
 
   const getRequestStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft':
-        return 'bg-gray-100 text-gray-800';
-      case 'submitted':
-        return 'bg-blue-100 text-blue-800';
-      case 'pending_eligibility':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'approved':
-        return 'bg-green-100 text-green-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
-      case 'pending_documentation':
-        return 'bg-orange-100 text-orange-800';
-      case 'in_review':
-        return 'bg-purple-100 text-purple-800';
-      default:
-        return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      draft: 'bg-white/10 text-white/60 border-white/20',
+      submitted: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      pending_eligibility: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      approved: 'bg-green-500/20 text-green-300 border-green-500/30',
+      rejected: 'bg-red-500/20 text-red-300 border-red-500/30',
+      pending_documentation: 'bg-orange-500/20 text-orange-300 border-orange-500/30',
+      in_review: 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+    } : {
+      draft: 'bg-gray-100 text-gray-800',
+      submitted: 'bg-blue-100 text-blue-800',
+      pending_eligibility: 'bg-yellow-100 text-yellow-800',
+      approved: 'bg-green-100 text-green-800',
+      rejected: 'bg-red-100 text-red-800',
+      pending_documentation: 'bg-orange-100 text-orange-800',
+      in_review: 'bg-purple-100 text-purple-800'
+    };
+    return colors[status] || colors.draft;
   };
 
   // Use facility metrics from dashboard data or fallback to defaults
@@ -185,37 +202,49 @@ export default function OfficeManagerDashboard({ user, dashboardData, roleRestri
       <div className="space-y-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Facility Operations Dashboard</h1>
-          <p className="mt-2 text-gray-600 leading-normal">
+          <h1 className={cn("text-3xl font-bold", t.text.primary)}>Facility Operations Dashboard</h1>
+          <p className={cn("mt-2 leading-normal", t.text.secondary)}>
             Oversee facility operations, coordinate provider activities, and manage administrative workflows.
           </p>
         </div>
 
         {/* Key Facility Metrics - NO FINANCIAL DATA */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Providers</h3>
-            <p className="text-3xl font-bold text-blue-600 mt-2">{facilityMetrics.total_providers}</p>
-            <p className="text-xs text-gray-600 mt-2">In facility</p>
-          </div>
+          <MetricCard
+            title="Active Providers"
+            value={facilityMetrics.total_providers}
+            subtitle="In facility"
+            icon={<FiUsers className="h-8 w-8" />}
+            status="info"
+            size="md"
+          />
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Requests</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">{facilityMetrics.active_requests}</p>
-            <p className="text-xs text-gray-600 mt-2">In process</p>
-          </div>
+          <MetricCard
+            title="Active Requests"
+            value={facilityMetrics.active_requests}
+            subtitle="In process"
+            icon={<FiFileText className="h-8 w-8" />}
+            status="success"
+            size="md"
+          />
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Avg Processing Time</h3>
-            <p className="text-3xl font-bold text-amber-600 mt-2">{facilityMetrics.processing_time} days</p>
-            <p className="text-xs text-gray-600 mt-2">Request to approval</p>
-          </div>
+          <MetricCard
+            title="Avg Processing Time"
+            value={`${facilityMetrics.processing_time} days`}
+            subtitle="Request to approval"
+            icon={<FiClock className="h-8 w-8" />}
+            status="warning"
+            size="md"
+          />
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Admin Tasks</h3>
-            <p className="text-3xl font-bold text-purple-600 mt-2">{facilityMetrics.admin_tasks}</p>
-            <p className="text-xs text-gray-600 mt-2">Pending action</p>
-          </div>
+          <MetricCard
+            title="Admin Tasks"
+            value={facilityMetrics.admin_tasks}
+            subtitle="Pending action"
+            icon={<FiCheckCircle className="h-8 w-8" />}
+            status="default"
+            size="md"
+          />
         </div>
 
         {/* Action Required Items */}

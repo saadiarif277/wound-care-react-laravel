@@ -10,6 +10,12 @@ import PatientInformationStep from './Components/PatientInformationStep';
 import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
 import { api } from '@/lib/api';
 import { Progress } from '@/Components/ui/progress';
+import { getCsrfToken } from '@/utils/csrf';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import { Button } from '@/Components/Button';
+import Heading from '@/Components/ui/Heading';
 
 interface Props {
   woundTypes: Record<string, string>;
@@ -140,15 +146,33 @@ const ProductRequestCreate: React.FC<Props> = ({
   const { props } = usePage<any>();
   const userRole = props.userRole || 'provider';
 
+  // Get theme context with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
+
   // Restrict access to providers and office managers only
   if (userRole !== 'provider' && userRole !== 'office_manager') {
     return (
       <MainLayout title="Access Denied">
         <div className="min-h-screen flex items-center justify-center">
-          <div className="bg-white p-8 rounded shadow text-center">
-            <h1 className="text-2xl font-bold mb-4 text-red-600">Access Denied</h1>
-            <p className="text-gray-700">You do not have permission to create a product request.</p>
-          </div>
+          <GlassCard variant="error" className="max-w-md">
+            <div className="p-8 text-center">
+              <h1 className={cn("text-2xl font-bold mb-4", theme === 'dark' ? 'text-red-400' : 'text-red-600')}>
+                Access Denied
+              </h1>
+              <p className={t.text.secondary}>
+                You do not have permission to create a product request.
+              </p>
+            </div>
+          </GlassCard>
         </div>
       </MainLayout>
     );
@@ -283,7 +307,8 @@ const ProductRequestCreate: React.FC<Props> = ({
         ...formDataToSend,
         patient_api_input: patientApiInput,
         order_status: 'submitted', // Ensure new requests are pending for admin
-        submit_immediately: true // Add flag to indicate immediate submission
+        submit_immediately: true, // Add flag to indicate immediate submission
+        _token: getCsrfToken(),
       }, {
         preserveState: true,
         preserveScroll: true,
@@ -396,20 +421,31 @@ const ProductRequestCreate: React.FC<Props> = ({
 
     return (
       <div className="mt-4 space-y-2">
-        <div className="flex justify-between text-sm text-gray-600">
+        <div className={cn("flex justify-between text-sm", t.text.secondary)}>
           <span>Clinical Assessment Progress</span>
           <span>{percentage}% Complete</span>
         </div>
-        <div className="w-full bg-gray-200 rounded-full h-2">
+        <div className={cn("w-full rounded-full h-2", theme === 'dark' ? 'bg-white/10' : 'bg-gray-200')}>
           <div
-            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+            className={cn(
+              "h-2 rounded-full transition-all duration-300",
+              // Better contrast colors for clinical progress bar
+              theme === 'dark'
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600'
+                : 'bg-gradient-to-r from-emerald-600 to-teal-700'
+            )}
             style={{ width: `${percentage}%` }}
           />
         </div>
-        <div className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+        <div className={cn("grid grid-cols-2 gap-2 text-xs", t.text.secondary)}>
           {Object.entries(progress.fieldCompletion).map(([field, completed]) => (
             <div key={field} className="flex items-center">
-              <span className={`w-2 h-2 rounded-full mr-2 ${completed ? 'bg-green-500' : 'bg-gray-300'}`} />
+              <span className={cn(
+                "w-2 h-2 rounded-full mr-2",
+                completed
+                  ? theme === 'dark' ? 'bg-emerald-400' : 'bg-emerald-700'
+                  : theme === 'dark' ? 'bg-white/20' : 'bg-gray-300'
+              )} />
               {field.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
             </div>
           ))}
@@ -597,17 +633,22 @@ const ProductRequestCreate: React.FC<Props> = ({
     <MainLayout title="New Product Request">
       <Head title="Create Product Request" />
 
-      <div className="min-h-screen bg-gray-50 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto py-4 sm:py-6">
           {/* Header - Mobile Optimized */}
           <div className="mb-4 sm:mb-8">
-            <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">New Product Request</h1>
-            <p className="mt-1 sm:mt-2 text-sm text-gray-600">
+            <Heading level={1} className="bg-gradient-to-r from-[#1925c3] to-[#c71719] bg-clip-text text-transparent">
+              New Product Request
+            </Heading>
+            <p className={cn("mt-1 sm:mt-2 text-sm", t.text.secondary)}>
               Follow the 6-step MSC-MVP workflow to create a new product request with intelligent validation.
             </p>
             {userSpecialty && (
               <div className="mt-2">
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                <span className={cn(
+                  "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                  theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-800'
+                )}>
                   {userSpecialty.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())} Specialty
                 </span>
               </div>
@@ -616,13 +657,19 @@ const ProductRequestCreate: React.FC<Props> = ({
 
           {/* Add Test Button */}
           <div className="mb-4 flex justify-end">
-            <button
-              type="button"
+            <Button
+              variant="primary"
               onClick={fillMockData}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500"
+              className={cn(
+                "inline-flex items-center shadow-sm",
+                // Enhanced visibility in both themes
+                theme === 'dark'
+                  ? 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-500'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 shadow-lg'
+              )}
             >
               Fill Test Data
-            </button>
+            </Button>
           </div>
 
           {/* Progress Steps - Mobile Optimized */}
@@ -630,19 +677,28 @@ const ProductRequestCreate: React.FC<Props> = ({
             {/* Mobile Progress - Horizontal scroll for steps */}
             <div className="block sm:hidden">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-900">Step {currentStep} of {steps.length}</span>
-                <span className="text-sm text-gray-500">{Math.round((currentStep / steps.length) * 100)}%</span>
+                <span className={cn("text-sm font-medium", t.text.primary)}>Step {currentStep} of {steps.length}</span>
+                <span className={cn("text-sm", t.text.secondary)}>{Math.round((currentStep / steps.length) * 100)}%</span>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
+              <div className={cn(
+                "w-full rounded-full h-2",
+                theme === 'dark' ? 'bg-white/10' : 'bg-gray-200'
+              )}>
                 <div
-                  className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                  className={cn(
+                    "h-2 rounded-full transition-all duration-300",
+                    // Better contrast colors for progress bar
+                    theme === 'dark'
+                      ? 'bg-gradient-to-r from-blue-500 to-purple-600'
+                      : 'bg-gradient-to-r from-blue-600 to-purple-700'
+                  )}
                   style={{ width: `${(currentStep / steps.length) * 100}%` }}
                 ></div>
               </div>
-              <div className="mt-2 text-sm font-medium text-gray-900">
+              <div className={cn("mt-2 text-sm font-medium", t.text.primary)}>
                 {steps[currentStep - 1]?.name}
               </div>
-              <div className="text-xs text-gray-500">
+              <div className={cn("text-xs", t.text.secondary)}>
                 {steps[currentStep - 1]?.description}
               </div>
             </div>
@@ -653,31 +709,38 @@ const ProductRequestCreate: React.FC<Props> = ({
                 {steps.map((step) => (
                   <li key={step.id} className="md:flex-1 min-w-0">
                     <div
-                      className={`group pl-4 py-2 flex flex-col border-l-4 hover:border-gray-300 md:pl-0 md:pt-4 md:pb-0 md:border-l-0 md:border-t-4 transition-colors ${
+                      className={cn(
+                        "group pl-4 py-2 flex flex-col border-l-4 md:pl-0 md:pt-4 md:pb-0 md:border-l-0 md:border-t-4 transition-colors",
                         step.id < currentStep
-                          ? 'border-green-600 md:border-green-600'
+                          ? theme === 'dark' ? 'border-emerald-400' : 'border-emerald-600'
                           : step.id === currentStep
-                          ? 'border-blue-600 md:border-blue-600'
-                          : 'border-gray-200 md:border-gray-200'
-                      }`}
+                          ? theme === 'dark' ? 'border-blue-400' : 'border-blue-600'
+                          : theme === 'dark' ? 'border-white/20' : 'border-gray-300',
+                        theme === 'dark' ? 'hover:border-white/30' : 'hover:border-gray-400'
+                      )}
                     >
-                      <span className={`text-xs font-semibold tracking-wide uppercase ${
+                      <span className={cn(
+                        "text-xs font-semibold tracking-wide uppercase",
                         step.id < currentStep
-                          ? 'text-green-600'
+                          ? theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'
                           : step.id === currentStep
-                          ? 'text-blue-600'
-                          : 'text-gray-500'
-                      }`}>
+                          ? theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
+                          : t.text.tertiary
+                      )}>
                         Step {step.id}
                       </span>
-                      <span className={`text-sm font-medium ${
-                        step.id <= currentStep ? 'text-gray-900' : 'text-gray-500'
-                      }`}>
+                      <span className={cn(
+                        "text-sm font-medium",
+                        step.id <= currentStep ? t.text.primary : t.text.tertiary
+                      )}>
                         {step.name}
                       </span>
                       {step.id < currentStep && (
                         <div className="mt-1 flex items-center">
-                          <Check className="h-4 w-4 text-green-600" />
+                          <Check className={cn(
+                            "h-4 w-4",
+                            theme === 'dark' ? 'text-emerald-400' : 'text-emerald-700'
+                          )} />
                         </div>
                       )}
                     </div>
@@ -688,58 +751,64 @@ const ProductRequestCreate: React.FC<Props> = ({
           </div>
 
           {/* Step Content - Mobile Optimized Container */}
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg border border-gray-100 overflow-hidden">
+          <GlassCard variant="primary" className="overflow-hidden">
             <div className="p-4 sm:p-6 lg:p-8">
               {renderStepContent()}
             </div>
 
             {/* Navigation Footer - Mobile Optimized */}
-            <div className="border-t border-gray-200 px-4 py-3 sm:px-6 sm:py-4 bg-gray-50">
+            <div className={cn(
+              "border-t px-4 py-3 sm:px-6 sm:py-4",
+              theme === 'dark' ? 'border-white/10 bg-white/5' : 'border-gray-200 bg-gray-50'
+            )}>
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
                 <div className="flex space-x-3">
                   {currentStep > 1 && (
-                    <button
-                      type="button"
+                    <Button
+                      variant="secondary"
                       onClick={prevStep}
-                      className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center"
                     >
                       <ArrowLeft className="h-4 w-4 mr-2" />
                       Previous
-                    </button>
+                    </Button>
                   )}
                 </div>
 
                 <div className="flex space-x-3">
                   {currentStep < steps.length ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant="primary"
                       onClick={nextStep}
                       disabled={!isStepValid(currentStep)}
-                      className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center"
                     >
                       Next
                       <ArrowRight className="h-4 w-4 ml-2" />
-                    </button>
+                    </Button>
                   ) : (
-                    <button
-                      type="button"
+                    <Button
+                      variant="success"
                       onClick={submitForm}
                       disabled={!isStepValid(currentStep)}
-                      className="flex-1 sm:flex-none inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                      className="flex-1 sm:flex-none inline-flex items-center justify-center"
                     >
                       <Check className="h-4 w-4 mr-2" />
                       Submit Request
-                    </button>
+                    </Button>
                   )}
                 </div>
               </div>
             </div>
-          </div>
+          </GlassCard>
         </div>
       </div>
     </MainLayout>
   );
 };
+
+// Add imports for ReviewSubmitStep
+import { AlertTriangle, XCircle } from 'lucide-react';
 
 // Add ReviewSubmitStep component
 const ReviewSubmitStep: React.FC<{
@@ -753,6 +822,18 @@ const ReviewSubmitStep: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [mockValidationStatus, setMockValidationStatus] = useState<'pending' | 'approved' | 'rejected'>('pending');
+
+  // Get theme context with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
 
   // Add useEffect to randomly set validation status when component mounts
   useEffect(() => {
@@ -788,82 +869,82 @@ const ReviewSubmitStep: React.FC<{
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow sm:rounded-lg">
+      <GlassCard variant="primary">
         <div className="px-4 py-5 sm:p-6">
-          <h2 className="text-lg font-medium text-gray-900">Review and Submit</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <Heading level={2}>Review and Submit</Heading>
+          <p className={cn("mt-1 text-sm", t.text.secondary)}>
             Please review all information before submitting your product request.
           </p>
 
           {/* Error Display */}
           {error && (
-            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-red-800">Error</h3>
-                  <div className="mt-2 text-sm text-red-700">{error}</div>
+            <GlassCard variant="error" className="mt-4">
+              <div className="p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <XCircle className={cn("h-5 w-5", theme === 'dark' ? 'text-red-400' : 'text-red-600')} />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className={cn("text-sm font-medium", theme === 'dark' ? 'text-red-300' : 'text-red-800')}>Error</h3>
+                    <div className={cn("mt-2 text-sm", theme === 'dark' ? 'text-red-400' : 'text-red-700')}>{error}</div>
+                  </div>
                 </div>
               </div>
-            </div>
+            </GlassCard>
           )}
 
           {/* Validation Errors */}
           {Object.keys(validationErrors).length > 0 && (
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h3 className="text-sm font-medium text-yellow-800">Validation Errors</h3>
-                  <div className="mt-2 text-sm text-yellow-700">
-                    <ul className="list-disc pl-5 space-y-1">
-                      {Object.entries(validationErrors).map(([field, errors]) => (
-                        <li key={field}>
-                          <span className="font-medium">{field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span> {errors.join(', ')}
-                        </li>
-                      ))}
-                    </ul>
+            <GlassCard variant="warning" className="mt-4">
+              <div className="p-4">
+                <div className="flex">
+                  <div className="flex-shrink-0">
+                    <AlertTriangle className={cn("h-5 w-5", theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600')} />
+                  </div>
+                  <div className="ml-3">
+                    <h3 className={cn("text-sm font-medium", theme === 'dark' ? 'text-yellow-300' : 'text-yellow-800')}>Validation Errors</h3>
+                    <div className={cn("mt-2 text-sm", theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700')}>
+                      <ul className="list-disc pl-5 space-y-1">
+                        {Object.entries(validationErrors).map(([field, errors]) => (
+                          <li key={field}>
+                            <span className="font-medium">{field.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:</span> {errors.join(', ')}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
+            </GlassCard>
           )}
 
           {/* Review Sections */}
           <div className="mt-6 space-y-8">
             {/* Patient Information */}
             <div>
-              <h3 className="text-base font-medium text-gray-900">Patient Information</h3>
+              <h3 className={cn("text-base font-medium", t.text.primary)}>Patient Information</h3>
               <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Patient Name</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Patient Name</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formData.patient_api_input.first_name} {formData.patient_api_input.last_name}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Date of Birth</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Date of Birth</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formatDate(formData.patient_api_input.dob)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Member ID</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Member ID</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formData.patient_api_input.member_id || 'Not provided'}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Place of Service</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Place of Service</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formData.place_of_service ? (
                       <>
                         ({formData.place_of_service}) {
@@ -874,27 +955,27 @@ const ReviewSubmitStep: React.FC<{
                           'Unknown'
                         }
                         {formData.place_of_service === '31' && formData.medicare_part_b_authorized && (
-                          <span className="ml-2 text-xs text-blue-600">(Medicare Part B Authorized)</span>
+                          <span className={cn("ml-2 text-xs", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')}>(Medicare Part B Authorized)</span>
                         )}
                       </>
                     ) : 'Not selected'}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Expected Service Date</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Expected Service Date</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formData.expected_service_date ? formatDate(formData.expected_service_date) : 'Not set'}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Payer</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Payer</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {formData.payer_name} ({formData.payer_id})
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-sm font-medium text-gray-500">Wound Type</dt>
-                  <dd className="mt-1 text-sm text-gray-900">
+                  <dt className={cn("text-sm font-medium", t.text.tertiary)}>Wound Type</dt>
+                  <dd className={cn("mt-1 text-sm", t.text.primary)}>
                     {woundTypes[formData.wound_type] || formData.wound_type}
                   </dd>
                 </div>
@@ -904,16 +985,16 @@ const ReviewSubmitStep: React.FC<{
             {/* Clinical Assessment */}
             {formData.clinical_data && (
               <div>
-                <h3 className="text-base font-medium text-gray-900">Clinical Assessment</h3>
+                <h3 className={cn("text-base font-medium", t.text.primary)}>Clinical Assessment</h3>
                 <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                   {Object.entries(formData.clinical_data).map(([key, value]) => {
                     if (typeof value === 'boolean') {
                       return (
                         <div key={key}>
-                          <dt className="text-sm font-medium text-gray-500">
+                          <dt className={cn("text-sm font-medium", t.text.tertiary)}>
                             {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                           </dt>
-                          <dd className="mt-1 text-sm text-gray-900">
+                          <dd className={cn("mt-1 text-sm", t.text.primary)}>
                             {value ? 'Yes' : 'No'}
                           </dd>
                         </div>
@@ -922,10 +1003,10 @@ const ReviewSubmitStep: React.FC<{
                     if (value && typeof value === 'string' || typeof value === 'number') {
                       return (
                         <div key={key}>
-                          <dt className="text-sm font-medium text-gray-500">
+                          <dt className={cn("text-sm font-medium", t.text.tertiary)}>
                             {key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
                           </dt>
-                          <dd className="mt-1 text-sm text-gray-900">
+                          <dd className={cn("mt-1 text-sm", t.text.primary)}>
                             {value}
                           </dd>
                         </div>
@@ -940,32 +1021,30 @@ const ReviewSubmitStep: React.FC<{
             {/* Selected Products */}
             {formData.selected_products.length > 0 && (
               <div>
-                <h3 className="text-base font-medium text-gray-900">Selected Products</h3>
+                <h3 className={cn("text-base font-medium", t.text.primary)}>Selected Products</h3>
                 <div className="mt-2 flow-root">
-                  <div className="-mx-4 -my-2 overflow-x-auto sm:-mx-6 lg:-mx-8">
-                    <div className="inline-block min-w-full py-2 align-middle sm:px-6 lg:px-8">
-                      <table className="min-w-full divide-y divide-gray-300">
-                        <thead>
-                          <tr>
-                            <th className="py-3.5 pl-4 pr-3 text-left text-sm font-semibold text-gray-900 sm:pl-0">Product</th>
-                            <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Quantity</th>
-                            <th className="px-3 py-3.5 text-left text-sm font-semibold text-gray-900">Size</th>
+                  <GlassCard variant="base" className="overflow-hidden">
+                    <table className="min-w-full">
+                      <thead>
+                        <tr className={theme === 'dark' ? 'border-b border-white/10' : 'border-b border-gray-200'}>
+                          <th className={cn("py-3.5 pl-4 pr-3 text-left text-sm font-semibold", t.text.primary)}>Product</th>
+                          <th className={cn("px-3 py-3.5 text-left text-sm font-semibold", t.text.primary)}>Quantity</th>
+                          <th className={cn("px-3 py-3.5 text-left text-sm font-semibold", t.text.primary)}>Size</th>
+                        </tr>
+                      </thead>
+                      <tbody className={theme === 'dark' ? 'divide-y divide-white/10' : 'divide-y divide-gray-200'}>
+                        {formData.selected_products.map((product, index) => (
+                          <tr key={index}>
+                            <td className={cn("whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium", t.text.primary)}>
+                              {product.product_id}
+                            </td>
+                            <td className={cn("whitespace-nowrap px-3 py-4 text-sm", t.text.secondary)}>{product.quantity}</td>
+                            <td className={cn("whitespace-nowrap px-3 py-4 text-sm", t.text.secondary)}>{product.size || 'N/A'}</td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-200">
-                          {formData.selected_products.map((product, index) => (
-                            <tr key={index}>
-                              <td className="whitespace-nowrap py-4 pl-4 pr-3 text-sm font-medium text-gray-900 sm:pl-0">
-                                {product.product_id}
-                              </td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{product.quantity}</td>
-                              <td className="whitespace-nowrap px-3 py-4 text-sm text-gray-500">{product.size || 'N/A'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </GlassCard>
                 </div>
               </div>
             )}
@@ -973,17 +1052,20 @@ const ReviewSubmitStep: React.FC<{
             {/* Validation Results */}
             {(formData.mac_validation_results || formData.eligibility_results) && (
               <div>
-                <h3 className="text-base font-medium text-gray-900">Validation Results</h3>
+                <h3 className={cn("text-base font-medium", t.text.primary)}>Validation Results</h3>
                 <dl className="mt-2 grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
                   {formData.mac_validation_status && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">MAC Validation Status</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          formData.mac_validation_status === 'valid' ? 'bg-green-100 text-green-800' :
-                          formData.mac_validation_status === 'invalid' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
+                      <dt className={cn("text-sm font-medium", t.text.tertiary)}>MAC Validation Status</dt>
+                      <dd className="mt-1 text-sm">
+                        <span className={cn(
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                          formData.mac_validation_status === 'valid'
+                            ? theme === 'dark' ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-800'
+                            : formData.mac_validation_status === 'invalid'
+                            ? theme === 'dark' ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-800'
+                            : theme === 'dark' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
+                        )}>
                           {formData.mac_validation_status.toUpperCase()}
                         </span>
                       </dd>
@@ -991,13 +1073,16 @@ const ReviewSubmitStep: React.FC<{
                   )}
                   {formData.eligibility_status && (
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Eligibility Status</dt>
-                      <dd className="mt-1 text-sm text-gray-900">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          formData.eligibility_status === 'eligible' ? 'bg-green-100 text-green-800' :
-                          formData.eligibility_status === 'ineligible' ? 'bg-red-100 text-red-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
+                      <dt className={cn("text-sm font-medium", t.text.tertiary)}>Eligibility Status</dt>
+                      <dd className="mt-1 text-sm">
+                        <span className={cn(
+                          "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium",
+                          formData.eligibility_status === 'eligible'
+                            ? theme === 'dark' ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-800'
+                            : formData.eligibility_status === 'ineligible'
+                            ? theme === 'dark' ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-800'
+                            : theme === 'dark' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
+                        )}>
                           {formData.eligibility_status.toUpperCase()}
                         </span>
                       </dd>
@@ -1010,17 +1095,17 @@ const ReviewSubmitStep: React.FC<{
             {/* Clinical Opportunities */}
             {formData.clinical_opportunities && formData.clinical_opportunities.length > 0 && (
               <div>
-                <h3 className="text-base font-medium text-gray-900">Clinical Opportunities</h3>
-                <ul className="mt-2 divide-y divide-gray-200">
+                <h3 className={cn("text-base font-medium", t.text.primary)}>Clinical Opportunities</h3>
+                <ul className={cn("mt-2 divide-y", theme === 'dark' ? 'divide-white/10' : 'divide-gray-200')}>
                   {formData.clinical_opportunities.map((opportunity, index) => (
                     <li key={index} className="py-4">
                       <div className="flex space-x-3">
                         <div className="flex-1 space-y-1">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-sm font-medium text-gray-900">{opportunity.title}</h4>
-                            <p className="text-sm text-gray-500">{opportunity.code}</p>
+                            <h4 className={cn("text-sm font-medium", t.text.primary)}>{opportunity.title}</h4>
+                            <p className={cn("text-sm", t.text.secondary)}>{opportunity.code}</p>
                           </div>
-                          <p className="text-sm text-gray-500">{opportunity.description}</p>
+                          <p className={cn("text-sm", t.text.secondary)}>{opportunity.description}</p>
                         </div>
                       </div>
                     </li>
@@ -1032,15 +1117,15 @@ const ReviewSubmitStep: React.FC<{
             {/* Provider Notes */}
             {formData.provider_notes && (
               <div>
-                <h3 className="text-base font-medium text-gray-900">Provider Notes</h3>
-                <div className="mt-2 text-sm text-gray-500">
+                <h3 className={cn("text-base font-medium", t.text.primary)}>Provider Notes</h3>
+                <div className={cn("mt-2 text-sm", t.text.secondary)}>
                   {formData.provider_notes}
                 </div>
               </div>
             )}
           </div>
         </div>
-      </div>
+      </GlassCard>
     </div>
   );
 };

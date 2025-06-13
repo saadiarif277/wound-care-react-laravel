@@ -2,6 +2,11 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import MetricCard from '@/Components/ui/MetricCard';
+import { FiDollarSign, FiUsers, FiShoppingBag, FiAward } from 'react-icons/fi';
 
 interface MscSubrepDashboardProps {
   user?: UserWithRole;
@@ -107,26 +112,45 @@ const recentOrders = [
 ];
 
 export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const commissionProgress = (subrepMetrics.personalCommission / subrepMetrics.monthlyTarget) * 100;
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active':
-      case 'completed':
-      case 'approved':
-      case 'excellent':
-        return 'text-green-600 bg-green-100';
-      case 'pending_approval':
-      case 'pending_delivery':
-      case 'in_progress':
-      case 'good':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'at_risk':
-      case 'fair':
-        return 'text-red-600 bg-red-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+    const colors = theme === 'dark' ? {
+      active: 'bg-green-500/20 text-green-300 border-green-500/30',
+      completed: 'bg-green-500/20 text-green-300 border-green-500/30',
+      approved: 'bg-green-500/20 text-green-300 border-green-500/30',
+      excellent: 'bg-green-500/20 text-green-300 border-green-500/30',
+      pending_approval: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      pending_delivery: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      in_progress: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      good: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      at_risk: 'bg-red-500/20 text-red-300 border-red-500/30',
+      fair: 'bg-red-500/20 text-red-300 border-red-500/30'
+    } : {
+      active: 'bg-green-100 text-green-600',
+      completed: 'bg-green-100 text-green-600',
+      approved: 'bg-green-100 text-green-600',
+      excellent: 'bg-green-100 text-green-600',
+      pending_approval: 'bg-yellow-100 text-yellow-600',
+      pending_delivery: 'bg-yellow-100 text-yellow-600',
+      in_progress: 'bg-yellow-100 text-yellow-600',
+      good: 'bg-yellow-100 text-yellow-600',
+      at_risk: 'bg-red-100 text-red-600',
+      fair: 'bg-red-100 text-red-600'
+    };
+    return colors[status] || (theme === 'dark' ? 'bg-white/10 text-white/60' : 'bg-gray-100 text-gray-600');
   };
 
   return (
@@ -137,51 +161,53 @@ export default function MscSubrepDashboard({ user }: MscSubrepDashboardProps) {
       <div className="max-w-7xl mx-auto space-y-4 sm:space-y-6">
         {/* Header - Mobile Optimized */}
         <div className="pt-4 sm:pt-6 pb-2 sm:pb-4">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sub-Representative Dashboard</h1>
-          <p className="mt-1 sm:mt-2 text-sm sm:text-base text-gray-600 leading-relaxed">
+          <h1 className={cn("text-2xl sm:text-3xl font-bold", t.text.primary)}>Sub-Representative Dashboard</h1>
+          <p className={cn("mt-1 sm:mt-2 text-sm sm:text-base leading-relaxed", t.text.secondary)}>
             Track your personal performance, manage assigned customers, and continue your professional development.
           </p>
-          <p className="text-sm text-purple-600 font-medium mt-1">
+          <p className={cn("text-sm font-medium mt-1", theme === 'dark' ? 'text-purple-400' : 'text-purple-600')}>
             Parent Representative: {subrepMetrics.parentRepName}
         </p>
       </div>
 
         {/* Personal Performance Metrics - Mobile First Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Personal Commission</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-green-600 mt-1 sm:mt-2">${subrepMetrics.personalCommission.toLocaleString()}</p>
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-600">{commissionProgress.toFixed(1)}% of target</span>
-              <span className="text-gray-600">${subrepMetrics.monthlyTarget.toLocaleString()}</span>
-            </div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-1">
-              <div
-                  className="bg-green-600 h-2 rounded-full transition-all duration-300"
-                style={{ width: `${Math.min(commissionProgress, 100)}%` }}
-              ></div>
-            </div>
-          </div>
-        </div>
+          <MetricCard
+            title="Personal Commission"
+            value={`$${subrepMetrics.personalCommission.toLocaleString()}`}
+            subtitle={`${commissionProgress.toFixed(1)}% of $${subrepMetrics.monthlyTarget.toLocaleString()}`}
+            icon={<FiDollarSign className="h-8 w-8" />}
+            status="success"
+            trend={commissionProgress > 70 ? 12 : -3}
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Assigned Customers</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1 sm:mt-2">{subrepMetrics.assignedCustomers}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">Active accounts</p>
-        </div>
+          <MetricCard
+            title="Assigned Customers"
+            value={subrepMetrics.assignedCustomers}
+            subtitle="Active accounts"
+            icon={<FiUsers className="h-8 w-8" />}
+            status="info"
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Orders</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-amber-600 mt-1 sm:mt-2">{subrepMetrics.activeOrders}</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">In progress</p>
-        </div>
+          <MetricCard
+            title="Active Orders"
+            value={subrepMetrics.activeOrders}
+            subtitle="In progress"
+            icon={<FiShoppingBag className="h-8 w-8" />}
+            status="warning"
+            size="sm"
+          />
 
-          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm sm:shadow-lg p-4 sm:p-6 border border-gray-100">
-            <h3 className="text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wide">Training Progress</h3>
-            <p className="text-2xl sm:text-3xl font-bold text-purple-600 mt-1 sm:mt-2">75%</p>
-            <p className="text-xs text-gray-600 mt-1 sm:mt-2">Completion rate</p>
-        </div>
+          <MetricCard
+            title="Training Progress"
+            value="75%"
+            subtitle="Completion rate"
+            icon={<FiAward className="h-8 w-8" />}
+            status="default"
+            size="sm"
+          />
       </div>
 
         {/* Personal Commission Tracking - Mobile Optimized */}

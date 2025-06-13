@@ -494,5 +494,14 @@ class User extends Authenticatable
             ->get();
     }
 
+    /**
+     * Provider profile (additional practice details, NPI, etc.).
+     * Only relevant for users with provider role but harmless for others.
+     */
+    public function profile()
+    {
+        return $this->hasOne(\App\Models\Users\Provider\ProviderProfile::class, 'provider_id');
+    }
+
     // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait
 }

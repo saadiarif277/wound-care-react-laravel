@@ -5,7 +5,10 @@
       "Bash(php:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "WebFetch(domain:msc-wound-portal.test)"
+      "WebFetch(domain:msc-wound-portal.test)",
+      "Bash(npm run build:*)",
+      "Bash(npm run prod:*)",
+      "Bash(npm install)"
     ],
     "deny": []
   }
