@@ -210,7 +210,7 @@ Route::prefix('fhir')->name('fhir.')->group(function () {
 Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->name('docuseal.')->group(function () {
     // JWT token generation for form embedding
     Route::post('generate-token', [\App\Http\Controllers\DocusealController::class, 'generateToken'])->name('generate-token');
-    
+
     // Document generation
     Route::post('generate-document', [\App\Http\Controllers\DocusealController::class, 'generateDocument'])->name('generate');
 
@@ -578,6 +578,12 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
     Route::get('/analytics/summary', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'summary'])->name('api.sales-reps.analytics.summary');
     Route::get('/analytics/performance', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'performance'])->name('api.sales-reps.analytics.performance');
     Route::get('/analytics/territories', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'territories'])->name('api.sales-reps.analytics.territories');
+});
+
+// DocuSeal Template Management API
+Route::prefix('v1/docuseal/templates')->middleware(['auth:sanctum', 'permission:manage-orders'])->group(function () {
+    Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
+    Route::post('sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
 });
 
 // Fallback Route for 404 API requests

@@ -42,9 +42,11 @@ import {
   FiServer,
   FiCloudLightning,
   FiCheckSquare,
-  FiCreditCard
+  FiCreditCard,
+  FiFile
 } from 'react-icons/fi';
 import { UserRole } from '@/types/roles';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface MenuItem {
   name: string;
@@ -60,6 +62,7 @@ interface RoleBasedNavigationProps {
   userRole: UserRole;
   currentPath: string;
   isCollapsed: boolean;
+  theme: 'dark' | 'light';
 }
 
 const getMenuByRole = (role: UserRole): MenuItem[] => {
@@ -88,21 +91,15 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['provider']
             },
             {
-              name: 'My Requests',
+              name: 'View All Requests',
               href: '/product-requests',
-              icon: FiClipboard,
-              roles: ['provider']
-            },
-            {
-              name: 'Status',
-              href: '/product-requests/status',
               icon: FiEye,
               roles: ['provider']
             }
           ]
         },
         {
-          name: 'MAC/Eligibility/PA',
+          name: 'Validations & Authorizations',
           href: '#',
           icon: FiCheckCircle,
           roles: ['provider'],
@@ -128,18 +125,25 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           ]
         },
         {
-          name: 'Product Catalog',
-          href: '/products',
-          icon: FiPackage,
-          roles: ['provider']
-        },
-        {
-          name: 'Facilities',
-          href: '/facilities',
-          icon: FiMapPin,
+          name: 'Resources',
+          href: '#',
+          icon: FiBookOpen,
           roles: ['provider'],
-          description: 'View facilities you have access to'
-        },
+          children: [
+            {
+              name: 'Product Catalog',
+              href: '/products',
+              icon: FiPackage,
+              roles: ['provider']
+            },
+            {
+              name: 'My Facilities',
+              href: '/facilities',
+              icon: FiMapPin,
+              roles: ['provider']
+            }
+          ]
+        }
       ];
 
     case 'office-manager':
@@ -163,27 +167,27 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['office-manager']
             },
             {
-              name: 'My Requests',
+              name: 'All Requests',
               href: '/product-requests',
-              icon: FiClipboard,
+              icon: FiEye,
               roles: ['office-manager']
             },
             {
-              name: 'Facility Requests',
-              href: '/product-requests/facility',
-              icon: FiMapPin,
-              roles: ['office-manager']
-            },
-            {
-              name: 'Provider Requests',
+              name: 'By Provider',
               href: '/product-requests/providers',
               icon: FiUsers,
+              roles: ['office-manager']
+            },
+            {
+              name: 'By Facility',
+              href: '/product-requests/facility',
+              icon: FiMapPin,
               roles: ['office-manager']
             }
           ]
         },
         {
-          name: 'MAC/Eligibility/PA',
+          name: 'Validations & Authorizations',
           href: '#',
           icon: FiCheckCircle,
           roles: ['office-manager'],
@@ -209,30 +213,36 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           ]
         },
         {
-          name: 'Product Catalog',
-          href: '/products',
-          icon: FiPackage,
-          roles: ['office-manager']
-        },
-        {
-          name: 'Provider Management',
-          href: '/providers',
-          icon: FiUsers,
-          roles: ['office-manager']
-        },
-        {
-          name: 'Facility Management',
-          href: '/facilities',
-          icon: FiMapPin,
+          name: 'Management',
+          href: '#',
+          icon: FiSettings,
           roles: ['office-manager'],
-          description: 'Manage facilities'
+          children: [
+            {
+              name: 'Providers',
+              href: '/providers',
+              icon: FiUsers,
+              roles: ['office-manager']
+            },
+            {
+              name: 'Facilities',
+              href: '/facilities',
+              icon: FiMapPin,
+              roles: ['office-manager']
+            },
+            {
+              name: 'Product Catalog',
+              href: '/products',
+              icon: FiPackage,
+              roles: ['office-manager']
+            }
+          ]
         },
         {
           name: 'Reports',
           href: '/reports',
           icon: FiBarChart,
-          roles: ['office-manager'],
-          description: 'View facility and provider reports'
+          roles: ['office-manager']
         }
       ];
 
@@ -245,30 +255,36 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-rep']
         },
         {
-          name: 'Orders',
-          href: '/orders',
-          icon: FiShoppingCart,
-          roles: ['msc-rep']
-        },
-        {
-          name: 'Sales Management',
-          href: '/commission/management',
-          icon: FiDollarSign,
+          name: 'Orders & Sales',
+          href: '#',
+          icon: FiTrendingUp,
           roles: ['msc-rep'],
-          description: 'Commission tracking and sales management'
-        },
-        {
-          name: 'My Team',
-          href: '/team',
-          icon: FiUserPlus,
-          roles: ['msc-rep']
+          children: [
+            {
+              name: 'Order Management',
+              href: '/orders/center',
+              icon: FiShoppingCart,
+              roles: ['msc-rep']
+            },
+            {
+              name: 'Commission Tracking',
+              href: '/commission/management',
+              icon: FiDollarSign,
+              roles: ['msc-rep']
+            },
+            {
+              name: 'My Team',
+              href: '/team',
+              icon: FiUserPlus,
+              roles: ['msc-rep']
+            }
+          ]
         },
         {
           name: 'Reports',
           href: '/reports',
           icon: FiBarChart,
-          roles: ['msc-rep'],
-          description: 'Sales and commission reports'
+          roles: ['msc-rep']
         }
       ];
 
@@ -281,15 +297,29 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-subrep']
         },
         {
-          name: 'Orders',
-          href: '/orders',
-          icon: FiShoppingCart,
-          roles: ['msc-subrep']
+          name: 'Orders & Sales',
+          href: '#',
+          icon: FiTrendingUp,
+          roles: ['msc-subrep'],
+          children: [
+            {
+              name: 'Order Management',
+              href: '/orders/center',
+              icon: FiShoppingCart,
+              roles: ['msc-subrep']
+            },
+            {
+              name: 'Commission Tracking',
+              href: '/commission/management',
+              icon: FiDollarSign,
+              roles: ['msc-subrep']
+            }
+          ]
         },
         {
-          name: 'My Commissions',
-          href: '/commission/management',
-          icon: FiDollarSign,
+          name: 'Reports',
+          href: '/reports',
+          icon: FiBarChart,
           roles: ['msc-subrep']
         }
       ];
@@ -303,56 +333,85 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-admin']
         },
         {
-          name: 'Order Center',
-          href: '/admin/orders',
-          icon: FiShoppingCart,
+          name: 'Operations',
+          href: '#',
+          icon: FiActivity,
           roles: ['msc-admin'],
-          description: 'Manage product requests and orders'
+          children: [
+            {
+              name: 'Order Center',
+              href: '/admin/orders',
+              icon: FiShoppingCart,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Product Catalog',
+              href: '/products/manage',
+              icon: FiPackage,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Payments',
+              href: '/admin/payments',
+              icon: FiCreditCard,
+              roles: ['msc-admin']
+            }
+          ]
         },
         {
-          name: 'Organizations',
-          href: '/admin/organizations',
-          icon: FiGlobe,
-          roles: ['msc-admin'],
-          description: 'Manage organizations and onboarding'
-        },
-        {
-          name: 'Provider Management',
-          href: '/admin/providers',
+          name: 'Customer Management',
+          href: '#',
           icon: FiUsers,
           roles: ['msc-admin'],
-          description: 'Provider profiles, credentials, financials, and products'
+          children: [
+            {
+              name: 'Organizations',
+              href: '/admin/organizations',
+              icon: FiGlobe,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Providers',
+              href: '/admin/providers',
+              icon: FiUsers,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Facilities',
+              href: '/admin/facilities',
+              icon: FiMapPin,
+              roles: ['msc-admin']
+            }
+          ]
         },
         {
-          name: 'Sales Management',
+          name: 'Sales & Finance',
           href: '/commission/management',
           icon: FiDollarSign,
-          roles: ['msc-admin'],
-          description: 'Commission tracking, payouts, sales rep management'
+          roles: ['msc-admin']
         },
         {
-          name: 'Payments',
-          href: '/admin/payments',
-          icon: FiCreditCard,
+          name: 'Documents',
+          href: '#',
+          icon: FiFileText,
           roles: ['msc-admin'],
-          description: 'Record and manage provider payments'
+          children: [
+            {
+              name: 'Templates',
+              href: '/admin/docuseal/templates',
+              icon: FiArchive,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Analytics',
+              href: '/admin/docuseal/analytics',
+              icon: FiPieChart,
+              roles: ['msc-admin']
+            }
+          ]
         },
         {
-          name: 'Product Catalog Management',
-          href: '/products/manage',
-          icon: FiPackage,
-          roles: ['msc-admin'],
-          description: 'Manage product catalog and inventory'
-        },
-        {
-          name: 'Facility Management',
-          href: '/admin/facilities',
-          icon: FiMapPin,
-          roles: ['msc-admin'],
-          description: 'Manage facilities and their providers'
-        },
-        {
-          name: 'System Administration',
+          name: 'Administration',
           href: '#',
           icon: FiSettings,
           roles: ['msc-admin'],
@@ -361,51 +420,27 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               name: 'User Management',
               href: '/admin/users',
               icon: FiUsers,
-              roles: ['msc-admin'],
-              description: 'Manage all users and roles'
+              roles: ['msc-admin']
             },
             {
-              name: 'Access Control & Invitations',
-              href: '#',
-              icon: FiLock,
-              roles: ['msc-admin'],
-              children: [
-                {
-                  name: 'Access Requests',
-                  href: '/access-requests',
-                  icon: FiUserCheck,
-                  roles: ['msc-admin']
-                },
-                {
-                  name: 'Invitations',
-                  href: '/admin/invitations',
-                  icon: FiMail,
-                  roles: ['msc-admin'],
-                  description: 'Send and manage user invitations'
-                }
-              ]
+              name: 'Invitations',
+              href: '/admin/invitations',
+              icon: FiMail,
+              roles: ['msc-admin']
+            },
+            {
+              name: 'Roles & Permissions',
+              href: '/rbac',
+              icon: FiShield,
+              roles: ['msc-admin']
             },
             {
               name: 'System Settings',
               href: '/settings',
-              icon: FiTool,
+              icon: FiSliders,
               roles: ['msc-admin']
-            },
-            {
-              name: 'Role Management',
-              href: '/rbac',
-              icon: FiShield,
-              roles: ['msc-admin'],
-              description: 'Manage roles and permissions'
             }
           ]
-        },
-        {
-          name: 'Demo',
-          href: '/demo',
-          icon: FiActivity,
-          roles: ['msc-admin'],
-          description: 'DocuSeal integration showcase'
         }
       ];
 
@@ -419,46 +454,90 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin']
         },
         {
-          name: 'Order Center',
-          href: '/admin/orders',
-          icon: FiShoppingCart,
+          name: 'Operations',
+          href: '#',
+          icon: FiActivity,
           roles: ['super-admin', 'superadmin'],
-          description: 'Manage product requests and orders'
+          children: [
+            {
+              name: 'Order Center',
+              href: '/admin/orders',
+              icon: FiShoppingCart,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Product Catalog',
+              href: '/products/manage',
+              icon: FiPackage,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
         },
         {
-          name: 'Organizations',
-          href: '/admin/organizations',
-          icon: FiGlobe,
-          roles: ['super-admin', 'superadmin'],
-          description: 'Manage organizations and onboarding'
-        },
-        {
-          name: 'Provider Management',
-          href: '/admin/providers',
+          name: 'Customer Management',
+          href: '#',
           icon: FiUsers,
           roles: ['super-admin', 'superadmin'],
-          description: 'Provider profiles, credentials, financials, and products'
+          children: [
+            {
+              name: 'Organizations',
+              href: '/admin/organizations',
+              icon: FiGlobe,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Providers',
+              href: '/admin/providers',
+              icon: FiUsers,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Facilities',
+              href: '/admin/facilities',
+              icon: FiMapPin,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
         },
         {
-          name: 'Facility Management',
-          href: '/admin/facilities',
-          icon: FiMapPin,
-          roles: ['super-admin', 'superadmin'],
-          description: 'Manage facilities and their providers'
-        },
-        {
-          name: 'Sales Management',
-          href: '/commission/management',
+          name: 'Finance',
+          href: '#',
           icon: FiDollarSign,
           roles: ['super-admin', 'superadmin'],
-          description: 'Commission tracking, payouts, sales rep management'
+          children: [
+            {
+              name: 'Commission Management',
+              href: '/commission/management',
+              icon: FiTrendingUp,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Payments',
+              href: '/admin/payments',
+              icon: FiCreditCard,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
         },
         {
-          name: 'Product Catalog Management',
-          href: '/products/manage',
-          icon: FiPackage,
+          name: 'Documents',
+          href: '#',
+          icon: FiFileText,
           roles: ['super-admin', 'superadmin'],
-          description: 'Manage product catalog and inventory'
+          children: [
+            {
+              name: 'Templates',
+              href: '/admin/docuseal/templates',
+              icon: FiArchive,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
+              name: 'Analytics',
+              href: '/admin/docuseal/analytics',
+              icon: FiPieChart,
+              roles: ['super-admin', 'superadmin']
+            }
+          ]
         },
         {
           name: 'System Administration',
@@ -467,53 +546,45 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'User Management',
-              href: '/admin/users',
-              icon: FiUsers,
-              roles: ['super-admin', 'superadmin'],
-              description: 'Manage all users and roles'
-            },
-            {
-              name: 'Access Control & Invitations',
+              name: 'Users & Access',
               href: '#',
-              icon: FiLock,
+              icon: FiUsers,
               roles: ['super-admin', 'superadmin'],
               children: [
                 {
-                  name: 'Access Requests',
-                  href: '/access-requests',
-                  icon: FiUserCheck,
+                  name: 'User Management',
+                  href: '/admin/users',
+                  icon: FiUsers,
                   roles: ['super-admin', 'superadmin']
                 },
                 {
                   name: 'Invitations',
                   href: '/admin/invitations',
                   icon: FiMail,
-                  roles: ['super-admin', 'superadmin'],
-                  description: 'Send and manage user invitations'
+                  roles: ['super-admin', 'superadmin']
                 },
                 {
-                  name: 'Access Control',
-                  href: '/access-control',
+                  name: 'Role Management',
+                  href: '/rbac',
                   icon: FiShield,
                   roles: ['super-admin', 'superadmin']
                 }
               ]
             },
             {
-              name: 'System Settings',
+              name: 'Platform Settings',
               href: '#',
-              icon: FiTool,
+              icon: FiSliders,
               roles: ['super-admin', 'superadmin'],
               children: [
                 {
-                  name: 'Platform Configuration',
+                  name: 'Configuration',
                   href: '/system-admin/config',
                   icon: FiSettings,
                   roles: ['super-admin', 'superadmin']
                 },
                 {
-                  name: 'Integration Settings',
+                  name: 'Integrations',
                   href: '/system-admin/integrations',
                   icon: FiLink,
                   roles: ['super-admin', 'superadmin']
@@ -523,21 +594,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
                   href: '/system-admin/api',
                   icon: FiCloudLightning,
                   roles: ['super-admin', 'superadmin']
-                },
+                }
+              ]
+            },
+            {
+              name: 'Monitoring',
+              href: '#',
+              icon: FiActivity,
+              roles: ['super-admin', 'superadmin'],
+              children: [
                 {
                   name: 'Audit Logs',
                   href: '/system-admin/audit',
                   icon: FiFileText,
                   roles: ['super-admin', 'superadmin']
+                },
+                {
+                  name: 'System Health',
+                  href: '/settings',
+                  icon: FiActivity,
+                  roles: ['super-admin', 'superadmin']
                 }
               ]
-            },
-            {
-              name: 'Role Management',
-              href: '/rbac',
-              icon: FiShield,
-              roles: ['super-admin', 'superadmin'],
-              description: 'Manage roles and permissions'
             }
           ]
         }
@@ -555,9 +633,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
   }
 };
 
-export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed }: RoleBasedNavigationProps) {
+export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed, theme }: RoleBasedNavigationProps) {
   const menuItems = getMenuByRole(userRole);
   const [openMenus, setOpenMenus] = useState<string[]>([]);
+  const t = themes[theme];
 
   const toggleSubmenu = (itemName: string) => {
     setOpenMenus(prev =>
@@ -596,11 +675,18 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
     return (
       <div key={item.name}>
         <div
-          className={`flex items-center px-4 py-3 text-sm font-semibold rounded-lg transition-all duration-200 group cursor-pointer ${
+          className={cn(
+            'flex items-center min-h-[48px] py-3 px-4 rounded-xl transition-all duration-200 group cursor-pointer',
             isActive
-              ? 'bg-red-600 text-white shadow-lg'
-              : 'text-gray-700 hover:bg-blue-50 hover:text-blue-700'
-          } ${isCollapsed ? 'justify-center' : ''} ${level > 0 ? 'ml-6' : ''}`}
+              ? theme === 'dark'
+                ? 'bg-gradient-to-r from-[rgb(25,37,195)] to-[rgb(199,23,25)] text-white font-semibold shadow-md'
+                : 'bg-gradient-to-r from-[rgba(25,37,195,0.1)] to-[rgba(199,23,25,0.08)] text-[rgb(25,37,195)] font-semibold border-l-[3px] border-l-[rgb(25,37,195)]'
+              : theme === 'dark'
+                ? cn(t.text.secondary, 'hover:bg-white/[0.11] hover:text-white/95')
+                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+            isCollapsed ? 'justify-center' : '',
+            level > 0 ? 'ml-6' : ''
+          )}
           title={isCollapsed ? item.name : ''}
           onClick={() => {
             if (hasAccessibleChildren && !isCollapsed) {
@@ -611,9 +697,13 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
             }
           }}
         >
-          <item.icon className={`flex-shrink-0 w-5 h-5 ${
-            isCollapsed ? '' : 'mr-3'
-          } ${isActive ? 'text-white' : 'text-gray-500 group-hover:text-blue-600'}`} />
+          <item.icon className={cn(
+            'flex-shrink-0 w-5 h-5',
+            isCollapsed ? '' : 'mr-4',
+            isActive 
+              ? theme === 'dark' ? 'text-white' : 'text-[rgb(25,37,195)]'
+              : theme === 'dark' ? 'text-white/80 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'
+          )} />
           {!isCollapsed && (
             <>
               <span className="truncate flex-1">{item.name}</span>
@@ -630,7 +720,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           )}
         </div>
         {hasAccessibleChildren && isOpen && !isCollapsed && (
-          <div className="ml-6 mt-2 space-y-1">
+          <div className="ml-4 mt-2 space-y-1">
             {accessibleChildren.map((child) => renderMenuItem(child, level + 1))}
           </div>
         )}
@@ -639,7 +729,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
   };
 
   return (
-    <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
+    <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
       {menuItems.map(item => renderMenuItem(item))}
     </nav>
   );

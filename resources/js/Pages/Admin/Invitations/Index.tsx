@@ -12,7 +12,10 @@ import {
   FiEye,
   FiCalendar,
   FiUser,
-  FiBriefcase
+  FiBriefcase,
+  FiCheck,
+  FiX,
+  FiAlertCircle
 } from 'react-icons/fi';
 
 interface Invitation {
@@ -41,6 +44,10 @@ interface InvitationsProps {
     links: any;
     meta: any;
   };
+  flash?: {
+    success?: string;
+    error?: string;
+  };
 }
 
 interface InviteFormData {
@@ -50,8 +57,9 @@ interface InviteFormData {
   message?: string;
 }
 
-export default function InvitationsIndex({ auth, invitations }: InvitationsProps) {
+export default function InvitationsIndex({ auth, invitations, flash }: InvitationsProps) {
   const [showInviteForm, setShowInviteForm] = useState(false);
+  const [showSuccessMessage, setShowSuccessMessage] = useState(false);
 
   const { data, setData, post, processing, errors, reset } = useForm<InviteFormData>({
     email: '',
@@ -85,23 +93,65 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
       onSuccess: () => {
         reset();
         setShowInviteForm(false);
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 5000);
+      },
+      onError: (errors) => {
+        console.error('Invitation error:', errors);
       }
     });
   };
 
   const handleResendInvitation = (invitationId: string) => {
-    router.post(`/admin/invitations/${invitationId}/resend`);
+    router.post(`/admin/invitations/${invitationId}/resend`, {}, {
+      onSuccess: () => {
+        setShowSuccessMessage(true);
+        setTimeout(() => setShowSuccessMessage(false), 5000);
+      }
+    });
   };
 
   const handleCancelInvitation = (invitationId: string) => {
     if (confirm('Are you sure you want to cancel this invitation?')) {
-      router.delete(`/admin/invitations/${invitationId}`);
+      router.delete(`/admin/invitations/${invitationId}`, {
+        onSuccess: () => {
+          setShowSuccessMessage(true);
+          setTimeout(() => setShowSuccessMessage(false), 5000);
+        }
+      });
     }
   };
 
   return (
     <MainLayout title="User Invitations">
       <Head title="User Invitations" />
+
+      {/* Success/Error Messages */}
+      {(showSuccessMessage || flash?.success) && (
+        <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <FiCheck className="w-5 h-5 text-green-600 mr-3" />
+            <p className="text-green-800 font-medium">
+              {flash?.success || 'Operation completed successfully!'}
+            </p>
+            <button
+              onClick={() => setShowSuccessMessage(false)}
+              className="ml-auto text-green-600 hover:text-green-800"
+            >
+              <FiX className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {flash?.error && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <FiAlertCircle className="w-5 h-5 text-red-600 mr-3" />
+            <p className="text-red-800 font-medium">{flash.error}</p>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="flex justify-between items-center mb-8">
@@ -133,8 +183,13 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                   type="email"
                   value={data.email}
                   onChange={(e) => setData('email', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                    errors.email
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
                   placeholder="user@example.com"
+                  required
                 />
                 {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
               </div>
@@ -146,7 +201,12 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                 <select
                   value={data.role}
                   onChange={(e) => setData('role', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                    errors.role
+                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                  }`}
+                  required
                 >
                   <option value="">Select role</option>
                   {roles.map((role) => (
@@ -167,7 +227,7 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                 value={data.message}
                 onChange={(e) => setData('message', e.target.value)}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors resize-none"
                 placeholder="Add a personal message to the invitation..."
               />
             </div>
@@ -176,14 +236,18 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
               <Button
                 variant="secondary"
                 onClick={() => setShowInviteForm(false)}
+                disabled={processing}
               >
                 Cancel
               </Button>
               <Button
+                variant="primary"
                 onClick={handleSendInvitation}
-                disabled={processing}
+                disabled={processing || !data.email || !data.role}
+                isLoading={processing}
               >
-                {processing ? 'Sending...' : 'Send Invitation'}
+                <FiMail className="w-4 h-4 mr-2" />
+                Send Invitation
               </Button>
             </div>
           </CardContent>
@@ -218,7 +282,25 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {invitations.data.map((invitation) => (
+                {invitations.data.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-12 text-center">
+                      <div className="flex flex-col items-center">
+                        <FiMail className="w-12 h-12 text-gray-400 mb-4" />
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No invitations yet</h3>
+                        <p className="text-gray-500 mb-4">Get started by sending your first invitation.</p>
+                        <Button
+                          variant="primary"
+                          onClick={() => setShowInviteForm(true)}
+                        >
+                          <FiPlus className="w-4 h-4 mr-2" />
+                          Send First Invitation
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  invitations.data.map((invitation) => (
                   <tr key={invitation.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -264,23 +346,30 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
+                      <div className="flex space-x-1">
                         {(invitation.status === 'pending' || invitation.status === 'sent') && (
                           <button
                             onClick={() => handleResendInvitation(invitation.id)}
-                            className="text-blue-600 hover:text-blue-900 p-1"
+                            className="inline-flex items-center justify-center w-8 h-8 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded-md transition-colors"
                             title="Resend Invitation"
                           >
                             <FiRefreshCw className="w-4 h-4" />
                           </button>
                         )}
-                        <button className="text-gray-600 hover:text-gray-900 p-1" title="View Details">
+                        <button
+                          className="inline-flex items-center justify-center w-8 h-8 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md transition-colors"
+                          title="View Details"
+                          onClick={() => {
+                            // TODO: Implement view details modal
+                            alert('View details functionality coming soon!');
+                          }}
+                        >
                           <FiEye className="w-4 h-4" />
                         </button>
                         {invitation.status !== 'accepted' && (
                           <button
                             onClick={() => handleCancelInvitation(invitation.id)}
-                            className="text-red-600 hover:text-red-900 p-1"
+                            className="inline-flex items-center justify-center w-8 h-8 text-red-600 hover:text-red-900 hover:bg-red-50 rounded-md transition-colors"
                             title="Cancel Invitation"
                           >
                             <FiTrash2 className="w-4 h-4" />
@@ -289,7 +378,8 @@ export default function InvitationsIndex({ auth, invitations }: InvitationsProps
                       </div>
                     </td>
                   </tr>
-                ))}
+                  ))
+                )}
               </tbody>
             </table>
           </div>

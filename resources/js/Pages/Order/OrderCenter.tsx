@@ -115,7 +115,7 @@ const OrderManagementTabContent: React.FC = () => {
   ];
 
   const getStatusBadge = (status: string) => {
-    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium max-w-full truncate";
     switch (status?.toLowerCase()) {
       case 'approved':
       case 'completed':
@@ -133,6 +133,34 @@ const OrderManagementTabContent: React.FC = () => {
         return `${baseClasses} bg-blue-100 text-blue-800`;
       default:
         return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  // Get readable status label
+  const getStatusLabel = (status: string) => {
+    switch (status?.toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'completed':
+        return 'Completed';
+      case 'fulfilled':
+        return 'Fulfilled';
+      case 'pending':
+        return 'Pending';
+      case 'processing':
+        return 'Processing';
+      case 'rejected':
+        return 'Rejected';
+      case 'cancelled':
+        return 'Cancelled';
+      case 'expired':
+        return 'Expired';
+      case 'overdue':
+        return 'Overdue';
+      case 'shipped':
+        return 'Shipped';
+      default:
+        return status?.charAt(0).toUpperCase() + status?.slice(1) || 'Unknown';
     }
   };
 
@@ -214,8 +242,10 @@ const OrderManagementTabContent: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm text-gray-900">{order.facility?.name || ''}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={getStatusBadge(order.status)}>{order.status}</span>
+                  <td className="px-6 py-4">
+                    <div className="max-w-[120px]">
+                      <span className={getStatusBadge(order.status)}>{getStatusLabel(order.status)}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatCurrency(order.total)}

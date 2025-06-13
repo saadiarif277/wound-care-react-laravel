@@ -9,7 +9,7 @@
 Based on your preferences for minimal breaking changes and maximum workflow efficiency:
 
 1. **IVR Process:** No signature required - admin generates and manually sends
-2. **Database Strategy:** Keep current schema with minimal cleanup 
+2. **Database Strategy:** Keep current schema with minimal cleanup
 3. **User Model:** Maintain hybrid users table (no separation)
 4. **Status Workflow:** Streamlined progression focused on speed
 
@@ -18,6 +18,7 @@ Based on your preferences for minimal breaking changes and maximum workflow effi
 ## 📊 **Standardized Database Schema**
 
 ### **Current Product Requests (Minimal Cleanup)**
+
 ```sql
 -- Keep existing table, remove unused complexity
 ALTER TABLE `product_requests` 
@@ -40,6 +41,7 @@ DROP COLUMN `pre_auth_denied_at`;
 ```
 
 ### **Current Users Table (No Changes)**
+
 ```sql
 -- Keep hybrid approach - no breaking changes
 -- ✅ Users table handles both platform access AND provider data
@@ -49,6 +51,7 @@ DROP COLUMN `pre_auth_denied_at`;
 ```
 
 ### **Current Facilities Table (Minor Additions)**
+
 ```sql
 -- Add missing fields for IVR auto-population
 ALTER TABLE `facilities`
@@ -61,6 +64,7 @@ ADD COLUMN `default_place_of_service` VARCHAR(2) DEFAULT '11';
 ## 🔄 **Standardized Status Workflow**
 
 ### **Complete Status Progression**
+
 ```yaml
 # Provider Actions
 draft                    # Provider creating request
@@ -89,6 +93,7 @@ sent_back             # Admin sent back for corrections
 ```
 
 ### **Status Transition Rules**
+
 ```typescript
 const allowedTransitions = {
   'draft': ['submitted', 'cancelled'],
@@ -113,6 +118,7 @@ const allowedTransitions = {
 ## 📋 **Streamlined IVR Process (No Signatures)**
 
 ### **Definitive IVR Workflow**
+
 ```typescript
 // Phase 1: Admin initiates IVR generation
 1. Order reaches status: 'pending_ivr'
@@ -135,6 +141,7 @@ const allowedTransitions = {
 ```
 
 ### **DocuSeal Integration Settings**
+
 ```typescript
 // IVR Template Configuration
 const ivrConfig = {
@@ -151,6 +158,7 @@ const ivrConfig = {
 ## 🏗️ **IVR Auto-Population Architecture**
 
 ### **Single Query for 90% Pre-Population**
+
 ```sql
 -- Get everything needed for IVR generation
 SELECT 
@@ -192,6 +200,7 @@ WHERE pr.id = ?;
 ```
 
 ### **Patient Data from Azure FHIR (10%)**
+
 ```typescript
 // Fetch patient details from Azure FHIR
 const patientData = await azureFhirClient.getPatient(pr.patient_fhir_id);
@@ -208,6 +217,7 @@ const demographics = {
 ## 🎯 **Complete 60-Second Provider Workflow**
 
 ### **Provider Experience (Total: 90 seconds)**
+
 ```typescript
 // Step 1: Basic Patient Info (30 seconds)
 {
@@ -244,6 +254,7 @@ const demographics = {
 ## 🏭 **Manufacturer Integration Approach**
 
 ### **Per-Manufacturer Configuration**
+
 ```typescript
 // Manufacturer-specific templates and endpoints
 const manufacturerConfig = {
@@ -266,6 +277,7 @@ const manufacturerConfig = {
 ```
 
 ### **Order Form Auto-Generation**
+
 ```typescript
 // After manufacturer approval, generate order form
 const orderFormData = {
@@ -294,6 +306,7 @@ const orderFormData = {
 ## 📱 **Admin UI Standardization**
 
 ### **Order Center Status Display**
+
 ```typescript
 // Consistent status badges across all admin interfaces
 const statusConfig = {
@@ -309,6 +322,7 @@ const statusConfig = {
 ```
 
 ### **Action Availability Matrix**
+
 ```typescript
 const availableActions = {
   'submitted': ['approve', 'send_back', 'deny'],
@@ -325,6 +339,7 @@ const availableActions = {
 ## 🔄 **Migration Strategy (Non-Breaking)**
 
 ### **Phase 1: Database Cleanup (Week 1)**
+
 ```sql
 -- Remove unused fields without breaking existing code
 -- Add missing fields for IVR auto-population
@@ -332,6 +347,7 @@ const availableActions = {
 ```
 
 ### **Phase 2: Status Standardization (Week 2)**  
+
 ```typescript
 // Update status handling in existing controllers
 // Ensure all status transitions use new workflow
@@ -339,6 +355,7 @@ const availableActions = {
 ```
 
 ### **Phase 3: IVR Process Alignment (Week 3)**
+
 ```typescript
 // Ensure DocuSeal integration uses no-signature approach
 // Update admin UI to match streamlined workflow  
@@ -346,6 +363,7 @@ const availableActions = {
 ```
 
 ### **Phase 4: Auto-Population Enhancement (Week 4)**
+
 ```typescript
 // Implement single-query IVR data collection
 // Enhance DocuSeal field mapping
@@ -357,16 +375,19 @@ const availableActions = {
 ## 🏆 **Success Metrics**
 
 ### **Provider Experience**
+
 - ✅ 90 seconds total request time
 - ✅ 90% IVR pre-population rate
 - ✅ Zero duplicate data entry
 
-### **Admin Efficiency** 
+### **Admin Efficiency**
+
 - ✅ One-click IVR generation
 - ✅ Clear action priorities
 - ✅ Streamlined approval process
 
 ### **Manufacturer Integration**
+
 - ✅ Consistent IVR format per manufacturer
 - ✅ Automated order form generation
 - ✅ Reduced processing time
@@ -376,24 +397,28 @@ const availableActions = {
 ## 📋 **Implementation Checklist**
 
 ### **Database Updates**
+
 - [ ] Remove unused product_requests fields
 - [ ] Add PTAN and default_place_of_service to facilities  
 - [ ] Update status enum values
 - [ ] Create migration scripts
 
 ### **API Updates**
+
 - [ ] Standardize status transition endpoints
 - [ ] Update IVR generation service
 - [ ] Align DocuSeal integration
 - [ ] Create auto-population query
 
 ### **UI Updates**
+
 - [ ] Standardize status badges
 - [ ] Update admin action buttons
 - [ ] Streamline provider forms
 - [ ] Test mobile responsiveness
 
 ### **Integration Updates**
+
 - [ ] Configure manufacturer-specific templates
 - [ ] Test email submission workflows
 - [ ] Validate FHIR data retrieval

@@ -1,5 +1,6 @@
 import { Link } from '@inertiajs/react';
-import classNames from 'classnames';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface PaginationProps {
   links: PaginationItem[];
@@ -13,7 +14,7 @@ export default function Pagination({ links = [] }: PaginationProps) {
   if (links.length === 3) return null;
 
   return (
-    <div className="flex flex-wrap mt-6 -mb-1">
+    <div className="flex flex-wrap mt-6 -mb-1 gap-1">
       {links?.map(link => {
         return link?.url === null ? (
           <PageInactive key={link.label} label={link.label} />
@@ -32,18 +33,28 @@ interface PaginationItem {
 }
 
 function PaginationItem({ active, label, url }: PaginationItem) {
-  const className = classNames(
-    [
-      'mr-1 mb-1',
-      'px-4 py-3',
-      'border border-solid border-gray-300 rounded',
-      'text-sm',
-      'hover:bg-white',
-      'focus:outline-none focus:border-indigo-700 focus:text-indigo-700'
-    ],
-    {
-      'bg-white': active
-    }
+  // Theme setup with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
+  const className = cn(
+    'px-4 py-2 text-sm font-medium rounded-xl transition-all duration-200',
+    t.glass.base,
+    active
+      ? cn(t.button.primary, 'shadow-lg')
+      : cn(
+          t.text.secondary,
+          t.glass.hover,
+          'hover:scale-105'
+        )
   );
 
   /**
@@ -60,8 +71,23 @@ function PaginationItem({ active, label, url }: PaginationItem) {
 }
 
 function PageInactive({ label }: Pick<PaginationItem, 'label'>) {
-  const className = classNames(
-    'mr-1 mb-1 px-4 py-3 text-sm border rounded border-solid border-gray-300 text-gray'
+  // Theme setup with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
+  const className = cn(
+    'px-4 py-2 text-sm font-medium rounded-xl',
+    t.glass.base,
+    t.text.muted,
+    'cursor-not-allowed opacity-50'
   );
 
   /**

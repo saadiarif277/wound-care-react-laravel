@@ -9,6 +9,8 @@ import {
   hasPermission
 } from '@/lib/roleUtils';
 import { usePage } from '@inertiajs/react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 // Import role-specific dashboards
 import ProviderDashboard from './Provider/ProviderDashboard';
@@ -74,6 +76,18 @@ interface DashboardProps {
 }
 
 export default function Dashboard({ user, dashboardData, roleRestrictions }: DashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const renderRoleSpecificDashboard = () => {
     const role = user.role;
 
@@ -107,10 +121,10 @@ export default function Dashboard({ user, dashboardData, roleRestrictions }: Das
       <div className="space-y-6">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className={cn("text-2xl font-bold", t.text.primary)}>
               {getDashboardTitle(user.role)}
             </h1>
-            <p className="text-gray-600">
+            <p className={cn(t.text.secondary)}>
               {getDashboardDescription(user.role)}
             </p>
           </div>

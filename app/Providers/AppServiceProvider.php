@@ -15,6 +15,7 @@ use App\Services\PatientService;
 use App\Services\FhirService;
 use App\Services\DocusealService;
 use App\Services\IvrDocusealService;
+use Illuminate\Support\Facades\Response;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -98,6 +99,14 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         $this->bootRoute();
+
+        // Response macro for security headers
+        Response::macro('withSecurityHeaders', function ($response) {
+            $response->headers->set('X-Content-Type-Options', 'nosniff');
+            $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+            $response->headers->set('X-XSS-Protection', '1; mode=block');
+            return $response;
+        });
     }
 
     public function bootRoute(): void
@@ -105,6 +114,5 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('api', function (Request $request) {
             return Limit::perMinute(60)->by($request->user()?->id ?: $request->ip());
         });
-
     }
 }

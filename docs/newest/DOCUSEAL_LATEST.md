@@ -66,6 +66,7 @@ When an admin clicks "Generate IVR" for a ProductRequest with status `pending_iv
 The IVR template is populated with:
 
 **Patient Information:**
+
 - Patient name (from FHIR)
 - Date of birth
 - Patient identifier (de-identified)
@@ -74,24 +75,28 @@ The IVR template is populated with:
 - Phone number
 
 **Provider Information:**
+
 - Provider name
 - NPI number
 - Facility name
 - Facility address
 
 **Order Information:**
+
 - Order/Request number
 - Order date
 - Expected service date
 - Product details (name, SKU, quantity, size)
 
 **Clinical Information:**
+
 - Wound type
 - Wound location
 - Wound duration
 - Wound size
 
 **Insurance Information:**
+
 - Payer name
 - Insurance ID
 - Place of service
@@ -313,6 +318,7 @@ POST /webhooks/docuseal
 ## Implementation Status
 
 ### Completed Features
+
 - ✅ IVR generation via DocuSeal API (no signature required)
 - ✅ Document generation for admin review
 - ✅ Admin UI for IVR management
@@ -323,6 +329,7 @@ POST /webhooks/docuseal
 - ✅ Manual send to manufacturer workflow
 
 ### Pending Features
+
 - ⏳ Automated manufacturer notification
 - ⏳ Bulk IVR generation
 - ⏳ Direct manufacturer API integration
@@ -351,6 +358,7 @@ POST /webhooks/docuseal
 ### Logging
 
 All DocuSeal interactions are logged:
+
 - IVR generation: `[info] IVR generated successfully`
 - Webhook events: `[info] DocuSeal webhook received`
 - Errors: `[error] Failed to generate IVR`

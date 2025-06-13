@@ -29,7 +29,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 1  
 **Dependencies:** Database access permissions
 
-#### Tasks:
+#### Tasks
+
 - [ ] Create migration to remove unused product_requests fields:
   - [ ] Remove `medicare_part_b_authorized`
   - [ ] Remove `ivr_bypass_reason`
@@ -60,7 +61,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 1  
 **Dependencies:** Schema migration completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Update product_requests status enum:
   - [ ] Change `ivr_confirmed` to `manufacturer_approved`
   - [ ] Update all references in codebase
@@ -73,7 +75,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 1-2  
 **Dependencies:** Commission system assessment
 
-#### Tasks:
+#### Tasks
+
 - [ ] Add missing commission_records fields:
   - [ ] `invoice_number` VARCHAR(255)
   - [ ] `first_application_date` DATE
@@ -95,7 +98,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 1  
 **Dependencies:** Status enum updates
 
-#### Tasks:
+#### Tasks
+
 - [ ] Create OrderStatusTransitionService:
   - [ ] Define allowed transitions matrix
   - [ ] Implement validation logic
@@ -109,10 +113,11 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 ### 2.2 Status Display Standardization (High Priority)
 
-**Status:** Not Started   
+**Status:** Not Started
 **Dependencies:** Status transition service
 
-#### Tasks:
+#### Tasks
+
 - [ ] Update Admin Order Center:
   - [ ] Implement standardized status badges
   - [ ] Create action availability matrix
@@ -129,7 +134,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 ### 3.1 Remove Signature Requirements (Critical)
 
-#### Tasks:
+#### Tasks
+
 - [ ] Update IvrDocusealService:
   - [ ] Remove all signature field logic
   - [ ] Set `signatureRequired: false` in all calls
@@ -143,7 +149,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 ### 3.2 Implement One-Click IVR Generation (Critical)
 
-#### Tasks:
+#### Tasks
+
 - [ ] Simplify admin UI:
   - [ ] Remove IVR generation modal
   - [ ] Direct PDF generation on button click
@@ -159,7 +166,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Database schema updates
 
-#### Tasks:
+#### Tasks
+
 - [ ] Create efficient IVR data query:
   - [ ] Single query for 80% of data from Supabase
   - [ ] Minimal FHIR calls for patient demographics (10%)
@@ -180,7 +188,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Database updates, user management
 
-#### Tasks:
+#### Tasks
+
 - [ ] Create provider attribution service:
   - [ ] Link providers to acquiring sales reps
   - [ ] Handle sub-rep relationships
@@ -194,8 +203,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 ### 4.2 Connect Dashboards to Real Data (High Priority)
 
+#### Tasks
 
-#### Tasks:
 - [ ] Update SalesRepAnalyticsController:
   - [ ] Replace mock data with real queries
   - [ ] Implement commission summary endpoint
@@ -214,7 +223,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 3-4  
 **Dependencies:** Sales rep dashboard completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Create sub-rep invitation system:
   - [ ] Invitation table and model
   - [ ] Email notification service
@@ -231,7 +241,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Payment system understanding
 
-#### Tasks:
+#### Tasks
+
 - [ ] Link commissions to payment status:
   - [ ] Only calculate when payment_status = 'paid'
   - [ ] Track payment dates
@@ -252,7 +263,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Status workflow completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Implement missing actions:
   - [ ] Generate IVR button (one-click)
   - [ ] Mark as Sent functionality
@@ -269,7 +281,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** None
 
-#### Tasks:
+#### Tasks
+
 - [ ] Streamline product request form:
   - [ ] Smart field suggestions
   - [ ] Auto-population from history
@@ -285,7 +298,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Desktop UI completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Responsive design updates:
   - [ ] Order center mobile view
   - [ ] Sales rep dashboard mobile
@@ -300,7 +314,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Azure FHIR access
 
-#### Tasks:
+#### Tasks
+
 - [ ] Minimize PHI access:
   - [ ] Only fetch during IVR generation
   - [ ] Cache-free implementation
@@ -318,7 +333,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 2  
 **Dependencies:** DocuSeal API access
 
-#### Tasks:
+#### Tasks
+
 - [ ] Update template configuration:
   - [ ] Remove signature fields from all templates
   - [ ] Verify manufacturer-specific mappings
@@ -331,7 +347,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Week 3-4  
 **Dependencies:** Business process clarification
 
-#### Tasks:
+#### Tasks
+
 - [ ] Document manufacturer contacts:
   - [ ] Email addresses for each manufacturer
   - [ ] Submission preferences
@@ -352,7 +369,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 **Timeline:** Ongoing  
 **Dependencies:** Feature completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Test status transition logic
 - [ ] Test commission calculations with attribution
 - [ ] Test IVR generation without signatures
@@ -363,7 +381,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** All features complete
 
-#### Tasks:
+#### Tasks
+
 - [ ] End-to-end order flow testing
 - [ ] Commission calculation scenarios
 - [ ] FHIR integration testing
@@ -371,10 +390,11 @@ This task list consolidates all pending work based on the Technical Alignment do
 - [ ] Multi-user scenarios
 
 ### 7.3 Performance Testing (Medium Priority)
- 
+
 **Dependencies:** Feature completion
 
-#### Tasks:
+#### Tasks
+
 - [ ] Dashboard load time optimization
 - [ ] Query performance testing
 - [ ] Concurrent user testing
@@ -389,7 +409,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** None
 
-#### Tasks:
+#### Tasks
+
 - [ ] Implement comprehensive audit logging:
   - [ ] All PHI access tracked
   - [ ] Business justification required
@@ -406,7 +427,8 @@ This task list consolidates all pending work based on the Technical Alignment do
 
 **Dependencies:** Role definitions
 
-#### Tasks:
+#### Tasks
+
 - [ ] Verify role permissions:
   - [ ] Sales rep data isolation
   - [ ] Provider access limits
@@ -423,24 +445,28 @@ This task list consolidates all pending work based on the Technical Alignment do
 ## Implementation Priority Matrix
 
 ### Week 1: Foundation
+
 1. Database schema migrations
 2. Status enum updates
 3. Status transition service
 4. Basic commission fields
 
 ### Week 2: Core Features
+
 1. IVR simplification (no signatures)
 2. One-click generation
 3. 90% auto-population query
 4. Admin Order Center updates
 
 ### Week 3: Sales & Integration
+
 1. Provider attribution system
 2. Connect sales dashboards
 3. Commission calculations
 4. Payment integration
 
 ### Week 4: Polish & Testing
+
 1. Sub-rep management
 2. Mobile optimization
 3. Integration testing
@@ -451,18 +477,21 @@ This task list consolidates all pending work based on the Technical Alignment do
 ## Success Metrics
 
 ### Technical Metrics
+
 - [ ] 90-second provider workflow achieved
 - [ ] 90% IVR auto-population working
 - [ ] <2 second dashboard load times
 - [ ] 100% test coverage for critical paths
 
 ### Business Metrics
+
 - [ ] 85-90% time savings documented
 - [ ] Commission accuracy at 100%
 - [ ] All sales reps using dashboards
 - [ ] Zero PHI exposure incidents
 
 ### User Adoption
+
 - [ ] 95% provider satisfaction
 - [ ] 95% sales rep dashboard usage
 - [ ] <5% support tickets
@@ -473,18 +502,21 @@ This task list consolidates all pending work based on the Technical Alignment do
 ## Outstanding Questions
 
 ### Business Process
+
 1. Commission trigger timing (order/payment/delivery)?
 2. Sub-rep split percentages (fixed or variable)?
 3. Delayed payment approval process?
 4. Manufacturer approval SLAs?
 
 ### Technical
+
 1. Patient data access for friendly IDs?
 2. Invoice number format requirements?
 3. Tissue ID capture process?
 4. Payment system integration details?
 
 ### Compliance
+
 1. PHI audit retention requirements?
 2. Commission data privacy rules?
 3. Export restrictions for financial data?

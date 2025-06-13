@@ -132,10 +132,12 @@ export default function Dashboard({ orders, activeFilter }: Props) {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {order.patient_identifier}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap">
-                                            <Badge className={getStatusBadgeColor(order.status_color)}>
-                                                {order.simplified_status}
-                                            </Badge>
+                                        <td className="px-6 py-4">
+                                            <div className="max-w-[120px]">
+                                                <Badge className={getStatusBadgeColor(order.status_color)}>
+                                                    {order.simplified_status}
+                                                </Badge>
+                                            </div>
                                         </td>
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {order.request_date}

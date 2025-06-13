@@ -17,7 +17,7 @@ use App\Models\Docuseal\DocusealSubmission;
 
 class ProductRequest extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToOrganizationThrough;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'request_number',
@@ -141,6 +141,15 @@ class ProductRequest extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class, 'facility_id');
+    }
+
+    /**
+     * Get the patient (FHIR record) associated with this request.
+     * Links patient_fhir_id (stored on this model) to Patient.azure_fhir_id.
+     */
+    public function patient(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Fhir\Patient::class, 'patient_fhir_id', 'azure_fhir_id');
     }
 
     /**

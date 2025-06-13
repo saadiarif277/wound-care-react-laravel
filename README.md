@@ -5,6 +5,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 ## Quick Start
 
 ### Prerequisites
+
 - PHP 8.1+
 - Composer
 - Node.js 22 (LTS recommended for production)
@@ -14,12 +15,14 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 ### Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd wound-care-stage
    ```
 
 2. **Install dependencies**
+
    ```bash
    composer install
    npm install
@@ -32,6 +35,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
    **For detailed setup instructions, see [`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md)**
 
    Quick setup using our automated script:
+
    ```bash
    # On Windows (PowerShell)
    .\setup-supabase.ps1
@@ -46,12 +50,14 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
    - Generate app key: `php artisan key:generate`
 
 5. **Database Setup**
+
    ```bash
    php artisan migrate
    php artisan db:seed
    ```
 
 6. **Test Your Setup**
+
    ```bash
    # Test Supabase connection
    php test-supabase-connection.php
@@ -61,6 +67,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
    ```
 
 7. **Start Development Server**
+
    ```bash
    php artisan serve
    npm run dev
@@ -69,6 +76,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 ## Architecture
 
 ### Data Separation (HIPAA Compliance)
+
 - **Supabase PostgreSQL**: Non-PHI operational data
   - User accounts and authentication
   - Organizations, facilities, providers (business info only)
@@ -83,6 +91,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
   - Medical images and assessments
 
 ### Technology Stack
+
 - **Backend**: Laravel 10, PHP 8.1+
 - **Frontend**: React 18, TypeScript, Inertia.js
 - **Database**: Supabase PostgreSQL (non-PHI), Azure FHIR (PHI)
@@ -103,6 +112,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 ## Development
 
 ### File Structure
+
 ```
 wound-care-stage/
 ├── app/                    # Laravel application code
@@ -151,6 +161,7 @@ This application follows strict HIPAA compliance requirements:
 ## Support
 
 For setup issues:
+
 1. Check `SUPABASE_SETUP.md` for detailed instructions
 2. Run `php test-supabase-connection.php` to diagnose connection issues
 3. Verify environment configuration matches the template
@@ -158,3 +169,57 @@ For setup issues:
 ## License
 
 This project is proprietary software. See LICENSE file for details.
+
+## UI Component Guide
+
+### Glassmorphic Design System
+
+The platform uses a modern glassmorphic design system that supports both light and dark modes.
+
+#### Core Components
+
+1. **GlassCard** - Base glassmorphic container
+
+   ```tsx
+   <GlassCard variant="default|danger|success|info" className="p-6">
+     Content here
+   </GlassCard>
+   ```
+
+2. **StatCard** - Metric display widget
+
+   ```tsx
+   <StatCard 
+     title="Total Requests"
+     value={42}
+     subtitle="All time"
+     icon={<FiActivity />}
+     variant="info"
+   />
+   ```
+
+3. **Button** - Medical-grade button with loading states
+
+   ```tsx
+   <Button 
+     variant="primary|secondary|danger|success|ghost|glass"
+     size="sm|md|lg|xl"
+     isLoading={false}
+     leftIcon={<FiPlus />}
+   >
+     Create Request
+   </Button>
+   ```
+
+4. **ThemeToggle** - Light/dark mode switcher
+
+   ```tsx
+   <ThemeToggle className="absolute top-4 right-4" />
+   ```
+
+#### Design Tokens
+
+- **Colors**: MSC Blue (#1925c3), MSC Red (#c71719)
+- **Gradients**: Applied via `bg-gradient-to-r from-msc-blue-500 to-msc-red-500`
+- **Glass Effects**: `backdrop-blur-md bg-white/30 dark:bg-slate-900/30`
+- **Animations**: Blob animations for background, hover scales for interactive elements

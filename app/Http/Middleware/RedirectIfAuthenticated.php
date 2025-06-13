@@ -19,11 +19,23 @@ class RedirectIfAuthenticated
         $guards = empty($guards) ? [null] : $guards;
 
         foreach ($guards as $guard) {
-            if (Auth::guard($guard)->check()) {
-                return redirect('/dashboard');
+            // Check if user is authenticated and session is valid
+            if (Auth::guard($guard)->check() && Auth::guard($guard)->user()) {
+                // Additional check to ensure the user session is still valid
+                try {
+                    $user = Auth::guard($guard)->user();
+                    if ($user && $user->exists) {
+                        return redirect('/dashboard');
+                    }
+                } catch (\Exception $e) {
+                    // If there's any error with the user, clear the session
+                    Auth::guard($guard)->logout();
+                    $request->session()->invalidate();
+                    $request->session()->regenerateToken();
+                }
             }
         }
 
         return $next($request);
     }
-} 
+}

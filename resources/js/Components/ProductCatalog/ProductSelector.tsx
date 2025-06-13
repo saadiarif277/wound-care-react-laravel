@@ -23,6 +23,7 @@ import {
   Edit3
 } from 'lucide-react';
 import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
+import { getProductSizeLabel } from '@/utils/size-label';
 
 interface Product {
   id: number;
@@ -653,7 +654,7 @@ const ProductSelector: React.FC<Props> = ({
                             {item.size ? (
                               <div>
                                 <h5 className="text-sm font-medium text-gray-900">
-                                  Size: {item.size} cm²
+                                  Size: {getProductSizeLabel(product.name, item.size)}
                                 </h5>
                                 <p className="text-xs text-gray-500">
                                   {formatPrice(unitPrice)} per unit
@@ -851,7 +852,7 @@ const ProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => (
               <option key={size} value={size.toString()}>
-                {size} cm² - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
+                {getProductSizeLabel(product.name, size)} - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
               </option>
             ))}
           </select>

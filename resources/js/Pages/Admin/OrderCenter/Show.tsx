@@ -248,7 +248,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
 
   const handleSubmitToManufacturer = () => {
     if (confirm('Are you sure you want to submit this order to the manufacturer?')) {
-      router.post(`/admin/orders/${order.id}/submit-to-manufacturer`);
+      router.post(`/admin/orders/${order.id}/submit-to-manufacturer`, {});
     }
   };
 

@@ -2,6 +2,11 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { UserWithRole } from '@/types/roles';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import MetricCard from '@/Components/ui/MetricCard';
+import { FiActivity, FiZap, FiUsers, FiShield } from 'react-icons/fi';
 
 interface SuperAdminDashboardProps {
   user?: UserWithRole;
@@ -56,6 +61,18 @@ interface SuperAdminDashboardProps {
 }
 
 export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminDashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const systemMetrics = dashboardData?.system_metrics || {
     uptime: 0,
     api_response_time: 0,
@@ -73,33 +90,39 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
   const dataIntegrityChecks = dashboardData?.data_integrity_checks || [];
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'healthy':
-      case 'passed':
-        return 'text-green-600 bg-green-100';
-      case 'warning':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'error':
-      case 'critical':
-        return 'text-red-600 bg-red-100';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+    const colors = theme === 'dark' ? {
+      healthy: 'bg-green-500/20 text-green-300 border-green-500/30',
+      passed: 'bg-green-500/20 text-green-300 border-green-500/30',
+      warning: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      error: 'bg-red-500/20 text-red-300 border-red-500/30',
+      critical: 'bg-red-500/20 text-red-300 border-red-500/30',
+      default: 'bg-white/10 text-white/60 border-white/20'
+    } : {
+      healthy: 'bg-green-100 text-green-600 border-green-200',
+      passed: 'bg-green-100 text-green-600 border-green-200',
+      warning: 'bg-yellow-100 text-yellow-600 border-yellow-200',
+      error: 'bg-red-100 text-red-600 border-red-200',
+      critical: 'bg-red-100 text-red-600 border-red-200',
+      default: 'bg-gray-100 text-gray-600 border-gray-200'
+    };
+    return colors[status] || colors.default;
   };
 
   const getSeverityColor = (severity: string) => {
-    switch (severity) {
-      case 'low':
-        return 'text-blue-600 bg-blue-100';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-100';
-      case 'high':
-        return 'text-red-600 bg-red-100';
-      case 'critical':
-        return 'text-red-700 bg-red-200';
-      default:
-        return 'text-gray-600 bg-gray-100';
-    }
+    const colors = theme === 'dark' ? {
+      low: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      medium: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      high: 'bg-red-500/20 text-red-300 border-red-500/30',
+      critical: 'bg-red-600/30 text-red-200 border-red-600/40',
+      default: 'bg-white/10 text-white/60 border-white/20'
+    } : {
+      low: 'bg-blue-100 text-blue-600 border-blue-200',
+      medium: 'bg-yellow-100 text-yellow-600 border-yellow-200',
+      high: 'bg-red-100 text-red-600 border-red-200',
+      critical: 'bg-red-200 text-red-700 border-red-300',
+      default: 'bg-gray-100 text-gray-600 border-gray-200'
+    };
+    return colors[severity] || colors.default;
   };
 
   return (
@@ -109,43 +132,55 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
       <div className="space-y-6">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">System Operations Dashboard</h1>
-        <p className="mt-2 text-gray-600 leading-normal">
+        <h1 className={cn("text-3xl font-bold", t.text.primary)}>System Operations Dashboard</h1>
+        <p className={cn("mt-2 leading-normal", t.text.secondary)}>
           Monitor system health, security, and technical infrastructure. Manage critical operations and ensure platform integrity.
         </p>
       </div>
 
       {/* System Health Metrics */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">System Uptime</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">{systemMetrics.uptime}%</p>
-          <p className="text-xs text-gray-600 mt-2">Last 30 days</p>
-        </div>
+        <MetricCard
+          title="System Uptime"
+          value={`${systemMetrics.uptime}%`}
+          subtitle="Last 30 days"
+          icon={<FiActivity className="h-8 w-8" />}
+          status="success"
+          size="md"
+        />
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">API Response Time</h3>
-          <p className="text-3xl font-bold text-blue-600 mt-2">{systemMetrics.api_response_time}ms</p>
-          <p className="text-xs text-gray-600 mt-2">Average response</p>
-        </div>
+        <MetricCard
+          title="API Response Time"
+          value={`${systemMetrics.api_response_time}ms`}
+          subtitle="Average response"
+          icon={<FiZap className="h-8 w-8" />}
+          status="info"
+          size="md"
+        />
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Active Users</h3>
-          <p className="text-3xl font-bold text-indigo-600 mt-2">{systemMetrics.active_users}</p>
-          <p className="text-xs text-gray-600 mt-2">Currently online</p>
-        </div>
+        <MetricCard
+          title="Active Users"
+          value={systemMetrics.active_users}
+          subtitle="Currently online"
+          icon={<FiUsers className="h-8 w-8" />}
+          status="default"
+          size="md"
+        />
 
-        <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Security Status</h3>
-          <p className="text-3xl font-bold text-green-600 mt-2">{systemMetrics.security_incidents}</p>
-          <p className="text-xs text-gray-600 mt-2">Active incidents</p>
-        </div>
+        <MetricCard
+          title="Security Status"
+          value={systemMetrics.security_incidents}
+          subtitle="Active incidents"
+          icon={<FiShield className="h-8 w-8" />}
+          status={systemMetrics.security_incidents > 0 ? "danger" : "success"}
+          size="md"
+        />
       </div>
 
       {/* Security Monitoring */}
       {securityAlerts.length > 0 && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200 bg-red-50">
+        <div className={cn("rounded-xl shadow-lg border overflow-hidden", t.glass.card, theme === 'dark' ? 'border-red-500/30' : 'border-red-200')}>
+          <div className={cn("p-6 border-b", theme === 'dark' ? 'border-red-500/30 bg-red-500/10' : 'border-gray-200 bg-red-50')}>
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <div className="flex-shrink-0">
@@ -154,42 +189,45 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
                   </svg>
                 </div>
                 <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Security Monitoring</h2>
-                  <p className="text-sm text-gray-600 mt-1">Active security alerts and incidents</p>
+                  <h2 className={cn("text-xl font-semibold", t.text.primary)}>Security Monitoring</h2>
+                  <p className={cn("text-sm mt-1", t.text.secondary)}>Active security alerts and incidents</p>
                 </div>
               </div>
               <Link
                 href="/superadmin/security"
-                className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
+                className={cn("px-4 py-2 rounded-md transition-colors", t.button.danger)}
               >
                 Security Center
               </Link>
             </div>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className={cn("divide-y", theme === 'dark' ? 'divide-white/10' : 'divide-gray-200')}>
             {securityAlerts.map((alert) => (
-              <div key={alert.id} className="p-6 hover:bg-gray-50 transition-colors">
+              <div key={alert.id} className={cn("p-6 transition-colors", theme === 'dark' ? 'hover:bg-white/5' : 'hover:bg-gray-50')}>
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center">
-                      <h3 className="text-sm font-semibold text-gray-900">{alert.type}</h3>
+                      <h3 className={cn("text-sm font-semibold", t.text.primary)}>{alert.type}</h3>
                       <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getSeverityColor(alert.severity)}`}>
                         {alert.severity} severity
                       </span>
-                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                        alert.status === 'resolved' ? 'bg-green-100 text-green-800' :
-                        alert.status === 'investigating' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                      <span className={cn(
+                        "ml-2 px-2 py-1 text-xs font-medium rounded-full",
+                        alert.status === 'resolved' 
+                          ? (theme === 'dark' ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-800')
+                          : alert.status === 'investigating' 
+                          ? (theme === 'dark' ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-100 text-yellow-800')
+                          : (theme === 'dark' ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-800')
+                      )}>
                         {alert.status}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600 mt-1">{alert.description}</p>
-                    <p className="text-xs text-gray-500 mt-2">
+                    <p className={cn("text-sm mt-1", t.text.secondary)}>{alert.description}</p>
+                    <p className={cn("text-xs mt-2", t.text.muted)}>
                       {alert.timestamp} | Affected: {alert.affected_systems.join(', ')}
                     </p>
                   </div>
-                  <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                  <button className={cn("ml-4 px-3 py-2 text-sm rounded-md transition-colors", t.button.primary)}>
                     Investigate
                   </button>
                 </div>
@@ -200,7 +238,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
       )}
 
       {/* System Health Components */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className={cn("rounded-xl shadow-lg border overflow-hidden", t.glass.card, theme === 'dark' ? 'border-white/10' : 'border-gray-100')}>
         <div className="p-6 border-b border-gray-200 bg-blue-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -210,13 +248,13 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
                 </svg>
               </div>
               <div className="ml-3">
-                <h2 className="text-xl font-semibold text-gray-900">System Health Monitor</h2>
-                <p className="text-sm text-gray-600 mt-1">Real-time status of all system components</p>
+                <h2 className={cn("text-xl font-semibold", t.text.primary)}>System Health Monitor</h2>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>Real-time status of all system components</p>
               </div>
             </div>
             <Link
               href="/superadmin/system-health"
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              className={cn("px-4 py-2 rounded-md transition-colors", t.button.primary)}
             >
               Detailed View
             </Link>
@@ -229,26 +267,26 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <div className="flex items-center">
-                      <h3 className="text-sm font-semibold text-gray-900">{component.component}</h3>
+                      <h3 className={cn("text-sm font-semibold", t.text.primary)}>{component.component}</h3>
                       <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(component.status)}`}>
                         {component.status}
                       </span>
                     </div>
                     <div className="mt-2 grid grid-cols-3 gap-4">
                       <div>
-                        <p className="text-xs text-gray-500">Response Time</p>
-                        <p className="text-sm font-medium">{component.response_time}ms</p>
+                        <p className={cn("text-xs", t.text.muted)}>Response Time</p>
+                        <p className={cn("text-sm font-medium", t.text.primary)}>{component.response_time}ms</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Uptime</p>
-                        <p className="text-sm font-medium">{component.uptime}%</p>
+                        <p className={cn("text-xs", t.text.muted)}>Uptime</p>
+                        <p className={cn("text-sm font-medium", t.text.primary)}>{component.uptime}%</p>
                       </div>
                       <div>
-                        <p className="text-xs text-gray-500">Last Checked</p>
-                        <p className="text-sm font-medium">{component.last_checked}</p>
+                        <p className={cn("text-xs", t.text.muted)}>Last Checked</p>
+                        <p className={cn("text-sm font-medium", t.text.primary)}>{component.last_checked}</p>
                       </div>
                     </div>
-                    <p className="text-xs text-gray-600 mt-2">{component.details}</p>
+                    <p className={cn("text-xs mt-2", t.text.secondary)}>{component.details}</p>
                   </div>
                 </div>
               </div>
@@ -262,7 +300,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
       </div>
 
       {/* Error & Issue Tracking */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className={cn("rounded-xl shadow-lg border overflow-hidden", t.glass.card, theme === 'dark' ? 'border-white/10' : 'border-gray-100')}>
         <div className="p-6 border-b border-gray-200 bg-yellow-50">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -278,7 +316,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
             </div>
             <Link
               href="/superadmin/error-logs"
-              className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+              className={cn("px-4 py-2 rounded-md transition-colors", t.button.warning)}
             >
               View All Logs
             </Link>
@@ -310,7 +348,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
                       {error.timestamp} | Occurrences: {error.count}
                     </p>
                   </div>
-                  <button className="ml-4 px-3 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition-colors">
+                  <button className={cn("ml-4 px-3 py-2 text-sm rounded-md transition-colors", t.button.primary)}>
                     Investigate
                   </button>
                 </div>
@@ -325,7 +363,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
       </div>
 
       {/* Data Integrity Monitor */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className={cn("rounded-xl shadow-lg border overflow-hidden", t.glass.card, theme === 'dark' ? 'border-white/10' : 'border-gray-100')}>
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
@@ -339,7 +377,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
                 <p className="text-sm text-gray-600 mt-1">Automated data validation and consistency checks</p>
               </div>
             </div>
-            <button className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">
+            <button className={cn("px-4 py-2 rounded-md transition-colors", t.button.success)}>
               Run Checks
             </button>
           </div>
@@ -389,7 +427,7 @@ export default function SuperAdminDashboard({ user, dashboardData }: SuperAdminD
       </div>
 
       {/* Emergency Controls */}
-      <div className="bg-white rounded-xl shadow-lg border border-red-200 overflow-hidden">
+      <div className={cn("rounded-xl shadow-lg border overflow-hidden", t.glass.card, theme === 'dark' ? 'border-red-500/30' : 'border-red-200')}>
         <div className="p-6 border-b border-red-200 bg-red-50">
           <div className="flex items-center">
             <div className="flex-shrink-0">

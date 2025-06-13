@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
-use App\Http\Controllers\Auth\AccessRequestController;
+// AccessRequestController removed - feature deprecated
 
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImagesController;
@@ -21,7 +21,7 @@ use App\Http\Controllers\Commission\CommissionPayoutController;
 use App\Http\Controllers\ProductRequestController;
 use App\Http\Controllers\RequestController;
 use App\Http\Controllers\RBACController;
-use App\Http\Controllers\AccessControlController;
+// AccessControlController removed - feature deprecated
 use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PreAuthorizationController;
@@ -81,6 +81,42 @@ Route::post('/test/csrf', function () {
     ]);
 })->name('test.csrf.post');
 
+// AI Support Escalation Route
+Route::post('/api/support/escalate', function (Request $request) {
+    // Validate the request
+    $validated = $request->validate([
+        'message' => 'required|string|max:1000',
+        'metadata' => 'sometimes|array',
+        'metadata.screen' => 'sometimes|string',
+        'metadata.triggered_by' => 'sometimes|string',
+        'metadata.timestamp' => 'sometimes|string',
+    ]);
+
+        // Log the escalation request
+    \Illuminate\Support\Facades\Log::info('AI Support Escalation', [
+        'user_id' => \Illuminate\Support\Facades\Auth::id(),
+        'message' => $validated['message'],
+        'metadata' => $validated['metadata'] ?? [],
+        'ip' => $request->ip(),
+        'user_agent' => $request->userAgent(),
+    ]);
+
+    // Here you would integrate with your actual support system
+    // For now, we'll just return a success response
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Your message has been sent to our support team.',
+        'ticket_id' => 'AI-' . time() . '-' . (\Illuminate\Support\Facades\Auth::id() ?? 'guest'),
+        'estimated_response_time' => '2-4 hours during business hours',
+    ]);
+})->name('api.support.escalate')->middleware('auth');
+
+// Demo Routes
+Route::get('/demo/ai-overlay', function () {
+    return Inertia::render('Demo/AIOverlayDemo');
+})->name('demo.ai-overlay')->middleware('auth');
+
 // Auth
 
 Route::get('login', [LoginController::class, 'create'])
@@ -95,36 +131,7 @@ Route::delete('logout', [LoginController::class, 'destroy'])
     ->name('logout')
     ->middleware('auth');
 
-// Access Requests (public routes)
-
-Route::get('request-access', [AccessRequestController::class, 'create'])
-    ->name('web.access-requests.create')
-    ->middleware('guest');
-
-Route::post('request-access', [AccessRequestController::class, 'store'])
-    ->name('web.access-requests.store')
-    ->middleware('guest');
-
-Route::get('api/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])
-    ->name('web.access-requests.role-fields');
-
-// Access Request Management (protected routes)
-
-Route::get('access-requests', [AccessRequestController::class, 'index'])
-    ->name('web.access-requests.index')
-    ->middleware('auth');
-
-Route::get('access-requests/{accessRequest}', [AccessRequestController::class, 'show'])
-    ->name('web.access-requests.show')
-    ->middleware('auth');
-
-Route::post('access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])
-    ->name('web.access-requests.approve')
-    ->middleware('auth');
-
-Route::post('access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])
-    ->name('web.access-requests.deny')
-    ->middleware('auth');
+// Access Request routes removed - feature deprecated
 
 // Provider Invitation Routes
 Route::get('auth/provider-invitation/{token}', function ($token) {
@@ -526,10 +533,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/rbac/security-audit', [RBACController::class, 'getSecurityAudit'])->name('web.rbac.security-audit');
     });
 
-    // Access Control Management Routes
-    Route::middleware(['permission:manage-access-control'])->group(function () {
-        Route::get('/access-control', [AccessControlController::class, 'index'])->name('web.access-control.index');
-    });
+    // Access Control routes removed - feature deprecated
 
     Route::middleware(['permission:view-commission'])->group(function () {
         Route::get('/commission/overview', function () {
@@ -710,30 +714,12 @@ Route::middleware(['web', 'auth'])->group(function () {
 
     // DocuSeal Document Management Routes
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
-        // Main DocuSeal dashboard (redirect to consolidated order management)
-        Route::get('/', function () {
-            return redirect()->route('orders.management');
-        })->name('admin.docuseal.index');
-
-        // Document submissions management (redirect to consolidated order management)
-        Route::get('/submissions', function () {
-            return redirect()->route('orders.management');
-        })->name('admin.docuseal.submissions');
-
-        // Document signing status tracking (redirect to consolidated order management)
-        Route::get('/status', function () {
-            return redirect()->route('orders.management');
-        })->name('admin.docuseal.status');
-    });
-
-    // Super Admin only DocuSeal routes
-    Route::middleware(['permission:manage-all-organizations'])->prefix('admin/docuseal')->group(function () {
-        // Template management (super admin only)
+        // Template management
         Route::get('/templates', function () {
             return Inertia::render('Admin/DocuSeal/Templates');
         })->name('admin.docuseal.templates');
 
-        // Analytics dashboard (super admin only)
+        // Analytics dashboard
         Route::get('/analytics', function () {
             return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');

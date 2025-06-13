@@ -64,6 +64,7 @@ When an admin clicks "Generate IVR" for a ProductRequest with status `pending_iv
 The IVR template is populated with data from a single efficient query:
 
 **From Database Query (80%):**
+
 - Provider name, NPI, credentials, email
 - Facility name, address, NPI, phone, PTAN
 - Organization name and tax ID
@@ -71,12 +72,14 @@ The IVR template is populated with data from a single efficient query:
 - Insurance information (payer name, ID)
 
 **From FHIR (10%):**
+
 - Patient name
 - Date of birth
 - Gender
 - Patient identifier (de-identified)
 
 **Provider Input (10%):**
+
 - Member ID
 - Specific clinical codes (if not auto-suggested)
 - Any manufacturer-specific requirements
@@ -247,6 +250,7 @@ POST /admin/orders/{productRequest}/manufacturer-approval
 ## Implementation Checklist
 
 ### Completed Features
+
 - ✅ PDF-only generation via DocuSeal API
 - ✅ 90% field pre-population
 - ✅ Admin UI for IVR management
@@ -256,16 +260,19 @@ POST /admin/orders/{productRequest}/manufacturer-approval
 - ✅ Manual send to manufacturer workflow
 
 ### Removed Features
+
 - ❌ Signature workflows (not needed)
 - ❌ IVR bypass functionality (simplified)
 - ❌ Webhook processing (no signatures to track)
 - ❌ Complex modal workflows (streamlined to one-click)
 
 ### Future Enhancements
+
 - ⏳ Direct manufacturer API integration
 - ⏳ Bulk IVR generation
 - ⏳ Automated manufacturer notification
 - ⏳ Real-time status updates
+
 ```
 
 ## 2. ORDER_FLOW_UPDATED.md
@@ -309,6 +316,7 @@ sent_back                # Admin sent back for corrections
 ## Order Flow Stages
 
 ### Stage 1: Product Request Submission (90 seconds)
+
 **Actor:** Provider  
 **Status:** `draft` → `submitted`
 
@@ -319,13 +327,13 @@ sent_back                # Admin sent back for corrections
      - Member ID: "M123456789"
      - Insurance: "Medicare"
      - Service Date: "06/25/2025"
-   
+
    - **Clinical Context (30 seconds):**
      - Wound Type: "DFU" (dropdown)
      - Place of Service: "11" (auto-filled from facility)
      - ICD-10: "E11.621" (smart suggestion)
      - CPT: "15275" (smart suggestion)
-   
+
    - **Product Selection (30 seconds):**
      - Product: "XCELLERATE Q4234"
      - Size: "4x4cm" (auto-suggested)
@@ -334,6 +342,7 @@ sent_back                # Admin sent back for corrections
 2. System validates and creates ProductRequest with status `submitted`
 
 ### Stage 2: Admin Review
+
 **Actor:** MSC Admin  
 **Status:** `submitted` → `processing` → `approved`/`denied`/`sent_back`
 
@@ -345,6 +354,7 @@ sent_back                # Admin sent back for corrections
    - **Deny**: Rejects with reason
 
 ### Stage 3: IVR Generation (One-Click)
+
 **Actor:** MSC Admin  
 **Status:** `approved` → `pending_ivr` → `ivr_sent`
 
@@ -359,6 +369,7 @@ sent_back                # Admin sent back for corrections
 4. Admin downloads PDF for review
 
 ### Stage 4: Manual Manufacturer Submission
+
 **Actor:** MSC Admin  
 **Status:** `ivr_sent` (with timestamp tracking)
 
@@ -368,6 +379,7 @@ sent_back                # Admin sent back for corrections
 4. System records `manufacturer_sent_at` timestamp
 
 ### Stage 5: Manufacturer Approval
+
 **Actor:** Manufacturer → MSC Admin  
 **Status:** `ivr_sent` → `manufacturer_approved`
 
@@ -378,6 +390,7 @@ sent_back                # Admin sent back for corrections
 5. Status updates to `manufacturer_approved`
 
 ### Stage 6: Order Submission
+
 **Actor:** MSC Admin  
 **Status:** `manufacturer_approved` → `submitted_to_manufacturer`
 
@@ -386,6 +399,7 @@ sent_back                # Admin sent back for corrections
 3. Status updates to `submitted_to_manufacturer`
 
 ### Stage 7: Fulfillment Tracking
+
 **Actor:** System/Manufacturer  
 **Status:** `submitted_to_manufacturer` → `shipped` → `delivered`
 
@@ -396,6 +410,7 @@ sent_back                # Admin sent back for corrections
 ## Key Integration Points
 
 ### Data Sources for 90% Auto-Population
+
 ```sql
 -- Single query provides most IVR data
 SELECT 
@@ -411,6 +426,7 @@ WHERE pr.id = ?;
 ```
 
 ### FHIR Integration (10% of data)
+
 - Patient demographics only
 - Retrieved on-demand during IVR generation
 - Minimal PHI exposure
@@ -451,6 +467,7 @@ const allowedTransitions = {
 | Request Creation | 90 seconds | 0 | vs 15-20 minutes manually |
 | IVR Generation | 0 | 30 seconds | vs 30-45 minutes manually |
 | Total | 90 seconds | 30 seconds | 85-90% reduction |
+
 ```
 
 ## 3. ADMIN_ORDER_CENTER_UPDATED.md
@@ -467,6 +484,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ### Dashboard Layout
 
 ```
+
 ┌─────────────────────────────────────────────────────────────┐
 │ Order Management Center                          [Refresh]   │
 ├─────────────────────────────────────────────────────────────┤
@@ -477,6 +495,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 │ REQ-002  │ Dr. Jones│ 🔵 Awaiting Review │ 06/26 │ [Review] │
 │ REQ-003  │ Dr. Brown│ 🟣 Awaiting Manuf. │ 06/27 │ [Track] │
 └─────────────────────────────────────────────────────────────┘
+
 ```
 
 ### Status Indicators & Actions
@@ -508,6 +527,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ### Streamlined Layout
 
 ```
+
 ┌─────────────────────────────────────────────────────────────┐
 │ Order REQ-001                    Status: 🟠 Generate IVR     │
 ├─────────────────────────────────────────────────────────────┤
@@ -524,6 +544,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 │                    ACTION PANEL                              │
 │ [Generate IVR] [View Details] [Cancel Order]                 │
 └─────────────────────────────────────────────────────────────┘
+
 ```
 
 ## Simplified Admin Actions
@@ -541,6 +562,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ```
 
 ### 2. Mark as Sent to Manufacturer
+
 **Precondition:** Status = `ivr_sent`
 
 ```javascript
@@ -555,6 +577,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ```
 
 ### 3. Confirm Manufacturer Approval
+
 **Precondition:** Status = `ivr_sent` with manufacturer_sent_at
 
 ```javascript
@@ -574,6 +597,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ```
 
 ### 4. Order Approval Actions
+
 **Precondition:** Status = `submitted` or `processing`
 
 - **Approve**: Advances to `pending_ivr`
@@ -583,6 +607,7 @@ The Admin Order Management Center enables MSC Admin users to efficiently manage 
 ## Key UI Features
 
 ### Action Availability Matrix
+
 ```typescript
 const actionButtons = {
   'submitted': ['Approve', 'Send Back', 'Deny'],
@@ -599,6 +624,7 @@ const actionButtons = {
 ```
 
 ### Quick Stats Bar
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │ Pending Review: 5 | Awaiting IVR: 3 | In Transit: 12       │
@@ -631,6 +657,7 @@ const actionButtons = {
 - Direct manufacturer API integration
 - Advanced filtering and search
 - Customizable dashboard widgets
+
 ```
 
 ## 4. ORG_FACILITY_PROVIDER_MODEL_UPDATED.md
@@ -643,10 +670,12 @@ Based on the Technical Alignment document, we maintain the existing hybrid appro
 ## Core Relationship Architecture:
 
 ```
+
 Organization (1) ←→ (Many) Facilities (1) ←→ (Many) Providers (Users)
      ↓                    ↓                      ↓
 Business Entity      Physical Locations    Individual Practitioners
 Contract Holder      Service Delivery      Order Creators
+
 ```
 
 ## Key Architecture Decision: Hybrid Users Table
@@ -757,16 +786,18 @@ JOIN organizations o ON f.organization_id = o.id
 WHERE pr.id = ?;
 ```
 
-## Real-World Examples:
+## Real-World Examples
 
-### Single Practice (Simple):
+### Single Practice (Simple)
+
 ```yaml
 Organization: "Dr. Smith Podiatry"
   └── Facility: "Dr. Smith Podiatry - Main Office"
       └── Provider: User ID 123 (Dr. James Smith, DPM)
 ```
 
-### Hospital System (Complex):
+### Hospital System (Complex)
+
 ```yaml
 Organization: "Regional Health System"
   ├── Facility: "Regional Hospital - Wound Care Center"
@@ -776,14 +807,14 @@ Organization: "Regional Health System"
       └── Provider: User ID 124 (Dr. Sarah Jones - works both locations)
 ```
 
-## Key Benefits of Hybrid Approach:
+## Key Benefits of Hybrid Approach
 
 1. **No Breaking Changes**: Existing code continues to work
 2. **Simplified Queries**: One JOIN instead of two for provider data
 3. **Easier User Management**: Single user record per provider
 4. **Maintains Flexibility**: Can still have providers at multiple facilities
 
-## Migration Tasks:
+## Migration Tasks
 
 ```sql
 -- Only two changes needed:
@@ -794,9 +825,10 @@ ADD COLUMN default_place_of_service VARCHAR(2) DEFAULT '11';
 -- Everything else remains as-is
 ```
 
-## Business Logic Implementation:
+## Business Logic Implementation
 
-### Check Provider Authorization:
+### Check Provider Authorization
+
 ```php
 // Can this provider order from this facility?
 $canOrder = DB::table('user_facilities')
@@ -806,7 +838,8 @@ $canOrder = DB::table('user_facilities')
     ->exists();
 ```
 
-### Get Provider's Primary Facility:
+### Get Provider's Primary Facility
+
 ```php
 // For default selections in UI
 $primaryFacility = DB::table('user_facilities')
@@ -817,6 +850,7 @@ $primaryFacility = DB::table('user_facilities')
 ```
 
 This hybrid model supports both simple single-practice scenarios and complex multi-location health systems while maintaining the existing codebase structure.
+
 ```
 
 ## 5. SALES_TEAM_DASHBOARDS_UPDATED.md
@@ -833,6 +867,7 @@ Sales reps and sub-reps earn commissions based on orders placed by the providers
 
 #### A. Commission Overview Widget
 ```
+
 ┌─────────────────────────────────────────────┐
 │ Commission Overview                         │
 ├─────────────────────────────────────────────┤
@@ -841,6 +876,7 @@ Sales reps and sub-reps earn commissions based on orders placed by the providers
 │ Next Payout: Feb 15                        │
 │ ████████░░ 50% of Target                   │
 └─────────────────────────────────────────────┘
+
 ```
 
 **Data Source:**
@@ -866,7 +902,9 @@ GROUP BY u.id;
 ```
 
 #### C. Recent Order Activity
+
 Shows orders from assigned providers with current status badges:
+
 - 🔵 `submitted` - New order from your provider
 - 🟠 `pending_ivr` - Order in IVR generation
 - 🟢 `manufacturer_approved` - Order approved
@@ -912,6 +950,7 @@ Shows orders from assigned providers with current status badges:
 ### Simplified Components
 
 #### A. Personal Commission Widget
+
 ```
 ┌─────────────────────────────────────────────┐
 │ My Earnings                                 │
@@ -924,6 +963,7 @@ Shows orders from assigned providers with current status badges:
 ```
 
 #### B. Provider Performance
+
 ```sql
 -- Streamlined query using current schema
 SELECT 
@@ -958,6 +998,7 @@ ADD COLUMN provider_count INT DEFAULT 0;
 ## 4. Commission Calculation
 
 ### Based on Streamlined Status Flow
+
 ```php
 // Commission calculation service
 class CommissionCalculationService
@@ -992,6 +1033,7 @@ class CommissionCalculationService
 ## 5. Status-Based Features
 
 ### Order Tracking for Reps
+
 Show providers' orders with meaningful status indicators:
 
 | Status | Rep Sees | Meaning |
@@ -1006,6 +1048,7 @@ Show providers' orders with meaningful status indicators:
 | `delivered` | "Complete (Commission Earned)" | Earning confirmed |
 
 ### Performance Metrics
+
 ```typescript
 interface RepMetrics {
   providers_acquired: number;
@@ -1022,21 +1065,25 @@ interface RepMetrics {
 ## 6. Implementation Priorities
 
 ### Phase 1: Core Dashboards (Week 1)
+
 - Basic commission tracking with new statuses
 - Provider list with order counts
 - Simple status indicators
 
 ### Phase 2: Enhanced Tracking (Week 2)
+
 - Real-time order status updates
 - Commission projections
 - Performance trends
 
 ### Phase 3: Team Features (Week 3)
+
 - Sub-rep management
 - Team performance rollups
 - Commission split calculations
 
 This updated dashboard design aligns with the streamlined order workflow while providing sales teams with clear visibility into their performance and earnings.
+
 ```
 
 I'll continue with the remaining documents. Would you like me to proceed with:

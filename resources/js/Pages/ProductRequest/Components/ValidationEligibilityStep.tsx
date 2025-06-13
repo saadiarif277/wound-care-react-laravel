@@ -187,7 +187,6 @@ const ValidationEligibilityStep = ({ formData, updateFormData, userSpecialty = '
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         },
         body: JSON.stringify({
           patient_data: formData.patient_api_input,
@@ -285,7 +284,6 @@ const ValidationEligibilityStep = ({ formData, updateFormData, userSpecialty = '
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
         }
       });
 

@@ -3,6 +3,8 @@ import { Head, router, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Card } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
+import { GlassTable, Table, Thead, Tbody, Tr, Th, Td } from '@/Components/ui/GlassTable';
+import { glassTheme } from '@/theme/glass-theme';
 import {
   Search,
   Filter,
@@ -46,7 +48,6 @@ interface Provider {
     days_past_due: number;
     last_payment_date?: string;
     last_payment_amount?: number;
-    credit_limit?: number;
   };
   created_at: string;
   last_activity_at?: string;
@@ -96,13 +97,13 @@ export default function ProvidersIndex({ providers, filters, organizations, summ
   const getVerificationBadge = (status: string) => {
     switch (status) {
       case 'verified':
-        return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="w-3 h-3 mr-1" />Verified</Badge>;
+        return <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"><CheckCircle2 className="w-3 h-3 mr-1" />Verified</Badge>;
       case 'pending':
-        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
+        return <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30"><Clock className="w-3 h-3 mr-1" />Pending</Badge>;
       case 'rejected':
-        return <Badge className="bg-red-100 text-red-800"><AlertTriangle className="w-3 h-3 mr-1" />Rejected</Badge>;
+        return <Badge className="bg-red-500/20 text-red-300 border border-red-500/30"><AlertTriangle className="w-3 h-3 mr-1" />Rejected</Badge>;
       default:
-        return <Badge className="bg-gray-100 text-gray-800">Unknown</Badge>;
+        return <Badge className="bg-white/20 text-white/75 border border-white/30">Unknown</Badge>;
     }
   };
 
@@ -145,7 +146,7 @@ export default function ProvidersIndex({ providers, filters, organizations, summ
                 <User className="w-8 h-8 text-gray-400" />
               </div>
             </Card>
-            
+
             <Card className="p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -244,120 +245,107 @@ export default function ProvidersIndex({ providers, filters, organizations, summ
           </Card>
 
           {/* Providers List */}
-          <Card className="overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Provider
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Organization & Facilities
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Activity
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Financial Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {providers.data.map((provider) => (
-                    <tr key={provider.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+          <GlassTable>
+            <Table>
+              <Thead>
+                <Tr>
+                  <Th>Provider</Th>
+                  <Th>Organization & Facilities</Th>
+                  <Th className="text-center">Status</Th>
+                  <Th className="text-center">Activity</Th>
+                  <Th className="text-right">Financial Status</Th>
+                  <Th className="text-right">Actions</Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                  {providers.data.map((provider, index) => (
+                    <Tr key={provider.id} isEven={index % 2 === 0}>
+                      <Td>
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
-                            <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
-                              <User className="h-5 w-5 text-gray-500" />
+                            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+                              <User className="h-5 w-5 text-white/60" />
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{provider.name}</div>
-                            <div className="text-sm text-gray-500">{provider.email}</div>
+                            <div className="text-sm font-medium">{provider.name}</div>
+                            <div className="text-sm opacity-75">{provider.email}</div>
                             {provider.npi_number && (
-                              <div className="text-xs text-gray-400">NPI: {provider.npi_number}</div>
+                              <div className="text-xs opacity-60">NPI: {provider.npi_number}</div>
                             )}
                           </div>
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{provider.current_organization?.name || 'No Organization'}</div>
-                        <div className="text-sm text-gray-500 flex items-center gap-1">
+                      </Td>
+                      <Td>
+                        <div className="text-sm">{provider.current_organization?.name || 'No Organization'}</div>
+                        <div className="text-sm opacity-75 flex items-center gap-1">
                           <Building className="w-3 h-3" />
                           {provider.facilities_count} {provider.facilities_count === 1 ? 'Facility' : 'Facilities'}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      </Td>
+                      <Td className="text-center">
                         <div className="flex flex-col items-center gap-2">
                           {provider.profile && getVerificationBadge(provider.profile.verification_status)}
                           {provider.profile && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs opacity-60">
                               {provider.profile.profile_completion_percentage}% Complete
                             </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                      </Td>
+                      <Td className="text-center">
                         <div className="space-y-1">
                           <div className="flex items-center justify-center gap-4 text-sm">
                             <span className="flex items-center gap-1">
-                              <Package className="w-4 h-4 text-gray-400" />
+                              <Package className="w-4 h-4 opacity-60" />
                               {provider.active_products_count} Products
                             </span>
                             <span className="flex items-center gap-1">
-                              <FileText className="w-4 h-4 text-gray-400" />
+                              <FileText className="w-4 h-4 opacity-60" />
                               {provider.total_orders_count} Orders
                             </span>
                           </div>
                           {provider.pending_orders_count > 0 && (
-                            <Badge className="bg-yellow-100 text-yellow-800 text-xs">
+                            <Badge className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs">
                               {provider.pending_orders_count} Pending
                             </Badge>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      </Td>
+                      <Td className="text-right">
                         <div className="space-y-1">
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className="text-sm font-medium">
                             {formatCurrency(provider.financial_summary.total_outstanding)}
                           </div>
                           {provider.financial_summary.past_due_amount > 0 && (
                             <div className="flex items-center justify-end gap-1">
-                              <AlertTriangle className="w-4 h-4 text-red-500" />
-                              <span className="text-sm font-medium text-red-600">
+                              <AlertTriangle className="w-4 h-4 text-red-400" />
+                              <span className="text-sm font-medium text-red-300">
                                 {formatCurrency(provider.financial_summary.past_due_amount)}
                               </span>
-                              <span className="text-xs text-red-500">
+                              <span className="text-xs text-red-400">
                                 ({provider.financial_summary.days_past_due}d past due)
                               </span>
                             </div>
                           )}
                           {provider.financial_summary.last_payment_date && (
-                            <div className="text-xs text-gray-500">
+                            <div className="text-xs opacity-60">
                               Last payment: {formatDistanceToNow(new Date(provider.financial_summary.last_payment_date), { addSuffix: true })}
                             </div>
                           )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      </Td>
+                      <Td className="text-right">
                         <div className="flex items-center justify-end gap-3">
                           <Link
                             href={route('admin.providers.edit', provider.id)}
-                            className="text-blue-600 hover:text-blue-900"
+                            className="text-blue-300 hover:text-blue-200 transition-colors"
                           >
                             Edit
                           </Link>
                           <button
                             onClick={() => router.visit(route('admin.providers.show', provider.id))}
-                            className="text-red-600 hover:text-red-900 flex items-center gap-1"
+                            className="text-red-300 hover:text-red-200 flex items-center gap-1 transition-colors"
                           >
                             View Profile
                             <ChevronRight className="w-4 h-4" />
@@ -369,51 +357,50 @@ export default function ProvidersIndex({ providers, filters, organizations, summ
                                   router.delete(route('admin.providers.destroy', provider.id));
                                 }
                               }}
-                              className="text-red-600 hover:text-red-900"
+                              className="text-red-300 hover:text-red-200 transition-colors"
                             >
                               Delete
                             </button>
                           )}
                         </div>
-                      </td>
-                    </tr>
+                      </Td>
+                    </Tr>
                   ))}
-                </tbody>
-              </table>
-            </div>
+              </Tbody>
+            </Table>
+          </GlassTable>
 
-            {/* Pagination */}
-            {providers.meta?.links && (
-              <div className="bg-white px-4 py-3 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-700">
-                      Showing <span className="font-medium">{providers.meta.from || 0}</span> to{' '}
-                      <span className="font-medium">{providers.meta.to || 0}</span> of{' '}
-                      <span className="font-medium">{providers.meta.total || 0}</span> providers
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {providers.links.map((link: any, index: number) => (
-                      <button
-                        key={index}
-                        onClick={() => link.url && router.visit(link.url)}
-                        disabled={!link.url}
-                        className={`px-3 py-1 text-sm rounded ${
-                          link.active
-                            ? 'bg-red-600 text-white'
-                            : link.url
-                            ? 'bg-white text-gray-700 hover:bg-gray-50 border'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        }`}
-                        dangerouslySetInnerHTML={{ __html: link.label }}
-                      />
-                    ))}
-                  </div>
+          {/* Pagination */}
+          {providers.meta?.links && (
+            <div className="bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] px-4 py-3 mt-4 rounded-xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-white/75">
+                    Showing <span className="font-medium text-white/95">{providers.meta.from || 0}</span> to{' '}
+                    <span className="font-medium text-white/95">{providers.meta.to || 0}</span> of{' '}
+                    <span className="font-medium text-white/95">{providers.meta.total || 0}</span> providers
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  {providers.links.map((link: any, index: number) => (
+                    <button
+                      key={index}
+                      onClick={() => link.url && router.visit(link.url)}
+                      disabled={!link.url}
+                      className={`px-3 py-1 text-sm rounded transition-all ${
+                        link.active
+                          ? 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white'
+                          : link.url
+                          ? 'bg-white/[0.07] text-white/75 hover:bg-white/[0.11] hover:text-white/95 border border-white/[0.12] hover:border-white/[0.18]'
+                          : 'bg-white/[0.03] text-white/30 cursor-not-allowed border border-white/[0.08]'
+                      }`}
+                      dangerouslySetInnerHTML={{ __html: link.label }}
+                    />
+                  ))}
                 </div>
               </div>
-            )}
-          </Card>
+            </div>
+          )}
         </div>
       </div>
     </MainLayout>

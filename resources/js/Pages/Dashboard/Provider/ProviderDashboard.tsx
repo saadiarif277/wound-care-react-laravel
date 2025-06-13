@@ -3,7 +3,15 @@ import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { PricingDisplay, OrderTotalDisplay } from '@/Components/Pricing/PricingDisplay';
 import { RoleRestrictions, UserWithRole } from '@/types/roles';
-import { FiPlus, FiTrendingUp, FiClock, FiCheck, FiAlertTriangle, FiUser, FiFileText } from 'react-icons/fi';
+import { FiPlus, FiTrendingUp, FiClock, FiCheck, FiAlertTriangle, FiUser, FiFileText, FiArrowUpRight, FiActivity } from 'react-icons/fi';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import { colors } from '@/theme/colors.config';
+import Heading from '@/Components/ui/Heading';
+import MetricCard from '@/Components/ui/MetricCard';
+import GlassCard from '@/Components/ui/GlassCard';
+import ActionButton from '@/Components/ui/ActionButton';
+import clsx from 'clsx';
 
 interface DashboardData {
   recent_requests: Array<{
@@ -57,34 +65,68 @@ interface ProviderDashboardProps {
   roleRestrictions: RoleRestrictions;
 }
 
-export default function ProviderDashboard({ user, dashboardData, roleRestrictions }: ProviderDashboardProps) {
+export default function ProviderDashboard(props: ProviderDashboardProps) {
+  return (
+    <MainLayout>
+      <DashboardContent {...props} />
+    </MainLayout>
+  );
+}
+
+function DashboardContent({ user, dashboardData, roleRestrictions }: ProviderDashboardProps) {
+  // Try to use theme if available, fallback to dark theme
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+  
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'submitted': return 'bg-blue-100 text-blue-800';
-      case 'approved': return 'bg-green-100 text-green-800';
-      case 'rejected': return 'bg-red-100 text-red-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      draft: 'bg-white/[0.08] text-white/55 border-white/[0.15]',
+      submitted: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      approved: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      rejected: 'bg-red-500/20 text-red-300 border-red-500/30',
+      processing: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    } : {
+      draft: 'bg-gray-100 text-gray-600 border-gray-300',
+      submitted: 'bg-blue-50 text-blue-700 border-blue-200',
+      approved: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      rejected: 'bg-red-50 text-red-700 border-red-200',
+      processing: 'bg-amber-50 text-amber-700 border-amber-200',
+    };
+    return colors[status] || colors.draft;
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
-      case 'high': return 'bg-red-100 text-red-800';
-      case 'medium': return 'bg-yellow-100 text-yellow-800';
-      case 'low': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      high: 'bg-red-500/20 text-red-300 border-red-500/30',
+      medium: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      low: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+    } : {
+      high: 'bg-red-50 text-red-700 border-red-200',
+      medium: 'bg-amber-50 text-amber-700 border-amber-200',
+      low: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    };
+    return colors[priority] || colors.medium;
   };
 
   const getEligibilityStatusColor = (status: string) => {
-    switch (status) {
-      case 'verified': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'expired': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+    const colors = theme === 'dark' ? {
+      verified: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      pending: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+      expired: 'bg-red-500/20 text-red-300 border-red-500/30',
+    } : {
+      verified: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+      pending: 'bg-amber-50 text-amber-700 border-amber-200',
+      expired: 'bg-red-50 text-red-700 border-red-200',
+    };
+    return colors[status] || colors.pending;
   };
 
   const formatCurrency = (amount: number): string => {
@@ -95,279 +137,244 @@ export default function ProviderDashboard({ user, dashboardData, roleRestriction
   };
 
   return (
-    <MainLayout>
+    <>
       <Head title="Provider Dashboard" />
 
-      <div className="space-y-6">
+      <div className="relative space-y-6">
         {/* Provider Welcome Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Welcome, {user.name}</h1>
-          <p className="mt-2 text-gray-600 leading-normal">
+        <div className="mb-8 text-center max-w-4xl mx-auto">
+          <Heading level={1} className="bg-clip-text text-transparent bg-gradient-to-r from-[#1925c3] to-[#c71719]">
+            Welcome, {user.name}
+          </Heading>
+          <p className={cn("mt-2 leading-normal", t.text.secondary)}>
             Manage your wound care product requests, track patient outcomes, and access clinical decision support tools.
           </p>
         </div>
 
         {/* Key Metrics */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Total Requests</h3>
-            <p className="text-3xl font-bold text-blue-600 mt-2">{dashboardData.metrics.total_requests}</p>
-            <p className="text-xs text-gray-600 mt-2">All time</p>
-          </div>
+        <div className="max-w-5xl mx-auto">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              title="Total Requests"
+              value={dashboardData.metrics.total_requests}
+              subtitle="All time"
+              icon={<FiActivity className="h-8 w-8" />}
+              status="default"
+              size="sm"
+            />
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Pending Requests</h3>
-            <p className="text-3xl font-bold text-yellow-600 mt-2">{dashboardData.metrics.pending_requests}</p>
-            <p className="text-xs text-gray-600 mt-2">Awaiting processing</p>
-          </div>
+            <MetricCard
+              title="Pending Requests"
+              value={dashboardData.metrics.pending_requests}
+              subtitle="Awaiting processing"
+              icon={<FiClock className="h-8 w-8" />}
+              status="info"
+              size="sm"
+            />
 
-          <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Approved Requests</h3>
-            <p className="text-3xl font-bold text-green-600 mt-2">{dashboardData.metrics.approved_requests}</p>
-            <p className="text-xs text-gray-600 mt-2">Ready for delivery</p>
-          </div>
+            <MetricCard
+              title="Approved Requests"
+              value={dashboardData.metrics.approved_requests}
+              subtitle="Ready for delivery"
+              icon={<FiCheck className="h-8 w-8" />}
+              status="success"
+              trend={15}
+              size="sm"
+            />
 
-          {roleRestrictions.can_view_financials && dashboardData.metrics.total_amount_owed && (
-            <div className="bg-white rounded-xl shadow-lg p-6 border border-gray-100">
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">Total Value</h3>
-              <p className="text-3xl font-bold text-purple-600 mt-2">
-                {formatCurrency(dashboardData.metrics.total_amount_owed)}
-              </p>
-              <p className="text-xs text-gray-600 mt-2">Approved orders</p>
-            </div>
-          )}
-        </div>
-
-        {/* Action Items */}
-        {dashboardData.action_items && dashboardData.action_items.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200 bg-amber-50">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <FiAlertTriangle className="h-6 w-6 text-amber-600" />
-                  </div>
-                  <div className="ml-3">
-                    <h2 className="text-xl font-semibold text-gray-900">Action Required</h2>
-                    <p className="text-sm text-gray-600 mt-1">Items that need your immediate attention</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="divide-y divide-gray-200">
-              {dashboardData.action_items.map((item) => (
-                <div key={item.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
-                        <h3 className="text-sm font-semibold text-gray-900">{item.patient_name}</h3>
-                        <span className={`inline-flex sm:ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(item.priority)}`}>
-                          {item.priority} priority
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">Due: {item.due_date}</p>
-                    </div>
-                    <Link
-                      href={`/product-requests/${item.id}`}
-                      className="w-full lg:w-auto lg:ml-4 px-3 py-2 bg-blue-600 text-white text-center rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Take Action
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recent Patient Requests */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-4 sm:p-6 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between space-y-3 sm:space-y-0">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiFileText className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                </div>
-                <div className="ml-3">
-                  <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Recent Patient Requests</h2>
-                  <p className="text-sm text-gray-600 mt-1">Latest wound care product requests and their status</p>
-                </div>
-              </div>
-              <Link
-                href="/product-requests"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-center"
-              >
-                View All Requests
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {dashboardData.recent_requests && dashboardData.recent_requests.length > 0 ? (
-              dashboardData.recent_requests.map((request) => (
-                <div key={request.id} className="p-4 sm:p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between space-y-3 lg:space-y-0">
-                    <div className="flex-1">
-                      <div className="flex flex-col sm:flex-row sm:items-center space-y-2 sm:space-y-0">
-                        <h3 className="text-sm font-semibold text-gray-900">{request.patient_name}</h3>
-                        <span className={`inline-flex sm:ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(request.status)}`}>
-                          {request.status.replace('_', ' ').toUpperCase()}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">
-                        {request.wound_type} - {request.facility_name}
-                      </p>
-                      <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-4 mt-2 text-xs text-gray-500">
-                        <span>Request #{request.request_number}</span>
-                        <span>Created: {new Date(request.created_at).toLocaleDateString()}</span>
-                        {roleRestrictions.can_view_financials && request.total_amount && (
-                          <span>Value: {formatCurrency(request.total_amount)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <Link
-                      href={`/product-requests/${request.id}`}
-                      className="w-full lg:w-auto lg:ml-4 px-3 py-2 bg-blue-600 text-white text-center rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      View Request
-                    </Link>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="p-6 text-center text-gray-500">
-                <p>No recent requests found.</p>
-                <Link
-                  href="/product-requests/create"
-                  className="mt-2 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                >
-                  <FiPlus className="mr-2 h-4 w-4" />
-                  Create New Request
-                </Link>
-              </div>
+            {roleRestrictions.can_view_financials && dashboardData.metrics.total_amount_owed && (
+              <MetricCard
+                title="Total Value"
+                value={formatCurrency(dashboardData.metrics.total_amount_owed)}
+                subtitle="Approved orders"
+                icon={<FiTrendingUp className="h-8 w-8" />}
+                status="danger"
+                trend={-5}
+                size="sm"
+              />
             )}
           </div>
         </div>
 
-        {/* Clinical Opportunities (if available from backend) */}
-        {dashboardData.clinical_opportunities && dashboardData.clinical_opportunities.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiTrendingUp className="h-6 w-6 text-purple-600" />
+        {/* Action Items Section */}
+        {dashboardData.action_items.length > 0 && (
+          <GlassCard className="max-w-5xl mx-auto" variant="warning">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-full">
+                <FiAlertTriangle className="h-6 w-6 animate-pulse text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <div className="mb-4">
+                  <h2 className={cn("text-xl font-semibold", t.text.primary)}>Action Required</h2>
+                  <p className={cn("text-sm mt-1", t.text.secondary)}>Items that need your immediate attention</p>
                 </div>
-                <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Clinical Opportunities</h2>
-                  <p className="text-sm text-gray-600 mt-1">AI-identified opportunities for enhanced patient care</p>
+                <div className="space-y-3">
+                  {dashboardData.action_items.map((item) => (
+                    <div key={item.id} className={cn("p-4 rounded-lg border flex items-start gap-4", t.glass.base, "border-amber-500/20")}>
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                        {item.priority}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className={cn("text-sm font-semibold", t.text.primary)}>{item.patient_name}</h3>
+                        <p className={cn("text-sm mt-1", t.text.secondary)}>{item.description}</p>
+                        <p className={cn("text-xs mt-1", t.text.muted)}>Due: {item.due_date}</p>
+                      </div>
+                      <Link
+                        href={route('product-requests.show', { id: item.request_id })}
+                        className={cn(
+                          "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
+                          theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        )}
+                      >
+                        View <FiArrowUpRight className="ml-1 h-3 w-3" />
+                      </Link>
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
-            <div className="divide-y divide-gray-200">
-              {dashboardData.clinical_opportunities.map((opportunity) => (
-                <div key={opportunity.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-sm font-semibold text-gray-900">{opportunity.patient}</h3>
-                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(opportunity.priority)}`}>
-                          {opportunity.priority} priority
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{opportunity.description}</p>
-                      <div className="flex items-center mt-2 text-xs text-gray-500">
-                        <span>{opportunity.type}</span>
-                        {opportunity.hcpcs_code && <span className="ml-4">HCPCS: {opportunity.hcpcs_code}</span>}
-                        {roleRestrictions.can_view_financials && opportunity.estimated_value && (
-                          <span className="ml-4">Est. Value: {formatCurrency(opportunity.estimated_value)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <button className="ml-4 px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
-                      Review
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          </GlassCard>
         )}
 
-        {/* Insurance Eligibility Status (if available from backend) */}
-        {dashboardData.eligibility_status && dashboardData.eligibility_status.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <FiCheck className="h-6 w-6 text-green-600" />
-                </div>
-                <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Insurance Eligibility Status</h2>
-                  <p className="text-sm text-gray-600 mt-1">Real-time payer connectivity and eligibility verification</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6">
-              <div className="grid gap-4 md:grid-cols-2">
-                {dashboardData.eligibility_status.map((status, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-semibold text-gray-900">{status.payer}</h3>
-                      <span className={`px-2 py-1 text-xs font-medium rounded-full ${getEligibilityStatusColor(status.status)}`}>
-                        {status.status}
-                      </span>
-                    </div>
-                    <div className="mt-2 text-xs text-gray-600">
-                      <p>Coverage: {status.coverage}</p>
-                      <p>Deductible: {status.deductible}</p>
-                      <p>Last Updated: {new Date(status.last_updated).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+        {/* Recent Requests */}
+        <GlassCard className="max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h2 className={cn("text-xl font-semibold", t.text.primary)}>Recent Product Requests</h2>
+            <p className={cn("text-sm mt-1", t.text.secondary)}>Your latest wound care supply orders</p>
           </div>
-        )}
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className={cn(t.table.header)}>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Request #</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Patient</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Wound Type</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Status</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Facility</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Date</th>
+                  {roleRestrictions.can_view_financials && (
+                    <th className={cn("px-6 py-3 text-right", t.table.headerText)}>Amount</th>
+                  )}
+                  <th className={cn("px-6 py-3 text-right", t.table.headerText)}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dashboardData.recent_requests.map((request, index) => (
+                  <tr key={request.id} className={cn(
+                    t.table.row,
+                    index % 2 === 0 ? t.table.evenRow : '',
+                    t.table.rowHover
+                  )}>
+                    <td className={cn("px-6 py-4 font-medium", t.text.primary)}>
+                      {request.request_number}
+                    </td>
+                    <td className={cn("px-6 py-4", t.text.primary)}>
+                      {request.patient_name}
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {request.wound_type}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {request.facility_name}
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {new Date(request.created_at).toLocaleDateString()}
+                    </td>
+                    {roleRestrictions.can_view_financials && (
+                      <td className={cn("px-6 py-4 text-right font-medium", t.text.primary)}>
+                        {request.total_amount ? formatCurrency(request.total_amount) : '-'}
+                      </td>
+                    )}
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={route('product-requests.show', { id: request.id })}
+                        className={cn(
+                          "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
+                          theme === 'dark' ? t.table.actionButton : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        )}
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
 
         {/* Quick Actions */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            <Link
-              href="/product-requests/create"
-              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <FiPlus className="h-6 w-6 text-blue-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">New Product Request</h3>
-                <p className="text-xs text-gray-600">Submit wound care product request</p>
+        <div className="max-w-5xl mx-auto grid gap-6 md:grid-cols-3">
+          <Link
+            href={route('product-requests.create')}
+            className={cn(
+              "group relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-105",
+              theme === 'dark' ? t.glass.card : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+            )}
+          >
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "p-3 rounded-full",
+                theme === 'dark' ? 'bg-[#1925c3]/20' : 'bg-[#1925c3]/10'
+              )}>
+                <FiPlus className="h-6 w-6 text-[#1925c3]" />
               </div>
-            </Link>
+              <div>
+                <h3 className={cn("font-semibold", t.text.primary)}>New Request</h3>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>Create a product request</p>
+              </div>
+            </div>
+          </Link>
 
-            <Link
-              href="/eligibility"
-              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <FiCheck className="h-6 w-6 text-green-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Check Eligibility</h3>
-                <p className="text-xs text-gray-600">Verify patient insurance coverage</p>
+          <Link
+            href={route('providers.index')}
+            className={cn(
+              "group relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-105",
+              theme === 'dark' ? t.glass.card : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+            )}
+          >
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "p-3 rounded-full",
+                theme === 'dark' ? 'bg-emerald-500/20' : 'bg-emerald-500/10'
+              )}>
+                <FiUser className="h-6 w-6 text-emerald-500" />
               </div>
-            </Link>
+              <div>
+                <h3 className={cn("font-semibold", t.text.primary)}>My Profile</h3>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>Update your information</p>
+              </div>
+            </div>
+          </Link>
 
-            <Link
-              href="/product-requests"
-              className="flex items-center p-4 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              <FiUser className="h-6 w-6 text-purple-600 mr-3" />
-              <div>
-                <h3 className="text-sm font-semibold text-gray-900">Patient Management</h3>
-                <p className="text-xs text-gray-600">View all patient requests</p>
+          <Link
+            href={route('product-requests.index')}
+            className={cn(
+              "group relative overflow-hidden rounded-2xl p-6 transition-all duration-300 hover:scale-105",
+              theme === 'dark' ? t.glass.card : 'bg-white border border-gray-200 shadow-sm hover:shadow-md'
+            )}
+          >
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "p-3 rounded-full",
+                theme === 'dark' ? 'bg-amber-500/20' : 'bg-amber-500/10'
+              )}>
+                <FiFileText className="h-6 w-6 text-amber-500" />
               </div>
-            </Link>
-          </div>
+              <div>
+                <h3 className={cn("font-semibold", t.text.primary)}>All Requests</h3>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>View all product requests</p>
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
-    </MainLayout>
+    </>
   );
 }

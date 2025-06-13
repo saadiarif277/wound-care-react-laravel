@@ -38,12 +38,26 @@ class LoginController extends Controller
      */
     public function destroy(Request $request): RedirectResponse
     {
+        // Logout the user
         Auth::guard('web')->logout();
 
+        // Invalidate the session
         $request->session()->invalidate();
 
+        // Regenerate CSRF token
         $request->session()->regenerateToken();
 
-        return redirect('/');
+        // Clear any cached user data
+        if ($request->user()) {
+            $request->user()->flushEventListeners();
+        }
+
+        // Return JSON response for AJAX requests
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Logged out successfully']);
+        }
+
+        // Redirect to login page with a message
+        return redirect('/login')->with('status', 'You have been successfully logged out.');
     }
 }

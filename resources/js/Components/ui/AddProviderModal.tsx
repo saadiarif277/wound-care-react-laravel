@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, UserPlus, Mail, Phone, User, Save, Loader2, Building } from 'lucide-react';
+import { Modal } from '@/Components/Modal';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import TextInput from '@/Components/Form/TextInput';
+import SelectInput from '@/Components/Form/SelectInput';
+import Button from '@/Components/Button';
 
 interface AddProviderModalProps {
     isOpen: boolean;
@@ -52,6 +58,17 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
     facilities = [],
     organizations = []
 }) => {
+    // Theme setup
+    let theme: 'dark' | 'light' = 'dark';
+    let t = themes.dark;
+
+    try {
+        const themeContext = useTheme();
+        theme = themeContext.theme;
+        t = themes[theme];
+    } catch (e) {
+        // If not in ThemeProvider, use dark theme
+    }
     const [formData, setFormData] = useState<FormData>({
         first_name: '',
         last_name: '',
@@ -274,44 +291,47 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
-
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <Modal show={isOpen} onClose={onClose} maxWidth="2xl">
+            <div className={cn(theme === 'dark' ? t.modal.container : '')}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className={cn(t.modal.header, "flex items-center justify-between")}>
                     <div className="flex items-center space-x-3">
-                        <UserPlus className="h-6 w-6 text-blue-600" />
-                        <h2 className="text-xl font-semibold text-gray-900">Add New Provider</h2>
+                        <UserPlus className={cn("h-6 w-6", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')} />
+                        <h2 className={cn("text-xl font-semibold", t.text.primary)}>Add New Provider</h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className={cn(
+                            "p-2 rounded-lg transition-colors",
+                            theme === 'dark' ? 'text-white/60 hover:text-white hover:bg-white/10' : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        )}
                     >
-                        <X className="h-6 w-6" />
+                        <X className="h-5 w-5" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className={cn(t.modal.body, "space-y-6")}>
                     {/* Basic Information */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Basic Information</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Organization */}
                             {!organizationId && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         Organization *
                                     </label>
                                     <select
                                         value={formData.organization_id}
                                         onChange={(e) => handleInputChange('organization_id', e.target.value)}
-                                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.organization_id ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.organization_id ? t.input.error : ''
+                                        )}
                                     >
                                         <option value="">Select Organization</option>
                                         {organizations.map(org => (
@@ -321,105 +341,116 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                         ))}
                                     </select>
                                     {errors.organization_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.organization_id}</p>
+                                        <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.organization_id}</p>
                                     )}
                                 </div>
                             )}
 
                             {/* First Name */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     First Name *
                                 </label>
                                 <div className="relative">
-                                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <User className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                                     <input
                                         type="text"
                                         value={formData.first_name}
                                         onChange={(e) => handleInputChange('first_name', e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.first_name ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            "pl-10",
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.first_name ? t.input.error : ''
+                                        )}
                                         placeholder="Enter first name"
                                     />
                                 </div>
                                 {errors.first_name && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.first_name}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.first_name}</p>
                                 )}
                             </div>
 
                             {/* Last Name */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Last Name *
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.last_name}
                                     onChange={(e) => handleInputChange('last_name', e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.last_name ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.last_name ? t.input.error : ''
+                                    )}
                                     placeholder="Enter last name"
                                 />
                                 {errors.last_name && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.last_name}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.last_name}</p>
                                 )}
                             </div>
 
                             {/* Email */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Email *
                                 </label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Mail className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                                     <input
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => handleInputChange('email', e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.email ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            "pl-10",
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.email ? t.input.error : ''
+                                        )}
                                         placeholder="Enter email address"
                                     />
                                 </div>
                                 {errors.email && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.email}</p>
                                 )}
                             </div>
 
                             {/* Phone */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Phone
                                 </label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Phone className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                                     <input
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.phone ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            "pl-10",
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.phone ? t.input.error : ''
+                                        )}
                                         placeholder="Enter phone number"
                                     />
                                 </div>
                                 {errors.phone && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.phone}</p>
                                 )}
                             </div>
 
                             {/* Title */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Title/Credential
                                 </label>
                                 <select
                                     value={formData.title}
                                     onChange={(e) => handleInputChange('title', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn(t.input.base, t.input.focus)}
                                 >
                                     {providerTitles.map(title => (
                                         <option key={title.value} value={title.value}>
@@ -431,14 +462,14 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
 
                             {/* Specialties */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Specialties
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.specialties}
                                     onChange={(e) => handleInputChange('specialties', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn(t.input.base, t.input.focus)}
                                     placeholder="e.g., Wound Care, Internal Medicine"
                                 />
                             </div>
@@ -447,52 +478,54 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
 
                     {/* Professional Information */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Professional Information</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Professional Information</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* NPI */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     NPI
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.npi}
                                     onChange={(e) => handleInputChange('npi', e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.npi ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.npi ? t.input.error : ''
+                                    )}
                                     placeholder="Enter 10-digit NPI"
                                     maxLength={10}
                                 />
                                 {errors.npi && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.npi}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.npi}</p>
                                 )}
                             </div>
 
                             {/* License Number */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     License Number
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.license_number}
                                     onChange={(e) => handleInputChange('license_number', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn(t.input.base, t.input.focus)}
                                     placeholder="Enter license number"
                                 />
                             </div>
 
                             {/* License State */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     License State
                                 </label>
                                 <select
                                     value={formData.license_state}
                                     onChange={(e) => handleInputChange('license_state', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn(t.input.base, t.input.focus)}
                                 >
                                     {states.map(state => (
                                         <option key={state.value} value={state.value}>
@@ -506,24 +539,28 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
 
                     {/* Facility Assignments */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Facility Assignments</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Facility Assignments</h3>
 
                         {facilities.length > 0 ? (
                             <div className="space-y-3">
-                                <p className="text-sm text-gray-600">Select the facilities this provider will be assigned to:</p>
+                                <p className={cn("text-sm", t.text.secondary)}>Select the facilities this provider will be assigned to:</p>
                                 {facilities.map(facility => (
-                                    <div key={facility.id} className="flex items-center justify-between p-3 border border-gray-200 rounded-md">
+                                    <div key={facility.id} className={cn("flex items-center justify-between p-3 rounded-lg", t.glass.base)}>
                                         <div className="flex items-center space-x-3">
                                             <input
                                                 type="checkbox"
                                                 id={`facility-${facility.id}`}
                                                 checked={formData.facility_assignments.includes(facility.id)}
                                                 onChange={(e) => handleFacilityAssignment(facility.id, e.target.checked)}
-                                                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                className={cn("h-4 w-4 rounded",
+                                                    theme === 'dark'
+                                                        ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
+                                                        : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                                )}
                                             />
                                             <label htmlFor={`facility-${facility.id}`} className="flex items-center space-x-2">
-                                                <Building className="h-4 w-4 text-gray-400" />
-                                                <span className="text-sm font-medium text-gray-900">{facility.name}</span>
+                                                <Building className={cn("h-4 w-4", t.text.muted)} />
+                                                <span className={cn("text-sm font-medium", t.text.primary)}>{facility.name}</span>
                                             </label>
                                         </div>
                                         {formData.facility_assignments.includes(facility.id) && (
@@ -533,9 +570,13 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                                     id={`primary-${facility.id}`}
                                                     checked={formData.is_primary_facility[facility.id] || false}
                                                     onChange={(e) => handlePrimaryFacility(facility.id, e.target.checked)}
-                                                    className="h-3 w-3 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                                    className={cn("h-3 w-3 rounded",
+                                                        theme === 'dark'
+                                                            ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
+                                                            : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                                    )}
                                                 />
-                                                <label htmlFor={`primary-${facility.id}`} className="text-xs text-gray-600">
+                                                <label htmlFor={`primary-${facility.id}`} className={cn("text-xs", t.text.secondary)}>
                                                     Primary
                                                 </label>
                                             </div>
@@ -543,11 +584,11 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                     </div>
                                 ))}
                                 {errors.facility_assignments && (
-                                    <p className="text-sm text-red-600">{errors.facility_assignments}</p>
+                                    <p className={cn("text-sm", t.status.error.split(' ')[0])}>{errors.facility_assignments}</p>
                                 )}
                             </div>
                         ) : (
-                            <div className="text-center py-4 text-gray-500">
+                            <div className={cn("text-center py-4", t.text.muted)}>
                                 No facilities available. Please add facilities to this organization first.
                             </div>
                         )}
@@ -555,7 +596,7 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
 
                     {/* Invitation Settings */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Invitation Settings</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Invitation Settings</h3>
 
                         <div className="space-y-3">
                             <div className="flex items-center">
@@ -564,23 +605,27 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                     id="send_invitation"
                                     checked={formData.send_invitation}
                                     onChange={(e) => handleInputChange('send_invitation', e.target.checked)}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className={cn("h-4 w-4 rounded",
+                                        theme === 'dark'
+                                            ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
+                                            : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                    )}
                                 />
-                                <label htmlFor="send_invitation" className="ml-2 block text-sm text-gray-900">
+                                <label htmlFor="send_invitation" className={cn("ml-2 block text-sm", t.text.primary)}>
                                     Send invitation email to provider
                                 </label>
                             </div>
 
                             {formData.send_invitation && (
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         Invitation Message (Optional)
                                     </label>
                                     <textarea
                                         value={formData.invitation_message}
                                         onChange={(e) => handleInputChange('invitation_message', e.target.value)}
                                         rows={3}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={cn(t.input.base, t.input.focus)}
                                         placeholder="Add a personal message to the invitation email..."
                                     />
                                 </div>
@@ -588,28 +633,35 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                         </div>
                     </div>
 
-                    {/* Action Buttons */}
-                    <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
-                        <button
-                            type="button"
-                            onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={isLoading}
-                            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {isLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                                <Save className="h-4 w-4" />
-                            )}
-                            <span>{isLoading ? (formData.send_invitation ? 'Sending Invitation...' : 'Creating...') : (formData.send_invitation ? 'Send Invitation' : 'Create Provider')}</span>
-                        </button>
-                    </div>
+                </form>
+
+                {/* Action Buttons */}
+                <div className={cn("flex items-center justify-end space-x-3 pt-6", t.modal.footer)}>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className={cn("px-4 py-2 text-sm font-medium rounded-lg", t.button.secondary)}
+                    >
+                        Cancel
+                    </button>
+                    <button
+                        type="submit"
+                        onClick={handleSubmit}
+                        disabled={isLoading}
+                        className={cn(
+                            "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg",
+                            t.button.primary,
+                            isLoading ? "opacity-50 cursor-not-allowed" : ""
+                        )}
+                    >
+                        {isLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                            <Save className="h-4 w-4" />
+                        )}
+                        <span>{isLoading ? (formData.send_invitation ? 'Sending Invitation...' : 'Creating...') : (formData.send_invitation ? 'Send Invitation' : 'Create Provider')}</span>
+                    </button>
+                </div>
                 </form>
             </div>
         </div>

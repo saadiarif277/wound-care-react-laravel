@@ -7,6 +7,8 @@ import DateInput from '@/Components/Form/DateInput';
 import TextAreaInput from '@/Components/Form/TextAreaInput';
 import LoadingButton from '@/Components/Button/LoadingButton';
 import { X, Search } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface Product {
   id: number;
@@ -24,6 +26,18 @@ interface AddProductModalProps {
 }
 
 export default function AddProductModal({ isOpen, onClose, providerId }: AddProductModalProps) {
+  // Theme setup with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // If not in ThemeProvider, use dark theme
+  }
+
   const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -103,12 +117,17 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
 
   return (
     <Modal show={isOpen} onClose={handleClose} maxWidth="md">
-      <div className="p-6">
+      <div className={cn(t.modal.body)}>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold">Add Product Onboarding</h2>
+          <h2 className={cn("text-lg font-semibold", t.text.primary)}>Add Product Onboarding</h2>
           <button
             onClick={handleClose}
-            className="text-gray-400 hover:text-gray-600"
+            className={cn(
+              "transition-colors rounded-lg p-1",
+              theme === 'dark'
+                ? 'text-white/60 hover:text-white/90 hover:bg-white/10'
+                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+            )}
           >
             <X className="w-5 h-5" />
           </button>
@@ -117,30 +136,30 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Product Search */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
               Search Products
             </label>
             <div className="relative">
-              <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
+              <Search className={cn("absolute left-3 top-3 w-4 h-4", t.text.muted)} />
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search by name, SKU, or manufacturer..."
-                className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className={cn("pl-10 pr-4", t.input.base, t.input.focus)}
               />
             </div>
             {loading && (
-              <p className="text-sm text-gray-500 mt-1">Loading products...</p>
+              <p className={cn("text-sm mt-1", t.text.muted)}>Loading products...</p>
             )}
             {!loading && searchTerm.length > 0 && filteredProducts.length === 0 && (
-              <p className="text-sm text-gray-500 mt-1">No products found matching your search</p>
+              <p className={cn("text-sm mt-1", t.text.muted)}>No products found matching your search</p>
             )}
           </div>
 
           {/* Product Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
               Select Product
             </label>
             <SelectInput
@@ -160,7 +179,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
               Onboarding Status
             </label>
             <SelectInput
@@ -194,18 +213,18 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
             placeholder="Any additional notes about this product onboarding..."
           />
 
-          <div className="flex justify-end gap-3 pt-4">
+          <div className={cn("flex justify-end gap-3 pt-4", t.modal.footer)}>
             <button
               type="button"
               onClick={handleClose}
-              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
+              className={cn(t.button.secondary.base, t.button.secondary.hover)}
             >
               Cancel
             </button>
             <LoadingButton
               type="submit"
               loading={processing}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className={cn(t.button.primary.base, t.button.primary.hover)}
               disabled={!data.product_id}
             >
               Add Product

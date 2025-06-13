@@ -3,14 +3,19 @@ import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
 import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
-import React, { useState, useEffect } from 'react';
+import { AIOverlay, FloatingAIButton } from '@/Components/GhostAiUi';
+import { Toaster } from '@/Components/GhostAiUi/ui/toaster';
+import React, { useEffect } from 'react';
 import {
   FiLogOut,
   FiMenu,
   FiX,
   FiChevronLeft,
-  FiChevronRight
+  FiChevronRight,
 } from 'react-icons/fi';
+import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import { ThemeToggleCompact } from '@/components/ThemeToggle';
 
 interface MainLayoutProps {
   title?: string;
@@ -32,89 +37,115 @@ interface PageProps extends Record<string, unknown> {
   };
 }
 
-export default function MainLayout({ title, children }: MainLayoutProps) {
+// Inner component that uses theme
+function ThemedLayout({ title, children }: MainLayoutProps) {
+  const { theme } = useTheme();
   const { props } = usePage<PageProps>();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(props.userRole || 'provider');
+  const [isCollapsed, setIsCollapsed] = React.useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [currentUserRole, setCurrentUserRole] = React.useState<UserRole>(props.userRole || 'provider');
+  const [isAIOverlayVisible, setIsAIOverlayVisible] = React.useState(false);
 
-  // Get current path to determine active menu item
   const currentPath = window.location.pathname;
-
-  // Get user data
   const user = props.auth?.user;
   const userName = user ? `${user.first_name} ${user.last_name}` : 'User';
-  const userEmail = user?.email || '';
   const roleDisplayName = currentUserRole ? getRoleDisplayName(currentUserRole) : 'User';
+  const t = themes[theme]; // Current theme
 
-  // Update current role when props change
-  useEffect(() => {
-    if (props.userRole) {
-      setCurrentUserRole(props.userRole);
-    }
+  React.useEffect(() => {
+    if (props.userRole) setCurrentUserRole(props.userRole);
   }, [props.userRole]);
 
-  const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const toggleSidebar = () => setIsCollapsed(!isCollapsed);
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
 
   return (
     <>
       <Head title={title} />
-      <div className="flex min-h-screen bg-gray-100">
+      <div className={cn(
+        "flex min-h-screen relative custom-scrollbar",
+        theme === 'dark'
+          ? 'bg-gradient-to-br from-[#0a0f1c] via-[#121829] to-[#1a1f2e]'
+          : t.background.base
+      )}>
         {/* Mobile Menu Overlay */}
         {isMobileMenuOpen && (
           <div
-            className="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
+            className={cn(
+              "fixed inset-0 z-40 md:hidden",
+              theme === 'dark' ? 'bg-black/60 backdrop-blur-sm' : 'bg-gray-900/30 backdrop-blur-sm'
+            )}
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
 
         {/* Sidebar Navigation */}
-        <div className={`
-          fixed md:relative inset-y-0 left-0 z-50 bg-white shadow-xl border-r border-gray-200
-          transition-all duration-300 ease-in-out transform
-          ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
-          md:translate-x-0
-          ${isCollapsed ? 'md:w-20' : 'md:w-72'}
-        `}>
+        <div
+          className={cn(
+            "fixed md:relative inset-y-0 left-0 z-50",
+            "transition-all duration-300 ease-in-out transform",
+            "m-4 md:m-4 md:my-4 md:ml-4 md:mr-0",
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
+            "md:translate-x-0",
+            isCollapsed ? 'md:w-20' : 'md:w-72',
+            theme === 'dark' ? t.navigation.container : cn(t.navigation.container, t.shadows.glass)
+          )}
+        >
           <div className="flex flex-col h-full">
             {/* Brand Logo */}
-            <div className={`flex items-center px-6 py-5 bg-white border-b border-gray-200 ${
-              isCollapsed ? 'justify-center' : 'justify-between'
-            }`}>
+            <div
+              className={cn(
+                "flex items-center px-6 py-5 rounded-t-2xl border-b",
+                theme === 'dark' ? `${t.glass.frost} border-white/10` : 'bg-white/90 border-gray-200',
+                isCollapsed ? 'justify-center' : 'justify-between'
+              )}
+            >
               <Link href="/" className="flex items-center">
                 <img
                   src="/MSC-logo.png"
                   alt="MSC Wound Care"
-                  className={`w-auto transition-all duration-300 ${
+                  className={cn(
+                    "w-auto transition-all duration-300",
                     isCollapsed ? 'h-8' : 'h-12'
-                  }`}
+                  )}
                 />
               </Link>
 
-              {/* Desktop Toggle Button */}
-              <button
-                onClick={toggleSidebar}
-                className={`hidden md:flex items-center justify-center w-8 h-8 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors ${
-                  isCollapsed ? 'ml-0' : 'ml-4'
-                }`}
-              >
-                {isCollapsed ? (
-                  <FiChevronRight className="w-4 h-4" />
-                ) : (
-                  <FiChevronLeft className="w-4 h-4" />
-                )}
-              </button>
+              {/* Desktop Toggle Buttons */}
+              <div className={cn(
+                "hidden md:flex items-center space-x-2",
+                isCollapsed ? 'ml-0' : 'ml-4'
+              )}>
+                {/* Theme Toggle */}
+                <ThemeToggleCompact />
+
+                {/* Sidebar Toggle */}
+                <button
+                  onClick={toggleSidebar}
+                  className={cn(
+                    "flex items-center justify-center w-8 h-8 rounded-full transition-all",
+                    theme === 'dark'
+                      ? `${t.text.secondary} ${t.glass.hover}`
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  )}
+                >
+                  {isCollapsed ? (
+                    <FiChevronRight className="w-4 h-4" />
+                  ) : (
+                    <FiChevronLeft className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
 
               {/* Mobile Close Button */}
               <button
                 onClick={toggleMobileMenu}
-                className="md:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full"
+                className={cn(
+                  "md:hidden p-2 rounded-full",
+                  theme === 'dark'
+                    ? `${t.text.secondary} ${t.glass.hover}`
+                    : 'text-gray-600 hover:bg-gray-100'
+                )}
               >
                 <FiX className="w-5 h-5" />
               </button>
@@ -125,15 +156,22 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
               userRole={currentUserRole}
               currentPath={currentPath}
               isCollapsed={isCollapsed}
+              theme={theme}
             />
 
             {/* User Profile and Logout */}
-            <div className="p-4 border-t border-gray-200">
+            <div className={cn(
+              "p-4 border-t",
+              theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+            )}>
               {!isCollapsed ? (
                 <>
-                  <div className="flex items-center mb-4 p-3 bg-white rounded-lg shadow-sm">
+                  <div className={cn(
+                    "flex items-center mb-4 p-3 rounded-lg",
+                    theme === 'dark' ? t.glass.base : 'bg-gray-50 border border-gray-200'
+                  )}>
                     <div className="flex-shrink-0">
-                      <div className="w-10 h-10 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full ring-2 ring-blue-500/50 bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
                         {user?.photo ? (
                           <img
                             className="w-10 h-10 rounded-full"
@@ -141,34 +179,65 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                             alt="User profile"
                           />
                         ) : (
-                          <span className="text-sm font-medium text-gray-600">
+                          <span className="text-sm font-medium text-white">
                             {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                           </span>
                         )}
                       </div>
                     </div>
                     <div className="ml-3 flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{userName}</p>
-                      <p className="text-xs text-gray-500 truncate">{roleDisplayName}</p>
+                      <p className={cn("text-sm font-semibold truncate", t.text.primary)}>{userName}</p>
+                      <p className={cn("text-xs truncate", t.text.secondary)}>{roleDisplayName}</p>
                     </div>
                   </div>
 
                   {/* Logout Button */}
-                  <Link
-                    href={route('logout')}
-                    method="delete"
-                    as="button"
-                    className="flex items-center w-full px-4 py-3 text-sm font-medium text-gray-700 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-20"
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(route('logout'), {
+                          method: 'DELETE',
+                          headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                          },
+                          credentials: 'same-origin',
+                        });
+
+                        if (response.ok) {
+                          // Clear any local storage or session storage
+                          localStorage.clear();
+                          sessionStorage.clear();
+
+                          // Redirect to login page
+                          window.location.href = '/login';
+                        } else {
+                          console.error('Logout failed:', response.statusText);
+                          // Force redirect anyway
+                          window.location.href = '/login';
+                        }
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        // Force redirect on error
+                        window.location.href = '/login';
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
+                      "focus:outline-none focus:ring-2 focus:ring-red-500/50",
+                      theme === 'dark' ? t.button.danger : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                    )}
                   >
-                    <FiLogOut className="flex-shrink-0 w-5 h-5 mr-3 text-gray-500 group-hover:text-red-600" />
+                    <FiLogOut className="flex-shrink-0 w-5 h-5 mr-3" />
                     <span>Sign Out</span>
-                  </Link>
+                  </button>
                 </>
               ) : (
                 <div className="flex flex-col items-center space-y-3">
                   {/* Collapsed User Avatar */}
                   <div
-                    className="w-8 h-8 rounded-full ring-2 ring-blue-500 ring-opacity-20 bg-gray-300 flex items-center justify-center"
+                    className="w-8 h-8 rounded-full ring-2 ring-blue-500/50 bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center"
                     title={`${userName} - ${roleDisplayName}`}
                   >
                     {user?.photo ? (
@@ -178,22 +247,53 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
                         alt="User profile"
                       />
                     ) : (
-                      <span className="text-xs font-medium text-gray-600">
+                      <span className="text-xs font-medium text-white">
                         {userName.split(' ').map(n => n[0]).join('').slice(0, 2)}
                       </span>
                     )}
                   </div>
 
                   {/* Collapsed Logout Button */}
-                  <Link
-                    href={route('logout')}
-                    method="delete"
-                    as="button"
-                    className="flex items-center justify-center w-8 h-8 text-gray-700 rounded-lg transition-all duration-200 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-20"
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(route('logout'), {
+                          method: 'DELETE',
+                          headers: {
+                            'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                          },
+                          credentials: 'same-origin',
+                        });
+
+                        if (response.ok) {
+                          // Clear any local storage or session storage
+                          localStorage.clear();
+                          sessionStorage.clear();
+
+                          // Redirect to login page
+                          window.location.href = '/login';
+                        } else {
+                          console.error('Logout failed:', response.statusText);
+                          // Force redirect anyway
+                          window.location.href = '/login';
+                        }
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        // Force redirect on error
+                        window.location.href = '/login';
+                      }
+                    }}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200",
+                      "focus:outline-none focus:ring-2 focus:ring-red-500/50",
+                      theme === 'dark' ? t.button.danger : 'bg-red-50 text-red-700 hover:bg-red-100'
+                    )}
                     title="Sign Out"
                   >
                     <FiLogOut className="w-4 h-4" />
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
@@ -203,34 +303,70 @@ export default function MainLayout({ title, children }: MainLayoutProps) {
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col">
           {/* Top Header Bar for Mobile */}
-          <div className="md:hidden bg-white shadow-sm border-b border-gray-200 px-4 py-3">
+          <div className={cn(
+            "md:hidden px-4 py-3 border-b",
+            theme === 'dark'
+              ? `${t.glass.base} border-white/10`
+              : 'bg-white/80 backdrop-blur-md border-gray-200'
+          )}>
             <div className="flex items-center justify-between">
               <img
                 src="/MSC-logo.png"
                 alt="MSC Wound Care"
                 className="h-8 w-auto"
               />
-              <button
-                onClick={toggleMobileMenu}
-                className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
-              >
-                <FiMenu className="w-6 h-6" />
-              </button>
+              <div className="flex items-center space-x-2">
+                <ThemeToggleCompact />
+                <button
+                  onClick={toggleMobileMenu}
+                  className={cn(
+                    "p-2 rounded-md",
+                    theme === 'dark'
+                      ? `${t.text.secondary} ${t.glass.hover}`
+                      : 'text-gray-600 hover:bg-gray-100'
+                  )}
+                >
+                  <FiMenu className="w-6 h-6" />
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Page Content */}
-          <main className="flex-1 overflow-y-auto bg-gray-50">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                {children}
-              </div>
+          <main className={cn(
+            "flex-1 overflow-y-auto",
+            theme === 'dark' ? 'bg-transparent' : 'bg-white/30 backdrop-blur-sm'
+          )}>
+            <div className={cn(
+              "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:pt-20",
+              theme === 'light' && '[&_.card]:bg-white [&_.card]:shadow-sm [&_.card]:border-gray-200'
+            )}>
+              {children}
             </div>
           </main>
         </div>
 
         <FlashMessages />
+
+        {/* AI Overlay System */}
+        <FloatingAIButton onClick={() => setIsAIOverlayVisible(true)} />
+        <AIOverlay
+          isVisible={isAIOverlayVisible}
+          onClose={() => setIsAIOverlayVisible(false)}
+        />
+
+        {/* Toast System */}
+        <Toaster />
       </div>
     </>
+  );
+}
+
+// Main export with theme provider
+export default function MainLayout(props: MainLayoutProps) {
+  return (
+    <ThemeProvider>
+      <ThemedLayout {...props} />
+    </ThemeProvider>
   );
 }

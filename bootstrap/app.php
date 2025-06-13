@@ -24,16 +24,17 @@ return Application::configure(basePath: dirname(__DIR__))
         });
         $middleware->redirectUsersTo(AppServiceProvider::HOME);
 
-        // Configure web middleware group properly with enhanced CSRF handling
+        // Configure web middleware group without CSRF protection
         $middleware->web([
             \Illuminate\Cookie\Middleware\EncryptCookies::class,
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
             \Illuminate\View\Middleware\ShareErrorsFromSession::class,
-            \App\Http\Middleware\RefreshCsrfToken::class, // Run before CSRF verification
-            // \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, // Disabled to prevent 419 errors
+            // \Illuminate\Foundation\Http\Middleware\VerifyCsrfToken::class, // CSRF protection disabled
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
+            \App\Http\Middleware\AddContentTypeOptionsHeader::class,
+            \App\Http\Middleware\StaticAssetHeaders::class,
         ]);
 
         // Register role-based financial access control middleware

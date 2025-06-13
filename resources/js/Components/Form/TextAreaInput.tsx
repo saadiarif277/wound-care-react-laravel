@@ -1,4 +1,6 @@
 import { ComponentProps, ChangeEvent } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface TextAreaInputProps extends Omit<ComponentProps<'textarea'>, 'onChange'> {
     label: string;
@@ -21,27 +23,51 @@ export default function TextAreaInput({
     className = '',
     ...props
 }: TextAreaInputProps) {
+    // Theme setup with fallback
+    let theme: 'dark' | 'light' = 'dark';
+    let t = themes.dark;
+
+    try {
+        const themeContext = useTheme();
+        theme = themeContext.theme;
+        t = themes[theme];
+    } catch (e) {
+        // If not in ThemeProvider, use dark theme
+    }
+
     const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
         onChange(e.target.value);
     };
 
     return (
         <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className={cn(
+                'block text-sm font-medium mb-1',
+                t.text.secondary
+            )}>
                 {label}
-                {required && <span className="text-red-500">*</span>}
+                {required && <span className={cn("ml-1", t.status.error.split(' ')[0])}>*</span>}
             </label>
             <textarea
                 value={value}
                 onChange={handleChange}
                 rows={rows}
                 disabled={disabled}
-                className={`form-textarea w-full focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400 border-gray-300 rounded ${
-                    error ? 'border-red-400 focus:border-red-400 focus:ring-red-400' : ''
-                } ${disabled ? 'bg-gray-100' : ''} ${className}`}
+                className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    'resize-none',
+                    error ? t.input.error : '',
+                    disabled ? 'opacity-50 cursor-not-allowed' : '',
+                    className
+                )}
                 {...props}
             />
-            {error && <p className="mt-1 text-sm text-red-600">{error}</p>}
+            {error && (
+                <p className={cn('mt-1 text-sm', t.status.error.split(' ')[0])}>
+                    {error}
+                </p>
+            )}
         </div>
     );
 }

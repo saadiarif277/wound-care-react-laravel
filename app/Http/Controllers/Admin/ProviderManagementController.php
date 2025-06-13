@@ -147,7 +147,6 @@ class ProviderManagementController extends Controller
                     'days_past_due' => (int) ($provider->days_past_due ?? 0),
                     'last_payment_date' => $provider->last_payment_date,
                     'last_payment_amount' => (float) ($provider->last_payment_amount ?? 0),
-                    'credit_limit' => 50000, // This should come from provider settings
                 ],
                 'created_at' => $provider->created_at,
                 'last_activity_at' => $provider->updated_at,
@@ -326,10 +325,12 @@ class ProviderManagementController extends Controller
 
         // Get payment history
         $paymentHistory = DB::table('payments')
-            ->join('orders', 'payments.order_id', '=', 'orders.id')
+            ->leftJoin('orders', 'payments.order_id', '=', 'orders.id')
+            ->leftJoin('product_requests', 'payments.order_id', '=', 'product_requests.id')
             ->where('payments.provider_id', $provider->id)
             ->where('payments.status', 'posted')
-            ->select('payments.*', 'orders.order_number')
+            ->select('payments.*',
+                DB::raw('COALESCE(orders.order_number, product_requests.request_number) as order_number'))
             ->orderBy('payments.payment_date', 'desc')
             ->limit(20)
             ->get()
@@ -341,6 +342,7 @@ class ProviderManagementController extends Controller
                     'method' => $payment->payment_method,
                     'reference' => $payment->reference_number,
                     'order_number' => $payment->order_number,
+                    'paid_to' => $payment->paid_to ?? 'msc',
                     'posted_by' => User::find($payment->posted_by_user_id)->name ?? 'System',
                 ];
             });
@@ -504,12 +506,11 @@ class ProviderManagementController extends Controller
             ->first();
 
         return [
-            'credit_limit' => 50000, // This should come from provider settings
             'total_outstanding' => $totalOutstanding,
             'current_balance' => $totalOutstanding,
             'past_due_amount' => $pastDueAmount,
             'days_past_due' => $maxDaysPastDue,
-            'payment_terms' => 'NET 60', // This should come from provider settings
+            'payment_terms' => 'NET 60',
             'last_payment' => $lastPayment ? [
                 'date' => $lastPayment->payment_date,
                 'amount' => $lastPayment->amount,

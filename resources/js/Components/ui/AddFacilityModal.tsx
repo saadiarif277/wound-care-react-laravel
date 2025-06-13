@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Building, Mail, Phone, MapPin, Save, Loader2, Clock } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 
 interface AddFacilityModalProps {
     isOpen: boolean;
@@ -32,6 +34,18 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
     organizationId,
     organizations = []
 }) => {
+    // Theme setup with fallback
+    let theme: 'dark' | 'light' = 'dark';
+    let t = themes.dark;
+
+    try {
+        const themeContext = useTheme();
+        theme = themeContext.theme;
+        t = themes[theme];
+    } catch (e) {
+        // If not in ThemeProvider, use dark theme
+    }
+
     const [formData, setFormData] = useState<FormData>({
         organization_id: organizationId || '',
         name: '',
@@ -223,41 +237,48 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-            <div className="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className={cn("fixed inset-0 z-50 flex items-center justify-center p-4", t.modal.backdrop)}>
+            <div className={cn("max-w-3xl w-full max-h-[90vh] overflow-y-auto", t.modal.container)}>
                 {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <div className={cn("flex items-center justify-between", t.modal.header)}>
                     <div className="flex items-center space-x-3">
-                        <Building className="h-6 w-6 text-blue-600" />
-                        <h2 className="text-xl font-semibold text-gray-900">Add New Facility</h2>
+                        <Building className={cn("h-6 w-6", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')} />
+                        <h2 className={cn("text-xl font-semibold", t.text.primary)}>Add New Facility</h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-gray-600 transition-colors"
+                        className={cn(
+                            "transition-colors rounded-lg p-1",
+                            theme === 'dark'
+                                ? 'text-white/60 hover:text-white/90 hover:bg-white/10'
+                                : 'text-gray-400 hover:text-gray-600 hover:bg-gray-100'
+                        )}
                     >
                         <X className="h-6 w-6" />
                     </button>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="p-6 space-y-6">
+                <form onSubmit={handleSubmit} className={cn("space-y-6", t.modal.body)}>
                     {/* Basic Information */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Basic Information</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Basic Information</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Organization */}
                             {!organizationId && (
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         Organization *
                                     </label>
                                     <select
                                         value={formData.organization_id}
                                         onChange={(e) => handleInputChange('organization_id', e.target.value)}
-                                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.organization_id ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.organization_id ? t.input.error : ''
+                                        )}
                                     >
                                         <option value="">Select Organization</option>
                                         {organizations.map(org => (
@@ -267,41 +288,45 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                         ))}
                                     </select>
                                     {errors.organization_id && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.organization_id}</p>
+                                        <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.organization_id}</p>
                                     )}
                                 </div>
                             )}
 
                             {/* Facility Name */}
                             <div className="md:col-span-2">
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Facility Name *
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.name}
                                     onChange={(e) => handleInputChange('name', e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.name ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.name ? t.input.error : ''
+                                    )}
                                     placeholder="Enter facility name"
                                 />
                                 {errors.name && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.name}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.name}</p>
                                 )}
                             </div>
 
                             {/* Facility Type */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Facility Type *
                                 </label>
                                 <select
                                     value={formData.facility_type}
                                     onChange={(e) => handleInputChange('facility_type', e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.facility_type ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.facility_type ? t.input.error : ''
+                                    )}
                                 >
                                     {facilityTypes.map(type => (
                                         <option key={type.value} value={type.value}>
@@ -310,19 +335,19 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                     ))}
                                 </select>
                                 {errors.facility_type && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.facility_type}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.facility_type}</p>
                                 )}
                             </div>
 
                             {/* Status */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Status
                                 </label>
                                 <select
                                     value={formData.status}
                                     onChange={(e) => handleInputChange('status', e.target.value)}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn(t.input.base, t.input.focus)}
                                 >
                                     <option value="active">Active</option>
                                     <option value="pending">Pending</option>
@@ -332,21 +357,23 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
 
                             {/* Group NPI */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Group NPI
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.group_npi}
                                     onChange={(e) => handleInputChange('group_npi', e.target.value)}
-                                    className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                        errors.group_npi ? 'border-red-300' : 'border-gray-300'
-                                    }`}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.group_npi ? t.input.error : ''
+                                    )}
                                     placeholder="Enter 10-digit NPI"
                                     maxLength={10}
                                 />
                                 {errors.group_npi && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.group_npi}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.group_npi}</p>
                                 )}
                             </div>
 
@@ -357,9 +384,13 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                     id="active"
                                     checked={formData.active}
                                     onChange={(e) => handleInputChange('active', e.target.checked)}
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className={cn("h-4 w-4 rounded",
+                                        theme === 'dark'
+                                            ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
+                                            : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                    )}
                                 />
-                                <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
+                                <label htmlFor="active" className={cn("ml-2 block text-sm", t.text.primary)}>
                                     Active Facility
                                 </label>
                             </div>
@@ -368,50 +399,56 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
 
                     {/* Contact Information */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Contact Information</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Contact Information</h3>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Email */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Email
                                 </label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Mail className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                                     <input
                                         type="email"
                                         value={formData.email}
                                         onChange={(e) => handleInputChange('email', e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.email ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            "pl-10 pr-3",
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.email ? t.input.error : ''
+                                        )}
                                         placeholder="Enter email address"
                                     />
                                 </div>
                                 {errors.email && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.email}</p>
                                 )}
                             </div>
 
                             {/* Phone */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Phone
                                 </label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                                    <Phone className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
                                     <input
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => handleInputChange('phone', e.target.value)}
-                                        className={`w-full pl-10 pr-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.phone ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            "pl-10 pr-3",
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.phone ? t.input.error : ''
+                                        )}
                                         placeholder="Enter phone number"
                                     />
                                 </div>
                                 {errors.phone && (
-                                    <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.phone}</p>
                                 )}
                             </div>
                         </div>
@@ -419,21 +456,21 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
 
                     {/* Address Information */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Address Information</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Address Information</h3>
 
                         <div className="space-y-4">
                             {/* Street Address */}
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-1">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Street Address
                                 </label>
                                 <div className="relative">
-                                    <MapPin className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <MapPin className={cn("absolute left-3 top-3 h-4 w-4", t.text.muted)} />
                                     <textarea
                                         value={formData.address}
                                         onChange={(e) => handleInputChange('address', e.target.value)}
                                         rows={2}
-                                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={cn("pl-10 pr-3", t.input.base, t.input.focus)}
                                         placeholder="Enter street address"
                                     />
                                 </div>
@@ -442,27 +479,27 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 {/* City */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         City
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.city}
                                         onChange={(e) => handleInputChange('city', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={cn(t.input.base, t.input.focus)}
                                         placeholder="Enter city"
                                     />
                                 </div>
 
                                 {/* State */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         State
                                     </label>
                                     <select
                                         value={formData.state}
                                         onChange={(e) => handleInputChange('state', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        className={cn(t.input.base, t.input.focus)}
                                     >
                                         {states.map(state => (
                                             <option key={state.value} value={state.value}>
@@ -474,20 +511,22 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
 
                                 {/* ZIP Code */}
                                 <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                                    <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                         ZIP Code
                                     </label>
                                     <input
                                         type="text"
                                         value={formData.zip_code}
                                         onChange={(e) => handleInputChange('zip_code', e.target.value)}
-                                        className={`w-full px-3 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                                            errors.zip_code ? 'border-red-300' : 'border-gray-300'
-                                        }`}
+                                        className={cn(
+                                            t.input.base,
+                                            t.input.focus,
+                                            errors.zip_code ? t.input.error : ''
+                                        )}
                                         placeholder="12345 or 12345-6789"
                                     />
                                     {errors.zip_code && (
-                                        <p className="mt-1 text-sm text-red-600">{errors.zip_code}</p>
+                                        <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.zip_code}</p>
                                     )}
                                 </div>
                             </div>
@@ -496,19 +535,19 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
 
                     {/* Business Hours */}
                     <div className="space-y-4">
-                        <h3 className="text-lg font-medium text-gray-900">Operations</h3>
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Operations</h3>
 
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                 Business Hours
                             </label>
                             <div className="relative">
-                                <Clock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                <Clock className={cn("absolute left-3 top-3 h-4 w-4", t.text.muted)} />
                                 <textarea
                                     value={formData.business_hours}
                                     onChange={(e) => handleInputChange('business_hours', e.target.value)}
                                     rows={3}
-                                    className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className={cn("pl-10 pr-3", t.input.base, t.input.focus)}
                                     placeholder="e.g., Mon-Fri: 8:00 AM - 5:00 PM, Sat: 9:00 AM - 2:00 PM"
                                 />
                             </div>
@@ -516,18 +555,23 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                     </div>
 
                     {/* Action Buttons */}
-                    <div className="flex items-center justify-end space-x-3 pt-6 border-t border-gray-200">
+                    <div className={cn("flex items-center justify-end space-x-3 pt-6", t.modal.footer)}>
                         <button
                             type="button"
                             onClick={onClose}
-                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className={cn(t.button.secondary.base, t.button.secondary.hover)}
                         >
                             Cancel
                         </button>
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="flex items-center space-x-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={cn(
+                                "flex items-center space-x-2",
+                                t.button.primary.base,
+                                t.button.primary.hover,
+                                isLoading && "opacity-50 cursor-not-allowed"
+                            )}
                         >
                             {isLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />

@@ -16,7 +16,9 @@ class ProductController extends Controller
      */
     public function index(Request $request): Response
     {
-        $user = Auth::user()->load('roles');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->load('roles');
 
         // Get products with pagination
         $products = Product::with(['category', 'manufacturer'])
@@ -57,12 +59,12 @@ class ProductController extends Controller
         // Filter product data based on user permissions
         $products->getCollection()->transform(function ($product) use ($user) {
             $filtered = $this->filterProductPricingData($product, $user);
-            
+
             // Add onboarding status for providers
             if ($user->isProvider()) {
                 $filtered->is_onboarded = $product->isAvailableForProvider($user->id);
             }
-            
+
             return $filtered;
         });
 
@@ -86,7 +88,9 @@ class ProductController extends Controller
      */
     public function show(Product $product): Response
     {
-        $user = Auth::user()->load('roles');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->load('roles');
 
         $product->load(['category', 'manufacturer']);
         $filteredProduct = $this->filterProductPricingData($product, $user);
@@ -110,7 +114,7 @@ class ProductController extends Controller
     {
         return Inertia::render('Products/Create', [
             'categories' => Product::getCategories(),
-            'manufacturers' => Product::getManufacturers(),
+            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
         ]);
     }
 
@@ -152,7 +156,7 @@ class ProductController extends Controller
         return Inertia::render('Products/Edit', [
             'product' => $product,
             'categories' => Product::getCategories(),
-            'manufacturers' => Product::getManufacturers(),
+            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
         ]);
     }
 
@@ -213,7 +217,9 @@ class ProductController extends Controller
      */
     public function search(Request $request)
     {
-        $user = Auth::user()->load('roles');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->load('roles');
 
         $query = Product::active();
 
@@ -275,7 +281,9 @@ class ProductController extends Controller
      */
     public function apiShow(Product $product)
     {
-        $user = Auth::user()->load('roles');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->load('roles');
 
         $data = [
             'id' => $product->id,
@@ -308,7 +316,9 @@ class ProductController extends Controller
      */
     public function getAll(Request $request)
     {
-        $user = Auth::user()->load('roles');
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        $user->load('roles');
 
         $query = Product::active();
 
@@ -377,7 +387,7 @@ class ProductController extends Controller
             });
 
         $categories = Product::getCategories();
-        $manufacturers = Product::getManufacturers();
+        $manufacturers = \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values();
 
         return response()->json([
             'products' => $products,
@@ -412,6 +422,7 @@ class ProductController extends Controller
                     'error' => 'Product request not found'
                 ], 404);
             }
+            /** @var \App\Models\User $user */
             $user = Auth::user();
 
             // Use the recommendation engine
@@ -546,6 +557,7 @@ class ProductController extends Controller
      */
     public function manage(Request $request): Response
     {
+        /** @var \App\Models\User $user */
         $user = Auth::user();
 
         // Authorization check
@@ -633,7 +645,7 @@ class ProductController extends Controller
             'products' => $products,
             'filters' => $request->only(['search', 'category', 'manufacturer', 'status', 'sort', 'direction']),
             'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
-            'manufacturers' => Product::distinct()->pluck('manufacturer')->filter()->sort()->values(),
+            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
             'stats' => $stats,
             'permissions' => [
                 'can_create' => $user->hasPermission('manage-products'),
