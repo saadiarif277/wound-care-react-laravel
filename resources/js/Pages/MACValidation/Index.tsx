@@ -302,7 +302,7 @@ const MACValidationPage = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    'Accept': 'application/json',
                 },
                 body: JSON.stringify(cleanedData)
             });
@@ -339,7 +339,7 @@ const MACValidationPage = () => {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                    'Accept': 'application/json',
                 },
                 body: JSON.stringify(thoroughData)
             });

@@ -64,8 +64,8 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
       <Head title={title} />
       <div className={cn(
         "flex min-h-screen relative custom-scrollbar",
-        theme === 'dark' 
-          ? 'bg-gradient-to-br from-[#0a0f1c] via-[#121829] to-[#1a1f2e]' 
+        theme === 'dark'
+          ? 'bg-gradient-to-br from-[#0a0f1c] via-[#121829] to-[#1a1f2e]'
           : t.background.base
       )}>
         {/* Mobile Menu Overlay */}
@@ -195,17 +195,33 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                   <button
                     onClick={async () => {
                       try {
-                        await fetch(route('logout'), {
+                        const response = await fetch(route('logout'), {
                           method: 'DELETE',
                           headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                           },
                           credentials: 'same-origin',
                         });
-                      } catch (e) {}
-                      window.location.href = '/login';
+
+                        if (response.ok) {
+                          // Clear any local storage or session storage
+                          localStorage.clear();
+                          sessionStorage.clear();
+
+                          // Redirect to login page
+                          window.location.href = '/login';
+                        } else {
+                          console.error('Logout failed:', response.statusText);
+                          // Force redirect anyway
+                          window.location.href = '/login';
+                        }
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        // Force redirect on error
+                        window.location.href = '/login';
+                      }
                     }}
                     className={cn(
                       "flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
@@ -241,17 +257,33 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                   <button
                     onClick={async () => {
                       try {
-                        await fetch(route('logout'), {
+                        const response = await fetch(route('logout'), {
                           method: 'DELETE',
                           headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content'),
-                            'X-Requested-With': 'XMLHttpRequest',
                             'Accept': 'application/json',
+                            'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
                           },
                           credentials: 'same-origin',
                         });
-                      } catch (e) {}
-                      window.location.href = '/login';
+
+                        if (response.ok) {
+                          // Clear any local storage or session storage
+                          localStorage.clear();
+                          sessionStorage.clear();
+
+                          // Redirect to login page
+                          window.location.href = '/login';
+                        } else {
+                          console.error('Logout failed:', response.statusText);
+                          // Force redirect anyway
+                          window.location.href = '/login';
+                        }
+                      } catch (error) {
+                        console.error('Logout error:', error);
+                        // Force redirect on error
+                        window.location.href = '/login';
+                      }
                     }}
                     className={cn(
                       "flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200",

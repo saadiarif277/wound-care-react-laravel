@@ -8,7 +8,7 @@ interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
    * Visual intent for the card.
    * Variant affects accent colours on borders / background overlays.
    */
-  variant?: 'default' | 'danger' | 'success' | 'info' | 'warning';
+  variant?: 'default' | 'danger' | 'success' | 'info' | 'warning' | 'primary' | 'error';
   /**
    * Enable enhanced frost effect for maximum readability
    */
@@ -34,7 +34,7 @@ const GlassCard: React.FC<GlassCardProps> = ({
   // Theme setup with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -42,13 +42,13 @@ const GlassCard: React.FC<GlassCardProps> = ({
   } catch (e) {
     // If not in ThemeProvider, use dark theme
   }
-  
+
   const baseStyles = frost ? t.glass.frost : t.glass.card;
-  
+
   const variantStyles: Record<Required<GlassCardProps>['variant'], string> = {
     default: '',
-    danger: theme === 'dark' 
-      ? 'bg-red-500/20 border-red-500/30' 
+    danger: theme === 'dark'
+      ? 'bg-red-500/20 border-red-500/30'
       : 'bg-red-50 border-red-200',
     success: theme === 'dark'
       ? 'bg-emerald-500/20 border-emerald-500/30'
@@ -59,6 +59,12 @@ const GlassCard: React.FC<GlassCardProps> = ({
     warning: theme === 'dark'
       ? 'bg-amber-500/20 border-amber-500/30'
       : 'bg-amber-50 border-amber-200',
+    primary: theme === 'dark'
+      ? 'bg-blue-500/20 border-blue-500/30'
+      : 'bg-blue-50 border-blue-200',
+    error: theme === 'dark'
+      ? 'bg-red-500/20 border-red-500/30'
+      : 'bg-red-50 border-red-200',
   };
 
   return (

@@ -3,7 +3,6 @@ import { Head, Link } from '@inertiajs/react';
 import { useForm } from '@inertiajs/react';
 import Logo from '@/Components/Logo/Logo';
 import { FiMail, FiLock, FiLogIn } from 'react-icons/fi';
-import { refreshCsrfToken } from '@/utils/csrf';
 
 export default function LoginPage() {
   const { data, setData, errors, post, processing } = useForm({
@@ -50,11 +49,6 @@ export default function LoginPage() {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('canplay', handleCanPlay);
     };
-  }, []);
-
-  // Always refresh CSRF token on mount (handles post-logout/session expiry)
-  useEffect(() => {
-    refreshCsrfToken();
   }, []);
 
   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

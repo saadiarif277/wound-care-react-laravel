@@ -15,5 +15,10 @@ class VerifyCsrfToken extends Middleware
         // Add any specific API endpoints that shouldn't have CSRF protection
         'api/*',
         'webhooks/*',
+        'product-requests',
+        'product-requests/*',
+        'product-requests/create',
+        'product-requests/store',
+        'product-requests/submit',
     ];
 }

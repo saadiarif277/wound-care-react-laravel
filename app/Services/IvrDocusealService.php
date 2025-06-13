@@ -18,7 +18,7 @@ class IvrDocusealService
     private IvrFieldMappingService $fieldMappingService;
 
     public function __construct(
-        DocusealService $docusealService, 
+        DocusealService $docusealService,
         FhirService $fhirService,
         IvrFieldMappingService $fieldMappingService
     ) {
@@ -33,9 +33,18 @@ class IvrDocusealService
     public function generateIvr(ProductRequest $productRequest): DocusealSubmission
     {
         try {
-            // Validate order status
-            if ($productRequest->order_status !== 'pending_ivr') {
-                throw new Exception('Product request must be in pending_ivr status to generate IVR');
+            // Add debugging information
+            Log::info('IVR generation attempt', [
+                'product_request_id' => $productRequest->id,
+                'ivr_required' => $productRequest->ivr_required,
+                'ivr_required_type' => gettype($productRequest->ivr_required),
+                'ivr_bypass_reason' => $productRequest->ivr_bypass_reason,
+                'order_status' => $productRequest->order_status,
+            ]);
+
+            // Validate IVR requirement
+            if (!$productRequest->isIvrRequired()) {
+                throw new Exception('Product request must have IVR required and not bypassed to generate IVR');
             }
 
             // Get manufacturer from first product
@@ -51,10 +60,10 @@ class IvrDocusealService
 
             // Get manufacturer key for mapping
             $manufacturerKey = $this->getManufacturerKey($manufacturer->name);
-            
+
             // Get DocuSeal configuration for manufacturer
             $docusealConfig = $this->fieldMappingService->getDocuSealConfig($manufacturerKey);
-            
+
             if (!$docusealConfig['template_id']) {
                 throw new Exception("No DocuSeal template configured for manufacturer: {$manufacturer->name}");
             }
@@ -87,7 +96,7 @@ class IvrDocusealService
                     ]
                 ],
             ];
-            
+
             // Add folder if available
             if ($docusealConfig['folder_id']) {
                 $submissionData['folder'] = $docusealConfig['folder_id'];
@@ -98,7 +107,7 @@ class IvrDocusealService
 
             // Get submission details from response
             $submissionData = is_array($response) && isset($response[0]) ? $response[0] : $response;
-            
+
             // Create local submission record
             $submission = DocusealSubmission::create([
                 'order_id' => $productRequest->id, // Using product_request_id as order_id
@@ -185,8 +194,9 @@ class IvrDocusealService
     public function skipIvr(ProductRequest $productRequest, string $reason, int $userId): void
     {
         try {
-            if ($productRequest->order_status !== 'pending_ivr') {
-                throw new Exception('Product request must be in pending_ivr status to skip IVR');
+            // Validate IVR requirement
+            if (!$productRequest->isIvrRequired()) {
+                throw new Exception('Product request must have IVR required and not bypassed to skip IVR');
             }
 
             $productRequest->update([
@@ -227,7 +237,7 @@ class IvrDocusealService
         try {
             // Get patient data from FHIR using patient FHIR ID
             $patient = $this->fhirService->getPatient($productRequest->patient_fhir_id);
-            
+
             return [
                 'patient_name' => $patient->name[0]->given[0] . ' ' . $patient->name[0]->family ?? 'Unknown',
                 'patient_dob' => $patient->birthDate ?? '',

@@ -552,7 +552,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                           {provider.recent_orders.slice(0, 5).map((order) => (
                             <tr key={order.id}>
                               <td className="px-6 py-4 whitespace-nowrap text-sm">
-                                <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
+                                <a href={route('product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                   #{order.order_number}
                                 </a>
                               </td>
@@ -893,7 +893,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                                 {payment.reference}
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                <a href={route('admin.product-requests.show', payment.order_number?.replace('#', ''))} className="text-red-600 hover:text-red-900">
+                                <a href={route('product-requests.show', payment.order_number?.replace('#', ''))} className="text-red-600 hover:text-red-900">
                                   {payment.order_number}
                                 </a>
                               </td>
@@ -938,7 +938,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                         {provider.recent_orders.map((order) => (
                           <tr key={order.id}>
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                              <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
+                              <a href={route('product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                 #{order.order_number}
                               </a>
                             </td>
@@ -958,7 +958,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                               {getPaymentStatusBadge(order.payment_status, order.days_outstanding)}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <a href={route('admin.product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
+                              <a href={route('product-requests.show', order.id)} className="text-red-600 hover:text-red-900">
                                 View
                               </a>
                             </td>

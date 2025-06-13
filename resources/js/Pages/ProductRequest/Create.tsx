@@ -10,7 +10,6 @@ import PatientInformationStep from './Components/PatientInformationStep';
 import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
 import { api } from '@/lib/api';
 import { Progress } from '@/Components/ui/progress';
-import { getCsrfToken } from '@/utils/csrf';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
@@ -308,7 +307,6 @@ const ProductRequestCreate: React.FC<Props> = ({
         patient_api_input: patientApiInput,
         order_status: 'submitted', // Ensure new requests are pending for admin
         submit_immediately: true, // Add flag to indicate immediate submission
-        _token: getCsrfToken(),
       }, {
         preserveState: true,
         preserveScroll: true,
@@ -662,10 +660,10 @@ const ProductRequestCreate: React.FC<Props> = ({
               onClick={fillMockData}
               className={cn(
                 "inline-flex items-center shadow-sm",
-                // Enhanced visibility in both themes
+                // Proper text colors for both themes
                 theme === 'dark'
                   ? 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-500'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-700 shadow-lg'
+                  : 'bg-blue-600 hover:bg-blue-700 text-black border border-blue-700 shadow-lg'
               )}
             >
               Fill Test Data
@@ -1023,7 +1021,7 @@ const ReviewSubmitStep: React.FC<{
               <div>
                 <h3 className={cn("text-base font-medium", t.text.primary)}>Selected Products</h3>
                 <div className="mt-2 flow-root">
-                  <GlassCard variant="base" className="overflow-hidden">
+                  <GlassCard variant="default" className="overflow-hidden">
                     <table className="min-w-full">
                       <thead>
                         <tr className={theme === 'dark' ? 'border-b border-white/10' : 'border-b border-gray-200'}>

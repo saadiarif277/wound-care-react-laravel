@@ -5,7 +5,7 @@ import { themes, cn } from '@/theme/glass-theme';
 interface ButtonProps extends ComponentProps<'button'> {
     children: ReactNode;
     className?: string;
-    variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+    variant?: 'primary' | 'secondary' | 'ghost' | 'danger' | 'success';
     size?: 'sm' | 'md' | 'lg';
     isLoading?: boolean;
 }
@@ -23,7 +23,7 @@ export function Button({
     // Try to use theme if available, fallback to dark theme
     let theme: 'dark' | 'light' = 'dark';
     let t = themes.dark;
-    
+
     try {
         const themeContext = useTheme();
         theme = themeContext.theme;
@@ -31,7 +31,7 @@ export function Button({
     } catch (e) {
         // If not in ThemeProvider, use dark theme
     }
-    
+
     const sizeStyles = {
         sm: 'px-3 py-1.5 text-sm',
         md: 'px-4 py-2 text-sm',
@@ -49,7 +49,8 @@ export function Button({
         primary: cn(t.button.primary, 'focus:ring-[#1925c3]/50'),
         secondary: cn(t.button.secondary, 'focus:ring-white/20'),
         ghost: cn(t.button.ghost, 'focus:ring-white/20'),
-        danger: cn(t.button.danger, 'focus:ring-red-500/50')
+        danger: cn(t.button.danger, 'focus:ring-red-500/50'),
+        success: cn(t.button.approve, 'focus:ring-emerald-500/50')
     };
 
     const finalDisabled = disabled || isLoading;

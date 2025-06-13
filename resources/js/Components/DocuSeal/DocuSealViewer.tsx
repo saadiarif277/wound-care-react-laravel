@@ -44,13 +44,9 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
         setIsLoading(true);
         setError(null);
 
-        // Get CSRF token
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-        
         // Use demo endpoint if isDemo is true
         const endpoint = isDemo ? '/docuseal/demo/create-submission' : '/docuseal/create-submission';
-        
-        console.log('CSRF token:', csrfToken);
+
         console.log('Making request to:', endpoint);
         console.log('Is demo:', isDemo);
 
@@ -66,14 +62,12 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-            'X-CSRF-TOKEN': csrfToken || '',
           },
           withCredentials: true, // Important for cookie-based auth
         });
 
         console.log('DocuSeal response:', response.data);
-        
+
         const { signing_url, submission_id, submitter_slug, data } = response.data;
 
         if (signing_url) {
@@ -90,7 +84,7 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
         console.error('Failed to create DocuSeal submission:', err);
         console.error('Error response:', err.response?.data);
         console.error('Error status:', err.response?.status);
-        
+
         // Handle 422 error specifically
         if (err.response?.status === 422) {
           const errorDetails = err.response?.data?.error || err.response?.data?.message || 'Invalid submission data';
@@ -99,7 +93,7 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
           const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Failed to load DocuSeal form';
           setError(errorMessage);
         }
-        
+
         if (onError) {
           onError(err);
         }
@@ -183,7 +177,7 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
           </div>
         </div>
       )}
-      
+
       <DocusealForm
         src={embedUrl}
         email={email}
@@ -191,7 +185,6 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
         customCss={customCss}
         onComplete={handleComplete}
         onLoad={handleLoad}
-        onError={handleError}
       />
     </div>
   );

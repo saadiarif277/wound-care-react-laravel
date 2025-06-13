@@ -17,7 +17,7 @@ use App\Models\Docuseal\DocusealSubmission;
 
 class ProductRequest extends Model
 {
-    use HasFactory, SoftDeletes, BelongsToOrganizationThrough;
+    use HasFactory, SoftDeletes;
 
     protected $fillable = [
         'request_number',
