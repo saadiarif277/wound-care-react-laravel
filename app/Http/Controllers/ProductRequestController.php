@@ -205,35 +205,6 @@ class ProductRequestController extends Controller
 
     public function store(Request $request)
     {
-        // Debug CSRF token information
-        \Log::info('Product Request Store - CSRF Debug', [
-            'has_csrf_token' => $request->hasHeader('X-CSRF-TOKEN'),
-            'csrf_token_header' => $request->header('X-CSRF-TOKEN'),
-            'session_token' => session()->token(),
-            'request_method' => $request->method(),
-            'request_url' => $request->url(),
-            'session_id' => session()->getId(),
-            'session_lifetime' => config('session.lifetime'),
-            'token_matches' => $request->header('X-CSRF-TOKEN') === session()->token(),
-            'session_has_token' => session()->has('_token'),
-            'session_token_created_at' => session()->get('_token_created_at'),
-        ]);
-
-        // Check if CSRF token is valid
-        if (!$request->hasHeader('X-CSRF-TOKEN') || $request->header('X-CSRF-TOKEN') !== session()->token()) {
-            \Log::error('CSRF token validation failed', [
-                'provided_token' => $request->header('X-CSRF-TOKEN'),
-                'session_token' => session()->token(),
-                'session_id' => session()->getId(),
-            ]);
-
-            return response()->json([
-                'error' => 'CSRF token mismatch',
-                'message' => 'Your session has expired. Please refresh the page and try again.',
-                'status' => 419
-            ], 419);
-        }
-
         $validated = $request->validate([
             // Step 1: Patient Information
             'patient_api_input' => 'required|array',

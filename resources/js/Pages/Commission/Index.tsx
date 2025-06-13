@@ -169,7 +169,7 @@ export default function SalesManagementIndex() {
   ];
 
   const getStatusBadge = (status: string) => {
-    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium max-w-full truncate";
 
     switch (status.toLowerCase()) {
       case 'approved':
@@ -187,6 +187,34 @@ export default function SalesManagementIndex() {
         return `${baseClasses} bg-red-100 text-red-800`;
       default:
         return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  // Get readable status label
+  const getStatusLabel = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'completed':
+        return 'Completed';
+      case 'paid':
+        return 'Paid';
+      case 'active':
+        return 'Active';
+      case 'pending':
+        return 'Pending';
+      case 'processing':
+        return 'Processing';
+      case 'rejected':
+        return 'Rejected';
+      case 'failed':
+        return 'Failed';
+      case 'disputed':
+        return 'Disputed';
+      case 'inactive':
+        return 'Inactive';
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1);
     }
   };
 
@@ -385,10 +413,12 @@ export default function SalesManagementIndex() {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatCurrency(record.order_total)}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={getStatusBadge(record.status)}>
-                      {record.status}
-                    </span>
+                  <td className="px-6 py-4">
+                    <div className="max-w-[120px]">
+                      <span className={getStatusBadge(record.status)}>
+                        {getStatusLabel(record.status)}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(record.order_date)}
@@ -433,7 +463,7 @@ export default function SalesManagementIndex() {
                   <div className="flex items-center">
                     <h4 className="text-sm font-medium text-gray-900">{payout.rep_name}</h4>
                     <span className={getStatusBadge(payout.status)}>
-                      {payout.status}
+                      {getStatusLabel(payout.status)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
@@ -484,7 +514,7 @@ export default function SalesManagementIndex() {
                   <div className="flex items-center">
                     <h4 className="text-sm font-medium text-gray-900">{rep.name}</h4>
                     <span className={getStatusBadge(rep.status)}>
-                      {rep.status}
+                      {getStatusLabel(rep.status)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">{rep.email} • {rep.territory}</p>
@@ -536,7 +566,7 @@ export default function SalesManagementIndex() {
                   <div className="flex items-center">
                     <h4 className="text-sm font-medium text-gray-900">{approval.sub_rep_name}</h4>
                     <span className={getStatusBadge(approval.status)}>
-                      {approval.status}
+                      {getStatusLabel(approval.status)}
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">

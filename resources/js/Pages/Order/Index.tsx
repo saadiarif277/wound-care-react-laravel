@@ -117,7 +117,7 @@ const OrdersPage = () => {
 
   // Get status badge classes
   const getStatusBadge = (status: string) => {
-    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium max-w-full truncate";
 
     switch (status) {
       case 'approved':
@@ -136,6 +136,30 @@ const OrdersPage = () => {
         return `${baseClasses} bg-red-100 text-red-800`;
       default:
         return `${baseClasses} bg-gray-100 text-gray-800`;
+    }
+  };
+
+  // Get readable status label
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return 'Approved';
+      case 'pending_admin_approval':
+        return 'Pending';
+      case 'pending_documents':
+        return 'Docs Pending';
+      case 'processing':
+        return 'Processing';
+      case 'shipped':
+        return 'Shipped';
+      case 'delivered':
+        return 'Delivered';
+      case 'rejected':
+        return 'Rejected';
+      case 'cancelled':
+        return 'Cancelled';
+      default:
+        return status.replace('_', ' ').toUpperCase();
     }
   };
 
@@ -384,10 +408,12 @@ const OrdersPage = () => {
                           {order.facility_name}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={getStatusBadge(order.status)}>
-                          {order.status.replace('_', ' ').toUpperCase()}
-                        </span>
+                      <td className="px-6 py-4">
+                        <div className="max-w-[120px]">
+                          <span className={getStatusBadge(order.status)}>
+                            {getStatusLabel(order.status)}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                         {formatDate(order.order_date)}

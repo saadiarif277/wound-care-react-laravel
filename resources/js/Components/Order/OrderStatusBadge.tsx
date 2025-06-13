@@ -11,13 +11,13 @@ import {
 import { themes, cn } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
 
-export type OrderStatus = 
-  | 'pending_ivr' 
-  | 'ivr_sent' 
-  | 'ivr_confirmed' 
-  | 'approved' 
-  | 'sent_back' 
-  | 'denied' 
+export type OrderStatus =
+  | 'pending_ivr'
+  | 'ivr_sent'
+  | 'ivr_confirmed'
+  | 'approved'
+  | 'sent_back'
+  | 'denied'
   | 'submitted_to_manufacturer';
 
 interface OrderStatusBadgeProps {
@@ -29,61 +29,61 @@ interface OrderStatusBadgeProps {
 
 const getStatusConfig = (theme: 'dark' | 'light') => {
   const t = themes[theme];
-  
+
   return {
-    pending_ivr: { 
-      color: theme === 'dark' 
+    pending_ivr: {
+      color: theme === 'dark'
         ? 'bg-white/[0.08] text-white/80 border border-white/[0.12] backdrop-blur-xl'
         : 'bg-gray-100 text-gray-700 border border-gray-200',
-      icon: Clock, 
+      icon: Clock,
       label: 'Pending IVR',
       description: 'Awaiting IVR generation'
     },
-    ivr_sent: { 
+    ivr_sent: {
       color: theme === 'dark'
         ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30 backdrop-blur-xl'
         : 'bg-blue-50 text-blue-700 border border-blue-200',
-      icon: Send, 
+      icon: Send,
       label: 'IVR Sent',
       description: 'IVR sent to manufacturer'
     },
-    ivr_confirmed: { 
+    ivr_confirmed: {
       color: theme === 'dark'
         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30 backdrop-blur-xl'
         : 'bg-purple-50 text-purple-700 border border-purple-200',
-      icon: FileText, 
+      icon: FileText,
       label: 'IVR Confirmed',
       description: 'Manufacturer confirmed IVR'
     },
-    approved: { 
+    approved: {
       color: theme === 'dark'
         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 backdrop-blur-xl'
         : 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-      icon: CheckCircle, 
+      icon: CheckCircle,
       label: 'Approved',
       description: 'Ready to submit to manufacturer'
     },
-    sent_back: { 
+    sent_back: {
       color: theme === 'dark'
         ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30 backdrop-blur-xl'
         : 'bg-amber-50 text-amber-700 border border-amber-200',
-      icon: AlertTriangle, 
+      icon: AlertTriangle,
       label: 'Sent Back',
       description: 'Returned to provider for changes'
     },
-    denied: { 
+    denied: {
       color: theme === 'dark'
         ? 'bg-red-500/20 text-red-300 border border-red-500/30 backdrop-blur-xl'
         : 'bg-red-50 text-red-700 border border-red-200',
-      icon: XCircle, 
+      icon: XCircle,
       label: 'Denied',
       description: 'Order rejected'
     },
-    submitted_to_manufacturer: { 
+    submitted_to_manufacturer: {
       color: theme === 'dark'
         ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-500/40 backdrop-blur-xl'
         : 'bg-emerald-100 text-emerald-800 border border-emerald-300',
-      icon: Package, 
+      icon: Package,
       label: 'Submitted',
       description: 'Sent to manufacturer'
     },
@@ -101,14 +101,14 @@ const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
 }) => {
   // Get theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const statusConfig = getStatusConfig(theme);
   const config = statusConfig[status];
   if (!config) return null;
@@ -128,7 +128,7 @@ const OrderStatusBadge: React.FC<OrderStatusBadgeProps> = ({
   };
 
   return (
-    <span 
+    <span
       className={cn(
         'inline-flex items-center rounded-full font-medium transition-all duration-200',
         config.color,
