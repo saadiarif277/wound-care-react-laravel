@@ -13,7 +13,7 @@
     @if(config('services.google.maps_api_key'))
     <script>
         window.ENV = window.ENV || {};
-        window.ENV.GOOGLE_MAPS_API_KEY = '{{ config('services.google.maps_api_key') }}';
+        window.ENV.GOOGLE_MAPS_API_KEY = "{{ config('services.google.maps_api_key') }}";
     </script>
     <script async defer
         src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key') }}&libraries=places">

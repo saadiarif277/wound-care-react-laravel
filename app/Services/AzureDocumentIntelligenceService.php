@@ -187,14 +187,14 @@ class AzureDocumentIntelligenceService
             $fields = $frontResults['documents'][0]['fields'];
             
             // Log all available fields for debugging
-            \Log::info('Azure Document Intelligence - Available fields', [
+            Log::info('Azure Document Intelligence - Available fields', [
                 'field_names' => array_keys($fields),
                 'full_fields' => $fields // Log complete field structure
             ]);
             
             // Also log the raw OCR content
             if (isset($frontResults['content'])) {
-                \Log::info('Azure Document Intelligence - Raw OCR Content', [
+                Log::info('Azure Document Intelligence - Raw OCR Content', [
                     'content_length' => strlen($frontResults['content']),
                     'content_preview' => substr($frontResults['content'], 0, 500),
                     'full_content' => $frontResults['content']
@@ -210,7 +210,7 @@ class AzureDocumentIntelligenceService
             if (isset($fields['Member'])) {
                 $memberFields = $fields['Member']['valueObject'] ?? [];
                 
-                \Log::info('Azure - Member fields available', [
+                Log::info('Azure - Member fields available', [
                     'field_names' => array_keys($memberFields)
                 ]);
                 
@@ -223,7 +223,7 @@ class AzureDocumentIntelligenceService
                 foreach ($memberIdFields as $fieldName) {
                     if (isset($memberFields[$fieldName])) {
                         $data['member']['id'] = $this->getFieldContent($memberFields[$fieldName]);
-                        \Log::info('Extracted Member ID from Azure', [
+                        Log::info('Extracted Member ID from Azure', [
                             'field_name' => $fieldName,
                             'raw_field' => $memberFields[$fieldName],
                             'extracted_value' => $data['member']['id']
@@ -240,7 +240,7 @@ class AzureDocumentIntelligenceService
             // Also check for standalone MemberId field
             if (isset($fields['MemberId']) && empty($data['member']['id'])) {
                 $data['member']['id'] = $this->getFieldContent($fields['MemberId']);
-                \Log::info('Extracted Member ID from standalone field', [
+                Log::info('Extracted Member ID from standalone field', [
                     'value' => $data['member']['id']
                 ]);
             }
@@ -254,7 +254,7 @@ class AzureDocumentIntelligenceService
                         $content = $this->getFieldContent($fields[$fieldName]);
                         if ($content && !empty($content)) {
                             $data['member']['id'] = $content;
-                            \Log::info('Extracted Member ID from top-level field', [
+                            Log::info('Extracted Member ID from top-level field', [
                                 'field_name' => $fieldName,
                                 'value' => $content
                             ]);
@@ -271,7 +271,7 @@ class AzureDocumentIntelligenceService
                             $content = $this->getFieldContent($fieldValue);
                             if ($content && !empty($content)) {
                                 $data['member']['id'] = $content;
-                                \Log::info('Extracted Member ID from pattern match', [
+                                Log::info('Extracted Member ID from pattern match', [
                                     'field_name' => $fieldName,
                                     'value' => $content
                                 ]);
@@ -299,7 +299,7 @@ class AzureDocumentIntelligenceService
                     foreach ($patterns as $pattern) {
                         if (preg_match($pattern, $frontResults['content'], $matches)) {
                             $data['member']['id'] = $matches[1];
-                            \Log::info('Extracted Member ID from text pattern', [
+                            Log::info('Extracted Member ID from text pattern', [
                                 'pattern' => $pattern,
                                 'value' => $matches[1],
                                 'full_match' => $matches[0]
@@ -316,7 +316,7 @@ class AzureDocumentIntelligenceService
                 // Sometimes member ID is labeled as policy number
                 if ($policyNumber && preg_match('/^[A-Z]?\d{8,}$/i', $policyNumber)) {
                     $data['member']['id'] = $policyNumber;
-                    \Log::info('Using PolicyNumber as Member ID', [
+                    Log::info('Using PolicyNumber as Member ID', [
                         'value' => $policyNumber
                     ]);
                 }
@@ -528,7 +528,7 @@ class AzureDocumentIntelligenceService
         $formData['insurance_extracted_data'] = $extractedData;
         
         // Log the final mapped data
-        \Log::info('Final mapped form data', [
+        Log::info('Final mapped form data', [
             'member_id' => $formData['patient_member_id'] ?? 'NOT FOUND',
             'payer_name' => $formData['payer_name'] ?? 'NOT FOUND',
             'payer_id' => $formData['payer_id'] ?? 'NOT FOUND',
