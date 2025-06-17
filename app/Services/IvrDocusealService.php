@@ -9,6 +9,7 @@ use App\Models\Docuseal\DocusealFolder;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use App\Services\PhiAuditService;
 use Exception;
 
 class IvrDocusealService
@@ -68,10 +69,15 @@ class IvrDocusealService
                 throw new Exception("No DocuSeal template configured for manufacturer: {$manufacturer->name}");
             }
 
+            // Get patient data from FHIR (PHI-safe approach)
+            $patientData = $this->getPatientDataFromFhir($productRequest);
+            
             // Map product request data to IVR fields using the field mapping service
+            // Pass patient data separately to ensure FHIR data is used
             $mappedFields = $this->fieldMappingService->mapProductRequestToIvrFields(
                 $productRequest,
-                $manufacturerKey
+                $manufacturerKey,
+                $patientData
             );
 
             // Validate required fields
@@ -235,25 +241,52 @@ class IvrDocusealService
     private function getPatientDataFromFhir(ProductRequest $productRequest): array
     {
         try {
+            // Validate FHIR ID exists before attempting retrieval
+            if (empty($productRequest->patient_fhir_id)) {
+                throw new Exception('No patient FHIR ID available');
+            }
+            
             // Get patient data from FHIR using patient FHIR ID
             $patient = $this->fhirService->getPatient($productRequest->patient_fhir_id);
+            
+            // Audit PHI access for IVR generation
+            PhiAuditService::logExport('Patient', $productRequest->patient_fhir_id, 'IVR_GENERATION', [
+                'product_request_id' => $productRequest->id,
+                'purpose' => 'Generate IVR document for manufacturer'
+            ]);
+
+            // Safely extract patient data with proper null checks
+            $firstName = isset($patient->name[0]->given[0]) ? (string)$patient->name[0]->given[0] : '';
+            $lastName = isset($patient->name[0]->family) ? (string)$patient->name[0]->family : '';
+            $fullName = trim($firstName . ' ' . $lastName) ?: 'Unknown';
+            
+            // Extract phone number safely
+            $phone = '';
+            if (isset($patient->telecom) && is_array($patient->telecom)) {
+                foreach ($patient->telecom as $telecom) {
+                    if (isset($telecom->system) && $telecom->system === 'phone' && isset($telecom->value)) {
+                        $phone = $telecom->value;
+                        break;
+                    }
+                }
+            }
 
             return [
-                'patient_name' => $patient->name[0]->given[0] . ' ' . $patient->name[0]->family ?? 'Unknown',
-                'patient_dob' => $patient->birthDate ?? '',
-                'patient_gender' => $patient->gender ?? '',
+                'patient_name' => $fullName,
+                'patient_dob' => isset($patient->birthDate) ? (string)$patient->birthDate : '',
+                'patient_gender' => isset($patient->gender) ? (string)$patient->gender : 'unknown',
                 'patient_address' => $this->formatAddress($patient->address[0] ?? null),
-                'patient_phone' => $patient->telecom[0]->value ?? '',
+                'patient_phone' => $phone,
                 'patient_identifier' => $productRequest->patient_display_id,
             ];
         } catch (Exception $e) {
-            Log::warning('Failed to get patient data from FHIR', [
+            Log::warning('Failed to get patient data from FHIR, using display ID only', [
                 'product_request_id' => $productRequest->id,
                 'patient_fhir_id' => $productRequest->patient_fhir_id,
                 'error' => $e->getMessage()
             ]);
 
-            // Return basic data if FHIR fails
+            // Return minimal data with display ID only - NO PHI
             return [
                 'patient_name' => 'Patient ' . $productRequest->patient_display_id,
                 'patient_dob' => '',

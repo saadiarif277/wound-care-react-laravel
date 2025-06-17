@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use App\Services\FhirService;
+use App\Services\PhiAuditService;
 
 class PatientService
 {
@@ -45,6 +46,13 @@ class PatientService
 
             // Store the record mapping
             $this->storePatientRecord($displayId, $fhirId, $facilityId, $patientData);
+
+            // Audit PHI creation
+            PhiAuditService::logCreation('Patient', $fhirId, [
+                'display_id' => $displayId,
+                'facility_id' => $facilityId,
+                'has_member_id' => !empty($patientData['member_id'])
+            ]);
 
             return [
                 'patient_fhir_id' => $fhirId,

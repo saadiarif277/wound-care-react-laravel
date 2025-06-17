@@ -5,6 +5,7 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Http\UploadedFile;
+use App\Services\PhiAuditService;
 
 class AzureDocumentIntelligenceService
 {

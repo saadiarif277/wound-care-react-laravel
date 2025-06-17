@@ -78,6 +78,24 @@ return [
             'throw' => false,
         ],
 
+        // S3 Encrypted storage for PHI documents
+        's3-encrypted' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION', 'us-east-1'),
+            'bucket' => env('AWS_PHI_BUCKET', env('AWS_BUCKET')),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => true,
+            'options' => [
+                'ServerSideEncryption' => 'AES256', // Enable S3 server-side encryption
+                'StorageClass' => 'STANDARD_IA', // Infrequent access for cost optimization
+            ],
+            'visibility' => 'private', // Ensure all files are private
+        ],
+
     ],
 
     /*

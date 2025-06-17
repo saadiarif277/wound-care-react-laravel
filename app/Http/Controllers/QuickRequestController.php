@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\Order\ProductRequest;
 use App\Services\AzureDocumentIntelligenceService;
 use App\Services\PayerService;
+use App\Services\PatientService;
+use App\Services\PhiAuditService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -17,6 +19,12 @@ use Illuminate\Support\Str;
 
 class QuickRequestController extends Controller
 {
+    protected PatientService $patientService;
+    
+    public function __construct(PatientService $patientService)
+    {
+        $this->patientService = $patientService;
+    }
     public function create()
     {
         $user = Auth::user();
@@ -117,7 +125,30 @@ class QuickRequestController extends Controller
         DB::beginTransaction();
         
         try {
-            // Create the product request
+            // Create patient record in FHIR (PHI-safe approach)
+            $patientData = [
+                'first_name' => $validated['patient_first_name'],
+                'last_name' => $validated['patient_last_name'],
+                'date_of_birth' => $validated['patient_dob'],
+                'gender' => $validated['patient_gender'] ?? 'unknown',
+                'member_id' => $validated['patient_member_id'],
+                'phone' => $validated['patient_phone'],
+                'address' => [
+                    'line1' => $validated['patient_address_line1'],
+                    'line2' => $validated['patient_address_line2'],
+                    'city' => $validated['patient_city'],
+                    'state' => $validated['patient_state'],
+                    'zip' => $validated['patient_zip']
+                ]
+            ];
+            
+            // Create patient in FHIR and get identifiers
+            $patientIdentifiers = $this->patientService->createPatientRecord(
+                $patientData,
+                $validated['facility_id']
+            );
+            
+            // Create the product request with only non-PHI data
             $productRequest = new ProductRequest();
             $productRequest->id = Str::uuid();
             $productRequest->request_number = $this->generateRequestNumber();
@@ -126,18 +157,9 @@ class QuickRequestController extends Controller
             $productRequest->order_status = 'pending_review';
             $productRequest->submission_type = 'quick_request';
             
-            // Set patient information
-            $productRequest->patient_first_name = $validated['patient_first_name'];
-            $productRequest->patient_last_name = $validated['patient_last_name'];
-            $productRequest->patient_dob = $validated['patient_dob'];
-            $productRequest->patient_gender = $validated['patient_gender'] ?? 'unknown';
-            $productRequest->patient_member_id = $validated['patient_member_id'];
-            $productRequest->patient_address_line1 = $validated['patient_address_line1'];
-            $productRequest->patient_address_line2 = $validated['patient_address_line2'];
-            $productRequest->patient_city = $validated['patient_city'];
-            $productRequest->patient_state = $validated['patient_state'];
-            $productRequest->patient_zip = $validated['patient_zip'];
-            $productRequest->patient_phone = $validated['patient_phone'];
+            // Store only patient identifiers, NOT PHI
+            $productRequest->patient_fhir_id = $patientIdentifiers['patient_fhir_id'];
+            $productRequest->patient_display_id = $patientIdentifiers['patient_display_id'];
             
             // Set product information
             $product = Product::find($validated['product_id']);
@@ -178,31 +200,92 @@ class QuickRequestController extends Controller
             
             $productRequest->metadata = $metadata;
             
-            // Handle file uploads
+            // Handle file uploads with PHI protection
+            $documentMetadata = [];
+            
             if ($request->hasFile('insurance_card_front')) {
-                $path = $request->file('insurance_card_front')->store('insurance-cards', 'private');
-                $productRequest->insurance_card_front_path = $path;
+                $path = $request->file('insurance_card_front')->store('phi/insurance-cards/' . date('Y/m'), 's3-encrypted');
+                $documentMetadata['insurance_card_front'] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file('insurance_card_front')->getSize(),
+                    'mime_type' => $request->file('insurance_card_front')->getMimeType()
+                ];
+                
+                // Audit PHI document upload
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => 'insurance_card_front',
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
             }
             
             if ($request->hasFile('insurance_card_back')) {
-                $path = $request->file('insurance_card_back')->store('insurance-cards', 'private');
-                $productRequest->insurance_card_back_path = $path;
+                $path = $request->file('insurance_card_back')->store('phi/insurance-cards/' . date('Y/m'), 's3-encrypted');
+                $documentMetadata['insurance_card_back'] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file('insurance_card_back')->getSize(),
+                    'mime_type' => $request->file('insurance_card_back')->getMimeType()
+                ];
+                
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => 'insurance_card_back',
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
             }
             
             if ($request->hasFile('face_sheet')) {
-                $path = $request->file('face_sheet')->store('face-sheets', 'private');
-                $productRequest->face_sheet_path = $path;
+                $path = $request->file('face_sheet')->store('phi/face-sheets/' . date('Y/m'), 's3-encrypted');
+                $documentMetadata['face_sheet'] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file('face_sheet')->getSize(),
+                    'mime_type' => $request->file('face_sheet')->getMimeType()
+                ];
+                
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => 'face_sheet',
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
             }
             
             if ($request->hasFile('clinical_notes')) {
-                $path = $request->file('clinical_notes')->store('clinical-notes', 'private');
-                $productRequest->clinical_notes_path = $path;
+                $path = $request->file('clinical_notes')->store('phi/clinical-notes/' . date('Y/m'), 's3-encrypted');
+                $documentMetadata['clinical_notes'] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file('clinical_notes')->getSize(),
+                    'mime_type' => $request->file('clinical_notes')->getMimeType()
+                ];
+                
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => 'clinical_notes',
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
             }
             
             if ($request->hasFile('wound_photo')) {
-                $path = $request->file('wound_photo')->store('wound-photos', 'private');
-                $productRequest->wound_photo_path = $path;
+                $path = $request->file('wound_photo')->store('phi/wound-photos/' . date('Y/m'), 's3-encrypted');
+                $documentMetadata['wound_photo'] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file('wound_photo')->getSize(),
+                    'mime_type' => $request->file('wound_photo')->getMimeType()
+                ];
+                
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => 'wound_photo',
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
             }
+            
+            // Store document metadata in the metadata field
+            $metadata['documents'] = $documentMetadata;
             
             $productRequest->save();
             
@@ -349,6 +432,16 @@ class QuickRequestController extends Controller
             
             // Map to patient form fields
             $formData = $azureService->mapToPatientForm($extractedData);
+            
+            // Audit PHI extraction from insurance card
+            PhiAuditService::logRead('InsuranceCard', 'Azure-Analysis-' . uniqid(), [
+                'purpose' => 'Insurance card OCR for patient registration',
+                'card_types' => [
+                    'front' => $request->hasFile('insurance_card_front'),
+                    'back' => $request->hasFile('insurance_card_back')
+                ],
+                'extraction_successful' => !empty($formData)
+            ]);
             
             return response()->json([
                 'success' => true,
