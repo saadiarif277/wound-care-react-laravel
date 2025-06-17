@@ -1,48 +1,32 @@
 import React, { useState, useMemo } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { GlassTable, Table, Thead, Tbody, Tr, Th, Td } from '@/Components/ui/GlassTable';
-import { useTheme } from '@/contexts/ThemeContext';
-import { themes } from '@/theme/glass-theme';
-import Heading from '@/Components/ui/Heading';
-import GlassCard from '@/Components/ui/GlassCard';
+import { Card } from '@/Components/ui/card';
+import { Badge } from '@/Components/ui/badge';
 import OrderStatusBadge from '@/Components/Order/OrderStatusBadge';
 import {
-  Eye,
-  CheckCircle,
-  XCircle,
+  Search,
+  Package,
   Clock,
+  CheckCircle2,
   AlertTriangle,
   FileText,
-  Send,
-  MoreVertical,
-  Filter,
-  Search,
-  ChevronDown,
-  Package,
-  Calendar,
-  Building2,
-  User,
-  Hash,
   TrendingUp,
-  TrendingDown,
-  Activity,
-  Download,
-  FilterX,
-  CalendarRange,
-  Sparkles,
+  Plus,
   ChevronRight,
+  Filter,
+  Activity,
 } from 'lucide-react';
 
 // Status configuration for the order center
 const statusConfig = {
-  pending_ivr: { icon: Clock, label: 'Pending IVR' },
-  ivr_sent: { icon: Send, label: 'IVR Sent' },
-  ivr_confirmed: { icon: FileText, label: 'IVR Confirmed' },
-  approved: { icon: CheckCircle, label: 'Approved' },
-  sent_back: { icon: AlertTriangle, label: 'Sent Back' },
-  denied: { icon: XCircle, label: 'Denied' },
-  submitted_to_manufacturer: { icon: Package, label: 'Submitted' },
+  pending_ivr: { icon: Clock, label: 'Pending IVR', color: 'yellow' },
+  ivr_sent: { icon: FileText, label: 'IVR Sent', color: 'blue' },
+  ivr_confirmed: { icon: FileText, label: 'IVR Confirmed', color: 'blue' },
+  approved: { icon: CheckCircle2, label: 'Approved', color: 'green' },
+  sent_back: { icon: AlertTriangle, label: 'Sent Back', color: 'orange' },
+  denied: { icon: AlertTriangle, label: 'Denied', color: 'red' },
+  submitted_to_manufacturer: { icon: Package, label: 'Submitted', color: 'purple' },
 };
 
 interface Order {
@@ -50,7 +34,7 @@ interface Order {
   order_number: string;
   patient_display_id: string;
   patient_fhir_id: string;
-  order_status: 'pending_ivr' | 'ivr_sent' | 'ivr_confirmed' | 'approved' | 'sent_back' | 'denied' | 'submitted_to_manufacturer';
+  order_status: keyof typeof statusConfig;
   provider: {
     id: number;
     name: string;
@@ -99,27 +83,16 @@ interface OrderCenterProps {
   manufacturers: Array<{ id: number; name: string }>;
 }
 
-const OrderCenter: React.FC<OrderCenterProps> = ({
+export default function OrderCenter({
   orders,
   filters,
   statusCounts,
   manufacturers,
-}) => {
-  const [activeTab, setActiveTab] = useState<'requiring_action' | 'all_orders'>('requiring_action');
-  const [searchQuery, setSearchQuery] = useState(filters.search || '');
-
-  // Get theme context with fallback
-  let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
-
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    t = themes[theme];
-  } catch (e) {
-    // Fallback to dark theme if outside ThemeProvider
-  }
-
+}: OrderCenterProps) {
+  const [searchTerm, setSearchTerm] = useState(filters.search || '');
+  const [selectedStatus, setSelectedStatus] = useState(filters.status || '');
+  const [selectedManufacturer, setSelectedManufacturer] = useState(filters.manufacturer || '');
+  const [showActionRequired, setShowActionRequired] = useState(filters.action_required || false);
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -138,36 +111,22 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
     });
   };
 
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    router.get(window.location.pathname,
-      { ...filters, search: value },
-      { preserveState: true, replace: true, only: ['orders'] }
-    );
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    router.get(window.location.pathname, {
+      search: searchTerm,
+      status: selectedStatus,
+      manufacturer: selectedManufacturer,
+      action_required: showActionRequired
+    });
   };
 
-  const handleFilterChange = (key: string, value: string) => {
-    router.get(window.location.pathname,
-      { ...filters, [key]: value },
-      { preserveState: true, replace: true, only: ['orders'] }
-    );
-  };
-
-  const handleTabChange = (tab: 'requiring_action' | 'all_orders') => {
-    setActiveTab(tab);
-    handleFilterChange('action_required', tab === 'requiring_action' ? 'true' : '');
-  };
-
-  const filteredOrders = activeTab === 'requiring_action'
-    ? orders.data.filter(order => order.action_required)
-    : orders.data;
-
-  // Calculate stats for header
+  // Calculate stats
   const stats = useMemo(() => {
     const totalOrders = Object.values(statusCounts).reduce((a, b) => a + b, 0);
     const pendingActions = (statusCounts.pending_ivr || 0) + (statusCounts.sent_back || 0);
-    const approvalRate = totalOrders > 0 
-      ? Math.round(((statusCounts.approved || 0) / totalOrders) * 100) 
+    const approvalRate = totalOrders > 0
+      ? Math.round(((statusCounts.approved || 0) / totalOrders) * 100)
       : 0;
     const todaysOrders = orders.data.filter(order => {
       const orderDate = new Date(order.submitted_at);
@@ -178,527 +137,369 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
     return { totalOrders, pendingActions, approvalRate, todaysOrders };
   }, [statusCounts, orders.data]);
 
-  // Get time-based greeting
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 17) return 'Good afternoon';
-    return 'Good evening';
+  const getStatusBadge = (status: keyof typeof statusConfig) => {
+    const config = statusConfig[status];
+    if (!config) return <Badge>{status}</Badge>;
+
+    const colorClasses = {
+      green: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+      yellow: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+      red: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+      blue: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+      orange: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+      purple: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+    };
+
+    const Icon = config.icon;
+    return (
+      <Badge className={colorClasses[config.color as keyof typeof colorClasses]}>
+        <Icon className="w-3 h-3 mr-1" />
+        {config.label}
+      </Badge>
+    );
   };
 
   return (
     <MainLayout>
-      <Head title="Admin Order Center" />
-      
-      {/* Hero Header with Gradient Background */}
-      <div className={`relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/20 via-transparent to-[#c71719]/20' : 'bg-gradient-to-br from-[#1925c3]/10 via-transparent to-[#c71719]/10'} -mt-6 -mx-4 sm:-mx-6 lg:-mx-8`}>
-        <div className="absolute inset-0 opacity-5">
-          <div className="absolute inset-0" style={{
-            backgroundImage: `repeating-linear-gradient(
-              45deg,
-              transparent,
-              transparent 10px,
-              ${theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'} 10px,
-              ${theme === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.03)'} 20px
-            )`
-          }}></div>
+      <Head title="Order Management Center" />
+
+      <div className="w-full min-h-screen bg-gray-50 dark:bg-gray-900 py-4 px-2 sm:px-4 md:px-8">
+        {/* Header */}
+        <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Order Management Center</h1>
+            <p className="text-gray-600 dark:text-gray-300">Track and manage all provider-submitted product requests</p>
+          </div>
+          <Link
+            href="/admin/orders/create"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-5 h-5 mr-2" />
+            Create Order
+          </Link>
         </div>
-        <div className="relative p-4 sm:p-6 lg:p-8">
-          <div className="mb-8">
-            <div className="flex items-center justify-between mb-4">
+
+        {/* Summary Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm ${t.text.secondary} mb-1`}>{getGreeting()}, Admin</p>
-                <Heading level={1} className="bg-gradient-to-r from-[#1925c3] to-[#c71719] bg-clip-text text-transparent animate-in fade-in slide-in-from-bottom-2 duration-500">
-                  Order Management Center
-                </Heading>
-                <p className={`mt-2 text-base ${t.text.secondary}`}>
-                  Track and manage all provider-submitted product requests in real-time
-                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Orders Today</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.todaysOrders}</p>
+                {stats.todaysOrders > 0 && (
+                  <p className="text-xs text-green-600 dark:text-green-300 flex items-center gap-1 mt-1">
+                    <TrendingUp className="w-3 h-3" />
+                    {Math.round((stats.todaysOrders / Math.max(stats.totalOrders, 1)) * 100)}% of total
+                  </p>
+                )}
               </div>
-              <div className="hidden lg:flex items-center gap-3">
-                <button className={`px-4 py-2.5 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl flex items-center gap-2 transition-all backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} shadow-sm hover:shadow-md`}>
-                  <Download className="w-4 h-4" />
-                  <span className="text-sm font-medium">Export</span>
+              <Activity className="w-8 h-8 text-blue-400 dark:text-blue-300" />
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Pending Actions</p>
+                <p className="text-2xl font-bold text-orange-600 dark:text-orange-300">{stats.pendingActions}</p>
+                {stats.pendingActions > 5 && (
+                  <p className="text-xs text-orange-600 dark:text-orange-300 mt-1">Requires attention</p>
+                )}
+              </div>
+              <AlertTriangle className="w-8 h-8 text-orange-400 dark:text-orange-300" />
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Approval Rate</p>
+                <p className="text-2xl font-bold text-green-600 dark:text-green-300">{stats.approvalRate}%</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Overall performance</p>
+              </div>
+              <CheckCircle2 className="w-8 h-8 text-green-400 dark:text-green-300" />
+            </div>
+          </Card>
+
+          <Card className="p-4 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-600 dark:text-gray-300">Total Orders</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalOrders}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">All time</p>
+              </div>
+              <Package className="w-8 h-8 text-purple-400 dark:text-purple-300" />
+            </div>
+          </Card>
+        </div>
+
+        {/* Status Summary Bar */}
+        <Card className="p-4 mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div className="flex flex-wrap gap-4">
+            {Object.entries(statusCounts).map(([status, count]) => {
+              const config = statusConfig[status as keyof typeof statusConfig];
+              if (!config) return null;
+              const Icon = config.icon;
+              const isActive = filters.status === status;
+
+              return (
+                <button
+                  key={status}
+                  onClick={() => router.get(window.location.pathname, {
+                    ...filters,
+                    status: isActive ? '' : status
+                  })}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all
+                    ${isActive ? 'bg-red-600 text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'}`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{config.label}</span>
+                  <span className={`ml-1 px-2 py-0.5 rounded-full text-xs font-semibold
+                    ${isActive ? 'bg-white/20' : 'bg-gray-200 dark:bg-gray-600'}`}>{count}</span>
                 </button>
-              </div>
-            </div>
-
-            {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
-              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-blue-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'} shadow-sm`}>
-                      <Activity className={`w-5 h-5 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
-                    </div>
-                    {stats.todaysOrders > 0 && (
-                      <span className={`text-xs ${theme === 'dark' ? 'text-green-400' : 'text-green-600'} flex items-center gap-1 font-medium`}>
-                        <TrendingUp className="w-3 h-3" />
-                        +{Math.round((stats.todaysOrders / Math.max(stats.totalOrders, 1)) * 100)}%
-                      </span>
-                    )}
-                  </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.todaysOrders}</p>
-                  <p className={`text-sm ${t.text.secondary} font-medium`}>Orders Today</p>
-                </div>
-              </GlassCard>
-
-              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-amber-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-amber-500/20' : 'bg-amber-100'} shadow-sm`}>
-                      <AlertTriangle className={`w-5 h-5 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`} />
-                    </div>
-                    {stats.pendingActions > 5 && (
-                      <span className={`text-xs ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} font-bold animate-pulse`}>Urgent</span>
-                    )}
-                  </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.pendingActions}</p>
-                  <p className={`text-sm ${t.text.secondary} font-medium`}>Pending Actions</p>
-                </div>
-              </GlassCard>
-
-              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-emerald-500/20' : 'bg-emerald-100'} shadow-sm`}>
-                      <CheckCircle className={`w-5 h-5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
-                    </div>
-                    {stats.approvalRate > 90 && (
-                      <Sparkles className={`w-4 h-4 ${theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'} animate-pulse`} />
-                    )}
-                  </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.approvalRate}%</p>
-                  <p className={`text-sm ${t.text.secondary} font-medium`}>Approval Rate</p>
-                </div>
-              </GlassCard>
-
-              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-purple-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
-                <div className="relative">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-100'} shadow-sm`}>
-                      <Package className={`w-5 h-5 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`} />
-                    </div>
-                  </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.totalOrders}</p>
-                  <p className={`text-sm ${t.text.secondary} font-medium`}>Total Orders</p>
-                </div>
-              </GlassCard>
-            </div>
+              );
+            })}
           </div>
+        </Card>
 
-          {/* Status Pills - Horizontal Scrollable with Gradient Fade */}
-          <div className="mb-6 relative">
-            <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-current to-transparent pointer-events-none z-10" style={{ color: theme === 'dark' ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)' }}></div>
-            <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-current to-transparent pointer-events-none z-10" style={{ color: theme === 'dark' ? 'rgb(17, 24, 39)' : 'rgb(249, 250, 251)' }}></div>
-            <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide">
-              <div className="flex gap-3 pb-2 min-w-max">
-                {Object.entries(statusCounts).map(([status, count]) => {
-                  const config = statusConfig[status as keyof typeof statusConfig];
-                  if (!config) return null;
-                  const Icon = config.icon;
-                  const isActive = filters.status === status;
-
-                  return (
-                    <button
-                      key={status}
-                      onClick={() => handleFilterChange('status', status)}
-                      className={`
-                        group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
-                        ${isActive 
-                          ? `${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-r from-[#1925c3]/20 to-[#c71719]/20'} ring-2 ring-[#c71719] scale-105 shadow-lg backdrop-blur-xl` 
-                          : `${t.glass.card} ${t.glass.hover} hover:scale-105 hover:shadow-md`
-                        }
-                      `}
-                    >
-                      {isActive && (
-                        <div className="absolute inset-0 bg-gradient-to-r from-[#1925c3]/10 to-[#c71719]/10 rounded-xl animate-pulse"></div>
-                      )}
-                      <div className={`relative p-2 rounded-lg transition-colors ${isActive ? 'bg-gradient-to-br from-[#1925c3]/30 to-[#c71719]/30' : theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
-                        <Icon className={`w-4 h-4 ${isActive ? 'text-[#c71719]' : t.text.primary}`} />
-                      </div>
-                      <div className="relative text-left">
-                        <p className={`text-lg font-semibold ${t.text.primary}`}>{count}</p>
-                        <p className={`text-xs ${t.text.secondary}`}>{config.label}</p>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-4 sm:px-6 lg:px-8 pb-8">
-        {/* Enhanced Filter Bar */}
-        <div className="mb-6 -mt-8 relative z-10">
-          <GlassCard variant="default" className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              {/* Tabs */}
-              <div className="flex-shrink-0">
-                <div className={`inline-flex ${theme === 'dark' ? 'bg-white/5' : 'bg-gray-100'} p-1 rounded-xl`}>
-                  <button
-                    onClick={() => handleTabChange('requiring_action')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                      activeTab === 'requiring_action'
-                        ? `${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white shadow-lg' : 'bg-white text-gray-900 shadow'}`
-                        : `${t.text.secondary} hover:${t.text.primary}`
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      Requiring Action
-                      {stats.pendingActions > 0 && (
-                        <span className={`${activeTab === 'requiring_action' ? 'bg-white/20 text-white' : theme === 'dark' ? 'bg-red-500/20 text-red-300' : 'bg-red-100 text-red-600'} px-2 py-0.5 rounded-full text-xs font-bold`}>
-                          {stats.pendingActions}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                  <button
-                    onClick={() => handleTabChange('all_orders')}
-                    className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                      activeTab === 'all_orders'
-                        ? `${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white shadow-lg' : 'bg-white text-gray-900 shadow'}`
-                        : `${t.text.secondary} hover:${t.text.primary}`
-                    }`}
-                  >
-                    All Orders
-                  </button>
-                </div>
-              </div>
-
-              {/* Search and Filters */}
-              <div className="flex-1 flex flex-col sm:flex-row gap-3">
-                <div className="flex-1 relative">
-                  <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 ${t.text.muted}`} />
-                  <input
-                    type="text"
-                    placeholder="Search orders, providers, or patient IDs..."
-                    className={`pl-10 pr-4 py-2.5 w-full rounded-xl text-sm ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10 focus:border-[#c71719]/50' : 'border-gray-300 focus:border-[#1925c3]'} transition-all focus:ring-2 ${theme === 'dark' ? 'focus:ring-[#c71719]/20' : 'focus:ring-[#1925c3]/20'} outline-none`}
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                  />
-                </div>
-
-                <div className="flex gap-2">
-                  <button className={`px-4 py-2.5 ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm rounded-xl flex items-center gap-2 text-sm font-medium transition-all border ${theme === 'dark' ? 'border-white/10' : 'border-gray-300'} shadow-sm hover:shadow-md`}>
-                    <CalendarRange className="w-4 h-4" />
-                    <span className="hidden sm:inline">Date Range</span>
-                  </button>
-
-                  <select
-                    className={`px-4 py-2.5 rounded-xl text-sm ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10 focus:border-[#c71719]/50' : 'border-gray-300 focus:border-[#1925c3]'} transition-all min-w-[150px] cursor-pointer outline-none focus:ring-2 ${theme === 'dark' ? 'focus:ring-[#c71719]/20' : 'focus:ring-[#1925c3]/20'}`}
-                    value={filters.manufacturer || ''}
-                    onChange={(e) => handleFilterChange('manufacturer', e.target.value)}
-                  >
-                    <option value="">All Manufacturers</option>
-                    {manufacturers.map((manufacturer) => (
-                      <option key={manufacturer.id} value={manufacturer.id}>
-                        {manufacturer.name}
-                      </option>
-                    ))}
-                  </select>
-
-                  <button className={`p-2.5 ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm rounded-xl transition-all group border ${theme === 'dark' ? 'border-white/10' : 'border-gray-300'} shadow-sm hover:shadow-md`}>
-                    <Filter className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300" />
-                  </button>
-
-                  {(filters.search || filters.status || filters.manufacturer) && (
-                    <button 
-                      onClick={() => {
-                        setSearchQuery('');
-                        router.get(window.location.pathname, {}, { preserveState: false });
-                      }}
-                      className={`p-2.5 ${theme === 'dark' ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-red-100 text-red-600 hover:bg-red-200'} rounded-xl transition-all`}
-                    >
-                      <FilterX className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </div>
+        {/* Search and Filters */}
+        <Card className="p-4 mb-6 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <form onSubmit={handleSearch} className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search orders, providers, or patient IDs..."
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-900 dark:text-white dark:placeholder-gray-400"
+              />
             </div>
 
-            {/* Active Filters */}
-            {(filters.search || filters.status || filters.manufacturer) && (
-              <div className="flex flex-wrap gap-2 mt-4">
-                {filters.search && (
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${theme === 'dark' ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700'}`}>
-                    Search: {filters.search}
-                    <button onClick={() => handleFilterChange('search', '')} className="ml-1 hover:text-red-500">
-                      <XCircle className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-                {filters.status && (
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${theme === 'dark' ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700'}`}>
-                    Status: {statusConfig[filters.status as keyof typeof statusConfig]?.label}
-                    <button onClick={() => handleFilterChange('status', '')} className="ml-1 hover:text-red-500">
-                      <XCircle className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-                {filters.manufacturer && (
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium ${theme === 'dark' ? 'bg-white/10 text-white/80' : 'bg-gray-100 text-gray-700'}`}>
-                    Manufacturer: {manufacturers.find(m => m.id.toString() === filters.manufacturer)?.name}
-                    <button onClick={() => handleFilterChange('manufacturer', '')} className="ml-1 hover:text-red-500">
-                      <XCircle className="w-3 h-3" />
-                    </button>
-                  </span>
-                )}
-              </div>
-            )}
-          </GlassCard>
-        </div>
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-900 dark:text-white"
+            >
+              <option value="">All Statuses</option>
+              {Object.entries(statusConfig).map(([value, config]) => (
+                <option key={value} value={value}>{config.label}</option>
+              ))}
+            </select>
 
-        {/* Enhanced Orders Table */}
-        <div className="relative">
-          <GlassTable className={`rounded-2xl overflow-hidden ${theme === 'dark' ? 'shadow-2xl shadow-black/30' : 'shadow-xl shadow-gray-200/50'}`}>
-            <Table>
-              <Thead>
-                <Tr>
-                  <Th>
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
-                        <Hash className="w-3 h-3" />
-                      </div>
-                      <span>Order Details</span>
-                    </div>
-                  </Th>
-                  <Th>
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
-                        <User className="w-3 h-3" />
-                      </div>
-                      <span>Provider & Patient</span>
-                    </div>
-                  </Th>
-                  <Th>Status & Timeline</Th>
-                  <Th>
-                    <div className="flex items-center gap-2">
-                      <div className={`p-1.5 rounded-lg ${theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
-                        <Building2 className="w-3 h-3" />
-                      </div>
-                      <span>Manufacturer</span>
-                    </div>
-                  </Th>
-                  <Th className="text-center">Actions</Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {filteredOrders.map((order, index) => (
-                  <Tr
-                    key={order.id}
-                    className={`cursor-pointer group transition-all hover:scale-[1.005] ${theme === 'dark' ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-50'}`}
-                    onClick={() => router.visit(`/admin/orders/${order.id}`)}
-                  >
-                    <Td className="font-medium">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm font-semibold ${t.text.primary}`}>
-                            {order.order_number || 'N/A'}
-                          </span>
-                          {order.products_count > 0 && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'} font-medium`}>
-                              {order.products_count} items
-                            </span>
-                          )}
-                        </div>
-                        <div className={`text-xs ${t.text.secondary}`}>
-                          Total: {formatCurrency(order.total_order_value)}
-                        </div>
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-xl ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-br from-[#1925c3]/20 to-[#c71719]/20'} flex items-center justify-center shadow-sm`}>
-                            <User className={`w-4 h-4 ${theme === 'dark' ? 'text-white/80' : 'text-gray-700'}`} />
-                          </div>
-                          <div>
-                            <div className={`text-sm font-medium ${t.text.primary}`}>
-                              {order.provider?.name || 'Unknown'}
-                            </div>
-                            <div className={`text-xs ${t.text.secondary}`}>
-                              {order.facility?.name || 'Unknown Facility'}
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`flex items-center gap-2 pl-10`}>
-                          <span className={`text-xs ${t.text.muted}`}>Patient:</span>
-                          <span className={`text-xs font-medium ${t.text.secondary}`}>
-                            {order.patient_display_id || 'N/A'}
-                          </span>
-                        </div>
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="space-y-2">
-                        <OrderStatusBadge status={order.order_status} size="md" showIcon />
-                        <div className={`text-xs ${t.text.secondary} space-y-0.5`}>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            Submitted: {formatDate(order.submitted_at)}
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            Service: {formatDate(order.expected_service_date)}
-                          </div>
-                        </div>
-                      </div>
-                    </Td>
-                    <Td>
-                      <div className="flex items-center gap-2">
-                        <div className={`w-10 h-10 rounded-xl ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-100'} flex items-center justify-center shadow-sm`}>
-                          <Package className={`w-5 h-5 ${theme === 'dark' ? 'text-purple-300' : 'text-purple-600'}`} />
-                        </div>
+            <select
+              value={selectedManufacturer}
+              onChange={(e) => setSelectedManufacturer(e.target.value)}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 dark:bg-gray-900 dark:text-white"
+            >
+              <option value="">All Manufacturers</option>
+              {manufacturers.map((manufacturer) => (
+                <option key={manufacturer.id} value={manufacturer.id}>
+                  {manufacturer.name}
+                </option>
+              ))}
+            </select>
+
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={showActionRequired}
+                onChange={(e) => setShowActionRequired(e.target.checked)}
+                className="rounded border-gray-300 dark:border-gray-700 text-red-600 focus:ring-red-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-200">Action Required Only</span>
+            </label>
+
+            <button
+              type="submit"
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+            >
+              <Filter className="w-4 h-4" />
+              Apply Filters
+            </button>
+          </form>
+        </Card>
+
+        {/* Orders Table */}
+        <Card className="overflow-hidden bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Order Details
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Provider & Patient
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Dates
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Manufacturer
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {orders.data.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center">
+                      <Package className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600 mb-4" />
+                      <p className="text-gray-500 dark:text-gray-300">No orders found</p>
+                      <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">
+                        {filters.search || filters.status || filters.manufacturer || filters.action_required
+                          ? 'Try adjusting your filters'
+                          : 'Create your first order to get started'}
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  orders.data.map((order) => (
+                    <tr
+                      key={order.id}
+                      className="hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer"
+                      onClick={() => router.visit(`/admin/orders/${order.id}`)}
+                    >
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className={`text-sm font-medium ${t.text.primary}`}>
-                            {order.manufacturer?.name || 'Unknown'}
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {order.order_number || 'N/A'}
                           </div>
-                          {order.manufacturer?.contact_email && (
-                            <div className={`text-xs ${t.text.muted}`}>
-                              {order.manufacturer.contact_email}
-                            </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-300">
+                            {order.products_count} items • {formatCurrency(order.total_order_value)}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div>
+                          <div className="text-sm font-medium text-gray-900 dark:text-white">
+                            {order.provider?.name || 'Unknown'}
+                          </div>
+                          <div className="text-sm text-gray-500 dark:text-gray-300">
+                            {order.facility?.name || 'Unknown Facility'}
+                          </div>
+                          <div className="text-xs text-gray-400 dark:text-gray-400">
+                            Patient: {order.patient_display_id || 'N/A'}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="space-y-2">
+                          {getStatusBadge(order.order_status)}
+                          {order.action_required && (
+                            <Badge className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 text-xs">
+                              <AlertTriangle className="w-3 h-3 mr-1" />
+                              Action Required
+                            </Badge>
                           )}
                         </div>
-                      </div>
-                    </Td>
-                    <Td className="text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        {order.action_required ? (
-                          <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${theme === 'dark' ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/30' : 'bg-red-100 text-red-700 ring-1 ring-red-200'}`}>
-                            <AlertTriangle className="w-3 h-3 mr-1.5" />
-                            Action Required
-                          </span>
-                        ) : (
-                          <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${theme === 'dark' ? 'bg-green-500/20 text-green-300' : 'bg-green-100 text-green-700'}`}>
-                            <CheckCircle className="w-3 h-3 mr-1.5" />
-                            On Track
-                          </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-300">
+                        <div>Submitted: {formatDate(order.submitted_at)}</div>
+                        <div>Service: {formatDate(order.expected_service_date)}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {order.manufacturer?.name || 'Unknown'}
+                        </div>
+                        {order.manufacturer?.contact_email && (
+                          <div className="text-xs text-gray-500 dark:text-gray-300">
+                            {order.manufacturer.contact_email}
+                          </div>
                         )}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             router.visit(`/admin/orders/${order.id}`);
                           }}
-                          className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200'} opacity-0 group-hover:opacity-100 transition-all`}
+                          className="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200 flex items-center gap-1 ml-auto"
                         >
-                          <ChevronRight className="h-4 w-4" />
+                          View Details
+                          <ChevronRight className="w-4 h-4" />
                         </button>
-                      </div>
-                    </Td>
-                  </Tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
 
-              {filteredOrders.length === 0 && (
-                <Tr>
-                  <Td colSpan={5} className="text-center py-20">
-                    <div className="max-w-md mx-auto">
-                      <div className="relative mb-6">
-                        <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-r from-[#1925c3]/20 to-[#c71719]/20'} blur-3xl rounded-full animate-pulse`}></div>
-                        <Package className={`relative h-20 w-20 mx-auto ${theme === 'dark' ? 'text-white/30' : 'text-gray-400'}`} />
-                      </div>
-                      <p className={`text-2xl font-bold ${t.text.primary} mb-3`}>No orders found</p>
-                      <p className={`text-base ${t.text.secondary} mb-6`}>
-                        {activeTab === 'requiring_action'
-                          ? 'Great! No orders require your attention right now'
-                          : 'Try adjusting your filters or search criteria'}
-                      </p>
-                      {filters.search || filters.status || filters.manufacturer ? (
-                        <button
-                          onClick={() => {
-                            setSearchQuery('');
-                            router.get(window.location.pathname, {}, { preserveState: false });
-                          }}
-                          className={`inline-flex items-center px-5 py-2.5 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md`}
-                        >
-                          <FilterX className="w-4 h-4 mr-2" />
-                          Clear all filters
-                        </button>
-                      ) : null}
-                    </div>
-                  </Td>
-                </Tr>
-              )}
-            </Tbody>
-          </Table>
-        </GlassTable>
-
-        {/* Enhanced Pagination */}
-        {orders.links && orders.data.length > 0 && (
-          <div className="mt-6">
-            <GlassCard variant="default" className="p-4">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="text-center sm:text-left">
-                  <p className={`text-sm ${t.text.secondary}`}>
-                    Showing <span className={`font-semibold ${t.text.primary} text-base`}>{((orders.current_page - 1) * orders.per_page) + 1}</span>
-                    {' - '}
-                    <span className={`font-semibold ${t.text.primary} text-base`}>{Math.min(orders.current_page * orders.per_page, orders.total)}</span>
-                    {' of '}
-                    <span className={`font-semibold ${t.text.primary} text-base`}>{orders.total}</span>
-                    {' orders'}
+          {/* Pagination */}
+          {orders.links && orders.data.length > 0 && (
+            <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
+              <div className="flex-1 flex justify-between sm:hidden">
+                {orders.links[0]?.url && (
+                  <Link
+                    href={orders.links[0].url}
+                    className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-700 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    Previous
+                  </Link>
+                )}
+                {orders.links[orders.links.length - 1]?.url && (
+                  <Link
+                    href={orders.links[orders.links.length - 1].url}
+                    className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-700 text-sm font-medium rounded-md text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  >
+                    Next
+                  </Link>
+                )}
+              </div>
+              <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm text-gray-700 dark:text-gray-200">
+                    Showing <span className="font-medium">{((orders.current_page - 1) * orders.per_page) + 1}</span> to{' '}
+                    <span className="font-medium">{Math.min(orders.current_page * orders.per_page, orders.total)}</span> of{' '}
+                    <span className="font-medium">{orders.total}</span> results
                   </p>
                 </div>
-                
-                <nav className="flex items-center gap-1" aria-label="Pagination">
-                  {orders.links.map((link, index) => {
-                    const isFirst = index === 0;
-                    const isLast = index === orders.links.length - 1;
-                    const isActive = link.active;
-                    const isDisabled = !link.url;
-                    
-                    return (
-                      <Link
-                        key={index}
-                        href={link.url || '#'}
-                        preserveScroll
-                        preserveState
-                        className={`
-                          relative inline-flex items-center justify-center min-w-[40px] h-10 px-3
-                          text-sm font-medium transition-all duration-200
-                          ${isFirst || isLast ? 'px-4' : ''}
-                          ${isActive
-                            ? 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white shadow-lg scale-105 z-10'
-                            : isDisabled
-                            ? `${theme === 'dark' ? 'bg-white/5 text-white/30' : 'bg-gray-100 text-gray-300'} cursor-not-allowed`
-                            : `${t.glass.card} ${t.text.secondary} ${t.glass.hover} hover:scale-105`
-                          }
-                          ${isFirst ? 'rounded-l-xl' : ''}
-                          ${isLast ? 'rounded-r-xl' : ''}
-                          ${!isFirst && !isLast ? 'rounded-lg' : ''}
-                        `}
-                      >
-                        <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                      </Link>
-                    );
-                  })}
-                </nav>
-              </div>
-            </GlassCard>
-          </div>
-        )}
+                <div>
+                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
+                    {orders.links.map((link, index) => {
+                      const isActive = link.active;
+                      const isDisabled = !link.url;
 
-        {/* Enhanced Floating Action Button */}
-        <div className="fixed bottom-8 right-8 group">
-          <div className={`absolute -inset-4 bg-gradient-to-r from-[#1925c3] to-[#c71719] rounded-full blur-lg opacity-30 group-hover:opacity-60 transition-opacity duration-300`}></div>
-          <Link
-            href="/admin/orders/create"
-            className={`relative flex items-center space-x-2 bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold rounded-full p-4 shadow-2xl transform transition-all duration-300 hover:scale-110 hover:shadow-[0_20px_60px_rgba(199,23,25,0.3)]`}
-          >
-            <Package className="h-6 w-6" />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap">
-              <span className="pl-2 pr-2">Create Order</span>
-            </span>
-          </Link>
-        </div>
+                      return (
+                        <Link
+                          key={index}
+                          href={link.url || '#'}
+                          preserveScroll
+                          preserveState
+                          className={`
+                            relative inline-flex items-center px-4 py-2 text-sm font-medium
+                            ${index === 0 ? 'rounded-l-md' : ''}
+                            ${index === orders.links.length - 1 ? 'rounded-r-md' : ''}
+                            ${isActive
+                              ? 'z-10 bg-red-50 dark:bg-gray-900 border-red-500 text-red-600 dark:text-red-400'
+                              : isDisabled
+                              ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed'
+                              : 'bg-white dark:bg-gray-900 border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800'
+                            }
+                            ${index !== 0 ? '-ml-px' : ''}
+                            border border-gray-300 dark:border-gray-700
+                          `}
+                          onClick={isDisabled ? (e) => e.preventDefault() : undefined}
+                        >
+                          <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                        </Link>
+                      );
+                    })}
+                  </nav>
+                </div>
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
     </MainLayout>
   );
-};
-
-export default OrderCenter;
+}
