@@ -75,7 +75,7 @@ class QuickRequestController extends Controller
             'patient_phone' => 'nullable|string|max:20',
             
             // Product Information
-            'product_id' => 'required|exists:products,id',
+            'product_id' => 'required|exists:msc_products,id',
             'size' => 'required|string',
             'quantity' => 'required|integer|min:1',
             'manufacturer_fields' => 'nullable|array',
