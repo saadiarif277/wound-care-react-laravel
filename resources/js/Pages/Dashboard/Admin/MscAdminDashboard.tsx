@@ -7,7 +7,20 @@ import { themes, cn } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
 import MetricCard from '@/Components/ui/MetricCard';
 import Heading from '@/Components/ui/Heading';
-import { FiDollarSign, FiTrendingUp, FiClock, FiPercent } from 'react-icons/fi';
+import { FiDollarSign, FiTrendingUp, FiClock, FiPercent, FiFileText, FiCalendar } from 'react-icons/fi';
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 interface MscAdminDashboardProps {
   user?: UserWithRole;
@@ -50,6 +63,16 @@ interface MscAdminDashboardProps {
       risk_level: string;
       last_payment: string;
     }>;
+    recent_orders?: Array<{
+      id: string;
+      order_number: string;
+      date: string;
+      status: string;
+      provider: string;
+      amount: number;
+      facility: string;
+    }>;
+    order_trends?: Array<{ date: string; orders: number }>;
   };
 }
 
@@ -57,7 +80,7 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
   // Try to use theme if available, fallback to dark theme
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -78,6 +101,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
   const pendingApprovals = dashboardData?.pending_approvals || [];
   const commissionQueue = dashboardData?.commission_queue || [];
   const customerFinancialHealth = dashboardData?.customer_financial_health || [];
+  const recentOrders = dashboardData?.recent_orders || [];
+  const orderTrends = dashboardData?.order_trends || [];
 
   const revenueProgress = businessMetrics.monthly_target > 0
     ? (businessMetrics.monthly_revenue / businessMetrics.monthly_target) * 100
@@ -132,6 +157,106 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
         />
       </div>
 
+      {/* Orders Over Time Chart */}
+      <GlassCard className="p-0 overflow-hidden">
+        <div className="p-8">
+          <div className="flex items-center mb-6">
+            <FiCalendar className="h-7 w-7 text-green-500" />
+            <h2 className={cn("ml-4 text-2xl font-bold", t.text.primary)}>Orders Over Time</h2>
+          </div>
+          {orderTrends.length > 0 ? (
+            <Line
+              data={{
+                labels: orderTrends.map((d) => d.date),
+                datasets: [
+                  {
+                    label: 'Orders',
+                    data: orderTrends.map((d) => d.orders),
+                    fill: false,
+                    borderColor: '#3b82f6',
+                    backgroundColor: '#3b82f6',
+                    tension: 0.3,
+                  },
+                ],
+              }}
+              options={{
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: {
+                  x: { grid: { display: false } },
+                  y: { beginAtZero: true, grid: { color: theme === 'dark' ? '#22223b' : '#e5e7eb' } },
+                },
+              }}
+            />
+          ) : (
+            <div className={cn("py-12 text-center text-gray-500 dark:text-gray-300")}>
+              No order trend data available.
+            </div>
+          )}
+        </div>
+      </GlassCard>
+
+      {/* Recent Orders Table */}
+      <GlassCard className="p-0 overflow-hidden">
+        <div className="p-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center">
+              <FiFileText className="h-7 w-7 text-blue-500" />
+              <h2 className={cn("ml-4 text-2xl font-bold", t.text.primary)}>Recent Orders</h2>
+            </div>
+            <Link
+              href="/admin/orders"
+              className={cn(
+                "px-6 py-3 rounded-xl font-medium transition-all duration-300",
+                theme === 'dark'
+                  ? 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              )}
+            >
+              View All
+            </Link>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-900">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Order #</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Provider</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Amount</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Facility</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {recentOrders.length > 0 ? (
+                  recentOrders.map((order) => (
+                    <tr key={order.id} className="hover:bg-gray-50 dark:hover:bg-gray-900">
+                      <td className="px-6 py-4 whitespace-nowrap font-mono">{order.order_number}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{order.date}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-block px-2 py-1 rounded text-xs font-semibold bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                          {order.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">{order.provider}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">${order.amount?.toLocaleString()}</td>
+                      <td className="px-6 py-4 whitespace-nowrap">{order.facility}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500 dark:text-gray-300">
+                      No recent orders found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </GlassCard>
+
       {/* Pending Approvals Section */}
       <GlassCard variant="warning" className="p-0 overflow-hidden">
         <div className="p-8">
@@ -151,8 +276,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
               href="/admin/approvals"
               className={cn(
                 "px-6 py-3 rounded-xl font-medium transition-all duration-300",
-                theme === 'dark' 
-                  ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30' 
+                theme === 'dark'
+                  ? 'bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 border border-amber-500/30'
                   : 'bg-amber-600 hover:bg-amber-700 text-white'
               )}
             >
@@ -222,8 +347,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
               href="/commission/payouts"
               className={cn(
                 "px-6 py-3 rounded-xl font-medium transition-all duration-300",
-                theme === 'dark' 
-                  ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30' 
+                theme === 'dark'
+                  ? 'bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30'
                   : 'bg-emerald-600 hover:bg-emerald-700 text-white'
               )}
             >
@@ -305,8 +430,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
               href="/customers/financial"
               className={cn(
                 "px-6 py-3 rounded-xl font-medium transition-all duration-300",
-                theme === 'dark' 
-                  ? 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30' 
+                theme === 'dark'
+                  ? 'bg-blue-500/20 text-blue-300 hover:bg-blue-500/30 border border-blue-500/30'
                   : 'bg-blue-600 hover:bg-blue-700 text-white'
               )}
             >
@@ -394,8 +519,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
             className={cn(
               "flex flex-col items-center p-8 border-2 rounded-2xl transition-all duration-300 group",
               "hover:scale-105 hover:-translate-y-1",
-              theme === 'dark' 
-                ? 'border-white/10 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)]' 
+              theme === 'dark'
+                ? 'border-white/10 hover:border-blue-500/40 hover:bg-blue-500/10 hover:shadow-[0_0_30px_rgba(59,130,246,0.3)]'
                 : 'border-gray-200 hover:border-blue-500 hover:bg-blue-50 hover:shadow-lg'
             )}
           >
@@ -416,8 +541,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
               className={cn(
                 "flex flex-col items-center p-8 border-2 rounded-2xl transition-all duration-300 group",
                 "hover:scale-105 hover:-translate-y-1",
-                theme === 'dark' 
-                  ? 'border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]' 
+                theme === 'dark'
+                  ? 'border-white/10 hover:border-emerald-500/40 hover:bg-emerald-500/10 hover:shadow-[0_0_30px_rgba(16,185,129,0.3)]'
                   : 'border-gray-200 hover:border-emerald-500 hover:bg-emerald-50 hover:shadow-lg'
               )}
             >
@@ -438,8 +563,8 @@ export default function MscAdminDashboard({ user, dashboardData }: MscAdminDashb
               className={cn(
                 "flex flex-col items-center p-8 border-2 rounded-2xl transition-all duration-300 group",
                 "hover:scale-105 hover:-translate-y-1",
-                theme === 'dark' 
-                  ? 'border-white/10 hover:border-purple-500/40 hover:bg-purple-500/10 hover:shadow-[0_0_30px_rgba(168,85,247,0.3)]' 
+                theme === 'dark'
+                  ? 'border-white/10 hover:border-purple-500/40 hover:bg-purple-500/10 hover:shadow-[0_0_30px_rgba(168,85,247,0.3)]'
                   : 'border-gray-200 hover:border-purple-500 hover:bg-purple-50 hover:shadow-lg'
               )}
             >
