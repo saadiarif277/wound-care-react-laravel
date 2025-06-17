@@ -118,9 +118,10 @@ class AccessControlController extends Controller
             $oldRoles = $user->roles->pluck('name')->toArray();
             $newRole = Role::find($request->role_id);
 
-            // Security check: Only super admins can assign super admin role
-            if ($newRole->slug === 'super-admin' && !Auth::user()->isSuperAdmin()) {
+            // Security check: Only users with manage-super-admins permission can assign super admin role
+            if ($newRole->slug === 'super-admin' && !Auth::user()->hasPermission('manage-super-admins')) {
                 return response()->json([
+                    'success' => false,
                     'message' => 'Only super administrators can assign super admin role'
                 ], 403);
             }
@@ -193,9 +194,10 @@ class AccessControlController extends Controller
             ], 403);
         }
 
-        // Prevent deletion of super admin by non-super admin
-        if ($user->isSuperAdmin() && !Auth::user()->isSuperAdmin()) {
+        // Prevent deletion of super admin by users without manage-super-admins permission
+        if ($user->hasRole('super-admin') && !Auth::user()->hasPermission('manage-super-admins')) {
             return response()->json([
+                'success' => false,
                 'message' => 'Only super administrators can revoke super admin access'
             ], 403);
         }

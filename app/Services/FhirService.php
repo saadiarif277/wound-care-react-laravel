@@ -76,6 +76,22 @@ class FhirService
     }
 
     /**
+     * Get patient by FHIR ID (alias for getPatientById to match expected interface)
+     */
+    public function getPatient(string $patientFhirId, $productRequest = null)
+    {
+        // Use the existing getPatientById method
+        $fhirPatient = $this->getPatientById($patientFhirId);
+        
+        if (!$fhirPatient) {
+            throw new \Exception("Patient not found with FHIR ID: {$patientFhirId}");
+        }
+        
+        // Convert array to object for consistent interface
+        return json_decode(json_encode($fhirPatient));
+    }
+
+    /**
      * Update Patient resource in Azure FHIR
      */
     public function updatePatient(string $id, array $fhirData): ?array

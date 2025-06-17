@@ -5,6 +5,7 @@ namespace App\Models\Order;
 use App\Models\User;
 use App\Models\Fhir\Facility;
 use App\Models\MscSalesRep;
+use Illuminate\Support\Facades\Log;
 use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -144,12 +145,31 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get the patient (FHIR record) associated with this request.
-     * Links patient_fhir_id (stored on this model) to Patient.azure_fhir_id.
+     * Get the patient data from Azure FHIR.
+     * This is not a relationship - patient data lives in Azure FHIR, not local DB.
      */
-    public function patient(): BelongsTo
+    public function getPatientAttribute()
     {
-        return $this->belongsTo(\App\Models\Fhir\Patient::class, 'patient_fhir_id', 'azure_fhir_id');
+        if (!$this->patient_fhir_id) {
+            return null;
+        }
+        
+        // Extract just the ID part from "Patient/uuid" format if needed
+        $fhirId = $this->patient_fhir_id;
+        if (str_starts_with($fhirId, 'Patient/')) {
+            $fhirId = substr($fhirId, 8);
+        }
+        
+        try {
+            $fhirService = app(\App\Services\FhirService::class);
+            return $fhirService->getPatientById($fhirId);
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch patient from FHIR', [
+                'fhir_id' => $fhirId,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
     }
 
     /**

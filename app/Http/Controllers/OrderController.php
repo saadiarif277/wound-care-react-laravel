@@ -226,9 +226,9 @@ class OrderController extends Controller
      */
     private function getUserAccessLevel(\App\Models\User $user): string
     {
-        if ($user->hasRole('msc-admin')) return 'full';
-        if ($user->hasRole('clinical-reviewer')) return 'clinical';
-        if ($user->hasRole('admin')) return 'admin';
+        if ($user->hasPermission('manage-orders')) return 'full';
+        if ($user->hasPermission('review-orders')) return 'clinical';
+        if ($user->hasPermission('admin-orders')) return 'admin';
         return 'limited';
     }
 

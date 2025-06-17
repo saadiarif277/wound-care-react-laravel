@@ -60,8 +60,8 @@ class ProductController extends Controller
         $products->getCollection()->transform(function ($product) use ($user) {
             $filtered = $this->filterProductPricingData($product, $user);
 
-            // Add onboarding status for providers
-            if ($user->isProvider()) {
+            // Add onboarding status for users with provider viewing permission
+            if ($user->hasPermission('view-providers')) {
                 $filtered->is_onboarded = $product->isAvailableForProvider($user->id);
             }
 
@@ -223,8 +223,8 @@ class ProductController extends Controller
 
         $query = Product::active();
 
-        // Filter by provider's onboarded products if they are a provider
-        if ($user->isProvider() && !$request->boolean('show_all', false)) {
+        // Filter by provider's onboarded products if user has provider viewing permission
+        if ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
             // Only show products the provider is onboarded with
             $query->whereHas('activeProviders', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
@@ -322,9 +322,9 @@ class ProductController extends Controller
 
         $query = Product::active();
 
-        // Filter by provider's onboarded products if they are a provider
+        // Filter by provider's onboarded products if user has provider viewing permission
         // The 'show_all' parameter allows showing all products for catalog viewing
-        if ($user->isProvider() && !$request->boolean('show_all', false)) {
+        if ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
             // Only show products the provider is onboarded with
             $query->whereHas('activeProviders', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
@@ -379,7 +379,7 @@ class ProductController extends Controller
                 }
 
                 // Add onboarding status for providers
-                if ($user->isProvider()) {
+                if ($user->hasPermission('view-providers')) {
                     $data['is_onboarded'] = $product->isAvailableForProvider($user->id);
                 }
 
@@ -431,7 +431,7 @@ class ProductController extends Controller
             $options = [
                 'use_ai' => $validated['use_ai'] ?? true,
                 'max_recommendations' => $validated['max_recommendations'] ?? 6,
-                'user_role' => str_replace('-', '_', $user->getPrimaryRole()?->slug ?? 'provider'),
+                'user_role' => $user->hasPermission('view-providers') ? 'provider' : ($user->hasPermission('manage-products') ? 'admin' : 'user'),
                 'show_msc_pricing' => $user->hasPermission('view-discounts') // Only show MSC pricing if user can see discounts
             ];
 

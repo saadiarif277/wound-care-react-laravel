@@ -420,7 +420,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
                     <p className="text-sm font-medium text-gray-500">Diagnosis Codes</p>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {order.patient_info.diagnosis_codes.map((code, index) => (
-                        <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                        <span key={`diagnosis-${index}`} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
                           {code}
                         </span>
                       ))}

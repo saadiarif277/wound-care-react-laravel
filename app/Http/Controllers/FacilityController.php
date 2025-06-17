@@ -21,7 +21,7 @@ class FacilityController extends Controller
         $user = Auth::user();
         
         // Admin users see all facilities
-        if ($user->hasRole('msc-admin') || $user->hasRole('super-admin')) {
+        if ($user->hasPermission('manage-facilities')) {
             // Use a raw query (DB::table('facilities')->select(...)->get()) to load all records (including soft-deleted ones) from the facilities table.
             $allfacility_raw = DB::table('facilities')->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at', 'deleted_at')->get();
             // Hydrate (using Facility::hydrate) so that the select (for Order requests) also loads all facilities.
@@ -74,7 +74,7 @@ class FacilityController extends Controller
             });
 
         // Use the appropriate view based on role
-        $viewName = $user->hasRole('provider') ? 'Provider/Facilities/Index' : 'Facilities/Index';
+        $viewName = $user->hasPermission('view-providers') ? 'Provider/Facilities/Index' : 'Facilities/Index';
         
         return Inertia::render($viewName, [
             'facilities' => $facilities,
@@ -153,7 +153,7 @@ class FacilityController extends Controller
         $user = Auth::user();
 
         // Check if non-admin user has access to this facility
-        if (!$user->hasRole('msc-admin') && !$user->hasRole('super-admin')) {
+        if (!$user->hasPermission('manage-facilities')) {
             // Note: Using withoutGlobalScope to bypass OrganizationScope for authorization check
             // since the CurrentOrganization service may not be properly bound in all contexts
             if (!$user->facilities()->withoutGlobalScope(OrganizationScope::class)->where('facilities.id', $facility->id)->exists()) {
@@ -167,8 +167,8 @@ class FacilityController extends Controller
         }]);
 
         // Use the appropriate view based on role
-        $viewName = $user->hasRole('provider') ? 'Provider/Facilities/Show' : 
-                   ($user->hasRole('msc-admin') || $user->hasRole('super-admin') ? 'Admin/Facilities/Show' : 'Facilities/Show');
+        $viewName = $user->hasPermission('view-providers') ? 'Provider/Facilities/Show' : 
+                   ($user->hasPermission('manage-facilities') ? 'Admin/Facilities/Show' : 'Facilities/Show');
 
         return Inertia::render($viewName, [
             'facility' => [

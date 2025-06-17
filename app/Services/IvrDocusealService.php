@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Models\Order\ProductRequest;
+use App\Models\User;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Docuseal\DocusealSubmission;
 use App\Models\Docuseal\DocusealFolder;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Auth;
 use App\Services\PhiAuditService;
 use Exception;
 
@@ -122,15 +124,15 @@ class IvrDocusealService
                 'document_type' => 'IVR',
                 'status' => 'completed', // Mark as completed since no signature needed
                 'folder_id' => null, // Update if we start tracking folders locally
-                'document_url' => $submissionData['documents'][0]['url'] ?? null,
                 'metadata' => [
                     'manufacturer_id' => $manufacturer->id,
                     'manufacturer_name' => $manufacturer->name,
                     'template_name' => $docusealConfig['name'],
-                    'generated_by' => auth()->user() ? auth()->user()->full_name : 'System',
+                    'generated_by' => Auth::check() && Auth::user() ? Auth::user()->full_name : 'System',
                     'mapped_fields' => $mappedFields,
                 ],
-            ]);
+                ],
+            );
 
             // Update product request with IVR info
             $productRequest->update([
@@ -246,8 +248,14 @@ class IvrDocusealService
                 throw new Exception('No patient FHIR ID available');
             }
             
+            // Extract the actual ID from "Patient/uuid" format if needed
+            $fhirId = $productRequest->patient_fhir_id;
+            if (str_starts_with($fhirId, 'Patient/')) {
+                $fhirId = substr($fhirId, 8);
+            }
+            
             // Get patient data from FHIR using patient FHIR ID
-            $patient = $this->fhirService->getPatient($productRequest->patient_fhir_id);
+            $patient = $this->fhirService->getPatient($fhirId);
             
             // Audit PHI access for IVR generation
             PhiAuditService::logExport('Patient', $productRequest->patient_fhir_id, 'IVR_GENERATION', [
@@ -649,6 +657,91 @@ class IvrDocusealService
         } catch (Exception $e) {
             Log::error('Failed to process IVR signature', [
                 'submission_id' => $submissionId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Submit the IVR/order to the manufacturer
+     */
+    public function submitToManufacturer(ProductRequest $productRequest, $userId)
+    {
+        try {
+            $this->markIvrSentToManufacturer($productRequest, $userId);
+        } catch (Exception $e) {
+            Log::error('Failed to submit order to manufacturer', [
+                'product_request_id' => $productRequest->id,
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Confirm manufacturer approval for a product request
+     */
+    public function confirmManufacturerApproval(ProductRequest $productRequest, bool $approved, $reference = null, $notes = null, $userId = null)
+    {
+        try {
+            if ($approved) {
+                $productRequest->update([
+                    'order_status' => 'manufacturer_approved',
+                    'manufacturer_approval_reference' => $reference,
+                    'manufacturer_approval_notes' => $notes,
+                    'manufacturer_approved_at' => now(),
+                    'manufacturer_approved_by' => $userId,
+                ]);
+                Log::info('Manufacturer approval confirmed', [
+                    'product_request_id' => $productRequest->id,
+                    'user_id' => $userId,
+                    'reference' => $reference,
+                ]);
+            } else {
+                $productRequest->update([
+                    'order_status' => 'manufacturer_denied',
+                    'manufacturer_approval_notes' => $notes,
+                    'manufacturer_denied_at' => now(),
+                    'manufacturer_denied_by' => $userId,
+                ]);
+                Log::info('Manufacturer approval denied', [
+                    'product_request_id' => $productRequest->id,
+                    'user_id' => $userId,
+                ]);
+            }
+        } catch (Exception $e) {
+            Log::error('Failed to confirm manufacturer approval', [
+                'product_request_id' => $productRequest->id,
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Send the product request back to the provider with a reason
+     */
+    public function sendBackToProvider(ProductRequest $productRequest, $reason, $userId)
+    {
+        try {
+            $productRequest->update([
+                'order_status' => 'sent_back',
+                'sent_back_reason' => $reason,
+                'sent_back_by' => $userId,
+                'sent_back_at' => now(),
+            ]);
+            Log::info('Product request sent back to provider', [
+                'product_request_id' => $productRequest->id,
+                'reason' => $reason,
+                'user_id' => $userId,
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to send product request back to provider', [
+                'product_request_id' => $productRequest->id,
+                'user_id' => $userId,
                 'error' => $e->getMessage()
             ]);
             throw $e;

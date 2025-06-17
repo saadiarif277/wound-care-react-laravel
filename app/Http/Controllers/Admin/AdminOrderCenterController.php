@@ -55,7 +55,7 @@ class AdminOrderCenterController extends Controller
 
         // Get status counts
         $statusCounts = ProductRequest::whereNotIn('order_status', ['draft'])
-            ->select('order_status', \DB::raw('count(*) as count'))
+            ->select('order_status', DB::raw('count(*) as count'))
             ->groupBy('order_status')
             ->pluck('count', 'order_status')
             ->toArray();
@@ -267,32 +267,20 @@ class AdminOrderCenterController extends Controller
                     Auth::id()
                 );
 
-                return response()->json([
-                    'success' => true,
-                    'message' => 'IVR requirement bypassed successfully',
-                    'order_status' => 'ivr_confirmed',
-                ]);
+                return back()->with('success', 'IVR requirement bypassed successfully');
             }
 
             // Generate IVR document
             $submission = $this->ivrService->generateIvr($productRequest);
 
-            return response()->json([
-                'success' => true,
-                'message' => 'IVR document generated successfully. Please review and send to manufacturer.',
-                'submission_id' => $submission->id,
-                'order_status' => 'ivr_sent',
-            ]);
+            return back()->with('success', 'IVR document generated successfully. Please review and send to manufacturer.');
         } catch (Exception $e) {
             Log::error('Failed to generate IVR', [
                 'product_request_id' => $productRequest->id,
                 'error' => $e->getMessage()
             ]);
 
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to generate IVR: ' . $e->getMessage(),
-            ], 500);
+            return back()->with('error', 'Failed to generate IVR: ' . $e->getMessage());
         }
     }
 
@@ -304,7 +292,7 @@ class AdminOrderCenterController extends Controller
         $productRequest = ProductRequest::findOrFail($id);
 
         try {
-            $this->ivrService->sendToManufacturer($productRequest, Auth::id());
+            $this->ivrService->submitToManufacturer($productRequest, Auth::id());
 
             return response()->json([
                 'success' => true,
@@ -372,7 +360,9 @@ class AdminOrderCenterController extends Controller
         $productRequest = ProductRequest::findOrFail($id);
 
         try {
-            $this->ivrService->approveOrder($productRequest, Auth::id());
+            $productRequest->order_status = 'approved';
+            $productRequest->approved_at = now();
+            $productRequest->save();
 
             return response()->json([
                 'success' => true,
@@ -440,11 +430,15 @@ class AdminOrderCenterController extends Controller
                 'reason' => 'required|string|min:10',
             ]);
 
-            $this->ivrService->denyOrder(
-                $productRequest,
-                $request->input('reason'),
-                Auth::id()
-            );
+            $productRequest->order_status = 'denied';
+            $productRequest->save();
+
+            // Log or handle the reason as needed
+            Log::info('Order denied', [
+                'product_request_id' => $productRequest->id,
+                'reason' => $request->input('reason'),
+                'actor_id' => Auth::id()
+            ]);
 
             return response()->json([
                 'success' => true,

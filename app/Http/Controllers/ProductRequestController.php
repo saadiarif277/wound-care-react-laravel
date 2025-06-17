@@ -559,7 +559,7 @@ class ProductRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            \Log::error('MAC validation error', [
+            Log::error('MAC validation error', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -608,7 +608,6 @@ class ProductRequestController extends Controller
                     ]
                 ]
             ];
-
             $fallbackEligibilityResponse = [
                 'status' => 'eligible',
                 'coverage_id' => 'COV-' . strtoupper(uniqid()),
@@ -855,7 +854,7 @@ class ProductRequestController extends Controller
             $recommendations = $recommendationService->getRecommendations($productRequest, [
                 'use_ai' => true,
                 'max_recommendations' => 6,
-                'user_role' => str_replace('-', '_', $user->getPrimaryRole()?->slug ?? 'provider'),
+                'user_role' => $user->hasPermission('view-providers') ? 'provider' : ($user->hasPermission('manage-products') ? 'admin' : 'user'),
                 'show_msc_pricing' => $user->hasPermission('view-discounts') // Only show MSC pricing if user can see discounts
             ]);
 
@@ -881,7 +880,7 @@ class ProductRequestController extends Controller
             // Prepare the checklist input data
             $checklistInput = new \App\Services\HealthData\DTO\SkinSubstituteChecklistInput(
                 patientId: $productRequest->patient_fhir_id,
-                providerId: 'Practitioner/' . auth()->id(), // Using provider's user ID as practitioner ID
+                providerId: 'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
                 facilityId: 'Organization/' . $productRequest->facility_id,
 
                 // Wound characteristics
@@ -924,7 +923,12 @@ class ProductRequestController extends Controller
             );
 
             // Create FHIR Bundle and send to Azure
-            $bundleResponse = $checklistService->createChecklistBundle($checklistInput);
+        $bundleResponse = $checklistService->createPreApplicationAssessment(
+            $checklistInput,
+            $productRequest->patient_fhir_id,
+            'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
+            'Organization/' . $productRequest->facility_id
+        );
 
             // Extract the DocumentReference ID from the bundle response
             $documentReferenceId = null;
