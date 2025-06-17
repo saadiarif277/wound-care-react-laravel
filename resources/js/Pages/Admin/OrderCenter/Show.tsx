@@ -482,8 +482,8 @@ const OrderShow: React.FC<OrderShowProps> = ({
                         </tr>
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
-                        {order.order_details?.products?.map((product) => (
-                          <tr key={product.id}>
+                        {order.order_details?.products?.map((product, index) => (
+                          <tr key={product.id || `product-${index}`}>
                             <td className="px-4 py-2 text-sm text-gray-900">{product.name}</td>
                             <td className="px-4 py-2 text-sm text-gray-500">{product.sku}</td>
                             <td className="px-4 py-2 text-sm text-gray-900">{product.quantity}</td>
@@ -571,8 +571,8 @@ const OrderShow: React.FC<OrderShowProps> = ({
               {expandedSections.documents && (
                 <div className="space-y-2">
                   {order.documents?.length > 0 ? (
-                    order.documents.map((doc) => (
-                      <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    order.documents.map((doc, index) => (
+                      <div key={doc.id || `doc-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div className="flex items-center space-x-3">
                           <FileImage className="w-5 h-5 text-gray-400" />
                           <div>
@@ -608,8 +608,8 @@ const OrderShow: React.FC<OrderShowProps> = ({
               {expandedSections.history && (
                 <div className="space-y-3">
                   {order.action_history?.length > 0 ? (
-                    order.action_history.map((action) => (
-                      <div key={action.id} className="flex space-x-3">
+                    order.action_history.map((action, index) => (
+                      <div key={action.id || `action-${index}`} className="flex space-x-3">
                         <div className="flex-shrink-0">
                           <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
                             <Clock className="w-4 h-4 text-gray-500" />
