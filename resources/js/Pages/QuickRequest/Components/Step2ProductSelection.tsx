@@ -32,7 +32,10 @@ export default function Step2ProductSelection({
   formData, 
   updateFormData, 
   products,
-  errors 
+  errors,
+  facilities,
+  woundTypes,
+  userRole = 'provider'
 }: Step2Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -49,6 +52,14 @@ export default function Step2ProductSelection({
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [manufacturerConfig, setManufacturerConfig] = useState<ManufacturerConfig | null>(null);
 
+  // Convert formData to the selected products format expected by ProductSelector
+  const selectedProducts: SelectedProduct[] = formData.product_id ? [{
+    product_id: formData.product_id,
+    quantity: formData.quantity || 1,
+    size: formData.size || undefined,
+    product: selectedProduct
+  }] : [];
+
   useEffect(() => {
     if (formData.product_id) {
       const product = products.find(p => p.id === formData.product_id);
@@ -61,17 +72,45 @@ export default function Step2ProductSelection({
     }
   }, [formData.product_id, products]);
 
-  const handleProductChange = (productId: number) => {
-    const product = products.find(p => p.id === productId);
-    if (product) {
+  const handleProductsChange = (selectedProds: SelectedProduct[]) => {
+    if (selectedProds.length === 0) {
+      // Clear selection
       updateFormData({
-        product_id: productId,
-        product_code: product.code,
-        product_name: product.name,
-        manufacturer: product.manufacturer,
-        size: '', // Reset size when product changes
-        manufacturer_fields: {}, // Reset manufacturer fields
+        product_id: null,
+        product_code: '',
+        product_name: '',
+        manufacturer: '',
+        size: '',
+        quantity: 1,
+        manufacturer_fields: {},
       });
+      setSelectedProduct(null);
+      setManufacturerConfig(null);
+    } else {
+      // Since QuickRequest only allows one product, take the first one
+      const firstProduct = selectedProds[0];
+      const productDetails = firstProduct.product;
+      
+      if (productDetails) {
+        updateFormData({
+          product_id: firstProduct.product_id,
+          product_code: productDetails.q_code || productDetails.code,
+          product_name: productDetails.name,
+          manufacturer: productDetails.manufacturer,
+          size: firstProduct.size || '',
+          quantity: firstProduct.quantity,
+          // Keep existing manufacturer fields if same product
+          manufacturer_fields: productDetails.id === formData.product_id 
+            ? formData.manufacturer_fields 
+            : {},
+        });
+        
+        // Update manufacturer config
+        const config = getManufacturerConfig(productDetails.manufacturer) || 
+                      getManufacturerByProduct(productDetails.name);
+        setManufacturerConfig(config || null);
+        setSelectedProduct(productDetails);
+      }
     }
   };
 
@@ -234,81 +273,43 @@ export default function Step2ProductSelection({
       {/* Step Title */}
       <div>
         <h2 className={cn("text-2xl font-bold", t.text.primary)}>
-          Step 2: Product Selection & Manufacturer-Specific Fields
+          Step 2: Product Selection
         </h2>
         <p className={cn("mt-2", t.text.secondary)}>
-          Select your product and complete manufacturer requirements
+          Select your product and complete any manufacturer-specific requirements
         </p>
       </div>
 
-      {/* Product Selection */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
-        <h3 className={cn("text-lg font-medium mb-4 flex items-center", t.text.primary)}>
-          <FiPackage className="mr-2" />
-          Product Selection
-        </h3>
-        
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-              Select Product *
-            </label>
-            <select
-              value={formData.product_id || ''}
-              onChange={(e) => handleProductChange(Number(e.target.value))}
-              className={cn("w-full", t.input.base, t.input.focus,
-                errors.product_id && "border-red-500"
-              )}
-            >
-              <option value="">Select a product</option>
-              {products.map(product => (
-                <option key={product.id} value={product.id}>
-                  {product.code} - {product.name} ({product.manufacturer})
-                </option>
-              ))}
-            </select>
-            {errors.product_id && (
-              <p className="mt-1 text-sm text-red-500">{errors.product_id}</p>
-            )}
-          </div>
+      {/* Product Selection using ProductSelector */}
+      <ProductSelector
+        selectedProducts={selectedProducts}
+        onProductsChange={handleProductsChange}
+        showCart={true}
+        recommendationContext={formData.wound_type}
+        userRole={userRole}
+        className=""
+        title="Select Product"
+        description="Choose the product for this quick request. You can only select one product type."
+      />
 
-          {selectedProduct && selectedProduct.sizes && (
-            <div>
-              <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                Size *
-              </label>
-              <select
-                value={formData.size || ''}
-                onChange={(e) => updateFormData({ size: e.target.value })}
-                className={cn("w-full", t.input.base, t.input.focus,
-                  errors.size && "border-red-500"
-                )}
-              >
-                <option value="">Select size</option>
-                {selectedProduct.sizes.map((size: string) => (
-                  <option key={size} value={size}>{size}</option>
-                ))}
-              </select>
-              {errors.size && (
-                <p className="mt-1 text-sm text-red-500">{errors.size}</p>
-              )}
-            </div>
-          )}
-
-          <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-              Quantity
-            </label>
-            <input
-              type="number"
-              value={formData.quantity || 1}
-              onChange={(e) => updateFormData({ quantity: parseInt(e.target.value) || 1 })}
-              min="1"
-              className={cn("w-full", t.input.base, t.input.focus)}
-            />
-          </div>
+      {/* Validation Error for Product */}
+      {errors.product_id && (
+        <div className={cn("p-3 rounded-md flex items-start", 
+          "bg-red-50 border border-red-200"
+        )}>
+          <FiAlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
+          <p className="text-sm text-red-600">{errors.product_id}</p>
         </div>
-      </div>
+      )}
+
+      {errors.size && (
+        <div className={cn("p-3 rounded-md flex items-start", 
+          "bg-red-50 border border-red-200"
+        )}>
+          <FiAlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
+          <p className="text-sm text-red-600">{errors.size}</p>
+        </div>
+      )}
 
       {/* Manufacturer-Specific Requirements */}
       {manufacturerConfig && (
@@ -359,7 +360,7 @@ export default function Step2ProductSelection({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <p className={cn("text-sm font-medium", t.text.secondary)}>Product Code</p>
-              <p className={cn("text-sm", t.text.primary)}>{selectedProduct.code}</p>
+              <p className={cn("text-sm", t.text.primary)}>{selectedProduct.q_code || selectedProduct.code}</p>
             </div>
             <div>
               <p className={cn("text-sm font-medium", t.text.secondary)}>Product Name</p>

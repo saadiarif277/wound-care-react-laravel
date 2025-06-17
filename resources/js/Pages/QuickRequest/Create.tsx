@@ -302,6 +302,9 @@ function QuickRequestCreate({
                 updateFormData={updateFormData}
                 products={products}
                 errors={errors}
+                facilities={facilities}
+                woundTypes={woundTypes}
+                userRole={'provider'}
               />
             )}
             
