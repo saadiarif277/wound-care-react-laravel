@@ -132,14 +132,32 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       disabled: 'opacity-50 cursor-not-allowed bg-white/[0.02]',
     },
 
-    // Button variants
+    // Button variants - Enhanced visibility
     button: {
-      primary: 'bg-gradient-to-r from-blue-600 to-red-600 text-white font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200',
-      secondary: 'bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] text-white/95 hover:bg-white/[0.11] hover:border-white/[0.18] transition-all duration-200',
-      ghost: 'bg-transparent border border-white/20 text-white/80 hover:bg-white/[0.07] hover:border-white/[0.25] transition-all duration-200',
-      danger: 'bg-red-500/20 border border-red-500/30 text-red-300 hover:bg-red-500/30 hover:border-red-500/40 transition-all duration-200',
-      approve: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30 transition-all duration-200',
-      warning: 'bg-amber-500/20 text-amber-400 border border-amber-500/30 hover:bg-amber-500/30 transition-all duration-200',
+      primary: {
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-lg',
+        hover: 'hover:shadow-xl hover:scale-105'
+      },
+      secondary: {
+        base: 'bg-white/10 backdrop-blur-xl border border-white/20 text-white',
+        hover: 'hover:bg-white/20 hover:border-white/30'
+      },
+      ghost: {
+        base: 'bg-transparent border border-white/20 text-white/80',
+        hover: 'hover:bg-white/10 hover:border-white/30'
+      },
+      danger: {
+        base: 'bg-red-500/20 border border-red-500/30 text-red-300',
+        hover: 'hover:bg-red-500/30 hover:border-red-500/40'
+      },
+      approve: {
+        base: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
+        hover: 'hover:bg-emerald-500/30'
+      },
+      warning: {
+        base: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
+        hover: 'hover:bg-amber-500/30'
+      },
     },
 
     // Table styles - Enhanced contrast
@@ -232,14 +250,32 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       disabled: 'opacity-60 cursor-not-allowed bg-gray-100',
     },
 
-    // Button variants - Enhanced for light mode visibility
+    // Button variants - Enhanced for light mode visibility  
     button: {
-      primary: 'bg-gradient-to-r from-blue-600 to-red-600 text-white font-semibold shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200',
-      secondary: 'bg-white border border-gray-400 text-gray-800 hover:bg-gray-100 hover:border-gray-500 hover:shadow-md transition-all duration-200',
-      ghost: 'bg-transparent border border-gray-400 text-gray-800 hover:bg-gray-100 hover:border-gray-500 transition-all duration-200',
-      danger: 'bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 hover:border-red-300 transition-all duration-200',
-      approve: 'bg-emerald-500/20 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-all duration-200',
-      warning: 'bg-amber-500/20 text-amber-700 border border-amber-200 hover:bg-amber-100 transition-all duration-200',
+      primary: {
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-md',
+        hover: 'hover:shadow-lg hover:scale-105'
+      },
+      secondary: {
+        base: 'bg-gray-100 border border-gray-300 text-gray-800',
+        hover: 'hover:bg-gray-200 hover:border-gray-400 hover:shadow-md'
+      },
+      ghost: {
+        base: 'bg-transparent border border-gray-300 text-gray-700',
+        hover: 'hover:bg-gray-100 hover:border-gray-400'
+      },
+      danger: {
+        base: 'bg-red-50 border border-red-200 text-red-700',
+        hover: 'hover:bg-red-100 hover:border-red-300'
+      },
+      approve: {
+        base: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+        hover: 'hover:bg-emerald-100'
+      },
+      warning: {
+        base: 'bg-amber-50 text-amber-700 border border-amber-200',
+        hover: 'hover:bg-amber-100'
+      },
     },
 
     // Table styles

@@ -256,9 +256,13 @@ class OrderCenterController extends Controller
 
     /**
      * Generate IVR for order
+     * @param Request $request
+     * @param string $id
+     * @return \Illuminate\Http\JsonResponse
      */
-    public function generateIvr(Request $request, Order $order)
+    public function generateIvr(Request $request, $id)
     {
+        $order = Order::findOrFail($id);
         $request->validate([
             'ivr_required' => 'required|boolean',
             'justification' => 'required_if:ivr_required,false|string|max:500',
@@ -301,6 +305,16 @@ class OrderCenterController extends Controller
 
             DB::commit();
 
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => true,
+                    'message' => $request->input('ivr_required') ? 'IVR generated and sent successfully' : 'IVR skipped, order ready for approval',
+                    'order_status' => $order->order_status,
+                    'redirect' => route('admin.orders.show', $order->id)
+                ]);
+            }
+
             return redirect()->route('admin.orders.show', $order)
                 ->with('success', $request->input('ivr_required') ? 'IVR generated and sent successfully' : 'IVR skipped, order ready for approval');
 
@@ -310,6 +324,14 @@ class OrderCenterController extends Controller
                 'order_id' => $order->id,
                 'error' => $e->getMessage()
             ]);
+
+            // Return JSON response for AJAX requests
+            if ($request->expectsJson()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Failed to generate IVR: ' . $e->getMessage()
+                ], 500);
+            }
 
             return redirect()->route('admin.orders.show', $order)
                 ->with('error', 'Failed to generate IVR: ' . $e->getMessage());

@@ -1,0 +1,209 @@
+{
+  "title": "Step 1: Patient, Insurance, and Service Information",
+  "type": "object",
+  "properties": {
+    "patient_details": {
+      "type": "object",
+      "title": "Enter Patient Details",
+      "properties": {
+        "first_name": {
+          "type": "string"
+        },
+        "last_name": {
+          "type": "string"
+        },
+        "dob": {
+          "type": "string",
+          "format": "date"
+        },
+        "gender": {
+          "type": "string",
+          "enum": [
+            "Male",
+            "Female",
+            "Other",
+            "Unknown"
+          ]
+        },
+        "member_id": {
+          "type": "string"
+        },
+        "address_line_1": {
+          "type": "string"
+        },
+        "address_line_2": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "state": {
+          "type": "string"
+        },
+        "zip": {
+          "type": "string"
+        },
+        "phone": {
+          "type": "string"
+        },
+        "preferred_contact_time": {
+          "type": "string",
+          "enum": [
+            "Morning",
+            "Afternoon",
+            "Evening"
+          ]
+        },
+        "caregiver_name": {
+          "type": "string"
+        },
+        "caregiver_relationship": {
+          "type": "string"
+        },
+        "caregiver_phone": {
+          "type": "string"
+        }
+      }
+    },
+    "insurance_info": {
+      "type": "object",
+      "title": "Insurance Information",
+      "properties": {
+        "insurance_card_front": {
+          "type": "string",
+          "format": "data-url"
+        },
+        "insurance_card_back": {
+          "type": "string",
+          "format": "data-url"
+        },
+        "payer_name": {
+          "type": "string"
+        },
+        "payer_id": {
+          "type": "string"
+        },
+        "second_payer": {
+          "type": "string"
+        },
+        "insurance_type": {
+          "type": "string",
+          "enum": [
+            "HMO",
+            "PPO",
+            "POS",
+            "EPO",
+            "FFS",
+            "Medicare Advantage",
+            "Other"
+          ]
+        },
+        "is_patient_subscriber": {
+          "type": "boolean"
+        },
+        "subscriber_name": {
+          "type": "string"
+        },
+        "subscriber_dob": {
+          "type": "string",
+          "format": "date"
+        },
+        "subscriber_relationship": {
+          "type": "string"
+        }
+      }
+    },
+    "service_info": {
+      "type": "object",
+      "title": "Service & Payer Information",
+      "properties": {
+        "place_of_service": {
+          "type": "string",
+          "enum": [
+            "11 - Office",
+            "12 - Home",
+            "13 - Assisted Living Facility",
+            "22 - Hospital Outpatient",
+            "24 - Ambulatory Surgical Center",
+            "31 - Skilled Nursing Facility (SNF)",
+            "32 - Nursing Facility",
+            "34 - Hospice",
+            "Other"
+          ]
+        },
+        "expected_service_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "in_snf": {
+          "type": "boolean"
+        },
+        "snf_admission_date": {
+          "type": "string",
+          "format": "date"
+        },
+        "snf_days": {
+          "type": "integer"
+        },
+        "over_100_days": {
+          "type": "boolean"
+        },
+        "in_global_period": {
+          "type": "boolean"
+        },
+        "previous_surgery_cpt": {
+          "type": "string"
+        },
+        "surgery_date": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    },
+    "wound_info": {
+      "type": "object",
+      "title": "Basic Wound Information",
+      "properties": {
+        "wound_type": {
+          "type": "string"
+        },
+        "wound_location": {
+          "type": "string"
+        },
+        "wound_duration_weeks": {
+          "type": "integer"
+        },
+        "wound_length_cm": {
+          "type": "number"
+        },
+        "wound_width_cm": {
+          "type": "number"
+        },
+        "primary_icd10": {
+          "type": "string"
+        }
+      }
+    },
+    "facility_shipping": {
+      "type": "object",
+      "title": "Facility & Shipping Information",
+      "properties": {
+        "facility": {
+          "type": "string"
+        },
+        "shipping_address": {
+          "type": "string"
+        },
+        "shipping_speed": {
+          "type": "string",
+          "enum": [
+            "1st AM (before 9AM)",
+            "Early Next Day (9AM-12PM)",
+            "Standard Next Day (during office hours)",
+            "Standard 2 Day"
+          ]
+        }
+      }
+    }
+  }
+}

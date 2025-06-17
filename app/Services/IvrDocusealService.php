@@ -566,4 +566,59 @@ class IvrDocusealService
 
         return $manufacturerMap[$manufacturerName] ?? str_replace(' ', '_', $manufacturerName);
     }
+
+    /**
+     * Process IVR signature completion from DocuSeal webhook
+     */
+    public function processIvrSignature(string $submissionId): void
+    {
+        try {
+            // Find the submission record
+            $submission = DocusealSubmission::where('docuseal_submission_id', $submissionId)
+                ->orWhere('id', $submissionId)
+                ->first();
+
+            if (!$submission) {
+                Log::warning('DocuSeal submission not found for webhook', [
+                    'submission_id' => $submissionId
+                ]);
+                return;
+            }
+
+            // Update submission status
+            $submission->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+            ]);
+
+            // If this is linked to a product request, update it
+            if ($submission->order_id) {
+                $productRequest = ProductRequest::find($submission->order_id);
+                
+                if ($productRequest && $productRequest->order_status === 'ivr_sent') {
+                    $productRequest->update([
+                        'order_status' => 'ivr_confirmed',
+                        'ivr_confirmed_at' => now(),
+                    ]);
+
+                    Log::info('IVR signature processed and product request updated', [
+                        'submission_id' => $submissionId,
+                        'product_request_id' => $productRequest->id,
+                    ]);
+                }
+            }
+
+            Log::info('IVR signature processed successfully', [
+                'submission_id' => $submissionId,
+                'docuseal_submission_id' => $submission->docuseal_submission_id,
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to process IVR signature', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
 }

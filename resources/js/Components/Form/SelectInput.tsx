@@ -39,10 +39,11 @@ export default function SelectInput({
       className={cn(
         t.input.base,
         t.input.focus,
-        'appearance-none cursor-pointer',
+        'appearance-none cursor-pointer relative z-50',
         error ? t.input.error : '',
         className
       )}
+      style={{ position: 'relative', zIndex: 50 }}
     >
       {/* Render children if provided, otherwise use options */}
       {children || options?.map(({ value, label }, index) => (
@@ -54,6 +55,10 @@ export default function SelectInput({
               ? 'bg-gray-900 text-white'
               : 'bg-white text-gray-900'
           )}
+          style={{
+            backgroundColor: theme === 'dark' ? '#111827' : '#ffffff',
+            color: theme === 'dark' ? '#ffffff' : '#111827',
+          }}
         >
           {label}
         </option>

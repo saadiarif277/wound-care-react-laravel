@@ -580,10 +580,22 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
     Route::get('/analytics/territories', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'territories'])->name('api.sales-reps.analytics.territories');
 });
 
-// DocuSeal Template Management API
-Route::prefix('v1/docuseal/templates')->middleware(['auth:sanctum', 'permission:manage-orders'])->group(function () {
-    Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
-    Route::post('sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
+
+
+// Insurance Card Processing Routes
+Route::middleware(['web'])->group(function () {
+    Route::post('/insurance-card/analyze', [\App\Http\Controllers\QuickRequestController::class, 'analyzeInsuranceCard'])
+        ->name('api.insurance-card.analyze');
+    Route::get('/insurance-card/status', [\App\Http\Controllers\QuickRequestController::class, 'checkAzureStatus'])
+        ->name('api.insurance-card.status');
+    Route::post('/insurance-card/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugInsuranceCard'])
+        ->name('api.insurance-card.debug');
+});
+
+// Payer Search Routes
+Route::middleware(['web'])->group(function () {
+    Route::get('/payers/search', [\App\Http\Controllers\PayerController::class, 'search'])
+        ->name('api.payers.search');
 });
 
 // Fallback Route for 404 API requests

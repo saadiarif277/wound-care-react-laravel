@@ -89,6 +89,11 @@ class AppServiceProvider extends ServiceProvider
                 $app->make(\App\Services\IvrFieldMappingService::class)
             );
         });
+
+        // Register PayerService
+        $this->app->singleton(\App\Services\PayerService::class, function ($app) {
+            return new \App\Services\PayerService();
+        });
     }
 
     /**

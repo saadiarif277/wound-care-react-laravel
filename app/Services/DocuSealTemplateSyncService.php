@@ -75,6 +75,31 @@ class DocuSealTemplateSyncService
                     // TODO: Add order/onboarding mapping when ready
                 }
 
+                // Check if template already exists
+                $existingTemplate = DocusealTemplate::where('docuseal_template_id', $tpl['id'])->first();
+                
+                // If template exists, merge the mappings instead of replacing them
+                $finalMappings = $mappedFields;
+                if ($existingTemplate && !empty($existingTemplate->field_mappings)) {
+                    // Preserve existing manual mappings, only add new fields
+                    $existingMappings = $existingTemplate->field_mappings;
+                    foreach ($mappedFields as $field => $mapping) {
+                        // Only update if field doesn't exist or has no local_field mapping
+                        if (!isset($existingMappings[$field]) || empty($existingMappings[$field]['local_field'])) {
+                            $finalMappings[$field] = $mapping;
+                        } else {
+                            // Keep existing mapping
+                            $finalMappings[$field] = $existingMappings[$field];
+                        }
+                    }
+                    // Also preserve any fields that were in existing but not in new
+                    foreach ($existingMappings as $field => $mapping) {
+                        if (!isset($finalMappings[$field])) {
+                            $finalMappings[$field] = $mapping;
+                        }
+                    }
+                }
+                
                 $template = DocusealTemplate::updateOrCreate(
                     [
                         'docuseal_template_id' => $tpl['id'],
@@ -85,7 +110,7 @@ class DocuSealTemplateSyncService
                         'manufacturer_id' => $manufacturerKey, // Store manufacturer key for reference
                         'is_default' => false, // Set based on your logic
                         'is_active' => empty($tpl['archived_at']),
-                        'field_mappings' => $mappedFields,
+                        'field_mappings' => $finalMappings,
                     ]
                 );
                 $results[] = $template;

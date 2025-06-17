@@ -117,7 +117,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
 
   return (
     <Modal show={isOpen} onClose={handleClose} maxWidth="md">
-      <div className={cn(t.modal.body)}>
+      <div className={cn(t.modal.body, "relative overflow-visible")}>
         <div className="flex items-center justify-between mb-4">
           <h2 className={cn("text-lg font-semibold", t.text.primary)}>Add Product Onboarding</h2>
           <button
@@ -158,24 +158,27 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
           </div>
 
           {/* Product Selection */}
-          <div>
+          <div className="relative">
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
               Select Product
             </label>
-            <SelectInput
-              name="product_id"
-              value={data.product_id}
-              onChange={(e) => setData('product_id', e.target.value)}
-              error={errors.product_id}
-              required
-              options={[
-                { value: '', label: 'Choose a product...' },
-                ...filteredProducts.map((product) => ({
-                  value: String(product.id),
-                  label: `${product.name} - ${product.sku} (${product.manufacturer})`,
-                })),
-              ]}
-            />
+            <div className="relative z-50">
+              <SelectInput
+                name="product_id"
+                value={data.product_id}
+                onChange={(e) => setData('product_id', e.target.value)}
+                error={errors.product_id}
+                required
+                className="relative"
+                options={[
+                  { value: '', label: 'Choose a product...' },
+                  ...filteredProducts.map((product) => ({
+                    value: String(product.id),
+                    label: `${product.name} - ${product.sku} (${product.manufacturer})`,
+                  })),
+                ]}
+              />
+            </div>
           </div>
 
           <div>
@@ -213,18 +216,28 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
             placeholder="Any additional notes about this product onboarding..."
           />
 
-          <div className={cn("flex justify-end gap-3 pt-4", t.modal.footer)}>
+          <div className={cn("flex justify-end gap-3 pt-4")}>
             <button
               type="button"
               onClick={handleClose}
-              className={cn(t.button.secondary.base, t.button.secondary.hover)}
+              className={cn(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                theme === 'dark'
+                  ? 'bg-white/10 text-white hover:bg-white/20 border border-white/20'
+                  : 'bg-gray-100 text-gray-800 hover:bg-gray-200 border border-gray-300'
+              )}
             >
               Cancel
             </button>
             <LoadingButton
               type="submit"
               loading={processing}
-              className={cn(t.button.primary.base, t.button.primary.hover)}
+              className={cn(
+                "px-4 py-2 rounded-lg font-medium transition-all",
+                theme === 'dark'
+                  ? 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg disabled:opacity-50'
+                  : 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg disabled:opacity-50'
+              )}
               disabled={!data.product_id}
             >
               Add Product

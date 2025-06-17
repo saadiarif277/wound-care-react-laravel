@@ -18,12 +18,17 @@ class DocusealTemplate extends Model
         'is_default',
         'field_mappings',
         'is_active',
+        'extraction_metadata',
+        'last_extracted_at',
+        'field_discovery_status',
     ];
 
     protected $casts = [
         'field_mappings' => 'array',
+        'extraction_metadata' => 'array',
         'is_default' => 'boolean',
         'is_active' => 'boolean',
+        'last_extracted_at' => 'datetime',
     ];
 
     /**

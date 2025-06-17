@@ -21,6 +21,13 @@ use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\HasApiTokens;
 
+/**
+ * @method bool hasPermission(string $permission)
+ * @method bool hasRole(string $role)
+ * @method bool hasAnyPermission(array $permissions)
+ * @method bool hasAllPermissions(array $permissions)
+ * @method \Illuminate\Database\Eloquent\Relations\BelongsToMany roles()
+ */
 class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable, SoftDeletes, HasPermissions, CrossOrganizationAccess;

@@ -13,6 +13,13 @@ interface PatientApiInput {
   gender?: 'male' | 'female' | 'other' | 'unknown'; // Changed to optional
   member_id?: string; // Changed to optional
   id?: string;
+  // Add address fields
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
 }
 
 // This is the structure of the formData prop passed from Create.tsx
@@ -29,6 +36,12 @@ interface ParentFormData {
   second_payer?: string; // New field
   shipping_speed?: string; // New field
   wound_type: string;
+  // Basic wound information
+  wound_location?: string;
+  wound_duration_weeks?: number;
+  primary_diagnosis_code?: string;
+  // Insurance information for eligibility
+  insurance_type?: string;
   // other fields from Create.tsx FormData might be present
   [key: string]: any; // Allow other fields
 }
@@ -193,6 +206,151 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
         </div>
       </div>
 
+      {/* Patient Address Information */}
+      <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
+            Patient Address
+          </h3>
+          <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
+            {/* Address Line 1 */}
+            <div className="sm:col-span-6">
+              <label htmlFor="address-line1" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Address Line 1
+              </label>
+              <input
+                type="text"
+                id="address-line1"
+                value={formData.patient_api_input.address_line1 || ''}
+                onChange={(e) => handlePatientDemographicsChange({ address_line1: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="Street address"
+              />
+            </div>
+            {/* Address Line 2 */}
+            <div className="sm:col-span-6">
+              <label htmlFor="address-line2" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Address Line 2 (Optional)
+              </label>
+              <input
+                type="text"
+                id="address-line2"
+                value={formData.patient_api_input.address_line2 || ''}
+                onChange={(e) => handlePatientDemographicsChange({ address_line2: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="Apartment, suite, unit, etc."
+              />
+            </div>
+            {/* City */}
+            <div className="sm:col-span-2">
+              <label htmlFor="city" className={cn("block text-sm font-medium", t.text.secondary)}>
+                City
+              </label>
+              <input
+                type="text"
+                id="city"
+                value={formData.patient_api_input.city || ''}
+                onChange={(e) => handlePatientDemographicsChange({ city: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+              />
+            </div>
+            {/* State */}
+            <div className="sm:col-span-2">
+              <label htmlFor="state" className={cn("block text-sm font-medium", t.text.secondary)}>
+                State
+              </label>
+              <select
+                id="state"
+                value={formData.patient_api_input.state || ''}
+                onChange={(e) => handlePatientDemographicsChange({ state: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+              >
+                <option value="">Select State</option>
+                <option value="AL">Alabama</option>
+                <option value="AK">Alaska</option>
+                <option value="AZ">Arizona</option>
+                <option value="AR">Arkansas</option>
+                <option value="CA">California</option>
+                <option value="CO">Colorado</option>
+                <option value="CT">Connecticut</option>
+                <option value="DE">Delaware</option>
+                <option value="FL">Florida</option>
+                <option value="GA">Georgia</option>
+                <option value="HI">Hawaii</option>
+                <option value="ID">Idaho</option>
+                <option value="IL">Illinois</option>
+                <option value="IN">Indiana</option>
+                <option value="IA">Iowa</option>
+                <option value="KS">Kansas</option>
+                <option value="KY">Kentucky</option>
+                <option value="LA">Louisiana</option>
+                <option value="ME">Maine</option>
+                <option value="MD">Maryland</option>
+                <option value="MA">Massachusetts</option>
+                <option value="MI">Michigan</option>
+                <option value="MN">Minnesota</option>
+                <option value="MS">Mississippi</option>
+                <option value="MO">Missouri</option>
+                <option value="MT">Montana</option>
+                <option value="NE">Nebraska</option>
+                <option value="NV">Nevada</option>
+                <option value="NH">New Hampshire</option>
+                <option value="NJ">New Jersey</option>
+                <option value="NM">New Mexico</option>
+                <option value="NY">New York</option>
+                <option value="NC">North Carolina</option>
+                <option value="ND">North Dakota</option>
+                <option value="OH">Ohio</option>
+                <option value="OK">Oklahoma</option>
+                <option value="OR">Oregon</option>
+                <option value="PA">Pennsylvania</option>
+                <option value="RI">Rhode Island</option>
+                <option value="SC">South Carolina</option>
+                <option value="SD">South Dakota</option>
+                <option value="TN">Tennessee</option>
+                <option value="TX">Texas</option>
+                <option value="UT">Utah</option>
+                <option value="VT">Vermont</option>
+                <option value="VA">Virginia</option>
+                <option value="WA">Washington</option>
+                <option value="WV">West Virginia</option>
+                <option value="WI">Wisconsin</option>
+                <option value="WY">Wyoming</option>
+              </select>
+            </div>
+            {/* Zip Code */}
+            <div className="sm:col-span-2">
+              <label htmlFor="zip" className={cn("block text-sm font-medium", t.text.secondary)}>
+                ZIP Code
+              </label>
+              <input
+                type="text"
+                id="zip"
+                value={formData.patient_api_input.zip || ''}
+                onChange={(e) => handlePatientDemographicsChange({ zip: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="12345"
+                maxLength={10}
+              />
+            </div>
+            {/* Phone */}
+            <div className="sm:col-span-3">
+              <label htmlFor="phone" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Patient Phone (Optional)
+              </label>
+              <input
+                type="tel"
+                id="phone"
+                value={formData.patient_api_input.phone || ''}
+                onChange={(e) => handlePatientDemographicsChange({ phone: e.target.value })}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="(555) 555-5555"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Service & Payer Information */}
       <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
         <div className="px-4 py-5 sm:p-6">
@@ -314,6 +472,36 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
               />
             </div>
+            {/* Insurance Type for Eligibility */}
+            <div className="sm:col-span-3">
+              <label htmlFor="insurance_type" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Insurance Type
+              </label>
+              <select
+                id="insurance_type"
+                value={formData.insurance_type || ''}
+                onChange={(e) => handleFieldChange('insurance_type', e.target.value)}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+              >
+                <option value="">Select Insurance Type</option>
+                <option value="medicare">Medicare</option>
+                <option value="medicaid">Medicaid</option>
+                <option value="medicare_advantage">Medicare Advantage</option>
+                <option value="commercial">Commercial</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Basic Wound Information */}
+      <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
+        <div className="px-4 py-5 sm:p-6">
+          <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
+            Basic Wound Information
+          </h3>
+          <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
             {/* Wound Type */}
             <div className="sm:col-span-3">
               <label htmlFor="wound_type" className={cn("block text-sm font-medium", t.text.secondary)}>
@@ -333,48 +521,141 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
                 ))}
               </select>
             </div>
+            {/* Wound Location */}
+            <div className="sm:col-span-3">
+              <label htmlFor="wound_location" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Wound Location
+              </label>
+              <select
+                id="wound_location"
+                value={formData.wound_location || ''}
+                onChange={(e) => handleFieldChange('wound_location', e.target.value)}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+              >
+                <option value="">Select Location</option>
+                <option value="right_foot">Right Foot</option>
+                <option value="left_foot">Left Foot</option>
+                <option value="right_lower_leg">Right Lower Leg</option>
+                <option value="left_lower_leg">Left Lower Leg</option>
+                <option value="right_upper_leg">Right Upper Leg</option>
+                <option value="left_upper_leg">Left Upper Leg</option>
+                <option value="sacrum">Sacrum</option>
+                <option value="coccyx">Coccyx</option>
+                <option value="buttock">Buttock</option>
+                <option value="heel">Heel</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            {/* Wound Duration */}
+            <div className="sm:col-span-3">
+              <label htmlFor="wound_duration" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Wound Duration (weeks)
+              </label>
+              <input
+                type="number"
+                id="wound_duration"
+                value={formData.wound_duration_weeks || ''}
+                onChange={(e) => handleFieldChange('wound_duration_weeks', parseInt(e.target.value) || null)}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="Number of weeks"
+                min="1"
+              />
+            </div>
+            {/* Primary Diagnosis Code */}
+            <div className="sm:col-span-3">
+              <label htmlFor="primary_diagnosis" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Primary Diagnosis Code (ICD-10)
+              </label>
+              <input
+                type="text"
+                id="primary_diagnosis"
+                value={formData.primary_diagnosis_code || ''}
+                onChange={(e) => handleFieldChange('primary_diagnosis_code', e.target.value)}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+                placeholder="e.g., L97.419"
+              />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Shipping Speed Selection */}
+      {/* Facility Selection & Shipping */}
       <div className={cn("shadow sm:rounded-lg", t.glass.card)}>
         <div className="px-4 py-5 sm:p-6">
           <h3 className={cn("text-lg font-medium leading-6", t.text.primary)}>
-            Shipping Speed
+            Facility & Shipping Information
           </h3>
-          <div className="mt-6 space-y-4">
-            {shippingOptions.map((option) => (
-              <div key={option.value} className="flex items-center">
-                <input
-                  type="radio"
-                  id={option.value}
-                  name="shipping_speed"
-                  value={option.value}
-                  checked={formData.shipping_speed === option.value}
-                  onChange={(e) => handleShippingSpeedChange(e.target.value)}
-                  className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
-                />
-                <label htmlFor={option.value} className={cn("ml-3 block text-sm font-medium", t.text.secondary)}>
-                  {option.label}
-                </label>
+          <div className="mt-6 space-y-6">
+            {/* Facility Selection */}
+            <div>
+              <label htmlFor="facility" className={cn("block text-sm font-medium", t.text.secondary)}>
+                Select Facility (Shipping Address)
+              </label>
+              <select
+                id="facility"
+                value={formData.facility_id || ''}
+                onChange={(e) => handleFieldChange('facility_id', e.target.value ? Number(e.target.value) : null)}
+                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
+              >
+                <option value="">Select a facility</option>
+                {facilities.map((facility) => (
+                  <option key={facility.id} value={facility.id}>
+                    {facility.name}
+                  </option>
+                ))}
+              </select>
+              
+              {/* Display selected facility address */}
+              {formData.facility_id && (() => {
+                const selectedFacility = facilities.find(f => f.id === formData.facility_id);
+                return selectedFacility?.address ? (
+                  <div className={cn("mt-2 p-3 rounded-md", theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50')}>
+                    <p className={cn("text-sm font-medium", t.text.primary)}>Shipping Address:</p>
+                    <p className={cn("text-sm", t.text.secondary)}>{selectedFacility.address}</p>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            {/* Shipping Speed */}
+            <div>
+              <label className={cn("block text-sm font-medium mb-3", t.text.secondary)}>
+                Shipping Speed
+              </label>
+              <div className="space-y-3">
+                {shippingOptions.map((option) => (
+                  <div key={option.value} className="flex items-center">
+                    <input
+                      type="radio"
+                      id={option.value}
+                      name="shipping_speed"
+                      value={option.value}
+                      checked={formData.shipping_speed === option.value}
+                      onChange={(e) => handleShippingSpeedChange(e.target.value)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <label htmlFor={option.value} className={cn("ml-3 block text-sm font-medium", t.text.secondary)}>
+                      {option.label}
+                    </label>
+                  </div>
+                ))}
+                {shippingError && (
+                  <div className={`mt-3 p-3 rounded-md ${
+                    shippingError.includes('cannot be fulfilled')
+                      ? 'bg-red-50 border border-red-200'
+                      : 'bg-blue-50 border border-blue-200'
+                  }`}>
+                    <p className={`text-sm ${
+                      shippingError.includes('cannot be fulfilled')
+                        ? (theme === 'dark' ? 'text-red-400' : 'text-red-800')
+                        : 'text-blue-800'
+                    }`}>
+                      {shippingError}
+                    </p>
+                  </div>
+                )}
               </div>
-            ))}
-            {shippingError && (
-              <div className={`mt-3 p-3 rounded-md ${
-                shippingError.includes('cannot be fulfilled')
-                  ? 'bg-red-50 border border-red-200'
-                  : 'bg-blue-50 border border-blue-200'
-              }`}>
-                <p className={`text-sm ${
-                  shippingError.includes('cannot be fulfilled')
-                    ? (theme === 'dark' ? 'text-red-400' : 'text-red-800')
-                    : 'text-blue-800'
-                }`}>
-                  {shippingError}
-                </p>
-              </div>
-            )}
+            </div>
           </div>
         </div>
       </div>

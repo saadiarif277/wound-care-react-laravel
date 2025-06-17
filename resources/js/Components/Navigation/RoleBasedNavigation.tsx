@@ -85,6 +85,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['provider'],
           children: [
             {
+              name: 'Quick Request',
+              href: '/quick-requests/create',
+              icon: FiLink,
+              roles: ['provider'],
+              description: 'Fast-track your orders'
+            },
+            {
               name: 'New Request',
               href: '/product-requests/create',
               icon: FiPlus,
@@ -160,6 +167,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           icon: FiClipboard,
           roles: ['office-manager'],
           children: [
+            {
+              name: 'Quick Request',
+              href: '/quick-requests/create',
+              icon: FiLink,
+              roles: ['office-manager'],
+              description: 'Fast-track your orders'
+            },
             {
               name: 'New Request',
               href: '/product-requests/create',

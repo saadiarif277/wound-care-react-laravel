@@ -176,11 +176,13 @@ const AIOverlay: React.FC<AIOverlayProps> = ({ isVisible, onClose }) => {
     }
   };
 
-  const handleProductRequest = () => {
+  const handleProductRequest = async () => {
     const productRequestMessage = "I'd like to submit a new product request. Please walk me through the required fields.";
     setMessage(productRequestMessage);
-    // Auto-send the message
-    handleSendMessage();
+    // Wait a moment for the message to be set
+    setTimeout(() => {
+      handleSendMessage();
+    }, 100);
     toast({
       title: "Product Request",
       description: "Starting product request process...",

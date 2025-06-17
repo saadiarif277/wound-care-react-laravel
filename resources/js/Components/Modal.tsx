@@ -44,11 +44,13 @@ export const Modal: React.FC<Props> = ({ show, onClose, children, maxWidth = 'md
             <div className="flex min-h-full items-center justify-center p-4">
                 <div
                     className={cn(
-                        "relative w-full transform overflow-hidden transition-all",
+                        "relative w-full transform transition-all",
                         maxWidthClasses[maxWidth],
-                        t.modal.container
+                        t.modal.container,
+                        "overflow-visible" // Allow dropdown to overflow
                     )}
                     onClick={(e) => e.stopPropagation()}
+                    style={{ isolation: 'isolate' }} // Create new stacking context
                 >
                     {children}
                 </div>

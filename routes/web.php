@@ -439,6 +439,28 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('product-requests.submit');
     });
 
+    // Quick Request Routes
+    Route::prefix('quick-requests')->group(function () {
+        Route::get('/create', [\App\Http\Controllers\QuickRequestController::class, 'create'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.create');
+        Route::post('/', [\App\Http\Controllers\QuickRequestController::class, 'store'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.store');
+        Route::get('/test-azure', function() {
+            return Inertia::render('QuickRequest/Components/TestInsuranceCard');
+        })->name('quick-requests.test-azure');
+    });
+
+    // Insurance Card Analysis API
+    Route::prefix('api/insurance-card')->group(function () {
+        Route::post('/analyze', [\App\Http\Controllers\Api\InsuranceCardController::class, 'analyze'])
+            ->middleware('permission:create-product-requests')
+            ->name('api.insurance-card.analyze');
+        Route::get('/status', [\App\Http\Controllers\Api\InsuranceCardController::class, 'status'])
+            ->name('api.insurance-card.status');
+    });
+
     // Product Request API Routes
     Route::prefix('api/product-requests')->group(function () {
         Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
@@ -724,6 +746,18 @@ Route::middleware(['web', 'auth'])->group(function () {
             return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
+    
+    // DocuSeal API endpoints (within web middleware for session auth)
+    Route::prefix('api/v1/docuseal/templates')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
+        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
+        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'extractFields']);
+        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
+        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMappings']);
+        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMetadata']);
+        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'applyBulkPatterns']);
+        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncFields']);
+    });
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {
@@ -918,4 +952,23 @@ Route::get('/test-form', function() {
 
 Route::post('/test-form', function() {
     return response()->json(['success' => true, 'message' => 'CSRF token is working!']);
+});
+
+// Temporary migration route (remove after running)
+Route::get('/run-field-discovery-migration', [App\Http\Controllers\RunMigrationController::class, 'runMigration'])
+    ->middleware(['auth', 'web']);
+
+// Diagnostic route
+Route::get('/api/diagnostics/permissions', [\App\Http\Controllers\DiagnosticController::class, 'checkPermissions'])
+    ->middleware('auth')
+    ->name('diagnostics.permissions');
+
+// RBAC Management Routes
+Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function () {
+    Route::get('/', [\App\Http\Controllers\RBACController::class, 'index'])->name('rbac.index');
+    Route::get('/security-audit', [\App\Http\Controllers\RBACController::class, 'getSecurityAudit'])->name('rbac.security-audit');
+    Route::get('/stats', [\App\Http\Controllers\RBACController::class, 'getSystemStats'])->name('rbac.stats');
+    Route::post('/role/{role}/toggle-status', [\App\Http\Controllers\RBACController::class, 'toggleRoleStatus'])->name('rbac.roles.toggle-status');
+    Route::get('/role/{role}/permissions', [\App\Http\Controllers\RBACController::class, 'getRolePermissions'])->name('rbac.roles.permissions');
+    Route::put('/role/{role}/permissions', [\App\Http\Controllers\RBACController::class, 'updateRolePermissions'])->name('rbac.roles.update-permissions');
 });

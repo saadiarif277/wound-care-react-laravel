@@ -113,7 +113,7 @@ function getDefaultHeaders(): HeadersInit {
 export async function apiRequest(url: string, options: RequestInit = {}): Promise<Response> {
   const defaultOptions: RequestInit = {
     headers: getDefaultHeaders(),
-    credentials: 'same-origin', // Include cookies for session-based auth
+    credentials: 'include', // Changed from 'same-origin' to 'include' for cross-origin requests
   };
 
   const mergedOptions: RequestInit = {
