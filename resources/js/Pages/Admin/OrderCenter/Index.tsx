@@ -6,7 +6,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
 import Heading from '@/Components/ui/Heading';
 import GlassCard from '@/Components/ui/GlassCard';
-import Input from '@/Components/Input';
 import OrderStatusBadge from '@/Components/Order/OrderStatusBadge';
 import {
   Eye,
@@ -126,6 +125,8 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
     }).format(amount);
   };
 
@@ -139,14 +140,14 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);
-    router.get(router.page.url,
+    router.get(window.location.pathname,
       { ...filters, search: value },
       { preserveState: true, replace: true, only: ['orders'] }
     );
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    router.get(router.page.url,
+    router.get(window.location.pathname,
       { ...filters, [key]: value },
       { preserveState: true, replace: true, only: ['orders'] }
     );
@@ -188,9 +189,9 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
   return (
     <MainLayout>
       <Head title="Admin Order Center" />
-
+      
       {/* Hero Header with Gradient Background */}
-      <div className={`relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/20 via-transparent to-[#c71719]/20' : 'bg-gradient-to-br from-[#1925c3]/10 via-transparent to-[#c71719]/10'}`}>
+      <div className={`relative overflow-hidden ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/20 via-transparent to-[#c71719]/20' : 'bg-gradient-to-br from-[#1925c3]/10 via-transparent to-[#c71719]/10'} -mt-6 -mx-4 sm:-mx-6 lg:-mx-8`}>
         <div className="absolute inset-0 opacity-5">
           <div className="absolute inset-0" style={{
             backgroundImage: `repeating-linear-gradient(
@@ -215,7 +216,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                 </p>
               </div>
               <div className="hidden lg:flex items-center gap-3">
-                <button className={`px-4 py-2 ${t.glass.card} ${t.glass.hover} rounded-xl flex items-center gap-2 transition-all`}>
+                <button className={`px-4 py-2.5 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl flex items-center gap-2 transition-all backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} shadow-sm hover:shadow-md`}>
                   <Download className="w-4 h-4" />
                   <span className="text-sm font-medium">Export</span>
                 </button>
@@ -223,68 +224,68 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <GlassCard variant="card" className="p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-[#1925c3]/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-6">
+              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-blue-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500/20 to-blue-600/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-100'} shadow-sm`}>
                       <Activity className={`w-5 h-5 ${theme === 'dark' ? 'text-blue-400' : 'text-blue-600'}`} />
                     </div>
                     {stats.todaysOrders > 0 && (
-                      <span className={`text-xs ${theme === 'dark' ? 'text-green-400' : 'text-green-600'} flex items-center gap-1`}>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-green-400' : 'text-green-600'} flex items-center gap-1 font-medium`}>
                         <TrendingUp className="w-3 h-3" />
                         +{Math.round((stats.todaysOrders / Math.max(stats.totalOrders, 1)) * 100)}%
                       </span>
                     )}
                   </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left`}>{stats.todaysOrders}</p>
-                  <p className={`text-sm ${t.text.secondary} mt-1`}>Orders Today</p>
+                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.todaysOrders}</p>
+                  <p className={`text-sm ${t.text.secondary} font-medium`}>Orders Today</p>
                 </div>
               </GlassCard>
 
-              <GlassCard variant="card" className="p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1">
-                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-[#c71719]/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
+                <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-amber-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-amber-500/20 to-amber-600/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-amber-500/20' : 'bg-amber-100'} shadow-sm`}>
                       <AlertTriangle className={`w-5 h-5 ${theme === 'dark' ? 'text-amber-400' : 'text-amber-600'}`} />
                     </div>
                     {stats.pendingActions > 5 && (
-                      <span className={`text-xs ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} font-semibold animate-pulse`}>Urgent</span>
+                      <span className={`text-xs ${theme === 'dark' ? 'text-red-400' : 'text-red-600'} font-bold animate-pulse`}>Urgent</span>
                     )}
                   </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left`}>{stats.pendingActions}</p>
-                  <p className={`text-sm ${t.text.secondary} mt-1`}>Pending Actions</p>
+                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.pendingActions}</p>
+                  <p className={`text-sm ${t.text.secondary} font-medium`}>Pending Actions</p>
                 </div>
               </GlassCard>
 
-              <GlassCard variant="card" className="p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1">
+              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-emerald-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-emerald-500/20 to-emerald-600/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-emerald-500/20' : 'bg-emerald-100'} shadow-sm`}>
                       <CheckCircle className={`w-5 h-5 ${theme === 'dark' ? 'text-emerald-400' : 'text-emerald-600'}`} />
                     </div>
                     {stats.approvalRate > 90 && (
                       <Sparkles className={`w-4 h-4 ${theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'} animate-pulse`} />
                     )}
                   </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left`}>{stats.approvalRate}%</p>
-                  <p className={`text-sm ${t.text.secondary} mt-1`}>Approval Rate</p>
+                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.approvalRate}%</p>
+                  <p className={`text-sm ${t.text.secondary} font-medium`}>Approval Rate</p>
                 </div>
               </GlassCard>
 
-              <GlassCard variant="card" className="p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1">
+              <GlassCard variant="default" className={`p-6 relative overflow-hidden group transform transition-all duration-300 hover:-translate-y-1 ${theme === 'dark' ? 'bg-white/[0.08]' : 'bg-white/90'} backdrop-blur-xl`}>
                 <div className="absolute top-0 right-0 -mt-4 -mr-4 w-24 h-24 bg-gradient-to-br from-purple-500/20 to-transparent rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
                 <div className="relative">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="p-2 rounded-lg bg-gradient-to-br from-purple-500/20 to-purple-600/20">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className={`p-2.5 rounded-xl ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-100'} shadow-sm`}>
                       <Package className={`w-5 h-5 ${theme === 'dark' ? 'text-purple-400' : 'text-purple-600'}`} />
                     </div>
                   </div>
-                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left`}>{stats.totalOrders}</p>
-                  <p className={`text-sm ${t.text.secondary} mt-1`}>Total Orders</p>
+                  <p className={`text-3xl font-bold ${t.text.primary} transition-all duration-300 group-hover:scale-110 origin-left mb-1`}>{stats.totalOrders}</p>
+                  <p className={`text-sm ${t.text.secondary} font-medium`}>Total Orders</p>
                 </div>
               </GlassCard>
             </div>
@@ -309,7 +310,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                       className={`
                         group relative flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200
                         ${isActive 
-                          ? `${t.glass.card} ring-2 ring-[#c71719] scale-105 shadow-lg` 
+                          ? `${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-r from-[#1925c3]/20 to-[#c71719]/20'} ring-2 ring-[#c71719] scale-105 shadow-lg backdrop-blur-xl` 
                           : `${t.glass.card} ${t.glass.hover} hover:scale-105 hover:shadow-md`
                         }
                       `}
@@ -317,7 +318,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                       {isActive && (
                         <div className="absolute inset-0 bg-gradient-to-r from-[#1925c3]/10 to-[#c71719]/10 rounded-xl animate-pulse"></div>
                       )}
-                      <div className={`relative p-2 rounded-lg transition-colors ${isActive ? 'bg-gradient-to-br from-[#1925c3]/20 to-[#c71719]/20' : theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
+                      <div className={`relative p-2 rounded-lg transition-colors ${isActive ? 'bg-gradient-to-br from-[#1925c3]/30 to-[#c71719]/30' : theme === 'dark' ? 'bg-white/10' : 'bg-gray-100'}`}>
                         <Icon className={`w-4 h-4 ${isActive ? 'text-[#c71719]' : t.text.primary}`} />
                       </div>
                       <div className="relative text-left">
@@ -333,11 +334,10 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 -mt-4">
-
+      <div className="px-4 sm:px-6 lg:px-8 pb-8">
         {/* Enhanced Filter Bar */}
-        <div className="mb-6">
-          <GlassCard variant="frost" className="p-4">
+        <div className="mb-6 -mt-8 relative z-10">
+          <GlassCard variant="default" className="p-4">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Tabs */}
               <div className="flex-shrink-0">
@@ -379,20 +379,20 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                   <input
                     type="text"
                     placeholder="Search orders, providers, or patient IDs..."
-                    className={`pl-10 pr-4 py-2.5 w-full rounded-xl text-sm ${t.glass.card} ${t.glass.hover} border border-white/10 focus:border-[#c71719]/50 transition-all`}
+                    className={`pl-10 pr-4 py-2.5 w-full rounded-xl text-sm ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10 focus:border-[#c71719]/50' : 'border-gray-300 focus:border-[#1925c3]'} transition-all focus:ring-2 ${theme === 'dark' ? 'focus:ring-[#c71719]/20' : 'focus:ring-[#1925c3]/20'} outline-none`}
                     value={searchQuery}
                     onChange={(e) => handleSearch(e.target.value)}
                   />
                 </div>
 
                 <div className="flex gap-2">
-                  <button className={`px-4 py-2.5 ${t.glass.card} ${t.glass.hover} rounded-xl flex items-center gap-2 text-sm font-medium transition-all`}>
+                  <button className={`px-4 py-2.5 ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm rounded-xl flex items-center gap-2 text-sm font-medium transition-all border ${theme === 'dark' ? 'border-white/10' : 'border-gray-300'} shadow-sm hover:shadow-md`}>
                     <CalendarRange className="w-4 h-4" />
-                    <span>Date Range</span>
+                    <span className="hidden sm:inline">Date Range</span>
                   </button>
 
                   <select
-                    className={`px-4 py-2.5 rounded-xl text-sm ${t.glass.card} ${t.glass.hover} border border-white/10 focus:border-[#c71719]/50 transition-all min-w-[150px]`}
+                    className={`px-4 py-2.5 rounded-xl text-sm ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm border ${theme === 'dark' ? 'border-white/10 focus:border-[#c71719]/50' : 'border-gray-300 focus:border-[#1925c3]'} transition-all min-w-[150px] cursor-pointer outline-none focus:ring-2 ${theme === 'dark' ? 'focus:ring-[#c71719]/20' : 'focus:ring-[#1925c3]/20'}`}
                     value={filters.manufacturer || ''}
                     onChange={(e) => handleFilterChange('manufacturer', e.target.value)}
                   >
@@ -404,7 +404,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                     ))}
                   </select>
 
-                  <button className={`p-2.5 ${t.glass.card} ${t.glass.hover} rounded-xl transition-all group`}>
+                  <button className={`p-2.5 ${theme === 'dark' ? 'bg-white/5 hover:bg-white/10' : 'bg-white hover:bg-gray-50'} backdrop-blur-sm rounded-xl transition-all group border ${theme === 'dark' ? 'border-white/10' : 'border-gray-300'} shadow-sm hover:shadow-md`}>
                     <Filter className="h-4 w-4 group-hover:rotate-180 transition-transform duration-300" />
                   </button>
 
@@ -412,7 +412,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                     <button 
                       onClick={() => {
                         setSearchQuery('');
-                        router.get(router.page.url, {}, { preserveState: false });
+                        router.get(window.location.pathname, {}, { preserveState: false });
                       }}
                       className={`p-2.5 ${theme === 'dark' ? 'bg-red-500/20 text-red-300 hover:bg-red-500/30' : 'bg-red-100 text-red-600 hover:bg-red-200'} rounded-xl transition-all`}
                     >
@@ -457,7 +457,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
 
         {/* Enhanced Orders Table */}
         <div className="relative">
-          <GlassTable className="rounded-2xl overflow-hidden">
+          <GlassTable className={`rounded-2xl overflow-hidden ${theme === 'dark' ? 'shadow-2xl shadow-black/30' : 'shadow-xl shadow-gray-200/50'}`}>
             <Table>
               <Thead>
                 <Tr>
@@ -493,11 +493,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                 {filteredOrders.map((order, index) => (
                   <Tr
                     key={order.id}
-                    className={`cursor-pointer group transition-all hover:scale-[1.01] ${
-                      index % 2 === 0 
-                        ? theme === 'dark' ? 'bg-white/[0.02]' : 'bg-gray-50/50' 
-                        : ''
-                    }`}
+                    className={`cursor-pointer group transition-all hover:scale-[1.005] ${theme === 'dark' ? 'hover:bg-white/[0.05]' : 'hover:bg-gray-50'}`}
                     onClick={() => router.visit(`/admin/orders/${order.id}`)}
                   >
                     <Td className="font-medium">
@@ -507,7 +503,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                             {order.order_number || 'N/A'}
                           </span>
                           {order.products_count > 0 && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'}`}>
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${theme === 'dark' ? 'bg-blue-500/20 text-blue-300' : 'bg-blue-100 text-blue-700'} font-medium`}>
                               {order.products_count} items
                             </span>
                           )}
@@ -520,8 +516,8 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                     <Td>
                       <div className="space-y-2">
                         <div className="flex items-center gap-2">
-                          <div className={`w-8 h-8 rounded-full ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-br from-[#1925c3]/20 to-[#c71719]/20'} flex items-center justify-center`}>
-                            <User className="w-4 h-4" />
+                          <div className={`w-8 h-8 rounded-xl ${theme === 'dark' ? 'bg-gradient-to-br from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-br from-[#1925c3]/20 to-[#c71719]/20'} flex items-center justify-center shadow-sm`}>
+                            <User className={`w-4 h-4 ${theme === 'dark' ? 'text-white/80' : 'text-gray-700'}`} />
                           </div>
                           <div>
                             <div className={`text-sm font-medium ${t.text.primary}`}>
@@ -557,7 +553,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                     </Td>
                     <Td>
                       <div className="flex items-center gap-2">
-                        <div className={`w-10 h-10 rounded-xl ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-100'} flex items-center justify-center`}>
+                        <div className={`w-10 h-10 rounded-xl ${theme === 'dark' ? 'bg-purple-500/20' : 'bg-purple-100'} flex items-center justify-center shadow-sm`}>
                           <Package className={`w-5 h-5 ${theme === 'dark' ? 'text-purple-300' : 'text-purple-600'}`} />
                         </div>
                         <div>
@@ -590,7 +586,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                             e.stopPropagation();
                             router.visit(`/admin/orders/${order.id}`);
                           }}
-                          className={`p-2 rounded-lg ${t.glass.card} ${t.glass.hover} opacity-0 group-hover:opacity-100 transition-all`}
+                          className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-white/10 hover:bg-white/20' : 'bg-gray-100 hover:bg-gray-200'} opacity-0 group-hover:opacity-100 transition-all`}
                         >
                           <ChevronRight className="h-4 w-4" />
                         </button>
@@ -601,14 +597,14 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
 
               {filteredOrders.length === 0 && (
                 <Tr>
-                  <Td colSpan={5} className="text-center py-16">
-                    <div className="max-w-sm mx-auto">
-                      <div className="relative">
-                        <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3]/20 to-[#c71719]/20' : 'bg-gradient-to-r from-[#1925c3]/10 to-[#c71719]/10'} blur-3xl rounded-full`}></div>
-                        <Package className={`relative h-16 w-16 mx-auto mb-4 ${t.text.muted}`} />
+                  <Td colSpan={5} className="text-center py-20">
+                    <div className="max-w-md mx-auto">
+                      <div className="relative mb-6">
+                        <div className={`absolute inset-0 ${theme === 'dark' ? 'bg-gradient-to-r from-[#1925c3]/30 to-[#c71719]/30' : 'bg-gradient-to-r from-[#1925c3]/20 to-[#c71719]/20'} blur-3xl rounded-full animate-pulse`}></div>
+                        <Package className={`relative h-20 w-20 mx-auto ${theme === 'dark' ? 'text-white/30' : 'text-gray-400'}`} />
                       </div>
-                      <p className={`text-xl font-semibold ${t.text.primary} mb-2`}>No orders found</p>
-                      <p className={`text-sm ${t.text.secondary}`}>
+                      <p className={`text-2xl font-bold ${t.text.primary} mb-3`}>No orders found</p>
+                      <p className={`text-base ${t.text.secondary} mb-6`}>
                         {activeTab === 'requiring_action'
                           ? 'Great! No orders require your attention right now'
                           : 'Try adjusting your filters or search criteria'}
@@ -617,9 +613,9 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
                         <button
                           onClick={() => {
                             setSearchQuery('');
-                            router.get(router.page.url, {}, { preserveState: false });
+                            router.get(window.location.pathname, {}, { preserveState: false });
                           }}
-                          className={`mt-4 inline-flex items-center px-4 py-2 ${t.glass.card} ${t.glass.hover} rounded-xl text-sm font-medium`}
+                          className={`inline-flex items-center px-5 py-2.5 ${theme === 'dark' ? 'bg-white/10 hover:bg-white/15' : 'bg-gray-100 hover:bg-gray-200'} rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md`}
                         >
                           <FilterX className="w-4 h-4 mr-2" />
                           Clear all filters
@@ -636,7 +632,7 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
         {/* Enhanced Pagination */}
         {orders.links && orders.data.length > 0 && (
           <div className="mt-6">
-            <GlassCard variant="frost" className="p-4">
+            <GlassCard variant="default" className="p-4">
               <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="text-center sm:text-left">
                   <p className={`text-sm ${t.text.secondary}`}>
@@ -689,10 +685,10 @@ const OrderCenter: React.FC<OrderCenterProps> = ({
 
         {/* Enhanced Floating Action Button */}
         <div className="fixed bottom-8 right-8 group">
-          <div className={`absolute -inset-4 bg-gradient-to-r from-[#1925c3] to-[#c71719] rounded-full blur-lg opacity-25 group-hover:opacity-75 transition-opacity duration-300`}></div>
+          <div className={`absolute -inset-4 bg-gradient-to-r from-[#1925c3] to-[#c71719] rounded-full blur-lg opacity-30 group-hover:opacity-60 transition-opacity duration-300`}></div>
           <Link
             href="/admin/orders/create"
-            className={`relative flex items-center space-x-2 ${t.button.primary} rounded-full p-4 shadow-2xl transform transition-all duration-300 hover:scale-110`}
+            className={`relative flex items-center space-x-2 bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold rounded-full p-4 shadow-2xl transform transition-all duration-300 hover:scale-110 hover:shadow-[0_20px_60px_rgba(199,23,25,0.3)]`}
           >
             <Package className="h-6 w-6" />
             <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out whitespace-nowrap">

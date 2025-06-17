@@ -19,6 +19,7 @@
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-toast": "^1.2.14",
     "@radix-ui/themes": "^3.2.1",
+    "@rollup/rollup-linux-x64-gnu": "^4.43.0",
     "@sentry/browser": "^7.119.1",
     "@superinterface/react": "^3.29.0",
     "@tailwindcss/line-clamp": "^0.4.4",
