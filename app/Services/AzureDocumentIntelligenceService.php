@@ -59,22 +59,43 @@ class AzureDocumentIntelligenceService
     /**
      * Analyze a document using Azure Document Intelligence
      * 
-     * @param UploadedFile $file
-     * @param string $modelId
+     * @param UploadedFile|string $file File object or file path
+     * @param string|array $modelId Model ID or analysis options
      * @return array
      */
-    private function analyzeDocument(UploadedFile $file, string $modelId): array
+    public function analyzeDocument($file, $modelIdOrOptions = 'prebuilt-document'): array
     {
+        // Handle both string model ID and options array
+        if (is_array($modelIdOrOptions)) {
+            $modelId = $modelIdOrOptions['model_id'] ?? 'prebuilt-document';
+            $features = $modelIdOrOptions['features'] ?? [];
+        } else {
+            $modelId = $modelIdOrOptions;
+            $features = [];
+        }
+        
         $url = "{$this->endpoint}/documentintelligence/documentModels/{$modelId}:analyze?api-version={$this->apiVersion}";
+        
+        // Add features parameter if provided
+        if (!empty($features)) {
+            $url .= '&features=' . implode(',', $features);
+        }
+        
+        // Handle both UploadedFile and file path
+        if ($file instanceof UploadedFile) {
+            $fileContent = $file->get();
+            $mimeType = $file->getMimeType();
+        } else {
+            // Assume it's a file path
+            $fileContent = file_get_contents($file);
+            $mimeType = mime_content_type($file) ?: 'application/pdf';
+        }
         
         // Start the analysis
         $response = Http::withHeaders([
             'Ocp-Apim-Subscription-Key' => $this->apiKey,
-            'Content-Type' => $file->getMimeType(),
-        ])->withBody(
-            $file->get(),
-            $file->getMimeType()
-        )->post($url);
+            'Content-Type' => $mimeType,
+        ])->withBody($fileContent, $mimeType)->post($url);
 
         if (!$response->successful()) {
             throw new \Exception('Failed to start document analysis: ' . $response->body());

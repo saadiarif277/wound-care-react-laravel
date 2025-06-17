@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FiArrowLeft, FiArrowRight, FiCheck } from 'react-icons/fi';
+import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import Step1PatientInfo from './Components/Step1PatientInfoNew';
@@ -67,6 +67,7 @@ interface QuickRequestFormData {
   place_of_service?: string;
   insurance_type?: string;
   is_patient_subscriber?: boolean;
+  docuseal_submission_id?: string;
 }
 
 interface Props {
@@ -102,6 +103,7 @@ function QuickRequestCreate({
   woundTypes,
   currentUser 
 }: Props) {
+  console.log('QuickRequest facilities:', facilities);
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -175,6 +177,8 @@ function QuickRequestCreate({
         if (!formData.patient_dob) errors.patient_dob = 'Date of birth is required';
         if (!formData.payer_name) errors.payer_name = 'Payer name is required';
         if (!formData.expected_service_date) errors.expected_service_date = 'Expected service date is required';
+        if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
+        if (!formData.wound_type) errors.wound_type = 'Wound type is required';
         break;
       case 2:
         if (!formData.product_id) errors.product_id = 'Product selection is required';
@@ -222,7 +226,29 @@ function QuickRequestCreate({
           // Redirect to confirmation or order page
         },
         onError: (errors) => {
-          setErrors(errors);
+          console.error('Form submission errors:', errors);
+          
+          // Convert Laravel validation errors to our format
+          const formErrors: Record<string, string> = {};
+          
+          if (typeof errors === 'object' && errors !== null) {
+            Object.entries(errors).forEach(([field, messages]) => {
+              if (Array.isArray(messages)) {
+                formErrors[field] = messages[0];
+              } else if (typeof messages === 'string') {
+                formErrors[field] = messages;
+              }
+            });
+          }
+          
+          setErrors(formErrors);
+          
+          // Show alert with all errors for debugging
+          const errorMessages = Object.entries(formErrors)
+            .map(([field, message]) => `${field}: ${message}`)
+            .join('\n');
+          
+          alert(`Form validation errors:\n\n${errorMessages}`);
         },
       });
     } catch (error) {
@@ -284,6 +310,25 @@ function QuickRequestCreate({
             </div>
           </div>
 
+          {/* Validation Error Summary */}
+          {Object.keys(errors).length > 0 && (
+            <div className={cn("mb-4 p-4 rounded-lg", theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50', "border", theme === 'dark' ? 'border-red-800' : 'border-red-200')}>
+              <div className="flex items-start">
+                <FiAlertCircle className={cn("w-5 h-5 mr-2 flex-shrink-0 mt-0.5", theme === 'dark' ? 'text-red-400' : 'text-red-600')} />
+                <div>
+                  <h4 className={cn("text-sm font-medium mb-1", theme === 'dark' ? 'text-red-300' : 'text-red-800')}>
+                    Please fix the following errors:
+                  </h4>
+                  <ul className={cn("text-sm space-y-1", theme === 'dark' ? 'text-red-400' : 'text-red-700')}>
+                    {Object.entries(errors).map(([field, message]) => (
+                      <li key={field}>• {message}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Step Content */}
           <div className={cn("shadow-xl rounded-2xl p-8", t.glass.card)}>
             {currentStep === 1 && (
@@ -321,6 +366,7 @@ function QuickRequestCreate({
             {currentStep === 4 && (
               <Step4Confirmation
                 formData={formData}
+                updateFormData={updateFormData}
                 products={products}
                 facilities={facilities}
                 onSubmit={handleSubmit}

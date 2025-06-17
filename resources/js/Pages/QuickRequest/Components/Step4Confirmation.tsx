@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { FiCheck, FiAlertCircle, FiExternalLink } from 'react-icons/fi';
+import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { getManufacturerConfig } from './manufacturerFields';
+import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
 
 interface Step4Props {
   formData: any;
+  updateFormData: (data: any) => void;
   products: Array<{
     id: number;
     code: string;
@@ -23,7 +25,8 @@ interface Step4Props {
 }
 
 export default function Step4Confirmation({ 
-  formData, 
+  formData,
+  updateFormData,
   products,
   facilities,
   onSubmit,
@@ -44,10 +47,28 @@ export default function Step4Confirmation({
   const [showIVRFrame, setShowIVRFrame] = useState(false);
   const [ivrSigned, setIvrSigned] = useState(false);
   const [signatureRequired, setSignatureRequired] = useState(false);
+  const [docusealSubmissionId, setDocusealSubmissionId] = useState<string | null>(null);
+  const [ivrError, setIvrError] = useState<string | null>(null);
   
   const selectedProduct = products.find(p => p.id === formData.product_id);
   const selectedFacility = facilities.find(f => f.id === formData.facility_id);
   const manufacturerConfig = selectedProduct ? getManufacturerConfig(selectedProduct.manufacturer) : null;
+
+  const getTemplateId = () => {
+    // Get template ID from manufacturer config
+    if (manufacturerConfig?.docusealTemplateId) {
+      return manufacturerConfig.docusealTemplateId;
+    }
+    
+    // Fallback template map if not in config
+    const templateMap: Record<string, string> = {
+      'Acell': '1234567',  // TODO: Replace with actual Acell template ID
+      'Organogenesis': '2345678',  // TODO: Replace with actual Organogenesis template ID
+      // Add other manufacturers as needed
+    };
+    
+    return templateMap[selectedProduct?.manufacturer || ''] || '1234567'; // Default template
+  };
 
   useEffect(() => {
     // Check if signature is required based on manufacturer
@@ -58,12 +79,25 @@ export default function Step4Confirmation({
 
   const handleIVRSign = () => {
     setShowIVRFrame(true);
-    // TODO: Integrate with actual DocuSeal IVR
-    // For now, simulate signing after 3 seconds
-    setTimeout(() => {
-      setIvrSigned(true);
-      setShowIVRFrame(false);
-    }, 3000);
+    setIvrError(null);
+  };
+
+  const handleIVRComplete = (submissionId: string) => {
+    setDocusealSubmissionId(submissionId);
+    setIvrSigned(true);
+    setShowIVRFrame(false);
+    // Update form data with DocuSeal submission ID
+    updateFormData({ docuseal_submission_id: submissionId });
+  };
+
+  const handleIVRError = (error: string) => {
+    setIvrError(error);
+    // Don't close the modal so user can see the error
+  };
+
+  const closeIVRModal = () => {
+    setShowIVRFrame(false);
+    setIvrError(null);
   };
 
   const formatPatientDisplay = () => {
@@ -229,20 +263,34 @@ export default function Step4Confirmation({
           )}
 
           {showIVRFrame && (
-            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-              <div className={cn("w-full max-w-4xl h-3/4 rounded-lg", t.glass.card)}>
-                <div className="p-4 border-b">
+            <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+              <div className={cn("w-full max-w-5xl h-[90vh] rounded-lg overflow-hidden", t.glass.card)}>
+                <div className="p-4 border-b flex items-center justify-between">
                   <h3 className={cn("text-lg font-medium", t.text.primary)}>
-                    DocuSeal IVR Signature
+                    Complete IVR Form & Signature
                   </h3>
+                  <button
+                    onClick={closeIVRModal}
+                    className={cn(
+                      "p-2 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700",
+                      t.text.secondary
+                    )}
+                  >
+                    <FiX className="h-5 w-5" />
+                  </button>
                 </div>
-                <div className="p-8 flex items-center justify-center h-full">
-                  <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                    <p className={cn("text-sm", t.text.secondary)}>
-                      Loading DocuSeal signature interface...
-                    </p>
-                  </div>
+                <div className="h-[calc(100%-4rem)] overflow-auto">
+                  <DocuSealIVRForm
+                    formData={{
+                      ...formData,
+                      provider_email: formData.provider_email || 'provider@example.com',
+                      provider_name: formData.provider_name || formData.provider_name,
+                      docuseal_submission_id: docusealSubmissionId
+                    }}
+                    templateId={getTemplateId()}
+                    onComplete={handleIVRComplete}
+                    onError={handleIVRError}
+                  />
                 </div>
               </div>
             </div>

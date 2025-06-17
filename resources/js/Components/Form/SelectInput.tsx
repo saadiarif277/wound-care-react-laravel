@@ -47,19 +47,7 @@ export default function SelectInput({
     >
       {/* Render children if provided, otherwise use options */}
       {children || options?.map(({ value, label }, index) => (
-        <option
-          key={index}
-          value={value}
-          className={cn(
-            theme === 'dark'
-              ? 'bg-gray-900 text-white'
-              : 'bg-white text-gray-900'
-          )}
-          style={{
-            backgroundColor: theme === 'dark' ? '#111827' : '#ffffff',
-            color: theme === 'dark' ? '#ffffff' : '#111827',
-          }}
-        >
+        <option key={index} value={value}>
           {label}
         </option>
       ))}

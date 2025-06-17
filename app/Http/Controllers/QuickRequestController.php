@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order\Product;
-use App\Models\Facility;
+use App\Models\Fhir\Facility;
 use App\Models\User;
 use App\Models\Order\ProductRequest;
 use App\Services\AzureDocumentIntelligenceService;
@@ -109,6 +109,9 @@ class QuickRequestController extends Controller
             'provider_npi' => 'nullable|string|max:10',
             'signature_date' => 'nullable|date',
             'verbal_order' => 'nullable|array',
+            
+            // DocuSeal Integration
+            'docuseal_submission_id' => 'nullable|string|max:255',
         ]);
         
         DB::beginTransaction();
@@ -170,6 +173,7 @@ class QuickRequestController extends Controller
                     'signature_date' => $validated['signature_date'] ?? now()->format('Y-m-d'),
                     'verbal_order' => $validated['verbal_order'] ?? null,
                 ],
+                'docuseal_submission_id' => $validated['docuseal_submission_id'] ?? null,
             ];
             
             $productRequest->metadata = $metadata;
@@ -218,29 +222,80 @@ class QuickRequestController extends Controller
     
     private function getUserFacilities($user)
     {
+        $query = null;
+        
         // If admin, return all facilities
         if ($user->hasRole('msc-admin')) {
-            return Facility::with('organization')
-                ->orderBy('name')
-                ->get();
+            $query = Facility::with('organization');
         }
-        
         // If office manager, return their facility
-        if ($user->hasRole('office-manager')) {
-            return Facility::where('office_manager_id', $user->id)
-                ->with('organization')
-                ->get();
+        elseif ($user->hasRole('office-manager')) {
+            $query = Facility::where('office_manager_id', $user->id)
+                ->with('organization');
         }
-        
         // If provider, return facilities they're associated with
-        if ($user->hasRole('provider')) {
-            return $user->facilities()
+        elseif ($user->hasRole('provider')) {
+            $facilities = $user->facilities()
                 ->with('organization')
                 ->orderBy('name')
                 ->get();
+                
+            // If provider has no facilities, try to get facilities from their organization
+            if ($facilities->isEmpty() && $user->current_organization_id) {
+                $query = Facility::where('organization_id', $user->current_organization_id)
+                    ->with('organization');
+            } else {
+                // Format and return the facilities we already have
+                return $facilities->map(function ($facility) {
+                    return $this->formatFacilityData($facility);
+                });
+            }
+        }
+        // For any other role, try to get facilities from their organization
+        elseif ($user->current_organization_id) {
+            $query = Facility::where('organization_id', $user->current_organization_id)
+                ->with('organization');
+        }
+        
+        if ($query) {
+            return $query->orderBy('name')->get()->map(function ($facility) {
+                return $this->formatFacilityData($facility);
+            });
         }
         
         return collect();
+    }
+    
+    /**
+     * Format facility data to ensure address is available
+     */
+    private function formatFacilityData($facility)
+    {
+        // Build address string from components
+        $addressParts = [];
+        
+        if (!empty($facility->address)) {
+            // If address is already a string, use it
+            $facility->address = $facility->address;
+        } else {
+            // Build address from components
+            if (!empty($facility->address_line_1)) {
+                $addressParts[] = $facility->address_line_1;
+            }
+            if (!empty($facility->address_line_2)) {
+                $addressParts[] = $facility->address_line_2;
+            }
+            if (!empty($facility->city) && !empty($facility->state)) {
+                $addressParts[] = $facility->city . ', ' . $facility->state;
+                if (!empty($facility->zip_code)) {
+                    $addressParts[count($addressParts) - 1] .= ' ' . $facility->zip_code;
+                }
+            }
+            
+            $facility->address = implode(', ', $addressParts);
+        }
+        
+        return $facility;
     }
     
     private function getOrganizationProviders($user)
@@ -251,8 +306,8 @@ class QuickRequestController extends Controller
             })
             ->select('id', 'first_name', 'last_name', 'npi_number');
         
-        if ($user->organization_id) {
-            $query->where('organization_id', $user->organization_id);
+        if ($user->current_organization_id) {
+            $query->where('current_organization_id', $user->current_organization_id);
         }
         
         return $query->get()->map(function ($provider) {

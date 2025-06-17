@@ -3,6 +3,7 @@ import { FiSearch, FiRefreshCw, FiAlertCircle } from 'react-icons/fi';
 import { Facility } from '@/types';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import GoogleAddressAutocomplete from '@/Components/GoogleAddressAutocomplete';
 
 // Define PatientApiInput locally, matching Create.tsx, if not easily importable
 // This should ideally be shared from Create.tsx or a common types file.
@@ -213,24 +214,35 @@ const PatientInformationStep: React.FC<PatientInformationStepProps> = ({
             Patient Address
           </h3>
           <div className="mt-6 grid grid-cols-1 gap-y-6 gap-x-4 sm:grid-cols-6">
-            {/* Address Line 1 */}
+            {/* Address Autocomplete */}
             <div className="sm:col-span-6">
-              <label htmlFor="address-line1" className={cn("block text-sm font-medium", t.text.secondary)}>
-                Address Line 1
+              <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
+                Patient Address
               </label>
-              <input
-                type="text"
-                id="address-line1"
-                value={formData.patient_api_input.address_line1 || ''}
-                onChange={(e) => handlePatientDemographicsChange({ address_line1: e.target.value })}
-                className={cn("mt-1 block w-full rounded-md shadow-sm sm:text-sm", t.input.base, t.input.focus)}
-                placeholder="Street address"
+              <GoogleAddressAutocomplete
+                value={{
+                  line1: formData.patient_api_input.address_line1 || '',
+                  line2: formData.patient_api_input.address_line2 || '',
+                  city: formData.patient_api_input.city || '',
+                  state: formData.patient_api_input.state || '',
+                  zip: formData.patient_api_input.zip || ''
+                }}
+                onChange={(address) => {
+                  handlePatientDemographicsChange({
+                    address_line1: address.line1,
+                    address_line2: address.line2,
+                    city: address.city,
+                    state: address.state,
+                    zip: address.zip
+                  });
+                }}
+                placeholder="Start typing street address..."
               />
             </div>
-            {/* Address Line 2 */}
+            {/* Address Line 2 - separate field for manual entry */}
             <div className="sm:col-span-6">
               <label htmlFor="address-line2" className={cn("block text-sm font-medium", t.text.secondary)}>
-                Address Line 2 (Optional)
+                Address Line 2 (Apartment, Suite, etc.)
               </label>
               <input
                 type="text"

@@ -103,4 +103,8 @@ return [
         'api_version' => env('AZURE_DI_API_VERSION', '2023-07-31'),
     ],
 
+    'google' => [
+        'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];

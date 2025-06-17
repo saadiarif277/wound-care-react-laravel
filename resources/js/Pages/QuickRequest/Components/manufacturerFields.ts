@@ -7,12 +7,17 @@ export interface ManufacturerField {
   description?: string;
   placeholder?: string;
   conditionalOn?: { field: string; value: any };
+  // DocuSeal embedded field tag information
+  docusealFieldName?: string; // Custom field name if different from 'name'
+  docusealFieldType?: 'text' | 'checkbox' | 'select' | 'radio' | 'date' | 'signature';
+  docusealAttributes?: string; // Additional DocuSeal attributes like "required=true;role=Provider"
 }
 
 export interface ManufacturerConfig {
   name: string;
   products: string[];
   signatureRequired: boolean;
+  docusealTemplateId?: string;
   fields: ManufacturerField[];
 }
 
@@ -21,6 +26,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ',
     products: ['Membrane Wrap', 'Revoshield'],
     signatureRequired: true,
+    docusealTemplateId: 'acz_ivr_template', // TODO: Replace with actual DocuSeal template ID
     fields: [
       {
         name: 'physician_attestation',
@@ -40,6 +46,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Advanced Health',
     products: ['CompleteAA', 'CompleteFT', 'WoundPlus'],
     signatureRequired: true,
+    docusealTemplateId: 'advanced_health_ivr_template', // TODO: Replace with actual DocuSeal template ID
     fields: [
       {
         name: 'multiple_products',
@@ -71,6 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
+    docusealTemplateId: 'medlife_ivr_template', // TODO: Replace with actual DocuSeal template ID
     fields: [
       {
         name: 'amnio_amp_size',
@@ -145,6 +153,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'BioWound',
     products: ['Membrane Wrap', 'Derm-Maxx', 'Bio-Connekt', 'NeoStim', 'Amnio-Maxx'],
     signatureRequired: true,
+    docusealTemplateId: 'biowound_ivr_template', // TODO: Replace with actual DocuSeal template ID
     fields: [
       {
         name: 'california_facility',
@@ -210,6 +219,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Skye Biologics',
     products: ['WoundPlus'],
     signatureRequired: true,
+    docusealTemplateId: 'skye_biologics_ivr_template', // TODO: Replace with actual DocuSeal template ID
     fields: [
       {
         name: 'shipping_speed_required',

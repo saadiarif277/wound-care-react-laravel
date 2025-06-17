@@ -9,6 +9,7 @@ use App\Models\Docuseal\DocusealFolder;
 use Docuseal\Api as DocusealApi;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
+use GuzzleHttp\Client as HttpClient;
 use Exception;
 
 class DocusealService
@@ -394,5 +395,321 @@ class DocusealService
         // TODO: Determine manufacturer from order items
         // For now, return a default folder ID
         return 'default-folder';
+    }
+
+    /**
+     * Create a QuickRequest IVR submission using embedded text field tags
+     */
+    public function createQuickRequestSubmission(string $templateId, array $submissionData): array
+    {
+        $apiKey = config('services.docuseal.api_key');
+        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+        
+        if (!$apiKey) {
+            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
+        }
+        
+        try {
+            // Prepare fields for embedded text field tags
+            $fields = $this->prepareEmbeddedFields($submissionData['fields'] ?? []);
+            
+            // Create submission payload for DocuSeal API
+            $payload = [
+                'template_id' => $templateId,
+                'send_email' => $submissionData['send_email'] ?? false,
+                'submitters' => [
+                    [
+                        'role' => 'Provider',
+                        'email' => $submissionData['email'],
+                        'name' => $submissionData['name'],
+                        'send_email' => $submissionData['send_email'] ?? false,
+                        'send_sms' => false,
+                        // Pre-fill embedded field values
+                        'values' => $fields,
+                    ]
+                ],
+                'expire_after' => 7, // Days until expiration
+            ];
+            
+            // Make direct HTTP request to DocuSeal API
+            $client = new HttpClient();
+            $response = $client->post($apiUrl . '/submissions', [
+                'headers' => [
+                    'X-Auth-Token' => $apiKey,
+                    'Content-Type' => 'application/json',
+                    'Accept' => 'application/json',
+                ],
+                'json' => $payload,
+                'timeout' => 30
+            ]);
+            
+            $responseData = json_decode($response->getBody()->getContents(), true);
+            
+            if (!$responseData || !isset($responseData['id'])) {
+                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
+            }
+
+            // Extract submission ID and signing URL
+            $submissionId = $responseData['id'];
+            $signingSlug = $responseData['submitters'][0]['slug'] ?? null;
+
+            if (!$submissionId || !$signingSlug) {
+                throw new Exception('Missing submission ID or signing slug in DocuSeal response');
+            }
+
+            // Convert slug to full URL
+            $signingUrl = "https://docuseal.com/s/{$signingSlug}";
+
+            Log::info('QuickRequest DocuSeal submission created with embedded fields', [
+                'submission_id' => $submissionId,
+                'template_id' => $templateId,
+                'fields_count' => count($fields),
+                'field_names' => array_keys($fields),
+                'signing_url' => $signingUrl,
+            ]);
+
+            return [
+                'submission_id' => $submissionId,
+                'signing_url' => $signingUrl,
+            ];
+
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
+            
+            Log::error('DocuSeal API submission creation failed', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
+                'response_body' => $errorBody,
+                'fields_provided' => array_keys($submissionData['fields'] ?? [])
+            ]);
+            
+            throw new Exception('Failed to create DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
+        } catch (Exception $e) {
+            Log::error('Failed to create QuickRequest DocuSeal submission', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+                'fields_provided' => array_keys($submissionData['fields'] ?? [])
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Prepare fields for embedded text field tags
+     */
+    private function prepareEmbeddedFields(array $fields): array
+    {
+        $prepared = [];
+        
+        foreach ($fields as $fieldName => $fieldValue) {
+            // Clean field name (remove any prefixes if needed)
+            $cleanFieldName = $fieldName;
+            
+            // Convert value to string and handle special cases
+            if (is_bool($fieldValue)) {
+                $prepared[$cleanFieldName] = $fieldValue ? 'Yes' : 'No';
+            } elseif ($fieldValue === 'true' || $fieldValue === true) {
+                $prepared[$cleanFieldName] = 'Yes';
+            } elseif ($fieldValue === 'false' || $fieldValue === false) {
+                $prepared[$cleanFieldName] = 'No';
+            } elseif (is_null($fieldValue)) {
+                $prepared[$cleanFieldName] = '';
+            } else {
+                $prepared[$cleanFieldName] = (string) $fieldValue;
+            }
+        }
+        
+        Log::debug('Prepared embedded fields for DocuSeal', [
+            'field_count' => count($prepared),
+            'field_sample' => array_slice($prepared, 0, 5, true) // Log first 5 fields for debugging
+        ]);
+        
+        return $prepared;
+    }
+
+    /**
+     * Get submission status
+     */
+    public function getSubmission(string $submissionId): array
+    {
+        $apiKey = config('services.docuseal.api_key');
+        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+        
+        if (!$apiKey) {
+            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
+        }
+        
+        try {
+            $client = new HttpClient();
+            $response = $client->get($apiUrl . '/submissions/' . $submissionId, [
+                'headers' => [
+                    'X-Auth-Token' => $apiKey,
+                    'Accept' => 'application/json',
+                ],
+                'timeout' => 30
+            ]);
+            
+            $responseData = json_decode($response->getBody()->getContents(), true);
+            
+            if (!$responseData) {
+                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
+            }
+            
+            return $responseData;
+            
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
+            
+            Log::error('DocuSeal API get submission failed', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage(),
+                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
+                'response_body' => $errorBody,
+            ]);
+            
+            throw new Exception('Failed to get DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
+        } catch (Exception $e) {
+            Log::error('Failed to get DocuSeal submission', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get template information including embedded field tags
+     */
+    public function getTemplateInfo(string $templateId): array
+    {
+        $apiKey = config('services.docuseal.api_key');
+        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+        
+        if (!$apiKey) {
+            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
+        }
+        
+        try {
+            $client = new HttpClient();
+            $response = $client->get($apiUrl . '/templates/' . $templateId, [
+                'headers' => [
+                    'X-Auth-Token' => $apiKey,
+                    'Accept' => 'application/json',
+                ],
+                'timeout' => 30
+            ]);
+            
+            $template = json_decode($response->getBody()->getContents(), true);
+            
+            if (!$template) {
+                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
+            }
+            
+            Log::info('Retrieved DocuSeal template info', [
+                'template_id' => $templateId,
+                'template_name' => $template['name'] ?? 'Unknown',
+                'fields_count' => count($template['fields'] ?? []),
+            ]);
+            
+            return $template;
+            
+        } catch (\GuzzleHttp\Exception\RequestException $e) {
+            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
+            
+            Log::error('DocuSeal API get template failed', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
+                'response_body' => $errorBody,
+            ]);
+            
+            throw new Exception('Failed to get DocuSeal template: ' . $e->getMessage() . '. Response: ' . $errorBody);
+        } catch (Exception $e) {
+            Log::error('Failed to get DocuSeal template info', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Validate field mapping against template
+     */
+    public function validateFieldMapping(string $templateId, array $fields): array
+    {
+        try {
+            $template = $this->getTemplateInfo($templateId);
+            $templateFields = collect($template['fields'] ?? [])->pluck('name')->toArray();
+            
+            $providedFields = array_keys($fields);
+            $matchedFields = array_intersect($providedFields, $templateFields);
+            $unmatchedProvided = array_diff($providedFields, $templateFields);
+            $unmatchedTemplate = array_diff($templateFields, $providedFields);
+            
+            $validation = [
+                'template_id' => $templateId,
+                'template_fields_count' => count($templateFields),
+                'provided_fields_count' => count($providedFields),
+                'matched_fields_count' => count($matchedFields),
+                'matched_fields' => $matchedFields,
+                'unmatched_provided_fields' => $unmatchedProvided,
+                'unmatched_template_fields' => $unmatchedTemplate,
+                'match_percentage' => count($templateFields) > 0 ? round((count($matchedFields) / count($templateFields)) * 100, 2) : 0,
+            ];
+            
+            Log::info('DocuSeal field mapping validation', $validation);
+            
+            return $validation;
+        } catch (Exception $e) {
+            Log::error('Failed to validate DocuSeal field mapping', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Debug submission creation with detailed logging
+     */
+    public function debugSubmissionCreation(string $templateId, array $submissionData): array
+    {
+        try {
+            Log::info('Starting DocuSeal submission debug', [
+                'template_id' => $templateId,
+                'submission_data_keys' => array_keys($submissionData),
+                'fields_count' => count($submissionData['fields'] ?? []),
+            ]);
+
+            // Validate field mapping first
+            $validation = $this->validateFieldMapping($templateId, $submissionData['fields'] ?? []);
+            
+            if ($validation['match_percentage'] < 50) {
+                Log::warning('Low field matching percentage detected', [
+                    'match_percentage' => $validation['match_percentage'],
+                    'unmatched_fields' => $validation['unmatched_provided_fields'],
+                ]);
+            }
+
+            // Create submission with debugging
+            $result = $this->createQuickRequestSubmission($templateId, $submissionData);
+            
+            Log::info('DocuSeal submission debug completed successfully', [
+                'submission_id' => $result['submission_id'],
+                'field_validation' => $validation,
+            ]);
+            
+            return array_merge($result, ['field_validation' => $validation]);
+            
+        } catch (Exception $e) {
+            Log::error('DocuSeal submission debug failed', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            throw $e;
+        }
     }
 }

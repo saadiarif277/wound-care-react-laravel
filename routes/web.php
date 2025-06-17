@@ -41,6 +41,7 @@ use App\Models\ProviderInvitation;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\DocuSealWebhookController;
+use App\Http\Controllers\DocuSealSubmissionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -752,6 +753,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
         Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
         Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'extractFields']);
+        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'uploadEmbedded']);
         Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
         Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMappings']);
         Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMetadata']);
@@ -922,6 +924,17 @@ Route::middleware(['auth'])->group(function () {
     // Demo-specific DocuSeal submission (only requires authentication, not manage-orders permission)
     Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createDemoSubmission'])
         ->name('docuseal.demo.create-submission');
+});
+
+// QuickRequest DocuSeal Routes  
+Route::middleware(['auth'])->group(function () {
+    // Create QuickRequest DocuSeal submission for IVR forms
+    Route::post('/quickrequest/docuseal/create-submission', [\App\Http\Controllers\DocuSealSubmissionController::class, 'createSubmission'])
+        ->name('quickrequest.docuseal.create-submission');
+
+    // Check DocuSeal submission status
+    Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])
+        ->name('quickrequest.docuseal.status');
 });
 
 // DocuSeal Webhook (outside auth middleware)

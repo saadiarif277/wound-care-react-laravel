@@ -3,6 +3,7 @@ import { FiCamera, FiRefreshCw, FiAlertCircle, FiFile, FiCheck, FiChevronDown, F
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import PayerSearchInput from '@/Components/PayerSearchInput';
+import GoogleAddressAutocomplete from '@/Components/GoogleAddressAutocomplete';
 
 interface Step1Props {
   formData: any;
@@ -660,23 +661,36 @@ export default function Step1PatientInfoNew({
         <div className="mt-4 space-y-3">
           <h4 className={cn("text-sm font-medium", t.text.primary)}>Address</h4>
           
+          <div>
+            <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
+              Start typing an address to autofill
+            </label>
+            <GoogleAddressAutocomplete
+              value={{
+                line1: formData.patient_address_line1 || '',
+                line2: formData.patient_address_line2 || '',
+                city: formData.patient_city || '',
+                state: formData.patient_state || '',
+                zip: formData.patient_zip || ''
+              }}
+              onChange={(address) => {
+                updateFormData({
+                  patient_address_line1: address.line1,
+                  patient_address_line2: address.line2,
+                  patient_city: address.city,
+                  patient_state: address.state,
+                  patient_zip: address.zip
+                });
+              }}
+              placeholder="Start typing street address..."
+            />
+          </div>
+
+          {/* Manual entry fields */}
           <div className="grid grid-cols-1 gap-3">
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                Address Line 1
-              </label>
-              <input
-                type="text"
-                value={formData.patient_address_line1 || ''}
-                onChange={(e) => updateFormData({ patient_address_line1: e.target.value })}
-                className={cn("w-full", t.input.base, t.input.focus)}
-                placeholder="123 Main Street"
-              />
-            </div>
-
-            <div>
-              <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                Address Line 2
+                Address Line 2 (Apartment, Suite, etc.)
               </label>
               <input
                 type="text"
@@ -968,13 +982,18 @@ export default function Step1PatientInfoNew({
             <select
               value={formData.wound_type || ''}
               onChange={(e) => updateFormData({ wound_type: e.target.value })}
-              className={cn("w-full", t.input.base, t.input.focus)}
+              className={cn("w-full", t.input.base, t.input.focus, errors.wound_type ? t.input.error : '')}
             >
               <option value="">Select Wound Type</option>
               {Object.entries(woundTypes).map(([code, name]) => (
                 <option key={code} value={code}>{name}</option>
               ))}
             </select>
+            {errors.wound_type && (
+              <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>
+                {errors.wound_type}
+              </p>
+            )}
           </div>
 
           <div>
@@ -1074,7 +1093,7 @@ export default function Step1PatientInfoNew({
             <select
               value={formData.facility_id || ''}
               onChange={(e) => updateFormData({ facility_id: e.target.value ? Number(e.target.value) : null })}
-              className={cn("w-full", t.input.base, t.input.focus)}
+              className={cn("w-full", t.input.base, t.input.focus, errors.facility_id ? t.input.error : '')}
             >
               <option value="">Select a facility</option>
               {facilities.map((facility) => (
@@ -1083,6 +1102,16 @@ export default function Step1PatientInfoNew({
                 </option>
               ))}
             </select>
+            {errors.facility_id && (
+              <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>
+                {errors.facility_id}
+              </p>
+            )}
+            {facilities.length === 0 && (
+              <p className={cn("mt-1 text-sm", t.text.secondary)}>
+                No facilities available. Please contact your administrator.
+              </p>
+            )}
             
             {formData.facility_id && (() => {
               const selectedFacility = facilities.find(f => f.id === formData.facility_id);

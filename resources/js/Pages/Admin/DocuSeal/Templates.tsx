@@ -78,7 +78,7 @@ export default function Templates() {
   const [previewTemplate, setPreviewTemplate] = useState<Template | null>(null);
   
   // Field discovery states
-  const [activeTab, setActiveTab] = useState<'current' | 'discovery'>('current');
+  const [activeTab, setActiveTab] = useState<'current' | 'discovery' | 'embedded'>('current');
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractedFields, setExtractedFields] = useState<ExtractedField[]>([]);
@@ -440,6 +440,122 @@ export default function Templates() {
     }
   };
 
+  const handleEmbeddedTemplateUpload = async (file: File) => {
+    if (!selectedTemplate) return;
+    
+    setError(null);
+    
+    const formData = new FormData();
+    formData.append('pdf', file);
+    formData.append('template_id', selectedTemplate.id);
+    formData.append('upload_type', 'embedded_tags');
+    
+    try {
+      // Upload the PDF template to DocuSeal and extract embedded field tags
+      const response = await axios.post('/api/v1/docuseal/templates/upload-embedded', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      if (response.data.success) {
+        // Update template with new DocuSeal template ID and embedded field info
+        const updatedTemplate = {
+          ...selectedTemplate,
+          docuseal_template_id: response.data.docuseal_template_id,
+          field_mappings: response.data.embedded_fields || {},
+          extraction_metadata: {
+            ...selectedTemplate.extraction_metadata,
+            embedded_tags_detected: response.data.embedded_tags || [],
+            upload_date: new Date().toISOString(),
+            template_type: 'embedded_tags'
+          }
+        };
+        
+        setSelectedTemplate(updatedTemplate);
+        setTemplates(prev => prev.map(t => 
+          t.id === selectedTemplate.id ? updatedTemplate : t
+        ));
+        
+        alert(`Template uploaded successfully! Detected ${response.data.embedded_tags?.length || 0} embedded field tags.`);
+      } else {
+        setError('Failed to upload template with embedded tags');
+      }
+    } catch (e: any) {
+      console.error('Embedded template upload error:', e);
+      setError(e.response?.data?.message || 'Failed to upload embedded template');
+    }
+  };
+
+  const testEmbeddedFields = async () => {
+    if (!selectedTemplate?.docuseal_template_id) {
+      setError('No DocuSeal template ID found. Please upload a template first.');
+      return;
+    }
+    
+    setError(null);
+    
+    // Generate sample Quick Request data
+    const sampleData = {
+      patient_first_name: 'John',
+      patient_last_name: 'Doe',
+      patient_dob: '1980-01-01',
+      patient_member_id: 'C099999999',
+      patient_gender: 'male',
+      patient_phone: '555-123-4567',
+      patient_address_line1: '123 Main Street',
+      patient_city: 'Anytown',
+      patient_state: 'CA',
+      patient_zip: '90210',
+      product_name: 'Membrane Wrap',
+      product_code: 'Q4205',
+      manufacturer: selectedTemplate.manufacturer_id || 'ACZ',
+      size: '2x2 cm',
+      quantity: 1,
+      expected_service_date: new Date().toISOString().split('T')[0],
+      wound_type: 'surgical',
+      place_of_service: 'office',
+      payer_name: 'Sample Insurance',
+      insurance_type: 'commercial',
+      provider_name: 'Dr. Jane Smith',
+      provider_npi: '1234567890',
+      facility_name: 'Sample Wound Care Center',
+      signature_date: new Date().toISOString().split('T')[0],
+      failed_conservative_treatment: true,
+      information_accurate: true,
+      medical_necessity_established: true,
+      maintain_documentation: true,
+      authorize_prior_auth: true,
+      // Manufacturer-specific sample data
+      physician_attestation: true,
+      not_used_previously: true,
+      multiple_products: false,
+      previous_use: false,
+      amnio_amp_size: '2x2'
+    };
+    
+    try {
+      const response = await axios.post('/quickrequest/docuseal/create-submission', {
+        template_id: selectedTemplate.docuseal_template_id,
+        email: 'test@example.com',
+        name: 'Test Provider',
+        send_email: false,
+        fields: sampleData
+      });
+      
+      if (response.data.success) {
+        const submissionUrl = response.data.signing_url;
+        alert(`Test submission created successfully!\n\nSubmission ID: ${response.data.submission_id}\n\nOpening test form in new window...`);
+        window.open(submissionUrl, '_blank');
+      } else {
+        setError('Failed to create test submission');
+      }
+    } catch (e: any) {
+      console.error('Test submission error:', e);
+      setError(e.response?.data?.message || 'Failed to create test submission');
+    }
+  };
+
   useEffect(() => {
     fetchTemplates();
   }, []);
@@ -615,6 +731,19 @@ export default function Templates() {
                           {discoverySummary.unmapped_fields} unmapped
                         </span>
                       )}
+                    </button>
+                    <button
+                      className={`px-4 py-2 font-medium text-sm ${
+                        activeTab === 'embedded' 
+                          ? 'text-blue-600 border-b-2 border-blue-600' 
+                          : 'text-gray-500 hover:text-gray-700'
+                      }`}
+                      onClick={() => setActiveTab('embedded')}
+                    >
+                      Embedded Tags
+                      <span className="ml-2 text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                        Quick Request
+                      </span>
                     </button>
                   </div>
 
@@ -1041,6 +1170,183 @@ export default function Templates() {
                           </table>
                         </div>
                       )}
+                    </div>
+                  ) : activeTab === 'embedded' ? (
+                    <div className="space-y-6">
+                      {/* Embedded Text Field Tags Section */}
+                      <div className="bg-green-50 rounded-lg p-6">
+                        <h3 className="text-lg font-semibold text-green-900 mb-4">
+                          Quick Request Embedded Field Tags
+                        </h3>
+                        <p className="text-sm text-green-800 mb-4">
+                          This template uses embedded text field tags ({{`{field_name}`}}) for Quick Request IVR forms. 
+                          Upload a PDF template with embedded tags to automatically create fillable forms.
+                        </p>
+                        
+                        {/* Quick Request Field Reference */}
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                          {/* Patient Fields */}
+                          <div className="bg-white rounded-lg p-4 border border-green-200">
+                            <h4 className="font-medium text-green-900 mb-3">Patient Information</h4>
+                            <div className="space-y-1 text-xs font-mono">
+                              <div>{{`{patient_first_name}`}}</div>
+                              <div>{{`{patient_last_name}`}}</div>
+                              <div>{{`{patient_dob}`}}</div>
+                              <div>{{`{patient_member_id}`}}</div>
+                              <div>{{`{patient_gender}`}}</div>
+                              <div>{{`{patient_phone}`}}</div>
+                              <div>{{`{patient_address_line1}`}}</div>
+                              <div>{{`{patient_city}`}}</div>
+                              <div>{{`{patient_state}`}}</div>
+                              <div>{{`{patient_zip}`}}</div>
+                            </div>
+                          </div>
+
+                          {/* Product Fields */}
+                          <div className="bg-white rounded-lg p-4 border border-green-200">
+                            <h4 className="font-medium text-green-900 mb-3">Product & Service</h4>
+                            <div className="space-y-1 text-xs font-mono">
+                              <div>{{`{product_name}`}}</div>
+                              <div>{{`{product_code}`}}</div>
+                              <div>{{`{manufacturer}`}}</div>
+                              <div>{{`{size}`}}</div>
+                              <div>{{`{quantity}`}}</div>
+                              <div>{{`{expected_service_date}`}}</div>
+                              <div>{{`{wound_type}`}}</div>
+                              <div>{{`{place_of_service}`}}</div>
+                              <div>{{`{payer_name}`}}</div>
+                              <div>{{`{insurance_type}`}}</div>
+                            </div>
+                          </div>
+
+                          {/* Provider Fields */}
+                          <div className="bg-white rounded-lg p-4 border border-green-200">
+                            <h4 className="font-medium text-green-900 mb-3">Provider & Attestations</h4>
+                            <div className="space-y-1 text-xs font-mono">
+                              <div>{{`{provider_name}`}}</div>
+                              <div>{{`{provider_npi}`}}</div>
+                              <div>{{`{facility_name}`}}</div>
+                              <div>{{`{signature_date}`}}</div>
+                              <div className="text-purple-600">{{`{failed_conservative_treatment}`}}</div>
+                              <div className="text-purple-600">{{`{information_accurate}`}}</div>
+                              <div className="text-purple-600">{{`{medical_necessity_established}`}}</div>
+                              <div className="text-purple-600">{{`{maintain_documentation}`}}</div>
+                              <div className="text-purple-600">{{`{authorize_prior_auth}`}}</div>
+                            </div>
+                            <p className="text-xs text-gray-600 mt-2">
+                              Purple fields = Yes/No checkboxes
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Manufacturer-Specific Fields */}
+                        <div className="mt-6">
+                          <h4 className="font-medium text-green-900 mb-3">Manufacturer-Specific Fields</h4>
+                          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div className="bg-white rounded-lg p-4 border border-green-200">
+                              <h5 className="text-sm font-medium text-gray-700 mb-2">ACZ</h5>
+                              <div className="space-y-1 text-xs font-mono text-purple-600">
+                                <div>{{`{physician_attestation}`}}</div>
+                                <div>{{`{not_used_previously}`}}</div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-lg p-4 border border-green-200">
+                              <h5 className="text-sm font-medium text-gray-700 mb-2">Advanced Health</h5>
+                              <div className="space-y-1 text-xs font-mono">
+                                <div className="text-purple-600">{{`{multiple_products}`}}</div>
+                                <div>{{`{additional_products}`}}</div>
+                                <div className="text-purple-600">{{`{previous_use}`}}</div>
+                                <div>{{`{previous_product_info}`}}</div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-lg p-4 border border-green-200">
+                              <h5 className="text-sm font-medium text-gray-700 mb-2">MedLife</h5>
+                              <div className="space-y-1 text-xs font-mono">
+                                <div>{{`{amnio_amp_size}`}}</div>
+                              </div>
+                            </div>
+                            <div className="bg-white rounded-lg p-4 border border-green-200">
+                              <h5 className="text-sm font-medium text-gray-700 mb-2">Skye Biologics</h5>
+                              <div className="space-y-1 text-xs font-mono">
+                                <div>{{`{shipping_speed_required}`}}</div>
+                                <div className="text-purple-600">{{`{temperature_controlled}`}}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Advanced Field Examples */}
+                        <div className="mt-6 bg-white rounded-lg p-4 border border-green-200">
+                          <h4 className="font-medium text-green-900 mb-3">Advanced Field Examples</h4>
+                          <div className="space-y-2 text-sm">
+                            <div>
+                              <span className="font-mono text-blue-600">{{`{provider_signature;type=signature;role=Provider;required=true}`}}</span>
+                              <span className="text-gray-600 ml-2">- Required provider signature</span>
+                            </div>
+                            <div>
+                              <span className="font-mono text-blue-600">{{`{wound_type;type=select;options=surgical,traumatic,diabetic_foot}`}}</span>
+                              <span className="text-gray-600 ml-2">- Dropdown with options</span>
+                            </div>
+                            <div>
+                              <span className="font-mono text-blue-600">{{`{failed_conservative_treatment;type=checkbox;required=true}`}}</span>
+                              <span className="text-gray-600 ml-2">- Required checkbox</span>
+                            </div>
+                            <div>
+                              <span className="font-mono text-blue-600">{{`{additional_info;condition=previous_use=Yes}`}}</span>
+                              <span className="text-gray-600 ml-2">- Conditional field</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Upload Template Section */}
+                        <div className="mt-6 border-2 border-dashed border-green-300 rounded-lg p-6">
+                          <div className="text-center">
+                            <Upload className="w-8 h-8 text-green-500 mx-auto mb-3" />
+                            <h4 className="font-medium text-green-900 mb-2">Upload Template with Embedded Tags</h4>
+                            <p className="text-sm text-green-700 mb-4">
+                              Upload a PDF template that contains {{`{field_name}`}} tags. The template will be automatically 
+                              configured for Quick Request IVR forms with pre-filled data.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 items-center justify-center">
+                              <label className="cursor-pointer px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm">
+                                <input
+                                  type="file"
+                                  accept=".pdf"
+                                  onChange={(e) => e.target.files?.[0] && handleEmbeddedTemplateUpload(e.target.files[0])}
+                                  className="hidden"
+                                />
+                                Upload PDF Template
+                              </label>
+                              <button
+                                onClick={() => window.open('/docs/docuseal-embedded-fields-guide.md', '_blank')}
+                                className="px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50 text-sm"
+                              >
+                                Field Guide
+                              </button>
+                              <button
+                                onClick={() => window.open('/docs/docuseal-setup-guide.md', '_blank')}
+                                className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 text-sm"
+                              >
+                                Setup Guide
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Test Data Generation */}
+                        <div className="mt-6 bg-blue-50 rounded-lg p-4 border border-blue-200">
+                          <h4 className="font-medium text-blue-900 mb-3">Test Embedded Fields</h4>
+                          <p className="text-sm text-blue-800 mb-4">
+                            Generate a test submission with sample Quick Request data to validate your embedded field tags.
+                          </p>
+                          <button
+                            onClick={() => testEmbeddedFields()}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                          >
+                            Create Test Submission
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </Dialog.Panel>
