@@ -435,7 +435,7 @@ rm database/migrations/\*create\_medicare\_mac\_validations\_table.php \# Moving
 
 *Ready for immediate implementation:*
 
-## **🏗 Phase 2 Implementation: User Management** 
+## **🏗 Phase 2 Implementation: User Management**
 
 ### **`users`**
 
@@ -449,7 +449,7 @@ $table-\>timestamp('email\_verified\_at')-\>nullable();
 $table-\>string('password');  
 $table-\>string('full\_name');  
 $table-\>enum('role', \[  
-'provider', 'org\_admin', 'facility\_manager',   
+'provider', 'org\_admin', 'facility\_manager',
 'msc\_rep', 'msc\_sub\_rep', 'msc\_admin', 'super\_admin'  
 \]);  
 $table-\>boolean('is\_active')-\>default(true);  
@@ -1014,106 +1014,106 @@ $table-\>index(\['action', 'action\_timestamp'\]);
 ### **Critical Indexes for Current Production**
 
 \-- Product requests (heaviest queried table)  
-CREATE INDEX CONCURRENTLY idx\_product\_requests\_status\_facility   
+CREATE INDEX CONCURRENTLY idx\_product\_requests\_status\_facility
 ON product\_requests(order\_status, facility\_id, created\_at DESC)  
 WHERE deleted\_at IS NULL;
 
-CREATE INDEX CONCURRENTLY idx\_product\_requests\_provider\_status   
+CREATE INDEX CONCURRENTLY idx\_product\_requests\_provider\_status
 ON product\_requests(provider\_id, order\_status)  
 WHERE deleted\_at IS NULL AND order\_status IN ('pending', 'submitted', 'approved');
 
-CREATE INDEX CONCURRENTLY idx\_product\_requests\_eligibility\_batch   
+CREATE INDEX CONCURRENTLY idx\_product\_requests\_eligibility\_batch
 ON product\_requests(eligibility\_status, payer\_id)  
 WHERE eligibility\_status IN ('not\_checked', 'pending');
 
 \-- Orders optimization  
-CREATE INDEX CONCURRENTLY idx\_orders\_facility\_status   
+CREATE INDEX CONCURRENTLY idx\_orders\_facility\_status
 ON orders(facility\_id, status, date\_of\_service)  
 WHERE deleted\_at IS NULL;
 
-CREATE INDEX CONCURRENTLY idx\_orders\_sales\_rep\_payment   
+CREATE INDEX CONCURRENTLY idx\_orders\_sales\_rep\_payment
 ON orders(sales\_rep\_id, payment\_status, created\_at DESC)  
 WHERE deleted\_at IS NULL;
 
 \-- Product requests to products join optimization  
-CREATE INDEX CONCURRENTLY idx\_product\_request\_products\_request   
+CREATE INDEX CONCURRENTLY idx\_product\_request\_products\_request
 ON product\_request\_products(product\_request\_id, product\_id);
 
 \-- MSC products search optimization  
-CREATE INDEX CONCURRENTLY idx\_msc\_products\_active\_category   
+CREATE INDEX CONCURRENTLY idx\_msc\_products\_active\_category
 ON msc\_products(category\_id, is\_active)  
 WHERE deleted\_at IS NULL AND is\_active \= true;
 
-CREATE INDEX CONCURRENTLY idx\_msc\_products\_search   
+CREATE INDEX CONCURRENTLY idx\_msc\_products\_search
 ON msc\_products USING gin(to\_tsvector('english', name || ' ' || description))  
 WHERE deleted\_at IS NULL AND is\_active \= true;
 
 \-- Sales reps hierarchy  
-CREATE INDEX CONCURRENTLY idx\_msc\_sales\_reps\_hierarchy   
+CREATE INDEX CONCURRENTLY idx\_msc\_sales\_reps\_hierarchy
 ON msc\_sales\_reps(parent\_rep\_id, is\_active)  
 WHERE deleted\_at IS NULL;
 
 \-- Facilities by organization  
-CREATE INDEX CONCURRENTLY idx\_facilities\_org\_active   
+CREATE INDEX CONCURRENTLY idx\_facilities\_org\_active
 ON facilities(organization\_id, active)  
 WHERE deleted\_at IS NULL;
 
 \-- Audit log performance  
-CREATE INDEX CONCURRENTLY idx\_profile\_audit\_log\_entity\_time   
+CREATE INDEX CONCURRENTLY idx\_profile\_audit\_log\_entity\_time
 ON profile\_audit\_log(entity\_type, entity\_id, created\_at DESC);
 
-CREATE INDEX CONCURRENTLY idx\_profile\_audit\_log\_user\_time   
+CREATE INDEX CONCURRENTLY idx\_profile\_audit\_log\_user\_time
 ON profile\_audit\_log(user\_id, created\_at DESC);
 
 ### **Computed Columns for Enhanced Performance**
 
 \-- Product requests enhancements  
-ALTER TABLE product\_requests   
+ALTER TABLE product\_requests
 ADD COLUMN days\_since\_submission INTEGER GENERATED ALWAYS AS (  
-CASE   
+CASE
 WHEN submitted\_at IS NOT NULL THEN EXTRACT(DAYS FROM (NOW() \- submitted\_at))  
-ELSE NULL   
+ELSE NULL
 END  
 ) STORED;
 
-ALTER TABLE product\_requests   
+ALTER TABLE product\_requests
 ADD COLUMN is\_urgent BOOLEAN GENERATED ALWAYS AS (  
-(expected\_service\_date \<= CURRENT\_DATE \+ INTERVAL '3 days'   
+(expected\_service\_date \<= CURRENT\_DATE \+ INTERVAL '3 days'
 AND order\_status IN ('pending', 'submitted'))  
 ) STORED;
 
-ALTER TABLE product\_requests   
+ALTER TABLE product\_requests
 ADD COLUMN processing\_time\_days INTEGER GENERATED ALWAYS AS (  
-CASE   
-WHEN approved\_at IS NOT NULL AND submitted\_at IS NOT NULL   
+CASE
+WHEN approved\_at IS NOT NULL AND submitted\_at IS NOT NULL
 THEN EXTRACT(DAYS FROM (approved\_at \- submitted\_at))  
-ELSE NULL   
+ELSE NULL
 END  
 ) STORED;
 
 \-- Orders enhancements  
-ALTER TABLE orders   
+ALTER TABLE orders
 ADD COLUMN profit\_margin DECIMAL(5,2) GENERATED ALWAYS AS (  
-CASE   
-WHEN total\_amount \> 0 THEN   
+CASE
+WHEN total\_amount \> 0 THEN
 ((expected\_reimbursement \- total\_amount) / total\_amount \* 100\)  
-ELSE NULL   
+ELSE NULL
 END  
 ) STORED;
 
-ALTER TABLE orders   
+ALTER TABLE orders
 ADD COLUMN is\_overdue BOOLEAN GENERATED ALWAYS AS (  
 (expected\_collection\_date \< CURRENT\_DATE AND payment\_status \!= 'paid')  
 ) STORED;
 
 \-- MSC products enhancements  
-ALTER TABLE msc\_products   
+ALTER TABLE msc\_products
 ADD COLUMN searchable\_text TEXT GENERATED ALWAYS AS (  
 LOWER(name || ' ' || COALESCE(description, '') || ' ' || COALESCE(manufacturer, '') || ' ' || COALESCE(q\_code, ''))  
 ) STORED;
 
 \-- Sales reps enhancements  
-ALTER TABLE msc\_sales\_reps   
+ALTER TABLE msc\_sales\_reps
 ADD COLUMN is\_parent\_rep BOOLEAN GENERATED ALWAYS AS (  
 (parent\_rep\_id IS NULL AND is\_active \= true)  
 ) STORED;
@@ -1122,7 +1122,7 @@ ADD COLUMN is\_parent\_rep BOOLEAN GENERATED ALWAYS AS (
 
 \-- Facility dashboard view  
 CREATE MATERIALIZED VIEW facility\_dashboard\_mv AS  
-SELECT   
+SELECT
 f.id as facility\_id,  
 f.name,  
 f.organization\_id,  
@@ -1133,7 +1133,7 @@ COUNT(pr.id) FILTER (WHERE pr.created\_at \>= CURRENT\_DATE \- INTERVAL '30 days
 COALESCE(SUM(pr.total\_order\_value), 0\) as total\_value,  
 AVG(pr.processing\_time\_days) as avg\_processing\_time  
 FROM facilities f  
-LEFT JOIN product\_requests pr ON f.id \= pr.facility\_id   
+LEFT JOIN product\_requests pr ON f.id \= pr.facility\_id
 AND pr.deleted\_at IS NULL  
 AND pr.created\_at \>= CURRENT\_DATE \- INTERVAL '90 days'  
 WHERE f.deleted\_at IS NULL AND f.active \= true  
@@ -1143,7 +1143,7 @@ CREATE UNIQUE INDEX ON facility\_dashboard\_mv (facility\_id);
 
 \-- Sales rep leaderboard  
 CREATE MATERIALIZED VIEW sales\_rep\_leaderboard\_mv AS  
-SELECT   
+SELECT
 sr.id as rep\_id,  
 sr.name,  
 sr.territory,  
@@ -1154,7 +1154,7 @@ COUNT(DISTINCT o.facility\_id) as unique\_facilities,
 AVG(o.total\_amount) as avg\_order\_value,  
 RANK() OVER (ORDER BY COALESCE(SUM(o.msc\_commission), 0\) DESC) as commission\_rank  
 FROM msc\_sales\_reps sr  
-LEFT JOIN orders o ON sr.id \= o.sales\_rep\_id   
+LEFT JOIN orders o ON sr.id \= o.sales\_rep\_id
 AND o.deleted\_at IS NULL  
 AND o.created\_at \>= date\_trunc('month', CURRENT\_DATE)  
 WHERE sr.deleted\_at IS NULL AND sr.is\_active \= true  
@@ -1242,7 +1242,7 @@ All sensitive operations must be logged in `profile_audit_log`:
 
 \-- Example audit log entry  
 INSERT INTO profile\_audit\_log (  
-entity\_type, entity\_id, user\_id, action\_type,   
+entity\_type, entity\_id, user\_id, action\_type,
 field\_changes, is\_sensitive\_data, compliance\_category  
 ) VALUES (  
 'ProductRequest', 'req-123', 'user-456', 'status\_change',  
@@ -1280,16 +1280,16 @@ false, 'workflow'
 ### **Query Performance Best Practices**
 
 \-- ✅ GOOD: Use proper indexing and WHERE clauses  
-SELECT pr.\*, f.name as facility\_name   
+SELECT pr.\*, f.name as facility\_name
 FROM product\_requests pr  
 JOIN facilities f ON pr.facility\_id \= f.id  
-WHERE pr.deleted\_at IS NULL   
+WHERE pr.deleted\_at IS NULL
 AND pr.order\_status \= 'pending'  
 AND pr.created\_at \>= CURRENT\_DATE \- INTERVAL '30 days'  
 ORDER BY pr.created\_at DESC;
 
 \-- ❌ BAD: No WHERE clause on soft deletes, no index usage  
-SELECT \* FROM product\_requests   
+SELECT \* FROM product\_requests
 WHERE order\_status LIKE '%pending%'  
 ORDER BY created\_at;
 
@@ -1320,26 +1320,26 @@ $table-\>timestamps();
 ### **Performance Monitoring Queries**
 
 \-- Check index usage  
-SELECT   
+SELECT
 schemaname,  
 tablename,  
 indexname,  
 idx\_scan as times\_used,  
 idx\_tup\_read as tuples\_read  
-FROM pg\_stat\_user\_indexes   
+FROM pg\_stat\_user\_indexes
 WHERE schemaname \= 'public'  
 ORDER BY idx\_scan DESC;
 
 \-- Monitor slow queries  
-SELECT   
+SELECT
 query,  
 calls,  
 total\_time,  
 mean\_time,  
 rows  
-FROM pg\_stat\_statements   
-WHERE query LIKE '%product\_requests%'   
-ORDER BY mean\_time DESC   
+FROM pg\_stat\_statements
+WHERE query LIKE '%product\_requests%'
+ORDER BY mean\_time DESC
 LIMIT 10;
 
 ### **Data Quality Checks**
@@ -1352,9 +1352,9 @@ WHERE f.id IS NULL AND pr.deleted\_at IS NULL;
 
 \-- Invalid status combinations  
 SELECT COUNT(\*) as invalid\_status\_combinations  
-FROM product\_requests   
-WHERE order\_status \= 'approved'   
-AND approved\_at IS NULL   
+FROM product\_requests
+WHERE order\_status \= 'approved'
+AND approved\_at IS NULL
 AND deleted\_at IS NULL;
 
 ### **Regular Maintenance Tasks**
@@ -1367,7 +1367,7 @@ REFRESH MATERIALIZED VIEW CONCURRENTLY facility\_dashboard\_mv;
 REFRESH MATERIALIZED VIEW CONCURRENTLY sales\_rep\_leaderboard\_mv;
 
 \-- Clean up old audit logs (monthly)  
-DELETE FROM profile\_audit\_log   
+DELETE FROM profile\_audit\_log
 WHERE created\_at \< CURRENT\_DATE \- INTERVAL '7 years'  
 AND compliance\_category \!= 'hipaa\_required';
 

@@ -84,8 +84,31 @@ class CategoriesAndManufacturersSeeder extends Seeder
 
         $this->command->info('✅ Categories created successfully!');
 
-        // Create Manufacturers based on Wound Care Products Catalog
+        // Create Manufacturers based on Wound Care Products Catalog and CMS Data
         $manufacturers = [
+            // From CMS Data - Current Distributors
+            [
+                'name' => 'ACZ & Associates',
+                'notes' => 'Distributor of Ensano ACA, Revoshield+ Amnio, and Dermabind FM products',
+            ],
+            [
+                'name' => 'Advanced Solution',
+                'notes' => 'Distributor of Complete FT, Membrane Wrap, and Complete AA products',
+            ],
+            [
+                'name' => 'BioWound Solutions',
+                'notes' => 'Distributor of Membrane Wrap Hydro, NeoStim product line (TL, DL, SL), Amnio-Maxx, and Derm-maxx products',
+            ],
+            [
+                'name' => 'Extremity Care LLC',
+                'notes' => 'Distributor of Restorigin and Coll-e-derm products',
+            ],
+            [
+                'name' => 'MedLife Solutions',
+                'notes' => 'Distributor of Amnio AMP products',
+            ],
+
+            // Legacy Manufacturers for backward compatibility
             [
                 'name' => 'CELULARITY',
                 'website' => 'https://www.celularity.com',

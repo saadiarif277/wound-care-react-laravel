@@ -159,6 +159,22 @@ class CmsEnrichmentService
                     'changes' => $productChanges
                 ];
 
+                // Record pricing history before updating
+                $changedFields = array_keys($productChanges);
+                $previousValues = [];
+                foreach ($changedFields as $field) {
+                    $previousValues[$field] = $productChanges[$field]['old'];
+                }
+
+                $product->recordPricingChange(
+                    'cms_sync',
+                    $changedFields,
+                    $previousValues,
+                    null, // System change, no user
+                    'CMS pricing sync from hardcoded data table',
+                    ['sync_date' => now(), 'cms_source' => 'hardcoded_table']
+                );
+
                 $product->update([
                     'national_asp' => $cmsInfo['asp'],
                     'mue' => $cmsInfo['mue'],

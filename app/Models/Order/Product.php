@@ -6,7 +6,11 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Facades\Auth;
+use App\Models\ProductPricingHistory;
+use App\Models\ProductSize;
 
 class Product extends Model
 {
@@ -268,5 +272,151 @@ class Product extends Model
         }
 
         return $result;
+    }
+
+    /**
+     * Get pricing history for this product
+     */
+    public function pricingHistory(): HasMany
+    {
+        return $this->hasMany(ProductPricingHistory::class)->orderBy('effective_date', 'desc');
+    }
+
+    /**
+     * Get product sizes
+     */
+    public function sizes(): HasMany
+    {
+        return $this->hasMany(ProductSize::class)->ordered();
+    }
+
+    /**
+     * Get active product sizes
+     */
+    public function activeSizes(): HasMany
+    {
+        return $this->sizes()->active()->available();
+    }
+
+    /**
+     * Record pricing change in history
+     */
+    public function recordPricingChange($changeType, $changedFields, $previousValues = null, $changedBy = null, $reason = null, $metadata = null)
+    {
+        return ProductPricingHistory::recordChange(
+            $this,
+            $changeType,
+            $changedFields,
+            $previousValues,
+            $changedBy,
+            $reason,
+            $metadata
+        );
+    }
+
+    /**
+     * Get pricing as of a specific date
+     */
+    public function getPricingAsOf($date)
+    {
+        return ProductPricingHistory::getPricingAsOf($this->id, $date);
+    }
+
+    /**
+     * Get audit trail for pricing changes
+     */
+    public function getPricingAuditTrail($limit = 50)
+    {
+        return ProductPricingHistory::getAuditTrail($this->id, $limit);
+    }
+
+    /**
+     * Create sizes from array of size labels
+     */
+    public function createSizesFromLabels(array $sizeLabels)
+    {
+        foreach ($sizeLabels as $index => $sizeLabel) {
+            if ($sizeLabel) {
+                ProductSize::createFromLabel($this->id, $sizeLabel, $index + 1);
+            }
+        }
+    }
+
+    /**
+     * Get available sizes as formatted array
+     */
+    public function getFormattedSizesAttribute()
+    {
+        return $this->activeSizes->map(function ($size) {
+            return [
+                'id' => $size->id,
+                'label' => $size->size_label,
+                'display_label' => $size->display_label,
+                'formatted_size' => $size->formatted_size,
+                'area_cm2' => $size->area_cm2,
+                'type' => $size->size_type,
+                'price' => $size->getEffectivePrice(),
+                'sku' => $size->full_sku,
+            ];
+        });
+    }
+
+    /**
+     * Get recommended size for a wound area
+     */
+    public function getRecommendedSize($woundAreaCm2, $marginPercentage = 20)
+    {
+        return ProductSize::getRecommendedSizes($this->id, $woundAreaCm2, $marginPercentage)->first();
+    }
+
+    /**
+     * Boot method to track pricing changes
+     */
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::updating(function ($model) {
+            $trackableFields = ['national_asp', 'price_per_sq_cm', 'msc_price', 'commission_rate', 'mue'];
+            $changedFields = [];
+            $previousValues = [];
+
+            foreach ($trackableFields as $field) {
+                if ($model->isDirty($field)) {
+                    $changedFields[] = $field;
+                    $previousValues[$field] = $model->getOriginal($field);
+                }
+            }
+
+            if (!empty($changedFields)) {
+                // Store the change info to be recorded after the update
+                $model->_pendingPricingChange = [
+                    'changed_fields' => $changedFields,
+                    'previous_values' => $previousValues,
+                ];
+            }
+        });
+
+        static::updated(function ($model) {
+            if (isset($model->_pendingPricingChange)) {
+                $change = $model->_pendingPricingChange;
+
+                // Determine change type based on context
+                $changeType = 'manual_update';
+                if (request()->route()?->getName() === 'cms.sync') {
+                    $changeType = 'cms_sync';
+                }
+
+                $model->recordPricingChange(
+                    $changeType,
+                    $change['changed_fields'],
+                    $change['previous_values'],
+                    Auth::check() ? Auth::user() : null,
+                    'Product pricing updated'
+                );
+
+                unset($model->_pendingPricingChange);
+            }
+        });
     }
 }

@@ -102,7 +102,7 @@ This document outlines the complete order flow from initial product request subm
 **Status:** `ivr_confirmed` → `approved`
 
 1. Admin verifies manufacturer approval is recorded
-2. Clicks "Approve Order" 
+2. Clicks "Approve Order"
 3. System validates prerequisites
 4. Order status updates to `approved`
 

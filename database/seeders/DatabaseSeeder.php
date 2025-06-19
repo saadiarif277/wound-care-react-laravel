@@ -648,6 +648,7 @@ class DatabaseSeeder extends Seeder
         // Call other seeders in correct order
         $this->call([
             CategoriesAndManufacturersSeeder::class,  // Creates categories and manufacturers first
+            ProductSeeder::class,                     // Creates comprehensive product catalog with CMS data
             DocusealFolderSeeder::class,               // Creates folders before templates
             DocusealTemplateSeeder::class,             // Creates templates that reference folders
             EpisodeSeeder::class,                      // Creates episode test data
