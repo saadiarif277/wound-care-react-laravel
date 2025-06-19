@@ -15,7 +15,6 @@ import {
 } from 'react-icons/fi';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { ThemeToggleCompact } from '@/components/ThemeToggle';
 
 interface MainLayoutProps {
   title?: string;
@@ -88,15 +87,19 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
             "md:translate-x-0",
             isCollapsed ? 'md:w-20' : 'md:w-72',
-            theme === 'dark' ? t.navigation.container : cn(t.navigation.container, t.shadows.glass)
+            theme === 'dark'
+              ? `${t.glass.card} ${t.glass.border} ${t.shadows.glass}`
+              : `${t.glass.card} ${t.glass.border} ${t.shadows.glass}`
           )}
         >
           <div className="flex flex-col h-full">
             {/* Brand Logo */}
             <div
               className={cn(
-                "flex items-center px-6 py-5 rounded-t-2xl border-b",
-                theme === 'dark' ? `${t.glass.frost} border-white/10` : 'bg-white/90 border-gray-200',
+                "flex items-center px-6 py-5 rounded-t-2xl border-b backdrop-blur-xl",
+                theme === 'dark'
+                  ? `${t.glass.frost} border-white/10`
+                  : 'bg-white/70 border-gray-200/60',
                 isCollapsed ? 'justify-center' : 'justify-between'
               )}
             >
@@ -111,31 +114,34 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                 />
               </Link>
 
-              {/* Desktop Toggle Buttons */}
-              <div className={cn(
-                "hidden md:flex items-center space-x-2",
-                isCollapsed ? 'ml-0' : 'ml-4'
-              )}>
-                {/* Theme Toggle */}
-                <ThemeToggleCompact />
-
-                {/* Sidebar Toggle */}
+              {/* Desktop Sidebar Toggle */}
+              {!isCollapsed && (
                 <button
                   onClick={toggleSidebar}
                   className={cn(
-                    "flex items-center justify-center w-8 h-8 rounded-full transition-all",
+                    "hidden md:flex items-center justify-center w-8 h-8 rounded-full transition-all",
                     theme === 'dark'
                       ? `${t.text.secondary} ${t.glass.hover}`
                       : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                   )}
                 >
-                  {isCollapsed ? (
-                    <FiChevronRight className="w-4 h-4" />
-                  ) : (
-                    <FiChevronLeft className="w-4 h-4" />
-                  )}
+                  <FiChevronLeft className="w-4 h-4" />
                 </button>
-              </div>
+              )}
+
+              {isCollapsed && (
+                <button
+                  onClick={toggleSidebar}
+                  className={cn(
+                    "hidden md:flex items-center justify-center w-8 h-8 rounded-full transition-all ml-2",
+                    theme === 'dark'
+                      ? `${t.text.secondary} ${t.glass.hover}`
+                      : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                  )}
+                >
+                  <FiChevronRight className="w-4 h-4" />
+                </button>
+              )}
 
               {/* Mobile Close Button */}
               <button
@@ -167,8 +173,10 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
               {!isCollapsed ? (
                 <>
                   <div className={cn(
-                    "flex items-center mb-4 p-3 rounded-lg",
-                    theme === 'dark' ? t.glass.base : 'bg-gray-50 border border-gray-200'
+                    "flex items-center mb-4 p-3 rounded-xl backdrop-blur-md",
+                    theme === 'dark'
+                      ? `${t.glass.base} ${t.glass.border}`
+                      : 'bg-white/60 border border-gray-200/50 shadow-sm'
                   )}>
                     <div className="flex-shrink-0">
                       <div className="w-10 h-10 rounded-full ring-2 ring-blue-500/50 bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center">
@@ -224,9 +232,11 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                       }
                     }}
                     className={cn(
-                      "flex items-center w-full px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200",
+                      "flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200",
                       "focus:outline-none focus:ring-2 focus:ring-red-500/50",
-                      theme === 'dark' ? t.button.danger : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
+                      theme === 'dark'
+                        ? `${t.button.danger.base} ${t.button.danger.hover} backdrop-blur-md`
+                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 shadow-sm'
                     )}
                   >
                     <FiLogOut className="flex-shrink-0 w-5 h-5 mr-3" />
@@ -286,9 +296,11 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                       }
                     }}
                     className={cn(
-                      "flex items-center justify-center w-8 h-8 rounded-lg transition-all duration-200",
+                      "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200",
                       "focus:outline-none focus:ring-2 focus:ring-red-500/50",
-                      theme === 'dark' ? t.button.danger : 'bg-red-50 text-red-700 hover:bg-red-100'
+                      theme === 'dark'
+                        ? `${t.button.danger.base} ${t.button.danger.hover}`
+                        : 'bg-red-50 text-red-700 hover:bg-red-100 border border-red-200'
                     )}
                     title="Sign Out"
                   >
@@ -315,20 +327,17 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                 alt="MSC Wound Care"
                 className="h-8 w-auto"
               />
-              <div className="flex items-center space-x-2">
-                <ThemeToggleCompact />
-                <button
-                  onClick={toggleMobileMenu}
-                  className={cn(
-                    "p-2 rounded-md",
-                    theme === 'dark'
-                      ? `${t.text.secondary} ${t.glass.hover}`
-                      : 'text-gray-600 hover:bg-gray-100'
-                  )}
-                >
-                  <FiMenu className="w-6 h-6" />
-                </button>
-              </div>
+              <button
+                onClick={toggleMobileMenu}
+                className={cn(
+                  "p-2 rounded-md",
+                  theme === 'dark'
+                    ? `${t.text.secondary} ${t.glass.hover}`
+                    : 'text-gray-600 hover:bg-gray-100'
+                )}
+              >
+                <FiMenu className="w-6 h-6" />
+              </button>
             </div>
           </div>
 
@@ -362,11 +371,7 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
   );
 }
 
-// Main export with theme provider
+// Main export - ThemeProvider is now at app level
 export default function MainLayout(props: MainLayoutProps) {
-  return (
-    <ThemeProvider>
-      <ThemedLayout {...props} />
-    </ThemeProvider>
-  );
+  return <ThemedLayout {...props} />;
 }

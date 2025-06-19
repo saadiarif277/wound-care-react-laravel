@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  Clock, 
-  Package, 
-  DollarSign, 
-  AlertCircle, 
-  ChevronDown, 
+import {
+  Clock,
+  Package,
+  DollarSign,
+  AlertCircle,
+  ChevronDown,
   ChevronUp,
   Send,
   Eye,
@@ -30,10 +30,10 @@ interface EpisodeCardProps {
   viewMode?: 'compact' | 'expanded';
 }
 
-const EpisodeCard: React.FC<EpisodeCardProps> = ({ 
-  episode, 
+const EpisodeCard: React.FC<EpisodeCardProps> = ({
+  episode,
   onRefresh,
-  viewMode = 'compact' 
+  viewMode = 'compact'
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   let theme: 'dark' | 'light' = 'dark';
@@ -51,15 +51,27 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
   const getEpisodeStatus = () => {
     if (episode.action_required) return 'action-required';
     if (episode.ivr_status === 'expired') return 'expired';
-    
+
     // Check if expiring soon (within 7 days)
     if (episode.expiration_date) {
-      const daysUntilExpiry = Math.ceil(
-        (new Date(episode.expiration_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)
-      );
-      if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) return 'expiring-soon';
+      try {
+        const expirationDate = new Date(episode.expiration_date);
+        const currentDate = new Date();
+
+        if (isNaN(expirationDate.getTime()) || isNaN(currentDate.getTime())) {
+          // If dates are invalid, skip expiration check
+        } else {
+          const daysUntilExpiry = Math.ceil(
+            (expirationDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          if (daysUntilExpiry <= 7 && daysUntilExpiry > 0) return 'expiring-soon';
+        }
+      } catch (error) {
+        // Handle invalid date strings gracefully
+        console.warn('Invalid expiration date:', episode.expiration_date);
+      }
     }
-    
+
     // Map episode status to display status
     if (episode.status === 'completed') return 'completed';
     if (episode.status === 'ready_for_review') return 'pending';
@@ -132,17 +144,36 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
   const status = statusConfig[episodeStatus];
   const StatusIcon = status.icon;
 
-  // Calculate days active
-  const daysActive = Math.ceil(
-    (new Date().getTime() - new Date(episode.created_at).getTime()) / (1000 * 60 * 60 * 24)
-  );
+  // Calculate days active - handle invalid dates
+  const calculateDaysActive = () => {
+    try {
+      if (!episode.created_at) return 0;
+
+      const createdDate = new Date(episode.created_at);
+      const currentDate = new Date();
+
+      if (isNaN(createdDate.getTime()) || isNaN(currentDate.getTime())) {
+        return 0;
+      }
+
+      const diffTime = currentDate.getTime() - createdDate.getTime();
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+      return diffDays > 0 ? diffDays : 0;
+    } catch (error) {
+      console.warn('Invalid created_at date:', episode.created_at);
+      return 0;
+    }
+  };
+
+  const daysActive = calculateDaysActive();
 
   const handleViewDetails = () => {
     router.visit(`/admin/episodes/${episode.id}`);
   };
 
   return (
-    <div 
+    <div
       className={cn(
         "group relative overflow-hidden rounded-xl transition-all duration-300",
         theme === 'dark' ? t.glass.card : 'bg-white shadow-sm',
@@ -209,7 +240,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
               <span className={cn("text-xs", t.text.secondary)}>Orders</span>
             </div>
             <p className={cn("text-lg font-semibold", t.text.primary)}>
-              {episode.orders_count}
+              {episode.orders_count || 0}
             </p>
           </div>
 
@@ -222,7 +253,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
               <span className={cn("text-xs", t.text.secondary)}>Value</span>
             </div>
             <p className={cn("text-lg font-semibold", t.text.primary)}>
-              {formatCurrency(episode.total_order_value)}
+              {formatCurrency(episode.total_order_value || 0)}
             </p>
           </div>
 
@@ -241,7 +272,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
         </div>
 
         {/* Quick Actions */}
-        <EpisodeQuickActions 
+        <EpisodeQuickActions
           episodeId={episode.id}
           status={episodeStatus}
           onViewDetails={handleViewDetails}
@@ -254,7 +285,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
             "mt-4 pt-4 border-t",
             theme === 'dark' ? 'border-white/10' : 'border-gray-200'
           )}>
-            <EpisodeTimeline 
+            <EpisodeTimeline
               episode={episode}
               theme={theme}
             />

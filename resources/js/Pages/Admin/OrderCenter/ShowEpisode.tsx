@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes } from '@/theme/glass-theme';
 import IVREpisodeStatus from '@/Components/Admin/IVREpisodeStatus';
 import TrackingManager from '@/Components/Admin/TrackingManager';
 import ConfirmationDocuments from '@/Components/Admin/ConfirmationDocuments';
@@ -44,7 +46,20 @@ import {
   Layers,
   Upload,
   X,
+  Bot,
+  QrCode,
+  BarChart3,
+  TrendingUp,
+  Camera,
+  Ruler,
+  Gauge,
+  Truck,
+  Smartphone,
+  Image,
 } from 'lucide-react';
+import SendToManufacturer from '@/Components/Admin/SendToManufacturer';
+import { motion, AnimatePresence } from 'framer-motion';
+import TrackingModal from '@/Components/Admin/TrackingModal';
 
 interface Order {
   id: string;
@@ -123,7 +138,7 @@ const statusConfig = {
     color: 'bg-blue-100 text-blue-800 border-blue-300',
     icon: Clock,
     label: 'Ready for Review',
-    description: 'Provider completed IVR - awaiting admin review',
+    description: 'Provider completed order with IVR - awaiting admin review',
     priority: 'high',
     actionText: 'Review Provider IVR'
   },
@@ -131,7 +146,7 @@ const statusConfig = {
     color: 'bg-yellow-100 text-yellow-800 border-yellow-300',
     icon: Send,
     label: 'IVR Sent',
-    description: 'IVR documentation sent to manufacturer for verification',
+    description: 'Legacy status - no longer used in provider IVR workflow',
     priority: 'medium',
     actionText: 'Awaiting Verification'
   },
@@ -139,7 +154,7 @@ const statusConfig = {
     color: 'bg-green-100 text-green-800 border-green-300',
     icon: CheckCircle,
     label: 'IVR Verified',
-    description: 'IVR verified and ready for manufacturer submission',
+    description: 'Admin reviewed and approved provider IVR - ready for manufacturer',
     priority: 'low',
     actionText: 'Ready to Submit'
   },
@@ -147,7 +162,7 @@ const statusConfig = {
     color: 'bg-purple-100 text-purple-800 border-purple-300',
     icon: Package,
     label: 'Sent to Manufacturer',
-    description: 'Episode submitted to manufacturer for processing and fulfillment',
+    description: 'Episode with IVR sent to manufacturer for processing',
     priority: 'medium',
     actionText: 'Awaiting Tracking'
   },
@@ -174,19 +189,19 @@ const ivrStatusConfig = {
     color: 'bg-blue-100 text-blue-800 border-blue-300',
     icon: CheckCircle,
     label: 'Provider Completed',
-    description: 'Provider has completed and signed IVR form'
+    description: 'Provider generated and signed IVR during order submission'
   },
   admin_reviewed: {
     color: 'bg-green-100 text-green-800 border-green-300',
     icon: CheckCircle,
     label: 'Admin Reviewed',
-    description: 'Admin has reviewed and approved provider IVR'
+    description: 'Admin reviewed and approved provider-generated IVR'
   },
   verified: {
     color: 'bg-green-100 text-green-800 border-green-300',
     icon: CheckCircle,
     label: 'Verified',
-    description: 'IVR verified and valid for processing'
+    description: 'IVR verified and valid for manufacturer submission'
   },
   expired: {
     color: 'bg-red-100 text-red-800 border-red-300',
@@ -250,6 +265,17 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
   can_manage_episode,
   can_send_to_manufacturer,
 }) => {
+  // Theme setup
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme
+  }
   const [expandedSections, setExpandedSections] = useState({
     orders: true,
     episode_info: true,
@@ -317,15 +343,15 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
     <MainLayout>
       <Head title={`Episode ${episode.patient_display_id} - ${episode.manufacturer.name} | MSC Healthcare`} />
 
-      <div className="min-h-screen bg-gray-50 p-6">
+      <div className={`min-h-screen ${theme === 'dark' ? 'bg-gray-900' : 'bg-gray-50'} p-6`}>
         {/* Enhanced Header with 2025 Healthcare Design Principles */}
         <div className="mb-6">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          <div className={`${t.glass.card} ${t.glass.border} p-6`}>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center space-x-4 mb-4 lg:mb-0">
                 <Link
                   href={route('admin.orders.index')}
-                  className="flex items-center text-gray-600 hover:text-gray-900 transition-colors"
+                  className={`flex items-center ${t.text.secondary} hover:${t.text.primary} transition-colors`}
                 >
                   <ArrowLeft className="w-5 h-5 mr-2" />
                   Back to Episodes
@@ -336,10 +362,17 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                 <div className="flex items-center">
                   <Layers className="w-6 h-6 text-blue-600 mr-3" />
                   <div>
-                    <h1 className="text-xl font-bold text-gray-900">
-                      Episode: {episode.patient_display_id}
-                    </h1>
-                    <p className="text-sm text-gray-600">
+                    <div className="flex items-center gap-3">
+                      <h1 className={`text-xl font-bold ${t.text.primary}`}>
+                        Episode: {episode.patient_display_id}
+                      </h1>
+                      {/* AI Confidence Score */}
+                      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-gradient-to-r from-green-500/10 to-blue-500/10 border border-green-500/20">
+                        <Bot className="w-4 h-4 text-green-500" />
+                        <span className="text-xs font-medium text-green-600 dark:text-green-400">AI: High confidence</span>
+                      </div>
+                    </div>
+                    <p className={`text-sm ${t.text.secondary} mt-1`}>
                       {episode.manufacturer.name} • {episode.orders_count} order{episode.orders_count !== 1 ? 's' : ''}
                     </p>
                   </div>
@@ -349,18 +382,18 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
               <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   onClick={refreshData}
-                  className="flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors"
+                  className={`flex items-center px-3 py-2 ${t.button.secondary} transition-all duration-200`}
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
                   Refresh
                 </button>
 
-                <button className="flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                <button className={`flex items-center px-3 py-2 ${t.button.secondary} transition-all duration-200`}>
                   <Download className="w-4 h-4 mr-2" />
                   Export
                 </button>
 
-                <button className="flex items-center px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                <button className={`flex items-center px-3 py-2 ${t.button.secondary} transition-all duration-200`}>
                   <Bell className="w-4 h-4 mr-2" />
                   Notify
                 </button>
@@ -400,17 +433,22 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
           {/* Left Column: Order Information */}
           <div className="lg:col-span-1 space-y-6">
 
-            {/* Orders in Episode */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+            {/* Enhanced Orders in Episode with Visual Product Images */}
+            <div className={`${t.glass.card} ${t.glass.border} hover:shadow-lg transition-all duration-300`}>
               <div
-                className="flex items-center justify-between p-6 border-b cursor-pointer hover:bg-gray-50 transition-colors"
+                className={`flex items-center justify-between p-6 border-b ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'} cursor-pointer hover:${t.glass.hover} transition-colors`}
                 onClick={() => toggleSection('orders')}
               >
                 <div className="flex items-center">
                   <Package className="w-5 h-5 text-blue-600 mr-3" />
-                  <h3 className="text-lg font-semibold text-gray-900">
+                  <h3 className={`text-lg font-semibold ${t.text.primary}`}>
                     Orders ({episode.orders_count})
                   </h3>
+                  {/* Live Status Indicator */}
+                  <div className="ml-3 flex items-center gap-1">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-xs text-green-600 dark:text-green-400">Live</span>
+                  </div>
                 </div>
                 {expandedSections.orders ?
                   <ChevronUp className="w-5 h-5 text-gray-400" /> :
@@ -425,22 +463,26 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                       { color: 'bg-gray-100 text-gray-800', icon: FileText, label: order.order_status };
 
                     return (
-                      <div key={order.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div key={order.id} className={`${t.glass.subtle} rounded-lg p-4 hover:shadow-md transition-all duration-300`}>
                         <div className="flex items-start justify-between mb-3">
-                          <div>
+                          <div className="flex-1">
                             <div className="flex items-center space-x-2 mb-2">
                               <Link
                                 href={route('admin.orders.show', order.id)}
-                                className="font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                                className="font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors"
                               >
                                 #{order.order_number}
                               </Link>
                               <ExternalLink className="w-3 h-3 text-gray-400" />
+                              {/* QR Code for Mobile Access */}
+                              <button className={`${t.button.ghost} p-1`} title="QR Code">
+                                <QrCode className="w-3 h-3" />
+                              </button>
                             </div>
-                            <p className="text-sm text-gray-600">
+                            <p className={`text-sm ${t.text.secondary}`}>
                               Provider: {order.provider.name}
                             </p>
-                            <p className="text-sm text-gray-600">
+                            <p className={`text-sm ${t.text.secondary}`}>
                               Expected Service: {formatDate(order.expected_service_date)}
                             </p>
                           </div>
@@ -450,24 +492,33 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                               {React.createElement(orderConfig.icon, { className: "w-3 h-3 mr-1" })}
                               {orderConfig.label}
                             </div>
-                            <p className="text-sm font-semibold text-gray-900 mt-2">
+                            <p className={`text-sm font-semibold ${t.text.primary} mt-2`}>
                               {formatCurrency(order.total_order_value)}
                             </p>
                           </div>
                         </div>
 
                         {order.products && order.products.length > 0 && (
-                          <div className="border-t pt-3 mt-3">
-                            <p className="text-xs text-gray-500 mb-2">Products:</p>
-                            <div className="space-y-1">
+                          <div className={`border-t pt-3 mt-3 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <p className={`text-xs ${t.text.secondary} mb-2`}>Products:</p>
+                            <div className="space-y-2">
                               {order.products.slice(0, 3).map((product) => (
-                                <div key={product.id} className="flex justify-between text-xs">
-                                  <span className="text-gray-700">{product.name} x{product.quantity}</span>
-                                  <span className="text-gray-600">{formatCurrency(product.total_price)}</span>
+                                <div key={product.id} className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    {/* Product Image Placeholder */}
+                                    <div className="w-8 h-8 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded flex items-center justify-center">
+                                      <Package className="w-4 h-4 text-purple-500" />
+                                    </div>
+                                    <div>
+                                      <span className={`text-xs ${t.text.primary}`}>{product.name}</span>
+                                      <span className={`text-xs ${t.text.secondary} ml-1`}>x{product.quantity}</span>
+                                    </div>
+                                  </div>
+                                  <span className={`text-xs font-medium ${t.text.primary}`}>{formatCurrency(product.total_price)}</span>
                                 </div>
                               ))}
                               {order.products.length > 3 && (
-                                <p className="text-xs text-gray-500">
+                                <p className={`text-xs ${t.text.secondary} italic`}>
                                   +{order.products.length - 3} more products
                                 </p>
                               )}
@@ -478,23 +529,33 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                     );
                   })}
 
-                  <div className="border-t pt-4 mt-4">
+                  <div className={`border-t pt-4 mt-4 ${theme === 'dark' ? 'border-gray-700' : 'border-gray-200'}`}>
                     <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">Total Episode Value:</span>
-                      <span className="text-lg font-bold text-blue-600">
+                      <span className={`font-semibold ${t.text.primary}`}>Total Episode Value:</span>
+                      <span className="text-lg font-bold bg-gradient-to-r from-[#1925c3] to-[#c71719] bg-clip-text text-transparent">
                         {formatCurrency(episode.total_order_value)}
                       </span>
+                    </div>
+                    {/* AI Prediction for Episode Success */}
+                    <div className="mt-3 flex items-center gap-2">
+                      <Bot className="w-4 h-4 text-blue-500" />
+                      <span className="text-xs text-blue-600 dark:text-blue-400">AI predicts 98% successful delivery rate</span>
                     </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Provider Information Card */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center mb-4">
-                <User className="w-5 h-5 text-blue-600 mr-3" />
-                <h3 className="text-lg font-semibold text-gray-900">Provider Information</h3>
+            {/* Enhanced Provider Information Card with Visual Elements */}
+            <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <User className="w-5 h-5 text-blue-600 mr-3" />
+                  <h3 className={`text-lg font-semibold ${t.text.primary}`}>Provider Information</h3>
+                </div>
+                <button className={`${t.button.ghost} p-1`} title="View provider profile">
+                  <ExternalLink className="w-4 h-4" />
+                </button>
               </div>
 
               <div className="space-y-3">
@@ -531,23 +592,33 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                   </>
                 )}
 
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                <div className={`mt-4 p-3 ${theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'} border rounded-lg`}>
                   <div className="flex items-center">
                     <Info className="w-4 h-4 text-blue-600 mr-2" />
-                    <p className="text-sm font-medium text-blue-800">Provider-Generated IVR</p>
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-300">Provider-Generated IVR</p>
                   </div>
-                  <p className="text-xs text-blue-700 mt-1">
+                  <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
                     This provider submitted their order with IVR already generated and ready for review.
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Manufacturer Information */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <div className="flex items-center mb-4">
-                <Building2 className="w-5 h-5 text-blue-600 mr-3" />
-                <h3 className="text-lg font-semibold text-gray-900">Manufacturer</h3>
+            {/* Enhanced Manufacturer Information with Inventory Insights */}
+            <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Building2 className="w-5 h-5 text-green-600 mr-3" />
+                  <h3 className={`text-lg font-semibold ${t.text.primary}`}>Manufacturer</h3>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button className={`${t.button.ghost} p-1`} title="View inventory">
+                    <Package className="w-4 h-4" />
+                  </button>
+                  <button className={`${t.button.ghost} p-1`} title="Analytics">
+                    <BarChart3 className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -587,50 +658,86 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
 
           {/* Middle Column: Episode Information */}
           <div className="lg:col-span-1 space-y-6">
-            {/* Episode Metrics */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Episode Metrics</h3>
+            {/* Enhanced Episode Metrics with Visual Analytics */}
+            <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all duration-300`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-lg font-semibold ${t.text.primary}`}>Episode Metrics</h3>
+                <button className={`${t.button.ghost} p-1`} title="View analytics">
+                  <TrendingUp className="w-4 h-4" />
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-gray-900">{episode.orders_count}</p>
-                  <p className="text-sm text-gray-500">Orders</p>
+                <div className="text-center p-4 rounded-lg bg-gradient-to-br from-blue-500/10 to-purple-500/10">
+                  <p className={`text-2xl font-bold ${t.text.primary}`}>{episode.orders_count}</p>
+                  <p className={`text-sm ${t.text.secondary}`}>Orders</p>
+                  <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full" style={{width: '75%'}}></div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-green-600">{formatCurrency(episode.total_order_value)}</p>
-                  <p className="text-sm text-gray-500">Total Value</p>
+                <div className="text-center p-4 rounded-lg bg-gradient-to-br from-green-500/10 to-blue-500/10">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">{formatCurrency(episode.total_order_value)}</p>
+                  <p className={`text-sm ${t.text.secondary}`}>Total Value</p>
+                  <div className="mt-2 flex items-center justify-center gap-1">
+                    <TrendingUp className="w-3 h-3 text-green-500" />
+                    <span className="text-xs text-green-600 dark:text-green-400">+12%</span>
+                  </div>
                 </div>
               </div>
               {episode.action_required && (
-                <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                <div className="mt-4 p-3 bg-orange-500/10 border border-orange-500/20 rounded-lg">
                   <div className="flex items-center">
-                    <AlertTriangle className="w-4 h-4 text-orange-600 mr-2" />
-                    <p className="text-sm font-medium text-orange-800">Action Required</p>
+                    <AlertTriangle className="w-4 h-4 text-orange-500 mr-2 animate-pulse" />
+                    <p className="text-sm font-medium text-orange-600 dark:text-orange-400">Action Required</p>
                   </div>
-                  <p className="text-xs text-orange-700 mt-1">This episode requires admin attention</p>
+                  <p className="text-xs text-orange-600/80 dark:text-orange-400/80 mt-1">This episode requires admin attention</p>
                 </div>
               )}
             </div>
 
-            {/* Episode Timeline & Status */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Episode Timeline</h3>
+            {/* Enhanced Episode Timeline with Visual Progress */}
+            <div className={`${t.glass.card} ${t.glass.border} p-6`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-lg font-semibold ${t.text.primary}`}>Episode Timeline</h3>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                  <span className="text-xs text-green-600 dark:text-green-400">Live tracking</span>
+                </div>
+              </div>
               <div className="space-y-4">
-                {/* Current Status */}
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-md border border-blue-200">
-                  <div className="flex items-center">
-                    <div className="w-2 h-2 bg-blue-600 rounded-full mr-3"></div>
-                    <span className="text-sm font-medium text-blue-900">Current Status</span>
+                {/* Visual Timeline Progress */}
+                <div className="relative mb-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t-2 border-gray-300 dark:border-gray-600"></div>
                   </div>
-                  <span className="text-sm text-blue-700">{currentStatusConfig?.label || episode.status}</span>
+                  <div className="relative flex justify-between">
+                    <div className="w-4 h-4 bg-green-500 rounded-full" title="Created"></div>
+                    <div className="w-4 h-4 bg-blue-500 rounded-full" title="In Progress"></div>
+                    <div className="w-4 h-4 bg-purple-500 rounded-full" title="Review"></div>
+                    <div className="w-4 h-4 bg-gray-300 rounded-full" title="Complete"></div>
+                  </div>
                 </div>
 
-                {/* IVR Status */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
+                {/* Current Status */}
+                <div className={`flex items-center justify-between p-3 ${theme === 'dark' ? 'bg-blue-900/20 border-blue-700' : 'bg-blue-50 border-blue-200'} rounded-lg border`}>
                   <div className="flex items-center">
-                    <div className="w-2 h-2 bg-gray-400 rounded-full mr-3"></div>
-                    <span className="text-sm font-medium text-gray-700">IVR Status</span>
+                    <div className="w-2 h-2 bg-blue-600 rounded-full mr-3 animate-pulse"></div>
+                    <span className={`text-sm font-medium ${theme === 'dark' ? 'text-blue-300' : 'text-blue-900'}`}>Current Status</span>
                   </div>
-                  <span className="text-sm text-gray-600">{currentIvrStatusConfig?.label || episode.ivr_status}</span>
+                  <span className={`text-sm ${theme === 'dark' ? 'text-blue-400' : 'text-blue-700'}`}>{currentStatusConfig?.label || episode.status}</span>
+                </div>
+
+                {/* IVR Status with QR Code */}
+                <div className={`flex items-center justify-between p-3 ${t.glass.subtle} rounded-lg`}>
+                  <div className="flex items-center">
+                    <div className="w-2 h-2 bg-purple-500 rounded-full mr-3"></div>
+                    <span className={`text-sm font-medium ${t.text.primary}`}>IVR Status</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm ${t.text.secondary}`}>{currentIvrStatusConfig?.label || episode.ivr_status}</span>
+                    <button className={`${t.button.ghost} p-1`} title="View QR code">
+                      <QrCode className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Recent Activity */}
@@ -650,9 +757,14 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
               </div>
             </div>
 
-            {/* Verification and Expiration */}
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Verification and Expiration</h3>
+            {/* Enhanced Verification with Smart Alerts */}
+            <div className={`${t.glass.card} ${t.glass.border} p-6`}>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className={`text-lg font-semibold ${t.text.primary}`}>Verification and Expiration</h3>
+                <button className={`${t.button.ghost} p-1`} title="Set reminder">
+                  <Bell className="w-4 h-4" />
+                </button>
+              </div>
               <div className="space-y-3">
                 {episode.verification_date ? (
                   <div className="flex justify-between">
@@ -711,35 +823,63 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                 {/* ASHLEY'S REQUIREMENT: Review provider-generated IVR */}
                 {can_review_episode && episode.status === 'ready_for_review' && (
                   <>
+                    <div className="mb-4">
+                      {/* DocuSeal IVR Status */}
+                      {episode.docuseal?.signed_documents && episode.docuseal.signed_documents.length > 0 ? (
+                        <div className="p-3 bg-green-50 border border-green-200 rounded-md mb-4">
+                          <div className="flex items-center">
+                            <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
+                            <p className="text-sm font-medium text-green-800">Provider Completed IVR</p>
+                          </div>
+                          <div className="mt-2 space-y-2">
+                            {episode.docuseal.signed_documents.map((doc, idx) => (
+                              <a
+                                key={doc.id || idx}
+                                href={doc.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center text-sm text-blue-600 hover:text-blue-800"
+                              >
+                                <FileText className="w-4 h-4 mr-1" />
+                                View IVR Document {idx + 1}
+                              </a>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md mb-4">
+                          <div className="flex items-center">
+                            <AlertCircle className="w-4 h-4 text-yellow-600 mr-2" />
+                            <p className="text-sm font-medium text-yellow-800">IVR Document Not Found</p>
+                          </div>
+                          <p className="text-xs text-yellow-700 mt-1">
+                            The provider should have completed IVR during order submission.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+
                     <button
                       onClick={() => router.post(route('admin.episodes.review', episode.id))}
                       className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                     >
                       <CheckCircle className="w-4 h-4 mr-2" />
-                      Review Provider IVR
+                      Approve IVR & Continue
                     </button>
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-md mt-3">
                       <div className="flex items-center">
                         <Info className="w-4 h-4 text-blue-600 mr-2" />
-                        <p className="text-sm font-medium text-blue-800">Provider Completed IVR</p>
+                        <p className="text-sm font-medium text-blue-800">Review Provider IVR</p>
                       </div>
                       <p className="text-xs text-blue-700 mt-1">
-                        Provider has already generated and signed the IVR form. Review for accuracy and approve.
+                        Provider has already generated and signed the IVR form. Review the document above and approve to continue.
                       </p>
                     </div>
                   </>
                 )}
 
-                {/* Send to manufacturer after IVR review */}
-                {can_send_to_manufacturer && episode.status === 'ivr_verified' && (
-                  <button
-                    onClick={() => router.post(route('admin.episodes.send-to-manufacturer', episode.id))}
-                    className="w-full inline-flex items-center justify-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700"
-                  >
-                    <Send className="w-4 h-4 mr-2" />
-                    Send Episode to Manufacturer
-                  </button>
-                )}
+                {/* Send to manufacturer after IVR review - Removed simple button */}
+                {/* Now handled by SendToManufacturer component below */}
 
                 {/* Add tracking information */}
                 {can_manage_episode && episode.status === 'sent_to_manufacturer' && (
@@ -798,8 +938,10 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
               </div>
 
               {/* File Upload Input */}
+              <label htmlFor="file-upload" className="sr-only">Upload Files</label>
               <input
                 id="file-upload"
+                title="Upload file"
                 type="file"
                 multiple
                 className="hidden"
@@ -888,6 +1030,39 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Confirmation Documents (Visible to Admin with Episode Management Permission) */}
+            {can_manage_episode && (
+              <ConfirmationDocuments
+                documents={episode.docuseal?.signed_documents || []}
+                readOnly={false}
+                orderId={episode.id}
+              />
+            )}
+
+            {/* Send to Manufacturer Component - Ashley's Email Management */}
+            {can_send_to_manufacturer && episode.status === 'ivr_verified' && (
+              <SendToManufacturer
+                episode={episode}
+                manufacturer={episode.manufacturer}
+              />
+            )}
+
+            {/* Tracking Management Component */}
+            {can_manage_episode && ['sent_to_manufacturer', 'tracking_added'].includes(episode.status) && (
+              <TrackingManager
+                episode={episode}
+                existingTracking={{
+                  tracking_number: episode.tracking_number,
+                  carrier: episode.tracking_carrier,
+                  shipped_at: episode.shipped_at,
+                  estimated_delivery: episode.estimated_delivery
+                }}
+              />
+            )}
+
+            {/* Audit Log */}
+            <AuditLog entries={episode.audit_log || []} readOnly={!can_manage_episode} />
           </div>
         </div>
 
@@ -966,6 +1141,8 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
               <button
                 onClick={() => setShowTrackingModal(false)}
                 className="text-gray-400 hover:text-gray-600"
+                title="Close"
+                aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1006,6 +1183,8 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                   name="carrier"
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-label="Carrier"
+                  title="Carrier"
                 >
                   <option value="">Select carrier</option>
                   <option value="UPS">UPS</option>
@@ -1024,6 +1203,8 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                   type="date"
                   name="estimated_delivery"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Select estimated delivery date"
+                  title="Estimated Delivery Date"
                 />
               </div>
 

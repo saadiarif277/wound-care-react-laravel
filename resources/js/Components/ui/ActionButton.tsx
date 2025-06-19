@@ -25,7 +25,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
   // Try to use theme if available, fallback to dark theme
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -33,42 +33,42 @@ const ActionButton: React.FC<ActionButtonProps> = ({
   } catch (e) {
     // If not in ThemeProvider, use dark theme
   }
-  
+
   const variants = {
     approve: {
-      dark: `bg-[${colors.actions.approve.dark}] text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/30`,
-      light: `bg-[${colors.actions.approve.light}] text-emerald-700 border border-emerald-200 hover:bg-emerald-100`
+      dark: `${t.button.approve.base} ${t.button.approve.hover}`,
+      light: `${t.button.approve.base} ${t.button.approve.hover}`
     },
     danger: {
-      dark: `bg-[${colors.actions.danger.dark}] text-red-400 border border-red-500/30 hover:bg-red-500/30`,
-      light: `bg-[${colors.actions.danger.light}] text-red-700 border border-red-200 hover:bg-red-100`
+      dark: `${t.button.danger.base} ${t.button.danger.hover}`,
+      light: `${t.button.danger.base} ${t.button.danger.hover}`
     },
     primary: {
-      dark: `bg-gradient-to-r from-[${colors.msc.blue.DEFAULT}] to-[${colors.msc.red.DEFAULT}] text-white hover:shadow-[0_0_30px_rgba(25,37,195,0.5)] transform hover:scale-105`,
-      light: `bg-gradient-to-r from-[${colors.msc.blue.DEFAULT}] to-[${colors.msc.red.DEFAULT}] text-white hover:shadow-lg transform hover:scale-105`
+      dark: `${t.button.primary.base} ${t.button.primary.hover}`,
+      light: `${t.button.primary.base} ${t.button.primary.hover}`
     },
     secondary: {
-      dark: 'bg-white/[0.07] backdrop-blur-xl border border-white/[0.12] text-white/95 hover:bg-white/[0.11] hover:border-white/[0.18]',
-      light: 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 hover:shadow-md'
+      dark: `${t.button.secondary.base} ${t.button.secondary.hover}`,
+      light: `${t.button.secondary.base} ${t.button.secondary.hover}`
     },
     warning: {
-      dark: `bg-[${colors.actions.warning.dark}] text-amber-400 border border-amber-500/30 hover:bg-amber-500/30`,
-      light: `bg-[${colors.actions.warning.light}] text-amber-700 border border-amber-200 hover:bg-amber-100`
+      dark: `${t.button.warning.base} ${t.button.warning.hover}`,
+      light: `${t.button.warning.base} ${t.button.warning.hover}`
     },
     info: {
-      dark: `bg-[${colors.actions.info.dark}] text-blue-400 border border-blue-500/30 hover:bg-blue-500/30`,
-      light: `bg-[${colors.actions.info.light}] text-blue-700 border border-blue-200 hover:bg-blue-100`
+      dark: `${t.button.ghost.base} ${t.button.ghost.hover}`, // Using ghost for info
+      light: `${t.button.ghost.base} ${t.button.ghost.hover}`
     }
   };
-  
+
   const sizes = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-base',
-    lg: 'px-6 py-3 text-lg'
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-5 py-2.5 text-base',
+    lg: 'px-7 py-3.5 text-lg'
   };
-  
+
   const currentVariant = variants[variant][theme];
-  
+
   return (
     <button
       className={cn(

@@ -6,6 +6,7 @@ use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -304,6 +305,11 @@ class ProductController extends Controller
             $data['msc_price'] = $product->msc_price;
         }
 
+        // Add CMS ASP for providers and financial users
+        if ($user->hasAnyPermission(['view-providers', 'view-financials', 'manage-financials'])) {
+            $data['national_asp'] = $product->national_asp;
+        }
+
         if ($user->hasAnyPermission(['view-financials', 'manage-financials'])) {
             $data['commission_rate'] = $product->commission_rate;
         }
@@ -549,6 +555,30 @@ class ProductController extends Controller
             unset($productArray['total_commission']);
         }
 
+        // Handle CMS ASP visibility - show to providers, hide from office managers and others without permission
+        // Providers need ASP visibility for clinical decisions, office managers do not
+        if (!$user->hasAnyPermission(['view-providers', 'view-financials', 'manage-financials'])) {
+            unset($productArray['national_asp']);
+        }
+
+        // Never expose raw MUE values directly - handle enforcement behind the scenes
+        unset($productArray['mue']);
+        unset($productArray['cms_last_updated']);
+
+        // Add processed MUE information for frontend
+        if ($product->hasMueEnforcement()) {
+            $productArray['has_quantity_limits'] = true;
+            $productArray['max_allowed_quantity'] = $product->getMaxAllowedQuantity();
+        } else {
+            $productArray['has_quantity_limits'] = false;
+        }
+
+        // Add CMS enrichment status for admins
+        if ($user->hasPermission('manage-products')) {
+            $productArray['cms_status'] = $product->cms_status;
+            $productArray['cms_last_updated'] = $product->cms_last_updated?->format('Y-m-d H:i:s');
+        }
+
         return $productArray;
     }
 
@@ -652,7 +682,98 @@ class ProductController extends Controller
                 'can_edit' => $user->hasPermission('manage-products'),
                 'can_delete' => $user->hasPermission('manage-products'),
                 'can_restore' => $user->hasPermission('manage-products'),
+                'can_sync_cms' => $user->hasPermission('manage-products'),
             ],
+        ]);
+    }
+
+    /**
+     * API endpoint to validate quantity against MUE limits
+     */
+    public function validateQuantity(Request $request, Product $product)
+    {
+        $validated = $request->validate([
+            'quantity' => 'required|integer|min:1'
+        ]);
+
+        $validation = $product->validateOrderQuantity($validated['quantity']);
+
+        return response()->json([
+            'valid' => $validation['valid'],
+            'warnings' => $validation['warnings'],
+            'errors' => $validation['errors'],
+            'max_allowed' => $product->getMaxAllowedQuantity(),
+            'has_limits' => $product->hasMueEnforcement()
+        ]);
+    }
+
+    /**
+     * Admin endpoint to trigger CMS pricing sync
+     */
+    public function syncCmsPricing(Request $request)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->hasPermission('manage-products')) {
+            abort(403, 'Unauthorized');
+        }
+
+        try {
+            // Run the CMS sync command
+            Artisan::call('cms:sync-pricing', [
+                '--force' => true
+            ]);
+
+            $output = Artisan::output();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'CMS pricing sync completed successfully',
+                'output' => $output
+            ]);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'CMS pricing sync failed',
+                'error' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get CMS sync status for admin dashboard
+     */
+    public function getCmsSyncStatus()
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->hasPermission('manage-products')) {
+            abort(403, 'Unauthorized');
+        }
+
+        $totalProducts = Product::whereNotNull('q_code')->count();
+        $syncedProducts = Product::whereNotNull('cms_last_updated')->count();
+        $staleProducts = Product::whereNotNull('cms_last_updated')
+            ->where('cms_last_updated', '<', now()->subDays(90))
+            ->count();
+        $needsUpdateProducts = Product::whereNotNull('cms_last_updated')
+            ->where('cms_last_updated', '<', now()->subDays(30))
+            ->where('cms_last_updated', '>=', now()->subDays(90))
+            ->count();
+
+        $lastSync = Product::whereNotNull('cms_last_updated')
+            ->max('cms_last_updated');
+
+        return response()->json([
+            'total_products_with_qcodes' => $totalProducts,
+            'synced_products' => $syncedProducts,
+            'stale_products' => $staleProducts,
+            'needs_update_products' => $needsUpdateProducts,
+            'last_sync' => $lastSync ? \Carbon\Carbon::parse($lastSync)->format('Y-m-d H:i:s') : null,
+            'sync_coverage_percentage' => $totalProducts > 0 ? round(($syncedProducts / $totalProducts) * 100, 1) : 0
         ]);
     }
 }

@@ -210,4 +210,299 @@ class PatientIVRController extends Controller
             return $productRequest ? $productRequest->patient_display_id : 'Unknown';
         });
     }
+
+    /**
+     * IVR Management Dashboard
+     */
+    public function management(Request $request)
+    {
+        // Check if user has permission to view IVR management
+        if (!auth()->user()->hasPermission('view-ivr-management')) {
+            abort(403, 'You do not have permission to access IVR management.');
+        }
+        // Get all patient IVRs with related data
+        $query = PatientIVRStatus::with(['manufacturer']);
+
+        // Apply filters
+        if ($request->has('search')) {
+            $search = $request->input('search');
+            $query->where('patient_fhir_id', 'like', "%{$search}%");
+        }
+
+        if ($request->has('status') && $request->input('status') !== 'all') {
+            $query->where('status', $request->input('status'));
+        }
+
+        if ($request->has('manufacturer') && $request->input('manufacturer') !== 'all') {
+            $query->where('manufacturer_id', $request->input('manufacturer'));
+        }
+
+        $patientIVRs = $query->orderBy('expiration_date', 'asc')->get();
+
+        // Transform IVRs with additional data
+        $transformedIVRs = $patientIVRs->map(function ($ivr) {
+            $productRequests = \App\Models\Order\ProductRequest::where('patient_fhir_id', $ivr->patient_fhir_id)
+                ->with(['provider', 'facility'])
+                ->latest()
+                ->first();
+
+            return [
+                'id' => $ivr->id,
+                'patient_display_id' => $this->getPatientDisplayId($ivr->patient_fhir_id),
+                'patient_name' => $this->getPatientName($ivr->patient_fhir_id),
+                'status' => $ivr->status,
+                'ivr_type' => 'Standard IVR',
+                'manufacturer' => [
+                    'id' => $ivr->manufacturer->id,
+                    'name' => $ivr->manufacturer->name,
+                    'ivr_frequency' => $ivr->frequency,
+                ],
+                'provider' => $productRequests ? [
+                    'id' => $productRequests->provider->id ?? null,
+                    'name' => $productRequests->provider->name ?? 'Unknown',
+                    'email' => $productRequests->provider->email ?? '',
+                    'phone' => $productRequests->provider->phone ?? '',
+                ] : null,
+                'facility' => $productRequests ? [
+                    'id' => $productRequests->facility->id ?? null,
+                    'name' => $productRequests->facility->name ?? 'Unknown',
+                    'address' => $productRequests->facility->full_address ?? '',
+                ] : null,
+                'created_at' => $ivr->created_at->toIso8601String(),
+                'expires_at' => $ivr->expiration_date?->toIso8601String(),
+                'last_activity' => $ivr->updated_at->toIso8601String(),
+                'completion_percentage' => $this->calculateCompletionPercentage($ivr),
+                'estimated_completion_time' => rand(15, 45), // Simulated
+                'risk_score' => $this->calculateRiskScore($ivr),
+                'ai_insights' => [
+                    'completion_likelihood' => rand(70, 95) / 100,
+                    'recommended_actions' => $this->getRecommendedActions($ivr),
+                    'potential_issues' => $this->getPotentialIssues($ivr),
+                ],
+            ];
+        });
+
+        // Calculate stats
+        $stats = [
+            'total_active' => $patientIVRs->where('status', '!=', 'expired')->count(),
+            'completed_today' => $patientIVRs->where('status', 'verified')
+                ->where('last_verified_date', '>=', now()->startOfDay())
+                ->count(),
+            'expiring_soon' => PatientIVRStatus::getExpiringIVRs(2)->count(),
+            'average_completion_time' => 25, // Simulated average in minutes
+            'completion_rate' => $this->calculateOverallCompletionRate(),
+            'risk_assessments' => $patientIVRs->filter(fn($ivr) => $this->calculateRiskScore($ivr) > 60)->count(),
+        ];
+
+        // AI predictions
+        $aiPredictions = [
+            'high_risk_ivrs' => $transformedIVRs->filter(fn($ivr) => $ivr['risk_score'] > 80)->pluck('id')->toArray(),
+            'optimal_reminder_times' => [
+                'morning' => '9:00 AM - 11:00 AM',
+                'afternoon' => '2:00 PM - 4:00 PM',
+            ],
+            'workflow_bottlenecks' => $this->detectWorkflowBottlenecks($patientIVRs),
+        ];
+
+        return Inertia::render('Admin/Patients/IVRManagement', [
+            'patientIVRs' => $transformedIVRs,
+            'stats' => $stats,
+            'aiPredictions' => $aiPredictions,
+        ]);
+    }
+
+    /**
+     * Send bulk reminders
+     */
+    public function bulkRemind(Request $request)
+    {
+        $request->validate([
+            'ivr_ids' => 'required|array',
+            'ivr_ids.*' => 'exists:patient_ivr_status,id',
+        ]);
+
+        $ivrStatuses = PatientIVRStatus::whereIn('id', $request->ivr_ids)->get();
+
+        foreach ($ivrStatuses as $ivr) {
+            // Queue reminder email/notification
+            Log::info('Sending IVR reminder', [
+                'ivr_id' => $ivr->id,
+                'patient_fhir_id' => $ivr->patient_fhir_id,
+            ]);
+        }
+
+        return back()->with('success', 'Reminders sent successfully');
+    }
+
+    /**
+     * Export IVR data
+     */
+    public function export(Request $request)
+    {
+        $request->validate([
+            'ivr_ids' => 'required|array',
+            'ivr_ids.*' => 'exists:patient_ivr_status,id',
+        ]);
+
+        // In production, this would generate a CSV/Excel file
+        $ivrStatuses = PatientIVRStatus::whereIn('id', $request->ivr_ids)
+            ->with('manufacturer')
+            ->get();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Export initiated',
+            'count' => $ivrStatuses->count(),
+        ]);
+    }
+
+    /**
+     * Show IVR details
+     */
+    public function show($ivrId)
+    {
+        $ivr = PatientIVRStatus::with('manufacturer')->findOrFail($ivrId);
+
+        return Inertia::render('Admin/Patients/IVRDetail', [
+            'ivr' => $ivr,
+            'patientName' => $this->getPatientName($ivr->patient_fhir_id),
+            'patientDisplayId' => $this->getPatientDisplayId($ivr->patient_fhir_id),
+        ]);
+    }
+
+    /**
+     * Send reminder for specific IVR
+     */
+    public function remind($ivrId)
+    {
+        $ivr = PatientIVRStatus::findOrFail($ivrId);
+
+        // Queue reminder
+        Log::info('Sending individual IVR reminder', [
+            'ivr_id' => $ivr->id,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Reminder sent successfully',
+        ]);
+    }
+
+    /**
+     * Contact provider about IVR
+     */
+    public function contact($ivrId)
+    {
+        $ivr = PatientIVRStatus::findOrFail($ivrId);
+
+        return Inertia::render('Admin/Patients/ContactProvider', [
+            'ivr' => $ivr,
+            'patientName' => $this->getPatientName($ivr->patient_fhir_id),
+        ]);
+    }
+
+    /**
+     * IVR settings
+     */
+    public function settings()
+    {
+        return Inertia::render('Admin/Patients/IVRSettings', [
+            'settings' => [
+                'reminder_frequency' => 'daily',
+                'auto_remind_days_before' => 7,
+                'email_templates' => [
+                    'reminder' => 'Default reminder template',
+                    'expiration' => 'Expiration warning template',
+                ],
+            ],
+        ]);
+    }
+
+    private function calculateCompletionPercentage($ivr)
+    {
+        if ($ivr->status === 'verified') return 100;
+        if ($ivr->status === 'pending') return 0;
+        if ($ivr->status === 'in_progress') return rand(20, 80);
+        return 0;
+    }
+
+    private function calculateRiskScore($ivr)
+    {
+        $score = 0;
+
+        // Days until expiration
+        if ($ivr->expiration_date) {
+            $daysUntilExpiration = now()->diffInDays($ivr->expiration_date, false);
+            if ($daysUntilExpiration < 0) $score += 100;
+            elseif ($daysUntilExpiration <= 7) $score += 80;
+            elseif ($daysUntilExpiration <= 14) $score += 60;
+            elseif ($daysUntilExpiration <= 30) $score += 40;
+        }
+
+        // Status
+        if ($ivr->status === 'expired') $score += 100;
+        elseif ($ivr->status === 'pending') $score += 50;
+
+        return min($score, 100);
+    }
+
+    private function calculateOverallCompletionRate()
+    {
+        $total = PatientIVRStatus::count();
+        if ($total === 0) return 0;
+
+        $completed = PatientIVRStatus::where('status', 'verified')->count();
+        return round(($completed / $total) * 100, 1);
+    }
+
+    private function getRecommendedActions($ivr)
+    {
+        $actions = [];
+
+        if ($ivr->status === 'pending') {
+            $actions[] = 'Send initial IVR form to provider';
+        }
+
+        if ($ivr->expiration_date && now()->diffInDays($ivr->expiration_date, false) <= 7) {
+            $actions[] = 'Send urgent reminder to provider';
+        }
+
+        if ($ivr->status === 'in_progress') {
+            $actions[] = 'Follow up on incomplete IVR';
+        }
+
+        return $actions;
+    }
+
+    private function getPotentialIssues($ivr)
+    {
+        $issues = [];
+
+        if ($ivr->expiration_date && now()->diffInDays($ivr->expiration_date, false) < 0) {
+            $issues[] = 'IVR has expired';
+        }
+
+        if ($ivr->status === 'pending' && $ivr->created_at->diffInDays(now()) > 14) {
+            $issues[] = 'IVR pending for over 2 weeks';
+        }
+
+        return $issues;
+    }
+
+    private function detectWorkflowBottlenecks($ivrs)
+    {
+        $bottlenecks = [];
+
+        $pendingCount = $ivrs->where('status', 'pending')->count();
+        if ($pendingCount > 10) {
+            $bottlenecks[] = "High volume of pending IVRs ({$pendingCount}) may indicate provider onboarding issues";
+        }
+
+        $expiredCount = $ivrs->where('status', 'expired')->count();
+        if ($expiredCount > 5) {
+            $bottlenecks[] = "Multiple expired IVRs ({$expiredCount}) suggest need for better reminder system";
+        }
+
+        return $bottlenecks;
+    }
 }

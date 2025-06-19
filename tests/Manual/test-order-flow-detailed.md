@@ -1,6 +1,7 @@
 # MSC Wound Portal - Order Flow Testing Guide
 
 ## Prerequisites
+
 - PHP 8.2+ installed
 - Composer dependencies installed
 - npm packages installed
@@ -59,6 +60,7 @@ npm run dev
 ## Step 4: Test Product Request Creation
 
 ### Option A: Quick Request Flow (Recommended for Testing)
+
 1. Login as a provider user
 2. Navigate to `/quick-requests/create`
 3. Fill in the form:
@@ -71,6 +73,7 @@ npm run dev
 5. Verify order created with status `pending_ivr`
 
 ### Option B: Standard Request Flow
+
 1. Navigate to `/product-requests/create`
 2. Complete all 6 steps:
    - Patient Information
@@ -82,7 +85,7 @@ npm run dev
 
 ## Step 5: Test IVR Generation (Admin)
 
-1. Login as admin user (admin@test.com)
+1. Login as admin user (<admin@test.com>)
 2. Navigate to `/admin/orders`
 3. Find order with status "Pending IVR"
 4. Click on the order to view details
@@ -92,7 +95,8 @@ npm run dev
    - Product information
    - "Generate IVR" button
 
-### Test IVR Generation:
+### Test IVR Generation
+
 ```bash
 # Get order ID from the UI or database
 php artisan tinker
@@ -109,6 +113,7 @@ curl -X POST http://localhost:8000/admin/orders/{order_id}/generate-ivr \
 ## Step 6: Test IVR Auto-Population
 
 The IVR should auto-populate with:
+
 - Patient demographics (from FHIR)
 - Provider information
 - Facility details
@@ -117,6 +122,7 @@ The IVR should auto-populate with:
 - Clinical data
 
 Check populated fields in:
+
 - `/app/Services/IvrFieldMappingService.php`
 - Manufacturer-specific mappings
 
@@ -130,7 +136,8 @@ Check populated fields in:
 
 ## Step 8: Complete the Flow
 
-### Simulate Manufacturer Approval:
+### Simulate Manufacturer Approval
+
 ```bash
 php artisan tinker
 >>> $order = ProductRequest::find('{order_id}');
@@ -141,12 +148,14 @@ php artisan tinker
 ... ]);
 ```
 
-### Admin Final Approval:
+### Admin Final Approval
+
 1. Navigate back to order details
 2. Click "Approve Order"
 3. Status changes to `approved`
 
-### Submit to Manufacturer:
+### Submit to Manufacturer
+
 1. Click "Submit to Manufacturer"
 2. Status changes to `submitted_to_manufacturer`
 3. Order complete!
@@ -166,6 +175,7 @@ php artisan tinker
 ## Common Issues & Solutions
 
 ### 1. DocuSeal API Error
+
 ```bash
 # Check config
 php artisan tinker
@@ -174,6 +184,7 @@ php artisan tinker
 ```
 
 ### 2. FHIR Connection Error
+
 ```bash
 # Test FHIR connection
 php artisan tinker
@@ -181,12 +192,14 @@ php artisan tinker
 ```
 
 ### 3. No Products Available
+
 ```bash
 # Seed products
 php artisan db:seed --class=ProductSeeder
 ```
 
 ### 4. Permission Errors
+
 ```bash
 # Check user permissions
 php artisan tinker
@@ -198,11 +211,13 @@ php artisan tinker
 ## API Testing with Postman
 
 ### 1. Get CSRF Token
+
 ```
 GET http://localhost:8000/csrf-token
 ```
 
 ### 2. Login
+
 ```
 POST http://localhost:8000/login
 Body: {
@@ -212,6 +227,7 @@ Body: {
 ```
 
 ### 3. Generate IVR
+
 ```
 POST http://localhost:8000/admin/orders/{order_id}/generate-ivr
 Headers: 
@@ -223,6 +239,7 @@ Body: {
 ```
 
 ### 4. Send to Manufacturer
+
 ```
 POST http://localhost:8000/admin/orders/{order_id}/send-ivr-to-manufacturer
 Headers:
@@ -233,6 +250,7 @@ Headers:
 ## Demo Mode Testing
 
 For a visual demonstration without real data:
+
 1. Navigate to `/demo/complete-order-flow`
 2. Click through each step
 3. Uses mock data (order ID starts with 'demo-')
@@ -241,6 +259,7 @@ For a visual demonstration without real data:
 ## Success Criteria
 
 The order flow is working correctly when:
+
 1. Orders progress through all statuses smoothly
 2. IVR documents generate without errors
 3. Auto-population fills >90% of fields
@@ -252,6 +271,7 @@ The order flow is working correctly when:
 ## Next Steps
 
 After successful testing:
+
 1. Configure production DocuSeal templates
 2. Set up manufacturer email addresses
 3. Configure FHIR production endpoints

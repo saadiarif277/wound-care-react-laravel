@@ -10,8 +10,9 @@ use App\Http\Controllers\OrganizationsController;
 use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\UsersController as AdminUsersController;
-use App\Http\Controllers\Admin\AdminOrderCenterController;
 use App\Http\Controllers\Admin\PatientIVRController;
+use App\Http\Controllers\Provider\DashboardController as ProviderDashboardController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
@@ -194,11 +195,11 @@ Route::post('auth/provider-invitation/{token}/accept', function ($token, Request
 
 Route::get('/', [DashboardController::class, 'index'])
     ->name('dashboard')
-    ->middleware('auth');
+    ->middleware(['auth', 'role.redirect']);
 
 Route::get('/dashboard', [DashboardController::class, 'index'])
     ->name('dashboard.alias')
-    ->middleware('auth');
+    ->middleware(['auth', 'role.redirect']);
 
 // ================================================================
 // CONSOLIDATED ORDER MANAGEMENT
@@ -220,24 +221,42 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderCenterController::class, 'show'])->name('admin.orders.show');
 
     // Episode-level actions (provider-centered workflow)
-    Route::get('/episodes/{episode}', [App\Http\Controllers\Admin\OrderCenterController::class, 'showEpisode'])->name('admin.episodes.show');
     Route::post('/episodes/{episode}/review', [App\Http\Controllers\Admin\OrderCenterController::class, 'reviewEpisode'])->name('admin.episodes.review');
     Route::post('/episodes/{episode}/send-to-manufacturer', [App\Http\Controllers\Admin\OrderCenterController::class, 'sendEpisodeToManufacturer'])->name('admin.episodes.send-to-manufacturer');
     Route::post('/episodes/{episode}/update-tracking', [App\Http\Controllers\Admin\OrderCenterController::class, 'updateEpisodeTracking'])->name('admin.episodes.update-tracking');
     Route::post('/episodes/{episode}/mark-completed', [App\Http\Controllers\Admin\OrderCenterController::class, 'markEpisodeCompleted'])->name('admin.episodes.mark-completed');
 
-    // Legacy individual order actions (for backwards compatibility)
-    Route::post('/orders/{id}/generate-ivr', [AdminOrderCenterController::class, 'generateIvr'])->name('admin.orders.generate-ivr');
-    Route::post('/orders/{id}/send-ivr-to-manufacturer', [AdminOrderCenterController::class, 'sendIvrToManufacturer'])->name('admin.orders.send-ivr-to-manufacturer');
-    Route::post('/orders/{id}/manufacturer-approval', [AdminOrderCenterController::class, 'confirmManufacturerApproval'])->name('admin.orders.manufacturer-approval');
-    Route::post('/orders/{id}/approve', [AdminOrderCenterController::class, 'approve'])->name('admin.orders.approve');
-    Route::post('/orders/{id}/send-back', [AdminOrderCenterController::class, 'sendBack'])->name('admin.orders.send-back');
-    Route::post('/orders/{id}/deny', [AdminOrderCenterController::class, 'deny'])->name('admin.orders.deny');
-    Route::post('/orders/{id}/submit-to-manufacturer', [AdminOrderCenterController::class, 'submitToManufacturer'])->name('admin.orders.submit-to-manufacturer');
-    Route::post('/orders/{id}/send-to-manufacturer', [AdminOrderCenterController::class, 'sendToManufacturer'])->name('admin.orders.send-to-manufacturer');
-    Route::post('/orders/{id}/update-tracking', [AdminOrderCenterController::class, 'updateTracking'])->name('admin.orders.update-tracking');
-    Route::get('/orders/create', [AdminOrderCenterController::class, 'create'])->name('admin.orders.create');
-    Route::post('/orders', [AdminOrderCenterController::class, 'store'])->name('admin.orders.store');
+    // Enhanced Dashboard Routes - Now handled by OrderCenterController
+    // Redirect old enhanced dashboard route to consolidated order center
+    Route::get('/dashboard/enhanced', function () {
+        return redirect()->route('admin.orders.index');
+    })->name('admin.dashboard.enhanced');
+
+    // Patient IVR Management Routes - Requires IVR management permissions
+    Route::get('/ivr/management', [PatientIVRController::class, 'management'])
+        ->name('admin.ivr.management')
+        ->middleware('permission:view-ivr-management');
+    Route::post('/ivr/bulk-remind', [PatientIVRController::class, 'bulkRemind'])
+        ->name('admin.ivr.bulk-remind')
+        ->middleware('permission:manage-ivr');
+    Route::post('/ivr/export', [PatientIVRController::class, 'export'])
+        ->name('admin.ivr.export')
+        ->middleware('permission:export-ivr-data');
+    Route::get('/ivr/settings', [PatientIVRController::class, 'settings'])
+        ->name('admin.ivr.settings')
+        ->middleware('permission:manage-ivr');
+    Route::get('/ivr/{ivr}', [PatientIVRController::class, 'show'])
+        ->name('admin.ivr.show')
+        ->middleware('permission:view-ivr-management');
+    Route::post('/ivr/{ivr}/remind', [PatientIVRController::class, 'remind'])
+        ->name('admin.ivr.remind')
+        ->middleware('permission:manage-ivr');
+    Route::get('/ivr/{ivr}/contact', [PatientIVRController::class, 'contact'])
+        ->name('admin.ivr.contact')
+        ->middleware('permission:manage-ivr');
+
+    // Legacy individual order actions removed - Now using episode-based workflow
+    // Individual orders with ivr_episode_id automatically redirect to episode view
 
     // Patient IVR Status
     Route::get('/patients/ivr-status', [PatientIVRController::class, 'index'])->name('admin.patients.ivr-status');
@@ -351,12 +370,19 @@ Route::middleware(['permission:manage-products'])->group(function () {
     Route::get('products/create', [ProductController::class, 'create'])->name('products.create');
     Route::get('products/manage', [ProductController::class, 'manage'])->name('products.manage');
 
+    // CMS pricing sync routes
+    Route::post('api/products/cms/sync', [ProductController::class, 'syncCmsPricing'])->name('api.products.cms.sync');
+    Route::get('api/products/cms/status', [ProductController::class, 'getCmsSyncStatus'])->name('api.products.cms.status');
+
     // Then parameterized routes
     Route::post('products', [ProductController::class, 'store'])->name('products.store');
     Route::get('products/{product}/edit', [ProductController::class, 'edit'])->name('products.edit');
     Route::put('products/{product}', [ProductController::class, 'update'])->name('products.update');
     Route::delete('products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
     Route::put('products/{product}/restore', [ProductController::class, 'restore'])->name('products.restore');
+
+    // MUE validation route (for order validation)
+    Route::post('products/{product}/validate-quantity', [ProductController::class, 'validateQuantity'])->name('products.validate-quantity');
 });
 
 // Product view routes (AFTER specific management routes)
@@ -973,6 +999,60 @@ Route::middleware(['auth'])->group(function () {
     // Check DocuSeal submission status
     Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])
         ->name('quickrequest.docuseal.status');
+});
+
+// ================================================================
+// PROVIDER DASHBOARD ROUTES
+// ================================================================
+
+// Provider Dashboard Routes - for authenticated providers
+Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group(function () {
+    Route::get('/dashboard', [ProviderDashboardController::class, 'index'])
+        ->name('provider.dashboard')
+        ->middleware('permission:view-dashboard');
+    Route::get('/episodes', [ProviderDashboardController::class, 'episodes'])
+        ->name('provider.episodes')
+        ->middleware('permission:view-orders');
+    Route::get('/episodes/{episode}', [ProviderDashboardController::class, 'showEpisode'])
+        ->name('provider.episodes.show')
+        ->middleware('permission:view-orders');
+});
+
+// Notifications Route - for all authenticated users
+Route::middleware(['auth'])->group(function () {
+    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])
+        ->name('notifications');
+    Route::post('/notifications/{notification}/mark-read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])
+        ->name('notifications.mark-read');
+    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])
+        ->name('notifications.mark-all-read');
+    Route::delete('/notifications/{notification}', [\App\Http\Controllers\NotificationController::class, 'destroy'])
+        ->name('notifications.destroy');
+    Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'preferences'])
+        ->name('notifications.preferences');
+    Route::put('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'updatePreferences'])
+        ->name('notifications.preferences.update');
+});
+
+// ================================================================
+// API ROUTES FOR REAL-TIME FEATURES
+// ================================================================
+
+// API routes for real-time features
+Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
+    // Episode statistics
+    Route::get('/episodes/stats', [ProviderDashboardController::class, 'getEpisodeStats'])
+        ->name('api.episodes.stats')
+        ->middleware('permission:view-orders');
+
+    // Recent activity feed
+    Route::get('/episodes/activity', [ProviderDashboardController::class, 'getEpisodeActivity'])
+        ->name('api.episodes.activity')
+        ->middleware('permission:view-orders');
+
+    // Voice command processing
+    Route::post('/voice/command', [ProviderDashboardController::class, 'processVoiceCommand'])
+        ->name('api.voice.command');
 });
 
 // DocuSeal Webhook (outside auth middleware)

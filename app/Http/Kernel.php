@@ -73,6 +73,7 @@ class Kernel extends HttpKernel
         'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
         'organization.context' => \App\Http\Middleware\EnsureOrganizationContext::class,
         'validation.builder' => \App\Http\Middleware\ValidationBuilderSecurity::class,
+        'role.redirect' => \App\Http\Middleware\RedirectBasedOnRole::class,
     ];
 
     /**

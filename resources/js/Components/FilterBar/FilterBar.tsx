@@ -117,6 +117,7 @@ export default function FilterBar() {
         </div>
         <button
           onClick={() => setOpened(true)}
+          aria-label="Open filter options"
           className={cn(
             "px-4 md:px-6 transition-all duration-200",
             t.glass.hover,
@@ -134,6 +135,8 @@ export default function FilterBar() {
           <input
             type="text"
             name="search"
+            id="filter-search"
+            aria-label="Search filter"
             placeholder="Search…"
             autoComplete="off"
             value={values.search}

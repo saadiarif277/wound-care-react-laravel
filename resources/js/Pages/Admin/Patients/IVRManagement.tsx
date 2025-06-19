@@ -42,6 +42,7 @@ import {
   Copy,
   Settings,
   HelpCircle,
+  Sparkles,
 } from 'lucide-react';
 
 interface PatientIVR {
@@ -222,8 +223,11 @@ export default function IVRManagement({
 
             <div className="flex items-center gap-3 mt-4 lg:mt-0">
               <button
+                type="button"
                 onClick={() => setVoiceEnabled(!voiceEnabled)}
                 className={`${t.button.secondary} px-3 py-2 flex items-center space-x-2`}
+                title={`Toggle voice assistant ${voiceEnabled ? 'off' : 'on'}`}
+                aria-label={`Toggle voice assistant ${voiceEnabled ? 'off' : 'on'}`}
               >
                 {voiceEnabled ? <Mic className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                 <span className="text-sm">Voice: {voiceEnabled ? 'On' : 'Off'}</span>
@@ -232,6 +236,7 @@ export default function IVRManagement({
               <button
                 onClick={() => router.reload()}
                 className={`${t.button.ghost} p-2`}
+                title="Reload"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -239,6 +244,7 @@ export default function IVRManagement({
               <button
                 onClick={() => router.visit(route('admin.ivr.settings'))}
                 className={`${t.button.ghost} p-2`}
+                title="IVR Settings"
               >
                 <Settings className="w-4 h-4" />
               </button>
@@ -261,6 +267,7 @@ export default function IVRManagement({
                 <button
                   onClick={() => setShowAIInsights(false)}
                   className={`${t.button.ghost} p-1`}
+                  title="Hide AI Insights"
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -540,8 +547,7 @@ export default function IVRManagement({
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                             <div
-                              className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all"
-                              style={{ width: `${ivr.completion_percentage}%` }}
+                              className={`h-2 rounded-full bg-gradient-to-r from-blue-500 to-green-500 transition-all w-[${ivr.completion_percentage}%]`}
                             />
                           </div>
                         </div>

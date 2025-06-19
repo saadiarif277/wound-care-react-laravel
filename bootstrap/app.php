@@ -43,6 +43,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
             'permission' => \App\Http\Middleware\CheckPermission::class,
             'role' => \App\Http\Middleware\CheckRole::class,
+            'role.redirect' => \App\Http\Middleware\RedirectBasedOnRole::class,
             'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
         ]);
 

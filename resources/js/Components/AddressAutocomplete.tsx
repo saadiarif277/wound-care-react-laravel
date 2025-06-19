@@ -69,7 +69,7 @@ export default function AddressAutocomplete({
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceTimerRef = useRef<NodeJS.Timeout>();
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -244,6 +244,7 @@ export default function AddressAutocomplete({
           <button
             type="button"
             onClick={clearAddress}
+            title="Clear Address"
             className={cn(
               "absolute right-3 top-3 p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700",
               t.text.secondary

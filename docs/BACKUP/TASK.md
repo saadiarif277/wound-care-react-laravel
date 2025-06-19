@@ -121,4 +121,4 @@ This task list outlines the **required (not nice-to-have)** steps to implement a
   - [ ] Basic logging for DocuSeal API client calls and responses.
 
 ---
-**Note:** This list prioritizes functionality for the core "happy path" to demonstrate the E2E flow for UAT. Error handling, advanced features, UI polish, and optimizations are deferred. 
+**Note:** This list prioritizes functionality for the core "happy path" to demonstrate the E2E flow for UAT. Error handling, advanced features, UI polish, and optimizations are deferred.

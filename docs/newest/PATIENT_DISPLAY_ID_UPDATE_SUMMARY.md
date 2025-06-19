@@ -1,9 +1,11 @@
 # Patient Display ID Update Summary
 
 ## Overview
+
 Updated the patient display ID generation to use a friendly format with random numbers instead of sequential numbers.
 
 ## Format
+
 - **Pattern**: First 2 letters of first name + First 2 letters of last name + 3 random digits
 - **Example**: John Smith → JOSM473
 - **Short names**: Padded with 'X' (e.g., Al Li → ALLI923)
@@ -11,6 +13,7 @@ Updated the patient display ID generation to use a friendly format with random n
 ## Changes Made
 
 ### 1. Updated PatientService
+
 - **File**: `app/Services/PatientService.php`
 - **Method**: `generateDisplayId()`
 - **Changes**:
@@ -19,6 +22,7 @@ Updated the patient display ID generation to use a friendly format with random n
   - Falls back to sequential approach if unable to find unique random combination after 10 attempts
 
 ### 2. Created FriendlyTagHelper
+
 - **File**: `app/Helpers/FriendlyTagHelper.php`
 - **Purpose**: Utility class for generating friendly patient tags
 - **Features**:
@@ -49,6 +53,7 @@ When a new patient is created:
 ## Usage Examples
 
 ### In Controllers
+
 ```php
 $patientResult = $this->patientService->createPatientRecord([
     'first_name' => 'John',
@@ -60,12 +65,14 @@ $patientResult = $this->patientService->createPatientRecord([
 ```
 
 ### In Views
+
 ```jsx
 <TableCell>{order.patient_display_id}</TableCell>
 // Displays: JOSM473
 ```
 
 ### Using the Helper
+
 ```php
 use App\Helpers\FriendlyTagHelper;
 

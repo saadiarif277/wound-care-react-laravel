@@ -7,12 +7,14 @@ type ThemeStructure = {
     noise: string;
   };
   glass: {
+    input: any;
     base: string;
     hover: string;
     active: string;
     frost: string;
     card: string;
     sidebar: string;
+    border: string;
   };
   text: {
     primary: string;
@@ -39,14 +41,15 @@ type ThemeStructure = {
     focus: string;
     error: string;
     disabled: string;
+    select?: string;
   };
   button: {
-    primary: string;
-    secondary: string;
-    ghost: string;
-    danger: string;
-    approve: string;
-    warning: string;
+    primary: { base: string; hover: string; };
+    secondary: { base: string; hover: string; };
+    ghost: { base: string; hover: string; };
+    danger: { base: string; hover: string; };
+    approve: { base: string; hover: string; };
+    warning: { base: string; hover: string; };
   };
   episode: {
     card: {
@@ -115,6 +118,8 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       frost: 'bg-white/[0.08] backdrop-blur-3xl backdrop-saturate-150', // Increased opacity
       card: 'bg-white/[0.06] backdrop-blur-2xl border border-white/[0.10] shadow-xl shadow-black/20',
       sidebar: 'bg-black/[0.25] backdrop-blur-2xl border-r border-white/[0.08]',
+      border: 'border border-white/[0.12]',
+      input: undefined
     },
 
     // Text colors - Enhanced contrast
@@ -152,31 +157,31 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       select: 'bg-white/[0.05] backdrop-blur-md border border-white/[0.1] text-white/90 rounded-xl px-4 py-2.5 [&>option]:bg-gray-900 [&>option]:text-white',
     },
 
-    // Button variants - Enhanced visibility
+    // Button variants - Enhanced visibility and pop
     button: {
       primary: {
-        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-lg',
-        hover: 'hover:shadow-xl hover:scale-105'
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-xl shadow-blue-500/30 border border-white/10',
+        hover: 'hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-105 hover:border-white/20 transform transition-all duration-200'
       },
       secondary: {
-        base: 'bg-white/10 backdrop-blur-xl border border-white/20 text-white',
-        hover: 'hover:bg-white/20 hover:border-white/30'
+        base: 'bg-white/15 backdrop-blur-xl border-2 border-white/30 text-white font-medium shadow-lg shadow-black/20',
+        hover: 'hover:bg-white/25 hover:border-white/40 hover:shadow-xl hover:scale-102 transform transition-all duration-200'
       },
       ghost: {
-        base: 'bg-transparent border border-white/20 text-white/80',
-        hover: 'hover:bg-white/10 hover:border-white/30'
+        base: 'bg-white/5 backdrop-blur-md border-2 border-white/25 text-white/90 font-medium shadow-md shadow-black/10',
+        hover: 'hover:bg-white/15 hover:border-white/40 hover:text-white hover:shadow-lg hover:scale-102 transform transition-all duration-200'
       },
       danger: {
-        base: 'bg-red-500/20 border border-red-500/30 text-red-300',
-        hover: 'hover:bg-red-500/30 hover:border-red-500/40'
+        base: 'bg-red-500/25 border-2 border-red-500/40 text-red-300 font-medium shadow-lg shadow-red-500/20',
+        hover: 'hover:bg-red-500/35 hover:border-red-500/50 hover:text-red-200 hover:shadow-xl hover:shadow-red-500/30 hover:scale-102 transform transition-all duration-200'
       },
       approve: {
-        base: 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30',
-        hover: 'hover:bg-emerald-500/30'
+        base: 'bg-emerald-500/25 text-emerald-300 border-2 border-emerald-500/40 font-medium shadow-lg shadow-emerald-500/20',
+        hover: 'hover:bg-emerald-500/35 hover:border-emerald-500/50 hover:text-emerald-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-102 transform transition-all duration-200'
       },
       warning: {
-        base: 'bg-amber-500/20 text-amber-400 border border-amber-500/30',
-        hover: 'hover:bg-amber-500/30'
+        base: 'bg-amber-500/25 text-amber-300 border-2 border-amber-500/40 font-medium shadow-lg shadow-amber-500/20',
+        hover: 'hover:bg-amber-500/35 hover:border-amber-500/50 hover:text-amber-200 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-102 transform transition-all duration-200'
       },
     },
 
@@ -189,7 +194,7 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       rowHover: 'hover:bg-white/[0.06] transition-colors duration-200',
       cell: 'text-white/90', // Increased contrast
       evenRow: 'bg-white/[0.02]',
-      actionButton: 'bg-white/[0.12] hover:bg-white/[0.16]', // Better contrast
+      actionButton: 'bg-white/[0.15] hover:bg-white/[0.25] border border-white/20 hover:border-white/30 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105', // Much better contrast and pop
     },
 
     // Navigation styles
@@ -255,6 +260,8 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       frost: 'bg-white/60 backdrop-blur-2xl backdrop-saturate-150 border border-gray-200/50',
       card: 'bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm hover:shadow-md',
       sidebar: 'bg-white/90 backdrop-blur-xl border-r border-gray-200/60 shadow-[2px_0_12px_rgba(0,0,0,0.08)]',
+      border: 'border border-gray-200/60',
+      input: undefined
     },
 
     // Text colors - MUCH darker for visibility
@@ -292,31 +299,31 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       select: 'bg-white border border-gray-400 text-gray-900 rounded-xl px-4 py-2.5 [&>option]:bg-white [&>option]:text-gray-900',
     },
 
-    // Button variants - Enhanced for light mode visibility  
+        // Button variants - Enhanced for light mode visibility and pop
     button: {
       primary: {
-        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-md',
-        hover: 'hover:shadow-lg hover:scale-105'
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-lg shadow-blue-500/25 border border-blue-200/50',
+        hover: 'hover:shadow-xl hover:shadow-blue-500/35 hover:scale-105 hover:border-blue-300/60 transform transition-all duration-200'
       },
       secondary: {
-        base: 'bg-gray-100 border border-gray-300 text-gray-800',
-        hover: 'hover:bg-gray-200 hover:border-gray-400 hover:shadow-md'
+        base: 'bg-white border-2 border-gray-400 text-gray-800 font-medium shadow-lg shadow-gray-300/50 backdrop-blur-sm',
+        hover: 'hover:bg-gray-50 hover:border-gray-500 hover:shadow-xl hover:shadow-gray-400/60 hover:scale-102 transform transition-all duration-200'
       },
       ghost: {
-        base: 'bg-transparent border border-gray-300 text-gray-700',
-        hover: 'hover:bg-gray-100 hover:border-gray-400'
+        base: 'bg-white/60 backdrop-blur-sm border-2 border-gray-400 text-gray-700 font-medium shadow-md shadow-gray-300/40',
+        hover: 'hover:bg-white/80 hover:border-gray-500 hover:text-gray-900 hover:shadow-lg hover:shadow-gray-400/50 hover:scale-102 transform transition-all duration-200'
       },
       danger: {
-        base: 'bg-red-50 border border-red-200 text-red-700',
-        hover: 'hover:bg-red-100 hover:border-red-300'
+        base: 'bg-red-50 border-2 border-red-300 text-red-700 font-medium shadow-lg shadow-red-200/60',
+        hover: 'hover:bg-red-100 hover:border-red-400 hover:text-red-800 hover:shadow-xl hover:shadow-red-300/70 hover:scale-102 transform transition-all duration-200'
       },
       approve: {
-        base: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
-        hover: 'hover:bg-emerald-100'
+        base: 'bg-emerald-50 text-emerald-700 border-2 border-emerald-300 font-medium shadow-lg shadow-emerald-200/60',
+        hover: 'hover:bg-emerald-100 hover:border-emerald-400 hover:text-emerald-800 hover:shadow-xl hover:shadow-emerald-300/70 hover:scale-102 transform transition-all duration-200'
       },
       warning: {
-        base: 'bg-amber-50 text-amber-700 border border-amber-200',
-        hover: 'hover:bg-amber-100'
+        base: 'bg-amber-50 text-amber-700 border-2 border-amber-300 font-medium shadow-lg shadow-amber-200/60',
+        hover: 'hover:bg-amber-100 hover:border-amber-400 hover:text-amber-800 hover:shadow-xl hover:shadow-amber-300/70 hover:scale-102 transform transition-all duration-200'
       },
     },
 
@@ -329,7 +336,7 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       rowHover: 'hover:bg-gray-100 transition-colors duration-200',
       cell: 'text-gray-800',
       evenRow: 'bg-gray-50',
-      actionButton: 'bg-gray-200 hover:bg-gray-300 text-gray-900',
+      actionButton: 'bg-white hover:bg-gray-100 text-gray-900 border-2 border-gray-300 hover:border-gray-400 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105',
     },
 
     // Navigation styles
@@ -416,3 +423,12 @@ export const frostCard = (theme: 'dark' | 'light' = 'dark') => cn(
 
 // Text with glass shadow for critical readability
 export const glassTextShadow = 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] [text-shadow:_0_0_20px_rgba(0,0,0,0.3)]';
+
+// Utility for buttons that need extra pop
+export const popButton = (theme: 'dark' | 'light' = 'dark', variant: 'primary' | 'secondary' | 'danger' | 'approve' | 'warning' | 'ghost' = 'primary') => cn(
+  themes[theme].button[variant].base,
+  themes[theme].button[variant].hover,
+  'rounded-xl px-4 py-2.5 font-medium',
+  'focus:outline-none focus:ring-2 focus:ring-offset-2',
+  theme === 'dark' ? 'focus:ring-offset-gray-900' : 'focus:ring-offset-white'
+);

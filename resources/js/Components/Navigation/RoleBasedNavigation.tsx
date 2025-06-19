@@ -710,14 +710,14 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
       <div key={item.name}>
         <div
           className={cn(
-            'flex items-center min-h-[48px] py-3 px-4 rounded-xl transition-all duration-200 group cursor-pointer',
+            'flex items-center min-h-[48px] py-3 px-4 rounded-xl transition-all duration-200 group cursor-pointer backdrop-blur-sm',
             isActive
               ? theme === 'dark'
-                ? 'bg-gradient-to-r from-[rgb(25,37,195)] to-[rgb(199,23,25)] text-white font-semibold shadow-md'
-                : 'bg-gradient-to-r from-[rgba(25,37,195,0.1)] to-[rgba(199,23,25,0.08)] text-[rgb(25,37,195)] font-semibold border-l-[3px] border-l-[rgb(25,37,195)]'
+                ? 'bg-gradient-to-r from-[rgb(25,37,195)] to-[rgb(199,23,25)] text-white font-semibold shadow-lg shadow-blue-500/25'
+                : 'bg-gradient-to-r from-[rgba(25,37,195,0.1)] to-[rgba(199,23,25,0.08)] text-[rgb(25,37,195)] font-semibold border-l-[3px] border-l-[rgb(25,37,195)] shadow-sm'
               : theme === 'dark'
-                ? cn(t.text.secondary, 'hover:bg-white/[0.11] hover:text-white/95')
-                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900',
+                ? cn(t.text.secondary, 'hover:bg-white/[0.08] hover:text-white/95 hover:backdrop-blur-md')
+                : 'text-gray-700 hover:bg-white/60 hover:text-gray-900 hover:shadow-sm hover:border hover:border-gray-200/50',
             isCollapsed ? 'justify-center' : '',
             level > 0 ? 'ml-6' : ''
           )}
@@ -763,7 +763,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
   };
 
   return (
-    <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto">
+    <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto custom-scrollbar">
       {menuItems.map(item => renderMenuItem(item))}
     </nav>
   );

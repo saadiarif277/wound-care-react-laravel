@@ -1,3 +1,4 @@
+/** @jsxImportSource react */
 import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
@@ -124,7 +125,7 @@ export default function SalesManagementIndex() {
           break;
 
         case 'payouts':
-          const payoutsResponse = await api.commission.getPayouts({ search: searchTerm });
+          const payoutsResponse = await api.commission.getPayouts({});
           setPayouts(payoutsResponse.data);
           break;
 
@@ -429,7 +430,7 @@ export default function SalesManagementIndex() {
                         <FiEye className="w-4 h-4" />
                       </Link>
                       {record.status === 'pending' && (
-                        <button className="text-green-600 hover:text-green-900">
+                        <button title="Approve commission" className="text-green-600 hover:text-green-900">
                           <FiCheckCircle className="w-4 h-4" />
                         </button>
                       )}
@@ -480,7 +481,7 @@ export default function SalesManagementIndex() {
                   <Link href={`/admin/payouts/${payout.id}`} className="text-blue-600 hover:text-blue-900">
                     <FiEye className="w-4 h-4" />
                   </Link>
-                  <button className="text-yellow-600 hover:text-yellow-900">
+                  <button title="Edit" className="text-yellow-600 hover:text-yellow-900">
                     <FiEdit className="w-4 h-4" />
                   </button>
                 </div>
@@ -587,10 +588,10 @@ export default function SalesManagementIndex() {
                 <div className="flex space-x-2">
                   {approval.status === 'pending' && (
                     <>
-                      <button className="text-green-600 hover:text-green-900 p-1">
-                        <FiCheckCircle className="w-4 h-4" title="Approve" />
+                      <button title="Approve" className="text-green-600 hover:text-green-900 p-1">
+                        <FiCheckCircle className="w-4 h-4" />
                       </button>
-                      <button className="text-red-600 hover:text-red-900 p-1">
+                      <button title="Reject commission" className="text-red-600 hover:text-red-900 p-1">
                         <FiAlertTriangle className="w-4 h-4" title="Reject" />
                       </button>
                     </>

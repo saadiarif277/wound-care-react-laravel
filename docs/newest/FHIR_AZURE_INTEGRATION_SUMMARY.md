@@ -1,6 +1,7 @@
 # FHIR Azure Integration Summary
 
 ## Overview
+
 This document summarizes the work done to ensure FHIR resources are properly created and connected to Azure Health Data Services in the MSC Wound Portal.
 
 ## Changes Made
@@ -8,6 +9,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ### 1. Configuration Updates
 
 #### Fixed Configuration Mismatch
+
 - **File**: `config/services.php`
 - **Issue**: FHIRServiceProvider was looking for `services.azure.fhir.base_url` but config only had `services.azure.fhir_endpoint`
 - **Solution**: Added nested `fhir.base_url` configuration that uses the same `AZURE_FHIR_ENDPOINT` environment variable
@@ -15,6 +17,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ### 2. Patient Service Enhancements
 
 #### Updated PatientService to Create Real FHIR Resources
+
 - **File**: `app/Services/PatientService.php`
 - **Changes**:
   - Added dependency injection of `FhirService`
@@ -28,6 +31,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
   - Maintains fallback mechanisms for error scenarios
 
 #### Service Registration
+
 - **File**: `app/Providers/AppServiceProvider.php`
 - **Changes**:
   - Registered `FhirService` as singleton
@@ -36,6 +40,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ### 3. Clinical Data Storage Implementation
 
 #### Implemented storeClinicalDataInAzure Method
+
 - **File**: `app/Http/Controllers/ProductRequestController.php`
 - **Changes**:
   - Replaced TODO placeholder with actual implementation
@@ -51,6 +56,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ### 4. API Controller Updates
 
 #### Updated ProductRequestPatientController
+
 - **File**: `app/Http/Controllers/Api/ProductRequestPatientController.php`
 - **Changes**:
   - Replaced mock/simulation code with actual service calls
@@ -61,6 +67,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ### 5. Testing and Documentation
 
 #### Created Azure FHIR Connection Test Script
+
 - **File**: `test-azure-fhir-connection.php`
 - **Purpose**: Verify Azure Health Data Services connection and permissions
 - **Features**:
@@ -72,6 +79,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
   - Provides detailed feedback with color-coded output
 
 #### Created Azure FHIR Configuration Example
+
 - **File**: `azure-fhir-env-example.txt`
 - **Purpose**: Guide for setting up Azure FHIR environment variables
 - **Contents**:
@@ -82,6 +90,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 ## Data Flow Summary
 
 ### Patient Creation Flow
+
 1. Frontend collects patient data in `PatientInformationStep.tsx`
 2. Data is submitted to `ProductRequestController@store`
 3. Controller calls `PatientService->createPatientRecord()`
@@ -92,6 +101,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 5. Product request is created with patient identifiers
 
 ### Clinical Assessment Flow
+
 1. Clinical data collected in `ClinicalAssessmentStep.tsx`
 2. Data submitted via `ProductRequestController@updateStep`
 3. Controller calls `storeClinicalDataInAzure()`
@@ -102,6 +112,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 5. Product request updated with clinical reference ID
 
 ## HIPAA Compliance
+
 - No PHI stored in local database (Supabase)
 - Only FHIR resource IDs and display IDs stored locally
 - All PHI resides in Azure Health Data Services
@@ -109,7 +120,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
 
 ## Next Steps
 
-### To Use This Integration:
+### To Use This Integration
 
 1. **Configure Azure Resources**:
    - Create Azure Health Data Services workspace
@@ -118,6 +129,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
    - Grant "FHIR Data Contributor" role to app
 
 2. **Set Environment Variables**:
+
    ```env
    AZURE_TENANT_ID=your-tenant-id
    AZURE_CLIENT_ID=your-client-id
@@ -126,6 +138,7 @@ This document summarizes the work done to ensure FHIR resources are properly cre
    ```
 
 3. **Test Connection**:
+
    ```bash
    php test-azure-fhir-connection.php
    ```

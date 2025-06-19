@@ -84,7 +84,7 @@ class OrderCenterController extends Controller
                 'verification_date' => $episode->verification_date?->format('Y-m-d'),
                 'expiration_date' => $episode->expiration_date?->format('Y-m-d'),
                 'orders_count' => $productRequests->count(),
-                'total_order_value' => $productRequests->sum('total_order_value') ?? 0,
+                'total_order_value' => (float) ($productRequests->sum('total_order_value') ?? 0),
                 'latest_order_date' => $productRequests->max('created_at')?->toISOString() ?? $episode->created_at->toISOString(),
                 'action_required' => $episode->status === 'ready_for_review',
                 'orders' => $productRequests->map(function ($order) {
@@ -99,12 +99,61 @@ class OrderCenterController extends Controller
             ];
         });
 
-        return Inertia::render('Admin/OrderCenter/Index', [
-            'episodes' => $transformedEpisodes,
+        // Calculate stats for the enhanced dashboard
+        $stats = [
+            'total_episodes' => array_sum($statusCounts),
+            'pending_review' => $statusCounts['ready_for_review'] ?? 0,
+            'ivr_expiring_soon' => PatientIVRStatus::where('expiration_date', '<=', now()->addDays(30))
+                ->where('expiration_date', '>', now())
+                ->count(),
+            'total_value' => $transformedEpisodes->sum('total_order_value'),
+            'episodes_this_week' => PatientIVRStatus::where('created_at', '>=', now()->startOfWeek())->count(),
+            'completion_rate' => array_sum($statusCounts) > 0
+                ? round(($statusCounts['completed'] ?? 0) / array_sum($statusCounts) * 100, 1)
+                : 0,
+        ];
+
+        // AI Insights (simulated for now)
+        $aiInsights = [];
+        if (($statusCounts['ready_for_review'] ?? 0) > 5) {
+            $aiInsights[] = [
+                'id' => 'high-pending',
+                'type' => 'warning',
+                'title' => 'High Pending Reviews',
+                'description' => "{$statusCounts['ready_for_review']} episodes awaiting review - consider bulk processing",
+                'action' => [
+                    'label' => 'View Pending',
+                    'route' => route('admin.orders.index', ['status' => 'ready_for_review']),
+                ],
+                'confidence' => 0.95,
+            ];
+        }
+
+        // Recent activity
+        $recentActivity = collect([
+            ['id' => '1', 'type' => 'episode', 'description' => 'New episode created', 'timestamp' => now()->toISOString(), 'user' => 'System'],
+        ]);
+
+        // Performance data for charts
+        $performanceData = [
+            'labels' => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+            'episodesCompleted' => [5, 8, 12, 7, 10, 6, 9],
+            'averageProcessingTime' => [2.5, 3.1, 2.8, 3.5, 2.9, 3.2, 3.0],
+        ];
+
+        return Inertia::render('Admin/OrderCenter/EnhancedDashboard', [
+            'episodes' => $transformedEpisodes->items(), // Extract just the data array from paginated results
+            'stats' => $stats,
+            'aiInsights' => $aiInsights,
+            'recentActivity' => $recentActivity,
+            'performanceData' => $performanceData,
             'filters' => $request->only(['search', 'status', 'ivr_status', 'action_required']),
-            'statusCounts' => $statusCounts,
-            'ivrStatusCounts' => $ivrStatusCounts,
-            'manufacturers' => [], // TODO: Add manufacturers list
+            'pagination' => [
+                'total' => $transformedEpisodes->total(),
+                'per_page' => $transformedEpisodes->perPage(),
+                'current_page' => $transformedEpisodes->currentPage(),
+                'last_page' => $transformedEpisodes->lastPage(),
+            ],
         ]);
     }
 
@@ -156,7 +205,7 @@ class OrderCenterController extends Controller
                     ],
                     'expected_service_date' => $order->expected_service_date?->format('Y-m-d'),
                     'submitted_at' => $order->submitted_at?->toISOString() ?? $order->created_at->toISOString(),
-                    'total_order_value' => $order->total_order_value ?? 0,
+                    'total_order_value' => (float) ($order->total_order_value ?? 0),
                     'action_required' => $order->order_status === 'ready_for_review',
                     'products' => $order->products->map(function ($product) {
                         return [
@@ -164,13 +213,13 @@ class OrderCenterController extends Controller
                             'name' => $product->name,
                             'sku' => $product->sku ?? $product->q_code,
                             'quantity' => $product->pivot->quantity ?? 1,
-                            'unit_price' => $product->pivot->unit_price ?? 0,
-                            'total_price' => $product->pivot->total_price ?? 0,
+                            'unit_price' => (float) ($product->pivot->unit_price ?? 0),
+                            'total_price' => (float) ($product->pivot->total_price ?? 0),
                         ];
                     }),
                 ];
             }),
-            'total_order_value' => $productRequests->sum('total_order_value') ?? 0,
+            'total_order_value' => (float) ($productRequests->sum('total_order_value') ?? 0),
             'orders_count' => $productRequests->count(),
             'action_required' => $episode->status === 'ready_for_review',
             'docuseal' => [
@@ -192,6 +241,7 @@ class OrderCenterController extends Controller
 
     /**
      * ASHLEY'S REQUIREMENT: Review provider-generated IVR
+     * Provider has already completed IVR during order submission
      */
     public function reviewEpisode(Request $request, $episodeId)
     {
@@ -200,6 +250,11 @@ class OrderCenterController extends Controller
         // Validate that episode is ready for review
         if ($episode->status !== 'ready_for_review') {
             return back()->with('error', 'Episode is not ready for review.');
+        }
+
+        // Validate that IVR was completed by provider
+        if ($episode->ivr_status !== 'provider_completed' || !$episode->docuseal_submission_id) {
+            return back()->with('error', 'Provider has not completed IVR for this episode.');
         }
 
         DB::beginTransaction();
@@ -223,7 +278,7 @@ class OrderCenterController extends Controller
 
             DB::commit();
 
-            return back()->with('success', 'Episode IVR reviewed and approved successfully. Ready to send to manufacturer.');
+            return back()->with('success', 'IVR approved successfully. Episode ready to send to manufacturer.');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -247,23 +302,65 @@ class OrderCenterController extends Controller
             return back()->with('error', 'Episode must be reviewed before sending to manufacturer.');
         }
 
+        // Validate email recipients
+        $request->validate([
+            'recipients' => 'required|array|min:1',
+            'recipients.*' => 'required|email',
+            'notes' => 'nullable|string',
+            'include_ivr' => 'boolean',
+            'include_clinical_notes' => 'boolean'
+        ]);
+
         DB::beginTransaction();
         try {
+            // Get all orders in the episode
+            $orders = ProductRequest::where('ivr_episode_id', $episode->id)
+                ->with(['provider', 'facility', 'products'])
+                ->get();
+
+            // Prepare email data
+            $emailData = [
+                'episode_id' => $episode->id,
+                'manufacturer' => $episode->manufacturer,
+                'orders' => $orders,
+                'notes' => $request->input('notes'),
+                'include_ivr' => $request->input('include_ivr', true),
+                'include_clinical_notes' => $request->input('include_clinical_notes', true),
+                'recipients' => $request->input('recipients'),
+                'sent_by' => Auth::user()->name,
+                'sent_at' => now()
+            ];
+
+            // Send email via ManufacturerEmailService
+            $emailService = app(ManufacturerEmailService::class);
+            $result = $emailService->sendEpisodeToManufacturer($episode, $emailData);
+
+            if (!$result['success']) {
+                throw new \Exception($result['message']);
+            }
+
             // Update episode status
             $episode->update([
                 'status' => 'sent_to_manufacturer',
                 'manufacturer_sent_at' => now(),
                 'manufacturer_sent_by' => Auth::id(),
+                'metadata' => array_merge($episode->metadata ?? [], [
+                    'email_recipients' => $request->input('recipients'),
+                    'email_notes' => $request->input('notes'),
+                    'sent_by_name' => Auth::user()->name
+                ])
             ]);
 
             // Update all orders in episode
             ProductRequest::where('ivr_episode_id', $episode->id)->update([
                 'order_status' => 'sent_to_manufacturer',
                 'manufacturer_sent_at' => now(),
+                'manufacturer_recipients' => json_encode($request->input('recipients'))
             ]);
 
             // Log the action
-            $this->logEpisodeAction($episode, 'send_to_manufacturer', 'Episode sent to manufacturer');
+            $this->logEpisodeAction($episode, 'send_to_manufacturer',
+                'Episode sent to manufacturer with ' . count($request->input('recipients')) . ' recipients');
 
             DB::commit();
 

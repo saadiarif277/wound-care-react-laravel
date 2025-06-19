@@ -166,7 +166,7 @@ const ConfirmationDocuments = ({ documents = [], readOnly = false, orderId }: Co
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <DocumentCheckIcon className="w-5 h-5 text-green-500" />
-          <h3 className={`${t.text.heading} text-lg font-semibold`}>Confirmation Documents</h3>
+          <h3 className={`${t.text.primary} text-lg font-semibold`}>Confirmation Documents</h3>
         </div>
         <div className="flex items-center gap-2">
           {documents.some(d => d.verified) && (
@@ -424,8 +424,9 @@ const ConfirmationDocuments = ({ documents = [], readOnly = false, orderId }: Co
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h4 className={`${t.text.heading} text-lg font-semibold`}>Document Preview</h4>
+                <h4 className={`${t.text.primary} text-lg font-semibold`}>Document Preview</h4>
                 <button
+                  title="Close document preview"
                   onClick={() => setSelectedDoc(null)}
                   className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                 >

@@ -17,7 +17,7 @@ class ManufacturerEmailService
         try {
             // Prepare order details
             $orderDetails = $this->prepareOrderDetails($order);
-            
+
             // Log the email sending (for now, we're not actually sending emails)
             Log::info('Order email prepared for manufacturer', [
                 'order_id' => $order->id,
@@ -30,7 +30,7 @@ class ManufacturerEmailService
             // Send the email
             Mail::to($recipients)
                 ->send(new ManufacturerOrderEmail($orderDetails, $attachments));
-            
+
             // Log successful email send
             Log::info('Order email sent to manufacturer', [
                 'order_id' => $order->id,
@@ -98,13 +98,90 @@ class ManufacturerEmailService
     }
 
     /**
+     * Send episode to manufacturer via email
+     */
+    public function sendEpisodeToManufacturer($episode, array $emailData)
+    {
+        try {
+            // Prepare episode details
+            $episodeDetails = [
+                'episode_id' => $episode->id,
+                'manufacturer' => $episode->manufacturer->name ?? 'Unknown Manufacturer',
+                'provider_count' => $emailData['orders']->pluck('provider_id')->unique()->count(),
+                'order_count' => $emailData['orders']->count(),
+                'total_value' => $emailData['orders']->sum('total_order_value'),
+                'orders' => $emailData['orders']->map(function($order) {
+                    return [
+                        'order_number' => $order->request_number,
+                        'patient_display_id' => $order->patient_display_id,
+                        'service_date' => $order->expected_service_date?->format('Y-m-d') ?? $order->date_of_service,
+                        'products' => $order->products->map(function($product) {
+                            return [
+                                'name' => $product->name,
+                                'sku' => $product->sku,
+                                'quantity' => $product->pivot->quantity ?? 1,
+                                'size' => $product->pivot->size ?? null,
+                            ];
+                        })->toArray(),
+                    ];
+                })->toArray(),
+                'notes' => $emailData['notes'],
+                'sent_by' => $emailData['sent_by'],
+                'sent_at' => $emailData['sent_at'],
+            ];
+
+            // Prepare attachments (IVR documents)
+            $attachments = [];
+            if ($emailData['include_ivr'] && $episode->docuseal_submission_id) {
+                // TODO: Fetch IVR document from DocuSeal
+                // $attachments[] = $this->getDocuSealDocument($episode->docuseal_submission_id);
+            }
+
+            // Log the email sending
+            Log::info('Episode email prepared for manufacturer', [
+                'episode_id' => $episode->id,
+                'recipients' => $emailData['recipients'],
+                'manufacturer' => $episode->manufacturer->name ?? 'Unknown',
+                'order_count' => count($episodeDetails['orders']),
+            ]);
+
+            // Send the email
+            Mail::to($emailData['recipients'])
+                ->send(new ManufacturerOrderEmail($episodeDetails, $attachments));
+
+            // Log successful email send
+            Log::info('Episode email sent to manufacturer', [
+                'episode_id' => $episode->id,
+                'recipients' => $emailData['recipients'],
+                'attachments_count' => count($attachments),
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Episode successfully sent to manufacturer',
+                'recipients' => $emailData['recipients'],
+            ];
+        } catch (\Exception $e) {
+            Log::error('Failed to send episode to manufacturer', [
+                'episode_id' => $episode->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to send episode: ' . $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Get default recipients for a manufacturer
      */
     public function getDefaultRecipients($manufacturerName): array
     {
         // Get from configuration instead of hardcoding
         $defaultRecipients = config('manufacturers.email_recipients', []);
-        
+
         return $defaultRecipients[$manufacturerName] ?? [];
     }
 }

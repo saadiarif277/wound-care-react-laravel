@@ -1136,6 +1136,7 @@ const MACValidationPage = () => {
                                                             setQuickData('service_codes', newCodes);
                                                         }}
                                                         className="p-2 text-red-600 hover:text-red-800"
+                                                        title="Remove code"
                                                     >
                                                         <FiX className="w-5 h-5" />
                                                     </button>
@@ -1515,6 +1516,7 @@ const MACValidationPage = () => {
                                                             setThoroughData('diagnoses', { ...thoroughData.diagnoses, secondary: newDiagnoses });
                                                         }}
                                                         className="p-2 text-red-600 hover:text-red-800"
+                                                        title="Remove diagnosis"
                                                     >
                                                         <FiX className="w-5 h-5" />
                                                     </button>
@@ -1572,6 +1574,7 @@ const MACValidationPage = () => {
                                                     />
                                                     <button
                                                         type="button"
+                                                        title="Remove treatment"
                                                         onClick={() => {
                                                             const newTreatments = thoroughData.prior_care.treatments.filter((_, i) => i !== index);
                                                             setThoroughData('prior_care', { ...thoroughData.prior_care, treatments: newTreatments });
@@ -1691,6 +1694,7 @@ const MACValidationPage = () => {
                                                     {index > 0 && (
                                                         <button
                                                             type="button"
+                                                            title="Remove code"
                                                             onClick={() => {
                                                                 const newCodes = thoroughData.service.codes.filter((_, i) => i !== index);
                                                                 setThoroughData('service', { ...thoroughData.service, codes: newCodes });

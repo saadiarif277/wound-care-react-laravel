@@ -21,6 +21,8 @@ class PatientIVRStatus extends Model
     protected $fillable = [
         'id',
         'patient_id',
+        'patient_display_id',
+        'patient_name',
         'manufacturer_id',
         'status',
         'ivr_status',
@@ -36,6 +38,18 @@ class PatientIVRStatus extends Model
         'docuseal_signed_document_url',
         'docuseal_template_id',
         'docuseal_last_synced_at',
+        'audit_log',
+        'metadata',
+        'tracking_number',
+        'carrier',
+        'estimated_delivery',
+        'tracking_updated_at',
+        'tracking_updated_by',
+        'admin_reviewed_at',
+        'admin_reviewed_by',
+        'manufacturer_sent_at',
+        'manufacturer_sent_by',
+        'completed_by',
     ];
 
     protected $casts = [
@@ -44,7 +58,48 @@ class PatientIVRStatus extends Model
         'completed_at' => 'datetime',
         'docuseal_completed_at' => 'datetime',
         'docuseal_last_synced_at' => 'datetime',
+        'audit_log' => 'array',
+        'metadata' => 'array',
+        'tracking_updated_at' => 'datetime',
+        'admin_reviewed_at' => 'datetime',
+        'manufacturer_sent_at' => 'datetime',
+        'estimated_delivery' => 'date',
     ];
+
+    /**
+     * Get the ivr_status attribute (ensure it's always a valid IVRStatus value)
+     */
+    public function getIvrStatusAttribute($value)
+    {
+        // If null or empty, return 'pending'
+        if (empty($value)) {
+            return 'pending';
+        }
+
+        // Ensure the value is one of the valid IVRStatus values
+        $validStatuses = ['pending', 'verified', 'expired'];
+
+        return in_array($value, $validStatuses) ? $value : 'pending';
+    }
+
+    /**
+     * Get the patient_display_id attribute
+     */
+    public function getPatientDisplayIdAttribute($value)
+    {
+        // If already set, return it
+        if (!empty($value)) {
+            return $value;
+        }
+
+        // Generate a display ID from patient_id if not set
+        if ($this->patient_id) {
+            // Take last 6 characters of patient_id
+            return 'PT' . strtoupper(substr($this->patient_id, -6));
+        }
+
+        return 'UNKNOWN';
+    }
 
     protected static function boot()
     {
@@ -80,11 +135,11 @@ class PatientIVRStatus extends Model
     }
 
     /**
-     * Get product requests for the IVR episode
+     * Get orders for the IVR episode
      */
     public function orders()
     {
-        return $this->hasMany(\App\Models\Order\ProductRequest::class, 'ivr_episode_id');
+        return $this->hasMany(\App\Models\Order\Order::class, 'ivr_episode_id');
     }
 
     /**

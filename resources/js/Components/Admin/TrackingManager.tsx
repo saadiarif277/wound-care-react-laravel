@@ -1,53 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  TruckIcon, 
-  MapPinIcon, 
-  ClockIcon,
-  CheckCircleIcon,
-  PencilIcon,
-  ArrowPathIcon,
-  BellIcon,
-  SignalIcon,
-  MicrophoneIcon,
-  SparklesIcon
-} from '@heroicons/react/24/outline';
+import React, { useState } from 'react';
+import { router } from '@inertiajs/react';
+import { motion } from 'framer-motion';
+import {
+  Truck,
+  Package,
+  MapPin,
+  Calendar,
+  Clock,
+  CheckCircle,
+  AlertCircle,
+  QrCode,
+  Send,
+  Globe
+} from 'lucide-react';
 import { themes } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
-import { useForm } from '@inertiajs/react';
 
 interface TrackingManagerProps {
-  order: {
-    id: string;
+  order?: any;
+  episode?: any;
+  existingTracking?: {
     tracking_number?: string;
-    tracking_carrier?: string;
-    tracking_status?: string;
+    carrier?: string;
+    shipped_at?: string;
     estimated_delivery?: string;
-    delivery_updates?: Array<{
-      timestamp: string;
-      status: string;
-      location?: string;
-    }>;
   };
-  readOnly?: boolean;
 }
 
-const carrierOptions = [
-  { value: 'ups', label: 'UPS', color: 'brown' },
-  { value: 'fedex', label: 'FedEx', color: 'purple' },
-  { value: 'usps', label: 'USPS', color: 'blue' },
-  { value: 'dhl', label: 'DHL', color: 'yellow' },
-  { value: 'other', label: 'Other', color: 'gray' }
+const carriers = [
+  { value: 'ups', label: 'UPS', trackingUrl: 'https://www.ups.com/track?tracknum=' },
+  { value: 'fedex', label: 'FedEx', trackingUrl: 'https://www.fedex.com/fedextrack/?tracknumbers=' },
+  { value: 'usps', label: 'USPS', trackingUrl: 'https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=' },
+  { value: 'dhl', label: 'DHL', trackingUrl: 'https://www.dhl.com/en/express/tracking.html?AWB=' },
+  { value: 'ontrac', label: 'OnTrac', trackingUrl: 'https://www.ontrac.com/tracking?number=' },
+  { value: 'other', label: 'Other', trackingUrl: null }
 ];
 
-const statusSteps = [
-  { status: 'pending', label: 'Pending', icon: ClockIcon },
-  { status: 'shipped', label: 'Shipped', icon: TruckIcon },
-  { status: 'in_transit', label: 'In Transit', icon: MapPinIcon },
-  { status: 'delivered', label: 'Delivered', icon: CheckCircleIcon }
-];
-
-const TrackingManager = ({ order, readOnly = false }: TrackingManagerProps) => {
+const TrackingManager: React.FC<TrackingManagerProps> = ({
+  order,
+  episode,
+  existingTracking
+}) => {
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
 
@@ -59,327 +52,246 @@ const TrackingManager = ({ order, readOnly = false }: TrackingManagerProps) => {
     // Fallback to dark theme
   }
 
-  if (!order) return null;
+  const [trackingNumber, setTrackingNumber] = useState(existingTracking?.tracking_number || '');
+  const [carrier, setCarrier] = useState(existingTracking?.carrier || 'ups');
+  const [estimatedDelivery, setEstimatedDelivery] = useState(existingTracking?.estimated_delivery || '');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [error, setError] = useState('');
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [showRealTimeUpdate, setShowRealTimeUpdate] = useState(false);
-  const [voiceEnabled, setVoiceEnabled] = useState(false);
+  const canUpdate = episode
+    ? episode.status === 'sent_to_manufacturer'
+    : order?.order_status === 'submitted_to_manufacturer';
 
-  const { data, setData, put, processing } = useForm({
-    tracking_number: order.tracking_number || '',
-    tracking_carrier: order.tracking_carrier || '',
-    tracking_status: order.tracking_status || 'pending'
-  });
+  const hasTracking = existingTracking?.tracking_number;
 
-  // Simulate real-time tracking updates
-  useEffect(() => {
-    if (order.tracking_number && !readOnly) {
-      const timer = setTimeout(() => {
-        setShowRealTimeUpdate(true);
-      }, 3000);
-      return () => clearTimeout(timer);
+  const handleUpdateTracking = () => {
+    if (!trackingNumber.trim()) {
+      setError('Please enter a tracking number');
+      return;
     }
-  }, [order.tracking_number, readOnly]);
 
-  const handleVoiceUpdate = () => {
-    if ('speechSynthesis' in window && order.tracking_number) {
-      const statusText = order.tracking_status === 'delivered' ? 'has been delivered' :
-                        order.tracking_status === 'in_transit' ? 'is in transit' :
-                        order.tracking_status === 'shipped' ? 'has been shipped' :
-                        'is pending shipment';
-      
-      const utterance = new SpeechSynthesisUtterance(
-        `Order ${order.id} ${statusText}. Tracking number: ${order.tracking_number}`
-      );
-      speechSynthesis.speak(utterance);
-    }
-  };
+    setIsUpdating(true);
+    setError('');
 
-  const handleSubmit = () => {
-    put(route('orders.tracking.update', order.id), {
+    const endpoint = episode
+      ? route('admin.episodes.update-tracking', episode.id)
+      : route('admin.orders.update-tracking', order.id);
+
+    router.post(endpoint, {
+      tracking_number: trackingNumber,
+      carrier: carrier,
+      estimated_delivery: estimatedDelivery || null
+    }, {
       onSuccess: () => {
-        setIsEditing(false);
+        setIsUpdating(false);
+      },
+      onError: () => {
+        setIsUpdating(false);
+        setError('Failed to update tracking information. Please try again.');
       }
     });
   };
 
-  const getCurrentStepIndex = () => {
-    return statusSteps.findIndex(step => step.status === (order.tracking_status || 'pending'));
+  const getTrackingUrl = () => {
+    const carrierInfo = carriers.find(c => c.value === (existingTracking?.carrier || carrier));
+    if (carrierInfo?.trackingUrl && (existingTracking?.tracking_number || trackingNumber)) {
+      return carrierInfo.trackingUrl + (existingTracking?.tracking_number || trackingNumber);
+    }
+    return null;
   };
 
-  const currentStepIndex = getCurrentStepIndex();
+  if (!canUpdate && !hasTracking) {
+    return null;
+  }
 
   return (
-    <div className={`${t.glass.card} ${t.glass.border} rounded-2xl p-6`}>
-      {/* Header with Voice Control */}
+    <div className={`${t.glass.card} ${t.glass.border} rounded-xl p-6`}>
       <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <TruckIcon className="w-5 h-5 text-blue-500" />
-          <h3 className={`${t.text.heading} text-lg font-semibold`}>Tracking Information</h3>
-          {!readOnly && !isEditing && (
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-            >
-              <PencilIcon className="w-4 h-4 text-gray-400" />
-            </button>
+        <h3 className={`text-lg font-semibold ${t.text.primary} flex items-center gap-2`}>
+          <Truck className="w-5 h-5 text-indigo-500" />
+          Tracking Information
+        </h3>
+        {hasTracking && (
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+            <span className="text-xs text-green-600 dark:text-green-400">Tracking Active</span>
+          </div>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          {/* Real-time Status Indicator */}
-          <motion.div
-            animate={{ opacity: [0.5, 1, 0.5] }}
-            transition={{ duration: 2, repeat: Infinity }}
-            className="flex items-center gap-2"
-          >
-            <SignalIcon className="w-4 h-4 text-green-500" />
-            <span className="text-xs text-green-500">Live</span>
-          </motion.div>
-          
-          {/* Voice Control */}
-          <button
-            onClick={() => {
-              setVoiceEnabled(!voiceEnabled);
-              if (!voiceEnabled) handleVoiceUpdate();
-            }}
-            className={`p-2 rounded-lg transition-all ${
-              voiceEnabled 
-                ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400' 
-                : 'hover:bg-white/5'
-            }`}
-            aria-label="Toggle voice updates"
-          >
-            <MicrophoneIcon className="w-5 h-5" />
-          </button>
+
+      {hasTracking ? (
+        // Display existing tracking info
+        <div className="space-y-4">
+          <div className={`${t.glass.subtle} rounded-lg p-4`}>
+            <div className="flex items-start justify-between">
+              <div className="space-y-3 flex-1">
+                <div>
+                  <p className={`text-sm font-medium ${t.text.secondary}`}>Tracking Number</p>
+                  <p className={`text-lg font-mono ${t.text.primary}`}>{existingTracking.tracking_number}</p>
         </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className={`text-sm font-medium ${t.text.secondary}`}>Carrier</p>
+                    <p className={`${t.text.primary}`}>
+                      {carriers.find(c => c.value === existingTracking.carrier)?.label || existingTracking.carrier}
+                    </p>
       </div>
 
-      {/* Tracking Progress Bar */}
-      <div className="mb-6">
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full h-1 bg-gray-200 dark:bg-gray-700 rounded-full">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${(currentStepIndex + 1) / statusSteps.length * 100}%` }}
-                transition={{ duration: 0.5 }}
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full"
-              />
+                  {existingTracking.shipped_at && (
+                    <div>
+                      <p className={`text-sm font-medium ${t.text.secondary}`}>Shipped Date</p>
+                      <p className={`${t.text.primary}`}>
+                        {new Date(existingTracking.shipped_at).toLocaleDateString()}
+                      </p>
             </div>
+                  )}
           </div>
-          <div className="relative flex justify-between">
-            {statusSteps.map((step, index) => {
-              const Icon = step.icon;
-              const isCompleted = index <= currentStepIndex;
-              const isCurrent = index === currentStepIndex;
-              
-              return (
-                <motion.div
-                  key={step.status}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="flex flex-col items-center"
-                >
-                  <div
-                    className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                      isCompleted
-                        ? isCurrent
-                          ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white'
-                          : 'bg-green-500 text-white'
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
-                    }`}
-                  >
-                    <Icon className="w-5 h-5" />
+
+                {existingTracking.estimated_delivery && (
+                  <div>
+                    <p className={`text-sm font-medium ${t.text.secondary}`}>Estimated Delivery</p>
+                    <p className={`${t.text.primary}`}>
+                      {new Date(existingTracking.estimated_delivery).toLocaleDateString()}
+                    </p>
                   </div>
-                  <span className={`text-xs mt-2 ${
-                    isCompleted ? t.text.primary : t.text.muted
-                  }`}>
-                    {step.label}
-                  </span>
-                </motion.div>
-              );
-            })}
+                )}
+              </div>
+
+              {/* QR Code placeholder */}
+              <div className={`${t.glass.subtle} rounded-lg p-3 ml-4`}>
+                <QrCode className="w-16 h-16 text-gray-400" />
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      {isEditing && !readOnly ? (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="space-y-4"
-        >
+          {/* Track Package Button */}
+          {getTrackingUrl() && (
+            <a
+              href={getTrackingUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 ${t.button.ghost} rounded-lg`}
+            >
+              <Globe className="w-4 h-4" />
+              Track Package
+            </a>
+          )}
+
+          {/* Update Tracking (if allowed) */}
+          {canUpdate && (
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <p className={`text-sm ${t.text.secondary} mb-3`}>Need to update tracking information?</p>
+              <button
+                onClick={() => {
+                  setTrackingNumber(existingTracking.tracking_number || '');
+                  setCarrier(existingTracking.carrier || 'ups');
+                  setEstimatedDelivery(existingTracking.estimated_delivery || '');
+                }}
+                className={`text-sm ${t.button.ghost} rounded-lg px-3 py-1.5`}
+              >
+                Edit Tracking
+              </button>
+            </div>
+          )}
+        </div>
+      ) : (
+        // Add tracking form
+        <div className="space-y-4">
           <div>
-            <label className={`block ${t.text.secondary} text-sm mb-2`}>
+            <label className={`block text-sm font-medium ${t.text.primary} mb-2`}>
               Tracking Number
             </label>
             <input
               type="text"
-              value={data.tracking_number}
-              onChange={(e) => setData('tracking_number', e.target.value)}
-              className={`w-full px-4 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
-              placeholder="Enter tracking number"
+              value={trackingNumber}
+              onChange={(e) => {
+                setTrackingNumber(e.target.value);
+                setError('');
+              }}
+              placeholder="Enter tracking number..."
+              className={`w-full px-3 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
             />
           </div>
 
           <div>
-            <label className={`block ${t.text.secondary} text-sm mb-2`}>
+            <label className={`block text-sm font-medium ${t.text.primary} mb-2`}>
               Carrier
             </label>
             <select
-              value={data.tracking_carrier}
-              onChange={(e) => setData('tracking_carrier', e.target.value)}
-              className={`w-full px-4 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
+              value={carrier}
+              onChange={(e) => setCarrier(e.target.value)}
+              className={`w-full px-3 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
             >
-              <option value="">Select carrier</option>
-              {carrierOptions.map(carrier => (
-                <option key={carrier.value} value={carrier.value}>
-                  {carrier.label}
-                </option>
+              {carriers.map(c => (
+                <option key={c.value} value={c.value}>{c.label}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label className={`block ${t.text.secondary} text-sm mb-2`}>
-              Status
+            <label className={`block text-sm font-medium ${t.text.primary} mb-2`}>
+              Estimated Delivery Date (Optional)
             </label>
-            <select
-              value={data.tracking_status}
-              onChange={(e) => setData('tracking_status', e.target.value)}
-              className={`w-full px-4 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
-            >
-              {statusSteps.map(step => (
-                <option key={step.status} value={step.status}>
-                  {step.label}
-                </option>
-              ))}
-            </select>
+            <input
+              type="date"
+              value={estimatedDelivery}
+              onChange={(e) => setEstimatedDelivery(e.target.value)}
+              min={new Date().toISOString().split('T')[0]}
+              className={`w-full px-3 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
+            />
           </div>
 
-          <div className="flex gap-3">
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleSubmit}
-              disabled={processing}
-              className={`flex-1 px-4 py-2 ${t.button.primary} rounded-lg`}
+          {/* Error Message */}
+          {error && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="flex items-center gap-2 text-red-500 text-sm"
             >
-              {processing ? (
-                <ArrowPathIcon className="w-5 h-5 animate-spin mx-auto" />
-              ) : (
-                'Save Changes'
-              )}
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => setIsEditing(false)}
-              className={`px-4 py-2 ${t.button.secondary} rounded-lg`}
-            >
-              Cancel
-            </motion.button>
-          </div>
+              <AlertCircle className="w-4 h-4" />
+              {error}
         </motion.div>
-      ) : (
-        <div className="space-y-4">
-          {/* Tracking Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className={`p-4 ${t.glass.card} ${t.glass.border} rounded-lg`}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center">
-                  <TruckIcon className="w-5 h-5 text-blue-500" />
-                </div>
-                <div>
-                  <p className={`${t.text.muted} text-sm`}>Tracking Number</p>
-                  <p className={`${t.text.primary} font-medium`}>
-                    {order.tracking_number || 'Not assigned'}
-                  </p>
-                </div>
-              </div>
-            </div>
+          )}
 
-            <div className={`p-4 ${t.glass.card} ${t.glass.border} rounded-lg`}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-full bg-purple-500/20 flex items-center justify-center">
-                  <SparklesIcon className="w-5 h-5 text-purple-500" />
-                </div>
-                <div>
-                  <p className={`${t.text.muted} text-sm`}>Carrier</p>
-                  <p className={`${t.text.primary} font-medium`}>
-                    {carrierOptions.find(c => c.value === order.tracking_carrier)?.label || 'Not specified'}
-                  </p>
-                </div>
-              </div>
+          {/* Status Messages */}
+          <div className={`${t.glass.subtle} rounded-lg p-4`}>
+            <div className="flex items-center gap-2 mb-2">
+              <CheckCircle className="w-4 h-4 text-green-500" />
+              <span className={`text-sm ${t.text.secondary}`}>
+                Order has been sent to manufacturer
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-blue-500" />
+              <span className={`text-sm ${t.text.secondary}`}>
+                Awaiting shipment tracking
+              </span>
             </div>
           </div>
 
-          {/* Estimated Delivery */}
-          {order.estimated_delivery && (
-            <div className={`p-4 ${t.glass.card} ${t.glass.border} rounded-lg`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <ClockIcon className="w-5 h-5 text-amber-500" />
-                  <div>
-                    <p className={`${t.text.muted} text-sm`}>Estimated Delivery</p>
-                    <p className={`${t.text.primary} font-medium`}>
-                      {new Date(order.estimated_delivery).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  className="px-3 py-1 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-full text-sm"
-                >
-                  On Schedule
-                </motion.div>
-              </div>
-            </div>
-          )}
-
-          {/* Real-time Update Alert */}
-          <AnimatePresence>
-            {showRealTimeUpdate && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -20 }}
-                className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl"
-              >
-                <div className="flex items-start gap-3">
-                  <BellIcon className="w-5 h-5 text-blue-500 mt-0.5" />
-                  <div className="flex-1">
-                    <p className="text-blue-600 dark:text-blue-400 font-medium">
-                      Real-time Update
-                    </p>
-                    <p className={`${t.text.muted} text-sm mt-1`}>
-                      Package scanned at distribution center. Delivery on track.
-                    </p>
-                  </div>
+          {/* Update Button */}
                   <button
-                    onClick={() => setShowRealTimeUpdate(false)}
-                    className="text-blue-500 hover:text-blue-600 transition-colors"
-                  >
-                    <span className="text-sm">Dismiss</span>
-                  </button>
-                </div>
-              </motion.div>
+            onClick={handleUpdateTracking}
+            disabled={isUpdating || !trackingNumber.trim()}
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 ${
+              isUpdating || !trackingNumber.trim()
+                ? 'bg-gray-300 dark:bg-gray-700 cursor-not-allowed'
+                : t.button.primary
+            } rounded-lg font-medium transition-all`}
+          >
+            {isUpdating ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent" />
+                Updating...
+              </>
+            ) : (
+              <>
+                <Package className="w-5 h-5" />
+                Add Tracking Information
+              </>
             )}
-          </AnimatePresence>
-
-          {/* Track Package Button */}
-          {order.tracking_number && (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full px-4 py-3 bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-lg font-medium"
-            >
-              Track Package in Real-Time
-            </motion.button>
-          )}
+          </button>
         </div>
       )}
     </div>

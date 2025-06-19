@@ -466,7 +466,7 @@ CREATE TABLE settings (
 
 -- Ashley's main dashboard view
 CREATE OR REPLACE VIEW admin_order_queue AS
-SELECT 
+SELECT
   o.id,
   o.order_number,
   o.recipient_name as patient_name,
@@ -476,7 +476,7 @@ SELECT
   o.requested_delivery_date,
   o.status,
   o.provider_submitted_at,
-  CASE 
+  CASE
     WHEN o.status = 'pending_admin_review' THEN 'Review'
     WHEN o.status = 'submitted_to_manufacturer' THEN 'Track'
     ELSE 'View'
@@ -496,12 +496,12 @@ ORDER BY o.provider_submitted_at DESC;
 
 -- Patient verification status view
 CREATE OR REPLACE VIEW recipient_verification_status AS
-SELECT 
+SELECT
   rv.*,
   m.name as manufacturer_name,
   ms.verification_frequency,
   r.full_name as recipient_name,
-  CASE 
+  CASE
     WHEN rv.expiration_date < CURRENT_DATE THEN 'expired'
     WHEN rv.expiration_date < CURRENT_DATE + INTERVAL '7 days' THEN 'expiring_soon'
     ELSE rv.status
@@ -517,7 +517,7 @@ JOIN recipients r ON rv.recipient_id = r.id;
 
 CREATE INDEX idx_orders_tenant_status ON orders(tenant_id, status);
 CREATE INDEX idx_documents_pending ON documents(status) WHERE status IN ('draft', 'pending_signature');
-CREATE INDEX idx_verifications_expiring ON recipient_verifications(expiration_date) 
+CREATE INDEX idx_verifications_expiring ON recipient_verifications(expiration_date)
   WHERE status = 'verified' AND expiration_date IS NOT NULL;
 CREATE INDEX idx_shipments_pending ON shipments(order_id) WHERE delivered_date IS NULL;
 
@@ -533,6 +533,7 @@ CREATE POLICY tenant_isolation ON orders
 
 -- Apply similar RLS policies to all tenant-scoped tables
 Key Design Features
+
 1. Multi-Tenant Architecture
 
 Supports multiple medical distribution companies
@@ -578,7 +579,7 @@ Rule-based system
 Migration from Current Schema
 sql-- Example migration helpers
 INSERT INTO recipients (tenant_id, type, identifier, first_name, last_name, metadata)
-SELECT 
+SELECT
   '00000000-0000-0000-0000-000000000001' as tenant_id,
   'patient' as type,
   patient_fhir_id as identifier,
@@ -622,6 +623,7 @@ Audit Trail - More comprehensive than activity_logs
 
 Let me enhance the schema with these missing pieces while keeping it generic enough for any medical distribution company.Looking at the project documents, here are the critical additions needed to make the schema complete:
 🔧 Enhanced Schema Additions
+
 1. Compliance & Validation Engine Tables
 sql-- =====================================================
 -- COMPLIANCE & MAC VALIDATION (Generic for any regulatory body)
@@ -973,7 +975,7 @@ CREATE TABLE knowledge_embeddings (
 );
 
 -- Create index for similarity search
-CREATE INDEX knowledge_embeddings_vector_idx ON knowledge_embeddings 
+CREATE INDEX knowledge_embeddings_vector_idx ON knowledge_embeddings
 USING ivfflat (embedding vector_cosine_ops);
 7. Clinical Data Extensions
 sql-- =====================================================
@@ -1033,7 +1035,7 @@ ALTER TABLE documents ADD COLUMN IF NOT EXISTS
   signature_request_sent_at TIMESTAMP WITH TIME ZONE,
   signature_completed_at TIMESTAMP WITH TIME ZONE;
 
-CREATE INDEX idx_documents_docuseal ON documents(docuseal_submission_id) 
+CREATE INDEX idx_documents_docuseal ON documents(docuseal_submission_id)
   WHERE docuseal_submission_id IS NOT NULL;
 9. Enhanced Audit Trail
 sql-- =====================================================
@@ -1119,6 +1121,7 @@ I'll examine the directory structure to identify any additional components or fe
 ## 🚨 Critical Missing Components
 
 ### 1. **FHIR Reference Management**
+
 ```sql
 -- =====================================================
 -- FHIR INTEGRATION & REFERENCE TRACKING
@@ -1174,6 +1177,7 @@ CREATE TABLE smart_sessions (
 ```
 
 ### 2. **Specialty-Specific Configuration**
+
 ```sql
 -- =====================================================
 -- SPECIALTY MANAGEMENT (Wound, Vascular, etc.)
@@ -1218,6 +1222,7 @@ CREATE TABLE user_specialties (
 ```
 
 ### 3. **EHR Integration Tracking**
+
 ```sql
 -- =====================================================
 -- EHR INTEGRATIONS (eClinicalWorks, Epic, etc.)
@@ -1268,6 +1273,7 @@ CREATE TABLE ehr_sync_logs (
 ```
 
 ### 4. **Enhanced Order Flow Fields**
+
 ```sql
 -- =====================================================
 -- ENHANCED ORDER DETAILS (From 90-second flow)
@@ -1313,6 +1319,7 @@ ALTER TABLE orders ADD COLUMN IF NOT EXISTS
 ```
 
 ### 5. **Cost Estimation & Financial**
+
 ```sql
 -- =====================================================
 -- COST ESTIMATION & PATIENT RESPONSIBILITY
@@ -1346,6 +1353,7 @@ CREATE TABLE cost_estimates (
 ```
 
 ### 6. **Quick Actions & Shortcuts (Ashley's Workflow)**
+
 ```sql
 -- =====================================================
 -- USER WORKFLOW OPTIMIZATIONS
@@ -1387,6 +1395,7 @@ CREATE TABLE saved_filters (
 ```
 
 ### 7. **Analytics & Reporting Foundation**
+
 ```sql
 -- =====================================================
 -- ANALYTICS & METRICS
@@ -1430,6 +1439,7 @@ CREATE TABLE user_events (
 ```
 
 ### 8. **Integration Queue Management**
+
 ```sql
 -- =====================================================
 -- ASYNC PROCESSING & QUEUES
@@ -1465,7 +1475,7 @@ CREATE TABLE integration_queue (
 );
 ```
 
-## 💡 Three Thought-Provoking Questions:
+## 💡 Three Thought-Provoking Questions
 
 1. **Multi-Modal Integration Strategy**: Given that medical distributors often need to integrate with dozens of different systems (EHRs, payers, manufacturers), should we implement a plugin architecture where each integration is a self-contained module with its own schema extensions? This could allow rapid onboarding of new partners without core schema changes.
 
@@ -2014,6 +2024,7 @@ Looking at this comprehensive schema against your project documents, it's **near
 ## 🔍 Missing Components Analysis
 
 ### 1. **Fee Schedule & Pricing Intelligence**
+
 ```sql
 -- =====================================================
 -- CMS FEE SCHEDULES & PRICING
@@ -2061,6 +2072,7 @@ CREATE TABLE product_margins (
 ```
 
 ### 2. **Enhanced Commission Hierarchy**
+
 ```sql
 -- =====================================================
 -- MULTI-LEVEL COMMISSION TRACKING
@@ -2102,6 +2114,7 @@ CREATE TABLE sales_team_members (
 ```
 
 ### 3. **Batch Processing & Bulk Operations**
+
 ```sql
 -- =====================================================
 -- BATCH OPERATIONS (Ashley's bulk IVR updates)
@@ -2152,6 +2165,7 @@ CREATE TABLE batch_operation_items (
 ```
 
 ### 4. **Returns & Refunds Workflow**
+
 ```sql
 -- =====================================================
 -- RETURNS & REFUNDS
@@ -2187,6 +2201,7 @@ CREATE TABLE returns (
 ```
 
 ### 5. **Financial Reconciliation**
+
 ```sql
 -- =====================================================
 -- FINANCIAL RECONCILIATION
@@ -2240,6 +2255,7 @@ CREATE TABLE payments (
 ```
 
 ### 6. **Notification Templates & Delivery**
+
 ```sql
 -- =====================================================
 -- ENHANCED NOTIFICATIONS
@@ -2288,6 +2304,7 @@ CREATE TABLE notification_deliveries (
 ```
 
 ### 7. **Inventory Management (If Needed)**
+
 ```sql
 -- =====================================================
 -- INVENTORY TRACKING (Optional)
@@ -2327,6 +2344,7 @@ CREATE TABLE inventory_levels (
 ```
 
 ### 8. **Mobile App Support**
+
 ```sql
 -- =====================================================
 -- MOBILE APP SUPPORT
@@ -2368,6 +2386,7 @@ CREATE TABLE mobile_sessions (
 ## 🎯 Assessment: 95% Complete
 
 The schema is **extremely comprehensive** and covers:
+
 - ✅ Multi-tenant architecture
 - ✅ Complex validation rules
 - ✅ External API integrations
@@ -2379,7 +2398,7 @@ The schema is **extremely comprehensive** and covers:
 
 With the additions above, it would be 100% complete for a universal medical distribution platform.
 
-## 💡 Three Strategic Questions:
+## 💡 Three Strategic Questions
 
 1. **Data Partitioning Strategy**: Given the potential scale (millions of orders, verifications), should we implement PostgreSQL table partitioning from day one? For example, partitioning `orders` by `created_at` month or `api_transactions` by date could dramatically improve query performance.
 

@@ -183,9 +183,7 @@ export default function RequestAccessPage({ roles }: Props) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-    }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 gradient-bg">
       <Head title="MSC Wound Portal - Request Access" />
 
       <div className="w-full max-w-2xl">
@@ -430,11 +428,7 @@ export default function RequestAccessPage({ roles }: Props) {
                 <button
                   type="submit"
                   disabled={processing || !data.requested_role}
-                  className="flex-1 py-3 px-6 rounded-lg text-white font-semibold text-sm transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-offset-2"
-                  style={{
-                    backgroundColor: '#1822cf',
-                    '--tw-ring-color': '#1822cf'
-                  } as React.CSSProperties}
+                  className="flex-1 py-3 px-6 rounded-lg text-white font-semibold text-sm bg-primary transition-all duration-200 disabled:opacity-70 disabled:cursor-not-allowed flex justify-center items-center focus:outline-none focus:ring-2 focus:ring-offset-2"
                 >
                   {processing ? (
                     <>

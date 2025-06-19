@@ -13,9 +13,7 @@ use App\Http\Controllers\PermissionController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\RBACController;
-use App\Http\Controllers\AccessControlController;
-use App\Http\Controllers\Auth\AccessRequestController;
-use App\Http\Controllers\Api\V1\Admin\CustomerManagementController;
+// Deprecated controllers removed - AccessControlController, CustomerManagementController
 use App\Http\Controllers\Api\V1\ProviderOnboardingController;
 use App\Http\Controllers\Api\V1\ProviderProfileController;
 use App\Http\Controllers\Api\ProductRequestPatientController;
@@ -336,35 +334,8 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::put('/rbac/roles/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('api.rbac.roles.update-permissions');
     });
 
-    // Access Control Management Routes
-    Route::middleware(['auth:sanctum', 'permission:manage-access-control'])->group(function () {
-        Route::get('/access-control/users', [AccessControlController::class, 'getUsersApi']);
-        Route::post('/access-control/users/{user}/assign-role', [AccessControlController::class, 'assignRoleApi']);
-        Route::delete('/access-control/users/{user}/remove-role', [AccessControlController::class, 'removeRoleApi']);
-        Route::get('/access-control/stats', [AccessControlController::class, 'getStats']);
-        Route::get('/access-control/security-monitoring', [AccessControlController::class, 'getSecurityMonitoring']);
-        Route::post('/access-control/mark-reviewed', [AccessControlController::class, 'markAsReviewed']);
-        Route::put('/access-control/users/{user}/role', [AccessControlController::class, 'updateUserRole']);
-        Route::patch('/access-control/users/{user}/status', [AccessControlController::class, 'toggleUserStatus']);
-        Route::delete('/access-control/users/{user}/access', [AccessControlController::class, 'revokeAccess']);
-    });
-
-    // Access Request Routes
-    Route::middleware(['auth:sanctum'])->group(function () {
-        Route::middleware('permission:view-access-requests')->group(function () {
-            Route::get('/access-requests', [AccessRequestController::class, 'index'])->name('api.access-requests.index');
-            Route::get('/access-requests/{accessRequest}', [AccessRequestController::class, 'show'])->name('api.access-requests.show');
-        });
-
-        Route::middleware('permission:approve-access-requests')->group(function () {
-            Route::post('/access-requests/{accessRequest}/approve', [AccessRequestController::class, 'approve'])->name('api.access-requests.approve');
-            Route::post('/access-requests/{accessRequest}/deny', [AccessRequestController::class, 'deny'])->name('api.access-requests.deny');
-        });
-    });
-
-    // Public access request routes (no auth required)
-    Route::post('/access-requests', [AccessRequestController::class, 'store'])->name('api.access-requests.store');
-    Route::get('/access-requests/role-fields', [AccessRequestController::class, 'getRoleFields'])->name('api.access-requests.role-fields');
+    // Deprecated Access Control and Access Request routes removed
+    // These features have been deprecated and functionality consolidated into RBAC system
 });
 
 // Provider Profile Management Routes
@@ -406,30 +377,8 @@ Route::prefix('v1')->group(function () {
     });
 });
 
-Route::prefix('api/v1/admin')->group(function () {
-    // Organization Management - Require specific customer management permission
-    Route::middleware(['role:msc-admin', 'permission:manage-customers'])->group(function () {
-        Route::get('/customers/organizations', [CustomerManagementController::class, 'listOrganizations']);
-        Route::post('/customers/organizations', [CustomerManagementController::class, 'createOrganization']);
-        Route::get('/customers/organizations/{organizationId}/hierarchy', [CustomerManagementController::class, 'getOrganizationHierarchy'])->name('admin.customers.organizations.hierarchy');
-        Route::get('/customers/organizations/{organizationId}/onboarding', [CustomerManagementController::class, 'getOnboardingStatus'])->name('admin.customers.organizations.onboarding');
-    });
-
-    // Facility Management - Require specific facility management permission
-    Route::middleware(['role:msc-admin', 'permission:manage-facilities'])->group(function () {
-        Route::post('/customers/organizations/{organizationId}/facilities', [CustomerManagementController::class, 'addFacility'])->name('admin.customers.facilities.add');
-    });
-
-    // Provider Management - Require specific provider management permission
-    Route::middleware(['role:msc-admin', 'permission:manage-providers'])->group(function () {
-        Route::post('/customers/organizations/{organizationId}/invite-providers', [CustomerManagementController::class, 'inviteProviders'])->name('admin.customers.providers.invite');
-    });
-
-    // Document Management - Require document management permission
-    Route::middleware(['role:msc-admin', 'permission:manage-documents'])->group(function () {
-        Route::post('/customers/documents/upload', [CustomerManagementController::class, 'uploadDocument'])->name('admin.customers.documents.upload');
-    });
-});
+// Deprecated CustomerManagementController routes removed
+// Organization management now handled by OrganizationManagementController via web routes
 
 // Provider Self-Service Routes
 Route::prefix('api/v1')->group(function () {

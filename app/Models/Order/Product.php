@@ -23,6 +23,8 @@ class Product extends Model
         'category',
         'category_id',
         'national_asp',
+        'mue',
+        'cms_last_updated',
         'price_per_sq_cm',
         'q_code',
         'available_sizes',
@@ -37,7 +39,9 @@ class Product extends Model
         'available_sizes' => 'array',
         'document_urls' => 'array',
         'national_asp' => 'decimal:2',
-        'price_per_sq_cm' => 'decimal:4',
+        'mue' => 'integer',
+        'cms_last_updated' => 'datetime',
+        'price_per_sq_cm' => 'decimal:2',
         'commission_rate' => 'decimal:2',
         'is_active' => 'boolean',
     ];
@@ -201,5 +205,68 @@ class Product extends Model
     public function isAvailableForProvider($userId): bool
     {
         return $this->activeProviders()->where('users.id', $userId)->exists();
+    }
+
+    /**
+     * Check if a requested quantity exceeds CMS MUE limits
+     */
+    public function exceedsMueLimit(int $quantity): bool
+    {
+        return $this->mue !== null && $quantity > $this->mue;
+    }
+
+    /**
+     * Get maximum allowed quantity based on MUE
+     */
+    public function getMaxAllowedQuantity(): ?int
+    {
+        return $this->mue;
+    }
+
+    /**
+     * Check if product has MUE enforcement
+     */
+    public function hasMueEnforcement(): bool
+    {
+        return $this->mue !== null;
+    }
+
+    /**
+     * Get CMS enrichment status
+     */
+    public function getCmsStatusAttribute(): string
+    {
+        if (!$this->cms_last_updated) {
+            return 'not_synced';
+        }
+
+        $daysSinceUpdate = $this->cms_last_updated->diffInDays(now());
+
+        if ($daysSinceUpdate > 90) {
+            return 'stale';
+        } elseif ($daysSinceUpdate > 30) {
+            return 'needs_update';
+        }
+
+        return 'current';
+    }
+
+    /**
+     * Validate order quantity against MUE limits
+     */
+    public function validateOrderQuantity(int $quantity): array
+    {
+        $result = [
+            'valid' => true,
+            'warnings' => [],
+            'errors' => []
+        ];
+
+        if ($this->exceedsMueLimit($quantity)) {
+            $result['valid'] = false;
+            $result['errors'][] = "Requested quantity ({$quantity}) exceeds CMS MUE limit ({$this->mue}) for Q-code {$this->q_code}";
+        }
+
+        return $result;
     }
 }

@@ -185,7 +185,8 @@ class QuickRequestController extends Controller
             $episode = $this->findOrCreateEpisode(
                 $patientIdentifiers['patient_fhir_id'],
                 $manufacturerId,
-                $patientIdentifiers['patient_display_id']
+                $patientIdentifiers['patient_display_id'],
+                $validated['docuseal_submission_id']
             );
 
             // Create the product request with provider-generated IVR
@@ -317,7 +318,7 @@ class QuickRequestController extends Controller
     /**
      * ASHLEY'S REQUIREMENT: Find or create episode for patient+manufacturer combination
      */
-    private function findOrCreateEpisode($patientFhirId, $manufacturerId, $patientDisplayId)
+    private function findOrCreateEpisode($patientFhirId, $manufacturerId, $patientDisplayId, $docusealSubmissionId = null)
     {
         // Find existing episode for this patient+manufacturer combination
         $episode = PatientIVRStatus::where('patient_id', $patientFhirId)
@@ -336,11 +337,21 @@ class QuickRequestController extends Controller
                 'manufacturer_id' => $manufacturerId,
                 'status' => 'ready_for_review', // Provider submitted with IVR
                 'ivr_status' => 'provider_completed',
+                'docuseal_submission_id' => $docusealSubmissionId, // Store DocuSeal ID
                 'verification_date' => now(),
                 'expiration_date' => now()->addMonths(3), // Default 3-month expiration
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+        } else {
+            // Update existing episode with new DocuSeal submission if provided
+            if ($docusealSubmissionId && !$episode->docuseal_submission_id) {
+                $episode->update([
+                    'docuseal_submission_id' => $docusealSubmissionId,
+                    'ivr_status' => 'provider_completed',
+                    'verification_date' => now(),
+                ]);
+            }
         }
 
         return $episode;

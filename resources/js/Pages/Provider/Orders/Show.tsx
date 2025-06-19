@@ -1,21 +1,118 @@
 import React, { useState } from 'react';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
-import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/ui/button';
 import {
   ArrowLeft,
-  FileText,
+  CheckCircle,
   Clock,
+  Package,
+  FileText,
+  Truck,
+  AlertTriangle,
+  Calendar,
+  DollarSign,
   User,
   Building2,
-  Package,
-  CheckCircle,
-  AlertTriangle,
-  Activity,
-  Calendar,
+  Phone,
+  Mail,
+  Download,
+  MessageCircle,
+  ExternalLink,
+  Copy,
+  Check,
+  AlertCircle,
   Heart,
+  Eye,
+} from 'lucide-react';
+
+// Clean, purposeful status configuration
+const statusConfig = {
+  ready_for_review: {
+    color: 'from-blue-500 to-blue-600',
+    bgColor: 'bg-blue-50',
+    textColor: 'text-blue-800',
+    icon: Clock,
+    title: 'Under Review',
+    message: 'Your order is being reviewed by our clinical team',
+    progress: 25,
+  },
+  ivr_sent: {
+    color: 'from-amber-500 to-orange-500',
+    bgColor: 'bg-amber-50',
+    textColor: 'text-amber-800',
+    icon: FileText,
+    title: 'Insurance Processing',
+    message: 'Insurance verification is in progress',
+    progress: 50,
+  },
+  ivr_verified: {
+    color: 'from-green-500 to-emerald-500',
+    bgColor: 'bg-green-50',
+    textColor: 'text-green-800',
+    icon: CheckCircle,
+    title: 'Approved',
+    message: 'Insurance verified and order approved',
+    progress: 75,
+  },
+  sent_to_manufacturer: {
+    color: 'from-purple-500 to-indigo-500',
+    bgColor: 'bg-purple-50',
+    textColor: 'text-purple-800',
+    icon: Package,
+    title: 'In Production',
+    message: 'Order is being prepared for shipment',
+    progress: 85,
+  },
+  tracking_added: {
+    color: 'from-indigo-500 to-blue-500',
+    bgColor: 'bg-indigo-50',
+    textColor: 'text-indigo-800',
+    icon: Truck,
+    title: 'Shipped',
+    message: 'Order is on its way to you',
+    progress: 95,
+  },
+  completed: {
+    color: 'from-green-500 to-teal-500',
+    bgColor: 'bg-green-50',
+    textColor: 'text-green-800',
+    icon: CheckCircle,
+    title: 'Delivered',
+    message: 'Order completed successfully',
+    progress: 100,
+  },
+};
+
+const ProviderOrderShow = ({ order }) => {
+  const [copied, setCopied] = useState(false);
+
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount || 0);
+  };
+
+  const formatDate = (dateString) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  const copyOrderNumber = async () => {
+    await navigator.clipboard.writeText(order.order_number);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (!order) {
+    return (
+      <MainLayout title="Order Not Found">
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
   Mail,
   Phone,
   Pill,

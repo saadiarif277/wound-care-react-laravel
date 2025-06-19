@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
+import { Input } from '@/Components/Input';
 import { themes } from '@/theme/glass-theme';
 import EpisodeCard from '@/Components/Episodes/EpisodeCard';
 import {
@@ -48,6 +49,11 @@ import {
   PlayCircle,
   PauseCircle,
   SkipForward,
+  Grid3X3,
+  List,
+  ExternalLink,
+  Building2,
+  User,
 } from 'lucide-react';
 import {
   Chart as ChartJS,
@@ -78,12 +84,14 @@ ChartJS.register(
   Filler
 );
 
+import { EpisodeStatus, IVRStatus } from '@/types/episode';
+
 interface Episode {
   id: string;
   patient_id: string;
   patient_display_id: string;
-  status: string;
-  ivr_status: string;
+  status: EpisodeStatus;
+  ivr_status: IVRStatus;
   manufacturer: {
     id: number;
     name: string;
@@ -100,6 +108,8 @@ interface Episode {
   action_required: boolean;
   created_at: string;
   updated_at: string;
+  orders_count: number;
+  latest_order_date: string;
 }
 
 interface DashboardStats {
@@ -139,10 +149,16 @@ interface Props {
     episodesCompleted: number[];
     averageProcessingTime: number[];
   };
+  pagination?: {
+    total: number;
+    per_page: number;
+    current_page: number;
+    last_page: number;
+  };
 }
 
-export default function EnhancedDashboard({ 
-  episodes = [], 
+export default function EnhancedDashboard({
+  episodes = [],
   stats = {
     total_episodes: 0,
     pending_review: 0,
@@ -173,6 +189,7 @@ export default function EnhancedDashboard({
   const [voiceEnabled, setVoiceEnabled] = useState(false);
   const [showPredictiveAlerts, setShowPredictiveAlerts] = useState(true);
   const [dashboardView, setDashboardView] = useState<'episodes' | 'analytics' | 'workflow'>('episodes');
+  const [episodeView, setEpisodeView] = useState<'cards' | 'list'>('cards');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
   const [isListening, setIsListening] = useState(false);
@@ -251,11 +268,11 @@ export default function EnhancedDashboard({
 
   // Filter episodes
   const filteredEpisodes = episodes.filter(episode => {
-    const matchesSearch = searchQuery === '' || 
+    const matchesSearch = searchQuery === '' ||
       episode.patient_display_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       episode.orders.some(order => order.order_number.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesManufacturer = selectedManufacturer === 'all' || 
+
+    const matchesManufacturer = selectedManufacturer === 'all' ||
       episode.manufacturer.name === selectedManufacturer;
 
     return matchesSearch && matchesManufacturer;
@@ -367,8 +384,8 @@ export default function EnhancedDashboard({
                 <button
                   onClick={() => setDashboardView('episodes')}
                   className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                    dashboardView === 'episodes' 
-                      ? `${t.button.primary}` 
+                    dashboardView === 'episodes'
+                      ? `${t.button.primary}`
                       : `${t.button.ghost}`
                   }`}
                 >
@@ -377,8 +394,8 @@ export default function EnhancedDashboard({
                 <button
                   onClick={() => setDashboardView('analytics')}
                   className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                    dashboardView === 'analytics' 
-                      ? `${t.button.primary}` 
+                    dashboardView === 'analytics'
+                      ? `${t.button.primary}`
                       : `${t.button.ghost}`
                   }`}
                 >
@@ -387,8 +404,8 @@ export default function EnhancedDashboard({
                 <button
                   onClick={() => setDashboardView('workflow')}
                   className={`px-3 py-1.5 text-sm rounded transition-colors ${
-                    dashboardView === 'workflow' 
-                      ? `${t.button.primary}` 
+                    dashboardView === 'workflow'
+                      ? `${t.button.primary}`
                       : `${t.button.ghost}`
                   }`}
                 >
@@ -396,9 +413,38 @@ export default function EnhancedDashboard({
                 </button>
               </div>
 
+              {/* View Mode Toggle for Episodes */}
+              {dashboardView === 'episodes' && (
+                <div className={`${t.glass.card} ${t.glass.border} p-1 flex`}>
+                  <button
+                    onClick={() => setEpisodeView('cards')}
+                    className={`p-2 rounded transition-colors ${
+                      episodeView === 'cards'
+                        ? `${t.button.primary}`
+                        : `${t.button.ghost}`
+                    }`}
+                    title="Card view"
+                  >
+                    <Grid3X3 className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setEpisodeView('list')}
+                    className={`p-2 rounded transition-colors ${
+                      episodeView === 'list'
+                        ? `${t.button.primary}`
+                        : `${t.button.ghost}`
+                    }`}
+                    title="List view"
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
               <button
                 onClick={() => router.reload()}
                 className={`${t.button.ghost} p-2`}
+                title="Refresh Dashboard"
               >
                 <RefreshCw className="w-4 h-4" />
               </button>
@@ -421,6 +467,7 @@ export default function EnhancedDashboard({
                 <button
                   onClick={() => setShowPredictiveAlerts(false)}
                   className={`${t.button.ghost} p-1`}
+                  title="Hide AI Predictive Insights"
                 >
                   <ChevronDown className="w-4 h-4" />
                 </button>
@@ -430,7 +477,7 @@ export default function EnhancedDashboard({
                 {aiInsights.slice(0, 3).map((insight) => (
                   <div
                     key={insight.id}
-                    className={`${t.glass.card} ${t.glass.border} p-3 hover:shadow-lg transition-all cursor-pointer`}
+                    className={`${t.glass.card} p-3 hover:shadow-lg transition-all cursor-pointer`}
                     onClick={() => insight.action && router.visit(insight.action.route)}
                   >
                     <div className="flex items-start space-x-2">
@@ -465,68 +512,63 @@ export default function EnhancedDashboard({
           </div>
         )}
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all`}>
+        {/* Streamlined Key Metrics - Less Crowded Design */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div className={`${t.glass.card} ${t.glass.border} p-4 hover:shadow-lg transition-all`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm ${t.text.secondary}`}>Total Episodes</p>
-                <p className={`text-2xl font-bold ${t.text.primary} mt-1`}>{stats.total_episodes}</p>
-                <p className="text-xs text-green-500 mt-2 flex items-center">
-                  <ArrowUp className="w-3 h-3 mr-1" />
-                  {stats.episodes_this_week} this week
+                <p className={`text-xs ${t.text.secondary}`}>Episodes</p>
+                <p className={`text-xl font-bold ${t.text.primary}`}>{stats.total_episodes}</p>
+                <p className="text-xs text-green-500 mt-1">
+                  +{stats.episodes_this_week} this week
                 </p>
               </div>
-              <div className="p-3 bg-blue-500/20 rounded-lg">
-                <Layers className="w-6 h-6 text-blue-500" />
-              </div>
+              <Layers className="w-5 h-5 text-blue-500" />
             </div>
           </div>
 
-          <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all`}>
+          <div className={`${t.glass.card} ${t.glass.border} p-4 hover:shadow-lg transition-all`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm ${t.text.secondary}`}>Pending Review</p>
-                <p className={`text-2xl font-bold ${t.text.primary} mt-1`}>{stats.pending_review}</p>
-                <p className={`text-xs ${stats.pending_review > 0 ? 'text-yellow-500' : 'text-green-500'} mt-2`}>
-                  {stats.pending_review > 0 ? 'Requires attention' : 'All reviewed'}
+                <p className={`text-xs ${t.text.secondary}`}>Pending</p>
+                <p className={`text-xl font-bold ${stats.pending_review > 0 ? 'text-yellow-600' : t.text.primary}`}>
+                  {stats.pending_review}
+                </p>
+                <p className={`text-xs ${stats.pending_review > 0 ? 'text-yellow-500' : 'text-green-500'} mt-1`}>
+                  {stats.pending_review > 0 ? 'Action needed' : 'All clear'}
                 </p>
               </div>
-              <div className="p-3 bg-yellow-500/20 rounded-lg">
-                <Clock className="w-6 h-6 text-yellow-500" />
-              </div>
+              <Clock className="w-5 h-5 text-yellow-500" />
             </div>
           </div>
 
-          <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all`}>
+          <div className={`${t.glass.card} ${t.glass.border} p-4 hover:shadow-lg transition-all`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm ${t.text.secondary}`}>IVR Expiring Soon</p>
-                <p className={`text-2xl font-bold ${t.text.primary} mt-1`}>{stats.ivr_expiring_soon}</p>
-                <p className={`text-xs ${stats.ivr_expiring_soon > 0 ? 'text-orange-500' : 'text-green-500'} mt-2`}>
-                  {stats.ivr_expiring_soon > 0 ? 'Within 30 days' : 'None expiring'}
+                <p className={`text-xs ${t.text.secondary}`}>Expiring</p>
+                <p className={`text-xl font-bold ${stats.ivr_expiring_soon > 0 ? 'text-orange-600' : t.text.primary}`}>
+                  {stats.ivr_expiring_soon}
+                </p>
+                <p className={`text-xs ${stats.ivr_expiring_soon > 0 ? 'text-orange-500' : 'text-green-500'} mt-1`}>
+                  {stats.ivr_expiring_soon > 0 ? '≤30 days' : 'None'}
                 </p>
               </div>
-              <div className="p-3 bg-orange-500/20 rounded-lg">
-                <AlertTriangle className="w-6 h-6 text-orange-500" />
-              </div>
+              <Timer className="w-5 h-5 text-orange-500" />
             </div>
           </div>
 
-          <div className={`${t.glass.card} ${t.glass.border} p-6 hover:shadow-lg transition-all`}>
+          <div className={`${t.glass.card} ${t.glass.border} p-4 hover:shadow-lg transition-all`}>
             <div className="flex items-center justify-between">
               <div>
-                <p className={`text-sm ${t.text.secondary}`}>Total Value</p>
-                <p className={`text-2xl font-bold ${t.text.primary} mt-1`}>
-                  ${(stats.total_value || 0).toLocaleString()}
+                <p className={`text-xs ${t.text.secondary}`}>Value</p>
+                <p className={`text-xl font-bold ${t.text.primary}`}>
+                  ${(stats.total_value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-xs text-green-500 mt-2">
-                  {stats.completion_rate}% completion rate
+                <p className="text-xs text-green-500 mt-1">
+                  {stats.completion_rate}% complete
                 </p>
               </div>
-              <div className="p-3 bg-green-500/20 rounded-lg">
-                <DollarSign className="w-6 h-6 text-green-500" />
-              </div>
+              <DollarSign className="w-5 h-5 text-green-500" />
             </div>
           </div>
         </div>
@@ -544,7 +586,7 @@ export default function EnhancedDashboard({
                     placeholder="Search episodes, orders, or patient IDs..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className={`w-full pl-10 pr-4 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
+                    className={`w-full pl-10 pr-4 py-2 ${t.glass.border} rounded-lg`}
                   />
                 </div>
 
@@ -552,8 +594,10 @@ export default function EnhancedDashboard({
                   <select
                     value={selectedManufacturer}
                     onChange={(e) => setSelectedManufacturer(e.target.value)}
-                    className={`px-4 py-2 ${t.glass.input} ${t.glass.border} rounded-lg`}
+                    className={`px-4 py-2 ${t.glass.border} rounded-lg`}
+                    aria-label="Filter by manufacturer"
                   >
+
                     <option value="all">All Manufacturers</option>
                     {Array.from(new Set(episodes.map(e => e.manufacturer.name))).map(name => (
                       <option key={name} value={name}>{name}</option>
@@ -568,17 +612,125 @@ export default function EnhancedDashboard({
               </div>
             </div>
 
-            {/* Episodes Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-              {filteredEpisodes.map((episode) => (
-                <EpisodeCard
-                  key={episode.id}
-                  episode={episode}
-                  onRefresh={() => router.reload()}
-                  viewMode="compact"
-                />
-              ))}
-            </div>
+            {/* Episodes View - Cards or List */}
+            {episodeView === 'cards' ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                {filteredEpisodes.map((episode) => (
+                  <EpisodeCard
+                    key={episode.id}
+                    episode={episode}
+                    onRefresh={() => router.reload()}
+                    viewMode="compact"
+                  />
+                ))}
+              </div>
+            ) : (
+              /* List View */
+              <div className={`${t.glass.card} ${t.glass.border} overflow-hidden`}>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                    <thead className={`${theme === 'dark' ? 'bg-gray-800/50' : 'bg-gray-50'}`}>
+                      <tr>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Episode
+                        </th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Status
+                        </th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Manufacturer
+                        </th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Orders
+                        </th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Value
+                        </th>
+                        <th className={`px-6 py-3 text-left text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Latest Order
+                        </th>
+                        <th className={`px-6 py-3 text-right text-xs font-medium ${t.text.secondary} uppercase tracking-wider`}>
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
+                      {filteredEpisodes.map((episode) => (
+                        <tr
+                          key={episode.id}
+                          className={`${t.glass.hover} hover:shadow-sm transition-all cursor-pointer`}
+                          onClick={() => router.visit(route('admin.episodes.show', episode.id))}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-500/20 to-purple-500/20 rounded-lg flex items-center justify-center">
+                                <User className="h-5 w-5 text-blue-500" />
+                              </div>
+                              <div className="ml-4">
+                                <div className={`text-sm font-medium ${t.text.primary}`}>
+                                  {episode.patient_display_id}
+                                </div>
+                                {episode.action_required && (
+                                  <span className="text-xs text-orange-500 flex items-center mt-1">
+                                    <AlertTriangle className="w-3 h-3 mr-1" />
+                                    Action Required
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              episode.status === 'ready_for_review' ? 'bg-yellow-100 text-yellow-800' :
+                              episode.status === 'ivr_sent' ? 'bg-blue-100 text-blue-800' :
+                              episode.status === 'ivr_verified' ? 'bg-green-100 text-green-800' :
+                              episode.status === 'sent_to_manufacturer' ? 'bg-purple-100 text-purple-800' :
+                              episode.status === 'completed' ? 'bg-gray-100 text-gray-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {episode.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <Building2 className={`w-4 h-4 ${t.text.muted} mr-2`} />
+                              <span className={`text-sm ${t.text.primary}`}>{episode.manufacturer.name}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`text-sm ${t.text.primary}`}>
+                              {episode.orders_count || episode.orders.length}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                              ${(episode.total_order_value || 0).toLocaleString()}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`text-sm ${t.text.secondary}`}>
+                              {episode.latest_order_date ? new Date(episode.latest_order_date).toLocaleDateString() : 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.visit(route('admin.episodes.show', episode.id));
+                              }}
+                              className={`${t.button.ghost} inline-flex items-center px-3 py-1`}
+                            >
+                              <Eye className="w-4 h-4 mr-1" />
+                              View
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
             {filteredEpisodes.length === 0 && (
               <div className={`${t.glass.card} ${t.glass.border} p-12 text-center`}>
@@ -643,7 +795,7 @@ export default function EnhancedDashboard({
         {dashboardView === 'workflow' && (
           <div className={`${t.glass.card} ${t.glass.border} p-8`}>
             <h3 className={`text-lg font-semibold ${t.text.primary} mb-6 text-center`}>Episode Workflow Overview</h3>
-            
+
             {/* Workflow Visualization */}
             <div className="flex items-center justify-between max-w-4xl mx-auto">
               {[

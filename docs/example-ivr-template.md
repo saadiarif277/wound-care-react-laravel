@@ -134,28 +134,33 @@ NPI: {{provider_npi}}
 ## Advanced Field Examples
 
 ### Conditional Fields
+
 ```
 Previous Product Details: {{previous_product_details;condition=previous_use=Yes}}
 ```
 
 ### Required Signature Fields
+
 ```
 Provider Signature: {{provider_signature;type=signature;role=Provider;required=true}}
 Patient Signature: {{patient_signature;type=signature;role=Patient}}
 ```
 
 ### Date Fields with Auto-Population
+
 ```
 Today's Date: {{todays_date;type=datenow}}
 Service Date: {{expected_service_date;type=date;required=true}}
 ```
 
 ### Multi-Select Options
+
 ```
 Wound Type: {{wound_type;type=select;options=surgical,traumatic,diabetic_foot,pressure,venous,arterial,burn,other}}
 ```
 
 ### Text Areas for Long Responses
+
 ```
 Additional Notes: {{additional_notes;type=text;multiline=true}}
 ```

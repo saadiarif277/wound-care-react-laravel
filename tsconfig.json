@@ -13,11 +13,43 @@
     "paths": {
       "@/*": ["./resources/js/*"],
       "ziggy-js": ["./vendor/tightenco/ziggy"]
-    }
+    },
+    // Additional strict checks
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    // Additional checks
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    // Module resolution
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    // Type checking
+    "skipLibCheck": true,
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    // Source maps for debugging
+    "sourceMap": true,
+    "declaration": false,
+    "declarationMap": false,
+    // React specific
+    "jsxImportSource": "react"
   },
   "include": [
     "resources/js/**/*.ts",
     "resources/js/**/*.tsx",
     "resources/js/**/*.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "public",
+    "storage",
+    "vendor"
   ]
 }

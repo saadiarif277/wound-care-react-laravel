@@ -11,12 +11,14 @@ The Episode-Based Order Workflow represents a fundamental architectural shift fr
 Following 2025 healthcare UX/UI design trends and best practices, the episode-based order workflow has been enhanced with provider-centered design principles:
 
 #### 1. Comprehensive Statistics Dashboard
+
 - **Real-time metrics**: Total episodes, action required count, completion rate, today's episodes, expiring IVRs, total revenue, and average order value
 - **Color-coded priority system**: Visual hierarchy using healthcare-appropriate color schemes
 - **Responsive grid layout**: Adapts from 1-column on mobile to 7-column display on large screens
 - **Interactive elements**: Hover states, refresh capabilities, and export functionality
 
 #### 2. Enhanced Admin Order Center (Index.tsx)
+
 - **Advanced filtering system**: Status, IVR status, manufacturer, and action-required filters
 - **Dual view modes**: Cards and table views for different user preferences
 - **Visual status indicators**: Priority-based color coding with clear iconography
@@ -25,6 +27,7 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 - **Accessibility features**: Screen reader compatible, proper color contrast, keyboard navigation
 
 #### 3. Episode Detail Page (ShowEpisode.tsx)  
+
 - **Three-column layout**: Order info | Episode info | Documents & actions
 - **Enhanced information architecture**: Logical grouping of related information
 - **Status visualization**: Clear episode and IVR status with descriptions
@@ -35,12 +38,14 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 ### Design Principles Applied
 
 #### Provider-Centered User Experience
+
 - **Clinical workflow alignment**: Matches real-world provider order patterns
 - **Information hierarchy**: Most critical information prominently displayed
 - **Contextual actions**: Actions appear based on episode status and user permissions
 - **Provider efficiency**: Streamlined submission process with IVR generation built-in
 
 #### 2025 Web Design Trends
+
 - **Clean, uncluttered interfaces**: Emphasis on white space and clear typography
 - **Micro-interactions**: Subtle hover states and transition effects
 - **Consistent iconography**: Lucide React icons for healthcare-appropriate symbols
@@ -48,6 +53,7 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 - **Card-based layouts**: Information grouped in digestible chunks
 
 #### Accessibility and Compliance
+
 - **WCAG 2.1 AA standards**: Color contrast, keyboard navigation, screen reader support
 - **HIPAA-compliant design**: Proper handling of PHI display and access controls
 - **Cross-browser compatibility**: Consistent experience across modern browsers
@@ -56,12 +62,14 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 ### User Role-Specific Enhancements
 
 #### For Administrators
+
 - **Comprehensive oversight**: Full episode statistics and management capabilities
 - **Bulk operations**: Multi-episode actions and export functionality
 - **Advanced filtering**: Multiple filter combinations for complex queries
 - **Permission-based UI**: Actions appear/disappear based on user capabilities
 
 #### For Providers
+
 - **Episode-aware interfaces**: Clear understanding of provider+manufacturer relationships
 - **Simplified status display**: User-friendly status descriptions and next steps
 - **Quick access to related orders**: Easy navigation between episode and individual orders
@@ -69,6 +77,7 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 - **Communication tools**: Direct links to manufacturer contact information
 
 #### For Office Managers
+
 - **Operational efficiency**: Clear visibility into workload and priorities
 - **Status tracking**: Visual indicators for items requiring attention
 - **Workflow optimization**: Logical progression through episode lifecycle
@@ -77,6 +86,7 @@ Following 2025 healthcare UX/UI design trends and best practices, the episode-ba
 ### Technical Implementation Details
 
 #### Component Architecture
+
 ```typescript
 // Enhanced status configuration with 2025 design principles
 const episodeStatusConfig = {
@@ -96,11 +106,13 @@ const episodeStatusConfig = {
 ```
 
 #### Responsive Design Implementation
+
 - **Mobile-first approach**: Base styles for mobile, enhanced for larger screens
 - **Flexible grid system**: CSS Grid and Flexbox for complex layouts
 - **Breakpoint strategy**: sm (640px), md (768px), lg (1024px), xl (1280px)
 
 #### Performance Optimizations
+
 - **Memoized calculations**: Using useMemo for expensive statistics computations
 - **Conditional rendering**: Sections only render when expanded
 - **Optimized re-renders**: Strategic use of React.memo and useCallback
@@ -305,8 +317,9 @@ if (!$episode) {
         'id' => Str::uuid(),
         'patient_id' => $providerId, // Legacy field name for provider
         'manufacturer_id' => $manufacturerId,
-        'status' => 'ready_for_review', // Provider already generated IVR
-        'ivr_status' => 'verified',
+        'status' => 'ready_for_review', // Provider completed IVR, awaiting admin review
+        'ivr_status' => 'provider_completed', // IVR already generated by provider
+        'docuseal_submission_id' => $order->docuseal_submission_id, // From provider's submission
     ]);
 }
 
@@ -314,22 +327,43 @@ if (!$episode) {
 $order->ivr_episode_id = $episode->id;
 ```
 
-## Provider IVR Generation Workflow
+## Provider IVR Generation Workflow (Current Implementation)
 
-### New Provider-Centered Flow
+### Provider-Centered IVR Flow
 
-1. **Provider Submits Order**: Provider uses QuickRequest/CreateNew interface
-2. **IVR Generation**: Provider generates IVR during order submission using DocuSeal
-3. **Episode Creation**: System automatically creates or finds existing episode for provider+manufacturer
-4. **Admin Review**: Admin reviews completed order with IVR already generated
-5. **Approval**: Admin approves and sends to manufacturer
+1. **Provider Fills Order**: Provider completes QuickRequest form with all order details
+2. **Step 4 - IVR Generation**: Provider generates IVR using DocuSeal (REQUIRED for all orders)
+   - Form data auto-populates DocuSeal template
+   - Provider reviews and signs electronically
+   - DocuSeal submission ID stored with order
+3. **Episode Creation**: System creates/finds episode for provider+manufacturer
+4. **Admin Review**: Admin reviews completed order with provider-generated IVR
+5. **Send to Manufacturer**: Admin sends episode with IVR to manufacturer
 
-### Key Changes from Legacy Workflow
+### Key Implementation Details
 
-- **Providers generate IVRs**: No longer admin responsibility
-- **Episode status starts at ready_for_review**: IVR already completed
-- **Admin role is review/approval**: Not document generation
-- **Streamlined process**: Fewer steps, faster turnaround
+```typescript
+// Step4Confirmation.tsx - ALL orders require IVR
+const signatureRequired = true; // Ashley's requirement
+const canSubmit = ivrSigned && !isSubmitting; // Cannot submit without IVR
+
+// DocuSealIVRForm.tsx - Auto-populates from order data
+const prepareIVRFields = (data: any) => {
+  return {
+    'patient_first_name': data.patient_first_name,
+    'patient_last_name': data.patient_last_name,
+    'product_name': data.product_name,
+    'wound_type': data.wound_type,
+    // ... all order details pre-filled
+  };
+};
+```
+
+### Status Flow with Provider IVR
+
+- **Order Status**: `ivr_confirmed` (provider completed IVR)
+- **IVR Status**: `provider_completed` → `admin_reviewed` → `verified`
+- **Episode Status**: `ready_for_review` → `ivr_verified` → `sent_to_manufacturer`
 
 ## Integration Points
 

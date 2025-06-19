@@ -1,11 +1,13 @@
 # Role-Based Menu Structure & Financial Restrictions
 
 ## Overview
+
 This document outlines the comprehensive role-based menu structure implemented for the wound care platform, with specific emphasis on critical financial restrictions for Office Managers.
 
 ## Portal Structure by Role
 
 ### 📋 Healthcare Provider Portal
+
 ```
 📊 Dashboard
 📋 Product Requests
@@ -22,6 +24,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 **Financial Access:** Full financial visibility including amounts owed and discounts.
 
 ### 🏥 Office Manager Portal
+
 ```
 📊 Dashboard
 📋 Product Requests
@@ -37,6 +40,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 ```
 
 **CRITICAL RESTRICTIONS:**
+
 - ❌ **NO financial data visible anywhere**
 - ❌ **NO order totals**
 - ❌ **NO amounts owed**
@@ -46,6 +50,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 - ✅ **ONLY National ASP pricing**
 
 ### 💼 MSC Sales Representative Portal
+
 ```
 📊 Dashboard
 📋 Customer Orders (view only - product & commission, NO PHI)
@@ -61,6 +66,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 **Data Restrictions:** Can see product & commission data but NO PHI (Protected Health Information).
 
 ### 🎯 MSC Sub-Representative Portal
+
 ```
 📊 Dashboard
 📋 Customer Orders (view only - product & commission, NO PHI)
@@ -70,6 +76,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 **Access Level:** Limited - view only orders, limited commission access, no financial management.
 
 ### ⚙️ MSC Administrator Portal
+
 ```
 📊 Dashboard
 📋 Request Management (approve/reject product requests)
@@ -92,6 +99,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 **Financial Access:** FULL financial visibility and management capabilities.
 
 ### 🔧 Super Administrator Portal
+
 ```
 📊 Dashboard (system health, all metrics)
 📋 Request Management
@@ -116,17 +124,20 @@ This document outlines the comprehensive role-based menu structure implemented f
 ### Backend Components
 
 #### Role Model (`app/Models/UserRole.php`)
+
 - Enhanced with financial restriction methods
 - Dashboard configuration per role
 - Pricing access levels
 - Customer data restrictions
 
 #### Middleware (`app/Http/Middleware/FinancialAccessControl.php`)
+
 - Enforces financial access restrictions
 - Blocks restricted routes for Office Managers
 - Injects role restrictions into requests
 
 #### Navigation Component (`resources/js/Components/Navigation/RoleBasedNavigation.tsx`)
+
 - Role-specific menu generation
 - Hierarchical menu structure
 - Dynamic menu filtering
@@ -134,6 +145,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 ### Frontend Components
 
 #### Pricing Display (`resources/js/Components/Pricing/PricingDisplay.tsx`)
+
 - `PricingDisplay`: Role-aware pricing component
 - `OrderTotalDisplay`: Financial totals with restrictions
 - `CommissionDisplay`: Commission data with access controls
@@ -159,6 +171,7 @@ This document outlines the comprehensive role-based menu structure implemented f
 ### Financial Restrictions Implementation
 
 #### Office Manager Restrictions
+
 ```php
 // Backend validation
 if ($userRole->name === 'office_manager') {
@@ -169,6 +182,7 @@ if ($userRole->name === 'office_manager') {
 ```
 
 #### Frontend Component Usage
+
 ```tsx
 // Example usage of pricing component
 <PricingDisplay 
@@ -192,6 +206,7 @@ if ($userRole->name === 'office_manager') {
 ## Testing Scenarios
 
 ### Office Manager Access Tests
+
 - ✅ Can access National ASP pricing
 - ❌ Cannot see MSC pricing
 - ❌ Cannot see discounts
@@ -200,12 +215,14 @@ if ($userRole->name === 'office_manager') {
 - ✅ Can access clinical workflows
 
 ### Sales Rep Access Tests
+
 - ✅ Can see commission data
 - ✅ Can view customer orders
 - ❌ Cannot see PHI data
 - ✅ Can manage customer relationships
 
 ### Admin Access Tests
+
 - ✅ Full financial visibility
 - ✅ Can create manual orders
 - ✅ Can manage system configuration
@@ -224,4 +241,4 @@ if ($userRole->name === 'office_manager') {
 - Role Definitions: `resources/js/lib/roleUtils.ts`
 - Backend Roles: `app/Models/UserRole.php`
 - Middleware: `app/Http/Middleware/FinancialAccessControl.php`
-- Pricing Components: `resources/js/Components/Pricing/PricingDisplay.tsx` 
+- Pricing Components: `resources/js/Components/Pricing/PricingDisplay.tsx`
