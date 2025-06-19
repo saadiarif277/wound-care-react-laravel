@@ -36,7 +36,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
   return (
     <MainLayout>
       <Head title={`Edit Provider - ${provider.name}`} />
-      
+
       <div className="max-w-4xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
@@ -60,7 +60,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 <FiUser className="w-5 h-5 mr-2" />
                 Basic Information
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <TextInput
                   label="First Name *"
@@ -70,7 +70,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   required
                   placeholder="John"
                 />
-                
+
                 <TextInput
                   label="Last Name *"
                   value={data.last_name}
@@ -79,7 +79,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   required
                   placeholder="Doe"
                 />
-                
+
                 <TextInput
                   label="Email Address *"
                   type="email"
@@ -100,7 +100,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 <FiCreditCard className="w-5 h-5 mr-2" />
                 Professional Information
               </h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <TextInput
@@ -114,7 +114,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                     10-digit National Provider Identifier issued by CMS for healthcare providers
                   </p>
                 </div>
-                
+
                 <div>
                   <TextInput
                     label="DEA Number"
@@ -127,7 +127,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                     Drug Enforcement Administration registration for prescribing controlled substances
                   </p>
                 </div>
-                
+
                 <div>
                   <TextInput
                     label="Medical License Number"
@@ -140,7 +140,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                     State medical board license number for practicing medicine
                   </p>
                 </div>
-                
+
                 <div>
                   <SelectInput
                     label="License Issuing State"
@@ -157,7 +157,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                     State where medical license was issued
                   </p>
                 </div>
-                
+
                 <div>
                   <TextInput
                     label="License Expiration Date"
@@ -171,7 +171,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   </p>
                 </div>
               </div>
-              
+
               <div className="mt-4">
                 <CheckboxInput
                   label="Mark as verified provider"
@@ -192,7 +192,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 <FiMapPin className="w-5 h-5 mr-2" />
                 Organization Assignment
               </h2>
-              
+
               <SelectInput
                 label="Current Organization"
                 value={data.current_organization_id}

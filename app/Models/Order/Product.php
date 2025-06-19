@@ -51,6 +51,11 @@ class Product extends Model
     ];
 
     /**
+     * Temporary storage for pricing changes (not persisted to database)
+     */
+    protected $pendingPricingChange;
+
+    /**
      * Scope to get only active products
      */
     public function scopeActive($query)
@@ -389,8 +394,8 @@ class Product extends Model
             }
 
             if (!empty($changedFields)) {
-                // Store the change info to be recorded after the update
-                $model->_pendingPricingChange = [
+                // Store the change info in a protected property
+                $model->pendingPricingChange = [
                     'changed_fields' => $changedFields,
                     'previous_values' => $previousValues,
                 ];
@@ -398,8 +403,8 @@ class Product extends Model
         });
 
         static::updated(function ($model) {
-            if (isset($model->_pendingPricingChange)) {
-                $change = $model->_pendingPricingChange;
+            if ($model->pendingPricingChange) {
+                $change = $model->pendingPricingChange;
 
                 // Determine change type based on context
                 $changeType = 'manual_update';
@@ -415,7 +420,7 @@ class Product extends Model
                     'Product pricing updated'
                 );
 
-                unset($model->_pendingPricingChange);
+                $model->pendingPricingChange = null;
             }
         });
     }

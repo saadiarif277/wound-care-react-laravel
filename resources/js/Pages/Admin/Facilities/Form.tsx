@@ -1,7 +1,9 @@
 import React from 'react';
 import { router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { ArrowLeft } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import { ArrowLeft, Building, MapPin, User, Phone, Mail, Clock, Save, X } from 'lucide-react';
 
 interface Props {
   facility?: {
@@ -36,6 +38,9 @@ interface Props {
 }
 
 const FacilityForm: React.FC<Props> = ({ facility, organizations, salesReps = [], isEdit = false }) => {
+  const { theme } = useTheme();
+  const t = themes[theme];
+
   const [formData, setFormData] = React.useState({
     name: facility?.name || '',
     facility_type: facility?.facility_type || '',
@@ -93,405 +98,508 @@ const FacilityForm: React.FC<Props> = ({ facility, organizations, salesReps = []
 
   return (
     <MainLayout title={isEdit ? 'Edit Facility' : 'Create Facility'}>
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-6">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
             <button
               onClick={() => router.visit('/admin/facilities')}
-              className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900"
+              className={cn(
+                "inline-flex items-center text-sm transition-colors",
+                t.text.secondary,
+                "hover:" + t.text.primary
+              )}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Facilities
             </button>
-          </div>
-
-          <div className="bg-white shadow rounded-lg">
-            <div className="px-4 py-5 sm:p-6">
-              <h3 className="text-lg leading-6 font-medium text-gray-900 mb-6">
-                {isEdit ? 'Edit Facility' : 'Create New Facility'}
-              </h3>
-
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                  {/* Organization Selection */}
-                  <div>
-                    <label htmlFor="organization_id" className="block text-sm font-medium text-gray-700">
-                      Organization
-                    </label>
-                    <select
-                      id="organization_id"
-                      name="organization_id"
-                      value={formData.organization_id}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border ${
-                        errors.organization_id ? 'border-red-300' : 'border-gray-300'
-                      } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
-                      required
-                    >
-                      <option value="">Select an organization</option>
-                      {organizations.map(org => (
-                        <option key={org.id} value={org.id}>
-                          {org.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.organization_id && (
-                      <p className="mt-2 text-sm text-red-600">{errors.organization_id}</p>
-                    )}
-                  </div>
-
-                  {/* Facility Type */}
-                  <div>
-                    <label htmlFor="facility_type" className="block text-sm font-medium text-gray-700">
-                      Facility Type
-                    </label>
-                    <select
-                      id="facility_type"
-                      name="facility_type"
-                      value={formData.facility_type}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border ${
-                        errors.facility_type ? 'border-red-300' : 'border-gray-300'
-                      } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
-                      required
-                    >
-                      <option value="">Select a facility type</option>
-                      <option value="clinic">Clinic</option>
-                      <option value="hospital_outpatient">Hospital Outpatient</option>
-                      <option value="wound_center">Wound Center</option>
-                      <option value="asc">Ambulatory Surgery Center</option>
-                    </select>
-                    {errors.facility_type && (
-                      <p className="mt-2 text-sm text-red-600">{errors.facility_type}</p>
-                    )}
-                  </div>
-
-                  {/* Facility Name */}
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-                      Facility Name
-                    </label>
-                    <input
-                      type="text"
-                      name="name"
-                      id="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.name ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      required
-                    />
-                    {errors.name && (
-                      <p className="mt-2 text-sm text-red-600">{errors.name}</p>
-                    )}
-                  </div>
-
-                  {/* NPI Number */}
-                  <div>
-                    <label htmlFor="npi" className="block text-sm font-medium text-gray-700">
-                      NPI Number
-                    </label>
-                    <input
-                      type="text"
-                      name="npi"
-                      id="npi"
-                      value={formData.npi}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.npi ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.npi && (
-                      <p className="mt-2 text-sm text-red-600">{errors.npi}</p>
-                    )}
-                  </div>
-
-                  {/* Address */}
-                  <div className="sm:col-span-2">
-                    <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-                      Street Address
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      id="address"
-                      value={formData.address}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.address ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      required
-                    />
-                    {errors.address && (
-                      <p className="mt-2 text-sm text-red-600">{errors.address}</p>
-                    )}
-                  </div>
-
-                  {/* City */}
-                  <div>
-                    <label htmlFor="city" className="block text-sm font-medium text-gray-700">
-                      City
-                    </label>
-                    <input
-                      type="text"
-                      name="city"
-                      id="city"
-                      value={formData.city}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.city ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      required
-                    />
-                    {errors.city && (
-                      <p className="mt-2 text-sm text-red-600">{errors.city}</p>
-                    )}
-                  </div>
-
-                  {/* State */}
-                  <div>
-                    <label htmlFor="state" className="block text-sm font-medium text-gray-700">
-                      State
-                    </label>
-                    <input
-                      type="text"
-                      name="state"
-                      id="state"
-                      value={formData.state}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.state ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      required
-                    />
-                    {errors.state && (
-                      <p className="mt-2 text-sm text-red-600">{errors.state}</p>
-                    )}
-                  </div>
-
-                  {/* Zip Code */}
-                  <div>
-                    <label htmlFor="zip_code" className="block text-sm font-medium text-gray-700">
-                      Zip Code
-                    </label>
-                    <input
-                      type="text"
-                      name="zip_code"
-                      id="zip_code"
-                      value={formData.zip_code}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.zip_code ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                      required
-                    />
-                    {errors.zip_code && (
-                      <p className="mt-2 text-sm text-red-600">{errors.zip_code}</p>
-                    )}
-                  </div>
-
-                  {/* Phone */}
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                      Phone
-                    </label>
-                    <input
-                      type="tel"
-                      name="phone"
-                      id="phone"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.phone ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.phone && (
-                      <p className="mt-2 text-sm text-red-600">{errors.phone}</p>
-                    )}
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      id="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.email ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.email && (
-                      <p className="mt-2 text-sm text-red-600">{errors.email}</p>
-                    )}
-                  </div>
-
-                  {/* Contact Name */}
-                  <div>
-                    <label htmlFor="contact_name" className="block text-sm font-medium text-gray-700">
-                      Contact Name
-                    </label>
-                    <input
-                      type="text"
-                      name="contact_name"
-                      id="contact_name"
-                      value={formData.contact_name}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.contact_name ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.contact_name && (
-                      <p className="mt-2 text-sm text-red-600">{errors.contact_name}</p>
-                    )}
-                  </div>
-
-                  {/* Contact Phone */}
-                  <div>
-                    <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700">
-                      Contact Phone
-                    </label>
-                    <input
-                      type="tel"
-                      name="contact_phone"
-                      id="contact_phone"
-                      value={formData.contact_phone}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.contact_phone ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.contact_phone && (
-                      <p className="mt-2 text-sm text-red-600">{errors.contact_phone}</p>
-                    )}
-                  </div>
-
-                  {/* Contact Email */}
-                  <div>
-                    <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700">
-                      Contact Email
-                    </label>
-                    <input
-                      type="email"
-                      name="contact_email"
-                      id="contact_email"
-                      value={formData.contact_email}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.contact_email ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.contact_email && (
-                      <p className="mt-2 text-sm text-red-600">{errors.contact_email}</p>
-                    )}
-                  </div>
-
-                  {/* Contact Fax */}
-                  <div>
-                    <label htmlFor="contact_fax" className="block text-sm font-medium text-gray-700">
-                      Contact Fax
-                    </label>
-                    <input
-                      type="tel"
-                      name="contact_fax"
-                      id="contact_fax"
-                      value={formData.contact_fax}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.contact_fax ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.contact_fax && (
-                      <p className="mt-2 text-sm text-red-600">{errors.contact_fax}</p>
-                    )}
-                  </div>
-
-                  {/* Business Hours */}
-                  <div className="sm:col-span-2">
-                    <label htmlFor="business_hours" className="block text-sm font-medium text-gray-700">
-                      Business Hours
-                    </label>
-                    <textarea
-                      name="business_hours"
-                      id="business_hours"
-                      rows={3}
-                      value={formData.business_hours}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full border ${
-                        errors.business_hours ? 'border-red-300' : 'border-gray-300'
-                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
-                    />
-                    {errors.business_hours && (
-                      <p className="mt-2 text-sm text-red-600">{errors.business_hours}</p>
-                    )}
-                  </div>
-
-                  {/* Coordinating Sales Rep */}
-                  <div>
-                    <label htmlFor="coordinating_sales_rep_id" className="block text-sm font-medium text-gray-700">
-                      Coordinating Sales Representative
-                    </label>
-                    <select
-                      id="coordinating_sales_rep_id"
-                      name="coordinating_sales_rep_id"
-                      value={formData.coordinating_sales_rep_id}
-                      onChange={handleChange}
-                      className={`mt-1 block w-full pl-3 pr-10 py-2 text-base border ${
-                        errors.coordinating_sales_rep_id ? 'border-red-300' : 'border-gray-300'
-                      } focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm rounded-md`}
-                    >
-                      <option value="">Select a sales representative</option>
-                      {salesReps.map(rep => (
-                        <option key={rep.id} value={rep.id}>
-                          {rep.name}
-                        </option>
-                      ))}
-                    </select>
-                    {errors.coordinating_sales_rep_id && (
-                      <p className="mt-2 text-sm text-red-600">{errors.coordinating_sales_rep_id}</p>
-                    )}
-                  </div>
-
-                  {/* Active Status */}
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      name="active"
-                      id="active"
-                      checked={formData.active}
-                      onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                    />
-                    <label htmlFor="active" className="ml-2 block text-sm text-gray-900">
-                      Active
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => router.visit('/admin/facilities')}
-                    className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mr-3"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                  >
-                    {isEdit ? 'Update Facility' : 'Create Facility'}
-                  </button>
-                </div>
-              </form>
-            </div>
+            <h1 className={cn("mt-2 text-3xl font-bold", t.text.primary)}>
+              {isEdit ? 'Edit Facility' : 'Create New Facility'}
+            </h1>
+            <p className={cn("mt-1", t.text.secondary)}>
+              {isEdit ? 'Update facility information' : 'Add a new facility to the system'}
+            </p>
           </div>
         </div>
+
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Basic Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-blue-500/20 mr-3">
+                <Building className="w-5 h-5 text-blue-400" />
+              </div>
+              Basic Information
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Organization Selection */}
+              <div className="sm:col-span-2">
+                <label htmlFor="organization_id" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Organization <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="organization_id"
+                  name="organization_id"
+                  value={formData.organization_id}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.select || t.input.base,
+                    t.input.focus,
+                    errors.organization_id ? "border-red-500" : ""
+                  )}
+                  required
+                >
+                  <option value="">Select an organization</option>
+                  {organizations.map(org => (
+                    <option key={org.id} value={org.id}>
+                      {org.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.organization_id && (
+                  <p className="mt-2 text-sm text-red-600">{errors.organization_id}</p>
+                )}
+              </div>
+
+              {/* Facility Type */}
+              <div>
+                <label htmlFor="facility_type" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Facility Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="facility_type"
+                  name="facility_type"
+                  value={formData.facility_type}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.select || t.input.base,
+                    t.input.focus,
+                    errors.facility_type ? "border-red-500" : ""
+                  )}
+                  required
+                >
+                  <option value="">Select a facility type</option>
+                  <option value="clinic">Clinic</option>
+                  <option value="hospital_outpatient">Hospital Outpatient</option>
+                  <option value="wound_center">Wound Center</option>
+                  <option value="asc">Ambulatory Surgery Center</option>
+                </select>
+                {errors.facility_type && (
+                  <p className="mt-2 text-sm text-red-600">{errors.facility_type}</p>
+                )}
+              </div>
+
+              {/* Facility Name */}
+              <div>
+                <label htmlFor="name" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Facility Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  id="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.name ? "border-red-500" : ""
+                  )}
+                  required
+                />
+                {errors.name && (
+                  <p className="mt-2 text-sm text-red-600">{errors.name}</p>
+                )}
+              </div>
+
+              {/* NPI Number */}
+              <div>
+                <label htmlFor="npi" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  NPI Number
+                </label>
+                <input
+                  type="text"
+                  name="npi"
+                  id="npi"
+                  value={formData.npi}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.npi ? "border-red-500" : ""
+                  )}
+                  placeholder="10-digit NPI"
+                  maxLength={10}
+                />
+                {errors.npi && (
+                  <p className="mt-2 text-sm text-red-600">{errors.npi}</p>
+                )}
+              </div>
+
+              {/* Sales Rep Assignment */}
+              <div>
+                <label htmlFor="coordinating_sales_rep_id" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Coordinating Sales Rep
+                </label>
+                <select
+                  id="coordinating_sales_rep_id"
+                  name="coordinating_sales_rep_id"
+                  value={formData.coordinating_sales_rep_id}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.select || t.input.base,
+                    t.input.focus,
+                    errors.coordinating_sales_rep_id ? "border-red-500" : ""
+                  )}
+                >
+                  <option value="">Select a sales rep</option>
+                  {salesReps.map(rep => (
+                    <option key={rep.id} value={rep.id}>
+                      {rep.name}
+                    </option>
+                  ))}
+                </select>
+                {errors.coordinating_sales_rep_id && (
+                  <p className="mt-2 text-sm text-red-600">{errors.coordinating_sales_rep_id}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Address Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-emerald-500/20 mr-3">
+                <MapPin className="w-5 h-5 text-emerald-400" />
+              </div>
+              Address Information
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Address */}
+              <div className="sm:col-span-2">
+                <label htmlFor="address" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Street Address <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  id="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.address ? "border-red-500" : ""
+                  )}
+                  required
+                />
+                {errors.address && (
+                  <p className="mt-2 text-sm text-red-600">{errors.address}</p>
+                )}
+              </div>
+
+              {/* City */}
+              <div>
+                <label htmlFor="city" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  City <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="city"
+                  id="city"
+                  value={formData.city}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.city ? "border-red-500" : ""
+                  )}
+                  required
+                />
+                {errors.city && (
+                  <p className="mt-2 text-sm text-red-600">{errors.city}</p>
+                )}
+              </div>
+
+              {/* State */}
+              <div>
+                <label htmlFor="state" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  State <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="state"
+                  id="state"
+                  value={formData.state}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.state ? "border-red-500" : ""
+                  )}
+                  maxLength={2}
+                  placeholder="ST"
+                  required
+                />
+                {errors.state && (
+                  <p className="mt-2 text-sm text-red-600">{errors.state}</p>
+                )}
+              </div>
+
+              {/* ZIP Code */}
+              <div>
+                <label htmlFor="zip_code" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  ZIP Code <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  name="zip_code"
+                  id="zip_code"
+                  value={formData.zip_code}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.zip_code ? "border-red-500" : ""
+                  )}
+                  required
+                />
+                {errors.zip_code && (
+                  <p className="mt-2 text-sm text-red-600">{errors.zip_code}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Contact Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-purple-500/20 mr-3">
+                <User className="w-5 h-5 text-purple-400" />
+              </div>
+              Contact Information
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+              {/* Facility Phone */}
+              <div>
+                <label htmlFor="phone" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Facility Phone
+                </label>
+                <input
+                  type="tel"
+                  name="phone"
+                  id="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.phone ? "border-red-500" : ""
+                  )}
+                  placeholder="(555) 123-4567"
+                />
+                {errors.phone && (
+                  <p className="mt-2 text-sm text-red-600">{errors.phone}</p>
+                )}
+              </div>
+
+              {/* Facility Email */}
+              <div>
+                <label htmlFor="email" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Facility Email
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  id="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.email ? "border-red-500" : ""
+                  )}
+                  placeholder="facility@example.com"
+                />
+                {errors.email && (
+                  <p className="mt-2 text-sm text-red-600">{errors.email}</p>
+                )}
+              </div>
+
+              {/* Contact Name */}
+              <div>
+                <label htmlFor="contact_name" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Contact Name
+                </label>
+                <input
+                  type="text"
+                  name="contact_name"
+                  id="contact_name"
+                  value={formData.contact_name}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.contact_name ? "border-red-500" : ""
+                  )}
+                  placeholder="Primary contact person"
+                />
+                {errors.contact_name && (
+                  <p className="mt-2 text-sm text-red-600">{errors.contact_name}</p>
+                )}
+              </div>
+
+              {/* Contact Phone */}
+              <div>
+                <label htmlFor="contact_phone" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Contact Phone
+                </label>
+                <input
+                  type="tel"
+                  name="contact_phone"
+                  id="contact_phone"
+                  value={formData.contact_phone}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.contact_phone ? "border-red-500" : ""
+                  )}
+                  placeholder="(555) 123-4567"
+                />
+                {errors.contact_phone && (
+                  <p className="mt-2 text-sm text-red-600">{errors.contact_phone}</p>
+                )}
+              </div>
+
+              {/* Contact Email */}
+              <div>
+                <label htmlFor="contact_email" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Contact Email
+                </label>
+                <input
+                  type="email"
+                  name="contact_email"
+                  id="contact_email"
+                  value={formData.contact_email}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.contact_email ? "border-red-500" : ""
+                  )}
+                  placeholder="contact@facility.com"
+                />
+                {errors.contact_email && (
+                  <p className="mt-2 text-sm text-red-600">{errors.contact_email}</p>
+                )}
+              </div>
+
+              {/* Contact Fax */}
+              <div>
+                <label htmlFor="contact_fax" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Contact Fax
+                </label>
+                <input
+                  type="tel"
+                  name="contact_fax"
+                  id="contact_fax"
+                  value={formData.contact_fax}
+                  onChange={handleChange}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.contact_fax ? "border-red-500" : ""
+                  )}
+                  placeholder="(555) 123-4567"
+                />
+                {errors.contact_fax && (
+                  <p className="mt-2 text-sm text-red-600">{errors.contact_fax}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Additional Information */}
+          <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              <div className="p-2 rounded-xl bg-amber-500/20 mr-3">
+                <Clock className="w-5 h-5 text-amber-400" />
+              </div>
+              Additional Information
+            </h2>
+
+            <div className="grid grid-cols-1 gap-6">
+              {/* Business Hours */}
+              <div>
+                <label htmlFor="business_hours" className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
+                  Business Hours
+                </label>
+                <textarea
+                  name="business_hours"
+                  id="business_hours"
+                  value={formData.business_hours}
+                  onChange={handleChange}
+                  rows={3}
+                  className={cn(
+                    t.input.base,
+                    t.input.focus,
+                    errors.business_hours ? "border-red-500" : ""
+                  )}
+                  placeholder="Monday - Friday: 8:00 AM - 5:00 PM&#10;Saturday: 9:00 AM - 1:00 PM&#10;Sunday: Closed"
+                />
+                {errors.business_hours && (
+                  <p className="mt-2 text-sm text-red-600">{errors.business_hours}</p>
+                )}
+              </div>
+
+              {/* Active Status */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  name="active"
+                  id="active"
+                  checked={formData.active}
+                  onChange={(e) => setFormData(prev => ({ ...prev, active: e.target.checked }))}
+                  className="h-4 w-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                />
+                <label htmlFor="active" className={cn("ml-2 text-sm", t.text.secondary)}>
+                  Facility is active and accepting orders
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Submit Buttons */}
+          <div className="flex justify-end space-x-3">
+            <button
+              type="button"
+              onClick={() => router.visit('/admin/facilities')}
+              className={cn(
+                "px-6 py-3 rounded-xl font-medium transition-all",
+                t.button.secondary.base,
+                t.button.secondary.hover
+              )}
+            >
+              <X className="w-4 h-4 mr-2" />
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className={cn(
+                "px-6 py-3 rounded-xl font-medium flex items-center gap-2 transition-all",
+                t.button.primary.base,
+                t.button.primary.hover
+              )}
+            >
+              <Save className="w-4 h-4" />
+              {isEdit ? 'Update Facility' : 'Create Facility'}
+            </button>
+          </div>
+        </form>
       </div>
     </MainLayout>
   );

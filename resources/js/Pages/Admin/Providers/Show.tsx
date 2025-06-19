@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/Button';
@@ -165,6 +167,9 @@ interface Props {
 }
 
 export default function ProviderShow({ provider, stats, availableFacilities, flash }: Props) {
+  const { theme } = useTheme();
+  const t = themes[theme];
+
   const [activeTab, setActiveTab] = useState('overview');
   const [showAddFacilityModal, setShowAddFacilityModal] = useState(false);
   const [showAddProductModal, setShowAddProductModal] = useState(false);
@@ -270,33 +275,51 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
         </div>
       )}
 
-      <div className="py-6">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          {/* Header */}
-          <div className="mb-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={() => router.visit(route('admin.providers.index'))}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  ← Back to Providers
-                </button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={() => window.print()}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Export Profile
-                </Button>
-                <Button
-                  onClick={() => router.visit(route('admin.providers.edit', provider.id))}
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </Button>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div>
+            <button
+              onClick={() => router.visit(route('admin.providers.index'))}
+              className={cn(
+                "inline-flex items-center text-sm transition-colors",
+                t.text.secondary,
+                "hover:" + t.text.primary
+              )}
+            >
+              ← Back to Providers
+            </button>
+            <h1 className={cn("mt-2 text-3xl font-bold", t.text.primary)}>
+              Provider Profile
+            </h1>
+            <p className={cn("mt-1", t.text.secondary)}>
+              Complete provider information and management
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="secondary"
+              onClick={() => window.print()}
+              className={cn(
+                "px-4 py-2 rounded-xl transition-all",
+                t.button.secondary.base,
+                t.button.secondary.hover
+              )}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Export Profile
+            </Button>
+            <Button
+              onClick={() => router.visit(route('admin.providers.edit', provider.id))}
+              className={cn(
+                "px-4 py-2 rounded-xl transition-all",
+                t.button.primary.base,
+                t.button.primary.hover
+              )}
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
                 <div className="relative group">
                   <Button variant="secondary" className="px-2">
                     <MoreVertical className="w-5 h-5" />
@@ -320,73 +343,74 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
             </div>
           </div>
 
-          {/* Provider Info Header */}
-          <Card className="mb-6">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className="flex items-start gap-4">
-                  <div className="h-16 w-16 rounded-full bg-gray-200 flex items-center justify-center">
-                    <User className="h-8 w-8 text-gray-500" />
-                  </div>
-                  <div>
-                    <h1 className="text-2xl font-bold text-gray-900">{provider.name}</h1>
-                    <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
-                      <span className="flex items-center gap-1">
-                        <Mail className="w-4 h-4" />
-                        {provider.email}
-                      </span>
-                      {provider.phone && (
-                        <span className="flex items-center gap-1">
-                          <Phone className="w-4 h-4" />
-                          {provider.phone}
-                        </span>
-                      )}
-                      {provider.npi_number && (
-                        <span className="flex items-center gap-1">
-                          <Shield className="w-4 h-4" />
-                          NPI: {provider.npi_number}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-2 flex items-center gap-3">
-                      {provider.profile.verification_status === 'verified' ? (
-                        <Badge className="bg-green-100 text-green-800">
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Active
-                        </Badge>
-                      ) : (
-                        getStatusBadge(provider.profile.verification_status)
-                      )}
-                      <Badge className="bg-blue-100 text-blue-800">
-                        {provider.profile.profile_completion_percentage || 100}% Profile Complete
-                      </Badge>
-                      {provider.current_organization && (
-                        <Badge className="bg-blue-100 text-blue-800">
-                          <Building className="w-3 h-3 mr-1" />
-                          {provider.current_organization.name}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
+        {/* Provider Info Header */}
+        <div className={cn("p-6 rounded-2xl", t.glass.card, t.shadows.glass)}>
+          <div className="flex items-start justify-between">
+            <div className="flex items-start gap-4">
+              <div className={cn("h-16 w-16 rounded-full flex items-center justify-center", t.glass.accent)}>
+                <User className="h-8 w-8 text-blue-400" />
+              </div>
+              <div>
+                <h1 className={cn("text-2xl font-bold", t.text.primary)}>{provider.name}</h1>
+                <div className={cn("mt-1 flex items-center gap-4 text-sm", t.text.secondary)}>
+                  <span className="flex items-center gap-1">
+                    <Mail className="w-4 h-4" />
+                    {provider.email}
+                  </span>
+                  {provider.phone && (
+                    <span className="flex items-center gap-1">
+                      <Phone className="w-4 h-4" />
+                      {provider.phone}
+                    </span>
+                  )}
+                  {provider.npi_number && (
+                    <span className="flex items-center gap-1">
+                      <Shield className="w-4 h-4" />
+                      NPI: {provider.npi_number}
+                    </span>
+                  )}
                 </div>
-                <div className="text-right">
-                  <div className="text-sm text-gray-500">Outstanding Balance</div>
-                  <div className="text-xl font-bold">{formatCurrency(provider.financial_summary.total_outstanding)}</div>
-                  <div className="mt-2">
-                    {provider.financial_summary.past_due_amount > 0 ? (
-                      <Badge className="bg-red-100 text-red-800">
-                        <AlertTriangle className="w-3 h-3 mr-1" />
-                        {formatCurrency(provider.financial_summary.past_due_amount)} Past Due
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-green-100 text-green-800">
-                        <CheckCircle2 className="w-3 h-3 mr-1" />
-                        Account in Good Standing
-                      </Badge>
-                    )}
-                  </div>
+                <div className="mt-2 flex items-center gap-3">
+                  {provider.profile.verification_status === 'verified' ? (
+                    <Badge className="bg-green-100 text-green-800">
+                      <CheckCircle2 className="w-3 h-3 mr-1" />
+                      Active
+                    </Badge>
+                  ) : (
+                    getStatusBadge(provider.profile.verification_status)
+                  )}
+                  <Badge className="bg-blue-100 text-blue-800">
+                    {provider.profile.profile_completion_percentage || 100}% Profile Complete
+                  </Badge>
+                  {provider.current_organization && (
+                    <Badge className="bg-blue-100 text-blue-800">
+                      <Building className="w-3 h-3 mr-1" />
+                      {provider.current_organization.name}
+                    </Badge>
+                  )}
                 </div>
               </div>
+            </div>
+            <div className="text-right">
+              <div className={cn("text-sm", t.text.secondary)}>Outstanding Balance</div>
+              <div className={cn("text-xl font-bold", t.text.primary)}>
+                {formatCurrency(provider.financial_summary.total_outstanding)}
+              </div>
+              <div className="mt-2">
+                {provider.financial_summary.past_due_amount > 0 ? (
+                  <Badge className="bg-red-100 text-red-800">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    {formatCurrency(provider.financial_summary.past_due_amount)} Past Due
+                  </Badge>
+                ) : (
+                  <Badge className="bg-green-100 text-green-800">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Account in Good Standing
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
 
               {/* Quick Stats */}
               <div className="mt-6 grid grid-cols-4 gap-4 pt-6 border-t">
