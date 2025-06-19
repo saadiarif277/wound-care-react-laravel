@@ -8,7 +8,7 @@ import Step1ContextRequest from './Components/Step1ContextRequest';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
-import Step6ManufacturerQuestions from './Components/Step6ManufacturerQuestions';
+import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
 import { getManufacturerByProduct } from './manufacturerFields';
 
@@ -250,8 +250,7 @@ function QuickRequestCreateNew({
     { title: 'Patient & Insurance', icon: FiPackage, estimatedTime: '30 seconds' },
     { title: 'Clinical & Billing', icon: FiActivity, estimatedTime: '20 seconds' },
     { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '15 seconds' },
-    { title: 'Manufacturer Questions', icon: FiHelpCircle, estimatedTime: '10 seconds' },
-    { title: 'Electronic Signature', icon: FiFileText, estimatedTime: '30 seconds' }
+    { title: 'Review & Submit', icon: FiFileText, estimatedTime: '20 seconds' }
   ];
 
   const handleNext = () => {
@@ -330,39 +329,9 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 4: // Manufacturer Questions
-        // Validate manufacturer-specific fields if required
-        if (formData.selected_products && formData.selected_products.length > 0) {
-          const selectedProductId = formData.selected_products[0]?.product_id;
-          const selectedProduct = products.find(p => p.id === selectedProductId);
-          if (selectedProduct) {
-            const manufacturerConfig = getManufacturerByProduct(selectedProduct.name);
-            if (manufacturerConfig) {
-              manufacturerConfig.fields.forEach(field => {
-                if (field.required) {
-                  const fieldValue = formData.manufacturer_fields?.[field.name];
-                  if (!fieldValue || (typeof fieldValue === 'string' && fieldValue.trim() === '')) {
-                    errors[`manufacturer_${field.name}`] = `${field.label} is required`;
-                  }
-                }
-              });
-            }
-          }
-        }
-        break;
-
-      case 5: // DocuSeal IVR
-        // Check if IVR is required and completed
-        if (formData.selected_products && formData.selected_products.length > 0) {
-          const selectedProductId = formData.selected_products[0]?.product_id;
-          const selectedProduct = products.find(p => p.id === selectedProductId);
-          if (selectedProduct) {
-            const manufacturerConfig = getManufacturerByProduct(selectedProduct.name);
-            if (manufacturerConfig?.signatureRequired && !formData.docuseal_submission_id) {
-              errors.docuseal = 'Electronic signature is required for this product';
-            }
-          }
-        }
+      case 4: // Review & Submit
+        // No specific validation needed for review step
+        // All validations from previous steps should be complete
         break;
     }
 
@@ -372,7 +341,7 @@ function QuickRequestCreateNew({
   const handleSubmit = async () => {
     // Validate all sections
     let allErrors: Record<string, string> = {};
-    for (let i = 0; i <= 5; i++) {
+    for (let i = 0; i <= 4; i++) {
       const sectionErrors = validateSection(i);
       allErrors = { ...allErrors, ...sectionErrors };
     }
@@ -550,22 +519,15 @@ function QuickRequestCreateNew({
             )}
 
             {currentSection === 4 && (
-              <Step6ManufacturerQuestions
+              <Step6ReviewSubmit
                 formData={formData}
                 updateFormData={updateFormData}
-                products={products}
-                errors={errors}
-              />
-            )}
-
-            {currentSection === 5 && (
-              <Step7DocuSealIVR
-                formData={formData}
-                updateFormData={updateFormData as any}
                 products={products}
                 providers={providers}
                 facilities={facilities}
                 errors={errors}
+                onSubmit={handleSubmit}
+                isSubmitting={isSubmitting}
               />
             )}
           </div>
@@ -592,20 +554,7 @@ function QuickRequestCreateNew({
                 Next
                 <FiArrowRight className="ml-2 h-5 w-5" />
               </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className={`px-6 py-3 rounded-lg font-medium flex items-center ${
-                  isSubmitting
-                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                    : 'bg-green-600 text-white hover:bg-green-700'
-                }`}
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Order'}
-                <FiCheck className="ml-2 h-5 w-5" />
-              </button>
-            )}
+            ) : null /* Submit button is now inside Step6ReviewSubmit */}
           </div>
 
           {/* Timer Display */}

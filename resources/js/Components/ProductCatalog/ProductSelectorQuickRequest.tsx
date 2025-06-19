@@ -58,6 +58,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  commission_access_level: string;
 }
 
 interface Props {
@@ -371,8 +372,11 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       if (existingIndex >= 0) {
         // Update existing size/quantity
         const updated = [...selectedProductsMemo];
-        updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + quantity };
-        onProductsChange(updated);
+        const existingItem = updated[existingIndex];
+        if (existingItem && existingItem.product_id) {
+          updated[existingIndex] = { ...existingItem, quantity: existingItem.quantity + quantity };
+          onProductsChange(updated);
+        }
       } else {
         // Add new size/quantity
         onProductsChange([...selectedProductsMemo, { product_id: product.id, quantity, size, product }]);
@@ -720,4 +724,443 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
               {selectedProductsMemo.length === 0 ? (
                 <div className="text-center py-8">
                   <Package className={`w-12 h-12 mx-auto mb-3 ${t.text.muted}`} />
-                  <p className={`
+                  <p className={`${t.text.secondary} mb-2`}>No product selected yet</p>
+                  <p className={`text-xs ${t.text.muted}`}>
+                    Select one product type - you can add multiple sizes and quantities
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Product Summary */}
+                  {selectedProduct && (
+                    <div className={`p-3 ${t.glass.frost} rounded-md mb-4`}>
+                      <h5 className={`text-sm font-semibold ${t.text.primary} mb-1`}>
+                        {selectedProduct.name}
+                      </h5>
+                      <div className={`text-xs ${t.text.secondary} space-y-1`}>
+                        <p>Q{selectedProduct.q_code} • {selectedProduct.sku}</p>
+                        <p>{selectedProduct.manufacturer}</p>
+                        <p className="text-blue-600">{selectedProduct.category}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Size/Quantity Items */}
+                  {selectedProductsMemo.map((item) => {
+                    const product = item.product || products.find(p => p.id === item.product_id);
+                    if (!product) return null;
+
+                    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+                    let unitPrice = pricePerUnit;
+
+                    if (item.size) {
+                      const sizeValue = parseFloat(item.size);
+                      if (!isNaN(sizeValue)) {
+                        unitPrice = pricePerUnit * sizeValue;
+                      }
+                    }
+
+                    const totalPrice = unitPrice * item.quantity;
+
+                    return (
+                      <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex-1">
+                            {item.size ? (
+                              <div>
+                                <h5 className={`text-sm font-medium ${t.text.primary}`}>
+                                  Size: {getProductSizeLabel(product.name, item.size)}
+                                </h5>
+                                <p className={`text-xs ${t.text.secondary}`}>
+                                  {formatPrice(unitPrice)} per unit
+                                </p>
+                              </div>
+                            ) : (
+                              <div>
+                                <h5 className={`text-sm font-medium ${t.text.primary}`}>
+                                  Standard Size
+                                </h5>
+                                <p className={`text-xs ${t.text.secondary}`}>
+                                  {formatPrice(unitPrice)} per unit
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => removeProduct(item.product_id, item.size)}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity - 1)}
+                              className={`w-6 h-6 rounded-full border ${theme === 'dark' ? 'border-white/20 hover:bg-white/10' : 'border-gray-300 hover:bg-gray-50'} flex items-center justify-center`}
+                            >
+                              <Minus className="w-3 h-3" />
+                            </button>
+                            <span className={`text-sm font-medium w-8 text-center ${t.text.primary}`}>
+                              {item.quantity}
+                            </span>
+                            <button
+                              onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity + 1)}
+                              className={`w-6 h-6 rounded-full border ${theme === 'dark' ? 'border-white/20 hover:bg-white/10' : 'border-gray-300 hover:bg-gray-50'} flex items-center justify-center`}
+                            >
+                              <Plus className="w-3 h-3" />
+                            </button>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-sm font-semibold ${t.text.primary}`}>
+                              {formatPrice(totalPrice)}
+                            </p>
+                            <p className={`text-xs ${t.text.secondary}`}>
+                              {item.quantity} × {formatPrice(unitPrice)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  <div className={`border-t ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} pt-3`}>
+                    <div className="flex items-center justify-between">
+                      <span className={`text-base font-semibold ${t.text.primary}`}>Total:</span>
+                      <span className="text-lg font-bold text-blue-600">
+                        {formatPrice(calculateTotal())}
+                      </span>
+                    </div>
+                    {!roleRestrictions.can_see_msc_pricing && (
+                      <p className="text-xs text-yellow-600 mt-1">
+                        * Pricing shown is National ASP only
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Product Card Component
+const QuickRequestProductCard: React.FC<{
+  product: Product;
+  onAdd: (product: Product, quantity: number, size?: string) => void;
+  roleRestrictions: RoleRestrictions;
+  isDisabled?: boolean;
+  canAddMoreSizes?: boolean;
+  isSelected?: boolean;
+  isRecommended?: boolean;
+  isOnboarded?: boolean;
+  theme: any;
+}> = ({ product, onAdd, roleRestrictions, isDisabled = false, canAddMoreSizes = false, isSelected = false, isRecommended = false, isOnboarded = false, theme: t }) => {
+  const [selectedSize, setSelectedSize] = useState<string>('');
+  const [quantity, setQuantity] = useState(1);
+
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(price);
+  };
+
+  const handleAddProduct = () => {
+    onAdd(product, quantity, selectedSize || undefined);
+    setQuantity(1);
+    setSelectedSize('');
+  };
+
+  const calculatePrice = () => {
+    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+    if (selectedSize) {
+      const sizeValue = parseFloat(selectedSize);
+      if (isNaN(sizeValue)) {
+        return pricePerUnit * quantity;
+      }
+      return pricePerUnit * sizeValue * quantity;
+    }
+    return pricePerUnit * quantity;
+  };
+
+  return (
+    <div className={`${t.glass.card} rounded-lg p-4 transition-all duration-200 ${
+      isSelected ? 'ring-2 ring-blue-500' : ''
+    } ${isDisabled ? 'opacity-50' : ''}`}>
+      <div className="flex flex-wrap gap-2 mb-2">
+        {isSelected && (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+            Currently Selected
+          </span>
+        )}
+        {isRecommended && (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
+            Insurance Recommended
+          </span>
+        )}
+        {isOnboarded && (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
+            Provider Onboarded
+          </span>
+        )}
+        {!isOnboarded && isRecommended && (
+          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
+            Onboarding Required
+          </span>
+        )}
+      </div>
+
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1">
+          <h3 className={`text-sm font-semibold ${t.text.primary} line-clamp-2 mb-1`}>
+            {product.name}
+          </h3>
+          <div className={`flex items-center space-x-2 text-xs ${t.text.secondary} mb-1`}>
+            <Tag className="w-3 h-3" />
+            <span>Q{product.q_code}</span>
+            <span>•</span>
+            <span>{product.sku}</span>
+          </div>
+          <div className={`flex items-center text-xs ${t.text.secondary}`}>
+            <Building className="w-3 h-3 mr-1" />
+            <span>{product.manufacturer}</span>
+          </div>
+        </div>
+      </div>
+
+      <p className={`text-xs ${t.text.secondary} mb-3 line-clamp-2`}>
+        {product.description}
+      </p>
+
+      <div className="space-y-2 mb-3">
+        <PricingDisplay
+          roleRestrictions={roleRestrictions}
+          product={{
+            nationalAsp: product.price_per_sq_cm,
+            mscPrice: product.msc_price,
+          }}
+          showLabel={true}
+          className="text-xs"
+        />
+
+        {roleRestrictions.can_view_financials && product.commission_rate && (
+          <div className="flex justify-between text-xs">
+            <span className={t.text.secondary}>Commission:</span>
+            <span className="font-medium text-green-600">
+              {product.commission_rate}%
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Size Selection */}
+      {product.available_sizes?.length > 0 && (
+        <div className="mb-3">
+          <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
+            Size (cm²)
+          </label>
+          <select
+            value={selectedSize}
+            onChange={(e) => setSelectedSize(e.target.value)}
+            className={`w-full text-xs ${t.input.base} ${t.input.focus}`}
+            disabled={isDisabled}
+          >
+            <option value="">Select size...</option>
+            {product.available_sizes.map(size => (
+              <option key={size} value={size.toString()}>
+                {getProductSizeLabel(product.name, size)} - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Quantity Selection */}
+      <div className="mb-3">
+        <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
+          Quantity
+        </label>
+        <input
+          type="number"
+          min="1"
+          value={quantity}
+          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+          className={`w-full text-xs ${t.input.base} ${t.input.focus}`}
+          disabled={isDisabled}
+        />
+      </div>
+
+      {/* Total Price Display */}
+      <div className={`mb-3 p-2 ${t.glass.frost} rounded text-center`}>
+        <span className={`text-sm font-semibold ${t.text.primary}`}>
+          Total: {formatPrice(calculatePrice())}
+        </span>
+      </div>
+
+      <button
+        onClick={handleAddProduct}
+        disabled={(product.available_sizes?.length > 0 && !selectedSize) || isDisabled}
+        className={`w-full text-sm font-medium py-2 px-3 rounded-md transition-all duration-200 ${
+          isDisabled
+            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            : `${t.button.primary.base} ${t.button.primary.hover}`
+        }`}
+      >
+        {isDisabled ? 'Different Product Selected' :
+         isSelected ? 'Add Another Size' : 'Select This Product'}
+      </button>
+    </div>
+  );
+};
+
+// Consultation Required Card
+const ConsultationRequiredCard: React.FC<{
+  woundSize: number;
+  onContactAdmin: () => void;
+  theme: any;
+}> = ({ woundSize, onContactAdmin, theme: t }) => {
+  return (
+    <div className={`${t.glass.card} rounded-lg p-6`}>
+      <div className="text-center">
+        <div className="inline-flex items-center justify-center w-16 h-16 bg-yellow-100 rounded-full mb-4">
+          <Users className="w-8 h-8 text-yellow-600" />
+        </div>
+        <h3 className={`text-xl font-semibold ${t.text.primary} mb-2`}>
+          Consultation Required
+        </h3>
+        <p className={`text-sm ${t.text.secondary} mb-4`}>
+          Medicare requires special consultation for wounds larger than 450 sq cm.
+        </p>
+        <div className={`${t.glass.frost} rounded-md p-4 mb-6`}>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className={t.text.secondary}>Current wound size:</span>
+              <span className={`font-semibold ${t.text.primary}`}>{woundSize} sq cm</span>
+            </div>
+            <div className="flex justify-between">
+              <span className={t.text.secondary}>Medicare limit:</span>
+              <span className={`font-semibold ${t.text.primary}`}>450 sq cm</span>
+            </div>
+          </div>
+        </div>
+        <p className={`text-xs ${t.text.tertiary} mb-6`}>
+          Please contact MSC Admin for assistance with this order. They will help coordinate the necessary approvals and documentation.
+        </p>
+        <button
+          onClick={onContactAdmin}
+          className={`inline-flex items-center px-6 py-3 ${t.button.primary.base} ${t.button.primary.hover} rounded-lg text-sm font-medium`}
+        >
+          <Phone className="w-4 h-4 mr-2" />
+          Contact MSC Admin
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Consultation Modal
+const ConsultationModal: React.FC<{
+  onClose: () => void;
+  theme: any;
+}> = ({ onClose, theme: t }) => {
+  return (
+    <div className={`fixed inset-0 z-50 flex items-center justify-center p-4 ${t.modal.backdrop}`}>
+      <div className={`${t.modal.container} max-w-md w-full`}>
+        <div className={t.modal.header}>
+          <div className="flex items-center justify-between">
+            <h3 className={`text-lg font-semibold ${t.text.primary}`}>
+              Contact MSC Admin
+            </h3>
+            <button
+              onClick={onClose}
+              className={`${t.text.secondary} hover:${t.text.primary}`}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+        <div className={t.modal.body}>
+          <div className="space-y-4">
+            <div className="text-center mb-6">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-100 rounded-full mb-4">
+                <Mail className="w-8 h-8 text-blue-600" />
+              </div>
+              <p className={`text-sm ${t.text.secondary}`}>
+                Please reach out to Ashley at MSC Admin for assistance with Medicare orders exceeding 450 sq cm.
+              </p>
+            </div>
+
+            <div className={`${t.glass.frost} rounded-lg p-4 space-y-3`}>
+              <div>
+                <h4 className={`text-sm font-semibold ${t.text.primary} mb-1`}>
+                  Contact Information
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-center text-sm">
+                    <User className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
+                    <span className={t.text.secondary}>Ashley (MSC Admin)</span>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Mail className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
+                    <a href="mailto:ashley@mscadmin.com" className="text-blue-600 hover:underline">
+                      ashley@mscadmin.com
+                    </a>
+                  </div>
+                  <div className="flex items-center text-sm">
+                    <Phone className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
+                    <span className={t.text.secondary}>1-800-MSC-ADMIN</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <h4 className={`text-sm font-semibold ${t.text.primary} mb-1`}>
+                  What to Include
+                </h4>
+                <ul className={`text-xs ${t.text.secondary} space-y-1`}>
+                  <li>• Patient information and wound details</li>
+                  <li>• Clinical documentation supporting the wound size</li>
+                  <li>• Proposed treatment plan</li>
+                  <li>• Any previous treatment history</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className={`p-3 ${t.status.info} rounded-md`}>
+              <div className="flex items-start">
+                <Info className="w-4 h-4 mr-2 flex-shrink-0 mt-0.5" />
+                <p className="text-xs">
+                  MSC Admin will review your request and coordinate with Medicare to ensure proper authorization and reimbursement.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className={t.modal.footer}>
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className={`px-4 py-2 text-sm font-medium rounded-md ${t.button.ghost.base} ${t.button.ghost.hover}`}
+            >
+              Close
+            </button>
+            <a
+              href="mailto:ashley@mscadmin.com?subject=Medicare Consultation Request - Wound >450 sq cm"
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${t.button.primary.base} ${t.button.primary.hover}`}
+            >
+              <Mail className="w-4 h-4 mr-2" />
+              Send Email
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProductSelectorQuickRequest;
