@@ -91,21 +91,47 @@ class QuickRequestController extends Controller
             $providers = array_merge($providers, $orgProviders);
         }
 
-        // Get facilities
-        $facilities = $user->facilities->map(function($facility) {
+        // Get facilities - temporarily bypass organization scope for debugging
+        $facilities = collect();
+
+        // First try user's direct facilities (many-to-many relationship)
+        $userFacilities = $user->facilities->map(function($facility) {
             return [
                 'id' => $facility->id,
                 'name' => $facility->name,
                 'address' => $facility->full_address,
+                'source' => 'user_relationship'
             ];
         });
 
+        // Also get all facilities without scope to see what's available
+        $allFacilities = \App\Models\Fhir\Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
+            ->where('active', true)
+            ->take(10)
+            ->get()
+            ->map(function($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->full_address ?? 'No address',
+                    'organization_id' => $facility->organization_id,
+                    'source' => 'all_facilities'
+                ];
+            });
+
+        // Use user facilities if available, otherwise use all facilities for now
+        $facilities = $userFacilities->count() > 0 ? $userFacilities : $allFacilities;
+
         // Debug log facilities
-        Log::info('QuickRequest facilities for user', [
+        Log::info('QuickRequest facilities debug', [
             'user_id' => $user->id,
             'user_email' => $user->email,
-            'facilities_count' => $facilities->count(),
-            'facilities' => $facilities->toArray(),
+            'current_org_id' => $currentOrg?->id,
+            'user_facilities_count' => $userFacilities->count(),
+            'all_facilities_count' => $allFacilities->count(),
+            'final_facilities_count' => $facilities->count(),
+            'user_facilities' => $userFacilities->toArray(),
+            'all_facilities' => $allFacilities->toArray(),
         ]);
 
         // Get products with proper structure

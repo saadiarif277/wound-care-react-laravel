@@ -14,12 +14,12 @@ class QuickFixFacilitySeeder extends Seeder
     {
         // Ensure we have an organization
         $organization = Organization::first();
-        
+
         if (!$organization) {
             $account = \App\Models\Account::first() ?? \App\Models\Account::create([
                 'name' => 'Default Account',
             ]);
-            
+
             $organization = Organization::create([
                 'account_id' => $account->id,
                 'name' => 'Test Healthcare Network',
@@ -32,7 +32,7 @@ class QuickFixFacilitySeeder extends Seeder
                 'postal_code' => '12345',
             ]);
         }
-        
+
         // Create facilities if they don't exist
         $facilities = [
             [
@@ -76,24 +76,24 @@ class QuickFixFacilitySeeder extends Seeder
                 'active' => true,
             ],
         ];
-        
+
         $createdFacilityIds = [];
-        
+
         foreach ($facilities as $facilityData) {
             $facility = Facility::updateOrCreate(
                 ['npi' => $facilityData['npi']],
                 $facilityData
             );
             $createdFacilityIds[] = $facility->id;
-            
+
             $this->command->info("Created/Updated facility: {$facility->name}");
         }
-        
+
         // Associate all providers with facilities
         $providers = User::whereHas('roles', function($q) {
             $q->whereIn('slug', ['provider', 'office-manager']);
         })->get();
-        
+
         foreach ($providers as $provider) {
             // Set current organization if not set
             if (!$provider->current_organization_id) {
@@ -101,11 +101,11 @@ class QuickFixFacilitySeeder extends Seeder
                 $provider->save();
                 $this->command->info("Set organization for user: {$provider->email}");
             }
-            
+
             // Associate with facilities if not already associated
             $existingFacilityIds = $provider->facilities()->pluck('facilities.id')->toArray();
             $facilityIdsToAttach = array_diff($createdFacilityIds, $existingFacilityIds);
-            
+
             if (!empty($facilityIdsToAttach)) {
                 foreach ($facilityIdsToAttach as $facilityId) {
                     $provider->facilities()->attach($facilityId, [
@@ -116,23 +116,23 @@ class QuickFixFacilitySeeder extends Seeder
                 $this->command->info("Associated {$provider->email} with " . count($facilityIdsToAttach) . " facilities");
             }
         }
-        
+
         // Also associate admin users with all facilities
         $admins = User::whereHas('roles', function($q) {
             $q->whereIn('slug', ['msc-admin', 'super-admin']);
         })->get();
-        
+
         foreach ($admins as $admin) {
             // Set current organization if not set
             if (!$admin->current_organization_id) {
                 $admin->current_organization_id = $organization->id;
                 $admin->save();
             }
-            
+
             // Associate with all facilities
             $existingFacilityIds = $admin->facilities()->pluck('facilities.id')->toArray();
             $facilityIdsToAttach = array_diff($createdFacilityIds, $existingFacilityIds);
-            
+
             if (!empty($facilityIdsToAttach)) {
                 foreach ($facilityIdsToAttach as $facilityId) {
                     $admin->facilities()->attach($facilityId, [
@@ -143,16 +143,39 @@ class QuickFixFacilitySeeder extends Seeder
                 $this->command->info("Associated admin {$admin->email} with " . count($facilityIdsToAttach) . " facilities");
             }
         }
-        
+
         $this->command->info('Facility associations completed!');
-        
+
         // Show summary
         $totalFacilities = Facility::count();
         $activeFacilities = Facility::where('active', true)->count();
         $this->command->info("Total facilities: {$totalFacilities} (Active: {$activeFacilities})");
-        
+
         // Show user-facility associations
         $associations = DB::table('facility_user')->count();
         $this->command->info("Total user-facility associations: {$associations}");
+
+        // Ensure provider@example.com has facility associations
+        $providerUser = \App\Models\User::where('email', 'provider@example.com')->first();
+        if ($providerUser && $associations == 0) {
+            $this->command->info("Adding facility associations for provider@example.com...");
+
+            // Get all facilities
+            $allFacilities = \App\Models\Fhir\Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)->get();
+
+            foreach ($allFacilities as $facility) {
+                DB::table('facility_user')->insert([
+                    'facility_id' => $facility->id,
+                    'user_id' => $providerUser->id,
+                    'relationship_type' => 'provider',
+                    'role' => 'provider',
+                    'is_primary' => $facility->id === $allFacilities->first()->id, // Make first one primary
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+            }
+
+            $this->command->info("Added {$allFacilities->count()} facility associations for provider@example.com");
+        }
     }
 }
