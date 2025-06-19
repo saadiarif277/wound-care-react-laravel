@@ -10,6 +10,7 @@ use App\Models\Fhir\Facility;
 use App\Services\PatientService;
 use App\Services\PayerService;
 use App\Services\PhiAuditService;
+use App\Services\CurrentOrganization;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,11 +23,13 @@ class QuickRequestController extends Controller
 {
     protected $patientService;
     protected $payerService;
+    protected $currentOrganization;
 
-    public function __construct(PatientService $patientService, PayerService $payerService)
+    public function __construct(PatientService $patientService, PayerService $payerService, CurrentOrganization $currentOrganization)
     {
         $this->patientService = $patientService;
         $this->payerService = $payerService;
+        $this->currentOrganization = $currentOrganization;
     }
 
     /**
@@ -43,6 +46,12 @@ class QuickRequestController extends Controller
         ]);
 
         $currentOrg = $user->organizations->first();
+
+        // Set the current organization for the scope filtering
+        if ($currentOrg) {
+            $this->currentOrganization->setId($currentOrg->id);
+        }
+
         $primaryFacility = $user->facilities()->where('facility_user.is_primary', true)->first() ?? $user->facilities->first();
 
         // Get all providers in the organization
@@ -92,7 +101,7 @@ class QuickRequestController extends Controller
         });
 
         // Debug log facilities
-        \Log::info('QuickRequest facilities for user', [
+        Log::info('QuickRequest facilities for user', [
             'user_id' => $user->id,
             'user_email' => $user->email,
             'facilities_count' => $facilities->count(),
