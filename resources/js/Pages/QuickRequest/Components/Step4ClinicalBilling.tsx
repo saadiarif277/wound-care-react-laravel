@@ -1,5 +1,4 @@
-import React from 'react';
-import { FiAlertCircle, FiInfo } from 'react-icons/fi';
+import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
@@ -14,17 +13,17 @@ interface Step4Props {
   errors: Record<string, string>;
 }
 
-export default function Step4ClinicalBilling({ 
-  formData, 
-  updateFormData, 
+export default function Step4ClinicalBilling({
+  formData,
+  updateFormData,
   diagnosisCodes,
   woundArea,
-  errors 
+  errors
 }: Step4Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -80,7 +79,7 @@ export default function Step4ClinicalBilling({
     const area = parseFloat(woundArea) || 0;
     const isExtremity = formData.wound_location?.includes('hands_feet_head');
     let suggestedCodes: string[] = [];
-    
+
     if (area > 0) {
       if (isExtremity) {
         if (area <= 25) suggestedCodes = ['15275'];
@@ -92,7 +91,7 @@ export default function Step4ClinicalBilling({
         else suggestedCodes = ['15273', '15274'];
       }
     }
-    
+
     return suggestedCodes;
   };
 
@@ -134,7 +133,7 @@ export default function Step4ClinicalBilling({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Wound Information
         </h3>
-        
+
         <div className="space-y-4">
           {/* Wound Type */}
           <div>
@@ -144,7 +143,7 @@ export default function Step4ClinicalBilling({
             <div className="space-y-2">
               {woundTypes.map(type => (
                 <label key={type.value} className="flex items-center">
-                  <input 
+                  <input
                     type="checkbox"
                     className="form-checkbox h-4 w-4 text-blue-600 rounded"
                     checked={formData.wound_types?.includes(type.value) || false}
@@ -157,18 +156,18 @@ export default function Step4ClinicalBilling({
             {errors.wound_types && (
               <p className="mt-1 text-sm text-red-500">{errors.wound_types}</p>
             )}
-            
+
             {formData.wound_types?.includes('other') && (
               <div className="mt-3">
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Specify Other Wound Type <span className="text-red-500">*</span>
                 </label>
-                <input 
+                <input
                   type="text"
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                     errors.wound_other_specify && 'border-red-500'
                   )}
@@ -187,8 +186,8 @@ export default function Step4ClinicalBilling({
           {(formData.wound_types?.includes('diabetic_foot_ulcer') || formData.wound_types?.includes('venous_leg_ulcer')) && (
             <div className={cn(
               "p-3 rounded-lg border-l-4",
-              theme === 'dark' 
-                ? 'bg-yellow-900/20 border-yellow-500' 
+              theme === 'dark'
+                ? 'bg-yellow-900/20 border-yellow-500'
                 : 'bg-yellow-100 border-yellow-500'
             )}>
               <div className="flex items-start">
@@ -207,11 +206,11 @@ export default function Step4ClinicalBilling({
                     "mt-1 text-sm",
                     theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'
                   )}>
-                    {formData.wound_types?.includes('diabetic_foot_ulcer') && 
+                    {formData.wound_types?.includes('diabetic_foot_ulcer') &&
                       'Diabetic Foot Ulcer requires 1 Yellow (Diabetes) AND 1 Orange (Chronic Ulcer) diagnosis code'}
-                    {formData.wound_types?.includes('diabetic_foot_ulcer') && formData.wound_types?.includes('venous_leg_ulcer') && 
+                    {formData.wound_types?.includes('diabetic_foot_ulcer') && formData.wound_types?.includes('venous_leg_ulcer') &&
                       ' | '}
-                    {formData.wound_types?.includes('venous_leg_ulcer') && 
+                    {formData.wound_types?.includes('venous_leg_ulcer') &&
                       'Venous Leg Ulcer requires appropriate venous insufficiency codes'}
                   </p>
                 </div>
@@ -226,11 +225,11 @@ export default function Step4ClinicalBilling({
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Yellow Diagnosis Code (Diabetes) <span className="text-red-500">*</span>
                 </label>
-                <select 
+                <select
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-yellow-900/20 border-yellow-700 text-white focus:border-yellow-500' 
+                    theme === 'dark'
+                      ? 'bg-yellow-900/20 border-yellow-700 text-white focus:border-yellow-500'
                       : 'bg-yellow-50 border-yellow-400 text-gray-900 focus:border-yellow-500',
                     errors.yellow_diagnosis && 'border-red-500'
                   )}
@@ -253,11 +252,11 @@ export default function Step4ClinicalBilling({
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Orange Diagnosis Code (Chronic Ulcer) <span className="text-red-500">*</span>
                 </label>
-                <select 
+                <select
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-orange-900/20 border-orange-700 text-white focus:border-orange-500' 
+                    theme === 'dark'
+                      ? 'bg-orange-900/20 border-orange-700 text-white focus:border-orange-500'
                       : 'bg-orange-50 border-orange-400 text-gray-900 focus:border-orange-500',
                     errors.orange_diagnosis && 'border-red-500'
                   )}
@@ -283,11 +282,11 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Wound Location <span className="text-red-500">*</span>
             </label>
-            <select 
+            <select
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.wound_location && 'border-red-500'
               )}
@@ -308,12 +307,12 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Specific Wound Location (Optional)
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.wound_location_details || ''}
@@ -328,13 +327,13 @@ export default function Step4ClinicalBilling({
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Length (cm) <span className="text-red-500">*</span>
               </label>
-              <input 
+              <input
                 type="number"
                 step="0.1"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   errors.wound_size && 'border-red-500'
                 )}
@@ -346,13 +345,13 @@ export default function Step4ClinicalBilling({
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Width (cm) <span className="text-red-500">*</span>
               </label>
-              <input 
+              <input
                 type="number"
                 step="0.1"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   errors.wound_size && 'border-red-500'
                 )}
@@ -364,13 +363,13 @@ export default function Step4ClinicalBilling({
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Depth (cm)
               </label>
-              <input 
+              <input
                 type="number"
                 step="0.1"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.wound_size_depth || ''}
@@ -397,12 +396,12 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Wound Duration
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.wound_duration || ''}
@@ -415,11 +414,11 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Previously Used Therapies
             </label>
-            <textarea 
+            <textarea
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               rows={3}
@@ -436,14 +435,14 @@ export default function Step4ClinicalBilling({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Procedure Information
         </h3>
-        
+
         <div className="space-y-4">
           {/* CPT Codes */}
           <div>
             <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
               Application CPT Codes <span className="text-red-500">*</span>
             </label>
-            
+
             {formData.wound_location && woundArea !== '0' && (
               <div className={cn(
                 "p-3 rounded mb-3",
@@ -454,11 +453,11 @@ export default function Step4ClinicalBilling({
                 </p>
               </div>
             )}
-            
+
             <div className="space-y-2">
               {cptOptions.map(option => (
                 <label key={option.value} className="flex items-center">
-                  <input 
+                  <input
                     type="checkbox"
                     className="form-checkbox h-4 w-4 text-blue-600 rounded"
                     checked={formData.application_cpt_codes?.includes(option.value) || suggestedCodes.includes(option.value)}
@@ -466,8 +465,8 @@ export default function Step4ClinicalBilling({
                   />
                   <span className={cn(
                     "ml-2 text-sm",
-                    suggestedCodes.includes(option.value) 
-                      ? theme === 'dark' ? 'font-medium text-blue-400' : 'font-medium text-blue-700' 
+                    suggestedCodes.includes(option.value)
+                      ? theme === 'dark' ? 'font-medium text-blue-400' : 'font-medium text-blue-700'
                       : t.text.primary
                   )}>
                     {option.label}
@@ -486,7 +485,7 @@ export default function Step4ClinicalBilling({
             {errors.cpt_codes && (
               <p className="mt-1 text-sm text-red-500">{errors.cpt_codes}</p>
             )}
-            
+
             <p className={cn("text-xs mt-3 italic", t.text.secondary)}>
               Note: CPT code recommendations are based on wound size and location. Final billing code selection is the provider's responsibility.
             </p>
@@ -497,12 +496,12 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Number of Prior Applications
             </label>
-            <input 
+            <input
               type="number"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.prior_applications || ''}
@@ -521,12 +520,12 @@ export default function Step4ClinicalBilling({
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Number of Anticipated Applications
             </label>
-            <input 
+            <input
               type="number"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.anticipated_applications || ''}
@@ -547,18 +546,18 @@ export default function Step4ClinicalBilling({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Facility & Billing Status
         </h3>
-        
+
         <div className="space-y-4">
           {/* Place of Service */}
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Place of Service <span className="text-red-500">*</span>
             </label>
-            <select 
+            <select
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.place_of_service && 'border-red-500'
               )}
@@ -578,8 +577,8 @@ export default function Step4ClinicalBilling({
           {(formData.place_of_service === '31' || formData.place_of_service === '32') && (
             <div className={cn(
               "p-4 rounded-lg border",
-              theme === 'dark' 
-                ? 'bg-red-900/20 border-red-800' 
+              theme === 'dark'
+                ? 'bg-red-900/20 border-red-800'
                 : 'bg-red-50 border-red-200'
             )}>
               <div className="flex items-start">
@@ -600,10 +599,10 @@ export default function Step4ClinicalBilling({
                   )}>
                     {formData.place_of_service === '31' ? 'Skilled Nursing Facility' : 'Nursing Home'} requires special Medicare authorization
                   </p>
-                  
+
                   <div className="mt-3">
                     <label className="flex items-center">
-                      <input 
+                      <input
                         type="checkbox"
                         className="form-checkbox h-4 w-4 text-red-600 rounded"
                         checked={formData.medicare_part_b_authorized || false}
@@ -621,12 +620,12 @@ export default function Step4ClinicalBilling({
                         <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                           Days in Facility
                         </label>
-                        <input 
+                        <input
                           type="number"
                           className={cn(
                             "w-full p-2 rounded border transition-all",
-                            theme === 'dark' 
-                              ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                            theme === 'dark'
+                              ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                               : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                           )}
                           value={formData.snf_days || ''}
@@ -636,12 +635,12 @@ export default function Step4ClinicalBilling({
                           max="999"
                         />
                       </div>
-                      
+
                       {parseInt(formData.snf_days || '0') > 100 && (
                         <div className={cn(
                           "p-3 rounded-lg border-l-4",
-                          theme === 'dark' 
-                            ? 'bg-yellow-900/20 border-yellow-500' 
+                          theme === 'dark'
+                            ? 'bg-yellow-900/20 border-yellow-500'
                             : 'bg-yellow-100 border-yellow-500'
                         )}>
                           <p className={cn(
@@ -662,7 +661,7 @@ export default function Step4ClinicalBilling({
           {/* Additional Billing Status */}
           <div className="space-y-2">
             <label className="flex items-center">
-              <input 
+              <input
                 type="checkbox"
                 className="form-checkbox h-4 w-4 text-blue-600 rounded"
                 checked={formData.hospice_status || false}
@@ -672,7 +671,7 @@ export default function Step4ClinicalBilling({
             </label>
 
             <label className="flex items-center">
-              <input 
+              <input
                 type="checkbox"
                 className="form-checkbox h-4 w-4 text-blue-600 rounded"
                 checked={formData.part_a_status || false}
@@ -682,7 +681,7 @@ export default function Step4ClinicalBilling({
             </label>
 
             <label className="flex items-center">
-              <input 
+              <input
                 type="checkbox"
                 className="form-checkbox h-4 w-4 text-blue-600 rounded"
                 checked={formData.global_period_status || false}
@@ -700,12 +699,12 @@ export default function Step4ClinicalBilling({
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Previous Surgery CPT
                   </label>
-                  <input 
+                  <input
                     type="text"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.global_period_cpt || ''}
@@ -718,12 +717,12 @@ export default function Step4ClinicalBilling({
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Surgery Date
                   </label>
-                  <input 
+                  <input
                     type="date"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.global_period_surgery_date || ''}

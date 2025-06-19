@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { FiCamera, FiRefreshCw, FiAlertCircle, FiFile, FiCheck, FiChevronDown } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -10,15 +10,15 @@ interface Step2Props {
   errors: Record<string, string>;
 }
 
-export default function Step2PatientShipping({ 
-  formData, 
-  updateFormData, 
-  errors 
+export default function Step2PatientShipping({
+  formData,
+  updateFormData,
+  errors
 }: Step2Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -26,14 +26,14 @@ export default function Step2PatientShipping({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [cardFrontPreview, setCardFrontPreview] = useState<string | null>(null);
   const [cardBackPreview, setCardBackPreview] = useState<string | null>(null);
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
   const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
-  
+
   const fileInputFrontRef = useRef<HTMLInputElement>(null);
   const fileInputBackRef = useRef<HTMLInputElement>(null);
 
@@ -79,18 +79,18 @@ export default function Step2PatientShipping({
     // Try to process with Azure Document Intelligence
     const frontCard = side === 'front' ? file : formData.insurance_card_front;
     const backCard = side === 'back' ? file : formData.insurance_card_back;
-    
+
     if (frontCard) {
       setIsProcessingCard(true);
       setAutoFillSuccess(false);
-      
+
       try {
         const apiFormData = new FormData();
         apiFormData.append('insurance_card_front', frontCard);
         if (backCard) {
           apiFormData.append('insurance_card_back', backCard);
         }
-        
+
         const response = await fetch('/api/insurance-card/analyze', {
           method: 'POST',
           headers: {
@@ -98,29 +98,29 @@ export default function Step2PatientShipping({
           },
           body: apiFormData,
         });
-        
+
         if (response.ok) {
           const result = await response.json();
-          
+
           if (result.success && result.data) {
             const updates: any = {};
-            
+
             // Patient information
             if (result.data.patient_first_name) updates.patient_first_name = result.data.patient_first_name;
             if (result.data.patient_last_name) updates.patient_last_name = result.data.patient_last_name;
             if (result.data.patient_dob) updates.patient_dob = result.data.patient_dob;
             if (result.data.patient_member_id) updates.patient_member_id = result.data.patient_member_id;
-            
+
             // Insurance information (will be used in next step)
             if (result.data.payer_name) updates.primary_insurance_name = result.data.payer_name;
             if (result.data.payer_id) updates.primary_member_id = result.data.payer_id;
             if (result.data.insurance_type) updates.primary_plan_type = result.data.insurance_type;
-            
+
             updates.insurance_card_auto_filled = true;
-            
+
             updateFormData(updates);
             setAutoFillSuccess(true);
-            
+
             setTimeout(() => {
               setAutoFillSuccess(false);
             }, 5000);
@@ -150,11 +150,11 @@ export default function Step2PatientShipping({
     }
   };
 
-  const handleAddressSelect = (place: google.maps.places.PlaceResult) => {
+  const handleAddressSelect = (place: any) => {
     const addressComponents = place.address_components || [];
     const updates: any = {};
-    
-    addressComponents.forEach(component => {
+
+    addressComponents.forEach((component: any) => {
       const types = component.types;
       if (types.includes('street_number')) {
         updates.patient_address_line1 = component.long_name;
@@ -168,7 +168,7 @@ export default function Step2PatientShipping({
         updates.patient_zip = component.long_name;
       }
     });
-    
+
     updateFormData(updates);
   };
 
@@ -179,14 +179,14 @@ export default function Step2PatientShipping({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Insurance Card Upload (Optional - Auto-fills patient info)
         </h3>
-        
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {/* Front of card */}
           <div>
             <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
               Front of Insurance Card
             </label>
-            <div 
+            <div
               onClick={() => fileInputFrontRef.current?.click()}
               className={cn(
                 "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all hover:border-blue-500",
@@ -226,7 +226,7 @@ export default function Step2PatientShipping({
             <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
               Back of Insurance Card
             </label>
-            <div 
+            <div
               onClick={() => fileInputBackRef.current?.click()}
               className={cn(
                 "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all hover:border-blue-500",
@@ -284,22 +284,22 @@ export default function Step2PatientShipping({
       </div>
 
       {/* Patient Information */}
-      <div className={cn("p-4 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-4 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Patient Information
         </h3>
-        
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               First Name <span className="text-red-500">*</span>
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.patient_first_name && 'border-red-500'
               )}
@@ -310,17 +310,17 @@ export default function Step2PatientShipping({
               <p className="mt-1 text-sm text-red-500">{errors.patient_first_name}</p>
             )}
           </div>
-          
+
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Last Name <span className="text-red-500">*</span>
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.patient_last_name && 'border-red-500'
               )}
@@ -331,17 +331,17 @@ export default function Step2PatientShipping({
               <p className="mt-1 text-sm text-red-500">{errors.patient_last_name}</p>
             )}
           </div>
-          
+
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Date of Birth <span className="text-red-500">*</span>
             </label>
-            <input 
+            <input
               type="date"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.patient_dob && 'border-red-500'
               )}
@@ -352,16 +352,16 @@ export default function Step2PatientShipping({
               <p className="mt-1 text-sm text-red-500">{errors.patient_dob}</p>
             )}
           </div>
-          
+
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Gender
             </label>
-            <select 
+            <select
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.patient_gender}
@@ -386,24 +386,24 @@ export default function Step2PatientShipping({
               defaultValue={formData.patient_address_line1}
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               placeholder="Start typing address..."
             />
           </div>
-          
+
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Address Line 2
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
               )}
               value={formData.patient_address_line2 || ''}
@@ -411,34 +411,34 @@ export default function Step2PatientShipping({
               placeholder="Apartment, suite, etc. (optional)"
             />
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="md:col-span-2">
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 City
               </label>
-              <input 
+              <input
                 type="text"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.patient_city || ''}
                 onChange={(e) => updateFormData({ patient_city: e.target.value })}
               />
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 State
               </label>
-              <select 
+              <select
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.patient_state || ''}
@@ -450,17 +450,17 @@ export default function Step2PatientShipping({
                 ))}
               </select>
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 ZIP Code
               </label>
-              <input 
+              <input
                 type="text"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.patient_zip || ''}
@@ -470,18 +470,18 @@ export default function Step2PatientShipping({
               />
             </div>
           </div>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Phone Number
               </label>
-              <input 
+              <input
                 type="tel"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.patient_phone || ''}
@@ -489,17 +489,17 @@ export default function Step2PatientShipping({
                 placeholder="(555) 123-4567"
               />
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Email Address (Optional)
               </label>
-              <input 
+              <input
                 type="email"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                 )}
                 value={formData.patient_email || ''}
@@ -516,18 +516,18 @@ export default function Step2PatientShipping({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Service Date & Shipping
         </h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Service Date <span className="text-red-500">*</span>
             </label>
-            <input 
+            <input
               type="date"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.expected_service_date && 'border-red-500'
               )}
@@ -539,16 +539,16 @@ export default function Step2PatientShipping({
               <p className="mt-1 text-sm text-red-500">{errors.expected_service_date}</p>
             )}
           </div>
-          
+
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
               Shipping Speed <span className="text-red-500">*</span>
             </label>
-            <select 
+            <select
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 errors.shipping_speed && 'border-red-500'
               )}
@@ -565,18 +565,18 @@ export default function Step2PatientShipping({
               <p className="mt-1 text-sm text-red-500">{errors.shipping_speed}</p>
             )}
           </div>
-          
+
           {formData.delivery_date && (
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Expected Delivery Date (Auto-calculated)
               </label>
-              <input 
+              <input
                 type="date"
                 className={cn(
                   "w-full p-2 rounded border",
-                  theme === 'dark' 
-                    ? 'bg-gray-700 border-gray-600 text-gray-300' 
+                  theme === 'dark'
+                    ? 'bg-gray-700 border-gray-600 text-gray-300'
                     : 'bg-gray-100 border-gray-300 text-gray-500',
                   "cursor-not-allowed"
                 )}
@@ -585,7 +585,7 @@ export default function Step2PatientShipping({
               />
             </div>
           )}
-          
+
           {shippingError && (
             <div className={cn(
               "p-3 rounded flex items-start",
@@ -613,7 +613,7 @@ export default function Step2PatientShipping({
         </label>
         <div className="space-x-4">
           <label className="inline-flex items-center">
-            <input 
+            <input
               type="radio"
               className="form-radio text-blue-600"
               name="subscriber"
@@ -627,7 +627,7 @@ export default function Step2PatientShipping({
             <span className={cn("ml-2", t.text.primary)}>Yes</span>
           </label>
           <label className="inline-flex items-center">
-            <input 
+            <input
               type="radio"
               className="form-radio text-blue-600"
               name="subscriber"
@@ -645,22 +645,22 @@ export default function Step2PatientShipping({
 
       {/* Caregiver Information (if patient is not subscriber) */}
       {showCaregiver && (
-        <div className={cn("p-4 rounded-lg", t.glass.panel)}>
+        <div className={cn("p-4 rounded-lg", t.glass.card)}>
           <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
             Primary Caregiver / Subscriber Information
           </h3>
-          
+
           <div className="space-y-4">
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Caregiver Name <span className="text-red-500">*</span>
               </label>
-              <input 
+              <input
                 type="text"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   errors.caregiver_name && 'border-red-500'
                 )}
@@ -672,17 +672,17 @@ export default function Step2PatientShipping({
                 <p className="mt-1 text-sm text-red-500">{errors.caregiver_name}</p>
               )}
             </div>
-            
+
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Relationship to Patient <span className="text-red-500">*</span>
                 </label>
-                <select 
+                <select
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                     errors.caregiver_relationship && 'border-red-500'
                   )}
@@ -701,17 +701,17 @@ export default function Step2PatientShipping({
                   <p className="mt-1 text-sm text-red-500">{errors.caregiver_relationship}</p>
                 )}
               </div>
-              
+
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Caregiver Phone
                 </label>
-                <input 
+                <input
                   type="tel"
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                   )}
                   value={formData.caregiver_phone || ''}

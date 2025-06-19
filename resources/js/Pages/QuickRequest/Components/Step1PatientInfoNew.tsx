@@ -4,10 +4,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import GoogleAddressAutocomplete from '@/Components/GoogleAddressAutocomplete';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Input } from '@/Components/GhostAiUi/ui/input';
+import { Label } from '@/Components/GhostAiUi/ui/label';
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@/Components/GhostAiUi/ui/select';
 
 interface Step1Props {
   formData: any;
@@ -22,7 +22,7 @@ interface Step1Props {
   prefillData: any;
 }
 
-const ReadOnlyField = ({ label, value, icon }) => {
+const ReadOnlyField = ({ label, value, icon }: { label: string, value: string, icon: React.ReactNode }) => {
   const { theme } = useTheme();
   const t = themes[theme];
   return (
@@ -213,7 +213,7 @@ export default function Step1PatientInfoNew({
 
 
             // Update debug data with what was extracted
-            setDebugData(prev => ({
+            setDebugData((prev: any) => ({
               ...prev,
               extractedFields: fieldsExtracted,
               updates: updates,
@@ -249,7 +249,8 @@ export default function Step1PatientInfoNew({
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);
-        setApiError(`Error: ${error.message}`);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+        setApiError(`Error: ${errorMessage}`);
       } finally {
         setIsProcessingCard(false);
       }
@@ -281,12 +282,12 @@ export default function Step1PatientInfoNew({
     'SD', 'TN', 'TX', 'UT', 'VT', 'VA', 'WA', 'WV', 'WI', 'WY'
   ];
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     updateFormData({ [name]: value });
   };
 
-  const handleSelectChange = (name, value) => {
+  const handleSelectChange = (name: string, value: string) => {
     updateFormData({ [name]: value });
   };
 
@@ -295,7 +296,7 @@ export default function Step1PatientInfoNew({
 
       {/* Provider & Facility Information */}
       <Card className={cn(t.glass.card, "overflow-hidden")}>
-        <CardHeader className={cn(t.glass.cardHeader, "p-4")}>
+        <CardHeader className={cn(t.glass.card, "p-4")}>
           <CardTitle className="text-lg">Provider &amp; Facility Information</CardTitle>
         </CardHeader>
         <CardContent className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -350,7 +351,7 @@ export default function Step1PatientInfoNew({
                     </SelectTrigger>
                     <SelectContent>
                         {facilities.map(facility => (
-                            <SelectItem key={facility.id} value={facility.id}>{facility.name}</SelectItem>
+                            <SelectItem key={facility.id} value={facility.id.toString()}>{facility.name}</SelectItem>
                         ))}
                     </SelectContent>
                 </Select>

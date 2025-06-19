@@ -1,4 +1,3 @@
-import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
@@ -40,9 +39,9 @@ interface Step5Props {
   };
 }
 
-export default function Step5ProductSelection({ 
-  formData, 
-  updateFormData, 
+export default function Step5ProductSelection({
+  formData,
+  updateFormData,
   products,
   providerProducts = {},
   errors,
@@ -51,7 +50,7 @@ export default function Step5ProductSelection({
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -64,7 +63,7 @@ export default function Step5ProductSelection({
   const getInsuranceType = () => {
     const insuranceName = formData.primary_insurance_name?.toLowerCase() || '';
     const planType = formData.primary_plan_type?.toLowerCase() || '';
-    
+
     if (insuranceName.includes('medicare')) {
       return 'medicare';
     } else if (insuranceName.includes('medicaid')) {
@@ -91,7 +90,7 @@ export default function Step5ProductSelection({
   // Get role restrictions based on user role
   const getRoleRestrictions = () => {
     const userRole = currentUser?.role || 'provider';
-    
+
     switch (userRole) {
       case 'office-manager':
         return {
@@ -135,8 +134,8 @@ export default function Step5ProductSelection({
       {errors.products && (
         <div className={cn(
           "p-4 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-red-900/20 border-red-800' 
+          theme === 'dark'
+            ? 'bg-red-900/20 border-red-800'
             : 'bg-red-50 border-red-200'
         )}>
           <p className={cn(

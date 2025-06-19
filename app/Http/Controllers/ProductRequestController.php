@@ -183,7 +183,7 @@ class ProductRequestController extends Controller
         $user = Auth::user()->load([
             'providerProfile',
             'providerCredentials',
-            'organizations' => fn($q) => $q->where('organization_user.current', true),
+            'organizations' => fn($q) => $q->where('organization_users.is_active', true),
             'facilities'
         ]);
 

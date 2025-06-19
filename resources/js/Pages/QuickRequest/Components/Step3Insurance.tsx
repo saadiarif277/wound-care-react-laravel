@@ -1,4 +1,4 @@
-import React from 'react';
+
 import { FiCheck } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -11,16 +11,16 @@ interface Step3Props {
   errors: Record<string, string>;
 }
 
-export default function Step3Insurance({ 
-  formData, 
-  updateFormData, 
+export default function Step3Insurance({
+  formData,
+  updateFormData,
   insuranceCarriers,
-  errors 
+  errors
 }: Step3Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -59,7 +59,7 @@ export default function Step3Insurance({
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Primary Insurance
         </h3>
-        
+
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -67,17 +67,17 @@ export default function Step3Insurance({
                 Insurance Name <span className="text-red-500">*</span>
               </label>
               {insuranceCarriers.length > 0 ? (
-                <select 
+                <select
                   className={cn(
                     "w-full p-2 rounded border transition-all",
-                    theme === 'dark' 
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                     errors.primary_insurance_name && 'border-red-500'
                   )}
                   value={formData.primary_insurance_name}
                   onChange={(e) => {
-                    updateFormData({ 
+                    updateFormData({
                       primary_insurance_name: e.target.value,
                       primary_payer_phone: getPayerPhone(e.target.value)
                     });
@@ -92,9 +92,9 @@ export default function Step3Insurance({
                 <PayerSearchInput
                   value={formData.primary_insurance_name}
                   onChange={(value) => {
-                    updateFormData({ 
-                      primary_insurance_name: value,
-                      primary_payer_phone: getPayerPhone(value)
+                    updateFormData({
+                      primary_insurance_name: typeof value === 'string' ? value : value.name,
+                      primary_payer_phone: getPayerPhone(typeof value === 'string' ? value : value.name)
                     });
                   }}
                   error={errors.primary_insurance_name}
@@ -105,17 +105,17 @@ export default function Step3Insurance({
                 <p className="mt-1 text-sm text-red-500">{errors.primary_insurance_name}</p>
               )}
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Member ID <span className="text-red-500">*</span>
               </label>
-              <input 
+              <input
                 type="text"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   errors.primary_member_id && 'border-red-500'
                 )}
@@ -127,21 +127,21 @@ export default function Step3Insurance({
                 <p className="mt-1 text-sm text-red-500">{errors.primary_member_id}</p>
               )}
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Payer Phone {formData.primary_payer_phone && '(Auto-filled)'}
               </label>
-              <input 
+              <input
                 type="tel"
                 className={cn(
                   "w-full p-2 rounded border transition-all",
                   formData.primary_payer_phone
-                    ? theme === 'dark' 
-                      ? 'bg-gray-700 border-gray-600 text-gray-300' 
+                    ? theme === 'dark'
+                      ? 'bg-gray-700 border-gray-600 text-gray-300'
                       : 'bg-gray-100 border-gray-300 text-gray-500'
-                    : theme === 'dark' 
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                    : theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   formData.primary_payer_phone && "cursor-not-allowed"
                 )}
@@ -151,16 +151,16 @@ export default function Step3Insurance({
                 placeholder="1-800-555-0100"
               />
             </div>
-            
+
             <div>
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Plan Type <span className="text-red-500">*</span>
               </label>
-              <select 
+              <select
                 className={cn(
                   "w-full p-2 rounded border transition-all",
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                   errors.primary_plan_type && 'border-red-500'
                 )}
@@ -183,7 +183,7 @@ export default function Step3Insurance({
       <div className="space-y-4">
         <div className={cn("p-4 border rounded-lg", theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
           <label className="flex items-center cursor-pointer">
-            <input 
+            <input
               type="checkbox"
               className="form-checkbox h-4 w-4 text-blue-600 rounded"
               checked={formData.has_secondary_insurance}
@@ -201,7 +201,7 @@ export default function Step3Insurance({
             <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
               Secondary Insurance
             </h3>
-            
+
             <div className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
@@ -209,11 +209,11 @@ export default function Step3Insurance({
                     Insurance Name <span className="text-red-500">*</span>
                   </label>
                   {insuranceCarriers.length > 0 ? (
-                    <select 
+                    <select
                       className={cn(
                         "w-full p-2 rounded border transition-all",
-                        theme === 'dark' 
-                          ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                        theme === 'dark'
+                          ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                           : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                         errors.secondary_insurance && 'border-red-500'
                       )}
@@ -237,17 +237,17 @@ export default function Step3Insurance({
                     <p className="mt-1 text-sm text-red-500">{errors.secondary_insurance}</p>
                   )}
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Member ID <span className="text-red-500">*</span>
                   </label>
-                  <input 
+                  <input
                     type="text"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                       errors.secondary_insurance && 'border-red-500'
                     )}
@@ -256,17 +256,17 @@ export default function Step3Insurance({
                     placeholder="Secondary policy number"
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Subscriber Name
                   </label>
-                  <input 
+                  <input
                     type="text"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.secondary_subscriber_name || ''}
@@ -274,34 +274,34 @@ export default function Step3Insurance({
                     placeholder="If different from patient"
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Subscriber DOB
                   </label>
-                  <input 
+                  <input
                     type="date"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.secondary_subscriber_dob || ''}
                     onChange={(e) => updateFormData({ secondary_subscriber_dob: e.target.value })}
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Payer Phone
                   </label>
-                  <input 
+                  <input
                     type="tel"
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.secondary_payer_phone || ''}
@@ -309,16 +309,16 @@ export default function Step3Insurance({
                     placeholder="(800) 555-0100"
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                     Plan Type
                   </label>
-                  <select 
+                  <select
                     className={cn(
                       "w-full p-2 rounded border transition-all",
-                      theme === 'dark' 
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                         : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
                     )}
                     value={formData.secondary_plan_type || ''}
@@ -339,12 +339,12 @@ export default function Step3Insurance({
         {/* Prior Authorization Permission */}
         <div className={cn(
           "p-4 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-green-900/20 border-green-800' 
+          theme === 'dark'
+            ? 'bg-green-900/20 border-green-800'
             : 'bg-green-50 border-green-200'
         )}>
           <label className="flex items-center cursor-pointer">
-            <input 
+            <input
               type="checkbox"
               className="form-checkbox h-4 w-4 text-green-600 rounded"
               checked={formData.prior_auth_permission}
@@ -364,8 +364,8 @@ export default function Step3Insurance({
       {(formData.primary_insurance_name || formData.insurance_card_auto_filled) && (
         <div className={cn(
           "p-4 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-gray-800 border-gray-700' 
+          theme === 'dark'
+            ? 'bg-gray-800 border-gray-700'
             : 'bg-gray-50 border-gray-200'
         )}>
           <h4 className={cn("text-sm font-medium mb-2 flex items-center", t.text.primary)}>

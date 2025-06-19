@@ -1,5 +1,5 @@
 // resources/js/Pages/QuickRequest/Components/Step4Confirmation.tsx
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -48,7 +48,7 @@ export default function Step4Confirmation({
   const [showIVRFrame, setShowIVRFrame] = useState(false);
   const [ivrSigned, setIvrSigned] = useState(false);
   // ASHLEY'S REQUIREMENT: ALL orders require IVR completion
-  const [signatureRequired, setSignatureRequired] = useState(true);
+  const [_signatureRequired, setSignatureRequired] = useState(true);
   const [docusealSubmissionId, setDocusealSubmissionId] = useState<string | null>(null);
   const [ivrError, setIvrError] = useState<string | null>(null);
 

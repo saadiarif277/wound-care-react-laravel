@@ -29,16 +29,16 @@ interface Step6Props {
   errors: Record<string, string>;
 }
 
-export default function Step6ManufacturerQuestions({ 
-  formData, 
-  updateFormData, 
+export default function Step6ManufacturerQuestions({
+  formData,
+  updateFormData,
   products,
-  errors 
+  errors
 }: Step6Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -52,8 +52,8 @@ export default function Step6ManufacturerQuestions({
     if (!formData.selected_products || formData.selected_products.length === 0) {
       return null;
     }
-    
-    const selectedProductId = formData.selected_products[0].product_id;
+
+    const selectedProductId = formData.selected_products[0]?.product_id;
     return products.find(p => p.id === selectedProductId);
   };
 
@@ -62,7 +62,7 @@ export default function Step6ManufacturerQuestions({
   // Get manufacturer config for the selected product
   const getManufacturerConfig = (): ManufacturerConfig | null => {
     if (!selectedProduct) return null;
-    return getManufacturerByProduct(selectedProduct.name);
+    return getManufacturerByProduct(selectedProduct.name) || null;
   };
 
   const manufacturerConfig = getManufacturerConfig();
@@ -106,7 +106,7 @@ export default function Step6ManufacturerQuestions({
         return (
           <div key={field.name} className="mb-4">
             <label className="flex items-start">
-              <input 
+              <input
                 type="checkbox"
                 className="form-checkbox h-4 w-4 text-blue-600 rounded mt-1"
                 checked={fieldValue || false}
@@ -137,12 +137,12 @@ export default function Step6ManufacturerQuestions({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
-            <input 
+            <input
               type="text"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 fieldError && 'border-red-500'
               )}
@@ -172,7 +172,7 @@ export default function Step6ManufacturerQuestions({
             <div className="space-y-2">
               {field.options?.map(option => (
                 <label key={option.value} className="flex items-center">
-                  <input 
+                  <input
                     type="radio"
                     name={field.name}
                     className="form-radio text-blue-600"
@@ -202,11 +202,11 @@ export default function Step6ManufacturerQuestions({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
-            <select 
+            <select
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 fieldError && 'border-red-500'
               )}
@@ -239,12 +239,12 @@ export default function Step6ManufacturerQuestions({
               {field.label}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
-            <input 
+            <input
               type="date"
               className={cn(
                 "w-full p-2 rounded border transition-all",
-                theme === 'dark' 
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500' 
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                 fieldError && 'border-red-500'
               )}
@@ -280,7 +280,7 @@ export default function Step6ManufacturerQuestions({
   // No manufacturer-specific fields required
   if (!manufacturerConfig || manufacturerConfig.fields.length === 0) {
     return (
-      <div className={cn("text-center py-12", t.glass.panel, "rounded-lg p-8")}>
+      <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiInfo className={cn("h-12 w-12 mx-auto mb-4", t.text.secondary)} />
         <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>
           No Additional Requirements
@@ -295,7 +295,7 @@ export default function Step6ManufacturerQuestions({
   return (
     <div className="space-y-6">
       {/* Product Info */}
-      <div className={cn("p-4 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-4 rounded-lg", t.glass.card)}>
         <div className="flex items-start">
           <FiInfo className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", t.text.secondary)} />
           <div>
@@ -324,8 +324,8 @@ export default function Step6ManufacturerQuestions({
         {manufacturerConfig.signatureRequired && (
           <div className={cn(
             "mb-6 p-4 rounded-lg border flex items-start",
-            theme === 'dark' 
-              ? 'bg-yellow-900/20 border-yellow-800' 
+            theme === 'dark'
+              ? 'bg-yellow-900/20 border-yellow-800'
               : 'bg-yellow-50 border-yellow-200'
           )}>
             <FiAlertCircle className={cn(
@@ -343,13 +343,13 @@ export default function Step6ManufacturerQuestions({
                 "text-sm mt-1",
                 theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'
               )}>
-                This manufacturer requires an electronic signature on their IVR (Independent Verification Request) form. 
+                This manufacturer requires an electronic signature on their IVR (Independent Verification Request) form.
                 After completing these questions, you'll be presented with the IVR form to sign electronically.
               </p>
             </div>
           </div>
         )}
-        
+
         <div className="space-y-4">
           {manufacturerConfig.fields.map(field => renderField(field))}
         </div>
@@ -358,8 +358,8 @@ export default function Step6ManufacturerQuestions({
         {errors.manufacturer_fields && (
           <div className={cn(
             "mt-4 p-4 rounded-lg border",
-            theme === 'dark' 
-              ? 'bg-red-900/20 border-red-800' 
+            theme === 'dark'
+              ? 'bg-red-900/20 border-red-800'
               : 'bg-red-50 border-red-200'
           )}>
             <p className={cn(
@@ -375,8 +375,8 @@ export default function Step6ManufacturerQuestions({
       {/* Documentation Notice */}
       <div className={cn(
         "p-4 rounded-lg border",
-        theme === 'dark' 
-          ? 'bg-gray-800 border-gray-700' 
+        theme === 'dark'
+          ? 'bg-gray-800 border-gray-700'
           : 'bg-gray-50 border-gray-200'
       )}>
         <h4 className={cn("text-sm font-medium mb-2", t.text.primary)}>

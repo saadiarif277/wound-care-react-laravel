@@ -34,7 +34,7 @@ class QuickRequestController extends Controller
         $user = Auth::user()->load([
             'providerProfile',
             'providerCredentials',
-            'organizations' => fn($q) => $q->where('organization_user.current', true),
+            'organizations' => fn($q) => $q->where('organization_users.is_active', true),
             'facilities'
         ]);
 
@@ -67,7 +67,7 @@ class QuickRequestController extends Controller
 
         $products = Product::where('is_active', true)
             ->whereNotNull('manufacturer_id')
-            ->get(['id', 'name', 'q_code', 'manufacturer_id', 'manufacturer', 'sizes']);
+            ->get(['id', 'name', 'q_code', 'manufacturer_id', 'manufacturer', 'available_sizes']);
 
         return Inertia::render('QuickRequest/Create', [
             'facilities' => $user->facilities,

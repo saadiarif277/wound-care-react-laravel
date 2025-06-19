@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiPackage, FiAlertCircle } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { getManufacturerConfig, getManufacturerByProduct, ManufacturerConfig, ManufacturerField } from './manufacturerFields';
@@ -28,9 +28,9 @@ interface Step2Props {
   userRole?: string;
 }
 
-export default function Step2ProductSelection({ 
-  formData, 
-  updateFormData, 
+export default function Step2ProductSelection({
+  formData,
+  updateFormData,
   products,
   errors,
   facilities,
@@ -40,7 +40,7 @@ export default function Step2ProductSelection({
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -48,7 +48,7 @@ export default function Step2ProductSelection({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [manufacturerConfig, setManufacturerConfig] = useState<ManufacturerConfig | null>(null);
 
@@ -65,7 +65,7 @@ export default function Step2ProductSelection({
       const product = products.find(p => p.id === formData.product_id);
       if (product) {
         setSelectedProduct(product);
-        const config = getManufacturerConfig(product.manufacturer) || 
+        const config = getManufacturerConfig(product.manufacturer) ||
                       getManufacturerByProduct(product.name);
         setManufacturerConfig(config || null);
       }
@@ -89,8 +89,8 @@ export default function Step2ProductSelection({
     } else {
       // Since QuickRequest only allows one product, take the first one
       const firstProduct = selectedProds[0];
-      const productDetails = firstProduct.product;
-      
+      const productDetails = firstProduct?.product;
+
       if (productDetails) {
         updateFormData({
           product_id: firstProduct.product_id,
@@ -100,13 +100,13 @@ export default function Step2ProductSelection({
           size: firstProduct.size || '',
           quantity: firstProduct.quantity,
           // Keep existing manufacturer fields if same product
-          manufacturer_fields: productDetails.id === formData.product_id 
-            ? formData.manufacturer_fields 
+          manufacturer_fields: productDetails.id === formData.product_id
+            ? formData.manufacturer_fields
             : {},
         });
-        
+
         // Update manufacturer config
-        const config = getManufacturerConfig(productDetails.manufacturer) || 
+        const config = getManufacturerConfig(productDetails.manufacturer) ||
                       getManufacturerByProduct(productDetails.name);
         setManufacturerConfig(config || null);
         setSelectedProduct(productDetails);
@@ -145,8 +145,8 @@ export default function Step2ProductSelection({
               onChange={(e) => handleManufacturerFieldChange(field.name, e.target.checked)}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-1"
             />
-            <label 
-              htmlFor={field.name} 
+            <label
+              htmlFor={field.name}
               className={cn("ml-3 text-sm", t.text.secondary)}
             >
               {field.label}
@@ -158,7 +158,7 @@ export default function Step2ProductSelection({
       case 'text':
         return (
           <div key={field.name}>
-            <label 
+            <label
               htmlFor={field.name}
               className={cn("block text-sm font-medium mb-1", t.text.secondary)}
             >
@@ -200,7 +200,7 @@ export default function Step2ProductSelection({
                     onChange={(e) => handleManufacturerFieldChange(field.name, e.target.value)}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                   />
-                  <label 
+                  <label
                     htmlFor={`${field.name}_${option.value}`}
                     className={cn("ml-2 text-sm", t.text.secondary)}
                   >
@@ -220,7 +220,7 @@ export default function Step2ProductSelection({
       case 'select':
         return (
           <div key={field.name}>
-            <label 
+            <label
               htmlFor={field.name}
               className={cn("block text-sm font-medium mb-1", t.text.secondary)}
             >
@@ -246,7 +246,7 @@ export default function Step2ProductSelection({
       case 'date':
         return (
           <div key={field.name}>
-            <label 
+            <label
               htmlFor={field.name}
               className={cn("block text-sm font-medium mb-1", t.text.secondary)}
             >
@@ -294,7 +294,7 @@ export default function Step2ProductSelection({
 
       {/* Validation Error for Product */}
       {errors.product_id && (
-        <div className={cn("p-3 rounded-md flex items-start", 
+        <div className={cn("p-3 rounded-md flex items-start",
           "bg-red-50 border border-red-200"
         )}>
           <FiAlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
@@ -303,7 +303,7 @@ export default function Step2ProductSelection({
       )}
 
       {errors.size && (
-        <div className={cn("p-3 rounded-md flex items-start", 
+        <div className={cn("p-3 rounded-md flex items-start",
           "bg-red-50 border border-red-200"
         )}>
           <FiAlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
@@ -313,19 +313,19 @@ export default function Step2ProductSelection({
 
       {/* Manufacturer-Specific Requirements */}
       {manufacturerConfig && (
-        <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
           <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
             🏭 Manufacturer-Specific Requirements
           </h3>
-          
+
           {/* Manufacturer Name and Signature Requirement */}
-          <div className={cn("mb-4 p-3 rounded-md", 
+          <div className={cn("mb-4 p-3 rounded-md",
             theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'
           )}>
             <p className={cn("font-medium", t.text.primary)}>
               {manufacturerConfig.name}
             </p>
-            <p className={cn("text-sm mt-1", 
+            <p className={cn("text-sm mt-1",
               manufacturerConfig.signatureRequired ? 'text-orange-500' : t.text.secondary
             )}>
               {manufacturerConfig.signatureRequired ? '✍️ SIGNATURE REQUIRED' : '⚠️ NO SIGNATURE REQUIRED'}
@@ -339,7 +339,7 @@ export default function Step2ProductSelection({
 
           {/* Validation Errors for Manufacturer Fields */}
           {errors.manufacturer_fields && (
-            <div className={cn("mt-4 p-3 rounded-md flex items-start", 
+            <div className={cn("mt-4 p-3 rounded-md flex items-start",
               "bg-red-50 border border-red-200"
             )}>
               <FiAlertCircle className="h-5 w-5 text-red-400 mt-0.5 mr-2 flex-shrink-0" />
@@ -353,7 +353,7 @@ export default function Step2ProductSelection({
 
       {/* Product Summary */}
       {selectedProduct && (
-        <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
           <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
             Product Summary
           </h3>

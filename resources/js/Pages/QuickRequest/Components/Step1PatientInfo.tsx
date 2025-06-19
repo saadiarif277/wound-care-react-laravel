@@ -15,17 +15,17 @@ interface Step1Props {
   errors: Record<string, string>;
 }
 
-export default function Step1PatientInfo({ 
-  formData, 
-  updateFormData, 
-  facilities, 
+export default function Step1PatientInfo({
+  formData,
+  updateFormData,
+  facilities,
   woundTypes,
-  errors 
+  errors
 }: Step1Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -33,12 +33,12 @@ export default function Step1PatientInfo({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [cardFrontPreview, setCardFrontPreview] = useState<string | null>(null);
   const [cardBackPreview, setCardBackPreview] = useState<string | null>(null);
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [shippingError, setShippingError] = useState<string | null>(null);
-  
+
   const fileInputFrontRef = useRef<HTMLInputElement>(null);
   const fileInputBackRef = useRef<HTMLInputElement>(null);
 
@@ -70,7 +70,7 @@ export default function Step1PatientInfo({
     // If both cards are uploaded, attempt to auto-fill
     const frontCard = side === 'front' ? file : formData.insurance_card_front;
     const backCard = side === 'back' ? file : formData.insurance_card_back;
-    
+
     if (frontCard && backCard) {
       setIsProcessingCard(true);
       try {
@@ -78,7 +78,7 @@ export default function Step1PatientInfo({
         const apiFormData = new FormData();
         apiFormData.append('insurance_card_front', frontCard);
         apiFormData.append('insurance_card_back', backCard);
-        
+
         // Call Azure Document Intelligence API
         const response = await fetch('/api/insurance-card/analyze', {
           method: 'POST',
@@ -87,14 +87,14 @@ export default function Step1PatientInfo({
           },
           body: apiFormData,
         });
-        
+
         if (response.ok) {
           const result = await response.json();
-          
+
           if (result.success && result.data) {
             // Update form with extracted data
             const extractedData = result.data;
-            
+
             // Update patient information
             if (extractedData.patient_first_name) {
               updateFormData({ patient_first_name: extractedData.patient_first_name });
@@ -108,7 +108,7 @@ export default function Step1PatientInfo({
             if (extractedData.patient_member_id) {
               updateFormData({ patient_member_id: extractedData.patient_member_id });
             }
-            
+
             // Update insurance information
             if (extractedData.payer_name) {
               updateFormData({ payer_name: extractedData.payer_name });
@@ -119,11 +119,11 @@ export default function Step1PatientInfo({
             if (extractedData.insurance_type) {
               updateFormData({ insurance_type: extractedData.insurance_type });
             }
-            
+
             // Set flag that auto-fill was successful
-            updateFormData({ 
+            updateFormData({
               insurance_card_auto_filled: true,
-              insurance_extracted_data: result.extracted_data 
+              insurance_extracted_data: result.extracted_data
             });
           }
         } else {
@@ -140,7 +140,7 @@ export default function Step1PatientInfo({
       try {
         const apiFormData = new FormData();
         apiFormData.append('insurance_card_front', frontCard);
-        
+
         const response = await fetch('/api/insurance-card/analyze', {
           method: 'POST',
           headers: {
@@ -148,13 +148,13 @@ export default function Step1PatientInfo({
           },
           body: apiFormData,
         });
-        
+
         if (response.ok) {
           const result = await response.json();
-          
+
           if (result.success && result.data) {
             const extractedData = result.data;
-            
+
             // Update form with extracted data (same as above)
             if (extractedData.patient_first_name) {
               updateFormData({ patient_first_name: extractedData.patient_first_name });
@@ -177,10 +177,10 @@ export default function Step1PatientInfo({
             if (extractedData.insurance_type) {
               updateFormData({ insurance_type: extractedData.insurance_type });
             }
-            
-            updateFormData({ 
+
+            updateFormData({
               insurance_card_auto_filled: true,
-              insurance_extracted_data: result.extracted_data 
+              insurance_extracted_data: result.extracted_data
             });
           }
         }
@@ -237,25 +237,25 @@ export default function Step1PatientInfo({
       </div>
 
       {/* Insurance Card Capture */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-1", t.text.primary)}>
           📸 Insurance Card Capture
         </h3>
         <p className={cn("text-sm mb-4", t.text.secondary)}>
           Please upload or photograph:
         </p>
-        
+
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           {/* Front of Card */}
           <div>
             <label className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
               ☐ Front of Insurance Card
             </label>
-            <div 
+            <div
               className={cn(
                 "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300',
-                cardFrontPreview && 'border-green-500'
+                cardFrontPreview ? 'border-green-500' : false
               )}
               onClick={() => fileInputFrontRef.current?.click()}
             >
@@ -277,10 +277,10 @@ export default function Step1PatientInfo({
                       <p className={cn("text-sm font-medium", t.text.primary)}>PDF Uploaded</p>
                     </div>
                   ) : (
-                    <img 
-                      src={cardFrontPreview} 
-                      alt="Insurance card front" 
-                      className="mx-auto h-32 object-contain mb-2" 
+                    <img
+                      src={cardFrontPreview}
+                      alt="Insurance card front"
+                      className="mx-auto h-32 object-contain mb-2"
                     />
                   )}
                   <p className={cn("text-sm", t.text.secondary)}>Click to replace</p>
@@ -301,11 +301,11 @@ export default function Step1PatientInfo({
             <label className={cn("block text-sm font-medium mb-2", t.text.secondary)}>
               ☐ Back of Insurance Card
             </label>
-            <div 
+            <div
               className={cn(
                 "border-2 border-dashed rounded-lg p-6 text-center cursor-pointer hover:border-indigo-500 transition-colors",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300',
-                cardBackPreview && 'border-green-500'
+                cardBackPreview ? 'border-green-500' : false
               )}
               onClick={() => fileInputBackRef.current?.click()}
             >
@@ -327,10 +327,10 @@ export default function Step1PatientInfo({
                       <p className={cn("text-sm font-medium", t.text.primary)}>PDF Uploaded</p>
                     </div>
                   ) : (
-                    <img 
-                      src={cardBackPreview} 
-                      alt="Insurance card back" 
-                      className="mx-auto h-32 object-contain mb-2" 
+                    <img
+                      src={cardBackPreview}
+                      alt="Insurance card back"
+                      className="mx-auto h-32 object-contain mb-2"
                     />
                   )}
                   <p className={cn("text-sm", t.text.secondary)}>Click to replace</p>
@@ -348,7 +348,7 @@ export default function Step1PatientInfo({
         </div>
 
         {isProcessingCard && (
-          <div className={cn("mt-4 p-3 rounded-md flex items-center", 
+          <div className={cn("mt-4 p-3 rounded-md flex items-center",
             theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
           )}>
             <FiRefreshCw className="animate-spin h-4 w-4 mr-2 text-blue-600" />
@@ -358,10 +358,10 @@ export default function Step1PatientInfo({
           </div>
         )}
 
-        <div className={cn("mt-4 p-3 rounded-md", 
+        <div className={cn("mt-4 p-3 rounded-md",
           theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
         )}>
-          <p className={cn("text-sm flex items-center", 
+          <p className={cn("text-sm flex items-center",
             theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
           )}>
             💡 Tip: We can auto-fill patient and insurance information from the card
@@ -370,11 +370,11 @@ export default function Step1PatientInfo({
       </div>
 
       {/* Patient Demographics */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           Patient Demographics
         </h3>
-        
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
@@ -384,7 +384,7 @@ export default function Step1PatientInfo({
               type="text"
               value={formData.patient_first_name || ''}
               onChange={(e) => updateFormData({ patient_first_name: e.target.value })}
-              className={cn("w-full", t.input.base, t.input.focus, 
+              className={cn("w-full", t.input.base, t.input.focus,
                 errors.patient_first_name && "border-red-500"
               )}
               placeholder="John"
@@ -474,11 +474,11 @@ export default function Step1PatientInfo({
       </div>
 
       {/* Patient Address */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           Patient Address
         </h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
@@ -554,11 +554,11 @@ export default function Step1PatientInfo({
       </div>
 
       {/* Service & Payer Information */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           Service & Payer Information
         </h3>
-        
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
@@ -663,11 +663,11 @@ export default function Step1PatientInfo({
       </div>
 
       {/* Facility & Shipping */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           Facility & Shipping Information
         </h3>
-        
+
         <div className="space-y-4">
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
@@ -685,11 +685,11 @@ export default function Step1PatientInfo({
                 </option>
               ))}
             </select>
-            
+
             {formData.facility_id && (() => {
               const selectedFacility = facilities.find(f => f.id === formData.facility_id);
               return selectedFacility?.address ? (
-                <div className={cn("mt-2 p-3 rounded-md", 
+                <div className={cn("mt-2 p-3 rounded-md",
                   theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'
                 )}>
                   <p className={cn("text-sm font-medium", t.text.primary)}>
@@ -719,15 +719,15 @@ export default function Step1PatientInfo({
                     onChange={(e) => handleShippingSpeedChange(e.target.value)}
                     className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
                   />
-                  <label 
-                    htmlFor={option.value} 
+                  <label
+                    htmlFor={option.value}
                     className={cn("ml-3 block text-sm font-medium", t.text.secondary)}
                   >
                     {option.label}
                   </label>
                 </div>
               ))}
-              
+
               {shippingError && (
                 <div className={cn(
                   "mt-3 p-3 rounded-md",

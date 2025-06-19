@@ -143,7 +143,7 @@ function QuickRequestCreate({
     medical_necessity_established: false,
     maintain_documentation: false,
     authorize_prior_auth: false,
-    provider_npi: currentUser.npi || '',
+    provider_npi: currentUser?.npi || '',
     is_patient_subscriber: true, // Default to true
   });
 

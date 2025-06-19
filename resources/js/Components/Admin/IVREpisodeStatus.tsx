@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  CheckCircleIcon, 
-  ClockIcon, 
-  ExclamationTriangleIcon, 
+import {
+  CheckCircleIcon,
+  ClockIcon,
+  ExclamationTriangleIcon,
   XCircleIcon,
   ArrowPathIcon,
   BellAlertIcon,
@@ -76,18 +76,18 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
 
   const [showPredictiveAlert, setShowPredictiveAlert] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
-  
-  const isExpired = ivrEpisode.verification_status === 'expired' || 
+
+  const isExpired = ivrEpisode.verification_status === 'expired' ||
     (ivrEpisode.expiration_date && new Date(ivrEpisode.expiration_date) < new Date());
-  
-  const isExpiringSoon = !isExpired && ivrEpisode.expiration_date && 
+
+  const isExpiringSoon = !isExpired && ivrEpisode.expiration_date &&
     (new Date(ivrEpisode.expiration_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
-  
+
   const docuseal = ivrEpisode.docuseal || {};
-  
-  const currentStatus = isExpired ? 'expired' : isExpiringSoon ? 'expiring' : 
+
+  const currentStatus = isExpired ? 'expired' : isExpiringSoon ? 'expiring' :
     (ivrEpisode.verification_status || 'pending');
-  
+
   const config = statusConfig[currentStatus as keyof typeof statusConfig] || statusConfig.pending;
   const Icon = config.icon;
 
@@ -103,7 +103,7 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
       const statusText = isExpired ? 'expired' : isExpiringSoon ? 'expiring soon' : 'active';
       const utterance = new SpeechSynthesisUtterance(
         `IVR Episode status is ${statusText}. ${
-          ivrEpisode.expiration_date 
+          ivrEpisode.expiration_date
             ? `Expires on ${new Date(ivrEpisode.expiration_date).toLocaleDateString()}`
             : ''
         }`
@@ -127,7 +127,7 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <SparklesIcon className="w-5 h-5 text-purple-500" />
-          <h3 className={`${t.text.heading} text-lg font-semibold`}>IVR Episode Status</h3>
+          <h3 className={`${t.text.primary} text-lg font-semibold`}>IVR Episode Status</h3>
         </div>
         <button
           onClick={() => {
@@ -135,8 +135,8 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
             if (!voiceEnabled) handleVoiceCommand();
           }}
           className={`p-2 rounded-lg transition-all ${
-            voiceEnabled 
-              ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400' 
+            voiceEnabled
+              ? 'bg-purple-500/20 text-purple-600 dark:text-purple-400'
               : 'hover:bg-white/5'
           }`}
           aria-label="Toggle voice announcements"
@@ -157,18 +157,18 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
               <div className="relative">
                 <motion.div
                   animate={
-                    config.shakeAnimation ? { x: [-2, 2, -2, 2, 0] } :
-                    config.checkAnimation ? { scale: [1, 1.2, 1] } :
+                    (config as any).shakeAnimation ? { x: [-2, 2, -2, 2, 0] } :
+                    (config as any).checkAnimation ? { scale: [1, 1.2, 1] } :
                     {}
                   }
                   transition={
-                    config.shakeAnimation ? { duration: 0.5 } :
+                    (config as any).shakeAnimation ? { duration: 0.5 } :
                     { duration: 0.3 }
                   }
                 >
                   <Icon className={`w-12 h-12 ${config.textClass}`} />
                 </motion.div>
-                {config.pulseAnimation && (
+                {(config as any).pulseAnimation && (
                   <motion.div
                     className={`absolute inset-0 ${config.bgClass} rounded-full`}
                     animate={{ scale: [1, 1.5], opacity: [0.5, 0] }}
@@ -247,7 +247,7 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
             animate={{ opacity: 1 }}
             className="mb-4"
           >
-            <h4 className={`${t.text.heading} text-sm font-medium mb-3`}>Signed Documents</h4>
+            <h4 className={`${t.text.primary} text-sm font-medium mb-3`}>Signed Documents</h4>
             <div className="space-y-2">
               {docuseal.signed_documents.map((doc: any, idx: number) => (
                 <motion.div
@@ -296,7 +296,7 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
               <ChartBarIcon className="w-4 h-4" />
               <span className="text-sm font-medium">View Audit Log</span>
             </motion.a>
-            
+
             {!readOnly && isExpiringSoon && (
               <motion.button
                 whileHover={{ scale: 1.02 }}

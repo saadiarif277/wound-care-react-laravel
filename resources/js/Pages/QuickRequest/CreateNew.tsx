@@ -19,7 +19,7 @@ interface QuickRequestFormData {
   provider_id: number | null;
   facility_id: number | null;
   sales_rep_id?: string;
-  
+
   // Patient Information
   insurance_card_front?: File | null;
   insurance_card_back?: File | null;
@@ -37,23 +37,23 @@ interface QuickRequestFormData {
   patient_phone?: string;
   patient_email?: string;
   patient_is_subscriber: boolean;
-  
+
   // Caregiver (if not subscriber)
   caregiver_name?: string;
   caregiver_relationship?: string;
   caregiver_phone?: string;
-  
+
   // Service & Shipping
   expected_service_date: string;
   shipping_speed: string;
   delivery_date?: string;
-  
+
   // Primary Insurance
   primary_insurance_name: string;
   primary_member_id: string;
   primary_payer_phone?: string;
   primary_plan_type: string;
-  
+
   // Secondary Insurance
   has_secondary_insurance: boolean;
   secondary_insurance_name?: string;
@@ -62,10 +62,10 @@ interface QuickRequestFormData {
   secondary_subscriber_dob?: string;
   secondary_payer_phone?: string;
   secondary_plan_type?: string;
-  
+
   // Prior Authorization
   prior_auth_permission: boolean;
-  
+
   // Clinical Information
   wound_types: string[];
   wound_other_specify?: string;
@@ -78,12 +78,12 @@ interface QuickRequestFormData {
   wound_size_depth: string;
   wound_duration?: string;
   previous_treatments?: string;
-  
+
   // Procedure Information
   application_cpt_codes: string[];
   prior_applications?: string;
   anticipated_applications?: string;
-  
+
   // Billing Status
   place_of_service: string;
   medicare_part_b_authorized?: boolean;
@@ -93,7 +93,7 @@ interface QuickRequestFormData {
   global_period_status?: boolean;
   global_period_cpt?: string;
   global_period_surgery_date?: string;
-  
+
   // Product Selection
   selected_product?: string;
   selected_products?: Array<{
@@ -110,7 +110,7 @@ interface QuickRequestFormData {
     unit_price: number;
     total_price: number;
   }>;
-  
+
   // Documentation & Authorization
   face_sheet?: File | null;
   clinical_notes?: File | null;
@@ -124,10 +124,10 @@ interface QuickRequestFormData {
   provider_name?: string;
   signature_date?: string;
   provider_npi?: string;
-  
+
   // Manufacturer Fields
   manufacturer_fields?: Record<string, any>;
-  
+
   // DocuSeal
   docuseal_submission_id?: string;
 }
@@ -167,10 +167,10 @@ interface Props {
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
 }
 
-function QuickRequestCreateNew({ 
-  facilities = [], 
-  providers = [], 
-  products = [], 
+function QuickRequestCreateNew({
+  facilities = [],
+  providers = [],
+  products = [],
   woundTypes = {},
   insuranceCarriers = [],
   diagnosisCodes,
@@ -180,7 +180,7 @@ function QuickRequestCreateNew({
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -188,11 +188,11 @@ function QuickRequestCreateNew({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [formData, setFormData] = useState<QuickRequestFormData>({
     // Initialize with defaults
     request_type: 'new_request',
@@ -264,38 +264,38 @@ function QuickRequestCreateNew({
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
-    
+
     switch (section) {
       case 0: // Context & Request
         if (!formData.provider_id) errors.provider_id = 'Provider selection is required';
         if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
         break;
-        
+
       case 1: // Patient & Shipping
         if (!formData.patient_first_name) errors.patient_first_name = 'First name is required';
         if (!formData.patient_last_name) errors.patient_last_name = 'Last name is required';
         if (!formData.patient_dob) errors.patient_dob = 'Date of birth is required';
         if (!formData.expected_service_date) errors.expected_service_date = 'Service date is required';
         if (!formData.shipping_speed) errors.shipping_speed = 'Shipping speed is required';
-        
+
         // If patient is not subscriber, validate caregiver info
         if (!formData.patient_is_subscriber) {
           if (!formData.caregiver_name) errors.caregiver_name = 'Caregiver name is required';
           if (!formData.caregiver_relationship) errors.caregiver_relationship = 'Caregiver relationship is required';
         }
         break;
-        
+
       case 2: // Insurance
         if (!formData.primary_insurance_name) errors.primary_insurance_name = 'Primary insurance is required';
         if (!formData.primary_member_id) errors.primary_member_id = 'Member ID is required';
         if (!formData.primary_plan_type) errors.primary_plan_type = 'Plan type is required';
-        
+
         if (formData.has_secondary_insurance) {
           if (!formData.secondary_insurance_name) errors.secondary_insurance = 'Secondary insurance name is required';
           if (!formData.secondary_member_id) errors.secondary_insurance = 'Secondary member ID is required';
         }
         break;
-        
+
       case 3: // Clinical & Billing
         if (!formData.wound_types.length) errors.wound_types = 'At least one wound type must be selected';
         if (formData.wound_types.includes('other') && !formData.wound_other_specify) {
@@ -306,24 +306,24 @@ function QuickRequestCreateNew({
         if (!formData.wound_size_width) errors.wound_size = 'Wound width is required';
         if (!formData.application_cpt_codes.length) errors.cpt_codes = 'At least one CPT code must be selected';
         if (!formData.place_of_service) errors.place_of_service = 'Place of service is required';
-        
+
         // Validate diagnosis codes for specific wound types
         if (formData.wound_types.includes('diabetic_foot_ulcer')) {
           if (!formData.yellow_diagnosis_code) errors.yellow_diagnosis = 'Yellow (diabetes) diagnosis code is required for DFU';
           if (!formData.orange_diagnosis_code) errors.orange_diagnosis = 'Orange (chronic ulcer) diagnosis code is required for DFU';
         }
         break;
-        
+
       case 4: // Product Selection
         if (!formData.selected_products || formData.selected_products.length === 0) {
           errors.products = 'Product selection is required';
         }
         break;
-        
+
       case 5: // Manufacturer Questions
         // Validate manufacturer-specific fields if required
         if (formData.selected_products && formData.selected_products.length > 0) {
-          const selectedProductId = formData.selected_products[0].product_id;
+          const selectedProductId = formData.selected_products[0]?.product_id;
           const selectedProduct = products.find(p => p.id === selectedProductId);
           if (selectedProduct) {
             const manufacturerConfig = getManufacturerByProduct(selectedProduct.name);
@@ -340,11 +340,11 @@ function QuickRequestCreateNew({
           }
         }
         break;
-        
+
       case 6: // DocuSeal IVR
         // Check if IVR is required and completed
         if (formData.selected_products && formData.selected_products.length > 0) {
-          const selectedProductId = formData.selected_products[0].product_id;
+          const selectedProductId = formData.selected_products[0]?.product_id;
           const selectedProduct = products.find(p => p.id === selectedProductId);
           if (selectedProduct) {
             const manufacturerConfig = getManufacturerByProduct(selectedProduct.name);
@@ -355,7 +355,7 @@ function QuickRequestCreateNew({
         }
         break;
     }
-    
+
     return errors;
   };
 
@@ -366,7 +366,7 @@ function QuickRequestCreateNew({
       const sectionErrors = validateSection(i);
       allErrors = { ...allErrors, ...sectionErrors };
     }
-    
+
     if (Object.keys(allErrors).length > 0) {
       setErrors(allErrors);
       alert('Please fix all errors before submitting');
@@ -377,7 +377,7 @@ function QuickRequestCreateNew({
     try {
       // Create FormData for file uploads
       const submitData = new FormData();
-      
+
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value instanceof File) {
@@ -415,23 +415,23 @@ function QuickRequestCreateNew({
       const serviceDate = new Date(formData.expected_service_date);
       const today = new Date();
       const daysToAdd = formData.shipping_speed === 'standard_2_day' ? 2 : 1;
-      
+
       const deliveryDate = new Date(today);
       deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
-      
+
       updateFormData({ delivery_date: deliveryDate.toISOString().split('T')[0] });
     }
   }, [formData.expected_service_date, formData.shipping_speed]);
 
   // Calculate wound area
-  const woundArea = formData.wound_size_length && formData.wound_size_width 
+  const woundArea = formData.wound_size_length && formData.wound_size_width
     ? (parseFloat(formData.wound_size_length) * parseFloat(formData.wound_size_width)).toFixed(2)
     : '0';
 
   return (
     <MainLayout>
       <Head title="Quick Request - Enhanced Flow" />
-      
+
       <div className="min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
@@ -450,7 +450,7 @@ function QuickRequestCreateNew({
               {sections.map((section, index) => {
                 const Icon = section.icon;
                 return (
-                  <div 
+                  <div
                     key={index}
                     className={`flex items-center ${index < sections.length - 1 ? 'flex-1' : ''}`}
                   >
@@ -460,7 +460,7 @@ function QuickRequestCreateNew({
                     )}>
                       <div className={cn(
                         "rounded-full p-3",
-                        index <= currentSection 
+                        index <= currentSection
                           ? "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white"
                           : theme === 'dark' ? "bg-gray-700" : "bg-gray-100"
                       )}>
@@ -475,8 +475,8 @@ function QuickRequestCreateNew({
                     {index < sections.length - 1 && (
                       <div className={cn(
                         "flex-1 h-0.5 mx-2",
-                        index < currentSection 
-                          ? "bg-gradient-to-r from-[#1925c3] to-[#c71719]" 
+                        index < currentSection
+                          ? "bg-gradient-to-r from-[#1925c3] to-[#c71719]"
                           : theme === 'dark' ? "bg-gray-700" : "bg-gray-300"
                       )} />
                     )}
@@ -490,8 +490,8 @@ function QuickRequestCreateNew({
           {Object.keys(errors).length > 0 && (
             <div className={cn(
               "mb-6 p-4 rounded-lg border",
-              theme === 'dark' 
-                ? 'bg-red-900/20 border-red-800' 
+              theme === 'dark'
+                ? 'bg-red-900/20 border-red-800'
                 : 'bg-red-50 border-red-200'
             )}>
               <div className="flex items-start">
@@ -522,10 +522,10 @@ function QuickRequestCreateNew({
           {/* Section Content */}
           <div className={cn("shadow-xl rounded-2xl p-8", t.glass.card)}>
             <h2 className={cn("text-2xl font-semibold mb-6 flex items-center", t.text.primary)}>
-              {React.createElement(sections[currentSection].icon, { className: "h-6 w-6 mr-3 text-gradient" })}
-              {sections[currentSection].title}
+              {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-gradient" })}
+              {sections[currentSection]?.title}
             </h2>
-            
+
             {currentSection === 0 && (
               <Step1ContextRequest
                 formData={formData}
@@ -536,7 +536,7 @@ function QuickRequestCreateNew({
                 errors={errors}
               />
             )}
-            
+
             {currentSection === 1 && (
               <Step2PatientShipping
                 formData={formData}
@@ -544,7 +544,7 @@ function QuickRequestCreateNew({
                 errors={errors}
               />
             )}
-            
+
             {currentSection === 2 && (
               <Step3Insurance
                 formData={formData}
@@ -553,7 +553,7 @@ function QuickRequestCreateNew({
                 errors={errors}
               />
             )}
-            
+
             {currentSection === 3 && (
               <Step4ClinicalBilling
                 formData={formData}
@@ -563,7 +563,7 @@ function QuickRequestCreateNew({
                 errors={errors}
               />
             )}
-            
+
             {currentSection === 4 && (
               <Step5ProductSelection
                 formData={formData}
@@ -574,7 +574,7 @@ function QuickRequestCreateNew({
                 currentUser={currentUser}
               />
             )}
-            
+
             {currentSection === 5 && (
               <Step6ManufacturerQuestions
                 formData={formData}
@@ -583,11 +583,11 @@ function QuickRequestCreateNew({
                 errors={errors}
               />
             )}
-            
+
             {currentSection === 6 && (
               <Step7DocuSealIVR
                 formData={formData}
-                updateFormData={updateFormData}
+                updateFormData={updateFormData as any}
                 products={products}
                 providers={providers}
                 facilities={facilities}
@@ -606,7 +606,7 @@ function QuickRequestCreateNew({
                 currentSection === 0
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:shadow-lg",
-                t.button.secondary
+                t.button.secondary as unknown as string
               )}
             >
               <FiArrowLeft className="mr-2" />

@@ -458,8 +458,10 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
           </div>
         </GlassCard>
 
+        {/* Tabs Section */}
+        <GlassCard className="max-w-5xl mx-auto">
           {/* Tabs */}
-          <div className="mb-6 max-w-5xl mx-auto">
+          <div className="mb-6">
             <nav className="flex space-x-4" aria-label="Tabs">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
@@ -1064,7 +1066,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
               </Card>
             )}
           </div>
-        </div>
+        </GlassCard>
       </div>
       {/* Modals */}
       {showAddFacilityModal && (

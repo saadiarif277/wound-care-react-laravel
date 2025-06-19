@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiLoader } from 'react-icons/fi';
+import { useState } from 'react';
+import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
@@ -129,7 +129,7 @@ export default function Step7DocuSealIVR({
     if (!selectedProduct) return formData;
 
     // Format selected products for display
-    const productDetails = formData.selected_products?.map(item => {
+    const productDetails = formData.msc_products?.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       return {
         name: product?.name || '',
@@ -166,7 +166,7 @@ export default function Step7DocuSealIVR({
       product_code: selectedProduct.code,
       product_manufacturer: selectedProduct.manufacturer,
       product_details: productDetails,
-      product_details_text: productDetails.map(p =>
+      product_details_text: productDetails.map((p: any) =>
         `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
       ).join('\n'),
 

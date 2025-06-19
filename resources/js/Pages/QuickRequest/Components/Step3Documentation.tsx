@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { FiUpload, FiFile, FiCheck, FiX } from 'react-icons/fi';
+import { useState, useRef } from 'react';
+import { FiUpload, FiFile, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
@@ -19,17 +19,17 @@ interface Step3Props {
   errors: Record<string, string>;
 }
 
-export default function Step3Documentation({ 
-  formData, 
-  updateFormData, 
+export default function Step3Documentation({
+  formData,
+  updateFormData,
   providers,
   currentUser,
-  errors 
+  errors
 }: Step3Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -37,7 +37,7 @@ export default function Step3Documentation({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [uploadedFiles, setUploadedFiles] = useState<{
     face_sheet: { name: string; size: number } | null;
     clinical_notes: { name: string; size: number } | null;
@@ -49,7 +49,7 @@ export default function Step3Documentation({
   });
 
   const [isVerbalOrder, setIsVerbalOrder] = useState(false);
-  
+
   const faceSheetRef = useRef<HTMLInputElement>(null);
   const clinicalNotesRef = useRef<HTMLInputElement>(null);
   const woundPhotoRef = useRef<HTMLInputElement>(null);
@@ -57,7 +57,7 @@ export default function Step3Documentation({
   const handleFileUpload = (fileType: 'face_sheet' | 'clinical_notes' | 'wound_photo', file: File) => {
     // Update form data
     updateFormData({ [fileType]: file });
-    
+
     // Update uploaded files state for display
     setUploadedFiles(prev => ({
       ...prev,
@@ -114,14 +114,14 @@ export default function Step3Documentation({
       </div>
 
       {/* Required Attachments */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           📄 Required Attachments
         </h3>
         <p className={cn("text-sm mb-4", t.text.secondary)}>
           Please confirm the following are attached/uploaded:
         </p>
-        
+
         <div className="space-y-4">
           {/* Face Sheet */}
           <div>
@@ -138,12 +138,12 @@ export default function Step3Documentation({
                 </button>
               )}
             </div>
-            <div 
+            <div
               onClick={() => faceSheetRef.current?.click()}
               className={cn(
                 "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-indigo-500 transition-colors",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300',
-                uploadedFiles.face_sheet && 'border-green-500 bg-green-50/5'
+                uploadedFiles.face_sheet ? 'border-green-500 bg-green-50/5' : ''
               )}
             >
               <input
@@ -194,12 +194,12 @@ export default function Step3Documentation({
                 </button>
               )}
             </div>
-            <div 
+            <div
               onClick={() => clinicalNotesRef.current?.click()}
               className={cn(
                 "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-indigo-500 transition-colors",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300',
-                uploadedFiles.clinical_notes && 'border-green-500 bg-green-50/5'
+                uploadedFiles.clinical_notes ? 'border-green-500 bg-green-50/5' : ''
               )}
             >
               <input
@@ -250,12 +250,12 @@ export default function Step3Documentation({
                 </button>
               )}
             </div>
-            <div 
+            <div
               onClick={() => woundPhotoRef.current?.click()}
               className={cn(
                 "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer hover:border-indigo-500 transition-colors",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300',
-                uploadedFiles.wound_photo && 'border-green-500 bg-green-50/5'
+                uploadedFiles.wound_photo ? 'border-green-500 bg-green-50/5' : ''
               )}
             >
               <input
@@ -294,14 +294,14 @@ export default function Step3Documentation({
       </div>
 
       {/* Clinical Attestation */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           ✅ Clinical Attestation
         </h3>
         <p className={cn("text-sm mb-4", t.text.secondary)}>
           By submitting this order, I attest that:
         </p>
-        
+
         <div className="space-y-3">
           {attestations.map(({ field, label }) => (
             <div key={field} className="flex items-start">
@@ -312,7 +312,7 @@ export default function Step3Documentation({
                 onChange={(e) => updateFormData({ [field]: e.target.checked })}
                 className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5"
               />
-              <label 
+              <label
                 htmlFor={field}
                 className={cn("ml-3 text-sm", t.text.secondary)}
               >
@@ -321,18 +321,18 @@ export default function Step3Documentation({
             </div>
           ))}
         </div>
-        
+
         {errors.attestation && (
           <p className="mt-3 text-sm text-red-500">{errors.attestation}</p>
         )}
       </div>
 
       {/* Prior Authorization Consent */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           🔐 Prior Authorization Consent
         </h3>
-        
+
         <div className="space-y-3">
           <div className="flex items-start">
             <input
@@ -342,14 +342,14 @@ export default function Step3Documentation({
               onChange={(e) => updateFormData({ authorize_prior_auth: e.target.checked })}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5"
             />
-            <label 
+            <label
               htmlFor="authorize_prior_auth"
               className={cn("ml-3 text-sm", t.text.secondary)}
             >
               I authorize MSC to initiate and follow up on prior authorization if required
             </label>
           </div>
-          
+
           <div className="flex items-start">
             <input
               type="checkbox"
@@ -358,7 +358,7 @@ export default function Step3Documentation({
               onChange={(e) => updateFormData({ understand_contact: e.target.checked })}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded mt-0.5"
             />
-            <label 
+            <label
               htmlFor="understand_contact"
               className={cn("ml-3 text-sm", t.text.secondary)}
             >
@@ -369,11 +369,11 @@ export default function Step3Documentation({
       </div>
 
       {/* Provider Authorization */}
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           ✍️ Provider Authorization
         </h3>
-        
+
         <div className="space-y-4">
           {/* Verbal Order Option */}
           <div className="flex items-center mb-4">
@@ -384,7 +384,7 @@ export default function Step3Documentation({
               onChange={(e) => setIsVerbalOrder(e.target.checked)}
               className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
             />
-            <label 
+            <label
               htmlFor="verbal_order"
               className={cn("ml-3 text-sm font-medium", t.text.secondary)}
             >
@@ -411,7 +411,7 @@ export default function Step3Documentation({
                   placeholder="Provider name"
                 />
               </div>
-              
+
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                   Date
@@ -428,7 +428,7 @@ export default function Step3Documentation({
                   className={cn("w-full", t.input.base, t.input.focus)}
                 />
               </div>
-              
+
               <div className="sm:col-span-2">
                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                   Documented by
@@ -449,7 +449,7 @@ export default function Step3Documentation({
             </div>
           ) : (
             <div className="space-y-4">
-              <div className={cn("p-4 rounded-lg border-2 border-dashed", 
+              <div className={cn("p-4 rounded-lg border-2 border-dashed",
                 theme === 'dark' ? 'border-gray-600' : 'border-gray-300'
               )}>
                 <p className={cn("text-sm font-medium mb-2", t.text.secondary)}>
@@ -474,7 +474,7 @@ export default function Step3Documentation({
                     className={cn("w-full", t.input.base, t.input.focus)}
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                     Date
@@ -486,7 +486,7 @@ export default function Step3Documentation({
                     className={cn("w-full", t.input.base, t.input.focus)}
                   />
                 </div>
-                
+
                 <div>
                   <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                     NPI
