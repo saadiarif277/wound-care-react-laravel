@@ -76,9 +76,20 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
   const loadAllProducts = async () => {
     setLoading(true);
     try {
-      const response = await fetch('/api/products/search');
+      // Use the correct API endpoint that returns all products
+      // Adding show_all=true parameter to get all products regardless of provider onboarding status
+      const response = await fetch('/api/products/search?show_all=true');
       const data = await response.json();
-      const products = data.products || [];
+
+      // Debug log to see what we're getting
+      console.log('API Response:', data);
+
+      // The API returns { products: [...], categories: [...], manufacturers: [...] }
+      const products = Array.isArray(data.products) ? data.products : [];
+
+      // Log the products array
+      console.log('Products found:', products.length);
+
       setAllProducts(products);
       setFilteredProducts(products);
       setInitialLoadComplete(true);
@@ -94,13 +105,13 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    post(`/api/providers/${providerId}/products`, {
+    post(`/admin/providers/${providerId}/products`, {
       onSuccess: () => {
         reset();
         setSearchTerm('');
         onClose();
-        // Instead of router.reload(), we'll let the parent component handle the refresh
-        // or use a callback to notify the parent that a product was added
+        // Router reload to refresh the provider data
+        router.reload();
       },
       onError: (errors) => {
         console.error('Error adding product:', errors);

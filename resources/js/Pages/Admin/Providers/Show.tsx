@@ -6,6 +6,7 @@ import { themes, cn } from '@/theme/glass-theme';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
 import { Button } from '@/Components/Button';
+import GlassCard from '@/Components/ui/GlassCard';
 import {
   User,
   Mail,
