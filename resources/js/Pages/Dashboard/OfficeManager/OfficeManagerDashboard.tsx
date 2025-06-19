@@ -131,7 +131,7 @@ export default function OfficeManagerDashboard({ user, dashboardData, roleRestri
   // Try to use theme if available, fallback to dark theme
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -199,324 +199,278 @@ export default function OfficeManagerDashboard({ user, dashboardData, roleRestri
     <MainLayout>
       <Head title="Office Manager Dashboard" />
 
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className={cn("text-3xl font-bold", t.text.primary)}>Facility Operations Dashboard</h1>
+      <div className="space-y-8">
+        {/* Office Manager Welcome Header */}
+        <div className="mb-8 text-center max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-[#1925c3] to-[#c71719]">
+            Welcome, {user.name}
+          </h1>
           <p className={cn("mt-2 leading-normal", t.text.secondary)}>
-            Oversee facility operations, coordinate provider activities, and manage administrative workflows.
+            Coordinate facility operations, manage provider workflows, and oversee administrative tasks.
           </p>
         </div>
 
-        {/* Key Facility Metrics - NO FINANCIAL DATA */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <MetricCard
-            title="Active Providers"
-            value={facilityMetrics.total_providers}
-            subtitle="In facility"
-            icon={<FiUsers className="h-8 w-8" />}
-            status="info"
-            size="md"
-          />
+        {/* Key Metrics */}
+        <div className="max-w-5xl mx-auto">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <MetricCard
+              title="Total Providers"
+              value={facilityMetrics.total_providers}
+              subtitle="Active in facility"
+              icon={<FiUsers className="h-8 w-8" />}
+              status="default"
+              size="sm"
+            />
 
-          <MetricCard
-            title="Active Requests"
-            value={facilityMetrics.active_requests}
-            subtitle="In process"
-            icon={<FiFileText className="h-8 w-8" />}
-            status="success"
-            size="md"
-          />
+            <MetricCard
+              title="Active Requests"
+              value={facilityMetrics.active_requests}
+              subtitle="Currently processing"
+              icon={<FiFileText className="h-8 w-8" />}
+              status="info"
+              size="sm"
+            />
 
-          <MetricCard
-            title="Avg Processing Time"
-            value={`${facilityMetrics.processing_time} days`}
-            subtitle="Request to approval"
-            icon={<FiClock className="h-8 w-8" />}
-            status="warning"
-            size="md"
-          />
+            <MetricCard
+              title="Avg Processing Time"
+              value={`${facilityMetrics.processing_time} days`}
+              subtitle="Request to approval"
+              icon={<FiClock className="h-8 w-8" />}
+              status="success"
+              size="sm"
+            />
 
-          <MetricCard
-            title="Admin Tasks"
-            value={facilityMetrics.admin_tasks}
-            subtitle="Pending action"
-            icon={<FiCheckCircle className="h-8 w-8" />}
-            status="default"
-            size="md"
-          />
+            <MetricCard
+              title="Admin Tasks"
+              value={facilityMetrics.admin_tasks}
+              subtitle="Pending completion"
+              icon={<FiCheckCircle className="h-8 w-8" />}
+              status="warning"
+              size="sm"
+            />
+          </div>
         </div>
 
-        {/* Action Required Items */}
-        {dashboardData.action_items.length > 0 && (
-          <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <svg className="h-6 w-6 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                    </svg>
-                  </div>
-                  <div className="ml-3">
-                    <h2 className="text-xl font-semibold text-gray-900">Action Required</h2>
-                    <p className="text-sm text-gray-600 mt-1">Items requiring immediate attention</p>
-                  </div>
+        {/* Action Items Section */}
+        {dashboardData.action_items && dashboardData.action_items.length > 0 && (
+          <GlassCard className="max-w-5xl mx-auto" variant="warning">
+            <div className="flex items-start gap-4">
+              <div className="p-3 rounded-full">
+                <FiClock className="h-6 w-6 animate-pulse text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <div className="mb-4">
+                  <h2 className={cn("text-xl font-semibold", t.text.primary)}>Administrative Tasks</h2>
+                  <p className={cn("text-sm mt-1", t.text.secondary)}>Items requiring your attention</p>
                 </div>
-                <Link
-                  href="/product-requests"
-                  className="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 transition-colors"
-                >
-                  View All
-                </Link>
+                <div className="space-y-3">
+                  {dashboardData.action_items.map((item) => (
+                    <div key={item.id} className={cn("p-4 rounded-lg border flex items-start gap-4", t.glass.base, "border-amber-500/20")}>
+                      <div className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPriorityColor(item.priority)}`}>
+                        {item.priority}
+                      </div>
+                      <div className="flex-1">
+                        <h3 className={cn("text-sm font-semibold", t.text.primary)}>{item.patient_name}</h3>
+                        <p className={cn("text-sm mt-1", t.text.secondary)}>{item.description}</p>
+                        <p className={cn("text-xs mt-1", t.text.muted)}>Due: {item.due_date}</p>
+                      </div>
+                      <Link
+                        href={route('product-requests.show', { id: item.request_id })}
+                        className={cn(
+                          "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
+                          theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        )}
+                      >
+                        View
+                      </Link>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="divide-y divide-gray-200">
-              {dashboardData.action_items.map((item) => (
-                <div key={item.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-sm font-semibold text-gray-900">{item.patient_name}</h3>
-                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(item.priority)}`}>
-                          {item.priority} priority
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mt-1">{item.description}</p>
-                      <p className="text-xs text-gray-500 mt-1">Due: {item.due_date}</p>
-                    </div>
-                    <Link
-                      href={`/product-requests/${item.id}`}
-                      className="ml-4 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      Take Action
-                    </Link>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+          </GlassCard>
         )}
 
-        {/* Recent Facility Requests - NO FINANCIAL DATA */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Recent Facility Requests</h2>
-                  <p className="text-sm text-gray-600 mt-1">Latest product requests from facility providers</p>
-                </div>
-              </div>
-              <Link
-                href="/product-requests"
-                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-              >
-                View All Requests
-              </Link>
+        {/* Provider Activity */}
+        <GlassCard className="max-w-5xl mx-auto">
+          <div className="flex items-start gap-4">
+            <div className={cn(
+              "p-3 rounded-full",
+              theme === 'dark' ? 'bg-emerald-500/20' : 'bg-emerald-500/10'
+            )}>
+              <FiUsers className="h-6 w-6 text-emerald-500" />
             </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {dashboardData.recent_requests.length > 0 ? (
-              dashboardData.recent_requests.map((request) => (
-                <div key={request.id} className="p-6 hover:bg-gray-50 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-sm font-semibold text-gray-900">{request.patient_name}</h3>
-                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getRequestStatusColor(request.status)}`}>
-                          {request.status.replace('_', ' ')}
-                        </span>
-                      </div>
-                      <div className="mt-2 grid grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-xs text-gray-500">Wound Type</p>
-                          <p className="text-sm font-medium">{request.wound_type.replace('_', ' ')}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Request Date</p>
-                          <p className="text-sm font-medium">{request.created_at}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Facility</p>
-                          <p className="text-sm font-medium">{request.facility_name}</p>
-                        </div>
-                      </div>
-                      {/* IMPORTANT: NO FINANCIAL DATA SHOWN FOR OFFICE MANAGERS */}
-                    </div>
-                    <Link
-                      href={`/product-requests/${request.id}`}
-                      className="ml-4 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                    >
-                      View Request
-                    </Link>
-                  </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className={cn("text-xl font-semibold", t.text.primary)}>Provider Activity</h2>
+                  <p className={cn("text-sm mt-1", t.text.secondary)}>Monitor and coordinate provider workflows</p>
                 </div>
-              ))
-            ) : (
-              <div className="p-6 text-center text-gray-500">
-                <p>No recent requests found.</p>
                 <Link
-                  href="/product-requests/create"
-                  className="mt-2 inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+                  href="/providers"
+                  className={cn(
+                    "px-4 py-2 rounded-lg font-medium transition-all",
+                    theme === 'dark' ? t.button.primary : 'bg-blue-600 text-white hover:bg-blue-700'
+                  )}
                 >
-                  Create New Request
+                  Manage Providers
                 </Link>
               </div>
-            )}
-          </div>
-        </div>
 
-        {/* Provider Activity Management */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Provider Activity</h2>
-                  <p className="text-sm text-gray-600 mt-1">Monitor and coordinate provider workflows</p>
-                </div>
-              </div>
-              <Link
-                href="/providers"
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
-              >
-                Manage Providers
-              </Link>
-            </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {providerActivity.map((provider) => (
-              <div key={provider.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
-                        <span className="text-white text-sm font-medium">
-                          {provider.providerName.split(' ').map(n => n[0]).join('')}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-sm font-semibold text-gray-900">{provider.providerName}</h3>
-                        <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(provider.status)}`}>
-                          {provider.status}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600">{provider.specialty}</p>
-                      <div className="mt-1 grid grid-cols-3 gap-4">
-                        <div>
-                          <p className="text-xs text-gray-500">Active Patients</p>
-                          <p className="text-sm font-medium">{provider.activePatients}</p>
+              <div className="space-y-4">
+                {providerActivity.map((provider) => (
+                  <div key={provider.id} className={cn("p-4 rounded-lg border", t.glass.base, t.glass.border)}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={cn("font-semibold", t.text.primary)}>{provider.providerName}</h3>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(provider.status)}`}>
+                            {provider.status}
+                          </span>
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Requests This Week</p>
-                          <p className="text-sm font-medium">{provider.requestsThisWeek}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500">Last Activity</p>
-                          <p className="text-sm font-medium">{provider.lastActivity}</p>
+                        <p className={cn("text-sm", t.text.secondary)}>{provider.specialty}</p>
+                        <div className="mt-3 grid grid-cols-3 gap-4">
+                          <div>
+                            <p className={cn("text-xs", t.text.muted)}>Active Patients</p>
+                            <p className={cn("text-sm font-medium", t.text.primary)}>{provider.activePatients}</p>
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", t.text.muted)}>Requests This Week</p>
+                            <p className={cn("text-sm font-medium", t.text.primary)}>{provider.requestsThisWeek}</p>
+                          </div>
+                          <div>
+                            <p className={cn("text-xs", t.text.muted)}>Last Activity</p>
+                            <p className={cn("text-sm font-medium", t.text.primary)}>{provider.lastActivity}</p>
+                          </div>
                         </div>
                       </div>
+                      <Link
+                        href={`/providers/${provider.id}`}
+                        className={cn(
+                          "ml-4 px-3 py-2 rounded-lg font-medium transition-all",
+                          theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        )}
+                      >
+                        Manage
+                      </Link>
                     </div>
                   </div>
-                  <Link
-                    href={`/providers/${provider.id}`}
-                    className="ml-4 px-3 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-                  >
-                    Manage
-                  </Link>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        </GlassCard>
 
         {/* Administrative Tasks */}
-        <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <div className="flex-shrink-0">
-                  <svg className="h-6 w-6 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <h2 className="text-xl font-semibold text-gray-900">Administrative Tasks</h2>
-                  <p className="text-sm text-gray-600 mt-1">Facility management and operational tasks</p>
-                </div>
-              </div>
-              <Link
-                href="/admin/tasks"
-                className="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
-              >
-                View All Tasks
-              </Link>
+        <GlassCard className="max-w-5xl mx-auto">
+          <div className="flex items-start gap-4">
+            <div className={cn(
+              "p-3 rounded-full",
+              theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-500/10'
+            )}>
+              <FiFileText className="h-6 w-6 text-blue-500" />
             </div>
-          </div>
-          <div className="divide-y divide-gray-200">
-            {adminTasks.map((task) => (
-              <div key={task.id} className="p-6 hover:bg-gray-50 transition-colors">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center">
-                      <h3 className="text-sm font-semibold text-gray-900">{task.title}</h3>
-                      <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(task.priority)}`}>
-                        {task.priority} priority
-                      </span>
-                    </div>
-                    <p className="text-sm text-gray-600 mt-1">{task.description}</p>
-                    <div className="mt-2 grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-xs text-gray-500">Due Date</p>
-                        <p className="text-sm font-medium">{task.dueDate}</p>
+            <div className="flex-1">
+              <div className="mb-4">
+                <h2 className={cn("text-xl font-semibold", t.text.primary)}>Administrative Tasks</h2>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>Facility management and compliance tasks</p>
+              </div>
+
+              <div className="space-y-4">
+                {adminTasks.map((task) => (
+                  <div key={task.id} className={cn("p-4 rounded-lg border", t.glass.base, t.glass.border)}>
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-2">
+                          <h3 className={cn("font-semibold", t.text.primary)}>{task.title}</h3>
+                          <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getPriorityColor(task.priority)}`}>
+                            {task.priority}
+                          </span>
+                        </div>
+                        <p className={cn("text-sm", t.text.secondary)}>{task.description}</p>
+                        <div className="mt-2 flex items-center gap-4">
+                          <p className={cn("text-xs", t.text.muted)}>Due: {task.dueDate}</p>
+                          <p className={cn("text-xs", t.text.muted)}>Assigned: {task.assignedTo}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-500">Assigned To</p>
-                        <p className="text-sm font-medium">{task.assignedTo}</p>
-                      </div>
+                      <button className={cn(
+                        "px-3 py-2 rounded-lg font-medium transition-all",
+                        theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      )}>
+                        Complete
+                      </button>
                     </div>
                   </div>
-                  <button className="ml-4 px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">
-                    Manage Task
-                  </button>
-                </div>
+                ))}
               </div>
-            ))}
+            </div>
           </div>
-        </div>
+        </GlassCard>
 
-        {/* Financial Restriction Notice */}
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-800">Financial Information Restricted</h3>
-              <div className="mt-2 text-sm text-yellow-700">
-                <p>
-                  As an Office Manager, financial information including pricing, discounts, and amounts owed are not displayed.
-                  You have full access to clinical workflows, provider coordination, and facility management features.
-                </p>
-              </div>
-            </div>
+        {/* Recent Requests */}
+        <GlassCard className="max-w-5xl mx-auto">
+          <div className="mb-6">
+            <h2 className={cn("text-xl font-semibold", t.text.primary)}>Recent Product Requests</h2>
+            <p className={cn("text-sm mt-1", t.text.secondary)}>Latest requests from facility providers</p>
           </div>
-        </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className={cn(t.table.header)}>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Request #</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Patient</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Wound Type</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Status</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Facility</th>
+                  <th className={cn("px-6 py-3 text-left", t.table.headerText)}>Date</th>
+                  <th className={cn("px-6 py-3 text-right", t.table.headerText)}>Actions</th>
+                </tr>
+              </thead>
+              <tbody className={cn(t.table.body)}>
+                {dashboardData.recent_requests.map((request, index) => (
+                  <tr key={request.id} className={cn(
+                    t.table.row,
+                    index % 2 === 0 ? t.table.evenRow : '',
+                    t.table.rowHover
+                  )}>
+                    <td className={cn("px-6 py-4 font-medium", t.text.primary)}>
+                      {request.request_number}
+                    </td>
+                    <td className={cn("px-6 py-4", t.text.primary)}>
+                      {request.patient_name}
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {request.wound_type}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRequestStatusColor(request.status)}`}>
+                        {request.status}
+                      </span>
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {request.facility_name}
+                    </td>
+                    <td className={cn("px-6 py-4 text-sm", t.text.secondary)}>
+                      {new Date(request.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <Link
+                        href={route('product-requests.show', { id: request.id })}
+                        className={cn(
+                          "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
+                          theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                        )}
+                      >
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </GlassCard>
       </div>
     </MainLayout>
   );

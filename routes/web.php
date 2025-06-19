@@ -506,7 +506,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/create', [\App\Http\Controllers\QuickRequestController::class, 'create'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create');
-        Route::get('/create-new', [\App\Http\Controllers\QuickRequestController::class, 'createNew'])
+        Route::get('/create-new', [\App\Http\Controllers\QuickRequestController::class, 'create'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-new');
         Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])

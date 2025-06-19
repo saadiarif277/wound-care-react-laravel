@@ -15,6 +15,7 @@ import {
 } from 'react-icons/fi';
 import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import { ThemeToggleCompact } from '@/Components/ThemeToggle';
 
 interface MainLayoutProps {
   title?: string;
@@ -197,6 +198,7 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                       <p className={cn("text-sm font-semibold truncate", t.text.primary)}>{userName}</p>
                       <p className={cn("text-xs truncate", t.text.secondary)}>{roleDisplayName}</p>
                     </div>
+                    <ThemeToggleCompact className="ml-2" />
                   </div>
 
                   {/* Logout Button */}
@@ -262,6 +264,9 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                       </span>
                     )}
                   </div>
+
+                  {/* Theme Toggle in Collapsed State */}
+                  <ThemeToggleCompact />
 
                   {/* Collapsed Logout Button */}
                   <button

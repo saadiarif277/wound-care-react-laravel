@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
-import { ThemeToggleCompact } from '@/Components/ThemeToggle';
+
 import {
   Package,
   Clock,
@@ -286,7 +286,6 @@ export default function ProviderOrdersDashboard({
             </div>
 
             <div className="flex items-center space-x-2">
-              <ThemeToggleCompact className="hidden sm:block" />
               <button
                 onClick={() => router.reload()}
                 className={`${t.button.ghost} p-2`}
@@ -340,9 +339,7 @@ export default function ProviderOrdersDashboard({
               {voiceEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
               <span>Voice</span>
             </button>
-            <div className="sm:hidden">
-              <ThemeToggleCompact />
-            </div>
+
           </div>
         </div>
 

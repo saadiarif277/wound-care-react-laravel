@@ -510,5 +510,21 @@ class User extends Authenticatable
         return $this->hasOne(\App\Models\Users\Provider\ProviderProfile::class, 'provider_id');
     }
 
+    /**
+     * Alias for profile relationship for backward compatibility
+     */
+    public function providerProfile()
+    {
+        return $this->profile();
+    }
+
+    /**
+     * Provider credentials (NPI, DEA, licenses, etc.)
+     */
+    public function providerCredentials(): HasMany
+    {
+        return $this->hasMany(\App\Models\Users\Provider\ProviderCredential::class, 'provider_id');
+    }
+
     // Note: roles() relationship and hasPermission() method are provided by HasPermissions trait
 }
