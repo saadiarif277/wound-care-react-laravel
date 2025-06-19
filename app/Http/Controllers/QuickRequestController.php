@@ -8,6 +8,7 @@ use App\Models\Order\ProductRequest;
 use App\Models\PatientIVRStatus;
 use App\Models\Fhir\Facility;
 use App\Services\PatientService;
+use App\Services\PayerService;
 use App\Services\PhiAuditService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -20,10 +21,12 @@ use Inertia\Inertia;
 class QuickRequestController extends Controller
 {
     protected $patientService;
+    protected $payerService;
 
-    public function __construct(PatientService $patientService)
+    public function __construct(PatientService $patientService, PayerService $payerService)
     {
         $this->patientService = $patientService;
+        $this->payerService = $payerService;
     }
 
     /**
@@ -32,6 +35,7 @@ class QuickRequestController extends Controller
     public function create()
     {
         $user = Auth::user()->load([
+            'roles',
             'providerProfile',
             'providerCredentials',
             'organizations' => fn($q) => $q->where('organization_users.is_active', true),
@@ -41,38 +45,132 @@ class QuickRequestController extends Controller
         $currentOrg = $user->organizations->first();
         $primaryFacility = $user->facilities()->where('facility_user.is_primary', true)->first() ?? $user->facilities->first();
 
-        $prefillData = [
-            'provider_name' => $user->first_name . ' ' . $user->last_name,
-            'provider_npi' => $user->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
+        // Get all providers in the organization
+        $providers = [];
 
-            'organization_name' => $currentOrg->name ?? null,
-            'organization_tax_id' => $currentOrg->tax_id ?? null,
+        // Add current user as provider if they have provider role
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        if ($userRole === 'provider') {
+            $providers[] = [
+                'id' => $user->id,
+                'name' => $user->first_name . ' ' . $user->last_name,
+                'credentials' => 'MD', // You might want to get this from provider profile
+                'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+            ];
+        }
 
-            'facility_id' => $primaryFacility->id ?? null,
-            'facility_name' => $primaryFacility->name ?? null,
-            'facility_address' => $primaryFacility->full_address ?? null,
-            'facility_phone' => $primaryFacility->phone ?? null,
-            'facility_npi' => $primaryFacility->npi ?? null,
-            'default_place_of_service' => $primaryFacility->default_place_of_service ?? '11',
+        // Add other providers from organization
+        if ($currentOrg) {
+            $orgProviders = \App\Models\User::whereHas('organizations', function($q) use ($currentOrg) {
+                    $q->where('organizations.id', $currentOrg->id);
+                })
+                ->whereHas('roles', function($q) {
+                    $q->where('slug', 'provider');
+                })
+                ->where('id', '!=', $user->id) // Exclude current user to avoid duplicates
+                ->get(['id', 'first_name', 'last_name', 'npi_number'])
+                ->map(function($provider) {
+                    return [
+                        'id' => $provider->id,
+                        'name' => $provider->first_name . ' ' . $provider->last_name,
+                        'credentials' => 'MD', // You might want to get this from provider profile
+                        'npi' => $provider->npi_number,
+                    ];
+                })
+                ->toArray();
 
-            'billing_address' => $currentOrg->billing_address ?? null,
-            'billing_city' => $currentOrg->billing_city ?? null,
-            'billing_state' => $currentOrg->billing_state ?? null,
-            'billing_zip' => $currentOrg->billing_zip ?? null,
+            $providers = array_merge($providers, $orgProviders);
+        }
 
-            'ap_contact_name' => $currentOrg->ap_contact_name ?? null,
-            'ap_contact_email' => $currentOrg->ap_contact_email ?? null,
-            'ap_contact_phone' => $currentOrg->ap_contact_phone ?? null,
-        ];
+        // Get facilities
+        $facilities = $user->facilities->map(function($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->full_address,
+            ];
+        });
 
+        // Get products with proper structure
         $products = Product::where('is_active', true)
             ->whereNotNull('manufacturer_id')
-            ->get(['id', 'name', 'q_code', 'manufacturer_id', 'manufacturer', 'available_sizes']);
+            ->get()
+            ->map(function($product) {
+                // Handle available_sizes which might be JSON string or array
+                $sizes = $product->available_sizes;
+                if (is_string($sizes)) {
+                    $sizes = json_decode($sizes, true) ?? [];
+                } elseif (!is_array($sizes)) {
+                    $sizes = [];
+                }
 
-        return Inertia::render('QuickRequest/Create', [
-            'facilities' => $user->facilities,
+                return [
+                    'id' => $product->id,
+                    'code' => $product->q_code,
+                    'name' => $product->name,
+                    'manufacturer' => $product->manufacturer,
+                    'sizes' => $sizes,
+                    'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
+                ];
+            });
+
+        // Wound types
+        $woundTypes = [
+            'diabetic_foot_ulcer' => 'Diabetic Foot Ulcer',
+            'venous_leg_ulcer' => 'Venous Leg Ulcer',
+            'pressure_ulcer' => 'Pressure Ulcer',
+            'surgical_wound' => 'Surgical Wound',
+            'other' => 'Other',
+        ];
+
+        // Insurance carriers - you might want to get this from a config or database
+        $insuranceCarriers = $this->payerService->getAllPayers()
+            ->pluck('name')
+            ->unique()
+            ->values()
+            ->toArray();
+
+        // Diagnosis codes
+        $diagnosisCodes = [
+            'yellow' => [
+                ['code' => 'E11.621', 'description' => 'Type 2 diabetes mellitus with foot ulcer'],
+                ['code' => 'E11.622', 'description' => 'Type 2 diabetes mellitus with other skin ulcer'],
+                ['code' => 'E10.621', 'description' => 'Type 1 diabetes mellitus with foot ulcer'],
+            ],
+            'orange' => [
+                ['code' => 'L97.411', 'description' => 'Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin'],
+                ['code' => 'L97.412', 'description' => 'Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed'],
+                ['code' => 'L97.511', 'description' => 'Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin'],
+            ],
+        ];
+
+        // Current user data
+        $currentUser = [
+            'id' => $user->id,
+            'name' => $user->first_name . ' ' . $user->last_name,
+            'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+            'role' => $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug,
+            'organization' => $currentOrg ? [
+                'id' => $currentOrg->id,
+                'name' => $currentOrg->name,
+                'address' => $currentOrg->billing_address,
+                'phone' => $currentOrg->phone,
+            ] : null,
+        ];
+
+        // Provider products mapping (if you have this data)
+        $providerProducts = [];
+        // You might want to load this from a relationship or configuration
+
+        return Inertia::render('QuickRequest/CreateNew', [
+            'facilities' => $facilities,
+            'providers' => $providers,
             'products' => $products,
-            'prefillData' => $prefillData,
+            'woundTypes' => $woundTypes,
+            'insuranceCarriers' => $insuranceCarriers,
+            'diagnosisCodes' => $diagnosisCodes,
+            'currentUser' => $currentUser,
+            'providerProducts' => $providerProducts,
         ]);
     }
 
@@ -84,6 +182,12 @@ class QuickRequestController extends Controller
     {
         // ASHLEY'S REQUIREMENT: Validate that IVR was completed by provider
         $validated = $request->validate([
+            // Context & Request Type
+            'request_type' => 'required|in:new_request,reverification,additional_applications',
+            'provider_id' => 'required|exists:users,id',
+            'facility_id' => 'required|exists:facilities,id',
+            'sales_rep_id' => 'nullable|string',
+
             // Patient Information
             'patient_first_name' => 'required|string|max:255',
             'patient_last_name' => 'required|string|max:255',
@@ -96,26 +200,73 @@ class QuickRequestController extends Controller
             'patient_state' => 'nullable|string|max:2',
             'patient_zip' => 'nullable|string|max:10',
             'patient_phone' => 'nullable|string|max:20',
+            'patient_email' => 'nullable|email|max:255',
+            'patient_is_subscriber' => 'required|boolean',
+
+            // Caregiver (if not subscriber)
             'caregiver_name' => 'nullable|string|max:255',
             'caregiver_relationship' => 'nullable|string|max:255',
             'caregiver_phone' => 'nullable|string|max:20',
 
-            // Product Information
-            'product_id' => 'required|exists:products,id',
-            'size' => 'required|string|max:50',
-            'quantity' => 'required|integer|min:1|max:100',
-            'manufacturer_fields' => 'nullable|array',
-
-            // Service Information
-            'facility_id' => 'required|exists:facilities,id',
-            'payer_name' => 'required|string|max:255',
-            'payer_id' => 'nullable|string|max:255',
+            // Service & Shipping
             'expected_service_date' => 'required|date|after:today',
-            'delivery_date' => 'nullable|date',
-            'wound_type' => 'required|string|max:255',
-            'place_of_service' => 'required|string|max:10',
-            'insurance_type' => 'required|string|max:255',
             'shipping_speed' => 'required|string|max:50',
+            'delivery_date' => 'nullable|date',
+
+            // Primary Insurance
+            'primary_insurance_name' => 'required|string|max:255',
+            'primary_member_id' => 'required|string|max:255',
+            'primary_payer_phone' => 'nullable|string|max:20',
+            'primary_plan_type' => 'required|string|max:50',
+
+            // Secondary Insurance
+            'has_secondary_insurance' => 'required|boolean',
+            'secondary_insurance_name' => 'nullable|string|max:255',
+            'secondary_member_id' => 'nullable|string|max:255',
+            'secondary_subscriber_name' => 'nullable|string|max:255',
+            'secondary_subscriber_dob' => 'nullable|date',
+            'secondary_payer_phone' => 'nullable|string|max:20',
+            'secondary_plan_type' => 'nullable|string|max:50',
+
+            // Prior Authorization
+            'prior_auth_permission' => 'required|boolean',
+
+            // Clinical Information
+            'wound_types' => 'required|array|min:1',
+            'wound_other_specify' => 'nullable|string|max:255',
+            'wound_location' => 'required|string|max:255',
+            'wound_location_details' => 'nullable|string|max:255',
+            'yellow_diagnosis_code' => 'nullable|string|max:20',
+            'orange_diagnosis_code' => 'nullable|string|max:20',
+            'wound_size_length' => 'required|numeric|min:0.1|max:100',
+            'wound_size_width' => 'required|numeric|min:0.1|max:100',
+            'wound_size_depth' => 'nullable|numeric|min:0|max:100',
+            'wound_duration' => 'nullable|string|max:255',
+            'previous_treatments' => 'nullable|string|max:1000',
+
+            // Procedure Information
+            'application_cpt_codes' => 'required|array|min:1',
+            'prior_applications' => 'nullable|string|max:20',
+            'anticipated_applications' => 'nullable|string|max:20',
+
+            // Billing Status
+            'place_of_service' => 'required|string|max:10',
+            'medicare_part_b_authorized' => 'nullable|boolean',
+            'snf_days' => 'nullable|string|max:10',
+            'hospice_status' => 'nullable|boolean',
+            'part_a_status' => 'nullable|boolean',
+            'global_period_status' => 'nullable|boolean',
+            'global_period_cpt' => 'nullable|string|max:10',
+            'global_period_surgery_date' => 'nullable|date',
+
+            // Product Selection (now supports multiple)
+            'selected_products' => 'required|array|min:1',
+            'selected_products.*.product_id' => 'required|exists:products,id',
+            'selected_products.*.quantity' => 'required|integer|min:1|max:100',
+            'selected_products.*.size' => 'nullable|string|max:50',
+
+            // Manufacturer Fields
+            'manufacturer_fields' => 'nullable|array',
 
             // Clinical Attestations
             'failed_conservative_treatment' => 'required|boolean',
@@ -140,9 +291,9 @@ class QuickRequestController extends Controller
             'clinical_notes' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
             'wound_photo' => 'nullable|file|mimes:jpg,jpeg,png|max:10240',
         ], [
-            'docuseal_submission_id.required' => 'IVR completion is required before submitting your order. Please complete the IVR form in Step 4.',
+            'docuseal_submission_id.required' => 'IVR completion is required before submitting your order. Please complete the IVR form in the final step.',
             'expected_service_date.after' => 'Service date must be in the future.',
-            'product_id.required' => 'Please select a product.',
+            'selected_products.required' => 'Please select at least one product.',
             'facility_id.required' => 'Please select a facility.',
         ]);
 
@@ -164,6 +315,7 @@ class QuickRequestController extends Controller
                     'postal_code' => $validated['patient_zip'],
                 ],
                 'phone' => $validated['patient_phone'],
+                'email' => $validated['patient_email'] ?? null,
                 'caregiver' => [
                     'name' => $validated['caregiver_name'],
                     'relationship' => $validated['caregiver_relationship'],
@@ -177,9 +329,9 @@ class QuickRequestController extends Controller
                 $validated['facility_id']
             );
 
-            // Get product information
-            $product = Product::find($validated['product_id']);
-            $manufacturerId = $product->manufacturer_id ?? $product->manufacturer;
+            // Process each selected product
+            $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
+            $manufacturerId = $firstProduct->manufacturer_id ?? $firstProduct->manufacturer;
 
             // ASHLEY'S REQUIREMENT: Find or create episode for patient+manufacturer
             $episode = $this->findOrCreateEpisode(
@@ -194,7 +346,9 @@ class QuickRequestController extends Controller
             $productRequest->id = Str::uuid();
             $productRequest->request_number = $this->generateRequestNumber();
             $productRequest->requester_id = Auth::id();
+            $productRequest->provider_id = $validated['provider_id'];
             $productRequest->facility_id = $validated['facility_id'];
+            $productRequest->request_type = $validated['request_type'];
 
             // ASHLEY'S REQUIREMENT: Status indicates provider completed IVR
             $productRequest->order_status = 'ready_for_review'; // Not 'pending_ivr'
@@ -204,23 +358,19 @@ class QuickRequestController extends Controller
             $productRequest->patient_fhir_id = $patientIdentifiers['patient_fhir_id'];
             $productRequest->patient_display_id = $patientIdentifiers['patient_display_id'];
 
-            // Set product information
-            $productRequest->product_id = $validated['product_id'];
-            $productRequest->product_name = $product->name;
-            $productRequest->product_code = $product->q_code;
-            $productRequest->manufacturer = $product->manufacturer;
-            $productRequest->size = $validated['size'];
-            $productRequest->quantity = $validated['quantity'];
+            // Store insurance information
+            $productRequest->payer_name = $validated['primary_insurance_name'];
+            $productRequest->payer_id = $validated['primary_member_id'];
+            $productRequest->insurance_type = $validated['primary_plan_type'];
 
             // Set service information
-            $productRequest->payer_name = $validated['payer_name'];
-            $productRequest->payer_id = $validated['payer_id'];
             $productRequest->expected_service_date = $validated['expected_service_date'];
             $productRequest->delivery_date = $validated['delivery_date'] ??
                 Carbon::parse($validated['expected_service_date'])->subDay(); // Default to day before
-            $productRequest->wound_type = $validated['wound_type'];
+
+            // Clinical information
+            $productRequest->wound_type = implode(', ', $validated['wound_types']);
             $productRequest->place_of_service = $validated['place_of_service'];
-            $productRequest->insurance_type = $validated['insurance_type'];
 
             // ASHLEY'S REQUIREMENT: Store IVR completion info
             $productRequest->docuseal_submission_id = $validated['docuseal_submission_id'];
@@ -229,6 +379,54 @@ class QuickRequestController extends Controller
 
             // Store metadata
             $metadata = [
+                'products' => $validated['selected_products'],
+                'clinical_info' => [
+                    'wound_types' => $validated['wound_types'],
+                    'wound_other_specify' => $validated['wound_other_specify'],
+                    'wound_location' => $validated['wound_location'],
+                    'wound_location_details' => $validated['wound_location_details'],
+                    'diagnosis_codes' => [
+                        'yellow' => $validated['yellow_diagnosis_code'],
+                        'orange' => $validated['orange_diagnosis_code'],
+                    ],
+                    'wound_measurements' => [
+                        'length' => $validated['wound_size_length'],
+                        'width' => $validated['wound_size_width'],
+                        'depth' => $validated['wound_size_depth'],
+                    ],
+                    'wound_duration' => $validated['wound_duration'],
+                    'previous_treatments' => $validated['previous_treatments'],
+                    'cpt_codes' => $validated['application_cpt_codes'],
+                    'prior_applications' => $validated['prior_applications'],
+                    'anticipated_applications' => $validated['anticipated_applications'],
+                ],
+                'billing_info' => [
+                    'medicare_part_b_authorized' => $validated['medicare_part_b_authorized'],
+                    'snf_days' => $validated['snf_days'],
+                    'hospice_status' => $validated['hospice_status'],
+                    'part_a_status' => $validated['part_a_status'],
+                    'global_period_status' => $validated['global_period_status'],
+                    'global_period_cpt' => $validated['global_period_cpt'],
+                    'global_period_surgery_date' => $validated['global_period_surgery_date'],
+                ],
+                'insurance_info' => [
+                    'primary' => [
+                        'name' => $validated['primary_insurance_name'],
+                        'member_id' => $validated['primary_member_id'],
+                        'plan_type' => $validated['primary_plan_type'],
+                        'payer_phone' => $validated['primary_payer_phone'],
+                    ],
+                    'has_secondary' => $validated['has_secondary_insurance'],
+                    'secondary' => $validated['has_secondary_insurance'] ? [
+                        'name' => $validated['secondary_insurance_name'],
+                        'member_id' => $validated['secondary_member_id'],
+                        'plan_type' => $validated['secondary_plan_type'],
+                        'subscriber_name' => $validated['secondary_subscriber_name'],
+                        'subscriber_dob' => $validated['secondary_subscriber_dob'],
+                        'payer_phone' => $validated['secondary_payer_phone'],
+                    ] : null,
+                    'prior_auth_permission' => $validated['prior_auth_permission'],
+                ],
                 'manufacturer_fields' => $validated['manufacturer_fields'] ?? [],
                 'shipping_speed' => $validated['shipping_speed'],
                 'attestations' => [
@@ -283,6 +481,14 @@ class QuickRequestController extends Controller
             $metadata['documents'] = $documentMetadata;
             $productRequest->metadata = $metadata;
 
+            // Set primary product info (for backwards compatibility)
+            $productRequest->product_id = $firstProduct->id;
+            $productRequest->product_name = $firstProduct->name;
+            $productRequest->product_code = $firstProduct->q_code;
+            $productRequest->manufacturer = $firstProduct->manufacturer;
+            $productRequest->size = $validated['selected_products'][0]['size'] ?? '';
+            $productRequest->quantity = $validated['selected_products'][0]['quantity'];
+
             // Link to episode
             $productRequest->ivr_episode_id = $episode->id;
 
@@ -300,7 +506,7 @@ class QuickRequestController extends Controller
             // Store episode ID in session for the frontend to use
             session()->flash('episode_id', $episode->id);
 
-            return redirect()->route('admin.order-center.show', $productRequest->id)
+            return redirect()->route('admin.episodes.show', $episode->id)
                 ->with('success', 'Order submitted successfully with IVR completed! Your order is now ready for admin review.')
                 ->with('episode_id', $episode->id);
 

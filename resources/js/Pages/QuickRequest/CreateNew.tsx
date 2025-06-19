@@ -5,8 +5,7 @@ import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiP
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import Step1ContextRequest from './Components/Step1ContextRequest';
-import Step2PatientShipping from './Components/Step2PatientShipping';
-import Step3Insurance from './Components/Step3Insurance';
+import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ManufacturerQuestions from './Components/Step6ManufacturerQuestions';
@@ -130,6 +129,10 @@ interface QuickRequestFormData {
 
   // DocuSeal
   docuseal_submission_id?: string;
+
+  // Organization Info (auto-populated)
+  organization_id?: number;
+  organization_name?: string;
 }
 
 interface Props {
@@ -163,6 +166,12 @@ interface Props {
     name: string;
     npi?: string;
     role?: string;
+    organization?: {
+      id: number;
+      name: string;
+      address?: string;
+      phone?: string;
+    };
   };
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
 }
@@ -199,6 +208,8 @@ function QuickRequestCreateNew({
     provider_id: currentUser.role === 'provider' ? currentUser.id : null,
     facility_id: null,
     sales_rep_id: currentUser.role === 'sales_rep' ? `AUTO-${currentUser.id}` : undefined,
+    organization_id: currentUser.organization?.id,
+    organization_name: currentUser.organization?.name,
     patient_first_name: '',
     patient_last_name: '',
     patient_dob: '',
@@ -236,8 +247,7 @@ function QuickRequestCreateNew({
 
   const sections = [
     { title: 'Context & Request', icon: FiUser, estimatedTime: '15 seconds' },
-    { title: 'Patient & Shipping', icon: FiPackage, estimatedTime: '25 seconds' },
-    { title: 'Insurance', icon: FiCreditCard, estimatedTime: '25 seconds' },
+    { title: 'Patient & Insurance', icon: FiPackage, estimatedTime: '30 seconds' },
     { title: 'Clinical & Billing', icon: FiActivity, estimatedTime: '20 seconds' },
     { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '15 seconds' },
     { title: 'Manufacturer Questions', icon: FiHelpCircle, estimatedTime: '10 seconds' },
@@ -271,7 +281,8 @@ function QuickRequestCreateNew({
         if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
         break;
 
-      case 1: // Patient & Shipping
+      case 1: // Patient & Insurance (combined)
+        // Patient info validation
         if (!formData.patient_first_name) errors.patient_first_name = 'First name is required';
         if (!formData.patient_last_name) errors.patient_last_name = 'Last name is required';
         if (!formData.patient_dob) errors.patient_dob = 'Date of birth is required';
@@ -283,9 +294,8 @@ function QuickRequestCreateNew({
           if (!formData.caregiver_name) errors.caregiver_name = 'Caregiver name is required';
           if (!formData.caregiver_relationship) errors.caregiver_relationship = 'Caregiver relationship is required';
         }
-        break;
 
-      case 2: // Insurance
+        // Insurance validation
         if (!formData.primary_insurance_name) errors.primary_insurance_name = 'Primary insurance is required';
         if (!formData.primary_member_id) errors.primary_member_id = 'Member ID is required';
         if (!formData.primary_plan_type) errors.primary_plan_type = 'Plan type is required';
@@ -296,7 +306,7 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 3: // Clinical & Billing
+      case 2: // Clinical & Billing
         if (!formData.wound_types.length) errors.wound_types = 'At least one wound type must be selected';
         if (formData.wound_types.includes('other') && !formData.wound_other_specify) {
           errors.wound_other_specify = 'Please specify the other wound type';
@@ -314,13 +324,13 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 4: // Product Selection
+      case 3: // Product Selection
         if (!formData.selected_products || formData.selected_products.length === 0) {
           errors.products = 'Product selection is required';
         }
         break;
 
-      case 5: // Manufacturer Questions
+      case 4: // Manufacturer Questions
         // Validate manufacturer-specific fields if required
         if (formData.selected_products && formData.selected_products.length > 0) {
           const selectedProductId = formData.selected_products[0]?.product_id;
@@ -341,7 +351,7 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 6: // DocuSeal IVR
+      case 5: // DocuSeal IVR
         // Check if IVR is required and completed
         if (formData.selected_products && formData.selected_products.length > 0) {
           const selectedProductId = formData.selected_products[0]?.product_id;
@@ -362,7 +372,7 @@ function QuickRequestCreateNew({
   const handleSubmit = async () => {
     // Validate all sections
     let allErrors: Record<string, string> = {};
-    for (let i = 0; i <= 6; i++) {
+    for (let i = 0; i <= 5; i++) {
       const sectionErrors = validateSection(i);
       allErrors = { ...allErrors, ...sectionErrors };
     }
@@ -432,21 +442,21 @@ function QuickRequestCreateNew({
     <MainLayout>
       <Head title="Quick Request - Enhanced Flow" />
 
-      <div className="min-h-screen">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+        <div className="max-w-5xl mx-auto p-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className={cn("text-3xl font-bold", t.text.primary)}>
-              MSC Quick Request
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              MSC Enhanced Order Flow
             </h1>
-            <p className={cn("mt-2", t.text.secondary)}>
+            <p className="text-gray-600 dark:text-gray-400">
               Complete wound care product ordering in 90 seconds
             </p>
           </div>
 
           {/* Progress Bar */}
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-2">
               {sections.map((section, index) => {
                 const Icon = section.icon;
                 return (
@@ -454,31 +464,18 @@ function QuickRequestCreateNew({
                     key={index}
                     className={`flex items-center ${index < sections.length - 1 ? 'flex-1' : ''}`}
                   >
-                    <div className={cn(
-                      "flex flex-col items-center",
-                      index <= currentSection ? t.text.primary : t.text.secondary
-                    )}>
-                      <div className={cn(
-                        "rounded-full p-3",
-                        index <= currentSection
-                          ? "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white"
-                          : theme === 'dark' ? "bg-gray-700" : "bg-gray-100"
-                      )}>
+                    <div className={`flex flex-col items-center ${index <= currentSection ? 'text-blue-600' : 'text-gray-400'}`}>
+                      <div className={`rounded-full p-3 ${index <= currentSection ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-100 dark:bg-gray-800'}`}>
                         {index < currentSection ? <FiCheck className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
                       </div>
                       <span className="text-xs mt-2 text-center max-w-[100px]">{section.title}</span>
-                      <span className={cn("text-xs flex items-center mt-1", t.text.secondary)}>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-1">
                         <FiClock className="h-3 w-3 mr-1" />
                         {section.estimatedTime}
                       </span>
                     </div>
                     {index < sections.length - 1 && (
-                      <div className={cn(
-                        "flex-1 h-0.5 mx-2",
-                        index < currentSection
-                          ? "bg-gradient-to-r from-[#1925c3] to-[#c71719]"
-                          : theme === 'dark' ? "bg-gray-700" : "bg-gray-300"
-                      )} />
+                      <div className={`flex-1 h-0.5 mx-2 ${index < currentSection ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`} />
                     )}
                   </div>
                 );
@@ -488,28 +485,14 @@ function QuickRequestCreateNew({
 
           {/* Validation Error Summary */}
           {Object.keys(errors).length > 0 && (
-            <div className={cn(
-              "mb-6 p-4 rounded-lg border",
-              theme === 'dark'
-                ? 'bg-red-900/20 border-red-800'
-                : 'bg-red-50 border-red-200'
-            )}>
+            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
               <div className="flex items-start">
-                <FiAlertCircle className={cn(
-                  "w-5 h-5 mr-2 flex-shrink-0 mt-0.5",
-                  theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                )} />
+                <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
                 <div>
-                  <h4 className={cn(
-                    "text-sm font-medium mb-1",
-                    theme === 'dark' ? 'text-red-300' : 'text-red-800'
-                  )}>
+                  <h4 className="text-sm font-medium mb-1 text-red-800 dark:text-red-300">
                     Please fix the following errors:
                   </h4>
-                  <ul className={cn(
-                    "text-sm space-y-1",
-                    theme === 'dark' ? 'text-red-400' : 'text-red-700'
-                  )}>
+                  <ul className="text-sm space-y-1 text-red-700 dark:text-red-400">
                     {Object.entries(errors).map(([field, message]) => (
                       <li key={field}>• {message}</li>
                     ))}
@@ -520,9 +503,9 @@ function QuickRequestCreateNew({
           )}
 
           {/* Section Content */}
-          <div className={cn("shadow-xl rounded-2xl p-8", t.glass.card)}>
-            <h2 className={cn("text-2xl font-semibold mb-6 flex items-center", t.text.primary)}>
-              {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-gradient" })}
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
+            <h2 className="text-2xl font-semibold mb-6 flex items-center text-gray-900 dark:text-white">
+              {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-blue-600" })}
               {sections[currentSection]?.title}
             </h2>
 
@@ -538,7 +521,7 @@ function QuickRequestCreateNew({
             )}
 
             {currentSection === 1 && (
-              <Step2PatientShipping
+              <Step2PatientInsurance
                 formData={formData}
                 updateFormData={updateFormData}
                 errors={errors}
@@ -546,15 +529,6 @@ function QuickRequestCreateNew({
             )}
 
             {currentSection === 2 && (
-              <Step3Insurance
-                formData={formData}
-                updateFormData={updateFormData}
-                insuranceCarriers={insuranceCarriers}
-                errors={errors}
-              />
-            )}
-
-            {currentSection === 3 && (
               <Step4ClinicalBilling
                 formData={formData}
                 updateFormData={updateFormData}
@@ -564,7 +538,7 @@ function QuickRequestCreateNew({
               />
             )}
 
-            {currentSection === 4 && (
+            {currentSection === 3 && (
               <Step5ProductSelection
                 formData={formData}
                 updateFormData={updateFormData}
@@ -575,7 +549,7 @@ function QuickRequestCreateNew({
               />
             )}
 
-            {currentSection === 5 && (
+            {currentSection === 4 && (
               <Step6ManufacturerQuestions
                 formData={formData}
                 updateFormData={updateFormData}
@@ -584,7 +558,7 @@ function QuickRequestCreateNew({
               />
             )}
 
-            {currentSection === 6 && (
+            {currentSection === 5 && (
               <Step7DocuSealIVR
                 formData={formData}
                 updateFormData={updateFormData as any}
@@ -597,53 +571,45 @@ function QuickRequestCreateNew({
           </div>
 
           {/* Navigation Buttons */}
-          <div className="mt-8 flex justify-between">
+          <div className="flex justify-between">
             <button
               onClick={handlePrevious}
               disabled={currentSection === 0}
-              className={cn(
-                "flex items-center px-6 py-3 rounded-lg font-medium transition-all",
+              className={`px-6 py-3 rounded-lg font-medium ${
                 currentSection === 0
-                  ? "opacity-50 cursor-not-allowed"
-                  : "hover:shadow-lg",
-                t.button.secondary as unknown as string
-              )}
+                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
+                  : 'bg-gray-600 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600'
+              }`}
             >
-              <FiArrowLeft className="mr-2" />
               Previous
             </button>
 
             {currentSection < sections.length - 1 ? (
               <button
                 onClick={handleNext}
-                className={cn(
-                  "flex items-center px-6 py-3 rounded-lg font-medium transition-all hover:shadow-lg",
-                  "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white"
-                )}
+                className="px-6 py-3 rounded-lg font-medium flex items-center bg-blue-600 text-white hover:bg-blue-700"
               >
                 Next
-                <FiArrowRight className="ml-2" />
+                <FiArrowRight className="ml-2 h-5 w-5" />
               </button>
             ) : (
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className={cn(
-                  "flex items-center px-6 py-3 rounded-lg font-medium transition-all",
+                className={`px-6 py-3 rounded-lg font-medium flex items-center ${
                   isSubmitting
-                    ? "opacity-50 cursor-not-allowed"
-                    : "hover:shadow-lg",
-                  "bg-gradient-to-r from-green-500 to-green-600 text-white"
-                )}
+                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                    : 'bg-green-600 text-white hover:bg-green-700'
+                }`}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Order'}
-                <FiCheck className="ml-2" />
+                <FiCheck className="ml-2 h-5 w-5" />
               </button>
             )}
           </div>
 
           {/* Timer Display */}
-          <div className={cn("mt-6 text-center text-sm", t.text.secondary)}>
+          <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Total estimated completion time: <span className="font-semibold">90 seconds</span>
           </div>
         </div>

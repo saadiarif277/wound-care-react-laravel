@@ -1,5 +1,5 @@
-import React, { useState, useRef } from 'react';
-import { FiCamera, FiRefreshCw, FiAlertCircle, FiFile } from 'react-icons/fi';
+import { useState, useRef } from 'react';
+import { FiCamera, FiRefreshCw, FiFile } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
