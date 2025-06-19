@@ -513,44 +513,7 @@ class DatabaseSeeder extends Seeder
             ->where('id', $salesRepIds[1])
             ->update(['parent_rep_id' => $salesRepIds[0]]);
 
-        // 11. Create products
-        $products = [
-            [
-                'sku'                => 'BIO-Q4154',
-                'name'               => 'Biovance',
-                'description'        => 'Decellularized, dehydrated human amniotic membrane that preserves the natural extracellular matrix components.',
-                'manufacturer'       => 'CELULARITY',
-                'category'           => 'SkinSubstitute',
-                'q_code'             => '4154',
-                'price_per_sq_cm'    => 550.64,
-                'available_sizes'    => json_encode([2, 4, 6, 8, 10.5, 16, 25, 36]),
-                'graph_type'         => 'Amniotic Membrane',
-                'commission_rate'    => 5.0,
-                'is_active'          => true,
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ],
-            [
-                'sku'                => 'IMP-Q4262',
-                'name'               => 'Impax Dual Layer Membrane',
-                'description'        => 'Advanced dual-layer membrane designed for complex wound management.',
-                'manufacturer'       => 'LEGACY MEDICAL CONSULTANTS',
-                'category'           => 'SkinSubstitute',
-                'q_code'             => '4262',
-                'price_per_sq_cm'    => 169.86,
-
-                'available_sizes'    => json_encode([4, 6, 16, 24, 32]),
-                'graph_type'         => 'Dual Layer',
-                'commission_rate'    => 6.0,
-                'is_active'          => true,
-                'created_at'         => now(),
-                'updated_at'         => now(),
-            ],
-        ];
-
-        foreach ($products as $product) {
-            DB::table('msc_products')->insert($product);
-        }
+        // 11. Products will be created by ProductSeeder
 
         // 12. Create product requests
         $productRequests = [

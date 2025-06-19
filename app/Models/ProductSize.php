@@ -137,17 +137,21 @@ class ProductSize extends Model
     {
         $parsed = static::parseSizeLabel($sizeLabel);
 
-        return static::create([
-            'product_id' => $productId,
-            'size_label' => $sizeLabel,
-            'size_type' => $parsed['size_type'],
-            'length_mm' => $parsed['length_mm'],
-            'width_mm' => $parsed['width_mm'],
-            'diameter_mm' => $parsed['diameter_mm'],
-            'area_cm2' => $parsed['area_cm2'],
-            'display_label' => $parsed['display_label'],
-            'sort_order' => $sortOrder,
-        ]);
+        return static::firstOrCreate(
+            [
+                'product_id' => $productId,
+                'size_label' => $sizeLabel,
+            ],
+            [
+                'size_type' => $parsed['size_type'],
+                'length_mm' => $parsed['length_mm'],
+                'width_mm' => $parsed['width_mm'],
+                'diameter_mm' => $parsed['diameter_mm'],
+                'area_cm2' => $parsed['area_cm2'],
+                'display_label' => $parsed['display_label'],
+                'sort_order' => $sortOrder,
+            ]
+        );
     }
 
     /**
