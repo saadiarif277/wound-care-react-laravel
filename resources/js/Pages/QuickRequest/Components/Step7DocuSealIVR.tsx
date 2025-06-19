@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiCheckCircle, FiAlertCircle, FiFileText, FiLoader } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -26,18 +26,18 @@ interface FormData {
   patient_zip?: string;
   patient_phone?: string;
   patient_email?: string;
-  
+
   // Provider Information
   provider_id?: number | null;
   provider_name?: string;
   provider_email?: string;
   provider_npi?: string;
   facility_name?: string;
-  
+
   // Product Selection
   selected_products?: SelectedProduct[];
   manufacturer_fields?: Record<string, any>;
-  
+
   // Clinical Information
   wound_types?: string[];
   wound_location?: string;
@@ -46,15 +46,16 @@ interface FormData {
   wound_size_depth?: string;
   yellow_diagnosis_code?: string;
   orange_diagnosis_code?: string;
-  
+
   // Insurance
   primary_insurance_name?: string;
   primary_member_id?: string;
   primary_plan_type?: string;
-  
+
   // DocuSeal
   docuseal_submission_id?: string;
-  
+  episode_id?: string;
+
   [key: string]: any;
 }
 
@@ -83,18 +84,18 @@ interface Step7Props {
   errors: Record<string, string>;
 }
 
-export default function Step7DocuSealIVR({ 
-  formData, 
-  updateFormData, 
+export default function Step7DocuSealIVR({
+  formData,
+  updateFormData,
   products,
   providers = [],
   facilities = [],
-  errors 
+  errors
 }: Step7Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -111,8 +112,8 @@ export default function Step7DocuSealIVR({
     if (!formData.selected_products || formData.selected_products.length === 0) {
       return null;
     }
-    
-    const selectedProductId = formData.selected_products[0].product_id;
+
+    const selectedProductId = formData.msc_products[0].product_id;
     return products.find(p => p.id === selectedProductId);
   };
 
@@ -149,41 +150,41 @@ export default function Step7DocuSealIVR({
 
     return {
       ...formData,
-      
+
       // Provider Information
       provider_name: provider?.name || formData.provider_name || '',
       provider_credentials: provider?.credentials || '',
       provider_npi: provider?.npi || formData.provider_npi || '',
       provider_email: formData.provider_email || 'provider@example.com',
-      
+
       // Facility Information
       facility_name: facility?.name || formData.facility_name || '',
       facility_address: facility?.address || '',
-      
+
       // Product Information
       product_name: selectedProduct.name,
       product_code: selectedProduct.code,
       product_manufacturer: selectedProduct.manufacturer,
       product_details: productDetails,
-      product_details_text: productDetails.map(p => 
+      product_details_text: productDetails.map(p =>
         `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
       ).join('\n'),
-      
+
       // Clinical Information
       wound_types_display: woundTypesDisplay,
       total_wound_size: `${totalWoundSize} sq cm`,
       wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
-      
+
       // Manufacturer Fields (convert booleans to Yes/No for display)
       ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
         acc[key] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
         return acc;
       }, {} as Record<string, any>),
-      
+
       // Date fields
       service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
       submission_date: new Date().toISOString().split('T')[0],
-      
+
       // Signature fields (for DocuSeal template)
       provider_signature_required: true,
       provider_signature_date: new Date().toISOString().split('T')[0]
@@ -211,7 +212,7 @@ export default function Step7DocuSealIVR({
   // No IVR required for this manufacturer
   if (!manufacturerConfig || !manufacturerConfig.signatureRequired) {
     return (
-      <div className={cn("text-center py-12", t.glass.panel, "rounded-lg p-8")}>
+      <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
         <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>
           No IVR Required
@@ -232,7 +233,7 @@ export default function Step7DocuSealIVR({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className={cn("p-4 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-4 rounded-lg", t.glass.card)}>
         <div className="flex items-start">
           <FiFileText className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", t.text.secondary)} />
           <div>
@@ -250,8 +251,8 @@ export default function Step7DocuSealIVR({
       {!isCompleted && !submissionError && (
         <div className={cn(
           "p-4 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-blue-900/20 border-blue-800' 
+          theme === 'dark'
+            ? 'bg-blue-900/20 border-blue-800'
             : 'bg-blue-50 border-blue-200'
         )}>
           <div className="flex items-start">
@@ -281,7 +282,7 @@ export default function Step7DocuSealIVR({
       )}
 
       {/* DocuSeal Form or Completion Status */}
-      <div className={cn("rounded-lg", t.glass.panel)}>
+      <div className={cn("rounded-lg", t.glass.card)}>
         {isCompleted ? (
           <div className="p-8 text-center">
             <FiCheckCircle className={cn("h-16 w-16 mx-auto mb-4 text-green-500")} />
@@ -299,8 +300,8 @@ export default function Step7DocuSealIVR({
           <div className="p-8">
             <div className={cn(
               "p-4 rounded-lg border",
-              theme === 'dark' 
-                ? 'bg-red-900/20 border-red-800' 
+              theme === 'dark'
+                ? 'bg-red-900/20 border-red-800'
                 : 'bg-red-50 border-red-200'
             )}>
               <div className="flex items-start">
@@ -343,6 +344,7 @@ export default function Step7DocuSealIVR({
             templateId={templateId}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
+            episodeId={formData.episode_id}
           />
         )}
       </div>
@@ -351,8 +353,8 @@ export default function Step7DocuSealIVR({
       {errors.docuseal && (
         <div className={cn(
           "p-4 rounded-lg border",
-          theme === 'dark' 
-            ? 'bg-red-900/20 border-red-800' 
+          theme === 'dark'
+            ? 'bg-red-900/20 border-red-800'
             : 'bg-red-50 border-red-200'
         )}>
           <p className={cn(
@@ -367,8 +369,8 @@ export default function Step7DocuSealIVR({
       {/* Order Summary */}
       <div className={cn(
         "p-4 rounded-lg border",
-        theme === 'dark' 
-          ? 'bg-gray-800 border-gray-700' 
+        theme === 'dark'
+          ? 'bg-gray-800 border-gray-700'
           : 'bg-gray-50 border-gray-200'
       )}>
         <h4 className={cn("text-sm font-medium mb-3", t.text.primary)}>

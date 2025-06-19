@@ -224,10 +224,11 @@ class OrderCenterController extends Controller
             'action_required' => $episode->status === 'ready_for_review',
             'docuseal' => [
                 'status' => $episode->ivr_status,
-                'signed_documents' => $episode->metadata['documents'] ?? [],
+                'signed_documents' => [], // DocuSeal specific documents
                 'audit_log_url' => null, // TODO: Implement if needed
                 'last_synced_at' => $episode->updated_at->toISOString(),
             ],
+            'documents' => $episode->metadata['documents'] ?? [],
             'audit_log' => $episode->audit_log ?? [],
         ];
 
@@ -498,5 +499,139 @@ class OrderCenterController extends Controller
         ];
 
         $episode->update(['audit_log' => $auditLog]);
+    }
+
+    /**
+     * Upload documents for an episode
+     */
+    public function uploadEpisodeDocuments(Request $request, $episodeId)
+    {
+        $request->validate([
+            'documents' => 'required|array|min:1',
+            'documents.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240', // 10MB max
+            'document_type' => 'sometimes|string|in:clinical_notes,insurance_card,wound_photo,face_sheet,other'
+        ]);
+
+        try {
+            $episode = PatientIVRStatus::findOrFail($episodeId);
+
+            $uploadedDocuments = [];
+
+            foreach ($request->file('documents') as $index => $file) {
+                // Store file securely
+                $path = $file->store('episodes/' . $episodeId . '/documents', 'private');
+
+                // Create document record
+                $document = [
+                    'id' => \Illuminate\Support\Str::uuid(),
+                    'episode_id' => $episodeId,
+                    'name' => $file->getClientOriginalName(),
+                    'file_name' => $file->getClientOriginalName(),
+                    'file_path' => $path,
+                    'file_size' => $file->getSize(),
+                    'mime_type' => $file->getMimeType(),
+                    'document_type' => $request->input('document_type', 'other'),
+                    'uploaded_by' => Auth::id(),
+                    'uploaded_at' => now(),
+                    'url' => route('admin.episodes.documents.download', ['episode' => $episodeId, 'document' => $path])
+                ];
+
+                $uploadedDocuments[] = $document;
+            }
+
+            // Update episode metadata with documents
+            $currentMetadata = $episode->metadata ?? [];
+            $currentMetadata['documents'] = array_merge($currentMetadata['documents'] ?? [], $uploadedDocuments);
+            $episode->update(['metadata' => $currentMetadata]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Documents uploaded successfully',
+                'documents' => $uploadedDocuments
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Episode document upload failed', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to upload documents: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Download episode document
+     */
+    public function downloadEpisodeDocument($episodeId, $documentPath)
+    {
+        try {
+            $episode = PatientIVRStatus::findOrFail($episodeId);
+
+            if (!\Illuminate\Support\Facades\Storage::disk('private')->exists($documentPath)) {
+                abort(404, 'Document not found');
+            }
+
+                        $file = \Illuminate\Support\Facades\Storage::disk('private')->get($documentPath);
+            $fileName = basename($documentPath);
+
+            return response($file, 200)
+                ->header('Content-Type', 'application/octet-stream')
+                ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
+
+        } catch (\Exception $e) {
+            Log::error('Episode document download failed', [
+                'episode_id' => $episodeId,
+                'document_path' => $documentPath,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            abort(404, 'Document not found');
+        }
+    }
+
+    /**
+     * Delete episode document
+     */
+    public function deleteEpisodeDocument(Request $request, $episodeId, $documentId)
+    {
+        try {
+            $episode = PatientIVRStatus::findOrFail($episodeId);
+
+            $currentMetadata = $episode->metadata ?? [];
+            $documents = $currentMetadata['documents'] ?? [];
+
+            // Find and remove document
+            $documents = array_filter($documents, function($doc) use ($documentId) {
+                return $doc['id'] !== $documentId;
+            });
+
+            // Update metadata
+            $currentMetadata['documents'] = array_values($documents);
+            $episode->update(['metadata' => $currentMetadata]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Document deleted successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Episode document deletion failed', [
+                'episode_id' => $episodeId,
+                'document_id' => $documentId,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to delete document'
+            ], 500);
+        }
     }
 }

@@ -183,7 +183,7 @@ php artisan test tests/Manual/Api/DocusealIntegrationTest.php
 For issues with the DocuSeal integration:
 
 1. Check the Laravel logs: `storage/logs/laravel.log`
-2. Review DocuSeal API documentation: https://www.docuseal.com/docs/api
+2. Review DocuSeal API documentation: <https://www.docuseal.com/docs/api>
 3. Contact MSC technical support
 
 ## Next Steps

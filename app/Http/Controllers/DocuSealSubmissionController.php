@@ -26,6 +26,7 @@ class DocuSealSubmissionController extends Controller
             'name' => 'required|string',
             'send_email' => 'boolean',
             'fields' => 'array',
+            'external_id' => 'nullable|string',
         ]);
 
         try {
@@ -37,6 +38,7 @@ class DocuSealSubmissionController extends Controller
                     'name' => $validated['name'],
                     'send_email' => $validated['send_email'] ?? false,
                     'fields' => $validated['fields'] ?? [],
+                    'external_id' => $validated['external_id'] ?? null,
                 ]
             );
 

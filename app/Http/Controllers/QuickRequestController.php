@@ -297,8 +297,12 @@ class QuickRequestController extends Controller
 
             DB::commit();
 
+            // Store episode ID in session for the frontend to use
+            session()->flash('episode_id', $episode->id);
+
             return redirect()->route('admin.order-center.show', $productRequest->id)
-                ->with('success', 'Order submitted successfully with IVR completed! Your order is now ready for admin review.');
+                ->with('success', 'Order submitted successfully with IVR completed! Your order is now ready for admin review.')
+                ->with('episode_id', $episode->id);
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -320,6 +324,26 @@ class QuickRequestController extends Controller
      */
     private function findOrCreateEpisode($patientFhirId, $manufacturerId, $patientDisplayId, $docusealSubmissionId = null)
     {
+        // First check if there's a temporary episode created for IVR
+        $tempEpisode = PatientIVRStatus::where('patient_display_id', $patientDisplayId)
+            ->where('manufacturer_id', $manufacturerId)
+            ->where('patient_id', 'LIKE', 'TEMP_%')
+            ->where('status', 'pending_ivr')
+            ->first();
+
+        if ($tempEpisode) {
+            // Update the temporary episode with real patient data
+            $tempEpisode->update([
+                'patient_id' => $patientFhirId,
+                'status' => 'ready_for_review',
+                'ivr_status' => 'provider_completed',
+                'docuseal_submission_id' => $docusealSubmissionId,
+                'verification_date' => now(),
+                'expiration_date' => now()->addMonths(3),
+            ]);
+            return $tempEpisode;
+        }
+
         // Find existing episode for this patient+manufacturer combination
         $episode = PatientIVRStatus::where('patient_id', $patientFhirId)
             ->where('manufacturer_id', $manufacturerId)

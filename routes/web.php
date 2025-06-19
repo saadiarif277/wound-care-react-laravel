@@ -226,6 +226,11 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::post('/episodes/{episode}/update-tracking', [App\Http\Controllers\Admin\OrderCenterController::class, 'updateEpisodeTracking'])->name('admin.episodes.update-tracking');
     Route::post('/episodes/{episode}/mark-completed', [App\Http\Controllers\Admin\OrderCenterController::class, 'markEpisodeCompleted'])->name('admin.episodes.mark-completed');
 
+    // Episode document management
+    Route::post('/episodes/{episode}/documents', [App\Http\Controllers\Admin\OrderCenterController::class, 'uploadEpisodeDocuments'])->name('admin.episodes.documents.upload');
+    Route::get('/episodes/{episode}/documents/{document}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadEpisodeDocument'])->name('admin.episodes.documents.download');
+    Route::delete('/episodes/{episode}/documents/{document}', [App\Http\Controllers\Admin\OrderCenterController::class, 'deleteEpisodeDocument'])->name('admin.episodes.documents.delete');
+
     // Enhanced Dashboard Routes - Now handled by OrderCenterController
     // Redirect old enhanced dashboard route to consolidated order center
     Route::get('/dashboard/enhanced', function () {
@@ -1059,6 +1064,11 @@ Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
 Route::post('/webhooks/docuseal', [DocuSealWebhookController::class, 'handle'])
     ->name('webhooks.docuseal')
     ->withoutMiddleware(['web', 'auth']);
+
+// QuickRequest Episode ID generation for IVR linking
+Route::post('/api/quickrequest/episode', [App\Http\Controllers\QuickRequestEpisodeController::class, 'getEpisodeId'])
+    ->name('api.quickrequest.episode')
+    ->middleware(['auth', 'web']);
 
 // Simple test route to check if routing works
 Route::get('/test-routing', function() {

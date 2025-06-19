@@ -5,24 +5,24 @@ import { themes, cn } from '@/theme/glass-theme';
 
 /**
  * DocuSeal IVR Form Component
- * 
- * This component creates and embeds DocuSeal forms for IVR (Independent Verification Request) 
+ *
+ * This component creates and embeds DocuSeal forms for IVR (Independent Verification Request)
  * signatures using embedded text field tags. The component pre-fills PDF templates that contain
  * {{field_name}} tags with data from the Quick Request form.
- * 
+ *
  * Key Features:
  * - Pre-fills embedded text field tags ({{patient_first_name}}, {{product_name}}, etc.)
  * - Handles manufacturer-specific fields and requirements
  * - Manages iframe embedding and completion detection
  * - Converts boolean values to Yes/No for checkbox fields
  * - Supports conditional fields and various field types
- * 
+ *
  * PDF Template Requirements:
  * - Use {{field_name}} syntax for embedded text fields
  * - Include manufacturer-specific fields as needed
  * - Set appropriate field types (text, checkbox, signature, etc.)
  * - Configure required fields and validation rules
- * 
+ *
  * See docs/docuseal-embedded-fields-guide.md for complete field reference
  */
 
@@ -31,18 +31,20 @@ interface DocuSealIVRFormProps {
   templateId: string;
   onComplete: (submissionId: string) => void;
   onError: (error: string) => void;
+  episodeId?: string; // Optional episode ID to link the submission
 }
 
-export default function DocuSealIVRForm({ 
-  formData, 
+export default function DocuSealIVRForm({
+  formData,
   templateId,
   onComplete,
-  onError 
+  onError,
+  episodeId
 }: DocuSealIVRFormProps) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -67,7 +69,7 @@ export default function DocuSealIVRForm({
 
       // Get CSRF token
       const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-      
+
       const response = await fetch('/quickrequest/docuseal/create-submission', {
         method: 'POST',
         headers: {
@@ -82,7 +84,8 @@ export default function DocuSealIVRForm({
           email: formData.provider_email || 'provider@example.com',
           name: formData.provider_name || 'Provider',
           send_email: false,
-          fields: fields
+          fields: fields,
+          external_id: episodeId || formData.episode_id || null, // Include episode ID for webhook linking
         })
       });
 
@@ -92,7 +95,7 @@ export default function DocuSealIVRForm({
       }
 
       const data = await response.json();
-      
+
       if (data.signing_url) {
         setSigningUrl(data.signing_url);
         setSubmissionId(data.submission_id);
@@ -118,7 +121,7 @@ export default function DocuSealIVRForm({
       'patient_dob': data.patient_dob || '',
       'patient_member_id': data.patient_member_id || '',
       'patient_gender': data.patient_gender || '',
-      
+
       // Patient Address - matches {{patient_address_line1}}, {{patient_city}}, etc.
       'patient_address_line1': data.patient_address_line1 || '',
       'patient_address_line2': data.patient_address_line2 || '',
@@ -126,29 +129,29 @@ export default function DocuSealIVRForm({
       'patient_state': data.patient_state || '',
       'patient_zip': data.patient_zip || '',
       'patient_phone': data.patient_phone || '',
-      
+
       // Insurance Information - matches {{payer_name}}, {{payer_id}}, etc.
       'payer_name': data.payer_name || '',
       'payer_id': data.payer_id || '',
       'insurance_type': data.insurance_type || '',
-      
+
       // Product Information - matches {{product_name}}, {{product_code}}, etc.
       'product_name': data.product_name || '',
       'product_code': data.product_code || '',
       'manufacturer': data.manufacturer || '',
       'size': data.size || '',
       'quantity': String(data.quantity || '1'),
-      
+
       // Service Information - matches {{expected_service_date}}, {{wound_type}}, etc.
       'expected_service_date': data.expected_service_date || '',
       'wound_type': data.wound_type || '',
       'place_of_service': data.place_of_service || '',
-      
+
       // Provider Information - matches {{provider_name}}, {{provider_npi}}, etc.
       'provider_name': data.provider_name || '',
       'provider_npi': data.provider_npi || '',
       'signature_date': data.signature_date || new Date().toISOString().split('T')[0],
-      
+
       // Clinical Attestations - matches {{failed_conservative_treatment}}, etc.
       // For checkbox fields in PDF: use 'Yes'/'No' or 'true'/'false' based on your template
       'failed_conservative_treatment': data.failed_conservative_treatment ? 'Yes' : 'No',
@@ -156,15 +159,15 @@ export default function DocuSealIVRForm({
       'medical_necessity_established': data.medical_necessity_established ? 'Yes' : 'No',
       'maintain_documentation': data.maintain_documentation ? 'Yes' : 'No',
       'authorize_prior_auth': data.authorize_prior_auth ? 'Yes' : 'No',
-      
+
       // Common IVR Form Fields
       'todays_date': new Date().toLocaleDateString('en-US'),
       'current_time': new Date().toLocaleTimeString('en-US'),
-      
+
       // Facility Information
       'facility_name': data.facility_name || '',
       'facility_address': data.facility_address || '',
-      
+
       // Manufacturer-specific fields
       ...mapManufacturerFields(data.manufacturer_fields || {})
     };
@@ -190,12 +193,12 @@ export default function DocuSealIVRForm({
     // Map manufacturer-specific fields to embedded text field tags
     // These should match {{manufacturer_*}} or specific field tags in your PDF templates
     const mapped: Record<string, any> = {};
-    
+
     Object.entries(manufacturerFields).forEach(([key, value]) => {
       // For embedded text field tags, use the exact field name that matches your PDF
       // Examples: {{physician_attestation}}, {{amnio_amp_size}}, {{shipping_speed_required}}
       let mappedValue = value;
-      
+
       // Convert boolean values to Yes/No for checkbox fields
       if (typeof value === 'boolean') {
         mappedValue = value ? 'Yes' : 'No';
@@ -206,10 +209,10 @@ export default function DocuSealIVRForm({
       } else {
         mappedValue = String(value || '');
       }
-      
+
       // Use the original field name to match PDF tags like {{physician_attestation}}
       mapped[key] = mappedValue;
-      
+
       // Also create a manufacturer-prefixed version for fallback
       mapped[`manufacturer_${key}`] = mappedValue;
     });

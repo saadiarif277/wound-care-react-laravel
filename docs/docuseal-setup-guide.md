@@ -10,7 +10,7 @@ This guide will help you set up the DocuSeal integration for embedded text field
 
 ## Step 1: Get Your DocuSeal API Key
 
-1. Log into your DocuSeal account at https://app.docuseal.com
+1. Log into your DocuSeal account at <https://app.docuseal.com>
 2. Go to **Settings** → **API Keys**
 3. Create a new API key or copy your existing one
 4. Keep this key secure - you'll need it for the next step
@@ -38,6 +38,7 @@ Replace `your_api_key_here` with your actual DocuSeal API key.
 
 **Optional Azure Document Intelligence Setup:**
 If you have Azure Document Intelligence configured, the system will automatically enhance embedded tag extraction with:
+
 - Improved field type detection (checkboxes, dates, signatures)
 - Better field name matching and suggestions
 - Layout analysis for complex forms
@@ -80,7 +81,7 @@ $result = $service->getTemplateInfo('test');
 
 ### Option B: Create Manually in DocuSeal
 
-1. Go to https://app.docuseal.com/templates
+1. Go to <https://app.docuseal.com/templates>
 2. Create a new template
 3. Upload your PDF with embedded tags
 4. Copy the template ID
@@ -203,7 +204,7 @@ You can extend the field mapping in `DocuSealTemplateController::mapEmbeddedFiel
 
 ## Support
 
-- **DocuSeal Documentation**: https://docs.docuseal.com
-- **API Reference**: https://docs.docuseal.com/api
+- **DocuSeal Documentation**: <https://docs.docuseal.com>
+- **API Reference**: <https://docs.docuseal.com/api>
 - **Field Tags Guide**: `/docs/docuseal-embedded-fields-guide.md`
 - **Example Template**: `/docs/example-ivr-template.md`

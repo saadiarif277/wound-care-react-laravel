@@ -54,15 +54,18 @@ php artisan db:seed --class=DocusealTemplateSeeder
 The following API endpoints are available:
 
 ### Document Generation
+
 - `POST /api/v1/admin/docuseal/generate-document`
 - Generate documents for an approved order
 
 ### Submission Management
+
 - `GET /api/v1/admin/docuseal/submissions/{submission_id}/status`
 - `GET /api/v1/admin/docuseal/submissions/{submission_id}/download`
 - `GET /api/v1/admin/docuseal/orders/{order_id}/submissions`
 
 ### Webhooks
+
 - `POST /api/v1/webhooks/docuseal`
 - Handle DocuSeal webhook notifications
 
@@ -180,7 +183,7 @@ php artisan test tests/Manual/Api/DocusealIntegrationTest.php
 For issues with the DocuSeal integration:
 
 1. Check the Laravel logs: `storage/logs/laravel.log`
-2. Review DocuSeal API documentation: https://www.docuseal.com/docs/api
+2. Review DocuSeal API documentation: <https://www.docuseal.com/docs/api>
 3. Contact MSC technical support
 
 ## Next Steps
@@ -188,4 +191,4 @@ For issues with the DocuSeal integration:
 1. Configure actual DocuSeal templates in your DocuSeal account
 2. Update template IDs in the seeder
 3. Set up webhook endpoints in DocuSeal dashboard
-4. Test the complete workflow with real orders 
+4. Test the complete workflow with real orders

@@ -277,12 +277,12 @@ class DocusealService
     {
         try {
             $fhirService = new FhirService();
-            
+
             // Get patient data from FHIR if we have a patient FHIR ID
             $patientData = [];
             if ($order->patient_fhir_id) {
                 $fhirPatient = $fhirService->getPatient($order->patient_fhir_id);
-                
+
                 if ($fhirPatient) {
                     // Extract patient name
                     $patientName = '';
@@ -292,10 +292,10 @@ class DocusealService
                         $family = $name['family'] ?? '';
                         $patientName = trim("$given $family");
                     }
-                    
+
                     // Extract patient DOB
                     $patientDob = $fhirPatient['birthDate'] ?? '';
-                    
+
                     // Extract patient address
                     $patientAddress = '';
                     if (isset($fhirPatient['address'][0])) {
@@ -306,7 +306,7 @@ class DocusealService
                         $postal = $addr['postalCode'] ?? '';
                         $patientAddress = trim("$lines, $city, $state $postal");
                     }
-                    
+
                     // Extract patient phone
                     $patientPhone = '';
                     if (isset($fhirPatient['telecom'])) {
@@ -317,7 +317,7 @@ class DocusealService
                             }
                         }
                     }
-                    
+
                     // Extract patient email
                     $patientEmail = '';
                     if (isset($fhirPatient['telecom'])) {
@@ -328,7 +328,7 @@ class DocusealService
                             }
                         }
                     }
-                    
+
                     $patientData = [
                         'patient_name' => $patientName,
                         'patient_dob' => $patientDob,
@@ -338,16 +338,16 @@ class DocusealService
                     ];
                 }
             }
-            
+
             // Get provider data
             $provider = $order->provider;
             $providerName = $provider ? $provider->full_name : 'Unknown Provider';
             $providerNpi = $provider && $provider->providerProfile ? $provider->providerProfile->npi : '';
-            
+
             // Get insurance data from order
             $insurancePlan = $order->insurance_plan ?? 'Unknown Plan';
             $memberId = $order->member_id ?? '';
-            
+
             // Merge all data
             return array_merge($patientData, [
                 'provider_name' => $providerName,
@@ -356,14 +356,14 @@ class DocusealService
                 'insurance_plan' => $insurancePlan,
                 'member_id' => $memberId,
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to get FHIR patient data', [
                 'order_id' => $order->id,
                 'patient_fhir_id' => $order->patient_fhir_id,
                 'error' => $e->getMessage()
             ]);
-            
+
             // Return fallback data if FHIR fails
             return [
                 'patient_name' => 'Patient Name',
@@ -484,33 +484,33 @@ class DocusealService
             if (!$order->provider_id) {
                 return false;
             }
-            
+
             // Check if provider has completed onboarding documents
             $hasCompletedOnboarding = DocusealSubmission::where('provider_id', $order->provider_id)
                 ->where('document_type', 'onboarding')
                 ->where('status', 'completed')
                 ->exists();
-            
+
             if ($hasCompletedOnboarding) {
                 return false;
             }
-            
+
             // Check if provider has completed any orders before
             $hasCompletedOrders = Order::where('provider_id', $order->provider_id)
                 ->where('id', '!=', $order->id)
                 ->whereIn('status', ['shipped', 'delivered', 'completed'])
                 ->exists();
-            
+
             // If no completed orders and no onboarding docs, they're new
             return !$hasCompletedOrders;
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to check if provider is new', [
                 'order_id' => $order->id,
                 'provider_id' => $order->provider_id,
                 'error' => $e->getMessage()
             ]);
-            
+
             // Default to not requiring onboarding if check fails
             return false;
         }
@@ -528,31 +528,31 @@ class DocusealService
                 ->join('manufacturers', 'msc_products.manufacturer_id', '=', 'manufacturers.id')
                 ->pluck('manufacturers.name')
                 ->unique();
-            
+
             if ($manufacturers->isEmpty()) {
                 Log::warning('No manufacturer found for order', ['order_id' => $order->id]);
                 return 'default-folder';
             }
-            
+
             // If multiple manufacturers, use the first one
             $manufacturerName = $manufacturers->first();
-            
+
             // Get folder from DocuSeal folders table
             $folder = DocusealFolder::where('name', 'like', "%{$manufacturerName}%")
                 ->orWhere('folder_name', 'like', "%{$manufacturerName}%")
                 ->first();
-            
+
             if ($folder) {
                 return $folder->folder_id;
             }
-            
+
             // If no specific folder found, try to find a general manufacturer folder
             $generalFolder = DocusealFolder::where('name', 'Manufacturers')
                 ->orWhere('folder_name', 'Manufacturers')
                 ->first();
-                
+
             return $generalFolder ? $generalFolder->folder_id : 'default-folder';
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to determine manufacturer folder', [
                 'order_id' => $order->id,
@@ -591,6 +591,8 @@ class DocusealService
                         'send_sms' => false,
                         // Pre-fill embedded field values
                         'values' => $fields,
+                        // Include external_id if provided
+                        'external_id' => $submissionData['external_id'] ?? null,
                     ]
                 ],
                 'expire_after' => 7, // Days until expiration
