@@ -113,8 +113,12 @@ export default function Step7DocuSealIVR({
       return null;
     }
 
-    const selectedProductId = formData.msc_products[0].product_id;
-    return products.find(p => p.id === selectedProductId);
+    const firstProduct = formData.selected_products[0];
+    if (!firstProduct?.product_id) {
+      return null;
+    }
+
+    return products.find(p => p.id === firstProduct.product_id);
   };
 
   const selectedProduct = getSelectedProduct();
@@ -129,7 +133,7 @@ export default function Step7DocuSealIVR({
     if (!selectedProduct) return formData;
 
     // Format selected products for display
-    const productDetails = formData.msc_products?.map((item: any) => {
+    const productDetails = formData.selected_products?.map((item: any) => {
       const product = products.find(p => p.id === item.product_id);
       return {
         name: product?.name || '',
