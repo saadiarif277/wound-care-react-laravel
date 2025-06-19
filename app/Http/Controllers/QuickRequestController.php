@@ -91,6 +91,14 @@ class QuickRequestController extends Controller
             ];
         });
 
+        // Debug log facilities
+        \Log::info('QuickRequest facilities for user', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'facilities_count' => $facilities->count(),
+            'facilities' => $facilities->toArray(),
+        ]);
+
         // Get products with proper structure
         $products = Product::where('is_active', true)
             ->whereNotNull('manufacturer_id')
