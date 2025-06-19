@@ -152,7 +152,7 @@ interface Props {
     code: string;
     name: string;
     manufacturer: string;
-    sizes?: string[];
+    available_sizes?: number[];
     price_per_sq_cm?: number;
   }>;
   woundTypes?: Record<string, string>;

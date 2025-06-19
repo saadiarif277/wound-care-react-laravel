@@ -152,7 +152,7 @@ class QuickRequestController extends Controller
                     'code' => $product->q_code,
                     'name' => $product->name,
                     'manufacturer' => $product->manufacturer,
-                    'sizes' => $sizes,
+                    'available_sizes' => $sizes,
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
                 ];
             });
