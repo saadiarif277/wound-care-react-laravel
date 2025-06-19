@@ -226,34 +226,56 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Filter products based on insurance rules and provider onboarding
   const filteredProducts = useMemo(() => {
     const { allowedQCodes } = getAllowedProducts;
-    
+
+    // If no provider onboarded products, show products allowed by insurance
+    if (providerOnboardedProducts.length === 0) {
+      console.log('No provider onboarded products, showing insurance-allowed products:', allowedQCodes);
+      console.log('Available products:', products.map(p => ({ name: p.name, q_code: p.q_code })));
+
+      // If insurance allows specific products, show only those
+      if (allowedQCodes.length > 0) {
+        const insuranceAllowedProducts = products.filter(product => allowedQCodes.includes(product.q_code));
+
+        // If no products match insurance Q-codes, show all products as fallback
+        if (insuranceAllowedProducts.length === 0) {
+          console.log('No products found matching insurance Q-codes, showing all products as fallback');
+          return products;
+        }
+
+        return insuranceAllowedProducts;
+      }
+
+      // If no specific insurance restrictions, show all products
+      return products;
+    }
+
     return products.filter(product => {
       // Show product if it's either:
       // 1. In the provider's onboarded list OR
       // 2. Allowed by insurance rules
       const isOnboarded = providerOnboardedProducts.includes(product.q_code);
       const isAllowedByInsurance = allowedQCodes.includes(product.q_code);
-      
+
       return isOnboarded || isAllowedByInsurance;
     });
   }, [products, getAllowedProducts, providerOnboardedProducts]);
-  
+
   // Separate products into categories for display
   const categorizedProducts = useMemo(() => {
     const { allowedQCodes } = getAllowedProducts;
-    
-    const onboardedAndRecommended = filteredProducts.filter(p => 
+
+    const onboardedAndRecommended = filteredProducts.filter(p =>
       providerOnboardedProducts.includes(p.q_code) && allowedQCodes.includes(p.q_code)
     );
-    
-    const onboardedOnly = filteredProducts.filter(p => 
+
+    const onboardedOnly = filteredProducts.filter(p =>
       providerOnboardedProducts.includes(p.q_code) && !allowedQCodes.includes(p.q_code)
     );
-    
-    const recommendedOnly = filteredProducts.filter(p => 
+
+    const recommendedOnly = filteredProducts.filter(p =>
       !providerOnboardedProducts.includes(p.q_code) && allowedQCodes.includes(p.q_code)
     );
-    
+
     return { onboardedAndRecommended, onboardedOnly, recommendedOnly };
   }, [filteredProducts, getAllowedProducts, providerOnboardedProducts]);
 
@@ -265,11 +287,11 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
     selectedProducts.forEach(item => {
       const product = item.product || products.find(p => p.id === item.product_id);
       if (product) {
-        const recentOrder = last24HourOrders.find(order => 
-          order.productCode === product.q_code && 
+        const recentOrder = last24HourOrders.find(order =>
+          order.productCode === product.q_code &&
           new Date(order.orderDate).getTime() > Date.now() - 24 * 60 * 60 * 1000
         );
-        
+
         if (recentOrder) {
           newWarnings.push(`Warning: ${product.name} (Q${product.q_code}) was ordered within the last 24 hours. This may affect reimbursement.`);
         }
@@ -530,7 +552,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                   </h3>
                   <div className={`p-3 mb-3 ${t.status.warning} rounded-md`}>
                     <p className="text-sm">
-                      These products are recommended for this patient's insurance but you are not yet onboarded. 
+                      These products are recommended for this patient's insurance but you are not yet onboarded.
                       Contact your MSC representative to get onboarded.
                     </p>
                   </div>
@@ -638,7 +660,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
                     const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
                     let unitPrice = pricePerUnit;
-                    
+
                     if (item.size) {
                       const sizeValue = parseFloat(item.size);
                       if (!isNaN(sizeValue)) {
@@ -980,7 +1002,7 @@ const ConsultationModal: React.FC<{
                 Please reach out to Ashley at MSC Admin for assistance with Medicare orders exceeding 450 sq cm.
               </p>
             </div>
-            
+
             <div className={`${t.glass.frost} rounded-lg p-4 space-y-3`}>
               <div>
                 <h4 className={`text-sm font-semibold ${t.text.primary} mb-1`}>

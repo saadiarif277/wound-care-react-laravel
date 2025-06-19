@@ -201,9 +201,15 @@ class QuickRequestController extends Controller
             ] : null,
         ];
 
-        // Provider products mapping (if you have this data)
+        // Provider products mapping - load from actual provider-product relationships
         $providerProducts = [];
-        // You might want to load this from a relationship or configuration
+
+        // Get provider products for all providers (this should come from a provider_products table or similar)
+        $providers = collect($providers);
+        foreach ($providers as $provider) {
+            // For now, leave empty - this should be populated from actual onboarding data
+            $providerProducts[$provider['id']] = [];
+        }
 
         return Inertia::render('QuickRequest/CreateNew', [
             'facilities' => $facilities,
