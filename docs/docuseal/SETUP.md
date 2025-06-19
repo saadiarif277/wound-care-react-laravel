@@ -54,15 +54,18 @@ php artisan db:seed --class=DocusealTemplateSeeder
 The following API endpoints are available:
 
 ### Document Generation
+
 - `POST /api/v1/admin/docuseal/generate-document`
 - Generate documents for an approved order
 
 ### Submission Management
+
 - `GET /api/v1/admin/docuseal/submissions/{submission_id}/status`
 - `GET /api/v1/admin/docuseal/submissions/{submission_id}/download`
 - `GET /api/v1/admin/docuseal/orders/{order_id}/submissions`
 
 ### Webhooks
+
 - `POST /api/v1/webhooks/docuseal`
 - Handle DocuSeal webhook notifications
 

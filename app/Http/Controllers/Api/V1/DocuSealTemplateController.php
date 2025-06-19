@@ -116,7 +116,9 @@ class DocuSealTemplateController extends Controller
                 ], 403);
             }
             
-            $templates = DocusealTemplate::all();
+            $templates = DocusealTemplate::where('is_active', true)
+                ->orderBy('name')
+                ->paginate(50);
             
             return response()->json([
                 'success' => true,

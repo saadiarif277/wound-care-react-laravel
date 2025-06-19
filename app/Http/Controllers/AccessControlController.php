@@ -332,19 +332,15 @@ class AccessControlController extends Controller
 
     private function getRoleDistributionMetrics()
     {
-        $users = User::with('roles')->get();
-        $userRoles = Role::all();
-
-        return $userRoles->map(function ($role) use ($users) {
-            $count = $users->filter(function ($user) use ($role) {
-                return $user->roles->contains('id', $role->id);
-            })->count();
-
-            return [
-                'role' => $role->name,
-                'count' => $count,
-            ];
-        });
+        // Use database aggregation instead of loading all users
+        return Role::withCount('users')
+            ->get()
+            ->map(function ($role) {
+                return [
+                    'role' => $role->name,
+                    'count' => $role->users_count,
+                ];
+            });
     }
 
     private function getSecurityEventMetrics()

@@ -1,0 +1,158 @@
+<?php
+
+namespace Database\Seeders;
+
+use Illuminate\Database\Seeder;
+use App\Models\Fhir\Facility;
+use App\Models\User;
+use App\Models\Users\Organization\Organization;
+use Illuminate\Support\Facades\DB;
+
+class QuickFixFacilitySeeder extends Seeder
+{
+    public function run()
+    {
+        // Ensure we have an organization
+        $organization = Organization::first();
+        
+        if (!$organization) {
+            $account = \App\Models\Account::first() ?? \App\Models\Account::create([
+                'name' => 'Default Account',
+            ]);
+            
+            $organization = Organization::create([
+                'account_id' => $account->id,
+                'name' => 'Test Healthcare Network',
+                'email' => 'admin@testhealthcare.com',
+                'phone' => '(555) 000-0000',
+                'address' => '100 Healthcare Plaza',
+                'city' => 'Medical City',
+                'region' => 'MC',
+                'country' => 'US',
+                'postal_code' => '12345',
+            ]);
+        }
+        
+        // Create facilities if they don't exist
+        $facilities = [
+            [
+                'organization_id' => $organization->id,
+                'name' => 'Main Medical Center',
+                'facility_type' => 'hospital',
+                'address' => '123 Healthcare Blvd',
+                'city' => 'Medical City',
+                'state' => 'MC',
+                'zip_code' => '12345',
+                'phone' => '(555) 123-4567',
+                'email' => 'info@mainmedical.com',
+                'npi' => '1234567890',
+                'active' => true,
+                'facility_type' => 'hospital',
+            ],
+            [
+                'organization_id' => $organization->id,
+                'name' => 'Downtown Clinic',
+                'facility_type' => 'clinic',
+                'address' => '456 Downtown Ave',
+                'city' => 'Metro City',
+                'state' => 'MC',
+                'zip_code' => '67890',
+                'phone' => '(555) 987-6543',
+                'email' => 'contact@downtownclinic.com',
+                'npi' => '0987654321',
+                'active' => true,
+            ],
+            [
+                'organization_id' => $organization->id,
+                'name' => 'Suburban Health Center',
+                'facility_type' => 'clinic',
+                'address' => '789 Suburban Dr',
+                'city' => 'Suburbia',
+                'state' => 'MC',
+                'zip_code' => '11111',
+                'phone' => '(555) 456-7890',
+                'email' => 'info@suburbanhc.com',
+                'npi' => '1122334455',
+                'active' => true,
+            ],
+        ];
+        
+        $createdFacilityIds = [];
+        
+        foreach ($facilities as $facilityData) {
+            $facility = Facility::updateOrCreate(
+                ['npi' => $facilityData['npi']],
+                $facilityData
+            );
+            $createdFacilityIds[] = $facility->id;
+            
+            $this->command->info("Created/Updated facility: {$facility->name}");
+        }
+        
+        // Associate all providers with facilities
+        $providers = User::whereHas('roles', function($q) {
+            $q->whereIn('slug', ['provider', 'office-manager']);
+        })->get();
+        
+        foreach ($providers as $provider) {
+            // Set current organization if not set
+            if (!$provider->current_organization_id) {
+                $provider->current_organization_id = $organization->id;
+                $provider->save();
+                $this->command->info("Set organization for user: {$provider->email}");
+            }
+            
+            // Associate with facilities if not already associated
+            $existingFacilityIds = $provider->facilities()->pluck('facilities.id')->toArray();
+            $facilityIdsToAttach = array_diff($createdFacilityIds, $existingFacilityIds);
+            
+            if (!empty($facilityIdsToAttach)) {
+                foreach ($facilityIdsToAttach as $facilityId) {
+                    $provider->facilities()->attach($facilityId, [
+                        'relationship_type' => 'provider',
+                        'role' => $provider->hasRole('office-manager') ? 'office_manager' : 'provider'
+                    ]);
+                }
+                $this->command->info("Associated {$provider->email} with " . count($facilityIdsToAttach) . " facilities");
+            }
+        }
+        
+        // Also associate admin users with all facilities
+        $admins = User::whereHas('roles', function($q) {
+            $q->whereIn('slug', ['msc-admin', 'super-admin']);
+        })->get();
+        
+        foreach ($admins as $admin) {
+            // Set current organization if not set
+            if (!$admin->current_organization_id) {
+                $admin->current_organization_id = $organization->id;
+                $admin->save();
+            }
+            
+            // Associate with all facilities
+            $existingFacilityIds = $admin->facilities()->pluck('facilities.id')->toArray();
+            $facilityIdsToAttach = array_diff($createdFacilityIds, $existingFacilityIds);
+            
+            if (!empty($facilityIdsToAttach)) {
+                foreach ($facilityIdsToAttach as $facilityId) {
+                    $admin->facilities()->attach($facilityId, [
+                        'relationship_type' => 'admin',
+                        'role' => 'admin'
+                    ]);
+                }
+                $this->command->info("Associated admin {$admin->email} with " . count($facilityIdsToAttach) . " facilities");
+            }
+        }
+        
+        $this->command->info('Facility associations completed!');
+        
+        // Show summary
+        $totalFacilities = Facility::count();
+        $activeFacilities = Facility::where('active', true)->count();
+        $this->command->info("Total facilities: {$totalFacilities} (Active: {$activeFacilities})");
+        
+        // Show user-facility associations
+        $associations = DB::table('facility_user')->count();
+        $this->command->info("Total user-facility associations: {$associations}");
+    }
+}

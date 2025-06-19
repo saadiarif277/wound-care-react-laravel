@@ -12,7 +12,7 @@ class DiagnosticController extends Controller
     public function checkPermissions()
     {
         $user = Auth::user();
-        
+
         if (!$user) {
             return response()->json(['error' => 'Not authenticated'], 401);
         }

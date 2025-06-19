@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
-import { UserPlus, Building2, Mail, CheckCircle2, AlertCircle, Key, Shield, FileText, MapPin, CreditCard } from 'lucide-react';
+import { UserPlus, Building2, Mail, CheckCircle2, AlertCircle, Key, Shield, FileText, MapPin, CreditCard, Home } from 'lucide-react';
 import { parseISO, isBefore, differenceInDays, format } from 'date-fns';
 
 interface InvitationData {
@@ -19,6 +19,12 @@ interface InvitationData {
         invited_by: string;
         invited_by_name: string;
     };
+}
+
+interface FacilityData {
+    id: number;
+    name: string;
+    full_address: string;
 }
 
 interface ComprehensiveOnboardingData {
@@ -77,17 +83,23 @@ interface ComprehensiveOnboardingData {
     accept_terms: boolean;
 
     // Practice Type
-    practice_type: 'solo_practitioner' | 'group_practice' | 'hospital_system' | 'existing_organization';
+    practice_type: 'solo_practitioner' | 'group_practice' | 'existing_organization';
+
+    // For joining existing facility
+    facility_id: number | null;
 }
 
 interface ProviderInvitationProps {
     invitation: InvitationData;
     token: string;
+    facilities: FacilityData[];
     states: Array<{ code: string; name: string }>;
 }
 
-export default function ProviderInvitation({ invitation, token, states }: ProviderInvitationProps) {
-    const [step, setStep] = useState<'review' | 'practice-type' | 'personal' | 'organization' | 'facility' | 'credentials' | 'billing' | 'complete'>('review');
+type OnboardingStep = 'review' | 'practice-type' | 'personal' | 'organization' | 'facility' | 'facility-selection' | 'credentials' | 'billing' | 'complete';
+
+export default function ProviderInvitation({ invitation, token, facilities, states }: ProviderInvitationProps) {
+    const [step, setStep] = useState<OnboardingStep>('review');
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
 
     const { data, setData, post, processing, errors } = useForm<ComprehensiveOnboardingData>({
@@ -146,8 +158,20 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
         accept_terms: false,
 
         // Practice Type
-        practice_type: 'solo_practitioner'
+        practice_type: 'solo_practitioner',
+
+        // Facility Selection
+        facility_id: null,
     });
+
+    useEffect(() => {
+        if (data.practice_type === 'existing_organization') {
+            setData('organization_name', invitation.organization_name);
+            if (facilities.length === 1) {
+                setData('facility_id', facilities[0].id);
+            }
+        }
+    }, [data.practice_type]);
 
     const isExpired = isBefore(parseISO(invitation.expires_at), new Date());
     const daysUntilExpiry = Math.max(0, differenceInDays(parseISO(invitation.expires_at), new Date()));
@@ -283,6 +307,13 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
                     isValid = false;
                 }
                 break;
+
+            case 'facility-selection':
+                if (!data.facility_id) {
+                    newErrors.facility_id = 'You must select a facility to continue';
+                    isValid = false;
+                }
+                break;
         }
 
         setValidationErrors(newErrors);
@@ -291,19 +322,19 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
 
     const handleNext = () => {
         if (validateCurrentStep()) {
-            const stepFlow = ['review', 'practice-type', 'personal', 'organization', 'facility', 'credentials', 'billing', 'complete'];
-            const currentIndex = stepFlow.indexOf(step);
-            if (currentIndex < stepFlow.length - 1) {
-                setStep(stepFlow[currentIndex + 1] as any);
+            const currentFlow = stepFlows[data.practice_type];
+            const currentIndex = currentFlow.indexOf(step);
+            if (currentIndex < currentFlow.length - 1) {
+                setStep(currentFlow[currentIndex + 1]);
             }
         }
     };
 
     const handleBack = () => {
-        const stepFlow = ['review', 'practice-type', 'personal', 'organization', 'facility', 'credentials', 'billing', 'complete'];
-        const currentIndex = stepFlow.indexOf(step);
+        const currentFlow = stepFlows[data.practice_type];
+        const currentIndex = currentFlow.indexOf(step);
         if (currentIndex > 0) {
-            setStep(stepFlow[currentIndex - 1] as any);
+            setStep(currentFlow[currentIndex - 1]);
         }
     };
 
@@ -328,7 +359,7 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
     };
 
     // Auto-populate facility name based on organization and practice type
-    React.useEffect(() => {
+    useEffect(() => {
         if (data.practice_type === 'solo_practitioner' && data.organization_name && data.first_name && data.last_name) {
             const practitionerName = `${data.first_name} ${data.last_name}`;
             if (!data.facility_name) {
@@ -336,6 +367,14 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
             }
         }
     }, [data.practice_type, data.organization_name, data.first_name, data.last_name]);
+
+    const stepFlows: Record<typeof data.practice_type, OnboardingStep[]> = {
+        solo_practitioner: ['review', 'practice-type', 'personal', 'organization', 'facility', 'credentials', 'billing', 'complete'],
+        group_practice: ['review', 'practice-type', 'personal', 'organization', 'facility', 'credentials', 'billing', 'complete'],
+        existing_organization: facilities.length > 1
+            ? ['review', 'practice-type', 'personal', 'facility-selection', 'credentials', 'complete']
+            : ['review', 'practice-type', 'personal', 'credentials', 'complete'],
+    };
 
     const renderReviewStep = () => (
         <div className="space-y-6">
@@ -494,6 +533,55 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
                     </div>
                 </label>
             </div>
+
+            <div className="flex justify-between">
+                <Button variant="secondary" onClick={handleBack}>Back</Button>
+                <Button onClick={handleNext}>Continue</Button>
+            </div>
+        </div>
+    );
+
+    const renderFacilitySelectionStep = () => (
+        <div className="space-y-6">
+            <div className="text-center mb-8">
+                <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100 mb-4">
+                    <Home className="h-8 w-8 text-blue-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Select Your Facility</h1>
+                <p className="text-gray-600">
+                    You're joining <strong>{invitation.organization_name}</strong>. Please select your primary practice location from the list below.
+                </p>
+            </div>
+
+            <div className="space-y-4">
+                {facilities.map(facility => (
+                    <label key={facility.id} className="block">
+                        <input
+                            type="radio"
+                            name="facility_id"
+                            value={facility.id}
+                            checked={data.facility_id === facility.id}
+                            onChange={(e) => handleFieldChange('facility_id', parseInt(e.target.value))}
+                            className="sr-only"
+                        />
+                        <div className={`p-6 border-2 rounded-lg cursor-pointer transition-colors ${
+                            data.facility_id === facility.id
+                                ? 'border-blue-500 bg-blue-50'
+                                : 'border-gray-200 hover:border-gray-300'
+                        }`}>
+                            <h3 className="text-lg font-medium text-gray-900 mb-1">{facility.name}</h3>
+                            <p className="text-sm text-gray-600 flex items-center gap-2">
+                                <MapPin className="h-4 w-4 text-gray-400" />
+                                {facility.full_address}
+                            </p>
+                        </div>
+                    </label>
+                ))}
+            </div>
+
+            {(validationErrors.facility_id || errors.facility_id) && (
+                <p className="mt-1 text-sm text-red-600">{validationErrors.facility_id || errors.facility_id}</p>
+            )}
 
             <div className="flex justify-between">
                 <Button variant="secondary" onClick={handleBack}>Back</Button>
@@ -1103,6 +1191,7 @@ export default function ProviderInvitation({ invitation, token, states }: Provid
                         <CardContent className="p-8">
                             {step === 'review' && renderReviewStep()}
                             {step === 'practice-type' && renderPracticeTypeStep()}
+                            {step === 'facility-selection' && renderFacilitySelectionStep()}
                             {step === 'personal' && renderPersonalStep()}
                             {step === 'organization' && renderOrganizationStep()}
                             {step === 'facility' && renderFacilityStep()}

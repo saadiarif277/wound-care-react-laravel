@@ -285,18 +285,18 @@ export default function PaymentsIndex({ providers, flash }: PaymentsPageProps) {
                   <DateInput
                     label="Payment Date"
                     value={formData.payment_date}
-                    onChange={(e) => setFormData(prev => ({ ...prev, payment_date: e.target.value }))}
+                    onChange={(value) => setFormData(prev => ({ ...prev, payment_date: value }))}
                     required
                   />
                 </div>
 
                 <div className="mt-4">
                   <TextAreaInput
-                    label="Notes (Optional)"
-                    value={formData.notes}
-                    onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                    rows={3}
-                    placeholder="Any additional notes about this payment..."
+                      label="Notes (Optional)"
+                      value={formData.notes}
+                      onChange={(value) => setFormData(prev => ({ ...prev, notes: value }))}
+                      rows={3}
+                      placeholder="Any additional notes about this payment..."
                   />
                 </div>
 

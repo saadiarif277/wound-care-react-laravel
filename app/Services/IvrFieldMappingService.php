@@ -30,10 +30,12 @@ class IvrFieldMappingService
 
     /**
      * Map product request data to IVR fields for a specific manufacturer
+     * This now also accepts patient data from FHIR separately
      */
     public function mapProductRequestToIvrFields(
         ProductRequest $productRequest,
-        string $manufacturerKey
+        string $manufacturerKey,
+        array $patientData = []
     ): array {
         $manufacturer = $this->getManufacturerConfig($manufacturerKey);
 
@@ -43,7 +45,6 @@ class IvrFieldMappingService
 
         // Load all required relationships
         $productRequest->load([
-            // 'patient', // no local patient table; patient data is in FHIR
             'provider',
             'provider.profile',
             'facility',
@@ -55,9 +56,12 @@ class IvrFieldMappingService
         $mappings = $manufacturer['field_mappings'] ?? [];
         $mappedFields = [];
 
-        // Process each field mapping
+        // First, map standard DocuSeal fields as per the guide
+        $mappedFields = $this->mapStandardDocuSealFields($productRequest, $patientData);
+
+        // Then overlay manufacturer-specific field mappings
         foreach ($mappings as $ivrFieldName => $systemField) {
-            $value = $this->getFieldValue($productRequest, $systemField);
+            $value = $this->getFieldValue($productRequest, $systemField, $patientData);
             if ($value !== null) {
                 // Detect field type and format appropriately
                 $fieldType = $this->fieldFormatter->detectFieldType($ivrFieldName, $value);
@@ -66,9 +70,6 @@ class IvrFieldMappingService
             }
         }
 
-        // Add any additional fields from Azure FHIR if needed
-        $mappedFields = $this->enrichWithFhirData($mappedFields, $productRequest, $manufacturerKey);
-
         // Apply any manufacturer-specific formatting rules
         $mappedFields = $this->applyManufacturerSpecificFormatting($mappedFields, $manufacturerKey);
 
@@ -76,12 +77,116 @@ class IvrFieldMappingService
     }
 
     /**
-     * Get field value from product request and related models
+     * Map standard DocuSeal fields according to the embedded fields guide
      */
-    private function getFieldValue(ProductRequest $productRequest, string $fieldName): mixed
+    private function mapStandardDocuSealFields(ProductRequest $productRequest, array $patientData): array
     {
-        // Split field name for nested access (e.g., 'provider.name')
-        $parts = explode('.', $fieldName);
+        $fields = [];
+        
+        // Patient Information Fields (from FHIR data)
+        if (!empty($patientData)) {
+            $fields['patient_first_name'] = $patientData['given'][0] ?? '';
+            $fields['patient_last_name'] = $patientData['family'] ?? '';
+            $fields['patient_dob'] = isset($patientData['birthDate']) ? Carbon::parse($patientData['birthDate'])->format('Y-m-d') : '';
+            $fields['patient_member_id'] = $productRequest->payer_id ?? '';
+            $fields['patient_gender'] = $patientData['gender'] ?? '';
+            
+            // Patient Address from FHIR
+            if (isset($patientData['address'][0])) {
+                $address = $patientData['address'][0];
+                $fields['patient_address_line1'] = $address['line'][0] ?? '';
+                $fields['patient_address_line2'] = $address['line'][1] ?? '';
+                $fields['patient_city'] = $address['city'] ?? '';
+                $fields['patient_state'] = $address['state'] ?? '';
+                $fields['patient_zip'] = $address['postalCode'] ?? '';
+            }
+            
+            // Patient Phone from FHIR
+            if (isset($patientData['telecom'])) {
+                foreach ($patientData['telecom'] as $telecom) {
+                    if ($telecom['system'] === 'phone') {
+                        $fields['patient_phone'] = $telecom['value'] ?? '';
+                        break;
+                    }
+                }
+            }
+        }
+        
+        // Patient Display ID (de-identified)
+        $fields['patient_display_id'] = $productRequest->patient_display_id ?? '';
+
+        // Insurance Information Fields
+        $fields['payer_name'] = $productRequest->payer_name_submitted ?? '';
+        $fields['payer_id'] = $productRequest->payer_id ?? '';
+        $fields['insurance_type'] = $productRequest->insurance_type ?? '';
+
+        // Product Information Fields
+        $product = $productRequest->products->first();
+        if ($product) {
+            $fields['product_name'] = $product->name;
+            $fields['product_code'] = $product->q_code ?? $product->code ?? '';
+            $fields['manufacturer'] = $product->manufacturer;
+            $fields['size'] = $product->pivot->size ?? '';
+            $fields['quantity'] = $product->pivot->quantity ?? 1;
+        }
+
+        // Service Information Fields
+        $fields['expected_service_date'] = $productRequest->expected_service_date ? 
+            Carbon::parse($productRequest->expected_service_date)->format('Y-m-d') : '';
+        $fields['wound_type'] = $productRequest->wound_type ?? '';
+        $fields['place_of_service'] = $this->mapPlaceOfService($productRequest->place_of_service);
+
+        // Provider Information Fields
+        $provider = $productRequest->provider;
+        if ($provider) {
+            $fields['provider_name'] = $provider->first_name . ' ' . $provider->last_name;
+            $fields['provider_npi'] = $provider->npi_number ?? '';
+            $fields['signature_date'] = Carbon::now()->format('Y-m-d');
+        }
+
+        // Facility Information
+        $facility = $productRequest->facility;
+        if ($facility) {
+            $fields['facility_name'] = $facility->name;
+            $fields['facility_address'] = $facility->address ?? '';
+        }
+
+        // Clinical Attestations - Convert boolean to Yes/No
+        $fields['failed_conservative_treatment'] = $productRequest->failed_conservative_treatment ? 'Yes' : 'No';
+        $fields['information_accurate'] = $productRequest->information_accurate ? 'Yes' : 'No';
+        $fields['medical_necessity_established'] = $productRequest->medical_necessity_established ? 'Yes' : 'No';
+        $fields['maintain_documentation'] = $productRequest->maintain_documentation ? 'Yes' : 'No';
+        $fields['authorize_prior_auth'] = $productRequest->authorize_prior_auth ? 'Yes' : 'No';
+
+        // Auto-Generated Fields
+        $fields['todays_date'] = Carbon::now()->format('m/d/Y');
+        $fields['current_time'] = Carbon::now()->format('h:i:s A');
+
+        // Clinical Summary Fields (if available)
+        if ($productRequest->clinical_summary) {
+            $clinical = json_decode($productRequest->clinical_summary, true);
+            if (isset($clinical['woundDetails'])) {
+                $fields['wound_location'] = $clinical['woundDetails']['location'] ?? '';
+                $fields['wound_size'] = $clinical['woundDetails']['size'] ?? '';
+                $fields['wound_duration'] = $clinical['woundDetails']['duration'] ?? '';
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Get field value from product request and related models
+     * Now also accepts patient data from FHIR
+     */
+    private function getFieldValue(ProductRequest $productRequest, string $fieldName, array $patientData = []): mixed
+    {
+        // First check if it's a patient field that should come from FHIR data
+        if (str_starts_with($fieldName, 'patient_') && !empty($patientData)) {
+            return $this->getPatientFieldFromFhir($fieldName, $patientData);
+        }
+
+        // Otherwise use existing mapping logic
         $value = null;
 
         switch ($fieldName) {
@@ -111,7 +216,7 @@ class IvrFieldMappingService
                 break;
 
             case 'provider_npi':
-                $value = $productRequest->provider?->profile?->npi ?? '';
+                $value = $productRequest->provider?->npi_number ?? '';
                 break;
 
             case 'provider_tax_id':
@@ -141,21 +246,39 @@ class IvrFieldMappingService
 
             case 'facility_address':
                 $facility = $productRequest->facility;
-                if ($facility && $facility->address) {
-                    $value = $facility->address['line'][0] ?? '';
+                if ($facility) {
+                    $value = $facility->address ?? '';
+                    if (is_array($value) && isset($value['line'])) {
+                        $value = $value['line'][0] ?? '';
+                    }
                 }
                 break;
 
             case 'facility_city':
-                $value = $productRequest->facility?->address['city'] ?? '';
+                $facility = $productRequest->facility;
+                if ($facility && is_array($facility->address)) {
+                    $value = $facility->address['city'] ?? '';
+                } else {
+                    $value = $facility?->city ?? '';
+                }
                 break;
 
             case 'facility_state':
-                $value = $productRequest->facility?->address['state'] ?? '';
+                $facility = $productRequest->facility;
+                if ($facility && is_array($facility->address)) {
+                    $value = $facility->address['state'] ?? '';
+                } else {
+                    $value = $facility?->state ?? '';
+                }
                 break;
 
             case 'facility_zip':
-                $value = $productRequest->facility?->address['postalCode'] ?? '';
+                $facility = $productRequest->facility;
+                if ($facility && is_array($facility->address)) {
+                    $value = $facility->address['postalCode'] ?? '';
+                } else {
+                    $value = $facility?->zip_code ?? '';
+                }
                 break;
 
             case 'facility_contact_name':
@@ -190,73 +313,19 @@ class IvrFieldMappingService
                 $value = $productRequest->facility?->medicare_contractor ?? '';
                 break;
 
-            // Patient Information (Minimal PHI)
-            case 'patient_name':
-                // Only show display ID, not actual name
-                $value = $productRequest->patient?->patient_display_id ?? '';
-                break;
-
-            case 'patient_dob':
-                // Format date of birth if available
-                if ($productRequest->patient?->birth_date) {
-                    $value = Carbon::parse($productRequest->patient->birth_date)->format('m/d/Y');
-                }
-                break;
-
-            case 'patient_gender':
-                $value = $productRequest->patient?->gender ?? '';
-                break;
-
-            case 'patient_address':
-            case 'patient_city':
-            case 'patient_state':
-            case 'patient_zip':
-            case 'patient_phone':
-                // These fields might come from FHIR if needed
-                $value = ''; // To be filled from FHIR if required
-                break;
-
             // Insurance Information
             case 'primary_insurance_name':
-                $value = $productRequest->primary_insurance_name ?? '';
+            case 'payer_name':
+                $value = $productRequest->payer_name_submitted ?? '';
                 break;
 
             case 'primary_policy_number':
-                $value = $productRequest->primary_insurance_id ?? '';
+            case 'payer_id':
+                $value = $productRequest->payer_id ?? '';
                 break;
 
-            case 'primary_payer_phone':
-                $value = $productRequest->primary_insurance_phone ?? '';
-                break;
-
-            case 'primary_subscriber_name':
-                $value = $productRequest->primary_subscriber_name ?? '';
-                break;
-
-            case 'primary_subscriber_dob':
-                if ($productRequest->primary_subscriber_dob) {
-                    $value = Carbon::parse($productRequest->primary_subscriber_dob)->format('m/d/Y');
-                }
-                break;
-
-            case 'primary_plan_type':
-                $value = $productRequest->primary_plan_type ?? '';
-                break;
-
-            case 'primary_network_status':
-                $value = $productRequest->primary_network_status ?? '';
-                break;
-
-            case 'secondary_insurance_name':
-                $value = $productRequest->secondary_insurance_name ?? '';
-                break;
-
-            case 'secondary_policy_number':
-                $value = $productRequest->secondary_insurance_id ?? '';
-                break;
-
-            case 'secondary_payer_phone':
-                $value = $productRequest->secondary_insurance_phone ?? '';
+            case 'insurance_type':
+                $value = $productRequest->insurance_type ?? '';
                 break;
 
             // Clinical Information
@@ -270,156 +339,117 @@ class IvrFieldMappingService
 
             case 'wound_location':
             case 'wound_location_details':
-                $value = $productRequest->wound_location ?? '';
+                // Try to get from clinical summary first
+                if ($productRequest->clinical_summary) {
+                    $clinical = is_string($productRequest->clinical_summary) ? 
+                        json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
+                    $value = $clinical['woundDetails']['location'] ?? $productRequest->wound_location ?? '';
+                } else {
+                    $value = $productRequest->wound_location ?? '';
+                }
                 break;
 
-            case 'wound_size_length':
-                $value = $productRequest->wound_length ?? '';
-                break;
-
-            case 'wound_size_width':
-                $value = $productRequest->wound_width ?? '';
-                break;
-
-            case 'wound_size_depth':
-                $value = $productRequest->wound_depth ?? '';
-                break;
-
-            case 'wound_size_total':
-                // Calculate total if not provided
-                if ($productRequest->wound_area_cm2) {
-                    $value = $productRequest->wound_area_cm2;
-                } elseif ($productRequest->wound_length && $productRequest->wound_width) {
-                    $value = $productRequest->wound_length * $productRequest->wound_width;
+            case 'wound_size':
+                // Try to get from clinical summary
+                if ($productRequest->clinical_summary) {
+                    $clinical = is_string($productRequest->clinical_summary) ? 
+                        json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
+                    $value = $clinical['woundDetails']['size'] ?? '';
                 }
                 break;
 
             case 'wound_duration':
-                $value = $productRequest->wound_duration_weeks . ' weeks' ?? '';
-                break;
-
-            case 'diagnosis_codes':
-            case 'primary_diagnosis_code':
-                $value = $productRequest->primary_diagnosis_code ?? '';
-                break;
-
-            case 'secondary_diagnosis_codes':
-                $value = implode(', ', $productRequest->additional_diagnosis_codes ?? []);
-                break;
-
-            case 'application_cpt_codes':
-                $value = implode(', ', $productRequest->cpt_codes ?? []);
-                break;
-
-            case 'anticipated_treatment_date':
-                if ($productRequest->anticipated_treatment_date) {
-                    $value = Carbon::parse($productRequest->anticipated_treatment_date)->format('m/d/Y');
+                // Try to get from clinical summary
+                if ($productRequest->clinical_summary) {
+                    $clinical = is_string($productRequest->clinical_summary) ? 
+                        json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
+                    $value = $clinical['woundDetails']['duration'] ?? '';
                 }
                 break;
 
-            case 'anticipated_applications':
-                $value = $productRequest->anticipated_applications ?? 1;
+            case 'expected_service_date':
+                if ($productRequest->expected_service_date) {
+                    $value = Carbon::parse($productRequest->expected_service_date)->format('m/d/Y');
+                }
                 break;
 
             // Product Information
-            case 'selected_products':
-                $products = $productRequest->products;
-                if ($products->isNotEmpty()) {
-                    $value = $products->pluck('name')->join(', ');
-                }
+            case 'product_name':
+                $product = $productRequest->products->first();
+                $value = $product ? $product->name : '';
                 break;
 
-            case 'product_sizes':
-                $products = $productRequest->products;
-                if ($products->isNotEmpty()) {
-                    $sizes = [];
-                    foreach ($products as $product) {
-                        if ($product->pivot->size) {
-                            $sizes[] = $product->pivot->size;
-                        }
-                    }
-                    $value = implode(', ', $sizes);
-                }
+            case 'product_code':
+                $product = $productRequest->products->first();
+                $value = $product ? ($product->q_code ?? $product->code ?? '') : '';
                 break;
 
+            case 'manufacturer':
+                $product = $productRequest->products->first();
+                $value = $product ? $product->manufacturer : '';
+                break;
+
+            case 'size':
             case 'graft_size_requested':
-                // Get from first product's pivot data
-                $firstProduct = $productRequest->products->first();
-                if ($firstProduct && $firstProduct->pivot->size) {
-                    $value = $firstProduct->pivot->size;
-                }
+                $product = $productRequest->products->first();
+                $value = $product && $product->pivot ? $product->pivot->size : '';
                 break;
 
-            // Status flags - return raw boolean values, formatter will handle conversion
-            case 'snf_status':
-                $value = $productRequest->snf_status;
+            case 'quantity':
+                $product = $productRequest->products->first();
+                $value = $product && $product->pivot ? $product->pivot->quantity : 1;
                 break;
 
-            case 'snf_days':
-                $value = $productRequest->snf_days ?? '';
+            // Attestation fields
+            case 'failed_conservative_treatment':
+                $value = $productRequest->failed_conservative_treatment ? 'Yes' : 'No';
                 break;
 
-            case 'snf_over_100_days':
-                $value = ($productRequest->snf_days > 100);
+            case 'information_accurate':
+                $value = $productRequest->information_accurate ? 'Yes' : 'No';
                 break;
 
-            case 'hospice_status':
-                $value = $productRequest->hospice_status;
+            case 'medical_necessity_established':
+                $value = $productRequest->medical_necessity_established ? 'Yes' : 'No';
                 break;
 
-            case 'part_a_status':
-                $value = $productRequest->part_a_status;
+            case 'maintain_documentation':
+                $value = $productRequest->maintain_documentation ? 'Yes' : 'No';
                 break;
 
-            case 'global_period_status':
-                $value = $productRequest->global_period_status;
+            case 'authorize_prior_auth':
+                $value = $productRequest->authorize_prior_auth ? 'Yes' : 'No';
                 break;
 
-            case 'global_period_cpt_codes':
-                $value = $productRequest->global_period_cpt_codes ?? '';
-                break;
-
-            case 'global_period_surgery_date':
-                if ($productRequest->global_period_surgery_date) {
-                    $value = Carbon::parse($productRequest->global_period_surgery_date)->format('m/d/Y');
-                }
-                break;
-
-            // Additional fields
-            case 'request_type':
-                $value = 'New Request'; // Default, could be customized
-                break;
-
-            case 'request_date':
-                $value = Carbon::now()->format('m/d/Y');
-                break;
-
+            // Date fields
+            case 'todays_date':
             case 'signature_date':
                 $value = Carbon::now()->format('m/d/Y');
                 break;
 
-            case 'authorization_permission':
-                $value = 'Yes'; // Default to yes for authorization
+            case 'current_time':
+                $value = Carbon::now()->format('h:i:s A');
                 break;
 
-            case 'request_prior_auth_assistance':
-                $value = $productRequest->requires_prior_auth ? 'Yes' : '';
+            // Manufacturer-specific fields
+            case 'physician_attestation':
+                $value = 'Yes'; // Default attestation
                 break;
 
-            case 'cards_attached':
-                $value = 'Yes'; // Assume cards are attached
+            case 'not_used_previously':
+                $value = 'Yes'; // Default for new requests
                 break;
 
-            case 'comorbidities':
-                $value = implode(', ', $productRequest->comorbidities ?? []);
+            case 'stat_order':
+                $value = $productRequest->is_stat_order ? 'Yes' : 'No';
                 break;
 
-            case 'previous_treatments':
-                $value = $productRequest->previous_treatments ?? '';
+            case 'first_application':
+                $value = 'Yes'; // Default for new requests
                 break;
 
             default:
-                Log::warning("Unknown IVR field mapping: {$fieldName}");
+                Log::debug("Unknown IVR field mapping: {$fieldName}");
                 break;
         }
 
@@ -427,95 +457,50 @@ class IvrFieldMappingService
     }
 
     /**
-     * Enrich mapped fields with data from Azure FHIR if needed
+     * Get patient field value from FHIR data
      */
-    private function enrichWithFhirData(
-        array $mappedFields,
-        ProductRequest $productRequest,
-        string $manufacturerKey
-    ): array {
-        // Check if we need to fetch additional data from FHIR
-        $fieldsNeedingFhir = [
-            'patient_address',
-            'patient_city',
-            'patient_state',
-            'patient_zip',
-            'patient_phone',
-            'patient_contact_permission'
-        ];
-
-        $manufacturer = $this->getManufacturerConfig($manufacturerKey);
-        $fieldMappings = $manufacturer['field_mappings'] ?? [];
-
-        // Check if any FHIR fields are needed for this manufacturer
-        $needsFhir = false;
-        foreach ($fieldsNeedingFhir as $field) {
-            if (array_search($field, $fieldMappings) !== false) {
-                $needsFhir = true;
-                break;
-            }
-        }
-
-        if (!$needsFhir || !$productRequest->patient_fhir_id) {
-            return $mappedFields;
-        }
-
-        try {
-            // Fetch patient data from FHIR using stored FHIR ID (no local patient table)
-            if (!$productRequest->patient_fhir_id) {
-                return $mappedFields; // No patient reference available
-            }
-
-            // patient_fhir_id may be stored as 'Patient/{uuid}' or just UUID
-            $patientId = str_replace('Patient/', '', $productRequest->patient_fhir_id);
-            $fhirPatient = $this->fhirService->getPatientById($patientId);
-
-            if ($fhirPatient) {
-                // Map FHIR address data
-                if (isset($fhirPatient['address'][0])) {
-                    $address = $fhirPatient['address'][0];
-
-                    // Find the IVR field names for each system field
-                    foreach ($fieldMappings as $ivrField => $systemField) {
-                        switch ($systemField) {
-                            case 'patient_address':
-                                $mappedFields[$ivrField] = $address['line'][0] ?? '';
-                                break;
-                            case 'patient_city':
-                                $mappedFields[$ivrField] = $address['city'] ?? '';
-                                break;
-                            case 'patient_state':
-                                $mappedFields[$ivrField] = $address['state'] ?? '';
-                                break;
-                            case 'patient_zip':
-                                $mappedFields[$ivrField] = $address['postalCode'] ?? '';
-                                break;
-                        }
+    private function getPatientFieldFromFhir(string $fieldName, array $patientData): mixed
+    {
+        switch ($fieldName) {
+            case 'patient_first_name':
+                return $patientData['given'][0] ?? '';
+            
+            case 'patient_last_name':
+                return $patientData['family'] ?? '';
+                
+            case 'patient_dob':
+                return isset($patientData['birthDate']) ? 
+                    Carbon::parse($patientData['birthDate'])->format('Y-m-d') : '';
+                    
+            case 'patient_gender':
+                return $patientData['gender'] ?? '';
+                
+            case 'patient_address_line1':
+                return $patientData['address'][0]['line'][0] ?? '';
+                
+            case 'patient_address_line2':
+                return $patientData['address'][0]['line'][1] ?? '';
+                
+            case 'patient_city':
+                return $patientData['address'][0]['city'] ?? '';
+                
+            case 'patient_state':
+                return $patientData['address'][0]['state'] ?? '';
+                
+            case 'patient_zip':
+                return $patientData['address'][0]['postalCode'] ?? '';
+                
+            case 'patient_phone':
+                foreach ($patientData['telecom'] ?? [] as $telecom) {
+                    if ($telecom['system'] === 'phone') {
+                        return $telecom['value'] ?? '';
                     }
                 }
-
-                // Map FHIR telecom data
-                if (isset($fhirPatient['telecom'])) {
-                    foreach ($fhirPatient['telecom'] as $telecom) {
-                        if ($telecom['system'] === 'phone' && isset($telecom['value'])) {
-                            // Find the IVR field name for patient_phone
-                            $phoneFieldKey = array_search('patient_phone', $fieldMappings);
-                            if ($phoneFieldKey !== false) {
-                                $mappedFields[$phoneFieldKey] = $telecom['value'];
-                            }
-                            break;
-                        }
-                    }
-                }
-            }
-        } catch (\Exception $e) {
-            Log::error('Failed to fetch FHIR data for IVR mapping', [
-                'patient_fhir_id' => $productRequest->patient_fhir_id,
-                'error' => $e->getMessage()
-            ]);
+                return '';
+                
+            default:
+                return '';
         }
-
-        return $mappedFields;
     }
 
     /**
@@ -610,26 +595,66 @@ class IvrFieldMappingService
      */
     private function getRequiredFieldsForManufacturer(string $manufacturerKey): array
     {
-        // Define required fields per manufacturer
+        // Define required fields per manufacturer based on DocuSeal guide
         $requiredByManufacturer = [
             'ACZ_Distribution' => [
-                'Physician Name',
-                'NPI',
-                'Tax ID',
-                'Facility Name',
-                'Patient Name',
-                'Primary Insurance',
-                'ICD-10 Codes',
-                'Product',
+                'provider_name',
+                'provider_npi',
+                'facility_name',
+                'patient_display_id',
+                'payer_name',
+                'product_name',
+                'failed_conservative_treatment',
+                'medical_necessity_established',
             ],
             'Advanced_Health' => [
-                'Physician Name',
-                'Patient Name',
-                'Primary Insurance',
-                'Wound Type',
-                'Product Information',
+                'provider_name',
+                'patient_display_id',
+                'payer_name',
+                'wound_type',
+                'product_name',
+                'multiple_products',
             ],
-            // Add more as needed
+            'MedLife' => [
+                'provider_name',
+                'patient_display_id',
+                'payer_name',
+                'product_name',
+                'amnio_amp_size',
+            ],
+            'Centurion' => [
+                'provider_name',
+                'patient_display_id',
+                'previous_amnion_use',
+                'stat_order',
+            ],
+            'BioWerX' => [
+                'provider_name',
+                'patient_display_id',
+                'first_application',
+                'reapplication',
+            ],
+            'BioWound' => [
+                'provider_name',
+                'california_facility',
+                'mesh_configuration',
+                'previous_biologics_failed',
+            ],
+            'Extremity_Care' => [
+                'provider_name',
+                'quarter',
+                'order_type',
+            ],
+            'Skye_Biologics' => [
+                'provider_name',
+                'shipping_speed_required',
+                'temperature_controlled',
+            ],
+            'Total_Ancillary_Forms' => [
+                'provider_name',
+                'universal_benefits_verified',
+                'facility_account_number',
+            ],
         ];
 
         return $requiredByManufacturer[$manufacturerKey] ?? [];
@@ -642,50 +667,66 @@ class IvrFieldMappingService
     {
         switch ($manufacturerKey) {
             case 'ACZ_Distribution':
-                // ACZ uses specific checkbox formatting
-                foreach ($fields as $fieldName => &$value) {
-                    if (in_array($fieldName, ['Is Patient in Hospice', 'Is Patient in Part A', 'Global Period Status'])) {
-                        // ACZ prefers uppercase YES/NO for these fields
-                        $value = strtoupper($value);
-                    }
-
-                    // ACZ expects permission fields as "YES" or blank
-                    if ($fieldName === 'Prior Auth Permission' && $value === 'No') {
-                        $value = '';
-                    }
+                // ACZ specific formatting
+                if (isset($fields['physician_attestation'])) {
+                    $fields['physician_attestation'] = ($fields['physician_attestation'] === 'Yes') ? 'Yes' : 'No';
+                }
+                if (isset($fields['not_used_previously'])) {
+                    $fields['not_used_previously'] = ($fields['not_used_previously'] === 'Yes') ? 'Yes' : 'No';
                 }
                 break;
 
             case 'Advanced_Health':
-                // Advanced Health uses different checkbox format
-                foreach ($fields as $fieldName => &$value) {
-                    if (Str::contains($fieldName, ['OK to Contact', 'Prior Auth Required'])) {
-                        // They use checkmark character for true
-                        $value = ($value === 'Yes' || $value === 'YES') ? '✓' : '';
-                    }
+                // Advanced Health checkbox formatting
+                if (isset($fields['multiple_products'])) {
+                    $fields['multiple_products'] = ($fields['multiple_products'] === 'Yes') ? 'Yes' : 'No';
+                }
+                if (isset($fields['previous_use'])) {
+                    $fields['previous_use'] = ($fields['previous_use'] === 'Yes') ? 'Yes' : 'No';
                 }
                 break;
 
-            case 'Amnio_Amp':
-                // MedLife Solutions uses 'X' for checked boxes
-                foreach ($fields as $fieldName => &$value) {
-                    if ($fieldName === 'Insurance Cards Attached' && $value === 'Yes') {
-                        $value = 'X';
-                    }
+            case 'Centurion':
+                // Centurion specific fields
+                if (isset($fields['stat_order'])) {
+                    $fields['stat_order'] = ($fields['stat_order'] === 'Yes') ? 'Yes' : 'No';
+                }
+                if (isset($fields['previous_amnion_use'])) {
+                    $fields['previous_amnion_use'] = ($fields['previous_amnion_use'] === 'Yes') ? 'Yes' : 'No';
+                }
+                break;
+
+            case 'BioWerX':
+                // BioWerX specific fields
+                if (isset($fields['first_application'])) {
+                    $fields['first_application'] = ($fields['first_application'] === 'Yes') ? 'Yes' : 'No';
+                }
+                if (isset($fields['reapplication'])) {
+                    $fields['reapplication'] = ($fields['reapplication'] === 'Yes') ? 'Yes' : 'No';
                 }
                 break;
 
             case 'BioWound':
-                // BioWound uses different date format
-                foreach ($fields as $fieldName => &$value) {
-                    if (Str::contains($fieldName, ['Date', 'DOB']) && !empty($value)) {
-                        try {
-                            $date = Carbon::parse($value);
-                            $value = $date->format('m-d-Y'); // Uses dashes instead of slashes
-                        } catch (\Exception $e) {
-                            // Keep original format if parsing fails
-                        }
-                    }
+                // BioWound specific fields
+                if (isset($fields['california_facility'])) {
+                    $fields['california_facility'] = ($fields['california_facility'] === 'Yes') ? 'Yes' : 'No';
+                }
+                if (isset($fields['previous_biologics_failed'])) {
+                    $fields['previous_biologics_failed'] = ($fields['previous_biologics_failed'] === 'Yes') ? 'Yes' : 'No';
+                }
+                break;
+
+            case 'Skye_Biologics':
+                // Skye specific fields
+                if (isset($fields['temperature_controlled'])) {
+                    $fields['temperature_controlled'] = ($fields['temperature_controlled'] === 'Yes') ? 'Yes' : 'No';
+                }
+                break;
+
+            case 'Total_Ancillary_Forms':
+                // Total Ancillary specific fields
+                if (isset($fields['universal_benefits_verified'])) {
+                    $fields['universal_benefits_verified'] = ($fields['universal_benefits_verified'] === 'Yes') ? 'Yes' : 'No';
                 }
                 break;
         }
@@ -698,48 +739,92 @@ class IvrFieldMappingService
      */
     public function getFieldTypes(string $manufacturerKey): array
     {
-        // Define specific field types for each manufacturer
+        // Define specific field types for each manufacturer based on DocuSeal guide
         $fieldTypeDefinitions = [
+            'common' => [
+                // Standard fields from guide
+                'patient_first_name' => 'text',
+                'patient_last_name' => 'text',
+                'patient_dob' => 'date',
+                'patient_member_id' => 'text',
+                'patient_gender' => 'select',
+                'patient_phone' => 'phone',
+                'patient_address_line1' => 'text',
+                'patient_address_line2' => 'text',
+                'patient_city' => 'text',
+                'patient_state' => 'text',
+                'patient_zip' => 'text',
+                'payer_name' => 'text',
+                'payer_id' => 'text',
+                'insurance_type' => 'select',
+                'product_name' => 'text',
+                'product_code' => 'text',
+                'manufacturer' => 'text',
+                'size' => 'text',
+                'quantity' => 'number',
+                'expected_service_date' => 'date',
+                'wound_type' => 'select',
+                'place_of_service' => 'select',
+                'provider_name' => 'text',
+                'provider_npi' => 'text',
+                'signature_date' => 'date',
+                'facility_name' => 'text',
+                'facility_address' => 'text',
+                'failed_conservative_treatment' => 'checkbox',
+                'information_accurate' => 'checkbox',
+                'medical_necessity_established' => 'checkbox',
+                'maintain_documentation' => 'checkbox',
+                'authorize_prior_auth' => 'checkbox',
+                'todays_date' => 'datenow',
+                'current_time' => 'text',
+                'provider_signature' => 'signature',
+            ],
             'ACZ_Distribution' => [
-                'Is Patient in Hospice' => 'checkbox',
-                'Is Patient in Part A' => 'checkbox',
-                'Global Period Status' => 'checkbox',
-                'Prior Auth Permission' => 'checkbox',
-                'Place of Service' => 'select',
-                'Patient DOB' => 'date',
-                'Surgery Date' => 'date',
-                'Phone #' => 'phone',
-                'Fax #' => 'phone',
-                'Patient Phone' => 'phone',
-                'Primary Payer Phone' => 'phone',
-                'Secondary Payer Phone' => 'phone',
-                'Total Wound Size' => 'number',
-                'ICD-10 Codes' => 'multiselect',
+                'physician_attestation' => 'checkbox',
+                'not_used_previously' => 'checkbox',
             ],
             'Advanced_Health' => [
-                'OK to Contact Patient?' => 'checkbox',
-                'Is patient in SNF?' => 'checkbox',
-                'Global Period Status' => 'checkbox',
-                'Prior Auth Required' => 'checkbox',
-                'Place of Service' => 'select',
-                'Type of Plan (Primary)' => 'select',
-                'Type of Plan (Secondary)' => 'select',
-                'Provider Network Status (Primary)' => 'select',
-                'Provider Network Status (Secondary)' => 'select',
-                'Date of Birth' => 'date',
-                'Subscriber DOB (Primary)' => 'date',
-                'Subscriber DOB (Secondary)' => 'date',
-                'Date of Procedure' => 'date',
-                'Date' => 'date',
-                'Phone' => 'phone',
-                'Fax' => 'phone',
-                'Wound Size(s)' => 'text',
-                'Application CPT(s)' => 'multiselect',
-                'ICD-10 Diagnosis Code(s)' => 'multiselect',
+                'multiple_products' => 'checkbox',
+                'additional_products' => 'text',
+                'previous_use' => 'checkbox',
+                'previous_product_info' => 'text',
             ],
-            // Add more manufacturers as needed
+            'MedLife' => [
+                'amnio_amp_size' => 'select',
+            ],
+            'Centurion' => [
+                'previous_amnion_use' => 'checkbox',
+                'previous_product' => 'text',
+                'previous_date' => 'date',
+                'stat_order' => 'checkbox',
+            ],
+            'BioWerX' => [
+                'first_application' => 'checkbox',
+                'reapplication' => 'checkbox',
+                'previous_product' => 'text',
+            ],
+            'BioWound' => [
+                'california_facility' => 'checkbox',
+                'mesh_configuration' => 'select',
+                'previous_biologics_failed' => 'checkbox',
+                'failed_biologics_list' => 'text',
+            ],
+            'Extremity_Care' => [
+                'quarter' => 'radio',
+                'order_type' => 'select',
+            ],
+            'Skye_Biologics' => [
+                'shipping_speed_required' => 'select',
+                'temperature_controlled' => 'checkbox',
+            ],
+            'Total_Ancillary_Forms' => [
+                'universal_benefits_verified' => 'checkbox',
+                'facility_account_number' => 'text',
+            ],
         ];
 
-        return $fieldTypeDefinitions[$manufacturerKey] ?? [];
+        // Merge common fields with manufacturer-specific fields
+        $manufacturerFields = $fieldTypeDefinitions[$manufacturerKey] ?? [];
+        return array_merge($fieldTypeDefinitions['common'], $manufacturerFields);
     }
 }

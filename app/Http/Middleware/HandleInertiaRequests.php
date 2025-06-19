@@ -105,11 +105,54 @@ class HandleInertiaRequests extends Middleware
                     'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
                     'can_see_order_totals' => $user->hasPermission('view-order-totals'),
                     'can_view_phi' => $user->hasPermission('view-phi'),
+                    'can_view_commission' => $user->hasPermission('view-commission'),
+                    'can_manage_commission' => $user->hasPermission('manage-commission'),
+                    'can_manage_orders' => $user->hasPermission('manage-orders'),
+                    'can_manage_products' => $user->hasPermission('manage-products'),
                     'is_super_admin' => $user->isSuperAdmin(),
                     'is_msc_admin' => $user->isMscAdmin(),
                     'is_provider' => $user->isProvider(),
+                    // Add access level fields for frontend components
+                    'pricing_access_level' => $this->getPricingAccessLevel($user),
+                    'commission_access_level' => $this->getCommissionAccessLevel($user),
                 ];
             },
         ]);
+    }
+    
+    /**
+     * Get pricing access level for the user
+     */
+    private function getPricingAccessLevel($user): string
+    {
+        if ($user->hasPermission('manage-financials')) {
+            return 'full';
+        }
+        
+        if ($user->hasPermission('view-msc-pricing') && $user->hasPermission('view-discounts')) {
+            return 'provider';
+        }
+        
+        if ($user->hasPermission('view-msc-pricing')) {
+            return 'limited';
+        }
+        
+        return 'none';
+    }
+    
+    /**
+     * Get commission access level for the user
+     */
+    private function getCommissionAccessLevel($user): string
+    {
+        if ($user->hasPermission('manage-commission')) {
+            return 'full';
+        }
+        
+        if ($user->hasPermission('view-commission')) {
+            return 'limited';
+        }
+        
+        return 'none';
     }
 }

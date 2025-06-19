@@ -87,7 +87,7 @@ class ProviderController extends Controller
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        return Inertia::render('Providers/Index', [
+        return Inertia::render('Admin/Providers/Index', [
             'providers' => $providers,
             'filters' => $request->only(['search', 'facility', 'status']),
             'facilities' => $facilities,
@@ -211,7 +211,7 @@ class ProviderController extends Controller
             'average_processing_time' => $this->getAverageProcessingTime($provider),
         ];
 
-        return Inertia::render('Providers/Show', [
+        return Inertia::render('Admin/Providers/Show', [
             'provider' => [
                 'id' => $provider->id,
                 'first_name' => $provider->first_name,
@@ -490,7 +490,7 @@ class ProviderController extends Controller
     public function credentials(Request $request)
     {
         $providerId = $request->query('provider_id');
-        
+
         if (!$providerId) {
             return redirect()->route('admin.providers.index')
                 ->with('error', 'Provider ID is required');
@@ -528,7 +528,7 @@ class ProviderController extends Controller
                 ->toArray();
         }
 
-        return Inertia::render('Providers/CredentialManagement', [
+        return Inertia::render('Admin/Providers/CredentialManagement', [
             'credentials' => $credentials,
             'user' => [
                 'id' => $provider->id,

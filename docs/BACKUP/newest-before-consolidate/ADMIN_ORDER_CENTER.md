@@ -149,7 +149,6 @@ IVR Sent
 System/Admin
 IVR form emailed to manufacturer
 
-
 IVR Confirmed
 Admin/manual input
 Confirmation received from manufacturer
@@ -158,11 +157,9 @@ Approved
 Admin
 Approved and ready to submit to manufacturer
 
-
 Sent Back
 Admin
 Sent to Provider for corrections (comments required)
-
 
 Denied
 Admin

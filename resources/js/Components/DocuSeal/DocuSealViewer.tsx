@@ -47,8 +47,6 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
         // Use demo endpoint if isDemo is true
         const endpoint = isDemo ? '/docuseal/demo/create-submission' : '/docuseal/create-submission';
 
-        console.log('Making request to:', endpoint);
-        console.log('Is demo:', isDemo);
 
         // Create DocuSeal submission with pre-filled data
         const response = await axios.post(endpoint, {
@@ -66,7 +64,6 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
           withCredentials: true, // Important for cookie-based auth
         });
 
-        console.log('DocuSeal response:', response.data);
 
         const { signing_url, submission_id, submitter_slug, data } = response.data;
 
@@ -127,7 +124,6 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
   };
 
   const handleComplete = (data: any) => {
-    console.log('DocuSeal form completed:', data);
     if (onComplete) {
       onComplete(data);
     }

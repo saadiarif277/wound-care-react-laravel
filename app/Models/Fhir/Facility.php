@@ -40,6 +40,10 @@ class Facility extends Model
         'zip_code',
         'phone',
         'email',
+        'contact_name',
+        'contact_phone',
+        'contact_email',
+        'contact_fax',
         'business_hours',
         'active',
     ];

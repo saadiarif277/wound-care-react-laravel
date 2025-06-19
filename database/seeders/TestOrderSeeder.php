@@ -14,7 +14,7 @@ class TestOrderSeeder extends Seeder
 {
     public function run()
     {
-        \DB::beginTransaction();
+        DB::beginTransaction();
         try {
             // Find or create necessary entities
             $account = \App\Models\Account::first() ?? \App\Models\Account::create([
@@ -191,9 +191,9 @@ class TestOrderSeeder extends Seeder
         $this->command->info('Product: ' . $product->name . ' with ' . count($sizes) . ' sizes');
         $this->command->info('Database ID: ' . $productRequest->id);
         
-        \DB::commit();
+        DB::commit();
         } catch (\Exception $e) {
-            \DB::rollback();
+            DB::rollback();
             throw $e;
         }
     }

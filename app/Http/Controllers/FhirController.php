@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\Auth;
 
 class FhirController extends Controller
 {
@@ -23,6 +24,11 @@ class FhirController extends Controller
      */
     public function createPatient(Request $request): JsonResponse
     {
+        // Check PHI permissions
+        if (!Auth::user()->hasPermission('manage-phi')) {
+            return $this->fhirError('forbidden', 'Insufficient permissions to manage PHI', 403);
+        }
+        
         try {
             // Validate the incoming PatientFormData structure
             $validator = Validator::make($request->all(), [
@@ -121,6 +127,11 @@ class FhirController extends Controller
      */
     public function readPatient(string $id): JsonResponse
     {
+        // Check PHI permissions
+        if (!Auth::user()->hasPermission('view-phi')) {
+            return $this->fhirError('forbidden', 'Insufficient permissions to view PHI', 403);
+        }
+        
         try {
             $fhirPatient = $this->fhirService->getPatientById($id);
 

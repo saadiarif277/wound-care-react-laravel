@@ -19,7 +19,7 @@ class FacilityController extends Controller
     public function index()
     {
         $user = Auth::user();
-        
+
         // Admin users see all facilities
         if ($user->hasPermission('manage-facilities')) {
             // Use a raw query (DB::table('facilities')->select(...)->get()) to load all records (including soft-deleted ones) from the facilities table.
@@ -48,7 +48,7 @@ class FacilityController extends Controller
                 'organizations' => $organizations,
             ]);
         }
-        
+
         // Other users (providers, office managers) see only their assigned facilities
         $facilities = $user->facilities()
             ->withoutGlobalScope(OrganizationScope::class)
@@ -61,7 +61,7 @@ class FacilityController extends Controller
                     ->where('facility_id', $facility->id)
                     ->where('relationship_type', 'provider')
                     ->count();
-                
+
                 return [
                     'id' => $facility->id,
                     'name' => $facility->name,
@@ -75,7 +75,7 @@ class FacilityController extends Controller
 
         // Use the appropriate view based on role
         $viewName = $user->hasPermission('view-providers') ? 'Provider/Facilities/Index' : 'Facilities/Index';
-        
+
         return Inertia::render($viewName, [
             'facilities' => $facilities,
         ]);
@@ -167,7 +167,7 @@ class FacilityController extends Controller
         }]);
 
         // Use the appropriate view based on role
-        $viewName = $user->hasPermission('view-providers') ? 'Provider/Facilities/Show' : 
+        $viewName = $user->hasPermission('view-providers') ? 'Provider/Facilities/Show' :
                    ($user->hasPermission('manage-facilities') ? 'Admin/Facilities/Show' : 'Facilities/Show');
 
         return Inertia::render($viewName, [
@@ -418,6 +418,10 @@ class FacilityController extends Controller
             'zip_code' => 'required|string|max:255',
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
+            'contact_name' => 'nullable|string|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_fax' => 'nullable|string|max:255',
             'npi' => 'nullable|string|max:255',
             'business_hours' => 'nullable|string',
             'active' => 'boolean',
@@ -445,6 +449,10 @@ class FacilityController extends Controller
             'zip_code' => 'required|string|max:255',
             'phone' => 'nullable|string|max:255',
             'email' => 'nullable|email|max:255',
+            'contact_name' => 'nullable|string|max:255',
+            'contact_phone' => 'nullable|string|max:255',
+            'contact_email' => 'nullable|email|max:255',
+            'contact_fax' => 'nullable|string|max:255',
             'npi' => 'nullable|string|max:255',
             'business_hours' => 'nullable|string',
             'active' => 'boolean',

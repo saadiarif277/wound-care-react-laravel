@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Head, router, useForm, usePage } from '@inertiajs/react';
+import { Head, router, useForm, usePage, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { ArrowLeft, ArrowRight, Check, Layout, Plus, Trash2, ShoppingCart } from 'lucide-react';
 import ProductSelectionStep from './Components/ProductSelectionStep';
@@ -15,6 +15,8 @@ import { themes, cn } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
 import { Button } from '@/Components/Button';
 import Heading from '@/Components/ui/Heading';
+import { Stepper, Step, StepLabel, StepContent } from '@/Components/ui/stepper';
+import ReviewAndSubmitStep from '@/Components/ProductRequest/Steps/ReviewAndSubmitStep';
 
 interface Props {
   woundTypes: Record<string, string>;
@@ -25,6 +27,7 @@ interface Props {
   }>;
   userFacilityId?: number;
   userSpecialty?: string;
+  prefillData: Record<string, any>;
 }
 
 interface PatientApiInput {
@@ -140,7 +143,8 @@ const ProductRequestCreate: React.FC<Props> = ({
   woundTypes,
   facilities,
   userFacilityId,
-  userSpecialty = 'wound_care_specialty'
+  userSpecialty = 'wound_care_specialty',
+  prefillData
 }) => {
   const { props } = usePage<any>();
   const userRole = props.userRole || 'provider';
@@ -295,7 +299,6 @@ const ProductRequestCreate: React.FC<Props> = ({
 
   const submitForm = async () => {
     try {
-      console.log('🚀 Submitting product request form...');
 
       // Convert patient_api_input to a plain object
       const patientApiInput = { ...formData.patient_api_input };
@@ -311,7 +314,6 @@ const ProductRequestCreate: React.FC<Props> = ({
         preserveState: true,
         preserveScroll: true,
         onSuccess: () => {
-          console.log('✅ Form submitted successfully');
           // Redirect to the product requests index page
           router.visit('/product-requests', { replace: true });
         },
@@ -503,7 +505,7 @@ const ProductRequestCreate: React.FC<Props> = ({
         );
       case 6:
         return (
-          <ReviewSubmitStep
+          <ReviewAndSubmitStep
             formData={formData}
             updateFormData={updateFormData}
             onSubmit={submitForm}

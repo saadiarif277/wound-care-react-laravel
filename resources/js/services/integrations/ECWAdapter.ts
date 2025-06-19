@@ -18,7 +18,6 @@ export class ECWAdapter {
   // This transformation might still be useful if the data from Laravel API
   // needs shaping before being used as PatientFormData in the UI.
   private transformECWApiResponseToFormData(ecwData: any): PatientFormData {
-    console.log('Transforming ECW API response to FormData:', ecwData);
     // Actual transformation logic here if needed
     return ecwData as PatientFormData; // Assuming Laravel API returns data compatible with PatientFormData
   }
@@ -46,7 +45,6 @@ export class ECWAdapter {
   // This transformation might be useful if Laravel API returns raw clinical documents
   // that need processing to extract specific wound assessment data.
   private extractWoundAssessmentDataFromApiResponse(documentation: any): ClinicalData {
-    console.log('Extracting wound assessment data from ECW API response:', documentation);
     // Actual extraction logic here, e.g., finding specific document sections or observations
     // return { woundDetails: documentation.find(doc => doc.type === 'wound-assessment')?.text || '' };
     return documentation as ClinicalData; // Assuming Laravel API returns data compatible with ClinicalData
@@ -76,7 +74,6 @@ export class ECWAdapter {
   }
 
   private transformECWSearchApiResponseToPatientFormDataArray(apiResponse: any): PatientFormData[] {
-    console.log('Transforming ECW search API response to PatientFormData[]:', apiResponse);
     // Assuming the API returns a FHIR bundle-like structure or an array of patient-like objects
     const patients = apiResponse?.entry?.map((e: any) => e.resource) || apiResponse || [];
     return patients.map((patient: any) => ({

@@ -56,7 +56,6 @@ export default function RolesIndex({ roles, permissions }: Props) {
 
   const handleCreateRole = () => {
     // Implementation for creating role
-    console.log('Creating role:', newRole);
     setShowCreateModal(false);
     setNewRole({ name: '', slug: '', description: '', permissions: [] });
   };
@@ -74,7 +73,6 @@ export default function RolesIndex({ roles, permissions }: Props) {
 
   const handleUpdateRole = () => {
     // Implementation for updating role
-    console.log('Updating role:', editingRole?.id, newRole);
     setShowEditModal(false);
     setEditingRole(null);
     setNewRole({ name: '', slug: '', description: '', permissions: [] });
@@ -83,7 +81,6 @@ export default function RolesIndex({ roles, permissions }: Props) {
   const handleDeleteRole = (role: Role) => {
     if (confirm(`Are you sure you want to delete the role "${role.name}"?`)) {
       // Implementation for deleting role
-      console.log('Deleting role:', role.id);
     }
   };
 

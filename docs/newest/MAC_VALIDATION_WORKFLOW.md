@@ -38,6 +38,7 @@ sequenceDiagram
 ### 2. Thorough Validation Flow
 
 Similar to Quick Check but includes:
+
 - Enhanced coverage analysis
 - Technology assessments
 - NCA tracking
@@ -48,6 +49,7 @@ Similar to Quick Check but includes:
 ## API Endpoints
 
 ### Quick Check
+
 ```http
 POST /api/v1/mac-validation/quick-check
 Content-Type: application/json
@@ -61,6 +63,7 @@ Content-Type: application/json
 ```
 
 **Response:**
+
 ```json
 {
     "success": true,
@@ -91,6 +94,7 @@ Content-Type: application/json
 ```
 
 ### Thorough Validation
+
 ```http
 POST /api/v1/mac-validation/thorough-validate
 Content-Type: application/json
@@ -128,18 +132,21 @@ Content-Type: application/json
 ## Key Components
 
 ### 1. MedicareMacValidationController
+
 - Handles HTTP requests
 - Validates input data
 - Orchestrates the validation process
 - Returns formatted responses
 
 ### 2. CmsCoverageApiService
+
 - Manages CMS API integration
 - Implements caching strategies
 - Handles API failures gracefully
 - Provides optimized search methods
 
 ### 3. Frontend Components
+
 - `resources/js/Pages/MACValidation/Index.tsx`
 - Quick Check form
 - Thorough Validation form
@@ -160,6 +167,7 @@ The system automatically determines MAC contractors based on ZIP codes:
 ## Policy Analysis
 
 The system analyzes:
+
 1. **Local Coverage Determinations (LCDs)** - State-specific policies
 2. **National Coverage Determinations (NCDs)** - National policies
 3. **Coverage criteria** - Medical necessity requirements
@@ -183,16 +191,19 @@ The system analyzes:
 ## Testing
 
 ### End-to-End Test
+
 ```bash
 php test-mac-validation-e2e.php
 ```
 
 ### API Test
+
 ```bash
 php test-mac-simple.php
 ```
 
 ### Frontend Test
+
 ```bash
 php test-frontend-visual.php
 ```
@@ -200,28 +211,35 @@ php test-frontend-visual.php
 ## Common Use Cases
 
 ### 1. Quick Coverage Check
+
 Provider enters minimal data to quickly verify if a service is likely covered.
 
 ### 2. Pre-Authorization Check
+
 Detailed validation to determine if prior authorization is required.
 
 ### 3. Documentation Requirements
+
 Comprehensive analysis to understand what documentation is needed for reimbursement.
 
 ### 4. Multi-Service Validation
+
 Checking coverage for multiple HCPCS/CPT codes simultaneously.
 
 ## Troubleshooting
 
 ### Issue: "Policies Analyzed: 0"
+
 - **Cause**: CMS API field mapping issues
 - **Solution**: Fixed in CmsCoverageApiService.php
 
 ### Issue: 502 Bad Gateway
+
 - **Cause**: CMS API temporarily unavailable
 - **Solution**: System uses fallback sample data
 
 ### Issue: Authentication Required
+
 - **Cause**: Frontend requires user login
 - **Solution**: Use authenticated session or API directly
 

@@ -37,7 +37,6 @@ const logEvent = (level: 'info' | 'error', message: string, data?: Record<string
         console.error('[DocuSeal Error]', logData);
         // TODO: Send to error tracking service (e.g., Sentry)
     } else {
-        console.log('[DocuSeal Info]', logData);
         // TODO: Send to analytics service
     }
 };

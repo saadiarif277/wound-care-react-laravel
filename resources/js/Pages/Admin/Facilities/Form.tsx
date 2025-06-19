@@ -19,6 +19,10 @@ interface Props {
     active: boolean;
     coordinating_sales_rep_id?: number;
     organization_id: number;
+    contact_name?: string;
+    contact_phone?: string;
+    contact_email?: string;
+    contact_fax?: string;
   };
   organizations: Array<{
     id: number;
@@ -46,6 +50,10 @@ const FacilityForm: React.FC<Props> = ({ facility, organizations, salesReps = []
     active: facility?.active ?? true,
     coordinating_sales_rep_id: facility?.coordinating_sales_rep_id || '',
     organization_id: facility?.organization_id || '',
+    contact_name: facility?.contact_name || '',
+    contact_phone: facility?.contact_phone || '',
+    contact_email: facility?.contact_email || '',
+    contact_fax: facility?.contact_fax || '',
   });
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
@@ -320,6 +328,86 @@ const FacilityForm: React.FC<Props> = ({ facility, organizations, salesReps = []
                     />
                     {errors.email && (
                       <p className="mt-2 text-sm text-red-600">{errors.email}</p>
+                    )}
+                  </div>
+
+                  {/* Contact Name */}
+                  <div>
+                    <label htmlFor="contact_name" className="block text-sm font-medium text-gray-700">
+                      Contact Name
+                    </label>
+                    <input
+                      type="text"
+                      name="contact_name"
+                      id="contact_name"
+                      value={formData.contact_name}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border ${
+                        errors.contact_name ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
+                    {errors.contact_name && (
+                      <p className="mt-2 text-sm text-red-600">{errors.contact_name}</p>
+                    )}
+                  </div>
+
+                  {/* Contact Phone */}
+                  <div>
+                    <label htmlFor="contact_phone" className="block text-sm font-medium text-gray-700">
+                      Contact Phone
+                    </label>
+                    <input
+                      type="tel"
+                      name="contact_phone"
+                      id="contact_phone"
+                      value={formData.contact_phone}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border ${
+                        errors.contact_phone ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
+                    {errors.contact_phone && (
+                      <p className="mt-2 text-sm text-red-600">{errors.contact_phone}</p>
+                    )}
+                  </div>
+
+                  {/* Contact Email */}
+                  <div>
+                    <label htmlFor="contact_email" className="block text-sm font-medium text-gray-700">
+                      Contact Email
+                    </label>
+                    <input
+                      type="email"
+                      name="contact_email"
+                      id="contact_email"
+                      value={formData.contact_email}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border ${
+                        errors.contact_email ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
+                    {errors.contact_email && (
+                      <p className="mt-2 text-sm text-red-600">{errors.contact_email}</p>
+                    )}
+                  </div>
+
+                  {/* Contact Fax */}
+                  <div>
+                    <label htmlFor="contact_fax" className="block text-sm font-medium text-gray-700">
+                      Contact Fax
+                    </label>
+                    <input
+                      type="tel"
+                      name="contact_fax"
+                      id="contact_fax"
+                      value={formData.contact_fax}
+                      onChange={handleChange}
+                      className={`mt-1 block w-full border ${
+                        errors.contact_fax ? 'border-red-300' : 'border-gray-300'
+                      } rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm`}
+                    />
+                    {errors.contact_fax && (
+                      <p className="mt-2 text-sm text-red-600">{errors.contact_fax}</p>
                     )}
                   </div>
 

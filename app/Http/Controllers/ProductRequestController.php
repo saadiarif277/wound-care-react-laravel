@@ -180,16 +180,43 @@ class ProductRequestController extends Controller
 
     public function create()
     {
-        $user = Auth::user()->load('roles');
+        $user = Auth::user()->load([
+            'providerProfile',
+            'providerCredentials',
+            'organizations' => fn($q) => $q->where('organization_user.current', true),
+            'facilities'
+        ]);
 
-        // Get all facilities using DB query and hydration
-        $facilities_raw = DB::table('facilities')
-            ->select('id', 'name', 'address', 'organization_id', 'created_at', 'updated_at', 'deleted_at')
-            ->orderBy('name')
-            ->get();
-        $facilities = Facility::hydrate($facilities_raw->toArray());
+        $currentOrg = $user->organizations->first();
+        $primaryFacility = $user->facilities()->where('facility_user.is_primary', true)->first() ?? $user->facilities->first();
+
+        $prefillData = [
+            'provider_name' => $user->first_name . ' ' . $user->last_name,
+            'provider_npi' => $user->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
+            'provider_ptan' => $user->providerCredentials->where('credential_type', 'ptan')->first()->credential_number ?? null,
+
+            'organization_name' => $currentOrg->name ?? null,
+            'organization_tax_id' => $currentOrg->tax_id ?? null,
+
+            'facility_id' => $primaryFacility->id ?? null,
+            'facility_name' => $primaryFacility->name ?? null,
+            'facility_address' => $primaryFacility->full_address ?? null,
+            'facility_phone' => $primaryFacility->phone ?? null,
+            'facility_npi' => $primaryFacility->npi ?? null,
+            'default_place_of_service' => $primaryFacility->default_place_of_service ?? '11',
+
+            'billing_address' => $currentOrg->billing_address ?? null,
+            'billing_city' => $currentOrg->billing_city ?? null,
+            'billing_state' => $currentOrg->billing_state ?? null,
+            'billing_zip' => $currentOrg->billing_zip ?? null,
+
+            'ap_contact_name' => $currentOrg->ap_contact_name ?? null,
+            'ap_contact_email' => $currentOrg->ap_contact_email ?? null,
+            'ap_contact_phone' => $currentOrg->ap_contact_phone ?? null,
+        ];
 
         return Inertia::render('ProductRequest/Create', [
+            'prefillData' => $prefillData,
             'roleRestrictions' => [
                 'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
                 'can_see_discounts' => $user->hasPermission('view-discounts'),
@@ -198,8 +225,8 @@ class ProductRequestController extends Controller
                 'pricing_access_level' => $this->getPricingAccessLevel($user),
             ],
             'woundTypes' => ProductRequest::getWoundTypeDescriptions(),
-            'facilities' => $facilities->toArray(),
-            'userFacilityId' => $user->facility_id ?? null,
+            'facilities' => $user->facilities->map(fn($f) => ['id' => $f->id, 'name' => $f->name])->toArray(),
+            'userFacilityId' => $primaryFacility->id ?? null,
         ]);
     }
 
@@ -923,12 +950,12 @@ class ProductRequestController extends Controller
             );
 
             // Create FHIR Bundle and send to Azure
-        $bundleResponse = $checklistService->createPreApplicationAssessment(
-            $checklistInput,
-            $productRequest->patient_fhir_id,
-            'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
-            'Organization/' . $productRequest->facility_id
-        );
+            $bundleResponse = $checklistService->createPreApplicationAssessment(
+                $checklistInput,
+                $productRequest->patient_fhir_id,
+                'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
+                'Organization/' . $productRequest->facility_id
+            );
 
             // Extract the DocumentReference ID from the bundle response
             $documentReferenceId = null;

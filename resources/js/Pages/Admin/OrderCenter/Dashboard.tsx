@@ -183,10 +183,11 @@ export default function Dashboard({ orders, activeFilter }: Props) {
                                                 ? 'bg-indigo-600 text-white'
                                                 : 'bg-white text-gray-700 hover:bg-gray-50'
                                         } border rounded`}
-                                        dangerouslySetInnerHTML={{ __html: link.label }}
                                         preserveState
                                         preserveScroll
-                                    />
+                                    >
+                                        <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                                    </Link>
                                 ))}
                             </div>
                         </div>

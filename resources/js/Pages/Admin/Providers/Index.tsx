@@ -394,8 +394,9 @@ export default function ProvidersIndex({ providers, filters, organizations, summ
                           ? 'bg-white/[0.07] text-white/75 hover:bg-white/[0.11] hover:text-white/95 border border-white/[0.12] hover:border-white/[0.18]'
                           : 'bg-white/[0.03] text-white/30 cursor-not-allowed border border-white/[0.08]'
                       }`}
-                      dangerouslySetInnerHTML={{ __html: link.label }}
-                    />
+                    >
+                      <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                    </button>
                   ))}
                 </div>
               </div>

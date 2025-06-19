@@ -117,7 +117,6 @@ const ProductRequestShow: React.FC<Props> = ({ request, roleRestrictions }) => {
   const handleProductsChange = (products: SelectedProduct[]) => {
     setSelectedProducts(products);
     // Here you could make an API call to update the product request
-    console.log('Products updated:', products);
   };
 
   const handleSubmit = () => {

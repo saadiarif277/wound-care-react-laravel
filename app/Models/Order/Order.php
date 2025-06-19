@@ -9,6 +9,8 @@ use App\Models\Order\Manufacturer;
 use App\Models\MscSalesRep;
 use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Model;
+use App\Models\PatientIVRStatus;
+// use App\Models\Document; // TODO: Uncomment and fix if Document model is created
 
 class Order extends Model
 {
@@ -161,4 +163,24 @@ class Order extends Model
     {
         return 'id';
     }
+
+    /**
+     * Get the IVR episode (patient_manufacturer_ivr_episodes) associated with this order.
+     */
+    public function ivrEpisode()
+    {
+        // Reference the episode model directly
+        return $this->belongsTo(\App\Models\PatientIVRStatus::class, 'ivr_episode_id');
+    }
+
+    /**
+     * Get the confirmation documents for this order.
+     * TODO: Implement when Document model is available
+     */
+    // public function confirmationDocuments()
+    // {
+    //     return $this->hasMany(Document::class, 'documentable_id')
+    //         ->where('documentable_type', 'order')
+    //         ->where('type', 'confirmation');
+    // }
 }

@@ -136,6 +136,7 @@ export default function InvitationsIndex({ auth, invitations, flash }: Invitatio
             </p>
             <button
               onClick={() => setShowSuccessMessage(false)}
+              title="Close"
               className="ml-auto text-green-600 hover:text-green-800"
             >
               <FiX className="w-4 h-4" />
@@ -199,15 +200,17 @@ export default function InvitationsIndex({ auth, invitations, flash }: Invitatio
                   Role *
                 </label>
                 <select
-                  value={data.role}
-                  onChange={(e) => setData('role', e.target.value)}
-                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors ${
-                    errors.role
-                      ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                      : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                  }`}
-                  required
-                >
+                    id="role"
+                    title="Role"
+                    value={data.role}
+                    onChange={(e) => setData('role', e.target.value)}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 transition-colors ${
+                      errors.role
+                        ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
+                        : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
+                    }`}
+                    required
+                  >
                   <option value="">Select role</option>
                   {roles.map((role) => (
                     <option key={role.value} value={role.value}>

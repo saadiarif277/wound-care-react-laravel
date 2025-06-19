@@ -1,17 +1,14 @@
 import React, { useState } from 'react';
-import { Head, useForm } from '@inertiajs/react';
+import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Button } from '@/Components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Progress } from '@/Components/ui/progress';
-import { Badge } from '@/Components/ui/badge';
+import { Card } from '@/Components/Card';
 import {
     CheckCircle2,
     FileText,
     Shield,
     Settings,
     Upload,
-    AlertTriangle,
     Building2,
     Users,
     CreditCard,
@@ -22,12 +19,18 @@ interface OnboardingStep {
     id: number;
     title: string;
     description: string;
-    icon: any;
+    icon: React.ComponentType<{ className?: string }>;
     required: boolean;
     completed: boolean;
 }
 
 interface OnboardingFormData {
+    [key: string]: File | null | boolean | string | number | Array<{
+        email: string;
+        role: string;
+        first_name: string;
+        last_name: string;
+    }> | undefined;
     // Documents
     business_license: File | null;
     insurance_certificate: File | null;
@@ -56,6 +59,8 @@ interface OnboardingFormData {
         first_name: string;
         last_name: string;
     }>;
+    
+    step?: number;
 }
 
 interface OrganizationSetupWizardProps {
@@ -158,12 +163,9 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             setCurrentStep(nextStep);
         }
 
-        // Save progress to backend
-        post(`/api/v1/onboarding/${organization.id}/progress`, {
-            data: {
-                step: stepId,
-                ...data
-            },
+        // Save progress to backend by merging step into form data
+        post(route('onboarding.save-progress'), {
+            data: { ...data, step: stepId },
             preserveScroll: true,
             onSuccess: () => {
                 toast.success('Progress saved successfully');
@@ -193,7 +195,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                         <div className="flex items-center justify-between mb-2">
                             <h3 className="text-sm font-medium text-gray-900">{doc.label}</h3>
                             {doc.required && (
-                                <Badge variant="destructive" className="text-xs">Required</Badge>
+                                <span className="text-xs px-2 py-1 bg-red-100 text-red-800 rounded-full">Required</span>
                             )}
                         </div>
 
@@ -204,7 +206,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                 accept=".pdf,.doc,.docx,.jpg,.png"
                                 onChange={(e) => {
                                     const file = e.target.files?.[0] || null;
-                                    setData(doc.key as keyof OnboardingFormData, file);
+                                    setData(doc.key as keyof OnboardingFormData, file as any);
                                 }}
                                 className="hidden"
                                 id={`upload-${doc.key}`}
@@ -265,9 +267,13 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                 I acknowledge that our organization will handle PHI in accordance with HIPAA regulations
                                 and will implement appropriate safeguards.
                             </p>
-                            <a href="#" className="text-blue-600 text-sm hover:underline">
+                            <button
+                                type="button"
+                                className="text-blue-600 text-sm hover:underline text-left"
+                                onClick={() => window.open('/policies/hipaa', '_blank')}
+                            >
                                 View HIPAA Policy →
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -289,9 +295,13 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                 I agree to the terms of the Business Associate Agreement and understand our
                                 responsibilities as a covered entity.
                             </p>
-                            <a href="#" className="text-purple-600 text-sm hover:underline">
+                            <button
+                                type="button"
+                                className="text-purple-600 text-sm hover:underline text-left"
+                                onClick={() => window.open('/documents/baa', '_blank')}
+                            >
                                 Download BAA →
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -312,16 +322,20 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             <p className="text-sm text-gray-600 mt-1">
                                 I confirm that key staff members have completed required compliance training modules.
                             </p>
-                            <a href="#" className="text-orange-600 text-sm hover:underline">
+                            <button
+                                type="button"
+                                className="text-orange-600 text-sm hover:underline text-left"
+                                onClick={() => window.open('/training/compliance', '_blank')}
+                            >
                                 Start Training →
-                            </a>
+                            </button>
                         </div>
                     </div>
                 </div>
             </div>
 
             <div className="flex justify-between">
-                <Button variant="secondary" onClick={() => setCurrentStep(1)}>
+                <Button type="button" variant="secondary" onClick={() => setCurrentStep(1)}>
                     Back
                 </Button>
                 <Button
@@ -344,13 +358,16 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
 
             <div className="space-y-4">
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="payment-method" className="block text-sm font-medium text-gray-700 mb-2">
                         Payment Method
                     </label>
                     <select
+                        id="payment-method"
                         value={data.payment_method}
                         onChange={(e) => setData('payment_method', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        aria-label="Payment method"
+                        title="Payment method"
                     >
                         <option value="">Select payment method</option>
                         <option value="net_terms">Net Terms (Invoice)</option>
@@ -360,26 +377,30 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                 </div>
 
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="billing-email" className="block text-sm font-medium text-gray-700 mb-2">
                         Billing Contact Email
                     </label>
                     <input
+                        id="billing-email"
                         type="email"
                         value={data.billing_contact_email}
                         onChange={(e) => setData('billing_contact_email', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         placeholder="billing@organization.com"
+                        aria-label="Billing contact email"
                     />
                 </div>
 
                 {data.payment_method === 'net_terms' && (
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                        <label htmlFor="net-terms" className="block text-sm font-medium text-gray-700 mb-2">
                             Net Terms
                         </label>
                         <select
+                            id="net-terms"
                             value={data.net_terms}
                             onChange={(e) => setData('net_terms', parseInt(e.target.value))}
+                            aria-label="Net terms"
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             <option value={15}>Net 15</option>
@@ -416,6 +437,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                         value={data.ehr_system}
                         onChange={(e) => setData('ehr_system', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        title="EHR system"
                     >
                         <option value="">Select EHR system</option>
                         <option value="epic">Epic</option>
@@ -463,7 +485,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="secondary" onClick={() => setCurrentStep(3)}>
+                <Button type="button" variant="secondary" onClick={() => setCurrentStep(3)}>
                     Back
                 </Button>
                 <Button onClick={() => handleStepComplete(4)}>
@@ -531,6 +553,8 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                 setData('additional_users', users);
                             }}
                             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            aria-label="Team member role"
+                            title="Team member role"
                         >
                             <option value="">Select role</option>
                             <option value="provider">Provider</option>
@@ -543,6 +567,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <Button
+                type="button"
                 variant="secondary"
                 onClick={() => {
                     setData('additional_users', [
@@ -555,7 +580,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </Button>
 
             <div className="flex justify-between">
-                <Button variant="secondary" onClick={() => setCurrentStep(4)}>
+                <Button type="button" variant="secondary" onClick={() => setCurrentStep(4)}>
                     Back
                 </Button>
                 <Button onClick={() => handleStepComplete(5)}>
@@ -601,7 +626,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
 
             <div className="flex justify-between">
-                <Button variant="secondary" onClick={() => setCurrentStep(5)}>
+                <Button type="button" variant="secondary" onClick={() => setCurrentStep(5)}>
                     Back
                 </Button>
                 <Button
@@ -632,26 +657,30 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
 
             <div className="py-12">
                 <div className="max-w-4xl mx-auto sm:px-6 lg:px-8">
-                    <Card>
-                        <CardHeader>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <CardTitle className="flex items-center gap-2">
-                                        <Building2 className="h-6 w-6" />
-                                        {organization.name} Setup
-                                    </CardTitle>
-                                    <p className="text-sm text-gray-600 mt-1">
-                                        Complete your organization setup to start using the MSC Portal
-                                    </p>
-                                </div>
-                                <Badge variant="outline">
-                                    {Math.round(progress)}% Complete
-                                </Badge>
+                    <Card
+                        title={
+                            <div className="flex items-center gap-2">
+                                <Building2 className="h-6 w-6" />
+                                {organization.name} Setup
                             </div>
-                            <Progress value={progress} className="mt-4" />
-                        </CardHeader>
-
-                        <CardContent>
+                        }
+                    >
+                        <div className="mb-6">
+                            <div className="flex items-center justify-between mb-4">
+                                <p className="text-sm text-gray-600">
+                                    Complete your organization setup to start using the MSC Portal
+                                </p>
+                                <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
+                                    {Math.round(progress)}% Complete
+                                </span>
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                    style={{ width: `${progress}%` }}
+                                />
+                            </div>
+                        </div>
                             {/* Step Navigation */}
                             <div className="mb-8">
                                 <nav className="flex justify-between">
@@ -685,7 +714,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                                         {step.title}
                                                     </p>
                                                     {step.required && !isCompleted && (
-                                                        <Badge variant="destructive" className="text-xs mt-1">Required</Badge>
+                                                        <span className="text-xs mt-1 px-2 py-0.5 bg-red-100 text-red-800 rounded-full">Required</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -698,7 +727,6 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             <div className="min-h-[400px]">
                                 {renderStepContent()}
                             </div>
-                        </CardContent>
                     </Card>
                 </div>
             </div>

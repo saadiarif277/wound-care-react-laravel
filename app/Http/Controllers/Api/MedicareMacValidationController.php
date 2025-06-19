@@ -178,7 +178,7 @@ class MedicareMacValidationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Quick validation failed. Please try again.',
-                'error' => env('APP_DEBUG', false) ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -400,7 +400,7 @@ class MedicareMacValidationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Thorough validation failed. Please try again.',
-                'error' => env('APP_DEBUG', false) ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -497,7 +497,7 @@ class MedicareMacValidationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Order validation failed. Please try again.',
-                'error' => env('APP_DEBUG', false) ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }
@@ -542,7 +542,7 @@ class MedicareMacValidationController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve validation data',
-                'error' => env('APP_DEBUG', false) ? $e->getMessage() : 'Internal server error'
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal server error'
             ], 500);
         }
     }

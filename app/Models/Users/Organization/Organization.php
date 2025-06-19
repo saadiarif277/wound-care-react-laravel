@@ -43,6 +43,13 @@ class Organization extends Model
         'region',
         'country',
         'postal_code',
+        'billing_address',
+        'billing_city',
+        'billing_state',
+        'billing_zip',
+        'ap_contact_name',
+        'ap_contact_phone',
+        'ap_contact_email',
         'fhir_id', // Added Organization FHIR ID
     ];
 

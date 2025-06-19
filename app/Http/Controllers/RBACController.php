@@ -26,8 +26,8 @@ class RBACController extends Controller
     public function index(): Response
     {
         $roles = Role::with(['permissions', 'users'])->get();
-        $permissions = Permission::all();
-        $users = User::with('roles')->get();
+        $permissions = Permission::orderBy('name')->get();
+        $users = User::with('roles')->limit(100)->get(); // Limit users for performance
 
         // Get role statistics
         $roleStats = $roles->map(function ($role) {
@@ -365,7 +365,7 @@ class RBACController extends Controller
     {
         return response()->json([
             'role' => $role->load('permissions'),
-            'all_permissions' => Permission::all(),
+            'all_permissions' => Permission::orderBy('name')->get(),
         ]);
     }
 

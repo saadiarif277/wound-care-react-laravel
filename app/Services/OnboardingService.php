@@ -15,6 +15,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use App\Models\Fhir\Facility;
+use App\Models\Users\Provider\ProviderCredential;
 
 class OnboardingService
 {
@@ -214,7 +215,7 @@ class OnboardingService
      */
     public function acceptProviderInvitation(string $token, array $registrationData): array
     {
-        // Validate registration data
+        // 1. Validate the incoming data
         $this->validateRegistrationData($registrationData);
 
         $invitation = ProviderInvitation::where('invitation_token', $token)
@@ -224,73 +225,195 @@ class OnboardingService
 
         if (!$invitation) {
             Log::warning('Invalid or expired invitation token used', ['token' => substr($token, 0, 8) . '...']);
-            return [
-                'success' => false,
-                'message' => 'Invalid or expired invitation'
-            ];
+            return ['success' => false, 'message' => 'Invalid or expired invitation.'];
         }
 
         DB::beginTransaction();
         try {
-            // Create user account
+            $organization = $this->getOrCreateOrganization($registrationData, $invitation);
+            $facility = $this->getOrCreateFacility($registrationData, $organization);
+
+            // 2. Create the User account
             $user = User::create([
-                'account_id' => $invitation->organization->account_id,
-                'first_name' => $registrationData['first_name'] ?? $invitation->first_name,
-                'last_name' => $registrationData['last_name'] ?? $invitation->last_name,
+                'account_id' => $organization->account_id, // Inherit from organization
+                'first_name' => $registrationData['first_name'],
+                'last_name' => $registrationData['last_name'],
                 'email' => $invitation->email,
                 'password' => bcrypt($registrationData['password']),
-                'email_verified_at' => now()
+                'email_verified_at' => now(),
+                'title' => $registrationData['title'] ?? null,
+                'phone' => $registrationData['phone'] ?? null,
             ]);
 
-            // Assign provider role
+            // 3. Assign roles and associate with organization
             $providerRole = \App\Models\Role::where('slug', 'provider')->first();
             if ($providerRole) {
                 $user->assignRole($providerRole);
             }
+            $user->organizations()->attach($organization->id, ['current' => true]);
+            $user->current_organization_id = $organization->id;
+            $user->save();
 
-            // Create provider checklist
-            $this->createChecklist(
-                $user->id,
-                self::ENTITY_TYPE_USER,
-                self::CHECKLIST_TYPE_PROVIDER,
-                $this->providerChecklist
-            );
 
-            // Update invitation
+            // 4. Associate User with the Facility
+            $facility->users()->attach($user->id, ['role' => 'provider']);
+
+
+            // 5. Create ProviderProfile
+            $user->providerProfile()->create([
+                'provider_id' => $user->id,
+                'specializations' => !empty($registrationData['specialty']) ? [$registrationData['specialty']] : [],
+                'created_by' => $user->id,
+                'updated_by' => $user->id,
+            ]);
+
+
+            // 6. Create ProviderCredentials
+            $this->createProviderCredentials($user->id, $registrationData);
+
+            // 7. Finalize invitation
             $invitation->update([
                 'status' => 'accepted',
                 'accepted_at' => now(),
-                'created_user_id' => $user->id
+                'created_user_id' => $user->id,
             ]);
-
-            // Send welcome email
-            $this->sendProviderWelcomeEmail($user);
 
             DB::commit();
 
-            Log::info('Provider registration completed successfully', [
+            Log::info('Provider invitation accepted and user onboarded successfully', [
                 'user_id' => $user->id,
-                'email' => $user->email,
-                'invitation_id' => $invitation->id
+                'organization_id' => $organization->id,
+                'facility_id' => $facility->id,
+                'invitation_id' => $invitation->id,
             ]);
 
-            return [
-                'success' => true,
-                'message' => 'Registration successful',
-                'user' => $user
-            ];
+            return ['success' => true, 'user' => $user];
+
+        } catch (ValidationException $e) {
+            DB::rollBack();
+            Log::error('Validation failed during provider invitation acceptance.', [
+                'token' => substr($token, 0, 8),
+                'errors' => $e->errors(),
+            ]);
+            return ['success' => false, 'message' => 'Validation failed.', 'errors' => $e->errors()];
         } catch (\Exception $e) {
             DB::rollBack();
-
-            Log::error('Provider registration failed', [
-                'token' => substr($token, 0, 8) . '...',
-                'error' => $e->getMessage()
+            Log::error('Failed to accept provider invitation', [
+                'token' => substr($token, 0, 8),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
+            return ['success' => false, 'message' => 'An unexpected error occurred during registration.'];
+        }
+    }
 
-            return [
-                'success' => false,
-                'message' => 'Registration failed: ' . $e->getMessage()
-            ];
+    /**
+     * Get or create an organization based on the registration data.
+     */
+    private function getOrCreateOrganization(array $data, ProviderInvitation $invitation): Organization
+    {
+        if (in_array($data['practice_type'], ['solo_practitioner', 'group_practice'])) {
+            // For new practices, create a new organization
+            return Organization::create([
+                'name' => $data['organization_name'],
+                'type' => $data['organization_type'] ?? 'healthcare', // Default or from form
+                'tax_id' => $data['organization_tax_id'] ?? null,
+                'status' => 'active',
+                'billing_address' => $data['billing_address'] ?? null,
+                'billing_city' => $data['billing_city'] ?? null,
+                'billing_state' => $data['billing_state'] ?? null,
+                'billing_zip' => $data['billing_zip'] ?? null,
+                'ap_contact_name' => $data['ap_contact_name'] ?? null,
+                'ap_contact_phone' => $data['ap_contact_phone'] ?? null,
+                'ap_contact_email' => $data['ap_contact_email'] ?? null,
+                // Assuming account_id is handled by a separate process or is nullable
+            ]);
+        }
+
+        // For providers joining an existing practice, load from invitation
+        return $invitation->organization;
+    }
+
+    /**
+     * Get or create a facility based on the registration data.
+     */
+    private function getOrCreateFacility(array $data, Organization $organization): Facility
+    {
+        if (in_array($data['practice_type'], ['solo_practitioner', 'group_practice'])) {
+             // For new practices, create a new facility
+            return Facility::create([
+                'organization_id' => $organization->id,
+                'name' => $data['facility_name'],
+                'facility_type' => $data['facility_type'],
+                'group_npi' => $data['group_npi'] ?? null,
+                'tax_id' => $data['facility_tax_id'] ?? $organization->tax_id, // Inherit from org if not provided
+                'ptan' => $data['facility_ptan'] ?? null,
+                'default_place_of_service' => $data['default_place_of_service'] ?? '11',
+                'status' => 'active',
+                'address' => $data['facility_address'],
+                'city' => $data['facility_city'],
+                'state' => $data['facility_state'],
+                'zip_code' => $data['facility_zip'],
+                'phone' => $data['facility_phone'] ?? null,
+                'email' => $data['facility_email'] ?? null,
+                'contact_name' => $data['ap_contact_name'] ?? null, // Use AP contact as default facility contact
+                'contact_phone' => $data['ap_contact_phone'] ?? null,
+                'contact_email' => $data['ap_contact_email'] ?? null,
+                'active' => true,
+            ]);
+        }
+
+        // For providers joining an existing practice, we need a way to select the facility.
+        // This assumes a facility_id is passed in the registration data.
+        // This part may need refinement based on the final UI for joining existing orgs.
+        if (isset($data['facility_id'])) {
+            return Facility::where('id', $data['facility_id'])
+                ->where('organization_id', $organization->id)
+                ->firstOrFail();
+        }
+
+        // Fallback: If only one facility exists for the org, use it.
+        if ($organization->facilities()->count() === 1) {
+            return $organization->facilities()->first();
+        }
+
+        // If multiple facilities exist and none is specified, we have a problem.
+        // This should be handled by the UI forcing a selection.
+        throw new \Exception('No facility specified for an organization with multiple facilities.');
+    }
+
+    /**
+     * Create provider credential records from registration data.
+     */
+    private function createProviderCredentials(int $providerId, array $data): void
+    {
+        $credentials = [
+            'individual_npi' => [
+                'type' => 'npi_number',
+                'number' => $data['individual_npi'] ?? null,
+            ],
+            'medical_license' => [
+                'type' => 'medical_license',
+                'number' => $data['license_number'] ?? null,
+                'state' => $data['license_state'] ?? null,
+            ],
+            'ptan' => [
+                'type' => 'ptan',
+                'number' => $data['ptan'] ?? null,
+            ],
+        ];
+
+        foreach ($credentials as $key => $cred) {
+            if (!empty($cred['number'])) {
+                ProviderCredential::create([
+                    'provider_id' => $providerId,
+                    'credential_type' => $cred['type'],
+                    'credential_number' => $cred['number'],
+                    'issuing_state' => $cred['state'] ?? null,
+                    'is_primary' => true,
+                    'verification_status' => 'pending', // Always start as pending
+                ]);
+            }
         }
     }
 

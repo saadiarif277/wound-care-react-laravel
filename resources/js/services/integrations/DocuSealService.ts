@@ -32,7 +32,6 @@ export class DocuSealService {
   // Maps to initializeDocumentWorkflow in Create.tsx
   // Corresponds to POST /api/v1/docuseal/generate on the backend (DocuSealController@generateDocument)
   async createSession(sessionData: DocuSealSessionData): Promise<DocuSealSession> {
-    console.log('Requesting DocuSeal session from Laravel backend:', sessionData);
 
     const response = await fetch(`${LARAVEL_API_BASE_URL}/docuseal/generate`, {
       method: 'POST',
@@ -63,7 +62,6 @@ export class DocuSealService {
   // to receive updates from DocuSeal. This frontend method would then either poll
   // for status or connect via WebSockets/SSE if implemented.
   onStatusChange(sessionId: string, callback: StatusChangeCallback): () => void {
-    console.log(`Setting up status change listener for DocuSeal session ID (submission ID): ${sessionId}`);
 
     // Polling placeholder - REPLACE with a more robust solution (WebSockets, SSE, or smarter polling)
     let isCancelled = false;
@@ -99,7 +97,6 @@ export class DocuSealService {
     setTimeout(poll, 0); // Start polling
 
     return () => {
-      console.log(`Tearing down status change listener for DocuSeal session: ${sessionId}`);
       isCancelled = true;
     };
   }
@@ -107,7 +104,6 @@ export class DocuSealService {
   // For SignatureWorkflow.tsx: getSignedDocument
   // Corresponds to GET /api/v1/docuseal/download/{submissionId} or similar on the backend
   async getSignedDocument(sessionId: string): Promise<SignedDocument> {
-    console.log(`Fetching signed document details for session ID (submission ID): ${sessionId}`);
 
     // This might fetch metadata about the signed document, including its URL
     // Or directly trigger a download if the backend endpoint is set up for that.

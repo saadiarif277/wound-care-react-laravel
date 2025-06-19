@@ -27,10 +27,20 @@ class ContactsController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        $contacts = Contact::all();
-        return response()->json(['contacts' => $contacts]);
+        $contacts = Contact::orderBy('created_at', 'desc')
+            ->paginate($request->input('per_page', 20));
+            
+        return response()->json([
+            'contacts' => $contacts->items(),
+            'pagination' => [
+                'current_page' => $contacts->currentPage(),
+                'last_page' => $contacts->lastPage(),
+                'per_page' => $contacts->perPage(),
+                'total' => $contacts->total(),
+            ]
+        ]);
     }
 
     public function store(Request $request)

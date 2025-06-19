@@ -122,6 +122,7 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
 ### Required Transformations
 
 1. **Wound Type Mapping**
+
    ```php
    function mapWoundType($internalType) {
        $mapping = [
@@ -136,6 +137,7 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
    ```
 
 2. **ICD-10 Code Derivation**
+
    ```php
    function getICD10FromWoundType($woundType) {
        $icdMapping = [
@@ -149,6 +151,7 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
    ```
 
 3. **CPT Code Calculation**
+
    ```php
    function getCPTFromProduct($products) {
        // Based on product type and wound size
@@ -157,6 +160,7 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
    ```
 
 4. **Address Parsing**
+
    ```php
    function parseAddress($addressString) {
        // Parse single address field into components
@@ -167,6 +171,7 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
 ## Implementation Strategy
 
 ### Phase 1: Data Model Enhancements
+
 1. Add missing fields to Facility model:
    - `npi` (string)
    - `tax_id` (string)
@@ -181,17 +186,20 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
    - Payer name → Phone number mapping
 
 ### Phase 2: FHIR Integration Enhancement
+
 1. Implement patient address fetching
 2. Implement phone number retrieval
 3. Add Coverage resource queries for insurance details
 
 ### Phase 3: IVR Field Mapper Service
+
 1. Create `IVRFieldMapper` service class
 2. Implement all transformation functions
 3. Add manufacturer-specific field mappings
 4. Handle optional/conditional fields
 
 ### Phase 4: Workflow Integration
+
 1. Trigger IVR generation on `pending_ivr` status
 2. Populate all available fields automatically
 3. Flag missing required fields for manual entry
@@ -202,34 +210,42 @@ This document outlines the mapping strategy between the MSC Wound Portal's Produ
 Each manufacturer may have unique requirements:
 
 ### ACZ Distribution
+
 - Additional fields for lot tracking
 - Specific product codes
 
 ### Advanced Solution
+
 - Requires physician signature page
 - Additional clinical documentation
 
 ### MedLife Solutions
+
 - Simplified form with fewer fields
 - Direct submission capability
 
 ### BioWound Solutions
+
 - Enhanced clinical data requirements
 - Tissue type specifications
 
 ### Imbed Biosciences
+
 - Antimicrobial product tracking
 - Special handling instructions
 
 ### Extremity Care
+
 - Location-specific fields
 - Extremity mapping requirements
 
 ### StimLabs
+
 - Tissue processing information
 - Donor screening data
 
 ### Centurion Therapeutics
+
 - Standard universal form
 - No special requirements
 
@@ -253,6 +269,7 @@ Each manufacturer may have unique requirements:
 ## Validation Requirements
 
 ### Required Fields (Must Have)
+
 - Order number
 - Facility information (name, address, NPI)
 - Provider information (name, NPI)
@@ -262,11 +279,13 @@ Each manufacturer may have unique requirements:
 - Treatment date
 
 ### Conditional Fields
+
 - Medicare Part B authorization (if SNF)
 - Secondary insurance (if available)
 - Clinical documentation (based on payer)
 
 ### Optional Fields
+
 - Additional clinical notes
 - Special instructions
 - Rush order indicators
@@ -289,6 +308,7 @@ Each manufacturer may have unique requirements:
 ## Conclusion
 
 The current product request workflow contains approximately 70% of the data needed for IVR generation. With the proposed enhancements:
+
 - 90% of fields can be auto-populated
 - Manual entry reduced to optional/edge cases
 - Streamlined approval process

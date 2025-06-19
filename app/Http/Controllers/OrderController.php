@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use App\Services\DocuSealService;
 
 class OrderController extends Controller
 {
@@ -423,6 +426,163 @@ class OrderController extends Controller
                 'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
                 'can_see_order_totals' => $user->hasPermission('view-order-totals'),
             ],
+        ]);
+    }
+
+    /**
+     * Show order tracking information for providers
+     */
+    public function tracking($id)
+    {
+        $user = Auth::user();
+
+        // Find the order and ensure the provider has access
+        $order = ProductRequest::where('id', $id)
+            ->where('provider_id', $user->id)
+            ->whereIn('order_status', ['submitted_to_manufacturer', 'shipped', 'delivered'])
+            ->with(['provider', 'facility', 'products'])
+            ->firstOrFail();
+
+        // Transform order for display
+        $orderData = [
+            'id' => $order->id,
+            'order_number' => $order->request_number,
+            'patient_display_id' => $order->patient_display_id,
+            'order_status' => $order->order_status,
+            'expected_service_date' => $order->expected_service_date?->format('Y-m-d') ?? $order->date_of_service,
+            'submitted_at' => $order->created_at->format('Y-m-d H:i:s'),
+            'tracking_number' => $order->tracking_number,
+            'tracking_carrier' => $order->tracking_carrier,
+            'shipped_at' => $order->shipped_at?->format('Y-m-d H:i:s'),
+            'delivered_at' => $order->delivered_at?->format('Y-m-d H:i:s'),
+            'provider' => [
+                'name' => $order->provider->full_name,
+                'email' => $order->provider->email,
+            ],
+            'facility' => [
+                'name' => $order->facility->name,
+                'city' => $order->facility->city,
+                'state' => $order->facility->state,
+            ],
+            'products' => $order->products->map(function($product) {
+                return [
+                    'name' => $product->name,
+                    'quantity' => $product->pivot->quantity ?? 1,
+                    'size' => $product->pivot->size ?? null,
+                ];
+            }),
+        ];
+
+        return Inertia::render('Order/Tracking', [
+            'order' => $orderData,
+        ]);
+    }
+
+    public function show($id, DocuSealService $docuSealService)
+    {
+        $order = Order::with([
+            'provider',
+            'facility',
+            'manufacturer',
+            'items.product',
+            'ivrEpisode.orders',
+        ])->findOrFail($id);
+
+        $this->authorize('view', $order);
+
+        $patientName = $order->patient_fhir_id;
+
+        // Fetch DocuSeal status for the order
+        $orderDocuseal = [
+            'status' => $order->docuseal_status,
+            'signed_documents' => [],
+            'audit_log_url' => $order->docuseal_audit_log_url,
+            'last_synced_at' => $order->docuseal_last_synced_at,
+        ];
+        if ($order->docuseal_submission_id) {
+            $live = $docuSealService->getSubmissionStatus($order->docuseal_submission_id);
+            if ($live) {
+                $orderDocuseal['status'] = $live['status'] ?? $orderDocuseal['status'];
+                $orderDocuseal['signed_documents'] = $live['documents'] ?? [];
+                $orderDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $orderDocuseal['audit_log_url'];
+                $orderDocuseal['last_synced_at'] = now();
+            }
+        }
+
+        // Fetch DocuSeal status for the IVR episode
+        $ivrDocuseal = null;
+        if ($order->ivrEpisode) {
+            $ivrDocuseal = [
+                'status' => $order->ivrEpisode->docuseal_status,
+                'signed_documents' => [],
+                'audit_log_url' => $order->ivrEpisode->docuseal_audit_log_url,
+                'last_synced_at' => $order->ivrEpisode->docuseal_last_synced_at,
+            ];
+            if ($order->ivrEpisode->docuseal_submission_id) {
+                $live = $docuSealService->getSubmissionStatus($order->ivrEpisode->docuseal_submission_id);
+                if ($live) {
+                    $ivrDocuseal['status'] = $live['status'] ?? $ivrDocuseal['status'];
+                    $ivrDocuseal['signed_documents'] = $live['documents'] ?? [];
+                    $ivrDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $ivrDocuseal['audit_log_url'];
+                    $ivrDocuseal['last_synced_at'] = now();
+                }
+            }
+        }
+
+        $orderDetail = [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'patient_display_id' => $order->patient_display_id,
+            'patient_fhir_id' => $order->patient_fhir_id,
+            'patient_name' => $patientName,
+            'order_status' => $order->order_status,
+            'provider' => [
+                'id' => $order->provider->id,
+                'name' => $order->provider->first_name . ' ' . $order->provider->last_name,
+                'email' => $order->provider->email,
+                'npi_number' => $order->provider->npi_number ?? null,
+            ],
+            'facility' => [
+                'id' => $order->facility->id,
+                'name' => $order->facility->name,
+            ],
+            'manufacturer' => $order->manufacturer ? [
+                'id' => $order->manufacturer->id,
+                'name' => $order->manufacturer->name,
+            ] : null,
+            'order_details' => [
+                'products' => $order->items->map(function($item) {
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->product->name,
+                        'sku' => $item->product->sku,
+                        'quantity' => $item->quantity,
+                        'unit_price' => $item->price,
+                        'total_price' => $item->total_amount,
+                    ];
+                }),
+            ],
+            'ivr_episode' => $order->ivrEpisode ? [
+                'id' => $order->ivrEpisode->id,
+                'verification_status' => $order->ivrEpisode->verification_status,
+                'verified_date' => $order->ivrEpisode->verified_date,
+                'expiration_date' => $order->ivrEpisode->expiration_date,
+                'docuseal' => $ivrDocuseal,
+                'orders' => $order->ivrEpisode->orders->map(function($o) {
+                    return [
+                        'id' => $o->id,
+                        'order_number' => $o->order_number,
+                        'status' => $o->order_status,
+                    ];
+                }),
+            ] : null,
+            'docuseal' => $orderDocuseal,
+            'confirmation_documents' => [], // TODO: Populate when Document model is available
+            'audit_log' => [], // TODO: Implement audit log for provider
+        ];
+
+        return Inertia::render('Provider/Orders/Show', [
+            'order' => $orderDetail,
         ]);
     }
 }

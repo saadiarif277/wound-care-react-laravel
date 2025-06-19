@@ -30,7 +30,6 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
   const [isLoaded, setIsLoaded] = useState(false);
 
   useEffect(() => {
-    console.log('VoiceAssistant isVisible:', isVisible);
     if (isVisible) {
       // Give the providers time to initialize
       setTimeout(() => setIsLoaded(true), 100);

@@ -28,7 +28,7 @@ class RoleController extends Controller
     public function index(): Response
     {
         $roles = Role::with(['permissions', 'users'])->get();
-        $permissions = Permission::all();
+        $permissions = Permission::orderBy('name')->get();
 
         // Transform roles for frontend
         $transformedRoles = $roles->map(function ($role) {

@@ -48,6 +48,25 @@ type ThemeStructure = {
     approve: string;
     warning: string;
   };
+  episode: {
+    card: {
+      base: string;
+      hover: string;
+      border: string;
+    };
+    status: {
+      active: string;
+      expired: string;
+      expiring: string;
+      pending: string;
+      action: string;
+    };
+    timeline: {
+      line: string;
+      dot: string;
+      content: string;
+    };
+  };
   table: {
     container: string;
     header: string;
@@ -130,6 +149,7 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       focus: 'focus:bg-white/[0.08] focus:border-[#1925c3] focus:ring-2 focus:ring-[#1925c3]/30 focus:outline-none',
       error: 'border-red-500/50 focus:border-red-500 focus:ring-red-500/30',
       disabled: 'opacity-50 cursor-not-allowed bg-white/[0.02]',
+      select: 'bg-white/[0.05] backdrop-blur-md border border-white/[0.1] text-white/90 rounded-xl px-4 py-2.5 [&>option]:bg-gray-900 [&>option]:text-white',
     },
 
     // Button variants - Enhanced visibility
@@ -197,6 +217,27 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       danger: 'bg-red-500/20 text-red-300 border border-red-500/30',
       success: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
     },
+
+    // Episode card styles
+    episode: {
+      card: {
+        base: 'bg-white/[0.05] backdrop-blur-xl backdrop-saturate-150 border rounded-xl transition-all duration-300',
+        hover: 'hover:bg-white/[0.08] hover:shadow-xl hover:scale-[1.01]',
+        border: 'border-white/[0.12]',
+      },
+      status: {
+        active: 'bg-green-500/20 text-green-300 border-green-500/30',
+        expired: 'bg-red-500/20 text-red-300 border-red-500/30',
+        expiring: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+        pending: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        action: 'bg-red-500/20 text-red-300 border-red-500/30 animate-pulse',
+      },
+      timeline: {
+        line: 'bg-white/10',
+        dot: 'bg-white/20 border-2 border-white/30',
+        content: 'bg-white/[0.05] border border-white/[0.08]',
+      },
+    },
   },
 
   light: {
@@ -248,6 +289,7 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       focus: 'focus:bg-white focus:ring-2 focus:ring-[#1925c3]/60 focus:border-[#1925c3] focus:outline-none',
       error: 'border-red-600 focus:ring-red-600/40 focus:border-red-600',
       disabled: 'opacity-60 cursor-not-allowed bg-gray-100',
+      select: 'bg-white border border-gray-400 text-gray-900 rounded-xl px-4 py-2.5 [&>option]:bg-white [&>option]:text-gray-900',
     },
 
     // Button variants - Enhanced for light mode visibility  
@@ -314,6 +356,27 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       primary: 'bg-blue-50 text-blue-700 border border-blue-200',
       danger: 'bg-red-50 text-red-700 border border-red-200',
       success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    },
+
+    // Episode card styles
+    episode: {
+      card: {
+        base: 'bg-white/90 backdrop-blur-sm border rounded-xl shadow-sm transition-all duration-300',
+        hover: 'hover:bg-white hover:shadow-lg hover:scale-[1.01]',
+        border: 'border-gray-200',
+      },
+      status: {
+        active: 'bg-green-50 text-green-700 border-green-200',
+        expired: 'bg-red-50 text-red-700 border-red-200',
+        expiring: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        pending: 'bg-blue-50 text-blue-700 border-blue-200',
+        action: 'bg-red-50 text-red-700 border-red-200 animate-pulse',
+      },
+      timeline: {
+        line: 'bg-gray-200',
+        dot: 'bg-gray-100 border-2 border-gray-300',
+        content: 'bg-gray-50 border border-gray-200',
+      },
     },
   },
 };

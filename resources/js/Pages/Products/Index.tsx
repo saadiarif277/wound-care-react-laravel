@@ -560,8 +560,9 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                       ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
                       : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                   }`}
-                  dangerouslySetInnerHTML={{ __html: link.label }}
-                />
+                >
+                  <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                </Link>
               ))}
             </div>
           </div>

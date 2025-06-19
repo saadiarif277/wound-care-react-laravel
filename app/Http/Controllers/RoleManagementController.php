@@ -22,7 +22,7 @@ class RoleManagementController extends Controller
     public function index()
     {
         $roles = Role::with('permissions')->get();
-        $permissions = Permission::all();
+        $permissions = Permission::orderBy('name')->get();
 
         // Get role statistics
         $roleStats = Role::withCount(['users', 'permissions'])

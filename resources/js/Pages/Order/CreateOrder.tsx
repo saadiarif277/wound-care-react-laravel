@@ -355,7 +355,6 @@ const CreateOrderPage = () => {
 
   // Rep selection handlers
   const handleRepChange = (option: SelectOption | null) => {
-    console.log('Rep change:', option); // Debug log
     if (option) {
       const selected = availableReps.find(r => r.id === option.value);
       if (selected) {
@@ -418,7 +417,6 @@ const CreateOrderPage = () => {
       sub_rep_paid_date: subRepPaidDate?.toISOString().split('T')[0]
     };
 
-    console.log('Submitting order:', payload);
   };
 
   const nextStep = () => setStep(prev => Math.min(prev + 1, 4));

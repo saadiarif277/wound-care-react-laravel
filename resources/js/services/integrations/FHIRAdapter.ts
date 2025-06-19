@@ -183,7 +183,6 @@ export class FHIRAdapter {
   // needs shaping before sending to the Laravel backend.
   // Or, Laravel might expect raw form data.
   private transformToFHIRPatientAPIPayload(patientData: PatientFormData): any {
-    console.log('Transforming PatientFormData to API payload:', patientData);
     // Actual transformation logic here if needed, or just return patientData
     return patientData; // Assuming Laravel API will handle FHIR conversion
   }
@@ -220,7 +219,6 @@ export class FHIRAdapter {
   // that needs to be processed into a simpler ClinicalAssessment[] array on the frontend.
   // Or, Laravel API might return the already transformed assessments.
   private transformAPIResponseToAssessments(apiResponse: any): ClinicalAssessment[] {
-    console.log('Transforming API response to assessments:', apiResponse);
     // If Laravel returns a FHIR bundle (e.g., from searchPatients in FhirService.php):
     // return apiResponse?.entry?.map((entry: any) => entry.resource as ClinicalAssessment) || [];
     // If Laravel API for clinical data returns already transformed assessments or a specific structure:

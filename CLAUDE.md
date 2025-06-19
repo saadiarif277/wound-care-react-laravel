@@ -1,3 +1,7 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 # MSC Wound Portal - Codebase Guide for Claude
 
 ## Project Overview
@@ -49,9 +53,10 @@ php artisan test
 php artisan test --testsuite=Unit
 php artisan test --testsuite=Feature
 
-# Code quality (if available)
-npm run lint
-npm run typecheck
+# Code quality
+npx tsc --noEmit  # TypeScript type checking
+npx eslint resources/js --ext .ts,.tsx,.js,.jsx  # Linting
+php artisan pint  # PHP formatting
 ```
 
 ## Architecture
@@ -186,10 +191,11 @@ msc-wound-portal/
 - Follow HIPAA compliance guidelines
 
 ## Testing Approach
-1. Check README or package.json for test commands
-2. Never assume specific test frameworks
-3. Ask user for lint/typecheck commands if needed
-4. Suggest adding commands to CLAUDE.md for future reference
+1. Run `php artisan test` for all tests
+2. Use `--testsuite=Unit` or `--testsuite=Feature` for specific suites
+3. TypeScript checking with `npx tsc --noEmit`
+4. Linting with `npx eslint resources/js --ext .ts,.tsx,.js,.jsx`
+5. PHP formatting with `php artisan pint`
 
 ## MSC Brand Colors
 - MSC Blue: #1925c3

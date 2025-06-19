@@ -28,7 +28,7 @@ interface QuickRequestFormData {
   caregiver_name?: string;
   caregiver_relationship?: string;
   caregiver_phone?: string;
-  
+
   // Step 2: Product Selection & Manufacturer Fields
   product_id: number | null;
   product_code?: string;
@@ -37,7 +37,7 @@ interface QuickRequestFormData {
   size?: string;
   quantity: number;
   manufacturer_fields?: Record<string, any>;
-  
+
   // Step 3: Documentation & Authorization
   face_sheet?: File | null;
   clinical_notes?: File | null;
@@ -56,7 +56,7 @@ interface QuickRequestFormData {
     date: string;
     documented_by: string;
   };
-  
+
   // Additional fields
   facility_id: number | null;
   payer_name: string;
@@ -94,20 +94,25 @@ interface Props {
     name: string;
     npi?: string;
   };
+  prefillData: Record<string, any>;
 }
 
-function QuickRequestCreate({ 
-  facilities, 
-  providers, 
-  products, 
-  woundTypes,
-  currentUser 
+function QuickRequestCreate({
+  facilities = [],
+  providers = [],
+  products = [],
+  woundTypes = {},
+  currentUser,
+  prefillData,
 }: Props) {
-  console.log('QuickRequest facilities:', facilities);
+  // Ensure facilities is always an array
+  const facilitiesArray = Array.isArray(facilities) ? facilities : [];
+
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
@@ -115,12 +120,13 @@ function QuickRequestCreate({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  
+
   const [formData, setFormData] = useState<QuickRequestFormData>({
+    ...prefillData,
     // Initialize form data
     patient_first_name: '',
     patient_last_name: '',
@@ -169,7 +175,7 @@ function QuickRequestCreate({
 
   const validateStep = (step: number): Record<string, string> => {
     const errors: Record<string, string> = {};
-    
+
     switch (step) {
       case 1:
         if (!formData.patient_first_name) errors.patient_first_name = 'First name is required';
@@ -195,7 +201,7 @@ function QuickRequestCreate({
         if (!formData.maintain_documentation) errors.attestation = 'All clinical attestations must be confirmed';
         break;
     }
-    
+
     return errors;
   };
 
@@ -210,7 +216,7 @@ function QuickRequestCreate({
     try {
       // Create FormData for file uploads
       const submitData = new FormData();
-      
+
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
         if (value instanceof File) {
@@ -227,10 +233,10 @@ function QuickRequestCreate({
         },
         onError: (errors) => {
           console.error('Form submission errors:', errors);
-          
+
           // Convert Laravel validation errors to our format
           const formErrors: Record<string, string> = {};
-          
+
           if (typeof errors === 'object' && errors !== null) {
             Object.entries(errors).forEach(([field, messages]) => {
               if (Array.isArray(messages)) {
@@ -240,14 +246,14 @@ function QuickRequestCreate({
               }
             });
           }
-          
+
           setErrors(formErrors);
-          
+
           // Show alert with all errors for debugging
           const errorMessages = Object.entries(formErrors)
             .map(([field, message]) => `${field}: ${message}`)
             .join('\n');
-          
+
           alert(`Form validation errors:\n\n${errorMessages}`);
         },
       });
@@ -261,7 +267,7 @@ function QuickRequestCreate({
   return (
     <MainLayout>
       <Head title="Quick Request" />
-      
+
       <div className="min-h-screen">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header */}
@@ -335,24 +341,25 @@ function QuickRequestCreate({
               <Step1PatientInfo
                 formData={formData}
                 updateFormData={updateFormData}
-                facilities={facilities}
+                facilities={facilitiesArray}
                 woundTypes={woundTypes}
                 errors={errors}
+                prefillData={prefillData}
               />
             )}
-            
+
             {currentStep === 2 && (
               <Step2ProductSelection
                 formData={formData}
                 updateFormData={updateFormData}
                 products={products}
                 errors={errors}
-                facilities={facilities}
+                facilities={facilitiesArray}
                 woundTypes={woundTypes}
                 userRole={'provider'}
               />
             )}
-            
+
             {currentStep === 3 && (
               <Step3Documentation
                 formData={formData}
@@ -362,13 +369,13 @@ function QuickRequestCreate({
                 errors={errors}
               />
             )}
-            
+
             {currentStep === 4 && (
               <Step4Confirmation
                 formData={formData}
                 updateFormData={updateFormData}
                 products={products}
-                facilities={facilities}
+                facilities={facilitiesArray}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
               />

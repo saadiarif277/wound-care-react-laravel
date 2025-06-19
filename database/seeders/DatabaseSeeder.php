@@ -18,29 +18,50 @@ class DatabaseSeeder extends Seeder
         // 0. Disable foreign key checks
         Schema::disableForeignKeyConstraints();
 
-        // 1. Truncate all tables
+                // 1. Truncate all tables (in reverse dependency order)
         $tables = [
+            // Junction tables first
             'role_permission',
             'user_role',
-            'permissions',
-            'roles',
-            'product_requests',
+            'facility_user',
+            'product_request_products',
+            'provider_products',
+
+            // Dependent tables
+            'docuseal_submissions',
+            'docuseal_templates',
+            'docuseal_folders',
             'commission_payouts',
             'commission_records',
             'commission_rules',
             'order_items',
             'orders',
+            'product_requests',
+            'provider_profiles',
+            'patient_manufacturer_ivr_episodes',  // Episode data
+
+            // Core entity tables
             'msc_products',
+            'categories',
+            'manufacturers',
             'msc_sales_reps',
-            'facility_user',
             'facilities',
             'organizations',
+            'permissions',
+            'roles',
             'users',
             'accounts',
         ];
 
         foreach ($tables as $table) {
-            DB::table($table)->truncate();
+            try {
+                if (Schema::hasTable($table)) {
+                    DB::table($table)->truncate();
+                }
+            } catch (\Exception $e) {
+                // Table might not exist yet, skip it
+                $this->command->warn("Could not truncate table '{$table}': " . $e->getMessage());
+            }
         }
 
         // 2. Re-enable foreign key checks
@@ -149,6 +170,7 @@ class DatabaseSeeder extends Seeder
                     'view-national-asp',
                     'view-orders',
                     'create-orders',
+                    'view-facilities',  // Added to support QuickRequest
                 ],
             ],
             'office-manager' => [
@@ -623,11 +645,12 @@ class DatabaseSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // Call other seeders
+        // Call other seeders in correct order
         $this->call([
-            CategoriesAndManufacturersSeeder::class,
-            DocusealTemplateSeeder::class,
-            DocusealFolderSeeder::class,
+            CategoriesAndManufacturersSeeder::class,  // Creates categories and manufacturers first
+            DocusealFolderSeeder::class,               // Creates folders before templates
+            DocusealTemplateSeeder::class,             // Creates templates that reference folders
+            EpisodeSeeder::class,                      // Creates episode test data
         ]);
 
         $this->command->info('Database seeded successfully!');

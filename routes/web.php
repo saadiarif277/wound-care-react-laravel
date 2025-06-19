@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use Illuminate\Support\Facades\Mail;
 // AccessRequestController removed - feature deprecated
 
 use App\Http\Controllers\DashboardController;
@@ -10,6 +11,7 @@ use App\Http\Controllers\ReportsController;
 use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Admin\UsersController as AdminUsersController;
 use App\Http\Controllers\Admin\AdminOrderCenterController;
+use App\Http\Controllers\Admin\PatientIVRController;
 use App\Http\Controllers\OrderController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\EligibilityController;
@@ -146,8 +148,8 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
         abort(404, 'Invitation not found or expired');
     }
 
-    // Load organization data
-    $invitation->load('organization');
+    // Load organization and its facilities
+    $invitation->load('organization.facilities');
 
     return Inertia::render('Auth/ProviderInvitation', [
         'invitation' => [
@@ -155,7 +157,7 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
             'organization_name' => $invitation->organization->name,
             'organization_type' => $invitation->organization->type ?? 'Healthcare Organization',
             'invited_email' => $invitation->email,
-            'invited_role' => 'Provider',
+            'invited_role' => 'Provider', // This can be dynamic from invitation record later
             'expires_at' => $invitation->expires_at->toISOString(),
             'status' => $invitation->status,
             'metadata' => [
@@ -164,7 +166,15 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
                 'invited_by_name' => $invitation->invitedBy->first_name . ' ' . $invitation->invitedBy->last_name,
             ]
         ],
-        'token' => $token
+        'token' => $token,
+        'facilities' => $invitation->organization->facilities->map(function ($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'full_address' => $facility->full_address,
+            ];
+        }),
+        'states' => config('constants.states'), // Assuming you have a states config
     ]);
 })->name('auth.provider-invitation.show')->middleware('guest');
 
@@ -197,12 +207,26 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 // Consolidated Order Center - Request Reviews + Order Management
 Route::middleware(['permission:manage-orders'])->group(function () {
     Route::get('/orders/center', [OrderController::class, 'center'])->name('orders.center');
+    Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->name('orders.tracking');
 });
 
-// Admin Order Center Routes
+// Admin Order Center Routes (Episode-based workflow)
 Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function () {
-    Route::get('/orders', [AdminOrderCenterController::class, 'index'])->name('admin.orders.index');
-    Route::get('/orders/{id}', [AdminOrderCenterController::class, 'show'])->name('admin.orders.show');
+    // Main episode management routes
+    Route::get('/orders', [App\Http\Controllers\Admin\OrderCenterController::class, 'index'])->name('admin.orders.index');
+    Route::get('/episodes/{episode}', [App\Http\Controllers\Admin\OrderCenterController::class, 'showEpisode'])->name('admin.episodes.show');
+
+    // Legacy order routes (redirect to episodes if order has episode_id)
+    Route::get('/orders/{id}', [App\Http\Controllers\Admin\OrderCenterController::class, 'show'])->name('admin.orders.show');
+
+    // Episode-level actions (provider-centered workflow)
+    Route::get('/episodes/{episode}', [App\Http\Controllers\Admin\OrderCenterController::class, 'showEpisode'])->name('admin.episodes.show');
+    Route::post('/episodes/{episode}/review', [App\Http\Controllers\Admin\OrderCenterController::class, 'reviewEpisode'])->name('admin.episodes.review');
+    Route::post('/episodes/{episode}/send-to-manufacturer', [App\Http\Controllers\Admin\OrderCenterController::class, 'sendEpisodeToManufacturer'])->name('admin.episodes.send-to-manufacturer');
+    Route::post('/episodes/{episode}/update-tracking', [App\Http\Controllers\Admin\OrderCenterController::class, 'updateEpisodeTracking'])->name('admin.episodes.update-tracking');
+    Route::post('/episodes/{episode}/mark-completed', [App\Http\Controllers\Admin\OrderCenterController::class, 'markEpisodeCompleted'])->name('admin.episodes.mark-completed');
+
+    // Legacy individual order actions (for backwards compatibility)
     Route::post('/orders/{id}/generate-ivr', [AdminOrderCenterController::class, 'generateIvr'])->name('admin.orders.generate-ivr');
     Route::post('/orders/{id}/send-ivr-to-manufacturer', [AdminOrderCenterController::class, 'sendIvrToManufacturer'])->name('admin.orders.send-ivr-to-manufacturer');
     Route::post('/orders/{id}/manufacturer-approval', [AdminOrderCenterController::class, 'confirmManufacturerApproval'])->name('admin.orders.manufacturer-approval');
@@ -210,8 +234,14 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::post('/orders/{id}/send-back', [AdminOrderCenterController::class, 'sendBack'])->name('admin.orders.send-back');
     Route::post('/orders/{id}/deny', [AdminOrderCenterController::class, 'deny'])->name('admin.orders.deny');
     Route::post('/orders/{id}/submit-to-manufacturer', [AdminOrderCenterController::class, 'submitToManufacturer'])->name('admin.orders.submit-to-manufacturer');
+    Route::post('/orders/{id}/send-to-manufacturer', [AdminOrderCenterController::class, 'sendToManufacturer'])->name('admin.orders.send-to-manufacturer');
+    Route::post('/orders/{id}/update-tracking', [AdminOrderCenterController::class, 'updateTracking'])->name('admin.orders.update-tracking');
     Route::get('/orders/create', [AdminOrderCenterController::class, 'create'])->name('admin.orders.create');
     Route::post('/orders', [AdminOrderCenterController::class, 'store'])->name('admin.orders.store');
+
+    // Patient IVR Status
+    Route::get('/patients/ivr-status', [PatientIVRController::class, 'index'])->name('admin.patients.ivr-status');
+    Route::post('/patients/{patientFhirId}/ivr/{manufacturerId}', [PatientIVRController::class, 'updateStatus'])->name('admin.patients.ivr.update');
 });
 
 // Legacy order routes (redirect to consolidated order center)
@@ -308,7 +338,7 @@ Route::get('/subrep-approvals', function () {
 
 // Products - with proper permission middleware
 
-Route::middleware(['permission:view-products'])->group(function () {
+Route::middleware(['permission:view-products', 'financial.access'])->group(function () {
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     // Product API endpoints accessible to all roles with view-products permission
     Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
@@ -445,12 +475,19 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/create', [\App\Http\Controllers\QuickRequestController::class, 'create'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create');
+        Route::get('/create-new', [\App\Http\Controllers\QuickRequestController::class, 'createNew'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.create-new');
+        Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.debug-facilities');
         Route::post('/', [\App\Http\Controllers\QuickRequestController::class, 'store'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
-        Route::get('/test-azure', function() {
-            return Inertia::render('QuickRequest/Components/TestInsuranceCard');
-        })->name('quick-requests.test-azure');
+        // Test route - disabled in production
+        // Route::get('/test-azure', function() {
+        //     return Inertia::render('QuickRequest/Components/TestInsuranceCard');
+        // })->name('quick-requests.test-azure');
     });
 
     // Insurance Card Analysis API
@@ -634,7 +671,8 @@ Route::middleware(['web', 'auth'])->group(function () {
                 ]
             ]);
 
-            // TODO: Send email notification
+            // Send email notification
+            Mail::to($invitation->email)->send(new \App\Mail\ProviderInvitationEmail($invitation));
 
             return back()->with('success', 'Invitation sent successfully');
         })->name('admin.invitations.store');
@@ -747,7 +785,7 @@ Route::middleware(['web', 'auth'])->group(function () {
             return Inertia::render('Admin/DocuSeal/Analytics');
         })->name('admin.docuseal.analytics');
     });
-    
+
     // DocuSeal API endpoints (within web middleware for session auth)
     Route::prefix('api/v1/docuseal/templates')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
@@ -926,7 +964,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('docuseal.demo.create-submission');
 });
 
-// QuickRequest DocuSeal Routes  
+// QuickRequest DocuSeal Routes
 Route::middleware(['auth'])->group(function () {
     // Create QuickRequest DocuSeal submission for IVR forms
     Route::post('/quickrequest/docuseal/create-submission', [\App\Http\Controllers\DocuSealSubmissionController::class, 'createSubmission'])
@@ -959,13 +997,13 @@ Route::get('/test-csrf', function() {
 });
 
 // Simple test form to verify CSRF
-Route::get('/test-form', function() {
-    return view('test-form');
-});
+// Route::get('/test-form', function() {
+//     return view('test-form');
+// });
 
-Route::post('/test-form', function() {
-    return response()->json(['success' => true, 'message' => 'CSRF token is working!']);
-});
+// Route::post('/test-form', function() {
+//     return response()->json(['success' => true, 'message' => 'CSRF token is working!']);
+// });
 
 // Temporary migration route (remove after running)
 Route::get('/run-field-discovery-migration', [App\Http\Controllers\RunMigrationController::class, 'runMigration'])

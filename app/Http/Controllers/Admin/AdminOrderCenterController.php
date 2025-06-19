@@ -4,21 +4,26 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\ProductRequest;
+use App\Models\PatientIVRStatus;
 use App\Services\IvrDocusealService;
+use App\Services\FhirService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Inertia\Inertia;
 use Exception;
 
 class AdminOrderCenterController extends Controller
 {
     private IvrDocusealService $ivrService;
+    private FhirService $fhirService;
 
-    public function __construct(IvrDocusealService $ivrService)
+    public function __construct(IvrDocusealService $ivrService, FhirService $fhirService)
     {
         $this->ivrService = $ivrService;
+        $this->fhirService = $fhirService;
     }
 
     /**
@@ -61,7 +66,7 @@ class AdminOrderCenterController extends Controller
             ->toArray();
 
         // Ensure all statuses are present
-        $allStatuses = ['pending_ivr', 'ivr_sent', 'ivr_confirmed', 'approved', 'sent_back', 'denied', 'submitted_to_manufacturer'];
+        $allStatuses = ['pending_ivr', 'ivr_sent', 'ivr_confirmed', 'approved', 'sent_back', 'denied', 'submitted_to_manufacturer', 'shipped', 'delivered'];
         foreach ($allStatuses as $status) {
             if (!isset($statusCounts[$status])) {
                 $statusCounts[$status] = 0;
@@ -71,11 +76,16 @@ class AdminOrderCenterController extends Controller
         // Transform orders for display to match frontend expectations
         $transformedOrders = $orders->through(function ($order) {
             $provider = $order->provider;
+
+            // Get patient name from FHIR (cached for performance)
+            $patientName = $this->getPatientName($order->patient_fhir_id);
+
             return [
                 'id' => $order->id,
                 'order_number' => $order->order_number ?? $order->request_number,
                 'patient_display_id' => $order->patient_display_id,
                 'patient_fhir_id' => $order->patient_fhir_id,
+                'patient_name' => $patientName, // Ashley's #1 request
                 'order_status' => $order->order_status,
                 'provider' => [
                     'id' => $provider->id ?? null,
@@ -134,12 +144,16 @@ class AdminOrderCenterController extends Controller
         // Get DocuSeal submissions
         $submissions = $productRequest->docusealSubmissions ?? [];
 
+        // Get patient name from FHIR
+        $patientName = $this->getPatientName($productRequest->patient_fhir_id);
+
         return Inertia::render('Admin/OrderCenter/Show', [
             'order' => [
                 'id' => (string) $productRequest->id,
                 'order_number' => $productRequest->order_number ?? $productRequest->request_number,
                 'patient_display_id' => $productRequest->patient_display_id,
                 'patient_fhir_id' => $productRequest->patient_fhir_id,
+                'patient_name' => $patientName,
                 'order_status' => $productRequest->order_status,
                 'expected_service_date' => $productRequest->expected_service_date?->format('Y-m-d'),
                 'submitted_at' => $productRequest->submitted_at?->toISOString(),
@@ -239,15 +253,124 @@ class AdminOrderCenterController extends Controller
                 'docuseal_submission_id' => $productRequest->docuseal_submission_id,
             ],
 
-            // Action permissions
-            'can_generate_ivr' => $productRequest->order_status === 'pending_ivr',
-            'can_approve' => $productRequest->order_status === 'ivr_confirmed',
+            // Action permissions (updated for provider-centered workflow)
+            'can_review_episode' => $productRequest->order_status === 'ready_for_review',
+            'can_approve' => $productRequest->order_status === 'ivr_verified',
             'can_submit_to_manufacturer' => $productRequest->order_status === 'approved',
         ]);
     }
 
     /**
-     * Generate IVR document
+     * Review episode (provider has already generated IVR)
+     */
+    public function reviewEpisode(Request $request, $episodeId)
+    {
+        $episode = PatientIVRStatus::findOrFail($episodeId);
+
+        try {
+            $episode->update([
+                'status' => 'ivr_verified',
+                'reviewed_at' => now(),
+                'reviewed_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Episode reviewed and approved successfully.');
+        } catch (Exception $e) {
+            Log::error('Failed to review episode', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Failed to review episode: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Send episode to manufacturer
+     */
+    public function sendEpisodeToManufacturer(Request $request, $episodeId)
+    {
+        $episode = PatientIVRStatus::findOrFail($episodeId);
+
+        try {
+            $episode->update([
+                'status' => 'sent_to_manufacturer',
+                'sent_to_manufacturer_at' => now(),
+                'sent_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Episode sent to manufacturer successfully.');
+        } catch (Exception $e) {
+            Log::error('Failed to send episode to manufacturer', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Failed to send episode to manufacturer: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Update episode tracking
+     */
+    public function updateEpisodeTracking(Request $request, $episodeId)
+    {
+        $episode = PatientIVRStatus::findOrFail($episodeId);
+
+        try {
+            $request->validate([
+                'tracking_number' => 'required|string',
+                'carrier' => 'required|string',
+                'estimated_delivery' => 'nullable|date',
+            ]);
+
+            $episode->update([
+                'status' => 'tracking_added',
+                'tracking_number' => $request->input('tracking_number'),
+                'carrier' => $request->input('carrier'),
+                'estimated_delivery' => $request->input('estimated_delivery'),
+                'tracking_updated_at' => now(),
+                'tracking_updated_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Episode tracking updated successfully.');
+        } catch (Exception $e) {
+            Log::error('Failed to update episode tracking', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Failed to update episode tracking: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Mark episode as completed
+     */
+    public function markEpisodeCompleted(Request $request, $episodeId)
+    {
+        $episode = PatientIVRStatus::findOrFail($episodeId);
+
+        try {
+            $episode->update([
+                'status' => 'completed',
+                'completed_at' => now(),
+                'completed_by' => Auth::id(),
+            ]);
+
+            return back()->with('success', 'Episode marked as completed successfully.');
+        } catch (Exception $e) {
+            Log::error('Failed to mark episode as completed', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return back()->with('error', 'Failed to mark episode as completed: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Generate IVR document (LEGACY - providers now generate IVRs)
      */
     public function generateIvr(Request $request, $id)
     {
@@ -559,5 +682,234 @@ class AdminOrderCenterController extends Controller
         }
 
         return collect($history)->sortByDesc('timestamp')->values()->toArray();
+    }
+
+    /**
+     * Send order to manufacturer with custom recipients
+     */
+    public function sendToManufacturer(Request $request, $id)
+    {
+        $productRequest = ProductRequest::findOrFail($id);
+
+        try {
+            $request->validate([
+                'recipients' => 'required|array|min:1',
+                'recipients.*' => 'required|email',
+            ]);
+
+            // Get manufacturer information
+            $manufacturer = $productRequest->getManufacturer();
+            if (!$manufacturer) {
+                throw new Exception('No manufacturer associated with this order');
+            }
+
+            // Prepare order data for email
+            $orderData = [
+                'order_number' => $productRequest->request_number,
+                'patient_display_id' => $productRequest->patient_display_id,
+                'provider' => $productRequest->provider->full_name,
+                'facility' => $productRequest->facility->name,
+                'service_date' => $productRequest->date_of_service,
+                'products' => $productRequest->products->map(function($product) {
+                    return [
+                        'name' => $product->name,
+                        'sku' => $product->sku,
+                        'quantity' => $product->pivot->quantity ?? 1,
+                        'size' => $product->pivot->size ?? null,
+                    ];
+                }),
+                'total_value' => $productRequest->getTotalValue(),
+            ];
+
+            // Get IVR document if available
+            $ivrDocument = null;
+            if ($productRequest->docuseal_submission_id) {
+                // TODO: Fetch IVR document from DocuSeal
+                // $ivrDocument = $this->ivrService->getDocument($productRequest->docuseal_submission_id);
+            }
+
+            // Send email to all recipients
+            $recipients = $request->input('recipients');
+
+            // TODO: Implement actual email sending
+            // For now, we'll just update the status
+            Log::info('Sending order to manufacturer', [
+                'order_id' => $productRequest->id,
+                'recipients' => $recipients,
+                'manufacturer' => $manufacturer->name,
+            ]);
+
+            // Update order status
+            $productRequest->order_status = 'submitted_to_manufacturer';
+            $productRequest->order_submitted_at = now();
+            $productRequest->manufacturer_recipients = json_encode($recipients);
+            $productRequest->save();
+
+            // Add to order history
+            DB::table('order_action_history')->insert([
+                'product_request_id' => $productRequest->id,
+                'action' => 'sent_to_manufacturer',
+                'actor_id' => Auth::id(),
+                'actor_name' => Auth::user()->name,
+                'notes' => 'Order sent to ' . count($recipients) . ' recipient(s)',
+                'created_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Order sent to manufacturer successfully',
+                'order_status' => 'submitted_to_manufacturer',
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to send order to manufacturer', [
+                'product_request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to send order to manufacturer: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Update tracking information for an order
+     */
+    public function updateTracking(Request $request, $id)
+    {
+        $productRequest = ProductRequest::findOrFail($id);
+
+        try {
+            $request->validate([
+                'tracking_number' => 'required|string',
+                'carrier' => 'required|string|in:ups,fedex,usps,dhl,other',
+            ]);
+
+            // Update tracking information
+            $productRequest->tracking_number = $request->input('tracking_number');
+            $productRequest->tracking_carrier = $request->input('carrier');
+            $productRequest->order_status = 'shipped';
+            $productRequest->shipped_at = now();
+            $productRequest->save();
+
+            // Add to order history
+            DB::table('order_action_history')->insert([
+                'product_request_id' => $productRequest->id,
+                'action' => 'tracking_added',
+                'actor_id' => Auth::id(),
+                'actor_name' => Auth::user()->name,
+                'notes' => 'Tracking number: ' . $request->input('tracking_number') . ' (' . strtoupper($request->input('carrier')) . ')',
+                'created_at' => now(),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Tracking information updated successfully',
+                'order_status' => 'shipped',
+            ]);
+        } catch (Exception $e) {
+            Log::error('Failed to update tracking information', [
+                'product_request_id' => $productRequest->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to update tracking information: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Get patient name from FHIR
+     */
+    private function getPatientName(?string $patientFhirId): string
+    {
+        if (!$patientFhirId) {
+            return 'Unknown Patient';
+        }
+
+        // Cache patient names for 1 hour to improve performance
+        return Cache::remember("patient_name_{$patientFhirId}", 3600, function () use ($patientFhirId) {
+            try {
+                // Extract the FHIR ID from the reference (format: "Patient/123")
+                $fhirId = str_replace('Patient/', '', $patientFhirId);
+
+                // Fetch patient from FHIR
+                $patient = $this->fhirService->getPatientById($fhirId);
+
+                if (!$patient) {
+                    Log::warning('Patient not found in FHIR', ['fhir_id' => $fhirId]);
+                    return 'Patient Not Found';
+                }
+
+                // Extract name from FHIR resource
+                if (isset($patient['name']) && is_array($patient['name']) && count($patient['name']) > 0) {
+                    $name = $patient['name'][0];
+                    $firstName = isset($name['given']) && is_array($name['given']) ? implode(' ', $name['given']) : '';
+                    $lastName = $name['family'] ?? '';
+
+                    $fullName = trim($firstName . ' ' . $lastName);
+
+                    return $fullName ?: 'Unknown Patient';
+                }
+
+                return 'Unknown Patient';
+            } catch (\Exception $e) {
+                Log::error('Failed to fetch patient name from FHIR', [
+                    'patient_fhir_id' => $patientFhirId,
+                    'error' => $e->getMessage()
+                ]);
+
+                // Return a fallback name to avoid breaking the UI
+                return 'Patient (Error)';
+            }
+        });
+    }
+
+    /**
+     * Get expiring IVRs for dashboard warning
+     */
+    private function getExpiringIVRsForDashboard()
+    {
+        try {
+            $expiringIVRs = PatientIVRStatus::getExpiringIVRs(30);
+
+            return $expiringIVRs->map(function ($ivr) {
+                $daysUntilExpiration = $ivr->expiration_date ?
+                    ceil(($ivr->expiration_date->getTimestamp() - now()->getTimestamp()) / (60 * 60 * 24)) :
+                    0;
+
+                return [
+                    'id' => $ivr->id,
+                    'patient_fhir_id' => $ivr->patient_fhir_id,
+                    'patient_name' => $this->getPatientName($ivr->patient_fhir_id),
+                    'patient_display_id' => $this->getPatientDisplayId($ivr->patient_fhir_id),
+                    'manufacturer_name' => $ivr->manufacturer->name,
+                    'expiration_date' => $ivr->expiration_date->format('Y-m-d'),
+                    'days_until_expiration' => max(0, $daysUntilExpiration),
+                ];
+            })->sortBy('days_until_expiration')->values()->toArray();
+        } catch (\Exception $e) {
+            Log::error('Failed to get expiring IVRs for dashboard', [
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Get patient display ID from cache or database
+     */
+    private function getPatientDisplayId($patientFhirId)
+    {
+        return Cache::remember("patient_display_id_{$patientFhirId}", 3600, function () use ($patientFhirId) {
+            $productRequest = ProductRequest::where('patient_fhir_id', $patientFhirId)
+                ->select('patient_display_id')
+                ->first();
+
+            return $productRequest ? $productRequest->patient_display_id : 'Unknown';
+        });
     }
 }

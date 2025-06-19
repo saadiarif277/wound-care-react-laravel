@@ -310,7 +310,6 @@ export default function OrganizationWizard() {
         post('/api/organizations', {
             onSuccess: () => {
                 // Handle success
-                console.log('Organization created successfully');
             }
         });
     };

@@ -88,8 +88,6 @@ const ProviderFacilitiesIndex: React.FC<Props> = ({ facilities }) => {
                     <div className="mt-4 flex justify-end">
                       <button
                         onClick={() => {
-                          console.log('Navigating to facility:', facility.id);
-                          console.log('Full URL:', `/facilities/${facility.id}`);
                           router.visit(`/facilities/${facility.id}`);
                         }}
                         className="inline-flex items-center px-3 py-1.5 border border-transparent text-sm font-medium rounded-md text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"

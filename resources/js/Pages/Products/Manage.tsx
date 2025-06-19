@@ -438,8 +438,9 @@ export default function Manage({
                             } ${
                               index === products.meta?.links?.length - 1 ? 'rounded-r-md' : ''
                             }`}
-                            dangerouslySetInnerHTML={{ __html: link.label }}
-                          />
+                          >
+                            <span dangerouslySetInnerHTML={{ __html: link.label }} />
+                          </Link>
                         ))}
                       </nav>
                     </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
@@ -7,31 +7,36 @@ import {
   Clock,
   User,
   Building2,
-  Calendar,
   Package,
-  DollarSign,
   Download,
   Send,
   CheckCircle,
   XCircle,
   AlertTriangle,
-  MessageSquare,
   History,
   Paperclip,
-  MapPin,
   Heart,
   Activity,
   FileImage,
   ChevronDown,
   ChevronUp,
+  Mail,
+  Plus,
+  X,
+  Truck,
 } from 'lucide-react';
+import SendToManufacturer from '../../Components/Admin/SendToManufacturer';
+import TrackingManager from '../../Components/Admin/TrackingManager';
+import ConfirmationDocuments from '../../Components/Admin/ConfirmationDocuments';
+import AuditLog from '../../Components/Admin/AuditLog';
 
 interface OrderDetail {
   id: string;
   order_number: string;
   patient_display_id: string;
   patient_fhir_id: string;
-  order_status: 'pending_ivr' | 'ivr_sent' | 'ivr_confirmed' | 'approved' | 'sent_back' | 'denied' | 'submitted_to_manufacturer';
+  patient_name?: string;
+  order_status: 'pending_ivr' | 'ivr_sent' | 'ivr_confirmed' | 'approved' | 'sent_back' | 'denied' | 'submitted_to_manufacturer' | 'shipped' | 'delivered' | 'cancelled';
 
   provider: {
     id: number;
@@ -105,6 +110,18 @@ interface OrderDetail {
   ivr_skip_reason?: string;
   docuseal_generation_status?: string;
   docuseal_submission_id?: string;
+  confirmation_documents?: Array<{
+    id: number;
+    name: string;
+    type: string;
+    uploaded_at: string;
+    url?: string;
+  }>;
+  docuseal?: {
+    status?: string;
+    signed_documents?: Array<{ id: number; filename?: string; name?: string; url: string }>;
+    audit_log_url?: string;
+  };
 }
 
 interface OrderShowProps {
@@ -129,7 +146,16 @@ const OrderShow: React.FC<OrderShowProps> = ({
     documents: true,
     history: true,
     clinical: true,
+    sendToManufacturer: true,
   });
+  const [emailRecipients, setEmailRecipients] = useState<string[]>(
+    order.manufacturer?.contact_email ? [order.manufacturer.contact_email] : []
+  );
+  const [newRecipient, setNewRecipient] = useState('');
+  const [trackingNumber, setTrackingNumber] = useState('');
+  const [trackingCarrier, setTrackingCarrier] = useState('ups');
+  const [ivrEpisode, setIvrEpisode] = useState(null);
+  const [relatedOrders, setRelatedOrders] = useState([]);
 
   const statusConfig = {
     draft: {
@@ -283,6 +309,12 @@ const OrderShow: React.FC<OrderShowProps> = ({
   };
   const StatusIcon = currentStatus.icon;
 
+  useEffect(() => {
+    // Fetch IVR episode for this order's patient+manufacturer
+    // Fetch all orders under this IVR episode
+    // (API endpoints to be implemented)
+  }, [order]);
+
   return (
     <MainLayout>
       <Head title={`Order ${order.order_number}`} />
@@ -314,7 +346,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
 
             {/* Action Buttons */}
             <div className="flex items-center space-x-3">
-
+              {can_generate_ivr && order.order_status === 'pending_ivr' && (
                 <button
                   onClick={() => setShowIvrModal(true)}
                   className="inline-flex items-center px-4 py-2 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
@@ -322,6 +354,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
                   <FileText className="w-4 h-4 mr-2" />
                   Generate IVR
                 </button>
+              )}
 
 
               {can_approve && order.order_status === 'ivr_confirmed' && (
@@ -403,6 +436,10 @@ const OrderShow: React.FC<OrderShowProps> = ({
               </h3>
               <div className="space-y-3">
                 <div>
+                  <p className="text-sm font-medium text-gray-500">Patient Name</p>
+                  <p className="text-sm text-gray-900">{order.patient_name || 'Unknown Patient'}</p>
+                </div>
+                <div>
                   <p className="text-sm font-medium text-gray-500">Patient ID</p>
                   <p className="text-sm text-gray-900">{order.patient_display_id}</p>
                 </div>
@@ -483,7 +520,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
                       </thead>
                       <tbody className="bg-white divide-y divide-gray-200">
                         {order.order_details?.products?.map((product, index) => (
-                          <tr key={product.id || `product-${index}`}>
+                          <tr key={`${product.id}-${product.size}-${index}`}>
                             <td className="px-4 py-2 text-sm text-gray-900">{product.name}</td>
                             <td className="px-4 py-2 text-sm text-gray-500">{product.sku}</td>
                             <td className="px-4 py-2 text-sm text-gray-900">{product.quantity}</td>
@@ -555,83 +592,82 @@ const OrderShow: React.FC<OrderShowProps> = ({
               </div>
             </div>
 
-            {/* Supporting Documents */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <button
-                onClick={() => toggleSection('documents')}
-                className="flex items-center justify-between w-full text-left mb-4"
-              >
-                <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                  <Paperclip className="w-5 h-5 mr-2 text-gray-500" />
-                  Supporting Documents ({order.documents?.length || 0})
-                </h3>
-                {expandedSections.documents ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </button>
+            {/* IVR Episode Status Section */}
+            {ivrEpisode && (
+              <section className="mb-6 p-4 border rounded bg-gray-50">
+                <h2 className="text-lg font-bold mb-2">IVR Episode Status</h2>
+                <div>Status: <span className={ivrEpisode.verification_status === 'active' ? 'text-green-600' : 'text-red-600'}>{ivrEpisode.verification_status}</span></div>
+                <div>Verified: {ivrEpisode.verified_date || 'N/A'}</div>
+                <div>Expires: {ivrEpisode.expiration_date || 'N/A'}</div>
+                {/* Add warnings for expiring/expired IVRs */}
+              </section>
+            )}
 
-              {expandedSections.documents && (
-                <div className="space-y-2">
-                  {order.documents?.length > 0 ? (
-                    order.documents.map((doc, index) => (
-                      <div key={doc.id || `doc-${index}`} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center space-x-3">
-                          <FileImage className="w-5 h-5 text-gray-400" />
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                            <p className="text-xs text-gray-500">Uploaded {formatDate(doc.uploaded_at)}</p>
-                          </div>
-                        </div>
-                        <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">
-                          <Download className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Orders Under This IVR Episode */}
+            {relatedOrders.length > 1 && (
+              <section className="mb-6 p-4 border rounded bg-gray-50">
+                <h2 className="text-lg font-bold mb-2">Orders in This IVR Episode</h2>
+                <ul>
+                  {relatedOrders.map(o => (
+                    <li key={o.id} className="mb-1">Order #{o.order_number} - Status: {o.status}</li>
+                  ))}
+                </ul>
+              </section>
+            )}
 
-            {/* Action History */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <button
-                onClick={() => toggleSection('history')}
-                className="flex items-center justify-between w-full text-left mb-4"
-              >
-                <h3 className="text-lg font-medium text-gray-900 flex items-center">
-                  <History className="w-5 h-5 mr-2 text-gray-500" />
-                  Action History
-                </h3>
-                {expandedSections.history ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-              </button>
+            {/* Send to Manufacturer Section */}
+            <SendToManufacturer order={order} ivrEpisode={ivrEpisode} />
 
-              {expandedSections.history && (
-                <div className="space-y-3">
-                  {order.action_history?.length > 0 ? (
-                    order.action_history.map((action, index) => (
-                      <div key={action.id || `action-${index}`} className="flex space-x-3">
-                        <div className="flex-shrink-0">
-                          <div className="h-8 w-8 bg-gray-100 rounded-full flex items-center justify-center">
-                            <Clock className="w-4 h-4 text-gray-500" />
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm text-gray-900">
-                            <span className="font-medium">{action.actor}</span> {action.action}
-                          </p>
-                          {action.notes && (
-                            <p className="text-sm text-gray-600 mt-1">{action.notes}</p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-1">{formatDate(action.timestamp)}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-gray-500 text-center py-4">No actions recorded yet</p>
-                  )}
-                </div>
-              )}
-            </div>
+            {/* Tracking Management */}
+            <TrackingManager order={order} />
+
+            {/* Confirmation Documents (admin, editable) */}
+            <ConfirmationDocuments documents={order.confirmation_documents || []} readOnly={false} />
+
+            {/* Service and Delivery Dates */}
+            <section className="mb-6 p-4 border rounded bg-gray-50">
+              <div>Service Date: {order.service_date}</div>
+              <div>Requested Delivery Date: {order.requested_delivery_date}</div>
+            </section>
+
+            {/* Audit Log Display (admin, editable) */}
+            <AuditLog entries={order.audit_log || []} readOnly={false} />
+
+            {/* Order DocuSeal Status Section */}
+            {order.docuseal && (
+              <section className="mb-6 p-4 border rounded bg-gray-50">
+                <h2 className="text-lg font-bold mb-2">Order DocuSeal Status</h2>
+                <div>Status: <span className={order.docuseal.status === 'completed' ? 'bg-green-100 text-green-800 px-2 py-1 rounded' : order.docuseal.status === 'pending' ? 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded' : 'bg-gray-100 text-gray-800 px-2 py-1 rounded'}>{order.docuseal.status || 'N/A'}</span></div>
+                {/* Signed Documents */}
+                {order.docuseal.signed_documents && order.docuseal.signed_documents.length > 0 && (
+                  <div className="mt-4">
+                    <span className="font-semibold">Signed Documents:</span>
+                    <ul className="list-disc ml-6 mt-1">
+                      {order.docuseal.signed_documents.map((doc, idx) => (
+                        <li key={doc.id || idx}>
+                          <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                            {doc.filename || doc.name || `Document ${idx + 1}`}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {/* Audit Log */}
+                {order.docuseal.audit_log_url && (
+                  <div className="mt-4">
+                    <a
+                      href={order.docuseal.audit_log_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      View Audit Log
+                    </a>
+                  </div>
+                )}
+              </section>
+            )}
           </div>
         </div>
       </div>
@@ -758,13 +794,18 @@ const OrderShow: React.FC<OrderShowProps> = ({
               </button>
               <button
                 onClick={() => handleOrderAction(showActionModal)}
-                className={`px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md
-                  ${showActionModal === 'approve' ? 'bg-green-600 hover:bg-green-700' : ''}
-                  ${showActionModal === 'send_back' ? 'bg-orange-600 hover:bg-orange-700' : ''}
-                  ${showActionModal === 'deny' ? 'bg-red-600 hover:bg-red-700' : ''}
-                `}
+                className={
+                  `px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md ` +
+                  (showActionModal === 'approve'
+                    ? 'bg-green-600 hover:bg-green-700 '
+                    : showActionModal === 'send_back'
+                    ? 'bg-orange-600 hover:bg-orange-700 '
+                    : showActionModal === 'deny'
+                    ? 'bg-red-600 hover:bg-red-700 '
+                    : '')
+                }
               >
-                Confirm {showActionModal === 'approve' ? 'Approval' : showActionModal === 'send_back' ? 'Send Back' : 'Denial'}
+                Confirm {(showActionModal === 'approve') ? 'Approval' : (showActionModal === 'send_back') ? 'Send Back' : 'Denial'}
               </button>
             </div>
           </div>

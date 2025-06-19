@@ -14,6 +14,7 @@ use App\Models\Order\ProductRequest;
 use App\Models\User;
 use App\Services\IvrDocusealService;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Artisan;
 
 echo "=================================\n";
 echo "Direct IVR Generation Test\n";

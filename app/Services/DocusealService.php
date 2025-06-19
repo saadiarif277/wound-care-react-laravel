@@ -11,10 +11,15 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Config;
 use GuzzleHttp\Client as HttpClient;
 use Exception;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Request;
+use App\Services\FhirService;
 
 class DocusealService
 {
     private DocusealApi $docusealApi;
+    protected $apiUrl;
+    protected $apiKey;
 
     public function __construct()
     {
@@ -27,6 +32,8 @@ class DocusealService
         }
 
         $this->docusealApi = new DocusealApi($apiKey, $apiUrl);
+        $this->apiUrl = $apiUrl;
+        $this->apiKey = $apiKey;
     }
 
     /**
@@ -110,7 +117,7 @@ class DocusealService
             'fields' => $this->mapInsuranceVerificationFields($order, $phiData),
         ];
 
-        return $this->createSubmission($order, $template, 'InsuranceVerification', $submissionData);
+        return $this->createSubmission($template->docuseal_template_id, $submissionData);
     }
 
     /**
@@ -138,7 +145,7 @@ class DocusealService
             'fields' => $this->mapOrderFormFields($order, $phiData),
         ];
 
-        return $this->createSubmission($order, $template, 'OrderForm', $submissionData);
+        return $this->createSubmission($template->docuseal_template_id, $submissionData);
     }
 
     /**
@@ -171,7 +178,7 @@ class DocusealService
             'fields' => $this->mapOnboardingFormFields($order, $phiData),
         ];
 
-        return $this->createSubmission($order, $template, 'OnboardingForm', $submissionData);
+        return $this->createSubmission($template->docuseal_template_id, $submissionData);
     }
 
     /**
@@ -180,8 +187,10 @@ class DocusealService
     public function getSubmissionStatus(string $docusealSubmissionId): array
     {
         try {
-            $response = $this->docusealApi->getSubmission($docusealSubmissionId);
-            return $response;
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/submissions/{$docusealSubmissionId}");
+            return $response->json();
         } catch (Exception $e) {
             Log::error('Failed to get DocuSeal submission status', [
                 'submission_id' => $docusealSubmissionId,
@@ -262,24 +271,113 @@ class DocusealService
     }
 
     /**
-     * Get PHI data from FHIR service (placeholder implementation)
+     * Get PHI data from FHIR service
      */
     private function getOrderPHIData(Order $order): array
     {
-        // TODO: Implement FHIR integration to get actual PHI data
-        // This is a placeholder implementation
-        return [
-            'patient_name' => 'Patient Name', // From FHIR Patient resource
-            'patient_dob' => '1980-01-01',
-            'patient_address' => '123 Main St, City, State 12345',
-            'patient_phone' => '(555) 123-4567',
-            'patient_email' => 'patient@example.com',
-            'provider_name' => 'Dr. Provider Name',
-            'provider_npi' => '1234567890',
-            'facility_name' => $order->facility->name ?? 'Unknown Facility',
-            'insurance_plan' => 'Insurance Plan Name',
-            'member_id' => 'MEMBER123',
-        ];
+        try {
+            $fhirService = new FhirService();
+            
+            // Get patient data from FHIR if we have a patient FHIR ID
+            $patientData = [];
+            if ($order->patient_fhir_id) {
+                $fhirPatient = $fhirService->getPatient($order->patient_fhir_id);
+                
+                if ($fhirPatient) {
+                    // Extract patient name
+                    $patientName = '';
+                    if (isset($fhirPatient['name'][0])) {
+                        $name = $fhirPatient['name'][0];
+                        $given = implode(' ', $name['given'] ?? []);
+                        $family = $name['family'] ?? '';
+                        $patientName = trim("$given $family");
+                    }
+                    
+                    // Extract patient DOB
+                    $patientDob = $fhirPatient['birthDate'] ?? '';
+                    
+                    // Extract patient address
+                    $patientAddress = '';
+                    if (isset($fhirPatient['address'][0])) {
+                        $addr = $fhirPatient['address'][0];
+                        $lines = implode(' ', $addr['line'] ?? []);
+                        $city = $addr['city'] ?? '';
+                        $state = $addr['state'] ?? '';
+                        $postal = $addr['postalCode'] ?? '';
+                        $patientAddress = trim("$lines, $city, $state $postal");
+                    }
+                    
+                    // Extract patient phone
+                    $patientPhone = '';
+                    if (isset($fhirPatient['telecom'])) {
+                        foreach ($fhirPatient['telecom'] as $telecom) {
+                            if ($telecom['system'] === 'phone') {
+                                $patientPhone = $telecom['value'] ?? '';
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Extract patient email
+                    $patientEmail = '';
+                    if (isset($fhirPatient['telecom'])) {
+                        foreach ($fhirPatient['telecom'] as $telecom) {
+                            if ($telecom['system'] === 'email') {
+                                $patientEmail = $telecom['value'] ?? '';
+                                break;
+                            }
+                        }
+                    }
+                    
+                    $patientData = [
+                        'patient_name' => $patientName,
+                        'patient_dob' => $patientDob,
+                        'patient_address' => $patientAddress,
+                        'patient_phone' => $patientPhone,
+                        'patient_email' => $patientEmail,
+                    ];
+                }
+            }
+            
+            // Get provider data
+            $provider = $order->provider;
+            $providerName = $provider ? $provider->full_name : 'Unknown Provider';
+            $providerNpi = $provider && $provider->providerProfile ? $provider->providerProfile->npi : '';
+            
+            // Get insurance data from order
+            $insurancePlan = $order->insurance_plan ?? 'Unknown Plan';
+            $memberId = $order->member_id ?? '';
+            
+            // Merge all data
+            return array_merge($patientData, [
+                'provider_name' => $providerName,
+                'provider_npi' => $providerNpi,
+                'facility_name' => $order->facility->name ?? 'Unknown Facility',
+                'insurance_plan' => $insurancePlan,
+                'member_id' => $memberId,
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get FHIR patient data', [
+                'order_id' => $order->id,
+                'patient_fhir_id' => $order->patient_fhir_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Return fallback data if FHIR fails
+            return [
+                'patient_name' => 'Patient Name',
+                'patient_dob' => '',
+                'patient_address' => '',
+                'patient_phone' => '',
+                'patient_email' => '',
+                'provider_name' => $order->provider->full_name ?? 'Unknown Provider',
+                'provider_npi' => $order->provider->providerProfile->npi ?? '',
+                'facility_name' => $order->facility->name ?? 'Unknown Facility',
+                'insurance_plan' => $order->insurance_plan ?? '',
+                'member_id' => $order->member_id ?? '',
+            ];
+        }
     }
 
     /**
@@ -382,9 +480,40 @@ class DocusealService
      */
     private function isNewProvider(Order $order): bool
     {
-        // TODO: Implement logic to check if provider is new
-        // For now, assume all providers need onboarding
-        return true;
+        try {
+            if (!$order->provider_id) {
+                return false;
+            }
+            
+            // Check if provider has completed onboarding documents
+            $hasCompletedOnboarding = DocusealSubmission::where('provider_id', $order->provider_id)
+                ->where('document_type', 'onboarding')
+                ->where('status', 'completed')
+                ->exists();
+            
+            if ($hasCompletedOnboarding) {
+                return false;
+            }
+            
+            // Check if provider has completed any orders before
+            $hasCompletedOrders = Order::where('provider_id', $order->provider_id)
+                ->where('id', '!=', $order->id)
+                ->whereIn('status', ['shipped', 'delivered', 'completed'])
+                ->exists();
+            
+            // If no completed orders and no onboarding docs, they're new
+            return !$hasCompletedOrders;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to check if provider is new', [
+                'order_id' => $order->id,
+                'provider_id' => $order->provider_id,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Default to not requiring onboarding if check fails
+            return false;
+        }
     }
 
     /**
@@ -392,9 +521,45 @@ class DocusealService
      */
     private function getManufacturerFolderId(Order $order): string
     {
-        // TODO: Determine manufacturer from order items
-        // For now, return a default folder ID
-        return 'default-folder';
+        try {
+            // Get manufacturer from order items
+            $manufacturers = $order->orderItems()
+                ->join('msc_products', 'order_items.product_id', '=', 'msc_products.id')
+                ->join('manufacturers', 'msc_products.manufacturer_id', '=', 'manufacturers.id')
+                ->pluck('manufacturers.name')
+                ->unique();
+            
+            if ($manufacturers->isEmpty()) {
+                Log::warning('No manufacturer found for order', ['order_id' => $order->id]);
+                return 'default-folder';
+            }
+            
+            // If multiple manufacturers, use the first one
+            $manufacturerName = $manufacturers->first();
+            
+            // Get folder from DocuSeal folders table
+            $folder = DocusealFolder::where('name', 'like', "%{$manufacturerName}%")
+                ->orWhere('folder_name', 'like', "%{$manufacturerName}%")
+                ->first();
+            
+            if ($folder) {
+                return $folder->folder_id;
+            }
+            
+            // If no specific folder found, try to find a general manufacturer folder
+            $generalFolder = DocusealFolder::where('name', 'Manufacturers')
+                ->orWhere('folder_name', 'Manufacturers')
+                ->first();
+                
+            return $generalFolder ? $generalFolder->folder_id : 'default-folder';
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to determine manufacturer folder', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            return 'default-folder';
+        }
     }
 
     /**
@@ -404,15 +569,15 @@ class DocusealService
     {
         $apiKey = config('services.docuseal.api_key');
         $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-        
+
         if (!$apiKey) {
             throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
         }
-        
+
         try {
             // Prepare fields for embedded text field tags
             $fields = $this->prepareEmbeddedFields($submissionData['fields'] ?? []);
-            
+
             // Create submission payload for DocuSeal API
             $payload = [
                 'template_id' => $templateId,
@@ -430,7 +595,7 @@ class DocusealService
                 ],
                 'expire_after' => 7, // Days until expiration
             ];
-            
+
             // Make direct HTTP request to DocuSeal API
             $client = new HttpClient();
             $response = $client->post($apiUrl . '/submissions', [
@@ -442,9 +607,9 @@ class DocusealService
                 'json' => $payload,
                 'timeout' => 30
             ]);
-            
+
             $responseData = json_decode($response->getBody()->getContents(), true);
-            
+
             if (!$responseData || !isset($responseData['id'])) {
                 throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
             }
@@ -475,7 +640,7 @@ class DocusealService
 
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-            
+
             Log::error('DocuSeal API submission creation failed', [
                 'template_id' => $templateId,
                 'error' => $e->getMessage(),
@@ -483,7 +648,7 @@ class DocusealService
                 'response_body' => $errorBody,
                 'fields_provided' => array_keys($submissionData['fields'] ?? [])
             ]);
-            
+
             throw new Exception('Failed to create DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
         } catch (Exception $e) {
             Log::error('Failed to create QuickRequest DocuSeal submission', [
@@ -501,11 +666,11 @@ class DocusealService
     private function prepareEmbeddedFields(array $fields): array
     {
         $prepared = [];
-        
+
         foreach ($fields as $fieldName => $fieldValue) {
             // Clean field name (remove any prefixes if needed)
             $cleanFieldName = $fieldName;
-            
+
             // Convert value to string and handle special cases
             if (is_bool($fieldValue)) {
                 $prepared[$cleanFieldName] = $fieldValue ? 'Yes' : 'No';
@@ -519,12 +684,12 @@ class DocusealService
                 $prepared[$cleanFieldName] = (string) $fieldValue;
             }
         }
-        
+
         Log::debug('Prepared embedded fields for DocuSeal', [
             'field_count' => count($prepared),
             'field_sample' => array_slice($prepared, 0, 5, true) // Log first 5 fields for debugging
         ]);
-        
+
         return $prepared;
     }
 
@@ -535,11 +700,11 @@ class DocusealService
     {
         $apiKey = config('services.docuseal.api_key');
         $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-        
+
         if (!$apiKey) {
             throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
         }
-        
+
         try {
             $client = new HttpClient();
             $response = $client->get($apiUrl . '/submissions/' . $submissionId, [
@@ -549,25 +714,25 @@ class DocusealService
                 ],
                 'timeout' => 30
             ]);
-            
+
             $responseData = json_decode($response->getBody()->getContents(), true);
-            
+
             if (!$responseData) {
                 throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
             }
-            
+
             return $responseData;
-            
+
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-            
+
             Log::error('DocuSeal API get submission failed', [
                 'submission_id' => $submissionId,
                 'error' => $e->getMessage(),
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
                 'response_body' => $errorBody,
             ]);
-            
+
             throw new Exception('Failed to get DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
         } catch (Exception $e) {
             Log::error('Failed to get DocuSeal submission', [
@@ -585,11 +750,11 @@ class DocusealService
     {
         $apiKey = config('services.docuseal.api_key');
         $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-        
+
         if (!$apiKey) {
             throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
         }
-        
+
         try {
             $client = new HttpClient();
             $response = $client->get($apiUrl . '/templates/' . $templateId, [
@@ -599,31 +764,31 @@ class DocusealService
                 ],
                 'timeout' => 30
             ]);
-            
+
             $template = json_decode($response->getBody()->getContents(), true);
-            
+
             if (!$template) {
                 throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
             }
-            
+
             Log::info('Retrieved DocuSeal template info', [
                 'template_id' => $templateId,
                 'template_name' => $template['name'] ?? 'Unknown',
                 'fields_count' => count($template['fields'] ?? []),
             ]);
-            
+
             return $template;
-            
+
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-            
+
             Log::error('DocuSeal API get template failed', [
                 'template_id' => $templateId,
                 'error' => $e->getMessage(),
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
                 'response_body' => $errorBody,
             ]);
-            
+
             throw new Exception('Failed to get DocuSeal template: ' . $e->getMessage() . '. Response: ' . $errorBody);
         } catch (Exception $e) {
             Log::error('Failed to get DocuSeal template info', [
@@ -642,12 +807,12 @@ class DocusealService
         try {
             $template = $this->getTemplateInfo($templateId);
             $templateFields = collect($template['fields'] ?? [])->pluck('name')->toArray();
-            
+
             $providedFields = array_keys($fields);
             $matchedFields = array_intersect($providedFields, $templateFields);
             $unmatchedProvided = array_diff($providedFields, $templateFields);
             $unmatchedTemplate = array_diff($templateFields, $providedFields);
-            
+
             $validation = [
                 'template_id' => $templateId,
                 'template_fields_count' => count($templateFields),
@@ -658,9 +823,9 @@ class DocusealService
                 'unmatched_template_fields' => $unmatchedTemplate,
                 'match_percentage' => count($templateFields) > 0 ? round((count($matchedFields) / count($templateFields)) * 100, 2) : 0,
             ];
-            
+
             Log::info('DocuSeal field mapping validation', $validation);
-            
+
             return $validation;
         } catch (Exception $e) {
             Log::error('Failed to validate DocuSeal field mapping', [
@@ -685,7 +850,7 @@ class DocusealService
 
             // Validate field mapping first
             $validation = $this->validateFieldMapping($templateId, $submissionData['fields'] ?? []);
-            
+
             if ($validation['match_percentage'] < 50) {
                 Log::warning('Low field matching percentage detected', [
                     'match_percentage' => $validation['match_percentage'],
@@ -695,14 +860,14 @@ class DocusealService
 
             // Create submission with debugging
             $result = $this->createQuickRequestSubmission($templateId, $submissionData);
-            
+
             Log::info('DocuSeal submission debug completed successfully', [
                 'submission_id' => $result['submission_id'],
                 'field_validation' => $validation,
             ]);
-            
+
             return array_merge($result, ['field_validation' => $validation]);
-            
+
         } catch (Exception $e) {
             Log::error('DocuSeal submission debug failed', [
                 'template_id' => $templateId,
@@ -711,5 +876,35 @@ class DocusealService
             ]);
             throw $e;
         }
+    }
+
+
+
+    /**
+     * Get signed documents for a submission
+     */
+    public function getSignedDocuments($submissionId)
+    {
+        $status = $this->getSubmissionStatus($submissionId);
+        return $status['documents'] ?? [];
+    }
+
+    /**
+     * Get the audit log URL for a submission
+     */
+    public function getAuditLogUrl($submissionId)
+    {
+        $status = $this->getSubmissionStatus($submissionId);
+        return $status['audit_log_url'] ?? null;
+    }
+
+    /**
+     * Handle DocuSeal webhook events
+     */
+    public function handleWebhook(Request $request)
+    {
+        // TODO: Implement webhook event handling (update order/episode status, notify users, etc.)
+        Log::info('DocuSeal webhook received', $request->all());
+        return response()->json(['success' => true]);
     }
 }

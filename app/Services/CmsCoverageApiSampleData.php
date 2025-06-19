@@ -95,6 +95,6 @@ class CmsCoverageApiSampleData
     public static function shouldUseSampleData(int $httpStatus): bool
     {
         // Use sample data for server errors (5xx) or when explicitly in demo mode
-        return $httpStatus >= 500 || env('CMS_API_USE_SAMPLE_DATA', false);
+        return $httpStatus >= 500 || config('cms.api.use_sample_data', false);
     }
 }

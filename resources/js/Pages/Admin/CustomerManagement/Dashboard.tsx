@@ -122,7 +122,6 @@ export default function CustomerManagementDashboard({
         if (selectedOrganizations.length === 0) return;
 
         // Handle bulk actions here
-        console.log(`Performing ${action} on organizations:`, selectedOrganizations);
     };
 
     const handleFilter = () => {

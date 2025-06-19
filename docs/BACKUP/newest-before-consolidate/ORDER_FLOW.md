@@ -1,11 +1,13 @@
 # MSC Wound Portal Order Flow
 
 ## Overview
+
 This document outlines the complete order flow from initial product request submission to final order fulfillment. The system uses a single ProductRequest entity throughout the entire lifecycle, which transitions from a "request" to an "order" after approval. The process involves multiple stakeholders (Providers, MSC Admins, Manufacturers) and integrates with external systems (FHIR, DocuSeal).
 
 ## Order Flow Stages
 
 ### Stage 1: Product Request Submission
+
 **Actor:** Provider or Office Manager  
 **Status:** `draft` → `submitted`
 
@@ -26,6 +28,7 @@ This document outlines the complete order flow from initial product request subm
 3. ProductRequest created with status `submitted`
 
 ### Stage 2: Admin Review & Approval
+
 **Actor:** MSC Admin  
 **Status:** `submitted` → `processing` → `approved`/`rejected`
 
@@ -37,6 +40,7 @@ This document outlines the complete order flow from initial product request subm
    - **Deny**: Rejects with reason
 
 ### Stage 3: IVR Requirement Check
+
 **Actor:** MSC Admin  
 **Status:** `approved` → `pending_ivr`
 
@@ -46,6 +50,7 @@ This document outlines the complete order flow from initial product request subm
 4. System generates order number for tracking
 
 ### Stage 4: IVR Document Generation
+
 **Actor:** MSC Admin  
 **Status:** `pending_ivr` → `ivr_sent`
 
@@ -70,6 +75,7 @@ This document outlines the complete order flow from initial product request subm
 7. Order status updates to `ivr_sent`
 
 ### Stage 5: Admin Review & Send to Manufacturer
+
 **Actor:** MSC Admin  
 **Status:** `ivr_sent` → `ivr_sent` (with manufacturer_sent_at timestamp)
 
@@ -80,6 +86,7 @@ This document outlines the complete order flow from initial product request subm
 5. System updates `manufacturer_sent_at` timestamp
 
 ### Stage 6: Manufacturer Approval
+
 **Actor:** Manufacturer → MSC Admin  
 **Status:** `ivr_sent` → `ivr_confirmed`
 
@@ -90,6 +97,7 @@ This document outlines the complete order flow from initial product request subm
 5. System updates status to `ivr_confirmed`
 
 ### Stage 7: Final Order Approval
+
 **Actor:** MSC Admin  
 **Status:** `ivr_confirmed` → `approved`
 
@@ -99,6 +107,7 @@ This document outlines the complete order flow from initial product request subm
 4. Order status updates to `approved`
 
 ### Stage 9: Order Submission & Fulfillment
+
 **Actor:** MSC Admin/System  
 **Status:** `approved` → `submitted_to_manufacturer`
 
@@ -129,18 +138,21 @@ This document outlines the complete order flow from initial product request subm
 ## Key Integration Points
 
 ### FHIR Integration
+
 - Patient demographics
 - Clinical data
 - Insurance information
 - Provider credentials
 
 ### DocuSeal Integration
+
 - Manufacturer-specific folders
 - IVR templates per manufacturer
 - Electronic signature workflow
 - Webhook notifications for signature completion
 
 ### Future Enhancements
+
 1. Automated manufacturer approval via API
 2. Direct EDI submission to manufacturers
 3. Real-time shipment tracking
@@ -160,16 +172,19 @@ This document outlines the complete order flow from initial product request subm
 ## Exception Handling
 
 ### IVR Not Required
+
 - Admin can skip IVR generation with justification
 - Must document reason in system
 - Can proceed directly to approval actions
 
 ### Sent Back Status
+
 - Admin returns order to provider for corrections
 - Must include comments explaining issues
 - Provider must create new ProductRequest
 
 ### Denied Orders
+
 - Admin provides reason for denial
 - Order cannot be reactivated
 - Provider must submit new request if needed

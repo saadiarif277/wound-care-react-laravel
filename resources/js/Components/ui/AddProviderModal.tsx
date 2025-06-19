@@ -42,12 +42,8 @@ interface FormErrors {
     npi?: string;
     license_number?: string;
     license_state?: string;
-    specialties?: string;
     organization_id?: string;
     facility_assignments?: string;
-    is_primary_facility?: string;
-    send_invitation?: string;
-    invitation_message?: string;
 }
 
 const AddProviderModal: React.FC<AddProviderModalProps> = ({
@@ -58,7 +54,6 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
     facilities = [],
     organizations = []
 }) => {
-    // Theme setup
     let theme: 'dark' | 'light' = 'dark';
     let t = themes.dark;
 
@@ -67,8 +62,9 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
         theme = themeContext.theme;
         t = themes[theme];
     } catch (e) {
-        // If not in ThemeProvider, use dark theme
+        // Fallback to dark theme
     }
+
     const [formData, setFormData] = useState<FormData>({
         first_name: '',
         last_name: '',
@@ -97,12 +93,23 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
         { value: 'NP', label: 'Nurse Practitioner (NP)' },
         { value: 'PA', label: 'Physician Assistant (PA)' },
         { value: 'RN', label: 'Registered Nurse (RN)' },
-        { value: 'LPN', label: 'Licensed Practical Nurse (LPN)' },
         { value: 'DPM', label: 'Doctor of Podiatric Medicine (DPM)' },
-        { value: 'Other', label: 'Other' },
+        { value: 'Other', label: 'Other' }
     ];
 
-    // US States for license
+    const specialtyOptions = [
+        'Wound Care',
+        'General Surgery',
+        'Podiatry',
+        'Internal Medicine',
+        'Family Medicine',
+        'Vascular Surgery',
+        'Plastic Surgery',
+        'Dermatology',
+        'Emergency Medicine',
+        'Other'
+    ];
+
     const states = [
         { value: '', label: 'Select State' },
         { value: 'AL', label: 'Alabama' },
@@ -154,76 +161,73 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
         { value: 'WA', label: 'Washington' },
         { value: 'WV', label: 'West Virginia' },
         { value: 'WI', label: 'Wisconsin' },
-        { value: 'WY', label: 'Wyoming' },
+        { value: 'WY', label: 'Wyoming' }
     ];
 
-    // Reset form when modal opens
+    // Load facilities when organization changes
     useEffect(() => {
-        if (isOpen) {
-            setFormData({
-                first_name: '',
-                last_name: '',
-                email: '',
-                phone: '',
-                title: '',
-                npi: '',
-                license_number: '',
-                license_state: '',
-                specialties: '',
-                organization_id: organizationId || '',
-                facility_assignments: [],
-                is_primary_facility: {},
-                send_invitation: true,
-                invitation_message: '',
-            });
-            setErrors({});
+        if (formData.organization_id && facilities.length > 0) {
+            // Auto-select all facilities for the organization
+            const orgFacilities = facilities.filter(f => 
+                f.organization_id === formData.organization_id
+            );
+            setFormData(prev => ({
+                ...prev,
+                facility_assignments: orgFacilities.map(f => f.id),
+                is_primary_facility: orgFacilities.reduce((acc, f, index) => ({
+                    ...acc,
+                    [f.id]: index === 0 // First facility is primary by default
+                }), {})
+            }));
         }
-    }, [isOpen, organizationId]);
+    }, [formData.organization_id, facilities]);
 
-    const handleInputChange = (field: keyof FormData, value: string | boolean | string[]) => {
+    const handleInputChange = (field: keyof FormData, value: any) => {
         setFormData(prev => ({
             ...prev,
             [field]: value
         }));
-
-        // Clear error when user starts typing
-        if (errors[field]) {
+        // Clear error for this field
+        if (errors[field as keyof FormErrors]) {
             setErrors(prev => ({
                 ...prev,
-                [field]: ''
+                [field]: undefined
             }));
         }
     };
 
-    const handleFacilityAssignment = (facilityId: string, isAssigned: boolean) => {
-        if (isAssigned) {
-            setFormData(prev => ({
+    const handleFacilityToggle = (facilityId: string) => {
+        setFormData(prev => {
+            const isSelected = prev.facility_assignments.includes(facilityId);
+            const newAssignments = isSelected
+                ? prev.facility_assignments.filter(id => id !== facilityId)
+                : [...prev.facility_assignments, facilityId];
+            
+            // If removing, also remove from primary facilities
+            const newPrimary = { ...prev.is_primary_facility };
+            if (isSelected) {
+                delete newPrimary[facilityId];
+            }
+            
+            return {
                 ...prev,
-                facility_assignments: [...prev.facility_assignments, facilityId]
-            }));
-        } else {
-            setFormData(prev => ({
-                ...prev,
-                facility_assignments: prev.facility_assignments.filter(id => id !== facilityId),
-                is_primary_facility: {
-                    ...prev.is_primary_facility,
-                    [facilityId]: false
-                }
-            }));
-        }
+                facility_assignments: newAssignments,
+                is_primary_facility: newPrimary
+            };
+        });
     };
 
-    const handlePrimaryFacility = (facilityId: string, isPrimary: boolean) => {
+    const handlePrimaryToggle = (facilityId: string) => {
         setFormData(prev => ({
             ...prev,
             is_primary_facility: {
                 ...prev.is_primary_facility,
-                [facilityId]: isPrimary
+                [facilityId]: !prev.is_primary_facility[facilityId]
             }
         }));
     };
 
-    const validateForm = (): boolean => {
+    const validateForm = () => {
         const newErrors: FormErrors = {};
 
         if (!formData.first_name.trim()) {
@@ -268,24 +272,20 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
         }
 
         setIsLoading(true);
-
         try {
-            // Here you would typically make an API call to create/invite the provider
-            // For now, we'll simulate success and pass the data to the parent
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
-
-            onSave({
+            // Format the data for submission
+            const providerData = {
                 ...formData,
-                id: Date.now().toString(), // Temporary ID for demo
-                full_name: `${formData.first_name} ${formData.last_name}`,
-                role: 'provider',
-                status: formData.send_invitation ? 'invitation_sent' : 'active',
-                created_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            });
+                facility_assignments: formData.facility_assignments.map(facilityId => ({
+                    facility_id: facilityId,
+                    is_primary: formData.is_primary_facility[facilityId] || false
+                }))
+            };
+
+            await onSave(providerData);
             onClose();
-        } catch (error: any) {
-            setErrors({ email: error.message || 'An error occurred while saving' });
+        } catch (error) {
+            console.error('Error saving provider:', error);
         } finally {
             setIsLoading(false);
         }
@@ -316,7 +316,7 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                     {/* Basic Information */}
                     <div className="space-y-4">
                         <h3 className={cn("text-lg font-medium", t.text.primary)}>Basic Information</h3>
-
+                        
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Organization */}
                             {!organizationId && (
@@ -351,24 +351,13 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     First Name *
                                 </label>
-                                <div className="relative">
-                                    <User className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
-                                    <input
-                                        type="text"
-                                        value={formData.first_name}
-                                        onChange={(e) => handleInputChange('first_name', e.target.value)}
-                                        className={cn(
-                                            "pl-10",
-                                            t.input.base,
-                                            t.input.focus,
-                                            errors.first_name ? t.input.error : ''
-                                        )}
-                                        placeholder="Enter first name"
-                                    />
-                                </div>
-                                {errors.first_name && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.first_name}</p>
-                                )}
+                                <TextInput
+                                    value={formData.first_name}
+                                    onChange={(e) => handleInputChange('first_name', e.target.value)}
+                                    placeholder="John"
+                                    error={errors.first_name}
+                                    icon={<User className="h-4 w-4" />}
+                                />
                             </div>
 
                             {/* Last Name */}
@@ -376,20 +365,13 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Last Name *
                                 </label>
-                                <input
-                                    type="text"
+                                <TextInput
                                     value={formData.last_name}
                                     onChange={(e) => handleInputChange('last_name', e.target.value)}
-                                    className={cn(
-                                        t.input.base,
-                                        t.input.focus,
-                                        errors.last_name ? t.input.error : ''
-                                    )}
-                                    placeholder="Enter last name"
+                                    placeholder="Doe"
+                                    error={errors.last_name}
+                                    icon={<User className="h-4 w-4" />}
                                 />
-                                {errors.last_name && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.last_name}</p>
-                                )}
                             </div>
 
                             {/* Email */}
@@ -397,24 +379,14 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Email *
                                 </label>
-                                <div className="relative">
-                                    <Mail className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => handleInputChange('email', e.target.value)}
-                                        className={cn(
-                                            "pl-10",
-                                            t.input.base,
-                                            t.input.focus,
-                                            errors.email ? t.input.error : ''
-                                        )}
-                                        placeholder="Enter email address"
-                                    />
-                                </div>
-                                {errors.email && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.email}</p>
-                                )}
+                                <TextInput
+                                    type="email"
+                                    value={formData.email}
+                                    onChange={(e) => handleInputChange('email', e.target.value)}
+                                    placeholder="john.doe@example.com"
+                                    error={errors.email}
+                                    icon={<Mail className="h-4 w-4" />}
+                                />
                             </div>
 
                             {/* Phone */}
@@ -422,35 +394,36 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Phone
                                 </label>
-                                <div className="relative">
-                                    <Phone className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                                        className={cn(
-                                            "pl-10",
-                                            t.input.base,
-                                            t.input.focus,
-                                            errors.phone ? t.input.error : ''
-                                        )}
-                                        placeholder="Enter phone number"
-                                    />
-                                </div>
-                                {errors.phone && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.phone}</p>
-                                )}
+                                <TextInput
+                                    type="tel"
+                                    value={formData.phone}
+                                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                                    placeholder="(555) 123-4567"
+                                    error={errors.phone}
+                                    icon={<Phone className="h-4 w-4" />}
+                                />
                             </div>
+                        </div>
+                    </div>
 
+                    {/* Professional Information */}
+                    <div className="space-y-4">
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Professional Information</h3>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {/* Title */}
                             <div>
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    Title/Credential
+                                    Title
                                 </label>
                                 <select
                                     value={formData.title}
                                     onChange={(e) => handleInputChange('title', e.target.value)}
-                                    className={cn(t.input.base, t.input.focus)}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.title ? t.input.error : ''
+                                    )}
                                 >
                                     {providerTitles.map(title => (
                                         <option key={title.value} value={title.value}>
@@ -460,47 +433,17 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 </select>
                             </div>
 
-                            {/* Specialties */}
-                            <div>
-                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    Specialties
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.specialties}
-                                    onChange={(e) => handleInputChange('specialties', e.target.value)}
-                                    className={cn(t.input.base, t.input.focus)}
-                                    placeholder="e.g., Wound Care, Internal Medicine"
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Professional Information */}
-                    <div className="space-y-4">
-                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Professional Information</h3>
-
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             {/* NPI */}
                             <div>
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    NPI
+                                    NPI Number
                                 </label>
-                                <input
-                                    type="text"
+                                <TextInput
                                     value={formData.npi}
                                     onChange={(e) => handleInputChange('npi', e.target.value)}
-                                    className={cn(
-                                        t.input.base,
-                                        t.input.focus,
-                                        errors.npi ? t.input.error : ''
-                                    )}
-                                    placeholder="Enter 10-digit NPI"
-                                    maxLength={10}
+                                    placeholder="1234567890"
+                                    error={errors.npi}
                                 />
-                                {errors.npi && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.npi}</p>
-                                )}
                             </div>
 
                             {/* License Number */}
@@ -508,12 +451,11 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     License Number
                                 </label>
-                                <input
-                                    type="text"
+                                <TextInput
                                     value={formData.license_number}
                                     onChange={(e) => handleInputChange('license_number', e.target.value)}
-                                    className={cn(t.input.base, t.input.focus)}
-                                    placeholder="Enter license number"
+                                    placeholder="12345"
+                                    error={errors.license_number}
                                 />
                             </div>
 
@@ -525,7 +467,11 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                 <select
                                     value={formData.license_state}
                                     onChange={(e) => handleInputChange('license_state', e.target.value)}
-                                    className={cn(t.input.base, t.input.focus)}
+                                    className={cn(
+                                        t.input.base,
+                                        t.input.focus,
+                                        errors.license_state ? t.input.error : ''
+                                    )}
                                 >
                                     {states.map(state => (
                                         <option key={state.value} value={state.value}>
@@ -534,137 +480,166 @@ const AddProviderModal: React.FC<AddProviderModalProps> = ({
                                     ))}
                                 </select>
                             </div>
+
+                            {/* Specialties */}
+                            <div className="md:col-span-2">
+                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
+                                    Specialties
+                                </label>
+                                <select
+                                    value={formData.specialties}
+                                    onChange={(e) => handleInputChange('specialties', e.target.value)}
+                                    className={cn(t.input.base, t.input.focus)}
+                                >
+                                    <option value="">Select Specialty</option>
+                                    {specialtyOptions.map(specialty => (
+                                        <option key={specialty} value={specialty}>
+                                            {specialty}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
                     </div>
 
                     {/* Facility Assignments */}
-                    <div className="space-y-4">
-                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Facility Assignments</h3>
-
-                        {facilities.length > 0 ? (
-                            <div className="space-y-3">
-                                <p className={cn("text-sm", t.text.secondary)}>Select the facilities this provider will be assigned to:</p>
-                                {facilities.map(facility => (
-                                    <div key={facility.id} className={cn("flex items-center justify-between p-3 rounded-lg", t.glass.base)}>
-                                        <div className="flex items-center space-x-3">
-                                            <input
-                                                type="checkbox"
-                                                id={`facility-${facility.id}`}
-                                                checked={formData.facility_assignments.includes(facility.id)}
-                                                onChange={(e) => handleFacilityAssignment(facility.id, e.target.checked)}
-                                                className={cn("h-4 w-4 rounded",
-                                                    theme === 'dark'
-                                                        ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
-                                                        : 'text-blue-600 focus:ring-blue-500 border-gray-300'
-                                                )}
-                                            />
-                                            <label htmlFor={`facility-${facility.id}`} className="flex items-center space-x-2">
-                                                <Building className={cn("h-4 w-4", t.text.muted)} />
-                                                <span className={cn("text-sm font-medium", t.text.primary)}>{facility.name}</span>
-                                            </label>
-                                        </div>
-                                        {formData.facility_assignments.includes(facility.id) && (
-                                            <div className="flex items-center space-x-2">
+                    {formData.organization_id && facilities.length > 0 && (
+                        <div className="space-y-4">
+                            <h3 className={cn("text-lg font-medium", t.text.primary)}>Facility Assignments *</h3>
+                            
+                            <div className="space-y-2">
+                                {facilities
+                                    .filter(f => f.organization_id === formData.organization_id)
+                                    .map(facility => (
+                                        <div key={facility.id} className={cn(
+                                            "flex items-center justify-between p-3 rounded-lg",
+                                            theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'
+                                        )}>
+                                            <div className="flex items-center space-x-3">
                                                 <input
                                                     type="checkbox"
-                                                    id={`primary-${facility.id}`}
-                                                    checked={formData.is_primary_facility[facility.id] || false}
-                                                    onChange={(e) => handlePrimaryFacility(facility.id, e.target.checked)}
-                                                    className={cn("h-3 w-3 rounded",
-                                                        theme === 'dark'
-                                                            ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
-                                                            : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                                    id={`facility-${facility.id}`}
+                                                    checked={formData.facility_assignments.includes(facility.id)}
+                                                    onChange={() => handleFacilityToggle(facility.id)}
+                                                    className={cn(
+                                                        "h-4 w-4 rounded",
+                                                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : ''
                                                     )}
                                                 />
-                                                <label htmlFor={`primary-${facility.id}`} className={cn("text-xs", t.text.secondary)}>
-                                                    Primary
+                                                <label
+                                                    htmlFor={`facility-${facility.id}`}
+                                                    className={cn("cursor-pointer", t.text.primary)}
+                                                >
+                                                    <div className="flex items-center space-x-2">
+                                                        <Building className="h-4 w-4" />
+                                                        <span>{facility.name}</span>
+                                                    </div>
                                                 </label>
                                             </div>
-                                        )}
-                                    </div>
-                                ))}
-                                {errors.facility_assignments && (
-                                    <p className={cn("text-sm", t.status.error.split(' ')[0])}>{errors.facility_assignments}</p>
-                                )}
+                                            
+                                            {formData.facility_assignments.includes(facility.id) && (
+                                                <div className="flex items-center space-x-2">
+                                                    <input
+                                                        type="checkbox"
+                                                        id={`primary-${facility.id}`}
+                                                        checked={formData.is_primary_facility[facility.id] || false}
+                                                        onChange={() => handlePrimaryToggle(facility.id)}
+                                                        className={cn(
+                                                            "h-4 w-4 rounded",
+                                                            theme === 'dark' ? 'bg-gray-700 border-gray-600' : ''
+                                                        )}
+                                                    />
+                                                    <label
+                                                        htmlFor={`primary-${facility.id}`}
+                                                        className={cn("text-sm cursor-pointer", t.text.secondary)}
+                                                    >
+                                                        Primary
+                                                    </label>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
                             </div>
-                        ) : (
-                            <div className={cn("text-center py-4", t.text.muted)}>
-                                No facilities available. Please add facilities to this organization first.
-                            </div>
-                        )}
-                    </div>
+                            
+                            {errors.facility_assignments && (
+                                <p className={cn("text-sm", t.status.error.split(' ')[0])}>{errors.facility_assignments}</p>
+                            )}
+                        </div>
+                    )}
 
-                    {/* Invitation Settings */}
+                    {/* Invitation Options */}
                     <div className="space-y-4">
-                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Invitation Settings</h3>
-
-                        <div className="space-y-3">
-                            <div className="flex items-center">
+                        <h3 className={cn("text-lg font-medium", t.text.primary)}>Invitation Options</h3>
+                        
+                        <div className="space-y-4">
+                            <label className={cn("flex items-center space-x-3 cursor-pointer", t.text.primary)}>
                                 <input
                                     type="checkbox"
-                                    id="send_invitation"
                                     checked={formData.send_invitation}
                                     onChange={(e) => handleInputChange('send_invitation', e.target.checked)}
-                                    className={cn("h-4 w-4 rounded",
-                                        theme === 'dark'
-                                            ? 'text-blue-400 focus:ring-blue-400/30 border-white/20'
-                                            : 'text-blue-600 focus:ring-blue-500 border-gray-300'
+                                    className={cn(
+                                        "h-4 w-4 rounded",
+                                        theme === 'dark' ? 'bg-gray-700 border-gray-600' : ''
                                     )}
                                 />
-                                <label htmlFor="send_invitation" className={cn("ml-2 block text-sm", t.text.primary)}>
-                                    Send invitation email to provider
-                                </label>
-                            </div>
-
+                                <span>Send invitation email to provider</span>
+                            </label>
+                            
                             {formData.send_invitation && (
                                 <div>
                                     <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                        Invitation Message (Optional)
+                                        Custom Message (Optional)
                                     </label>
                                     <textarea
                                         value={formData.invitation_message}
                                         onChange={(e) => handleInputChange('invitation_message', e.target.value)}
+                                        placeholder="Add a personalized message to the invitation email..."
                                         rows={3}
                                         className={cn(t.input.base, t.input.focus)}
-                                        placeholder="Add a personal message to the invitation email..."
                                     />
                                 </div>
                             )}
                         </div>
                     </div>
 
-                </form>
-
-                {/* Action Buttons */}
-                <div className={cn("flex items-center justify-end space-x-3 pt-6", t.modal.footer)}>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        className={cn("px-4 py-2 text-sm font-medium rounded-lg", t.button.secondary)}
-                    >
-                        Cancel
-                    </button>
-                    <button
-                        type="submit"
-                        onClick={handleSubmit}
-                        disabled={isLoading}
-                        className={cn(
-                            "flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg",
-                            t.button.primary,
-                            isLoading ? "opacity-50 cursor-not-allowed" : ""
-                        )}
-                    >
-                        {isLoading ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                            <Save className="h-4 w-4" />
-                        )}
-                        <span>{isLoading ? (formData.send_invitation ? 'Sending Invitation...' : 'Creating...') : (formData.send_invitation ? 'Send Invitation' : 'Create Provider')}</span>
-                    </button>
-                </div>
+                    {/* Footer */}
+                    <div className={cn(
+                        "flex items-center justify-end space-x-3 pt-4 border-t",
+                        theme === 'dark' ? 'border-white/10' : 'border-gray-200'
+                    )}>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            disabled={isLoading}
+                            className={cn(
+                                "px-4 py-2 rounded-lg font-medium transition-colors",
+                                theme === 'dark'
+                                    ? 'text-white/60 hover:text-white hover:bg-white/10'
+                                    : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'
+                            )}
+                        >
+                            Cancel
+                        </button>
+                        <button
+                            type="submit"
+                            disabled={isLoading}
+                            className={cn(
+                                "px-4 py-2 rounded-lg font-medium flex items-center space-x-2",
+                                t.button.primary,
+                                isLoading && "opacity-50 cursor-not-allowed"
+                            )}
+                        >
+                            {isLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                                <Save className="h-4 w-4" />
+                            )}
+                            <span>{isLoading ? (formData.send_invitation ? 'Sending Invitation...' : 'Creating...') : (formData.send_invitation ? 'Send Invitation' : 'Create Provider')}</span>
+                        </button>
+                    </div>
                 </form>
             </div>
-        </div>
+        </Modal>
     );
 };
 

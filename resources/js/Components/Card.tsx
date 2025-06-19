@@ -2,9 +2,9 @@ import { ComponentProps, ReactNode } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
-interface CardProps extends ComponentProps<'div'> {
+interface CardProps extends Omit<ComponentProps<'div'>, 'title'> {
     children: ReactNode;
-    title?: string;
+    title?: string | React.ReactNode;
     icon?: ReactNode;
     footer?: ReactNode;
     /**

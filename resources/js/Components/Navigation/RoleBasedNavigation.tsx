@@ -92,6 +92,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               description: 'Fast-track your orders'
             },
             {
+              name: 'Quick Request (Beta)',
+              href: '/quick-requests/create-new',
+              icon: FiLink,
+              roles: ['provider'],
+              description: 'Next-gen quick order form (pilot)'
+            },
+            {
               name: 'New Request',
               href: '/product-requests/create',
               icon: FiPlus,
@@ -173,6 +180,13 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               icon: FiLink,
               roles: ['office-manager'],
               description: 'Fast-track your orders'
+            },
+            {
+              name: 'Quick Request (Beta)',
+              href: '/quick-requests/create-new',
+              icon: FiLink,
+              roles: ['office-manager'],
+              description: 'Next-gen quick order form (pilot)'
             },
             {
               name: 'New Request',
@@ -480,6 +494,12 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               roles: ['super-admin', 'superadmin']
             },
             {
+              name: 'Patient IVR Status',
+              href: '/admin/patients/ivr-status',
+              icon: FiCheckSquare,
+              roles: ['super-admin', 'superadmin']
+            },
+            {
               name: 'Product Catalog',
               href: '/products/manage',
               icon: FiPackage,
@@ -714,7 +734,7 @@ export default function RoleBasedNavigation({ userRole, currentPath, isCollapsed
           <item.icon className={cn(
             'flex-shrink-0 w-5 h-5',
             isCollapsed ? '' : 'mr-4',
-            isActive 
+            isActive
               ? theme === 'dark' ? 'text-white' : 'text-[rgb(25,37,195)]'
               : theme === 'dark' ? 'text-white/80 group-hover:text-white' : 'text-gray-600 group-hover:text-gray-900'
           )} />

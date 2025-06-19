@@ -189,6 +189,13 @@ class OrganizationManagementController extends Controller
             'city' => 'nullable|string|max:100',
             'state' => 'nullable|string|max:2',
             'zip_code' => 'nullable|string|max:10',
+            'billing_address' => 'nullable|string|max:255',
+            'billing_city' => 'nullable|string|max:100',
+            'billing_state' => 'nullable|string|max:2',
+            'billing_zip' => 'nullable|string|max:10',
+            'ap_contact_name' => 'nullable|string|max:255',
+            'ap_contact_phone' => 'nullable|string|max:20',
+            'ap_contact_email' => 'nullable|email|max:255',
         ]);
 
         $organization->update($validated);
