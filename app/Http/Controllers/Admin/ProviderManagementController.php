@@ -636,6 +636,12 @@ class ProviderManagementController extends Controller
 
         $organizations = Organization::orderBy('name')->get(['id', 'name']);
         $states = $this->getUSStates();
+        
+        // Get provider profile data
+        $providerProfile = null;
+        if (Schema::hasTable('provider_profiles')) {
+            $providerProfile = ProviderProfile::where('provider_id', $provider->id)->first();
+        }
 
         return Inertia::render('Admin/Providers/Edit', [
             'provider' => [
@@ -651,6 +657,14 @@ class ProviderManagementController extends Controller
                 'current_organization_id' => $provider->current_organization_id,
                 'is_verified' => $provider->is_verified ?? false,
                 'name' => $provider->name,
+                'provider_profile' => $providerProfile ? [
+                    'specialty' => $providerProfile->specialty,
+                    'tax_id' => $providerProfile->tax_id,
+                    'ptan' => $providerProfile->ptan,
+                    'medicaid_number' => $providerProfile->medicaid_number,
+                    'phone' => $providerProfile->phone,
+                    'fax' => $providerProfile->fax,
+                ] : null,
             ],
             'organizations' => $organizations,
             'states' => $states,
@@ -679,9 +693,47 @@ class ProviderManagementController extends Controller
             'license_expiry' => 'nullable|date',
             'current_organization_id' => 'nullable|exists:organizations,id',
             'is_verified' => 'boolean',
+            // Provider Profile fields
+            'specialty' => 'nullable|string|max:255',
+            'tax_id' => 'nullable|string|max:50',
+            'ptan' => 'nullable|string|max:50',
+            'medicaid_number' => 'nullable|string|max:50',
+            'phone' => 'nullable|string|max:20',
+            'fax' => 'nullable|string|max:20',
         ]);
 
-        $provider->update($validated);
+        // Update user fields
+        $provider->update([
+            'first_name' => $validated['first_name'],
+            'last_name' => $validated['last_name'],
+            'email' => $validated['email'],
+            'npi_number' => $validated['npi_number'],
+            'dea_number' => $validated['dea_number'],
+            'license_number' => $validated['license_number'],
+            'license_state' => $validated['license_state'],
+            'license_expiry' => $validated['license_expiry'],
+            'current_organization_id' => $validated['current_organization_id'],
+            'is_verified' => $validated['is_verified'],
+        ]);
+
+        // Update provider profile if it exists
+        if (Schema::hasTable('provider_profiles')) {
+            $profile = ProviderProfile::firstOrCreate(
+                ['provider_id' => $provider->id],
+                ['id' => \Illuminate\Support\Str::uuid()]
+            );
+            
+            $profile->update([
+                'specialty' => $validated['specialty'] ?? null,
+                'tax_id' => $validated['tax_id'] ?? null,
+                'ptan' => $validated['ptan'] ?? null,
+                'medicaid_number' => $validated['medicaid_number'] ?? null,
+                'phone' => $validated['phone'] ?? null,
+                'fax' => $validated['fax'] ?? null,
+                'npi' => $validated['npi_number'] ?? null, // Keep in sync
+                'last_profile_update' => now(),
+            ]);
+        }
 
         return redirect()->route('admin.providers.show', $provider)
             ->with('success', 'Provider updated successfully.');

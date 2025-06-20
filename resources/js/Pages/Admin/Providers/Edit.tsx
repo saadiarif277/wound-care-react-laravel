@@ -1,12 +1,9 @@
 import React, { useState } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Card } from '@/Components/ui/card';
-import TextInput from '@/Components/Form/TextInput';
-import SelectInput from '@/Components/Form/SelectInput';
-import { CheckboxInput } from '@/Components/Form/CheckboxInput';
-import LoadingButton from '@/Components/Button/LoadingButton';
-import { FiArrowLeft, FiSave, FiUser, FiMapPin, FiCreditCard } from 'react-icons/fi';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import { FiArrowLeft, FiSave, FiUser, FiMapPin, FiCreditCard, FiPhone, FiPrinter, FiShield } from 'react-icons/fi';
 
 interface EditProviderProps {
   provider: any;
@@ -15,15 +12,40 @@ interface EditProviderProps {
 }
 
 export default function EditProvider({ provider, organizations, states }: EditProviderProps) {
+  // Theme context with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
+
   const { data, setData, put, processing, errors } = useForm({
+    // Basic Info
     first_name: provider.first_name || '',
     last_name: provider.last_name || '',
     email: provider.email || '',
+    
+    // Professional Info
     npi_number: provider.npi_number || '',
     dea_number: provider.dea_number || '',
     license_number: provider.license_number || '',
     license_state: provider.license_state || '',
     license_expiry: provider.license_expiry || '',
+    
+    // Provider Profile Info (including new fields)
+    specialty: provider.provider_profile?.specialty || '',
+    tax_id: provider.provider_profile?.tax_id || '',
+    ptan: provider.provider_profile?.ptan || '',
+    medicaid_number: provider.provider_profile?.medicaid_number || '',
+    phone: provider.provider_profile?.phone || '',
+    fax: provider.provider_profile?.fax || '',
+    
+    // Organization
     current_organization_id: provider.current_organization_id || '',
     is_verified: provider.is_verified || false,
   });
@@ -37,186 +59,468 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     <MainLayout>
       <Head title={`Edit Provider - ${provider.name}`} />
 
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <Link
-              href="/admin/providers"
-              className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
-            >
-              <FiArrowLeft className="mr-2" />
-              Back to Providers
-            </Link>
-            <h1 className="mt-2 text-3xl font-bold text-gray-900">Edit Provider</h1>
-            <p className="mt-1 text-gray-600">Update provider information</p>
-          </div>
+      <div className="max-w-4xl mx-auto p-6">
+        {/* Header */}
+        <div className="mb-8">
+          <Link
+            href="/admin/providers"
+            className={cn(
+              "inline-flex items-center text-sm mb-4",
+              t.text.secondary,
+              "hover:text-opacity-80 transition-colors"
+            )}
+          >
+            <FiArrowLeft className="mr-2" />
+            Back to Providers
+          </Link>
+          <h1 className={cn("text-3xl font-bold", t.text.primary)}>Edit Provider</h1>
+          <p className={cn("mt-1", t.text.secondary)}>Update provider information</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <FiUser className="w-5 h-5 mr-2" />
-                Basic Information
-              </h2>
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-lg font-semibold mb-4 flex items-center", t.text.primary)}>
+              <FiUser className="w-5 h-5 mr-2" />
+              Basic Information
+            </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <TextInput
-                  label="First Name *"
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  First Name *
+                </label>
+                <input
+                  type="text"
                   value={data.first_name}
                   onChange={(e) => setData('first_name', e.target.value)}
-                  error={errors.first_name}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.first_name && t.input.error
+                  )}
                   required
                   placeholder="John"
                 />
+                {errors.first_name && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.first_name}</p>
+                )}
+              </div>
 
-                <TextInput
-                  label="Last Name *"
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Last Name *
+                </label>
+                <input
+                  type="text"
                   value={data.last_name}
                   onChange={(e) => setData('last_name', e.target.value)}
-                  error={errors.last_name}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.last_name && t.input.error
+                  )}
                   required
                   placeholder="Doe"
                 />
+                {errors.last_name && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.last_name}</p>
+                )}
+              </div>
 
-                <TextInput
-                  label="Email Address *"
+              <div className="md:col-span-2">
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Email Address *
+                </label>
+                <input
                   type="email"
                   value={data.email}
                   onChange={(e) => setData('email', e.target.value)}
-                  error={errors.email}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.email && t.input.error
+                  )}
                   required
                   placeholder="provider@example.com"
                 />
+                {errors.email && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.email}</p>
+                )}
               </div>
             </div>
-          </Card>
+          </div>
 
-          {/* Professional Information */}
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <FiCreditCard className="w-5 h-5 mr-2" />
-                Professional Information
-              </h2>
+          {/* Contact Information (NEW SECTION) */}
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-lg font-semibold mb-4 flex items-center", t.text.primary)}>
+              <FiPhone className="w-5 h-5 mr-2" />
+              Contact Information
+            </h2>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <TextInput
-                    label="NPI Number"
-                    value={data.npi_number}
-                    onChange={(e) => setData('npi_number', e.target.value)}
-                    error={errors.npi_number}
-                    placeholder="1234567890"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    10-digit National Provider Identifier issued by CMS for healthcare providers
-                  </p>
-                </div>
-
-                <div>
-                  <TextInput
-                    label="DEA Number"
-                    value={data.dea_number}
-                    onChange={(e) => setData('dea_number', e.target.value)}
-                    error={errors.dea_number}
-                    placeholder="AB1234567"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Drug Enforcement Administration registration for prescribing controlled substances
-                  </p>
-                </div>
-
-                <div>
-                  <TextInput
-                    label="Medical License Number"
-                    value={data.license_number}
-                    onChange={(e) => setData('license_number', e.target.value)}
-                    error={errors.license_number}
-                    placeholder="12345"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    State medical board license number for practicing medicine
-                  </p>
-                </div>
-
-                <div>
-                  <SelectInput
-                    label="License Issuing State"
-                    value={data.license_state}
-                    onChange={(e) => setData('license_state', e.target.value)}
-                    error={errors.license_state}
-                  >
-                    <option value="">Select a state...</option>
-                    {states.map(state => (
-                      <option key={state.code} value={state.code}>{state.name}</option>
-                    ))}
-                  </SelectInput>
-                  <p className="mt-1 text-xs text-gray-500">
-                    State where medical license was issued
-                  </p>
-                </div>
-
-                <div>
-                  <TextInput
-                    label="License Expiration Date"
-                    type="date"
-                    value={data.license_expiry}
-                    onChange={(e) => setData('license_expiry', e.target.value)}
-                    error={errors.license_expiry}
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    Date when medical license expires and needs renewal
-                  </p>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Phone Number
+                </label>
+                <input
+                  type="tel"
+                  value={data.phone}
+                  onChange={(e) => setData('phone', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.phone && t.input.error
+                  )}
+                  placeholder="(555) 123-4567"
+                />
+                {errors.phone && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.phone}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Provider's direct phone number
+                </p>
               </div>
 
-              <div className="mt-4">
-                <CheckboxInput
-                  label="Mark as verified provider"
-                  checked={data.is_verified}
-                  onChange={(e) => setData('is_verified', e.target.checked)}
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  <FiPrinter className="inline w-4 h-4 mr-1" />
+                  Fax Number
+                </label>
+                <input
+                  type="tel"
+                  value={data.fax}
+                  onChange={(e) => setData('fax', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.fax && t.input.error
+                  )}
+                  placeholder="(555) 123-4568"
                 />
-                <p className="mt-2 text-sm text-gray-600">
-                  Check this if the provider's credentials have been manually verified.
+                {errors.fax && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.fax}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Provider's fax number for documents
                 </p>
               </div>
             </div>
-          </Card>
+          </div>
+
+          {/* Professional Information */}
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-lg font-semibold mb-4 flex items-center", t.text.primary)}>
+              <FiCreditCard className="w-5 h-5 mr-2" />
+              Professional Information
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Medical Specialty
+                </label>
+                <input
+                  type="text"
+                  value={data.specialty}
+                  onChange={(e) => setData('specialty', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.specialty && t.input.error
+                  )}
+                  placeholder="Wound Care Specialist"
+                />
+                {errors.specialty && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.specialty}</p>
+                )}
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  NPI Number
+                </label>
+                <input
+                  type="text"
+                  value={data.npi_number}
+                  onChange={(e) => setData('npi_number', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.npi_number && t.input.error
+                  )}
+                  placeholder="1234567890"
+                />
+                {errors.npi_number && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.npi_number}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  10-digit National Provider Identifier
+                </p>
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  DEA Number
+                </label>
+                <input
+                  type="text"
+                  value={data.dea_number}
+                  onChange={(e) => setData('dea_number', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.dea_number && t.input.error
+                  )}
+                  placeholder="AB1234567"
+                />
+                {errors.dea_number && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.dea_number}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Drug Enforcement Administration registration
+                </p>
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Medical License Number
+                </label>
+                <input
+                  type="text"
+                  value={data.license_number}
+                  onChange={(e) => setData('license_number', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.license_number && t.input.error
+                  )}
+                  placeholder="12345"
+                />
+                {errors.license_number && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_number}</p>
+                )}
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  License Issuing State
+                </label>
+                <select
+                  value={data.license_state}
+                  onChange={(e) => setData('license_state', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.license_state && t.input.error
+                  )}
+                >
+                  <option value="">Select a state...</option>
+                  {states.map(state => (
+                    <option key={state.code} value={state.code}>{state.name}</option>
+                  ))}
+                </select>
+                {errors.license_state && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_state}</p>
+                )}
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  License Expiration Date
+                </label>
+                <input
+                  type="date"
+                  value={data.license_expiry}
+                  onChange={(e) => setData('license_expiry', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.license_expiry && t.input.error
+                  )}
+                />
+                {errors.license_expiry && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.license_expiry}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Billing Information (NEW SECTION) */}
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-lg font-semibold mb-4 flex items-center", t.text.primary)}>
+              <FiShield className="w-5 h-5 mr-2" />
+              Billing & Insurance Information
+            </h2>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Tax ID / EIN
+                </label>
+                <input
+                  type="text"
+                  value={data.tax_id}
+                  onChange={(e) => setData('tax_id', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.tax_id && t.input.error
+                  )}
+                  placeholder="12-3456789"
+                />
+                {errors.tax_id && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.tax_id}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Provider's Tax Identification Number
+                </p>
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  PTAN
+                </label>
+                <input
+                  type="text"
+                  value={data.ptan}
+                  onChange={(e) => setData('ptan', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.ptan && t.input.error
+                  )}
+                  placeholder="A12345"
+                />
+                {errors.ptan && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.ptan}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Provider Transaction Access Number for Medicare
+                </p>
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Medicaid Number
+                </label>
+                <input
+                  type="text"
+                  value={data.medicaid_number}
+                  onChange={(e) => setData('medicaid_number', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.medicaid_number && t.input.error
+                  )}
+                  placeholder="MED123456"
+                />
+                {errors.medicaid_number && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.medicaid_number}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Provider's Medicaid identification number
+                </p>
+              </div>
+            </div>
+          </div>
 
           {/* Organization Assignment */}
-          <Card>
-            <div className="p-6">
-              <h2 className="text-lg font-semibold mb-4 flex items-center">
-                <FiMapPin className="w-5 h-5 mr-2" />
-                Organization Assignment
-              </h2>
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-lg font-semibold mb-4 flex items-center", t.text.primary)}>
+              <FiMapPin className="w-5 h-5 mr-2" />
+              Organization Assignment
+            </h2>
 
-              <SelectInput
-                label="Current Organization"
-                value={data.current_organization_id}
-                onChange={(e) => setData('current_organization_id', e.target.value)}
-                error={errors.current_organization_id}
-              >
-                <option value="">Select an organization...</option>
-                {organizations.map(org => (
-                  <option key={org.id} value={org.id}>{org.name}</option>
-                ))}
-              </SelectInput>
+            <div className="space-y-4">
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Current Organization
+                </label>
+                <select
+                  value={data.current_organization_id}
+                  onChange={(e) => setData('current_organization_id', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.current_organization_id && t.input.error
+                  )}
+                >
+                  <option value="">Select an organization...</option>
+                  {organizations.map(org => (
+                    <option key={org.id} value={org.id}>{org.name}</option>
+                  ))}
+                </select>
+                {errors.current_organization_id && (
+                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.current_organization_id}</p>
+                )}
+              </div>
+
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="is_verified"
+                  checked={data.is_verified}
+                  onChange={(e) => setData('is_verified', e.target.checked)}
+                  className={cn(
+                    "w-4 h-4 rounded",
+                    t.checkbox.base,
+                    t.checkbox.checked
+                  )}
+                />
+                <label 
+                  htmlFor="is_verified" 
+                  className={cn("ml-2 text-sm", t.text.primary)}
+                >
+                  Mark as verified provider
+                </label>
+              </div>
+              <p className={cn("text-sm", t.text.secondary)}>
+                Check this if the provider's credentials have been manually verified.
+              </p>
             </div>
-          </Card>
+          </div>
 
           {/* Submit Button */}
           <div className="flex justify-end">
-            <LoadingButton
+            <button
               type="submit"
-              loading={processing}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
+              disabled={processing}
+              className={cn(
+                "inline-flex items-center px-6 py-3 rounded-lg font-medium",
+                "transition-all duration-200",
+                t.button.primary.base,
+                t.button.primary.hover,
+                processing && "opacity-50 cursor-not-allowed"
+              )}
             >
-              <FiSave className="w-4 h-4 mr-2" />
-              Save Changes
-            </LoadingButton>
+              {processing ? (
+                <>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <FiSave className="w-4 h-4 mr-2" />
+                  Save Changes
+                </>
+              )}
+            </button>
           </div>
         </form>
       </div>

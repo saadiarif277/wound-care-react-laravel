@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Head, Link, useForm } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 import {
   FiArrowLeft,
   FiSave,
@@ -8,7 +10,10 @@ import {
   FiTrash2,
   FiUpload,
   FiPackage,
-  FiAlertTriangle
+  FiAlertTriangle,
+  FiDollarSign,
+  FiImage,
+  FiFile
 } from 'react-icons/fi';
 
 interface Product {
@@ -29,6 +34,7 @@ interface Product {
   document_urls: string[];
   commission_rate: number;
   is_active: boolean;
+  mue_limit?: number;
 }
 
 interface Props {
@@ -55,9 +61,22 @@ interface FormData {
   document_urls: string[];
   commission_rate: string;
   is_active: boolean;
+  mue_limit: string;
 }
 
 export default function ProductEdit({ product, categories, manufacturers }: Props) {
+  // Theme context with fallback
+  let theme: 'dark' | 'light' = 'dark';
+  let t = themes.dark;
+
+  try {
+    const themeContext = useTheme();
+    theme = themeContext.theme;
+    t = themes[theme];
+  } catch (e) {
+    // Fallback to dark theme if outside ThemeProvider
+  }
+
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const { data, setData, put, delete: destroy, processing, errors } = useForm<FormData>({
@@ -69,7 +88,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     national_asp: product.price_per_sq_cm ? product.price_per_sq_cm.toString() : '',
     price_per_sq_cm: product.price_per_sq_cm ? product.price_per_sq_cm.toString() : '',
     q_code: product.q_code || '',
-    available_sizes: product.available_sizes ? product.available_sizes.map(size => size.toString()) : [''],
+    available_sizes: product.available_sizes ? product.available_sizes.map(size => size.toString()) : [],
     size_options: product.size_options || [],
     size_pricing: product.size_pricing ? Object.fromEntries(
       Object.entries(product.size_pricing).map(([key, value]) => [key, value.toString()])
@@ -80,6 +99,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     document_urls: product.document_urls && product.document_urls.length > 0 ? product.document_urls : [''],
     commission_rate: product.commission_rate ? product.commission_rate.toString() : '',
     is_active: product.is_active,
+    mue_limit: product.mue_limit ? product.mue_limit.toString() : '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -104,6 +124,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
       national_asp: data.national_asp ? parseFloat(data.national_asp) : null,
       price_per_sq_cm: data.price_per_sq_cm ? parseFloat(data.price_per_sq_cm) : null,
       commission_rate: data.commission_rate ? parseFloat(data.commission_rate) : null,
+      mue_limit: data.mue_limit ? parseFloat(data.mue_limit) : null,
     };
 
     put(`/products/${product.id}`, processedData as any);
@@ -206,106 +227,134 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
   };
 
   return (
-    <MainLayout title={`Edit ${product.name}`}>
+    <MainLayout>
       <Head title={`Edit ${product.name}`} />
 
-      <div className="p-6">
+      <div className="p-6 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-4">
             <Link
               href="/products"
-              className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors"
+              className={cn(
+                "flex items-center gap-2 transition-colors",
+                t.text.secondary,
+                "hover:text-opacity-80"
+              )}
             >
               <FiArrowLeft className="w-4 h-4" />
               Back to Products
             </Link>
-            <div className="w-px h-6 bg-gray-300"></div>
-            <h1 className="text-3xl font-bold text-gray-900">Edit Product</h1>
+            <div className={cn("w-px h-6", t.glass.border)}></div>
+            <h1 className={cn("text-3xl font-bold", t.text.primary)}>Edit Product</h1>
           </div>
 
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
+              t.status.error,
+              "hover:opacity-90"
+            )}
           >
             <FiTrash2 className="w-4 h-4" />
             Delete Product
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
               <FiPackage className="w-5 h-5" />
               Basic Information
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   SKU <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={data.sku}
                   onChange={(e) => setData('sku', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.sku && t.input.error
+                  )}
                   placeholder="e.g., BIO-Q4154"
                 />
-                {errors.sku && <p className="text-red-500 text-sm mt-1">{errors.sku}</p>}
+                {errors.sku && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.sku}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Q-Code
                 </label>
                 <input
                   type="text"
                   value={data.q_code}
                   onChange={(e) => setData('q_code', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.q_code && t.input.error
+                  )}
                   placeholder="e.g., 4154"
                 />
-                {errors.q_code && <p className="text-red-500 text-sm mt-1">{errors.q_code}</p>}
+                {errors.q_code && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.q_code}</p>}
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Product Name <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   value={data.name}
                   onChange={(e) => setData('name', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.name && t.input.error
+                  )}
                   placeholder="e.g., Biovance"
                 />
-                {errors.name && <p className="text-red-500 text-sm mt-1">{errors.name}</p>}
+                {errors.name && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.name}</p>}
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Description
                 </label>
                 <textarea
                   value={data.description}
                   onChange={(e) => setData('description', e.target.value)}
-                  rows={4}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.description && t.input.error
+                  )}
                   placeholder="Product description..."
                 />
-                {errors.description && <p className="text-red-500 text-sm mt-1">{errors.description}</p>}
+                {errors.description && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.description}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Manufacturer
                 </label>
                 <select
                   value={data.manufacturer}
                   onChange={(e) => setData('manufacturer', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.manufacturer && t.input.error
+                  )}
                 >
                   <option value="">Select Manufacturer</option>
                   {manufacturers.map((manufacturer) => (
@@ -314,17 +363,21 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     </option>
                   ))}
                 </select>
-                {errors.manufacturer && <p className="text-red-500 text-sm mt-1">{errors.manufacturer}</p>}
+                {errors.manufacturer && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.manufacturer}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Category
                 </label>
                 <select
                   value={data.category}
                   onChange={(e) => setData('category', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.category && t.input.error
+                  )}
                 >
                   <option value="">Select Category</option>
                   {categories.map((category) => (
@@ -333,25 +386,29 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     </option>
                   ))}
                 </select>
-                {errors.category && <p className="text-red-500 text-sm mt-1">{errors.category}</p>}
+                {errors.category && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.category}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Graph Type
                 </label>
                 <input
                   type="text"
                   value={data.graph_type}
                   onChange={(e) => setData('graph_type', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., Amniotic Membrane"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.graph_type && t.input.error
+                  )}
+                  placeholder="e.g., wound_care"
                 />
-                {errors.graph_type && <p className="text-red-500 text-sm mt-1">{errors.graph_type}</p>}
+                {errors.graph_type && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.graph_type}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Status
                 </label>
                 <label className="flex items-center gap-2">
@@ -359,21 +416,28 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     type="checkbox"
                     checked={data.is_active}
                     onChange={(e) => setData('is_active', e.target.checked)}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className={cn(
+                      "rounded",
+                      t.input.base,
+                      "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                    )}
                   />
-                  <span className="text-sm text-gray-700">Active</span>
+                  <span className={cn("text-sm", t.text.primary)}>Active</span>
                 </label>
               </div>
             </div>
           </div>
 
           {/* Pricing Information */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Pricing Information</h2>
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
+              <FiDollarSign className="w-5 h-5" />
+              Pricing Information
+            </h2>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   National ASP ($/cm²)
                 </label>
                 <input
@@ -381,14 +445,18 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                   step="0.01"
                   value={data.national_asp}
                   onChange={(e) => setData('national_asp', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.national_asp && t.input.error
+                  )}
                   placeholder="0.00"
                 />
-                {errors.national_asp && <p className="text-red-500 text-sm mt-1">{errors.national_asp}</p>}
+                {errors.national_asp && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.national_asp}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Price per cm²
                 </label>
                 <input
@@ -396,14 +464,18 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                   step="0.01"
                   value={data.price_per_sq_cm}
                   onChange={(e) => setData('price_per_sq_cm', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.price_per_sq_cm && t.input.error
+                  )}
                   placeholder="0.00"
                 />
-                {errors.price_per_sq_cm && <p className="text-red-500 text-sm mt-1">{errors.price_per_sq_cm}</p>}
+                {errors.price_per_sq_cm && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.price_per_sq_cm}</p>}
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Commission Rate (%)
                 </label>
                 <input
@@ -413,26 +485,56 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                   max="100"
                   value={data.commission_rate}
                   onChange={(e) => setData('commission_rate', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.commission_rate && t.input.error
+                  )}
                   placeholder="0.0"
                 />
-                {errors.commission_rate && <p className="text-red-500 text-sm mt-1">{errors.commission_rate}</p>}
+                {errors.commission_rate && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.commission_rate}</p>}
+              </div>
+
+              <div>
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                  MUE Limit (sq cm)
+                </label>
+                <input
+                  type="number"
+                  step="1"
+                  min="0"
+                  value={data.mue_limit}
+                  onChange={(e) => setData('mue_limit', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    errors.mue_limit && t.input.error
+                  )}
+                  placeholder="4000"
+                />
+                {errors.mue_limit && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.mue_limit}</p>}
+                <p className={cn("text-xs mt-1", t.text.secondary)}>
+                  Maximum Units of Eligibility limit
+                </p>
               </div>
             </div>
           </div>
 
           {/* Size Options */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-xl font-semibold text-gray-900">Product Sizes</h2>
-                <p className="text-sm text-gray-600 mt-1">Define available sizes for this product</p>
+                <h2 className={cn("text-xl font-semibold", t.text.primary)}>Product Sizes</h2>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>Define available sizes for this product</p>
               </div>
               <div className="flex items-center gap-2">
                 <select
                   value={data.size_unit}
                   onChange={(e) => setData('size_unit', e.target.value as 'in' | 'cm')}
-                  className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "text-sm px-2 py-1 rounded-lg",
+                    t.input.base
+                  )}
                 >
                   <option value="in">Inches</option>
                   <option value="cm">Centimeters</option>
@@ -440,7 +542,11 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                 <button
                   type="button"
                   onClick={addSizeOption}
-                  className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
+                    t.button.primary.base,
+                    t.button.primary.hover
+                  )}
                 >
                   <FiPlus className="w-4 h-4" />
                   Add Custom Size
@@ -450,7 +556,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
 
             {/* Common Size Presets */}
             <div className="mb-6">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Add Common Sizes</h3>
+              <h3 className={cn("text-sm font-medium mb-3", t.text.primary)}>Quick Add Common Sizes</h3>
               <div className="flex flex-wrap gap-2">
                 {commonSizes.map(size => (
                   <button
@@ -458,11 +564,12 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     type="button"
                     onClick={() => addCommonSize(size)}
                     disabled={data.size_options.includes(size)}
-                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                    className={cn(
+                      "px-3 py-1 text-sm rounded-lg transition-colors",
                       data.size_options.includes(size)
-                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                        ? cn(t.glass.frost, "opacity-50 cursor-not-allowed", t.text.secondary)
+                        : cn(t.glass.frost, t.text.primary, "hover:opacity-80")
+                    )}
                   >
                     {size}"
                   </button>
@@ -473,21 +580,24 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
             {/* Size Options List */}
             <div className="space-y-3">
               {data.size_options.map((size, index) => (
-                <div key={index} className="flex gap-3 items-center p-3 bg-gray-50 rounded-lg">
+                <div key={index} className={cn("flex gap-3 items-center p-3 rounded-lg", t.glass.frost)}>
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className={cn("block text-xs font-medium mb-1", t.text.secondary)}>
                       Size Label
                     </label>
                     <input
                       type="text"
                       value={size}
                       onChange={(e) => updateSizeOption(index, e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-lg",
+                        t.input.base
+                      )}
                       placeholder="e.g., 2x2, 4x4"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                    <label className={cn("block text-xs font-medium mb-1", t.text.secondary)}>
                       Area (sq cm)
                     </label>
                     <input
@@ -495,14 +605,21 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                       step="0.01"
                       value={data.size_pricing[size] || ''}
                       onChange={(e) => updateSizePricing(size, e.target.value)}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Square cm"
+                      className={cn(
+                        "w-full px-3 py-2 rounded-lg",
+                        t.input.base
+                      )}
+                      placeholder="0.00"
                     />
                   </div>
                   <button
                     type="button"
                     onClick={() => removeSizeOption(index)}
-                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className={cn(
+                      "px-3 py-2 rounded-lg transition-colors",
+                      t.status.error,
+                      "hover:opacity-80"
+                    )}
                   >
                     <FiTrash2 className="w-4 h-4" />
                   </button>
@@ -510,85 +627,108 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
               ))}
 
               {data.size_options.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  <FiPackage className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                <div className={cn("text-center py-8", t.text.secondary)}>
+                  <FiPackage className="w-12 h-12 mx-auto mb-4 opacity-50" />
                   <p>No sizes configured yet. Add sizes using the button above or quick-add common sizes.</p>
                 </div>
               )}
             </div>
 
-            {errors.size_options && <p className="text-red-500 text-sm mt-2">{errors.size_options}</p>}
-            {errors.size_pricing && <p className="text-red-500 text-sm mt-2">{errors.size_pricing}</p>}
+            {errors.size_options && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.size_options}</p>}
+            {errors.size_pricing && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.size_pricing}</p>}
           </div>
 
           {/* Legacy Available Sizes (for backward compatibility) */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Legacy Sizes (cm²)</h2>
-              <button
-                type="button"
-                onClick={addSize}
-                className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <FiPlus className="w-4 h-4" />
-                Add Size
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {data.available_sizes.map((size, index) => (
-                <div key={index} className="flex gap-2">
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={size}
-                    onChange={(e) => updateSize(index, e.target.value)}
-                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Size in cm²"
-                  />
-                  {data.available_sizes.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSize(index)}
-                      className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                    >
-                      <FiTrash2 className="w-4 h-4" />
-                    </button>
+          {data.available_sizes.length > 0 && (
+            <div className={cn("p-6 rounded-lg", t.glass.card)}>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className={cn("text-xl font-semibold", t.text.primary)}>Legacy Sizes (cm²)</h2>
+                <button
+                  type="button"
+                  onClick={addSize}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
+                    t.button.primary.base,
+                    t.button.primary.hover
                   )}
-                </div>
-              ))}
+                >
+                  <FiPlus className="w-4 h-4" />
+                  Add Size
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {data.available_sizes.map((size, index) => (
+                  <div key={index} className="flex gap-2">
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={size}
+                      onChange={(e) => updateSize(index, e.target.value)}
+                      className={cn(
+                        "flex-1 px-3 py-2 rounded-lg",
+                        t.input.base
+                      )}
+                      placeholder="Size in cm²"
+                    />
+                    {data.available_sizes.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSize(index)}
+                        className={cn(
+                          "px-3 py-2 rounded-lg transition-colors",
+                          t.status.error,
+                          "hover:opacity-80"
+                        )}
+                      >
+                        <FiTrash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {errors.available_sizes && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.available_sizes}</p>}
             </div>
-            {errors.available_sizes && <p className="text-red-500 text-sm mt-2">{errors.available_sizes}</p>}
-          </div>
+          )}
 
           {/* Media & Documents */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-6">Media & Documents</h2>
+          <div className={cn("p-6 rounded-lg", t.glass.card)}>
+            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
+              <FiImage className="w-5 h-5" />
+              Media & Documents
+            </h2>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
                   Product Image URL
                 </label>
                 <input
                   type="url"
                   value={data.image_url}
                   onChange={(e) => setData('image_url', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base
+                  )}
                   placeholder="https://example.com/image.jpg"
                 />
-                {errors.image_url && <p className="text-red-500 text-sm mt-1">{errors.image_url}</p>}
+                {errors.image_url && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.image_url}</p>}
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-4">
-                  <label className="block text-sm font-medium text-gray-700">
+                  <label className={cn("block text-sm font-medium", t.text.primary)}>
                     Document URLs
                   </label>
                   <button
                     type="button"
                     onClick={addDocumentUrl}
-                    className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className={cn(
+                      "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
+                      t.button.primary.base,
+                      t.button.primary.hover
+                    )}
                   >
                     <FiPlus className="w-4 h-4" />
                     Add Document
@@ -602,14 +742,21 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                         type="url"
                         value={url}
                         onChange={(e) => updateDocumentUrl(index, e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className={cn(
+                          "flex-1 px-3 py-2 rounded-lg",
+                          t.input.base
+                        )}
                         placeholder="https://example.com/document.pdf"
                       />
                       {data.document_urls.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removeDocumentUrl(index)}
-                          className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className={cn(
+                            "px-3 py-2 rounded-lg transition-colors",
+                            t.status.error,
+                            "hover:opacity-80"
+                          )}
                         >
                           <FiTrash2 className="w-4 h-4" />
                         </button>
@@ -617,23 +764,32 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     </div>
                   ))}
                 </div>
-                {errors.document_urls && <p className="text-red-500 text-sm mt-2">{errors.document_urls}</p>}
+                {errors.document_urls && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.document_urls}</p>}
               </div>
             </div>
           </div>
 
           {/* Submit Buttons */}
-          <div className="flex items-center justify-end gap-4 pt-6 border-t border-gray-200">
+          <div className={cn("flex items-center justify-end gap-4 pt-6 border-t", t.glass.border)}>
             <Link
               href="/products"
-              className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              className={cn(
+                "px-6 py-2 rounded-lg transition-colors",
+                t.button.secondary.base,
+                t.button.secondary.hover
+              )}
             >
               Cancel
             </Link>
             <button
               type="submit"
               disabled={processing}
-              className="flex items-center gap-2 px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className={cn(
+                "flex items-center gap-2 px-6 py-2 rounded-lg transition-colors",
+                t.button.primary.base,
+                t.button.primary.hover,
+                processing && "opacity-50 cursor-not-allowed"
+              )}
             >
               <FiSave className="w-4 h-4" />
               {processing ? 'Updating...' : 'Update Product'}
@@ -644,25 +800,34 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
         {/* Delete Confirmation Modal */}
         {showDeleteConfirm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className={cn("rounded-lg p-6 max-w-md w-full mx-4", t.glass.card)}>
               <div className="flex items-center gap-3 mb-4">
-                <FiAlertTriangle className="w-6 h-6 text-red-600" />
-                <h3 className="text-lg font-semibold text-gray-900">Delete Product</h3>
+                <FiAlertTriangle className="w-6 h-6 text-red-500" />
+                <h3 className={cn("text-lg font-semibold", t.text.primary)}>Delete Product</h3>
               </div>
-              <p className="text-gray-600 mb-6">
+              <p className={cn("mb-6", t.text.secondary)}>
                 Are you sure you want to delete "{product.name}"? This action cannot be undone.
               </p>
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors",
+                    t.button.secondary.base,
+                    t.button.secondary.hover
+                  )}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDelete}
                   disabled={processing}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
+                  className={cn(
+                    "px-4 py-2 rounded-lg transition-colors",
+                    t.status.error,
+                    "hover:opacity-90",
+                    processing && "opacity-50"
+                  )}
                 >
                   {processing ? 'Deleting...' : 'Delete'}
                 </button>

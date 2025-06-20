@@ -74,7 +74,8 @@ return new class extends Migration
         });
         
         // Create configuration table for DocuSeal form flow
-        Schema::create('docuseal_form_flows', function (Blueprint $table) {
+        if (!Schema::hasTable('docuseal_form_flows')) {
+            Schema::create('docuseal_form_flows', function (Blueprint $table) {
             $table->uuid('id')->primary();
             $table->string('manufacturer_name', 100);
             $table->string('flow_name', 100);
@@ -86,6 +87,7 @@ return new class extends Migration
             
             $table->index(['manufacturer_name', 'is_default', 'is_active']);
         });
+        }
     }
 
     /**
