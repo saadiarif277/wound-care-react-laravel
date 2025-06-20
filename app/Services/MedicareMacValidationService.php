@@ -97,6 +97,27 @@ class MedicareMacValidationService
     }
 
     /**
+     * Get MAC contractor information by state
+     * 
+     * @param string $state Two-letter state code
+     * @return array
+     */
+    public function getMacContractorByState(string $state): array
+    {
+        $state = strtoupper($state);
+        
+        if (isset($this->macContractors[$state])) {
+            return $this->macContractors[$state];
+        }
+        
+        // Default to JL (Novitas) if state not found
+        return [
+            'contractor' => 'Novitas Solutions',
+            'jurisdiction' => 'JL'
+        ];
+    }
+
+    /**
      * Validate Medicare compliance for an order
      */
     public function validateOrder(Order $order, string $validationType = 'wound_care_only', ?string $providerSpecialty = null): MedicareMacValidation

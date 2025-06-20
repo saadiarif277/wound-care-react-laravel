@@ -103,12 +103,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/product-requests/create',
               icon: FiPlus,
               roles: ['provider']
-            },
-            {
-              name: 'View All Requests',
-              href: '/product-requests',
-              icon: FiEye,
-              roles: ['provider']
             }
           ]
         },

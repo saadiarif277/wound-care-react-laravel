@@ -97,6 +97,41 @@ class DashboardController extends Controller
             ->orderBy('created_at', 'desc')
             ->paginate(20);
 
+        // Transform the paginated data
+        $episodes->through(function ($episode) {
+            return [
+                'id' => $episode->id,
+                'patient_id' => $episode->patient_id,
+                'patient_name' => $episode->patient_name,
+                'patient_display_id' => $episode->patient_display_id,
+                'status' => $episode->status,
+                'ivr_status' => $episode->ivr_status,
+                'verification_date' => $episode->verification_date?->toISOString(),
+                'expiration_date' => $episode->expiration_date?->toISOString(),
+                'manufacturer' => [
+                    'id' => $episode->manufacturer->id ?? null,
+                    'name' => $episode->manufacturer->name ?? 'Unknown',
+                ],
+                'orders' => $episode->orders->map(function ($order) {
+                    return [
+                        'id' => $order->id,
+                        'order_number' => $order->order_number,
+                        'order_status' => $order->order_status,
+                        'created_at' => $order->created_at->toISOString(),
+                        'products' => $order->products->map(function ($product) {
+                            return [
+                                'id' => $product->id,
+                                'name' => $product->name,
+                                'quantity' => $product->pivot->quantity ?? 1,
+                            ];
+                        }),
+                    ];
+                }),
+                'created_at' => $episode->created_at->toISOString(),
+                'updated_at' => $episode->updated_at->toISOString(),
+            ];
+        });
+
         return Inertia::render('Provider/Episodes/Index', [
             'episodes' => $episodes,
         ]);
@@ -115,13 +150,109 @@ class DashboardController extends Controller
             })
             ->with(['manufacturer', 'orders' => function ($query) use ($user) {
                 $query->where('provider_id', $user->id)
-                    ->with(['products', 'facility']);
+                    ->with(['products', 'facility', 'provider']);
             }])
             ->findOrFail($episodeId);
 
+        // Check permissions
+        $can_view_episode = $user->hasPermission('view-orders');
+        $can_view_tracking = $user->hasPermission('view-order-tracking');
+        $can_view_documents = $user->hasPermission('view-documents');
+
+        // Transform episode data
+        $transformedEpisode = [
+            'id' => $episode->id,
+            'patient_id' => $episode->patient_id,
+            'patient_name' => $episode->patient_name,
+            'patient_display_id' => $episode->patient_display_id,
+            'status' => $episode->status,
+            'ivr_status' => $episode->ivr_status,
+            'verification_date' => $episode->verification_date?->toISOString(),
+            'expiration_date' => $episode->expiration_date?->toISOString(),
+            'manufacturer' => [
+                'id' => $episode->manufacturer->id ?? null,
+                'name' => $episode->manufacturer->name ?? 'Unknown',
+                'contact_email' => $episode->manufacturer->contact_email ?? null,
+                'contact_phone' => $episode->manufacturer->contact_phone ?? null,
+            ],
+            'orders' => $episode->orders->map(function ($order) {
+                return [
+                    'id' => $order->id,
+                    'order_number' => $order->order_number,
+                    'order_status' => $order->order_status,
+                    'provider' => [
+                        'id' => $order->provider->id ?? null,
+                        'name' => $order->provider->first_name . ' ' . $order->provider->last_name,
+                        'email' => $order->provider->email ?? null,
+                        'npi_number' => $order->provider->npi_number ?? null,
+                    ],
+                    'facility' => [
+                        'id' => $order->facility->id ?? null,
+                        'name' => $order->facility->name ?? 'Unknown',
+                        'city' => $order->facility->city ?? null,
+                        'state' => $order->facility->state ?? null,
+                    ],
+                    'expected_service_date' => $order->date_of_service,
+                    'submitted_at' => $order->created_at->toISOString(),
+                    'total_order_value' => $order->total_order_value ?? 0,
+                    'action_required' => $this->checkActionRequired($order),
+                    'products' => $order->products->map(function ($product) {
+                        return [
+                            'id' => $product->id,
+                            'name' => $product->name,
+                            'sku' => $product->sku,
+                            'quantity' => $product->pivot->quantity ?? 1,
+                            'unit_price' => $product->pivot->unit_price ?? 0,
+                            'total_price' => ($product->pivot->quantity ?? 1) * ($product->pivot->unit_price ?? 0),
+                        ];
+                    }),
+                ];
+            }),
+            'docuseal' => [
+                'status' => $episode->docuseal_status,
+                'signed_documents' => $this->getDocuSealDocuments($episode),
+                'audit_log_url' => $episode->docuseal_audit_log_url,
+                'last_synced_at' => $episode->docuseal_last_synced_at?->toISOString(),
+            ],
+            'total_order_value' => $episode->orders->sum('total_order_value'),
+            'orders_count' => $episode->orders->count(),
+            'action_required' => $episode->orders->contains(fn($order) => $this->checkActionRequired($order)),
+        ];
+
         return Inertia::render('Provider/Episodes/Show', [
-            'episode' => $episode,
+            'episode' => $transformedEpisode,
+            'can_view_episode' => $can_view_episode,
+            'can_view_tracking' => $can_view_tracking,
+            'can_view_documents' => $can_view_documents,
         ]);
+    }
+
+    /**
+     * Get DocuSeal documents for episode
+     */
+    private function getDocuSealDocuments($episode)
+    {
+        $documents = [];
+
+        // Add signed document if available
+        if ($episode->docuseal_signed_document_url) {
+            $documents[] = [
+                'id' => 1,
+                'name' => 'Signed IVR Document',
+                'url' => $episode->docuseal_signed_document_url,
+            ];
+        }
+
+        // TODO: Add more documents when Document model is available
+        // $episode->docusealDocuments()->each(function ($doc) use (&$documents) {
+        //     $documents[] = [
+        //         'id' => $doc->id,
+        //         'name' => $doc->name,
+        //         'url' => $doc->url,
+        //     ];
+        // });
+
+        return $documents;
     }
 
     /**

@@ -22,18 +22,21 @@ import { formatCurrency } from '@/utils/formatters';
 import { router } from '@inertiajs/react';
 import EpisodeTimeline from './EpisodeTimeline';
 import EpisodeQuickActions from './EpisodeQuickActions';
+import MacValidationPanel from './MacValidationPanel';
 import type { Episode } from '@/types/episode';
 
 interface EpisodeCardProps {
   episode: Episode;
   onRefresh?: () => void;
   viewMode?: 'compact' | 'expanded';
+  showMacValidation?: boolean;
 }
 
 const EpisodeCard: React.FC<EpisodeCardProps> = ({
   episode,
   onRefresh,
-  viewMode = 'compact'
+  viewMode = 'compact',
+  showMacValidation = true
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   let theme: 'dark' | 'light' = 'dark';
@@ -271,6 +274,24 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
           </div>
         </div>
 
+        {/* MAC Validation Indicator - Always Visible */}
+        {showMacValidation && (
+          <div className={cn(
+            "mt-3 p-2 rounded-lg flex items-center justify-between",
+            theme === 'dark' ? 'bg-blue-500/10' : 'bg-blue-50'
+          )}>
+            <div className="flex items-center space-x-2">
+              <AlertCircle className={cn("w-4 h-4", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')} />
+              <span className={cn("text-xs font-medium", t.text.secondary)}>
+                MAC Validation Status
+              </span>
+            </div>
+            <span className={cn("text-xs", t.text.secondary)}>
+              Click to expand for details
+            </span>
+          </div>
+        )}
+
         {/* Quick Actions */}
         <EpisodeQuickActions
           episodeId={episode.id}
@@ -285,10 +306,23 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
             "mt-4 pt-4 border-t",
             theme === 'dark' ? 'border-white/10' : 'border-gray-200'
           )}>
-            <EpisodeTimeline
-              episode={episode}
-              theme={theme}
-            />
+            <div className="space-y-4">
+              {/* MAC Validation Section */}
+              {showMacValidation && (
+                <MacValidationPanel
+                  episodeId={episode.id}
+                  orders={episode.orders}
+                  facilityState={episode.orders?.[0]?.facility?.state}
+                  className="mb-4"
+                />
+              )}
+              
+              {/* Timeline Section */}
+              <EpisodeTimeline
+                episode={episode}
+                theme={theme}
+              />
+            </div>
           </div>
         )}
 
@@ -302,7 +336,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
           )}
         >
           <span className="text-sm">
-            {isExpanded ? 'Show Less' : 'Show Timeline'}
+            {isExpanded ? 'Show Less' : showMacValidation ? 'Show MAC Validation & Timeline' : 'Show Timeline'}
           </span>
           {isExpanded ? (
             <ChevronUp className="w-4 h-4" />

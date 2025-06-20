@@ -572,5 +572,12 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->middleware('permission:create-product-requests');
 });
 
+// Episode MAC Validation Routes
+Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('/{episode}/mac-validation', [\App\Http\Controllers\Api\EpisodeMacValidationController::class, 'show'])
+        ->name('api.episodes.mac-validation')
+        ->middleware('permission:view-orders');
+});
+
 // Fallback Route for 404 API requests
 

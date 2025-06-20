@@ -309,6 +309,45 @@ export interface EpisodeExportResponse {
   expires_at: string;
 }
 
+// MAC Validation Types
+export interface MacValidationData {
+  risk_score: number;
+  risk_level: 'low' | 'medium' | 'high' | 'critical';
+  coverage_status: 'covered' | 'conditional' | 'not_covered' | 'requires_prior_auth';
+  contractor: {
+    name: string;
+    jurisdiction: string;
+  };
+  lcd_compliance: {
+    status: 'compliant' | 'partial' | 'non_compliant';
+    missing_criteria?: string[];
+    documentation_required?: string[];
+  };
+  denial_prediction: {
+    probability: number;
+    top_risk_factors: Array<{
+      factor: string;
+      impact: 'high' | 'medium' | 'low';
+      mitigation?: string;
+    }>;
+  };
+  financial_impact: {
+    potential_denial_amount: number;
+    approval_confidence: number;
+    estimated_reimbursement: number;
+  };
+  recommendations: Array<{
+    priority: 'critical' | 'high' | 'medium' | 'low';
+    action: string;
+    impact: string;
+  }>;
+}
+
+// Episode with MAC Validation
+export interface EpisodeWithMacValidation extends Episode {
+  mac_validation?: MacValidationData;
+}
+
 // Component Props Types
 export interface EpisodeIndexProps {
   episodes: EpisodesIndexResponse['episodes'];
