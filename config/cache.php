@@ -105,4 +105,27 @@ return [
 
     'prefix' => env('CACHE_PREFIX', Str::slug(env('APP_NAME', 'laravel'), '_').'_cache_'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Episode Template Cache Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Settings specific to the episode-based FHIR caching system.
+    | These are default values that can be overridden in episode-cache.php
+    |
+    */
+
+    'episode_templates' => [
+        'ttl' => [
+            'active_episode' => 86400,    // 24 hours for active episodes
+            'pending_episode' => 3600,    // 1 hour for pending
+            'completed_episode' => 300,   // 5 minutes for completed
+            'reference_data' => 172800,   // 48 hours for reference data
+        ],
+        'prefetch' => [
+            'enabled' => true,
+            'advance_minutes' => 30,
+        ]
+    ],
+
 ];

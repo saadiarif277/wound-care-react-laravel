@@ -11,10 +11,11 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
 use App\Models\DocuSeal\DocuSealSubmission;
+use App\Traits\UsesEpisodeCache;
 
 class PatientManufacturerIVREpisode extends Model
 {
-    use HasFactory, HasUuids;
+    use HasFactory, HasUuids, UsesEpisodeCache;
 
     protected $table = 'patient_manufacturer_ivr_episodes';
 

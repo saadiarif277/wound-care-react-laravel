@@ -70,7 +70,7 @@ This document provides the definitive reference for all non-PHI operational data
 | value | MEDIUMTEXT | NOT NULL | Cached value |
 | expiration | INTEGER | NOT NULL | Expiration timestamp |
 
-####   **`cache_locks`**
+#### **`cache_locks`**
 
 **Purpose:** Cache lock management
 
@@ -286,7 +286,7 @@ This document provides the definitive reference for all non-PHI operational data
 | updated\_at | TIMESTAMP | NOT NULL | Update timestamp |
 | deleted\_at | TIMESTAMP | NULL | Soft delete timestamp |
 
-###  **Order & Request Management**
+### **Order & Request Management**
 
 #### **`product_requests`**
 
@@ -324,7 +324,7 @@ This document provides the definitive reference for all non-PHI operational data
 | updated\_at | TIMESTAMP | NOT NULL | Update timestamp |
 | deleted\_at | TIMESTAMP | NULL | Soft delete timestamp |
 
-####         **`product_request_products`**
+#### **`product_request_products`**
 
 **Purpose:** Line items for product requests
 
@@ -1372,4 +1372,3 @@ WHERE created\_at \< CURRENT\_DATE \- INTERVAL '7 years'
 AND compliance\_category \!= 'hipaa\_required';
 
 This complete documentation serves as the definitive reference for the MSC-MVP Wound Care Platform's non-PHI data models, providing everything needed for current operations and future development through 2026.​​​​​​​​​​​​​​​​
-

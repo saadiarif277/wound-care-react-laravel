@@ -8,7 +8,6 @@ The MSC Wound Care Portal documentation has been completely reorganized from a f
 
 ### Before (Flat Structure)
 
-```
 docs/
 ├── FINANCIAL_ACCESS_FIXES.md
 ├── RBAC_IMPROVEMENTS_SUMMARY.md

@@ -32,6 +32,7 @@ class Organization extends Model
      */
     protected $fillable = [
         'name',
+        'account_id',   // Foreign key to Account model
         'tax_id',
         'type',         // e.g., 'Hospital', 'Clinic Group'
         'status',       // e.g., 'active', 'pending', 'inactive'

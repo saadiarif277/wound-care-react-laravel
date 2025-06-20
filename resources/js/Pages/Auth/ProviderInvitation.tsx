@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Head, useForm } from '@inertiajs/react';
 import { Button } from '@/Components/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import { Card, CardContent } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
-import { UserPlus, Building2, Mail, CheckCircle2, AlertCircle, Key, Shield, FileText, MapPin, CreditCard, Home } from 'lucide-react';
+import { UserPlus, Building2, CheckCircle2, AlertCircle, Key, Shield, MapPin, CreditCard, Home } from 'lucide-react';
 import { parseISO, isBefore, differenceInDays, format } from 'date-fns';
 
 interface InvitationData {
@@ -168,7 +168,7 @@ export default function ProviderInvitation({ invitation, token, facilities, stat
         if (data.practice_type === 'existing_organization') {
             setData('organization_name', invitation.organization_name);
             if (facilities.length === 1) {
-                setData('facility_id', facilities[0].id);
+                setData('facility_id', facilities[0]?.id ?? null);
             }
         }
     }, [data.practice_type]);
@@ -325,7 +325,7 @@ export default function ProviderInvitation({ invitation, token, facilities, stat
             const currentFlow = stepFlows[data.practice_type];
             const currentIndex = currentFlow.indexOf(step);
             if (currentIndex < currentFlow.length - 1) {
-                setStep(currentFlow[currentIndex + 1]);
+                setStep(currentFlow[currentIndex + 1] ?? 'review');
             }
         }
     };
@@ -334,7 +334,7 @@ export default function ProviderInvitation({ invitation, token, facilities, stat
         const currentFlow = stepFlows[data.practice_type];
         const currentIndex = currentFlow.indexOf(step);
         if (currentIndex > 0) {
-            setStep(currentFlow[currentIndex - 1]);
+            setStep(currentFlow[currentIndex - 1] ?? 'review');
         }
     };
 
@@ -559,7 +559,7 @@ export default function ProviderInvitation({ invitation, token, facilities, stat
                         <input
                             type="radio"
                             name="facility_id"
-                            value={facility.id}
+                            value={facility.id.toString()}
                             checked={data.facility_id === facility.id}
                             onChange={(e) => handleFieldChange('facility_id', parseInt(e.target.value))}
                             className="sr-only"

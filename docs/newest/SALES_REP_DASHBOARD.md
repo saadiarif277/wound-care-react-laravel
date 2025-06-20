@@ -1,11 +1,13 @@
 # Sales Rep Dashboard Implementation Plan
 
 ## Overview
+
 This plan outlines the implementation of a comprehensive sales dashboard for MSC sales representatives and sub-representatives to track commissions, monitor provider performance, and view order details based on the provided field requirements.
 
 ## Key Requirements Summary
 
 ### High Priority Fields
+
 - **Commission Amount**: Individual order commission values
 - **Total Commissions Paid**: Aggregated by date range
 - **Pending Payments**: Unpaid commissions due to unmet triggers
@@ -14,6 +16,7 @@ This plan outlines the implementation of a comprehensive sales dashboard for MSC
 - **First Date of Application**: When product was first used
 
 ### Medium Priority Fields
+
 - **Commission Payment Date**: For calculating average payout times
 - **Provider Name**: Source of commission
 - **Rep/Sub-rep Split**: Payment distribution breakdown
@@ -23,6 +26,7 @@ This plan outlines the implementation of a comprehensive sales dashboard for MSC
 - **Friendly Patient ID**: First 2 letters of first/last name format
 
 ### Additional Requirements
+
 - **Delayed Payment Tracking**: Aging report for payments >60 days
 - **Tissue IDs**: Associated with each order
 - **Date Range Filtering**: For all financial metrics
@@ -33,6 +37,7 @@ This plan outlines the implementation of a comprehensive sales dashboard for MSC
 ### 1. Data Model Requirements
 
 #### Commission Tracking Table (commission_records - already exists)
+
 ```sql
 -- Existing fields that support requirements:
 - order_id (links to orders/product_requests)
@@ -51,6 +56,7 @@ ALTER TABLE commission_records ADD COLUMN tissue_ids JSON;
 ```
 
 #### Product Requests Enhancement
+
 ```sql
 -- Add tracking for patient-friendly ID
 ALTER TABLE product_requests ADD COLUMN friendly_patient_id VARCHAR(10);
@@ -60,6 +66,7 @@ ALTER TABLE product_requests ADD COLUMN friendly_patient_id VARCHAR(10);
 ### 2. Dashboard Components
 
 #### A. Commission Overview Widget
+
 ```typescript
 interface CommissionOverview {
   totalPaid: {
@@ -82,6 +89,7 @@ interface CommissionOverview {
 ```
 
 #### B. Commission Details Table
+
 ```typescript
 interface CommissionDetail {
   // High Priority
@@ -117,6 +125,7 @@ interface CommissionDetail {
 ```
 
 #### C. Delayed Payment Alert System
+
 ```typescript
 interface DelayedPaymentAlert {
   orderId: string;
@@ -132,6 +141,7 @@ interface DelayedPaymentAlert {
 ### 3. API Endpoints
 
 #### Sales Rep Analytics API Enhancement
+
 ```php
 // GET /api/sales-rep/commission-summary
 {
@@ -225,6 +235,7 @@ interface DelayedPaymentAlert {
 ### 4. UI Components
 
 #### Main Dashboard Layout
+
 ```tsx
 // SalesRepDashboard.tsx
 const SalesRepDashboard = () => {
@@ -264,6 +275,7 @@ const SalesRepDashboard = () => {
 ```
 
 #### Commission Details Table Component
+
 ```tsx
 interface CommissionTableColumns {
   invoiceNumber: { sortable: true, priority: 'high' };
@@ -285,6 +297,7 @@ interface CommissionTableColumns {
 ### 5. Business Logic Implementation
 
 #### Commission Calculation Service
+
 ```php
 class EnhancedCommissionService {
     public function calculateCommissionForOrder($orderId) {
@@ -342,6 +355,7 @@ class EnhancedCommissionService {
 ```
 
 #### Delayed Payment Monitoring
+
 ```php
 class DelayedPaymentMonitoringService {
     const PAYMENT_TERMS_DAYS = 60;
@@ -408,24 +422,28 @@ CREATE INDEX idx_friendly_patient ON product_requests(friendly_patient_id);
 ### 7. Implementation Timeline
 
 #### Phase 1: Database & API (Week 1)
+
 - [ ] Create database migrations for new fields
 - [ ] Update commission calculation service
 - [ ] Build enhanced API endpoints
 - [ ] Implement delayed payment monitoring
 
 #### Phase 2: UI Components (Week 2)
+
 - [ ] Build commission overview widgets
 - [ ] Create commission details table
 - [ ] Implement delayed payments view
 - [ ] Add filtering and sorting
 
 #### Phase 3: Integration & Testing (Week 3)
+
 - [ ] Connect UI to real API data
 - [ ] Implement real-time updates
 - [ ] Add export functionality
 - [ ] Performance optimization
 
 #### Phase 4: Enhancements (Week 4)
+
 - [ ] Add charts and visualizations
 - [ ] Implement email notifications for delayed payments
 - [ ] Create printable commission statements

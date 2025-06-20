@@ -94,7 +94,7 @@ class ProviderInvitationController extends Controller
                 'status' => $invitation->status,
                 'metadata' => [
                     'organization_id' => $invitation->organization_id,
-                    'invited_by' => $invitation->invited_by,
+                    'invited_by_user_id' => $invitation->invited_by,
                     'invited_by_name' => $invitation->invitedBy->name ?? 'MSC Team',
                 ]
             ],

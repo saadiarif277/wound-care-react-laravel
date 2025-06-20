@@ -340,7 +340,7 @@ class QuickRequestController extends Controller
 
             // ASHLEY'S REQUIREMENT: IVR must be completed before submission
             'docuseal_submission_id' => 'required|string|min:1',
-            
+
             // Episode ID from Step7
             'episode_id' => 'required|uuid|exists:patient_manufacturer_ivr_episodes,id',
 
@@ -395,7 +395,7 @@ class QuickRequestController extends Controller
 
             // ASHLEY'S REQUIREMENT: Use existing episode created in Step7
             $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
-            
+
             // Update episode with patient FHIR ID if it was created with temporary data
             if ($episode->patient_fhir_id !== $patientIdentifiers['patient_fhir_id']) {
                 $episode->update([
@@ -663,6 +663,62 @@ class QuickRequestController extends Controller
     }
 
     /**
+     * Create episode for DocuSeal integration after product selection
+     */
+    public function createEpisodeForDocuSeal(Request $request)
+    {
+        $validated = $request->validate([
+            'patient_id' => 'required|string',
+            'patient_fhir_id' => 'required|string',
+            'patient_display_id' => 'required|string',
+            'manufacturer_id' => 'required|exists:manufacturers,id',
+            'form_data' => 'required|array',
+        ]);
+
+        try {
+            // Create or find episode
+            $episode = PatientManufacturerIVREpisode::firstOrCreate([
+                'patient_fhir_id' => $validated['patient_fhir_id'],
+                'manufacturer_id' => $validated['manufacturer_id'],
+                'status' => '!=' . PatientManufacturerIVREpisode::STATUS_COMPLETED,
+            ], [
+                'patient_display_id' => $validated['patient_display_id'],
+                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                'metadata' => [
+                    'facility_id' => $validated['form_data']['facility_id'] ?? null,
+                    'provider_id' => Auth::id(),
+                    'created_from' => 'quick_request',
+                    'form_data' => $validated['form_data']
+                ]
+            ]);
+
+            Log::info('Created episode for QuickRequest DocuSeal', [
+                'episode_id' => $episode->id,
+                'patient_display_id' => $validated['patient_display_id'],
+                'manufacturer_id' => $validated['manufacturer_id'],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'episode_id' => $episode->id,
+                'manufacturer_id' => $validated['manufacturer_id']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create episode for QuickRequest DocuSeal', [
+                'error' => $e->getMessage(),
+                'patient_display_id' => $validated['patient_display_id'],
+                'manufacturer_id' => $validated['manufacturer_id'],
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create episode: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Generate JWT token for DocuSeal builder
      */
     public function generateBuilderToken(Request $request)
@@ -853,7 +909,7 @@ class QuickRequestController extends Controller
             'Skye Biologics' => 'Skye.default',
             // Add more as templates are created
         ];
-        
+
         $normalizedName = trim($manufacturerName);
         return $manufacturerMap[$normalizedName] ?? 'BioWound.default'; // Fallback to BioWound template
 

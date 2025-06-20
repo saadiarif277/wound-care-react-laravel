@@ -82,11 +82,11 @@ class FhirService
     {
         // Use the existing getPatientById method
         $fhirPatient = $this->getPatientById($patientFhirId);
-        
+
         if (!$fhirPatient) {
             throw new \Exception("Patient not found with FHIR ID: {$patientFhirId}");
         }
-        
+
         // Convert array to object for consistent interface
         return json_decode(json_encode($fhirPatient));
     }
@@ -571,5 +571,149 @@ class FhirService
             Log::error('Failed to search FHIR Observations in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
             throw $e;
         }
+    }
+
+    /**
+     * Execute a FHIR Bundle transaction
+     * This method allows batching multiple FHIR operations in a single request
+     */
+    public function executeBundle(array $bundle): array
+    {
+        try {
+            // Validate bundle structure
+            if (!isset($bundle['resourceType']) || $bundle['resourceType'] !== 'Bundle') {
+                throw new \InvalidArgumentException('Invalid bundle structure');
+            }
+
+            if (!isset($bundle['type']) || !in_array($bundle['type'], ['batch', 'transaction'])) {
+                throw new \InvalidArgumentException('Bundle type must be "batch" or "transaction"');
+            }
+
+            // Check cache first for batch operations
+            if ($bundle['type'] === 'batch') {
+                $cachedBundle = $this->checkBundleCache($bundle);
+                if ($cachedBundle && $this->isBundleCacheFresh($cachedBundle)) {
+                    Log::info('Bundle retrieved from cache', [
+                        'entries_count' => count($bundle['entry'] ?? [])
+                    ]);
+                    return $cachedBundle;
+                }
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Content-Type' => 'application/fhir+json',
+                'Accept' => 'application/fhir+json',
+            ])->post($this->azureFhirEndpoint, $bundle);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR Bundle execution error: " . $response->body());
+            }
+
+            $responseBundle = $response->json();
+
+            // Cache successful batch responses
+            if ($bundle['type'] === 'batch' && $this->shouldCacheBundle($responseBundle)) {
+                $this->cacheBundle($bundle, $responseBundle);
+            }
+
+            Log::info('FHIR Bundle executed successfully', [
+                'type' => $bundle['type'],
+                'entries_count' => count($bundle['entry'] ?? []),
+                'response_entries' => count($responseBundle['entry'] ?? [])
+            ]);
+
+            return $responseBundle;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to execute FHIR Bundle', [
+                'type' => $bundle['type'] ?? 'unknown',
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Check if bundle results are in cache
+     */
+    private function checkBundleCache(array $bundle): ?array
+    {
+        $cacheKey = $this->generateBundleCacheKey($bundle);
+        return Cache::get($cacheKey);
+    }
+
+    /**
+     * Cache bundle results
+     */
+    private function cacheBundle(array $bundle, array $response): void
+    {
+        $cacheKey = $this->generateBundleCacheKey($bundle);
+        $ttl = $this->determineBundleCacheTTL($bundle);
+
+        Cache::put($cacheKey, $response, $ttl);
+    }
+
+    /**
+     * Generate cache key for bundle
+     */
+    private function generateBundleCacheKey(array $bundle): string
+    {
+        $entries = $bundle['entry'] ?? [];
+        $requests = array_map(function ($entry) {
+            return $entry['request'] ?? [];
+        }, $entries);
+
+        return 'fhir:bundle:' . md5(json_encode($requests));
+    }
+
+    /**
+     * Determine appropriate TTL for bundle cache
+     */
+    private function determineBundleCacheTTL(array $bundle): int
+    {
+        // Check if bundle contains only read operations
+        $entries = $bundle['entry'] ?? [];
+        $hasOnlyReads = true;
+
+        foreach ($entries as $entry) {
+            $method = $entry['request']['method'] ?? '';
+            if (!in_array($method, ['GET', 'HEAD'])) {
+                $hasOnlyReads = false;
+                break;
+            }
+        }
+
+        // Read-only bundles can be cached longer
+        return $hasOnlyReads ? 3600 : 300; // 1 hour for reads, 5 minutes for mixed
+    }
+
+    /**
+     * Check if cached bundle is still fresh
+     */
+    private function isBundleCacheFresh(array $cachedBundle): bool
+    {
+        // Could implement additional freshness checks here
+        // For now, we rely on TTL expiration
+        return true;
+    }
+
+    /**
+     * Determine if bundle response should be cached
+     */
+    private function shouldCacheBundle(array $responseBundle): bool
+    {
+        // Only cache successful responses
+        $entries = $responseBundle['entry'] ?? [];
+
+        foreach ($entries as $entry) {
+            $status = $entry['response']['status'] ?? '';
+            // Don't cache if any entry failed
+            if (strpos($status, '2') !== 0 && strpos($status, '304') !== 0) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
