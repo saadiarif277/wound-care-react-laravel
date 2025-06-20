@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Controllers\Traits\QuickRequestDocuSealIntegration;
 use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
-use App\Models\PatientIVRStatus;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Fhir\Facility;
 use App\Services\PatientService;
@@ -595,7 +594,7 @@ class QuickRequestController extends Controller
     private function findOrCreateEpisode($patientFhirId, $manufacturerId, $patientDisplayId, $docusealSubmissionId = null)
     {
         // First check if there's a temporary episode created for IVR
-        $tempEpisode = PatientIVRStatus::where('patient_display_id', $patientDisplayId)
+        $tempEpisode = PatientManufacturerIVREpisode::where('patient_display_id', $patientDisplayId)
             ->where('manufacturer_id', $manufacturerId)
             ->where('patient_id', 'LIKE', 'TEMP_%')
             ->where('status', 'pending_ivr')
@@ -615,7 +614,7 @@ class QuickRequestController extends Controller
         }
 
         // Find existing episode for this patient+manufacturer combination
-        $episode = PatientIVRStatus::where('patient_id', $patientFhirId)
+        $episode = PatientManufacturerIVREpisode::where('patient_id', $patientFhirId)
             ->where('manufacturer_id', $manufacturerId)
             ->where(function($q) {
                 $q->whereNull('expiration_date')
@@ -624,7 +623,7 @@ class QuickRequestController extends Controller
             ->first();
 
         if (!$episode) {
-            $episode = PatientIVRStatus::create([
+            $episode = PatientManufacturerIVREpisode::create([
                 'id' => Str::uuid(),
                 'patient_id' => $patientFhirId, // FHIR ID for patient
                 'patient_display_id' => $patientDisplayId, // De-identified display ID

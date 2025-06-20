@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use App\Models\Order\Manufacturer;
 
@@ -37,7 +37,7 @@ class FixEpisodeProductRequestLinks extends Command
         $this->info('🔧 Fixing episode product request links...');
 
         // Get all episodes
-        $episodes = PatientIVRStatus::with('manufacturer')->get();
+        $episodes = PatientManufacturerIVREpisode::with('manufacturer')->get();
         $this->info("📋 Found {$episodes->count()} episodes to process");
 
         $updatedCount = 0;

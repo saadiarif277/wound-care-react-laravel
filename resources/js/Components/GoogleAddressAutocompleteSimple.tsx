@@ -56,15 +56,23 @@ export default function GoogleAddressAutocompleteSimple({
         // Check if Google Maps is already loaded
         if (typeof window.google !== 'undefined' && window.google.maps && window.google.maps.places) {
           if (isMounted) {
-            initializeNewAutocomplete();
+            initializeAutocomplete();
             setIsLoaded(true);
+            setIsLoading(false);
           }
           return;
         }
 
-        // Create script with async loading as recommended by Google
+        // Create script with standard loading
+        const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+        if (!apiKey) {
+          console.error('VITE_GOOGLE_MAPS_API_KEY environment variable not found');
+          setIsLoading(false);
+          return;
+        }
+
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places&loading=async&v=weekly`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
         script.async = true;
         script.defer = true;
 
@@ -73,7 +81,7 @@ export default function GoogleAddressAutocompleteSimple({
             // Wait a bit for Google Maps to fully initialize
             setTimeout(() => {
               if (isMounted) {
-                initializeNewAutocomplete();
+                initializeAutocomplete();
                 setIsLoaded(true);
                 setIsLoading(false);
               }
@@ -98,7 +106,7 @@ export default function GoogleAddressAutocompleteSimple({
             if (isMounted) {
               setTimeout(() => {
                 if (isMounted) {
-                  initializeNewAutocomplete();
+                  initializeAutocomplete();
                   setIsLoaded(true);
                   setIsLoading(false);
                 }
@@ -114,84 +122,66 @@ export default function GoogleAddressAutocompleteSimple({
       }
     };
 
-    const initializeNewAutocomplete = () => {
-      if (!inputRef.current || !window.google?.maps?.places) {
+    const initializeAutocomplete = () => {
+      if (!inputRef.current) {
+        console.warn('Input ref not available for Google Places Autocomplete');
+        return;
+      }
+
+      if (!window.google?.maps?.places) {
         console.warn('Google Maps Places API not available');
         return;
       }
 
+      if (!window.google.maps.places.Autocomplete) {
+        console.error('Google Places Autocomplete constructor not available');
+        return;
+      }
+
       try {
-        // Use the new PlaceAutocompleteElement (recommended approach)
-        if (window.google.maps.places.PlaceAutocompleteElement) {
-          // Clean up any existing autocomplete element
-          if (autocompleteElementRef.current) {
+        // Clean up any existing autocomplete
+        if (autocompleteElementRef.current) {
+          if (typeof autocompleteElementRef.current.remove === 'function') {
             autocompleteElementRef.current.remove();
+          } else if (window.google?.maps?.event?.clearInstanceListeners) {
+            window.google.maps.event.clearInstanceListeners(autocompleteElementRef.current);
           }
-
-          // Create new autocomplete element
-          const autocompleteElement = new window.google.maps.places.PlaceAutocompleteElement({
-            componentRestrictions: { country: 'us' },
-            fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id'],
-            types: ['address']
-          });
-
-          autocompleteElementRef.current = autocompleteElement;
-
-          // Style the autocomplete element to match our input
-          autocompleteElement.style.width = '100%';
-          autocompleteElement.style.height = '40px';
-          autocompleteElement.style.border = 'none';
-          autocompleteElement.style.outline = 'none';
-          autocompleteElement.style.paddingLeft = '2.5rem';
-
-          // Replace the input with the autocomplete element
-          if (inputRef.current && inputRef.current.parentNode) {
-            inputRef.current.style.display = 'none';
-            inputRef.current.parentNode.insertBefore(autocompleteElement, inputRef.current.nextSibling);
-          }
-
-          // Listen for place selection
-          autocompleteElement.addEventListener('gmp-placeselect', (event: any) => {
-            const place = event.detail.place;
-            if (place && onPlaceSelect) {
-              // Convert to legacy PlaceResult format for compatibility
-              const legacyPlace = {
-                address_components: place.addressComponents,
-                formatted_address: place.formattedAddress,
-                geometry: place.geometry,
-                name: place.displayName,
-                place_id: place.id
-              };
-              onPlaceSelect(legacyPlace);
-            }
-          });
-
-          // Set default value if provided
-          if (defaultValue) {
-            autocompleteElement.value = defaultValue;
-          }
-
-        } else {
-          // Fallback to legacy Autocomplete with deprecation handling
-          console.warn('Using deprecated Google Places Autocomplete - consider updating to PlaceAutocompleteElement');
-
-          const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
-            types: ['address'],
-            componentRestrictions: { country: 'us' },
-            fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id']
-          });
-
-          autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place && onPlaceSelect) {
-              onPlaceSelect(place);
-            }
-          });
-
-          autocompleteElementRef.current = autocomplete;
+          autocompleteElementRef.current = null;
         }
+
+        // Use the standard Autocomplete API which is stable and well-supported
+        const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
+          types: ['address'],
+          componentRestrictions: { country: 'us' },
+          fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id']
+        });
+
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete.getPlace();
+          if (place && onPlaceSelect) {
+            // Ensure we have the required data
+            if (place.formatted_address || place.address_components) {
+              onPlaceSelect(place);
+            } else {
+              console.warn('Incomplete place data received');
+            }
+          }
+        });
+
+        autocompleteElementRef.current = autocomplete;
+
+        // Set bounds to US for better results
+        if (window.google.maps.LatLngBounds) {
+          const defaultBounds = new window.google.maps.LatLngBounds(
+            new window.google.maps.LatLng(24.396308, -125.0), // SW corner of US
+            new window.google.maps.LatLng(49.384358, -66.93)   // NE corner of US
+          );
+          autocomplete.setBounds(defaultBounds);
+        }
+
       } catch (error) {
         console.error('Error initializing Google Places Autocomplete:', error);
+        setIsLoading(false);
       }
     };
 
@@ -202,11 +192,7 @@ export default function GoogleAddressAutocompleteSimple({
       isMounted = false;
       if (autocompleteElementRef.current) {
         try {
-          if (autocompleteElementRef.current.remove) {
-            // New PlaceAutocompleteElement
-            autocompleteElementRef.current.remove();
-          } else if (window.google?.maps?.event?.clearInstanceListeners) {
-            // Legacy Autocomplete
+          if (window.google?.maps?.event?.clearInstanceListeners) {
             window.google.maps.event.clearInstanceListeners(autocompleteElementRef.current);
           }
         } catch (error) {

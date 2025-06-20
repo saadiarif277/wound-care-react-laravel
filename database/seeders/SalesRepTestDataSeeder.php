@@ -4,7 +4,7 @@ namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
 use App\Models\User;
@@ -269,7 +269,7 @@ class SalesRepTestDataSeeder extends Seeder
             $patientDisplayId = strtoupper(substr($patientName[0], 0, 2) . substr($patientName[1], 0, 2)) . rand(100, 999);
 
             // Create episode
-            $episode = PatientIVRStatus::create([
+            $episode = PatientManufacturerIVREpisode::create([
                 'patient_id' => \Illuminate\Support\Str::uuid(),
                 'manufacturer_id' => $manufacturer->id,
                 'status' => collect(['completed', 'tracking_added', 'sent_to_manufacturer'])->random(),

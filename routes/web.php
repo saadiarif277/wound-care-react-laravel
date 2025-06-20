@@ -470,9 +470,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // eClinicalWorks Integration Routes
-    Route::get('/ecw', function () {
-        return Inertia::render('EcwIntegration/Index');
-    })->name('ecw.index');
+    // Note: ECW Integration route removed - EcwController has been deprecated
 
     // Product Request Routes
     Route::prefix('product-requests')->group(function () {

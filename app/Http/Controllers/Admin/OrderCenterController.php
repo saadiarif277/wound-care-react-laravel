@@ -4,7 +4,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use App\Services\ManufacturerEmailService;
 use Illuminate\Http\Request;
@@ -22,7 +22,7 @@ class OrderCenterController extends Controller
     public function index(Request $request)
     {
         // Get episodes with related product requests (not orders)
-        $query = PatientIVRStatus::with(['manufacturer']);
+        $query = PatientManufacturerIVREpisode::with(['manufacturer']);
 
         // Apply filters
         if ($request->has('search')) {
@@ -52,12 +52,12 @@ class OrderCenterController extends Controller
             ->paginate(20);
 
         // Get status counts
-        $statusCounts = PatientIVRStatus::select('status', DB::raw('count(*) as count'))
+        $statusCounts = PatientManufacturerIVREpisode::select('status', DB::raw('count(*) as count'))
             ->groupBy('status')
             ->pluck('count', 'status')
             ->toArray();
 
-        $ivrStatusCounts = PatientIVRStatus::select('ivr_status', DB::raw('count(*) as count'))
+        $ivrStatusCounts = PatientManufacturerIVREpisode::select('ivr_status', DB::raw('count(*) as count'))
             ->groupBy('ivr_status')
             ->pluck('count', 'ivr_status')
             ->toArray();
@@ -103,11 +103,11 @@ class OrderCenterController extends Controller
         $stats = [
             'total_episodes' => array_sum($statusCounts),
             'pending_review' => $statusCounts['ready_for_review'] ?? 0,
-            'ivr_expiring_soon' => PatientIVRStatus::where('expiration_date', '<=', now()->addDays(30))
+            'ivr_expiring_soon' => PatientManufacturerIVREpisode::where('expiration_date', '<=', now()->addDays(30))
                 ->where('expiration_date', '>', now())
                 ->count(),
             'total_value' => $transformedEpisodes->sum('total_order_value'),
-            'episodes_this_week' => PatientIVRStatus::where('created_at', '>=', now()->startOfWeek())->count(),
+            'episodes_this_week' => PatientManufacturerIVREpisode::where('created_at', '>=', now()->startOfWeek())->count(),
             'completion_rate' => array_sum($statusCounts) > 0
                 ? round(($statusCounts['completed'] ?? 0) / array_sum($statusCounts) * 100, 1)
                 : 0,
@@ -162,7 +162,7 @@ class OrderCenterController extends Controller
      */
     public function showEpisode($episodeId)
     {
-        $episode = PatientIVRStatus::with(['manufacturer'])
+        $episode = PatientManufacturerIVREpisode::with(['manufacturer'])
             ->findOrFail($episodeId);
 
         // Get product requests for this episode
@@ -246,7 +246,7 @@ class OrderCenterController extends Controller
      */
     public function reviewEpisode(Request $request, $episodeId)
     {
-        $episode = PatientIVRStatus::findOrFail($episodeId);
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
         // Validate that episode is ready for review
         if ($episode->status !== 'ready_for_review') {
@@ -297,7 +297,7 @@ class OrderCenterController extends Controller
      */
     public function sendEpisodeToManufacturer(Request $request, $episodeId)
     {
-        $episode = PatientIVRStatus::findOrFail($episodeId);
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
         if ($episode->status !== 'ivr_verified') {
             return back()->with('error', 'Episode must be reviewed before sending to manufacturer.');
@@ -389,7 +389,7 @@ class OrderCenterController extends Controller
             'estimated_delivery' => 'nullable|date',
         ]);
 
-        $episode = PatientIVRStatus::findOrFail($episodeId);
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
         DB::beginTransaction();
         try {
@@ -434,7 +434,7 @@ class OrderCenterController extends Controller
      */
     public function markEpisodeCompleted(Request $request, $episodeId)
     {
-        $episode = PatientIVRStatus::findOrFail($episodeId);
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
         DB::beginTransaction();
         try {
@@ -513,7 +513,7 @@ class OrderCenterController extends Controller
         ]);
 
         try {
-            $episode = PatientIVRStatus::findOrFail($episodeId);
+            $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
             $uploadedDocuments = [];
 
@@ -570,7 +570,7 @@ class OrderCenterController extends Controller
     public function downloadEpisodeDocument($episodeId, $documentPath)
     {
         try {
-            $episode = PatientIVRStatus::findOrFail($episodeId);
+            $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
             if (!\Illuminate\Support\Facades\Storage::disk('private')->exists($documentPath)) {
                 abort(404, 'Document not found');
@@ -601,7 +601,7 @@ class OrderCenterController extends Controller
     public function deleteEpisodeDocument(Request $request, $episodeId, $documentId)
     {
         try {
-            $episode = PatientIVRStatus::findOrFail($episodeId);
+            $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
 
             $currentMetadata = $episode->metadata ?? [];
             $documents = $currentMetadata['documents'] ?? [];

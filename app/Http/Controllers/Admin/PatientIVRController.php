@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Manufacturer;
 use App\Services\FhirService;
 use Illuminate\Http\Request;
@@ -25,7 +25,7 @@ class PatientIVRController extends Controller
      */
     public function index(Request $request)
     {
-        $query = PatientIVRStatus::with('manufacturer');
+        $query = PatientManufacturerIVREpisode::with('manufacturer');
 
         // Apply filters
         if ($request->has('search') && $request->input('search')) {
@@ -50,7 +50,7 @@ class PatientIVRController extends Controller
         $patientIVRs = $query->orderBy('expiration_date')->get();
 
         // Get expiring IVRs (within 30 days)
-        $expiringIVRs = PatientIVRStatus::getExpiringIVRs(30);
+        $expiringIVRs = PatientManufacturerIVREpisode::getExpiringIVRs(30);
 
         // Get manufacturers for filter
         $manufacturers = Manufacturer::select('id', 'name')
@@ -111,7 +111,7 @@ class PatientIVRController extends Controller
         ]);
 
         try {
-            $ivrStatus = PatientIVRStatus::firstOrCreate(
+            $ivrStatus = PatientManufacturerIVREpisode::firstOrCreate(
                 [
                     'patient_fhir_id' => $patientFhirId,
                     'manufacturer_id' => $manufacturerId,
@@ -221,7 +221,7 @@ class PatientIVRController extends Controller
             abort(403, 'You do not have permission to access IVR management.');
         }
         // Get all patient IVRs with related data
-        $query = PatientIVRStatus::with(['manufacturer']);
+        $query = PatientManufacturerIVREpisode::with(['manufacturer']);
 
         // Apply filters
         if ($request->has('search')) {
@@ -288,7 +288,7 @@ class PatientIVRController extends Controller
             'completed_today' => $patientIVRs->where('status', 'verified')
                 ->where('last_verified_date', '>=', now()->startOfDay())
                 ->count(),
-            'expiring_soon' => PatientIVRStatus::getExpiringIVRs(2)->count(),
+            'expiring_soon' => PatientManufacturerIVREpisode::getExpiringIVRs(2)->count(),
             'average_completion_time' => 25, // Simulated average in minutes
             'completion_rate' => $this->calculateOverallCompletionRate(),
             'risk_assessments' => $patientIVRs->filter(fn($ivr) => $this->calculateRiskScore($ivr) > 60)->count(),
@@ -321,7 +321,7 @@ class PatientIVRController extends Controller
             'ivr_ids.*' => 'exists:patient_ivr_status,id',
         ]);
 
-        $ivrStatuses = PatientIVRStatus::whereIn('id', $request->ivr_ids)->get();
+        $ivrStatuses = PatientManufacturerIVREpisode::whereIn('id', $request->ivr_ids)->get();
 
         foreach ($ivrStatuses as $ivr) {
             // Queue reminder email/notification
@@ -345,7 +345,7 @@ class PatientIVRController extends Controller
         ]);
 
         // In production, this would generate a CSV/Excel file
-        $ivrStatuses = PatientIVRStatus::whereIn('id', $request->ivr_ids)
+        $ivrStatuses = PatientManufacturerIVREpisode::whereIn('id', $request->ivr_ids)
             ->with('manufacturer')
             ->get();
 
@@ -361,7 +361,7 @@ class PatientIVRController extends Controller
      */
     public function show($ivrId)
     {
-        $ivr = PatientIVRStatus::with('manufacturer')->findOrFail($ivrId);
+        $ivr = PatientManufacturerIVREpisode::with('manufacturer')->findOrFail($ivrId);
 
         return Inertia::render('Admin/Patients/IVRDetail', [
             'ivr' => $ivr,
@@ -375,7 +375,7 @@ class PatientIVRController extends Controller
      */
     public function remind($ivrId)
     {
-        $ivr = PatientIVRStatus::findOrFail($ivrId);
+        $ivr = PatientManufacturerIVREpisode::findOrFail($ivrId);
 
         // Queue reminder
         Log::info('Sending individual IVR reminder', [
@@ -393,7 +393,7 @@ class PatientIVRController extends Controller
      */
     public function contact($ivrId)
     {
-        $ivr = PatientIVRStatus::findOrFail($ivrId);
+        $ivr = PatientManufacturerIVREpisode::findOrFail($ivrId);
 
         return Inertia::render('Admin/Patients/ContactProvider', [
             'ivr' => $ivr,
@@ -448,10 +448,10 @@ class PatientIVRController extends Controller
 
     private function calculateOverallCompletionRate()
     {
-        $total = PatientIVRStatus::count();
+        $total = PatientManufacturerIVREpisode::count();
         if ($total === 0) return 0;
 
-        $completed = PatientIVRStatus::where('status', 'verified')->count();
+        $completed = PatientManufacturerIVREpisode::where('status', 'verified')->count();
         return round(($completed / $total) * 100, 1);
     }
 

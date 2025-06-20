@@ -67,17 +67,7 @@ return [
         ],
     ],
 
-    'ecw' => [
-        'client_id' => env('ECW_CLIENT_ID'),
-        'client_secret' => env('ECW_CLIENT_SECRET'),
-        'redirect_uri' => env('ECW_REDIRECT_URI'),
-        'scope' => env('ECW_SCOPE', 'patient/read patient/write'),
-        'environment' => env('ECW_ENVIRONMENT', 'sandbox'),
-        'sandbox_endpoint' => env('ECW_SANDBOX_ENDPOINT'),
-        'production_endpoint' => env('ECW_PRODUCTION_ENDPOINT'),
-        'jwk_public_key' => env('ECW_JWK_PUBLIC_KEY'),
-        'jwk_private_key' => env('ECW_JWK_PRIVATE_KEY'),
-    ],
+    // ECW configuration removed - deprecated integration
 
     'npi' => [
         'use_mock' => env('NPI_USE_MOCK', true),

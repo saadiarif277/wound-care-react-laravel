@@ -28,7 +28,7 @@ class FhirController extends Controller
         if (!Auth::user()->hasPermission('manage-phi')) {
             return $this->fhirError('forbidden', 'Insufficient permissions to manage PHI', 403);
         }
-        
+
         try {
             // Validate the incoming PatientFormData structure
             $validator = Validator::make($request->all(), [
@@ -37,7 +37,7 @@ class FhirController extends Controller
                 'dob' => 'required|date_format:Y-m-d',
                 'member_id' => 'sometimes|nullable|string|max:255',
                 'gender' => 'sometimes|nullable|string|in:male,female,other,unknown',
-                'id' => 'sometimes|nullable|string|max:255', // e.g., eCW internal ID, if provided
+                'id' => 'sometimes|nullable|string|max:255', // external system ID, if provided
             ]);
 
             if ($validator->fails()) {
@@ -85,8 +85,8 @@ class FhirController extends Controller
                 ];
             }
 
-            // If an external ID (like eCW ID) was passed, store it as another identifier
-            $externalIdSystem = config('app.fhir_identifier_systems.ecw_id', 'urn:oid:1.2.3.4.5.ecw'); // Example system for eCW ID
+            // If an external ID was passed, store it as another identifier
+            $externalIdSystem = config('app.fhir_identifier_systems.external_id', 'urn:oid:1.2.3.4.5.external'); // Example system for external ID
             if (!empty($validatedData['id'])) {
                  $fhirPatientStructure['identifier'][] = [
                     'use' => 'secondary',
@@ -131,7 +131,7 @@ class FhirController extends Controller
         if (!Auth::user()->hasPermission('view-phi')) {
             return $this->fhirError('forbidden', 'Insufficient permissions to view PHI', 403);
         }
-        
+
         try {
             $fhirPatient = $this->fhirService->getPatientById($id);
 

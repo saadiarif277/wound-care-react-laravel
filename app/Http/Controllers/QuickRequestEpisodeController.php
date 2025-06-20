@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -43,7 +43,7 @@ class QuickRequestEpisodeController extends Controller
             $tempPatientId = 'TEMP_' . $request->patient_display_id . '_' . Str::random(8);
 
             // Create a new episode that will be linked to the IVR
-            $episode = PatientIVRStatus::create([
+            $episode = PatientManufacturerIVREpisode::create([
                 'id' => Str::uuid(),
                 'patient_id' => $tempPatientId,
                 'patient_display_id' => $request->patient_display_id,

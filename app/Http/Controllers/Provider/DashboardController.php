@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Provider;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\Order;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Notification;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -87,7 +87,7 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         // Get episodes related to provider's orders
-        $episodes = PatientIVRStatus::whereHas('orders', function ($query) use ($user) {
+        $episodes = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($user) {
                 $query->where('provider_id', $user->id);
             })
             ->with(['manufacturer', 'orders' => function ($query) use ($user) {
@@ -145,7 +145,7 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         // Ensure provider has access to this episode
-        $episode = PatientIVRStatus::whereHas('orders', function ($query) use ($user) {
+        $episode = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($user) {
                 $query->where('provider_id', $user->id);
             })
             ->with(['manufacturer', 'orders' => function ($query) use ($user) {
@@ -263,13 +263,13 @@ class DashboardController extends Controller
         $user = Auth::user();
 
         $stats = [
-            'total_episodes' => PatientIVRStatus::whereHas('orders', function ($q) use ($user) {
+            'total_episodes' => PatientManufacturerIVREpisode::whereHas('orders', function ($q) use ($user) {
                 $q->where('provider_id', $user->id);
             })->count(),
-            'pending_ivr' => PatientIVRStatus::whereHas('orders', function ($q) use ($user) {
+            'pending_ivr' => PatientManufacturerIVREpisode::whereHas('orders', function ($q) use ($user) {
                 $q->where('provider_id', $user->id);
             })->where('status', 'ready_for_review')->count(),
-            'completed_this_week' => PatientIVRStatus::whereHas('orders', function ($q) use ($user) {
+            'completed_this_week' => PatientManufacturerIVREpisode::whereHas('orders', function ($q) use ($user) {
                 $q->where('provider_id', $user->id);
             })
             ->where('status', 'completed')
@@ -451,7 +451,7 @@ class DashboardController extends Controller
         }
 
         // Get episodes with expired IVRs (IVR status is tracked at episode level)
-        $expiredIvrEpisodes = PatientIVRStatus::whereHas('orders', function ($query) use ($providerId) {
+        $expiredIvrEpisodes = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($providerId) {
                 $query->where('provider_id', $providerId);
             })
             ->where('ivr_status', 'expired')
@@ -525,7 +525,7 @@ class DashboardController extends Controller
         $sentBack = $orders->where('order_status', 'sent_back')->count();
 
         // Get expired IVR count from episodes, not orders
-        $expiredIvr = PatientIVRStatus::whereHas('orders', function ($query) use ($orders) {
+        $expiredIvr = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($orders) {
                 $query->whereIn('id', $orders->pluck('id'));
             })
             ->where('ivr_status', 'expired')

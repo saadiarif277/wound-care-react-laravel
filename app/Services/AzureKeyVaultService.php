@@ -199,20 +199,7 @@ class AzureKeyVaultService
      *
      * @return array|null
      */
-    public function getEcwJwkKeys(): ?array
-    {
-        $privateKey = $this->getSecret('ecw-jwk-private-key');
-        $publicKey = $this->getSecret('ecw-jwk-public-key');
-
-        if (!$privateKey || !$publicKey) {
-            return null;
-        }
-
-        return [
-            'private' => $privateKey,
-            'public' => $publicKey
-        ];
-    }
+    // ECW JWK methods removed - deprecated integration
 
     /**
      * Store ECW JWK keys in Key Vault
@@ -220,11 +207,5 @@ class AzureKeyVaultService
      * @param array $keys
      * @return bool
      */
-    public function storeEcwJwkKeys(array $keys): bool
-    {
-        $privateStored = $this->setSecret('ecw-jwk-private-key', $keys['private']);
-        $publicStored = $this->setSecret('ecw-jwk-public-key', $keys['public']);
 
-        return $privateStored && $publicStored;
-    }
 }

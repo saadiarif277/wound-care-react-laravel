@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
 use App\Models\User;
@@ -37,13 +37,13 @@ class EpisodeWorkflowTest extends TestCase
     public function it_can_display_episode_index_page()
     {
         // Create test episodes
-        $episode1 = PatientIVRStatus::factory()->create([
+        $episode1 = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review',
             'ivr_status' => 'pending'
         ]);
 
-        $episode2 = PatientIVRStatus::factory()->create([
+        $episode2 = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ivr_verified',
             'ivr_status' => 'verified'
@@ -69,13 +69,13 @@ class EpisodeWorkflowTest extends TestCase
     public function it_can_filter_episodes_by_status()
     {
         // Create episodes with different statuses
-        PatientIVRStatus::factory()->create([
+        PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review',
             'ivr_status' => 'pending'
         ]);
 
-        PatientIVRStatus::factory()->create([
+        PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'completed',
             'ivr_status' => 'verified'
@@ -94,7 +94,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_search_episodes()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'patient_id' => 'test-patient-123'
         ]);
@@ -111,7 +111,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_display_episode_detail_page()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review',
             'ivr_status' => 'pending'
@@ -139,7 +139,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_redirects_individual_order_to_episode_if_episode_exists()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id
         ]);
 
@@ -153,7 +153,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_generate_ivr_for_episode()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review',
             'ivr_status' => 'pending'
@@ -172,7 +172,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_validates_episode_status_for_ivr_generation()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'completed',
             'ivr_status' => 'verified' // Already verified
@@ -190,7 +190,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_send_episode_to_manufacturer()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ivr_verified',
             'ivr_status' => 'verified'
@@ -213,7 +213,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_validates_episode_status_for_manufacturer_submission()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review', // Not IVR verified
             'ivr_status' => 'pending'
@@ -231,7 +231,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_update_episode_tracking()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'sent_to_manufacturer'
         ]);
@@ -264,7 +264,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_validates_tracking_data()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'sent_to_manufacturer'
         ]);
@@ -283,7 +283,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_can_mark_episode_as_completed()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'tracking_added'
         ]);
@@ -309,7 +309,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_validates_episode_status_for_completion()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'status' => 'ready_for_review' // Invalid status for completion
         ]);
@@ -326,7 +326,7 @@ class EpisodeWorkflowTest extends TestCase
     /** @test */
     public function it_calculates_episode_metrics_correctly()
     {
-        $episode = PatientIVRStatus::factory()->create([
+        $episode = PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id
         ]);
 
@@ -357,14 +357,14 @@ class EpisodeWorkflowTest extends TestCase
     public function it_handles_expiring_ivrs()
     {
         // Create episode with IVR expiring soon
-        PatientIVRStatus::factory()->create([
+        PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'ivr_status' => 'verified',
             'expiration_date' => now()->addDays(15) // Expires in 15 days
         ]);
 
         // Create episode with IVR not expiring soon
-        PatientIVRStatus::factory()->create([
+        PatientManufacturerIVREpisode::factory()->create([
             'manufacturer_id' => $this->manufacturer->id,
             'ivr_status' => 'verified',
             'expiration_date' => now()->addDays(60) // Expires in 60 days
@@ -387,12 +387,12 @@ class EpisodeWorkflowTest extends TestCase
         $manufacturer1 = Manufacturer::factory()->create(['name' => 'Manufacturer A']);
         $manufacturer2 = Manufacturer::factory()->create(['name' => 'Manufacturer B']);
 
-        $episode1 = PatientIVRStatus::factory()->create([
+        $episode1 = PatientManufacturerIVREpisode::factory()->create([
             'patient_id' => $patientId,
             'manufacturer_id' => $manufacturer1->id
         ]);
 
-        $episode2 = PatientIVRStatus::factory()->create([
+        $episode2 = PatientManufacturerIVREpisode::factory()->create([
             'patient_id' => $patientId,
             'manufacturer_id' => $manufacturer2->id
         ]);

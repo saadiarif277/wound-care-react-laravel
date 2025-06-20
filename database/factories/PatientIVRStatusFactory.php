@@ -2,7 +2,7 @@
 
 namespace Database\Factories;
 
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Manufacturer;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
@@ -12,7 +12,7 @@ use Illuminate\Support\Str;
  */
 class PatientIVRStatusFactory extends Factory
 {
-    protected $model = PatientIVRStatus::class;
+    protected $model = PatientManufacturerIVREpisode::class;
 
     /**
      * Define the model's default state.

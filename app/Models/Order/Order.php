@@ -10,7 +10,7 @@ use App\Models\Order\Product;
 use App\Models\MscSalesRep;
 use App\Traits\BelongsToOrganizationThrough;
 use Illuminate\Database\Eloquent\Model;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 // use App\Models\Document; // TODO: Uncomment and fix if Document model is created
 
 class Order extends Model
@@ -132,7 +132,7 @@ class Order extends Model
      */
     public function episode()
     {
-        return $this->belongsTo(PatientIVRStatus::class, 'ivr_episode_id');
+        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'ivr_episode_id');
     }
 
     /**
@@ -181,7 +181,7 @@ class Order extends Model
     public function ivrEpisode()
     {
         // Reference the episode model directly
-        return $this->belongsTo(PatientIVRStatus::class, 'ivr_episode_id');
+        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'ivr_episode_id');
     }
 
     /**

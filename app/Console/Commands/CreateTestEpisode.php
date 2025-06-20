@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use App\Models\Order\Manufacturer;
 use App\Models\User;
@@ -72,7 +72,7 @@ class CreateTestEpisode extends Command
         ]);
 
         // Create the episode
-        $episode = PatientIVRStatus::create([
+        $episode = PatientManufacturerIVREpisode::create([
             'id' => Str::uuid(),
             'patient_id' => 'Provider/' . $provider->id, // Using provider ID as patient ID for testing
             'manufacturer_id' => $manufacturer->id,

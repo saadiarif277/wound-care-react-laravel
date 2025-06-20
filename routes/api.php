@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Controllers\FhirController;
-use App\Http\Controllers\EcwController;
+
 use App\Http\Controllers\CommissionRuleController;
 use App\Http\Controllers\CommissionRecordController;
 use App\Http\Controllers\CommissionPayoutController;
@@ -227,34 +227,8 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
 Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
 Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])->name('docuseal.webhook.quickrequest');
 
-// eClinicalWorks Integration Routes
-Route::prefix('ecw')->name('ecw.')->group(function () {
-    Route::get('auth', [EcwController::class, 'authenticate'])->name('auth');
-    Route::get('callback', [EcwController::class, 'callback'])->name('callback');
-    Route::get('status', [EcwController::class, 'status'])->name('status');
-    Route::get('test', [EcwController::class, 'test'])->name('test');
-
-    // Patient data routes
-    Route::get('patients', [EcwController::class, 'getPatients'])->name('patients');
-    Route::get('patients/{patient_id}', [EcwController::class, 'getPatient'])->name('patient');
-    Route::get('patients/{patient_id}/appointments', [EcwController::class, 'getPatientAppointments'])->name('patient.appointments');
-    Route::get('patients/{patient_id}/documents', [EcwController::class, 'getPatientDocuments'])->name('patient.documents');
-
-    // Provider data routes
-    Route::get('providers', [EcwController::class, 'getProviders'])->name('providers');
-    Route::get('providers/{provider_id}', [EcwController::class, 'getProvider'])->name('provider');
-
-    // Appointment routes
-    Route::get('appointments', [EcwController::class, 'getAppointments'])->name('appointments');
-    Route::post('appointments', [EcwController::class, 'createAppointment'])->name('appointments.create');
-
-    // Document routes
-    Route::get('documents', [EcwController::class, 'getDocuments'])->name('documents');
-    Route::post('documents', [EcwController::class, 'uploadDocument'])->name('documents.upload');
-});
-
-// JWK endpoint for eCW integration (public endpoint)
-Route::get('.well-known/jwks.json', [EcwController::class, 'jwks'])->name('jwks');
+// Note: eClinicalWorks Integration Routes have been removed
+// The EcwController has been deprecated and removed from the codebase
 
 // Commission Management Routes
 Route::middleware(['permission:view-commissions'])->group(function () {

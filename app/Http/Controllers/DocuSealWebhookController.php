@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\IvrDocusealService;
-use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -167,7 +167,7 @@ class DocuSealWebhookController extends Controller
     {
         // Try to find by external_id if present in submitter data
         if (!empty($webhookData['external_id'])) {
-            $episode = PatientIVRStatus::where('id', $webhookData['external_id'])->first();
+            $episode = PatientManufacturerIVREpisode::where('id', $webhookData['external_id'])->first();
             if ($episode) {
                 Log::info('Found episode by external_id', [
                     'episode_id' => $episode->id,
@@ -181,7 +181,7 @@ class DocuSealWebhookController extends Controller
         if (!empty($patientInfo['patient_name'])) {
             // Extract the pattern if it matches our format
             if (preg_match('/^[A-Z]{2}\*\*#\d+$/', $patientInfo['patient_name'])) {
-                $episode = PatientIVRStatus::where('patient_display_id', $patientInfo['patient_name'])->first();
+                $episode = PatientManufacturerIVREpisode::where('patient_display_id', $patientInfo['patient_name'])->first();
                 if ($episode) {
                     return $episode;
                 }
@@ -189,7 +189,7 @@ class DocuSealWebhookController extends Controller
         }
 
         // Try to find recent episodes that are waiting for IVR
-        $recentEpisode = PatientIVRStatus::where('status', 'ready_for_review')
+        $recentEpisode = PatientManufacturerIVREpisode::where('status', 'ready_for_review')
             ->where('ivr_status', '!=', 'provider_completed')
             ->where('created_at', '>=', now()->subHours(24))
             ->orderBy('created_at', 'desc')
@@ -209,7 +209,7 @@ class DocuSealWebhookController extends Controller
     /**
      * Store IVR document in episode metadata
      */
-    private function storeIVRDocument(PatientIVRStatus $episode, array $webhookData): void
+    private function storeIVRDocument(PatientManufacturerIVREpisode $episode, array $webhookData): void
     {
         $documents = $webhookData['documents'] ?? [];
         $metadata = $episode->metadata ?? [];
