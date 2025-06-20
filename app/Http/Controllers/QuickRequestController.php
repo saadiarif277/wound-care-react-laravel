@@ -162,15 +162,12 @@ class QuickRequestController extends Controller
                 ];
             });
 
-        // TODO: Move to database configuration or lookup table
-        // Wound types
-        $woundTypes = [
-            'diabetic_foot_ulcer' => 'Diabetic Foot Ulcer',
-            'venous_leg_ulcer' => 'Venous Leg Ulcer',
-            'pressure_ulcer' => 'Pressure Ulcer',
-            'surgical_wound' => 'Surgical Wound',
-            'other' => 'Other',
-        ];
+        // Load wound types from database
+        $woundTypes = DB::table('wound_types')
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->pluck('display_name', 'code')
+            ->toArray();
 
         // Insurance carriers - you might want to get this from a config or database
         $insuranceCarriers = $this->payerService->getAllPayers()
@@ -179,20 +176,24 @@ class QuickRequestController extends Controller
             ->values()
             ->toArray();
 
-        // TODO: Move to database lookup table for diagnosis codes
-        // Diagnosis codes
-        $diagnosisCodes = [
-            'yellow' => [
-                ['code' => 'E11.621', 'description' => 'Type 2 diabetes mellitus with foot ulcer'],
-                ['code' => 'E11.622', 'description' => 'Type 2 diabetes mellitus with other skin ulcer'],
-                ['code' => 'E10.621', 'description' => 'Type 1 diabetes mellitus with foot ulcer'],
-            ],
-            'orange' => [
-                ['code' => 'L97.411', 'description' => 'Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin'],
-                ['code' => 'L97.412', 'description' => 'Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed'],
-                ['code' => 'L97.511', 'description' => 'Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin'],
-            ],
-        ];
+        // Load all diagnosis codes for initial display
+        // Frontend will make API calls to get specific codes by wound type
+        $diagnosisCodes = DB::table('diagnosis_codes')
+            ->where('is_active', true)
+            ->select(['code', 'description', 'category'])
+            ->orderBy('category')
+            ->orderBy('code')
+            ->get()
+            ->groupBy('category')
+            ->map(function ($group) {
+                return $group->map(function ($item) {
+                    return [
+                        'code' => $item->code,
+                        'description' => $item->description
+                    ];
+                })->values()->toArray();
+            })
+            ->toArray();
 
         // Current user data
         $currentUser = [

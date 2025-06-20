@@ -561,6 +561,10 @@ Route::middleware(['web'])->group(function () {
         ->name('api.payers.search');
 });
 
+// Diagnosis codes
+Route::get('/diagnosis-codes', [\App\Http\Controllers\Api\DiagnosisCodeController::class, 'getAll']);
+Route::post('/diagnosis-codes/by-wound-type', [\App\Http\Controllers\Api\DiagnosisCodeController::class, 'getByWoundType']);
+
 // Quick Request API Routes (for providers)
 Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
     // Get manufacturer template fields for QuickRequest

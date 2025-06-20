@@ -72,6 +72,7 @@ interface QuickRequestFormData {
   wound_location_details?: string;
   yellow_diagnosis_code?: string;
   orange_diagnosis_code?: string;
+  pressure_ulcer_diagnosis_code?: string;
   wound_size_length: string;
   wound_size_width: string;
   wound_size_depth: string;

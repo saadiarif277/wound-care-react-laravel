@@ -1,6 +1,8 @@
+import React, { useEffect, useState } from 'react';
 import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import axios from 'axios';
 
 interface Step4Props {
   formData: any;
@@ -32,7 +34,20 @@ export default function Step4ClinicalBilling({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Wound type options
+  // State for dynamic diagnosis codes
+  const [dynamicDiagnosisCodes, setDynamicDiagnosisCodes] = useState<{
+    yellow: Array<{ code: string; description: string }>;
+    orange: Array<{ code: string; description: string }>;
+    none: Array<{ code: string; description: string }>;
+  }>({
+    yellow: [],
+    orange: [],
+    none: []
+  });
+  const [requirementMessages, setRequirementMessages] = useState<string[]>([]);
+  const [loadingCodes, setLoadingCodes] = useState(false);
+
+  // Wound type options - these should match the database wound_types table
   const woundTypes = [
     { value: 'diabetic_foot_ulcer', label: 'Diabetic Foot Ulcer' },
     { value: 'venous_leg_ulcer', label: 'Venous Leg Ulcer' },
@@ -40,21 +55,76 @@ export default function Step4ClinicalBilling({
     { value: 'surgical_wound', label: 'Surgical Wound' },
     { value: 'traumatic_wound', label: 'Traumatic Wound' },
     { value: 'arterial_ulcer', label: 'Arterial Ulcer' },
+    { value: 'chronic_ulcer', label: 'Chronic Ulcer' },
     { value: 'other', label: 'Other' },
   ];
 
-  // Default diagnosis codes if not provided
-  const yellowCodes = diagnosisCodes?.yellow || [
-    { code: 'E11.621', description: 'Type 2 diabetes mellitus with foot ulcer' },
-    { code: 'E11.622', description: 'Type 2 diabetes mellitus with other skin ulcer' },
-    { code: 'E10.621', description: 'Type 1 diabetes mellitus with foot ulcer' },
-  ];
+  // Fetch diagnosis codes when wound types change
+  useEffect(() => {
+    if (formData.wound_types && formData.wound_types.length > 0) {
+      fetchDiagnosisCodes(formData.wound_types);
+    } else {
+      // Reset to default if no wound types selected
+      setDynamicDiagnosisCodes({
+        yellow: diagnosisCodes?.yellow || [],
+        orange: diagnosisCodes?.orange || [],
+        none: []
+      });
+      setRequirementMessages([]);
+    }
+  }, [formData.wound_types]);
 
-  const orangeCodes = diagnosisCodes?.orange || [
-    { code: 'L97.411', description: 'Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin' },
-    { code: 'L97.412', description: 'Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed' },
-    { code: 'L97.511', description: 'Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin' },
-  ];
+  const fetchDiagnosisCodes = async (woundTypes: string[]) => {
+    setLoadingCodes(true);
+    try {
+      const response = await axios.post('/api/diagnosis-codes/by-wound-type', {
+        wound_types: woundTypes
+      });
+
+      const { codes, requirements } = response.data;
+      setDynamicDiagnosisCodes({
+        yellow: codes.yellow || [],
+        orange: codes.orange || [],
+        none: codes.none || []
+      });
+      setRequirementMessages(requirements || []);
+
+      // Clear selected diagnosis codes if they're no longer valid
+      if (formData.yellow_diagnosis_code) {
+        const validYellow = codes.yellow?.find((c: any) => c.code === formData.yellow_diagnosis_code);
+        if (!validYellow) {
+          updateFormData({ yellow_diagnosis_code: '' });
+        }
+      }
+      if (formData.orange_diagnosis_code) {
+        const validOrange = codes.orange?.find((c: any) => c.code === formData.orange_diagnosis_code);
+        if (!validOrange) {
+          updateFormData({ orange_diagnosis_code: '' });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching diagnosis codes:', error);
+      // Fallback to default codes
+      setDynamicDiagnosisCodes({
+        yellow: diagnosisCodes?.yellow || [],
+        orange: diagnosisCodes?.orange || [],
+        none: []
+      });
+    } finally {
+      setLoadingCodes(false);
+    }
+  };
+
+  // Use dynamic codes or fallback to default
+  const yellowCodes = dynamicDiagnosisCodes.yellow.length > 0 
+    ? dynamicDiagnosisCodes.yellow 
+    : (diagnosisCodes?.yellow || []);
+
+  const orangeCodes = dynamicDiagnosisCodes.orange.length > 0 
+    ? dynamicDiagnosisCodes.orange 
+    : (diagnosisCodes?.orange || []);
+
+  const pressureUlcerCodes = dynamicDiagnosisCodes.none;
 
   // Wound location options
   const woundLocations = [
@@ -183,7 +253,7 @@ export default function Step4ClinicalBilling({
           </div>
 
           {/* Diagnosis Code Requirements Alert */}
-          {(formData.wound_types?.includes('diabetic_foot_ulcer') || formData.wound_types?.includes('venous_leg_ulcer')) && (
+          {requirementMessages.length > 0 && (
             <div className={cn(
               "p-3 rounded-lg border-l-4",
               theme === 'dark'
@@ -202,24 +272,52 @@ export default function Step4ClinicalBilling({
                   )}>
                     Diagnosis Codes Required
                   </h4>
-                  <p className={cn(
-                    "mt-1 text-sm",
+                  <div className={cn(
+                    "mt-1 text-sm space-y-1",
                     theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'
                   )}>
-                    {formData.wound_types?.includes('diabetic_foot_ulcer') &&
-                      'Diabetic Foot Ulcer requires 1 Yellow (Diabetes) AND 1 Orange (Chronic Ulcer) diagnosis code'}
-                    {formData.wound_types?.includes('diabetic_foot_ulcer') && formData.wound_types?.includes('venous_leg_ulcer') &&
-                      ' | '}
-                    {formData.wound_types?.includes('venous_leg_ulcer') &&
-                      'Venous Leg Ulcer requires appropriate venous insufficiency codes'}
-                  </p>
+                    {requirementMessages.map((message, index) => (
+                      <p key={index}>{message}</p>
+                    ))}
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Diagnosis Codes for DFU */}
-          {formData.wound_types?.includes('diabetic_foot_ulcer') && (
+          {/* Diagnosis Codes for Pressure Ulcer (no color categories) */}
+          {formData.wound_types?.includes('pressure_ulcer') && pressureUlcerCodes.length > 0 && (
+            <div>
+              <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                Pressure Ulcer Diagnosis Code <span className="text-red-500">*</span>
+              </label>
+              <select
+                className={cn(
+                  "w-full p-2 rounded border transition-all",
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                  errors.pressure_ulcer_diagnosis && 'border-red-500'
+                )}
+                value={formData.pressure_ulcer_diagnosis_code || ''}
+                onChange={(e) => updateFormData({ pressure_ulcer_diagnosis_code: e.target.value })}
+                disabled={loadingCodes}
+              >
+                <option value="">Select diagnosis code...</option>
+                {pressureUlcerCodes.map(code => (
+                  <option key={code.code} value={code.code}>
+                    {code.code} - {code.description}
+                  </option>
+                ))}
+              </select>
+              {errors.pressure_ulcer_diagnosis && (
+                <p className="mt-1 text-sm text-red-500">{errors.pressure_ulcer_diagnosis}</p>
+              )}
+            </div>
+          )}
+
+          {/* Diagnosis Codes for DFU and VLU */}
+          {(formData.wound_types?.includes('diabetic_foot_ulcer') || formData.wound_types?.includes('venous_leg_ulcer')) && (
             <>
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
@@ -235,8 +333,9 @@ export default function Step4ClinicalBilling({
                   )}
                   value={formData.yellow_diagnosis_code || ''}
                   onChange={(e) => updateFormData({ yellow_diagnosis_code: e.target.value })}
+                  disabled={loadingCodes}
                 >
-                  <option value="">Select yellow code...</option>
+                  <option value="">{loadingCodes ? 'Loading...' : 'Select yellow code...'}</option>
                   {yellowCodes.map(code => (
                     <option key={code.code} value={code.code}>
                       {code.code} - {code.description}
@@ -262,8 +361,9 @@ export default function Step4ClinicalBilling({
                   )}
                   value={formData.orange_diagnosis_code || ''}
                   onChange={(e) => updateFormData({ orange_diagnosis_code: e.target.value })}
+                  disabled={loadingCodes}
                 >
-                  <option value="">Select orange code...</option>
+                  <option value="">{loadingCodes ? 'Loading...' : 'Select orange code...'}</option>
                   {orangeCodes.map(code => (
                     <option key={code.code} value={code.code}>
                       {code.code} - {code.description}
