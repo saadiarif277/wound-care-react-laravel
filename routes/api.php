@@ -218,7 +218,7 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
 
     // Order submissions
     Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
-    
+
     // Get manufacturer template fields
     Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])->name('manufacturer.fields');
 });
@@ -541,6 +541,12 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
     Route::get('/analytics/summary', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'summary'])->name('api.sales-reps.analytics.summary');
     Route::get('/analytics/performance', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'performance'])->name('api.sales-reps.analytics.performance');
     Route::get('/analytics/territories', [\App\Http\Controllers\Api\SalesRepAnalyticsController::class, 'territories'])->name('api.sales-reps.analytics.territories');
+
+    // Enhanced Commission Dashboard Routes
+    Route::get('/commission/summary', [\App\Http\Controllers\Api\SalesRepCommissionController::class, 'getSummary'])->name('api.sales-reps.commission.summary');
+    Route::get('/commission/details', [\App\Http\Controllers\Api\SalesRepCommissionController::class, 'getDetails'])->name('api.sales-reps.commission.details');
+    Route::get('/commission/delayed-payments', [\App\Http\Controllers\Api\SalesRepCommissionController::class, 'getDelayedPayments'])->name('api.sales-reps.commission.delayed-payments');
+    Route::get('/commission/analytics', [\App\Http\Controllers\Api\SalesRepCommissionController::class, 'getAnalytics'])->name('api.sales-reps.commission.analytics');
 });
 
 

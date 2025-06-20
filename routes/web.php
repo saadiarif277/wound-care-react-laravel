@@ -328,6 +328,13 @@ Route::get('/customers', function () {
 // CONSOLIDATED SALES MANAGEMENT
 // ================================================================
 
+// Sales Rep Dashboard - New Enhanced Commission Dashboard
+Route::middleware(['auth', 'role:msc-rep,msc-subrep'])->group(function () {
+    Route::get('/sales-rep/dashboard', function () {
+        return Inertia::render('SalesRep/Dashboard');
+    })->name('sales-rep.dashboard');
+});
+
 // Consolidated Sales Management - Commission Tracking, Payouts, Sales Rep Management, Sub-Rep Approvals
 Route::middleware(['financial.access'])->group(function () {
     Route::get('/commission/management', function () {

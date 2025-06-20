@@ -228,7 +228,7 @@ export default function Step7FinalSubmission({
 
       console.log('Creating episode with data:', episodeData);
 
-      const response = await axios.post('/quickrequest/prepare-docuseal-ivr', episodeData);
+      const response = await axios.post('/quick-requests/prepare-docuseal-ivr', episodeData);
 
       if (response.data.success) {
         setEpisodeId(response.data.episode_id);

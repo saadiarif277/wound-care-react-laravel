@@ -1260,7 +1260,7 @@ export const api = {
             return handleApiResponse(response);
         },
 
-        async getCommissionSummary(repId: string, params?: {
+        async getCommissionSummary(params?: {
             date_from?: string;
             date_to?: string;
         }): Promise<any> {
@@ -1273,7 +1273,70 @@ export const api = {
                 });
             }
 
-            const url = `/api/sales-reps/${repId}/commissions/summary${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const url = `/api/sales-reps/commission/summary${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getCommissionDetails(params?: {
+            date_from?: string;
+            date_to?: string;
+            status?: string[];
+            provider?: string;
+            manufacturer?: string;
+            page?: number;
+            per_page?: number;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        if (Array.isArray(value)) {
+                            value.forEach(v => searchParams.append(key + '[]', v.toString()));
+                        } else {
+                            searchParams.set(key, value.toString());
+                        }
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/commission/details${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getDelayedPayments(params?: {
+            threshold_days?: number;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/commission/delayed-payments${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
+            const response = await apiGet(url);
+            return handleApiResponse(response);
+        },
+
+        async getCommissionAnalytics(params?: {
+            period?: 'monthly' | 'quarterly' | 'yearly';
+            date_from?: string;
+            date_to?: string;
+        }): Promise<any> {
+            const searchParams = new URLSearchParams();
+            if (params) {
+                Object.entries(params).forEach(([key, value]) => {
+                    if (value !== undefined && value !== null) {
+                        searchParams.set(key, value.toString());
+                    }
+                });
+            }
+
+            const url = `/api/sales-reps/commission/analytics${searchParams.toString() ? '?' + searchParams.toString() : ''}`;
             const response = await apiGet(url);
             return handleApiResponse(response);
         }
