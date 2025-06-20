@@ -685,6 +685,7 @@ class QuickRequestController extends Controller
             if (!$episode) {
                 // Create new episode if none exists
                 $episode = PatientManufacturerIVREpisode::create([
+                    'patient_id' => $validated['patient_id'],
                     'patient_fhir_id' => $validated['patient_fhir_id'],
                     'manufacturer_id' => $validated['manufacturer_id'],
                     'patient_display_id' => $validated['patient_display_id'],

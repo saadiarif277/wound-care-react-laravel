@@ -20,6 +20,7 @@ class PatientManufacturerIVREpisode extends Model
     protected $table = 'patient_manufacturer_ivr_episodes';
 
     protected $fillable = [
+        'patient_id',
         'patient_fhir_id',
         'patient_display_id',
         'manufacturer_id',
