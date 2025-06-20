@@ -12,9 +12,7 @@ use Illuminate\Support\Facades\DB;
 class CommissionRule extends Model
 {
     use SoftDeletes;
-    use BelongsToOrganization {
-        scopeForOrganization as protected traitScopeForOrganization;
-    }
+    use BelongsToOrganization;
 
     protected $fillable = [
         'organization_id',
