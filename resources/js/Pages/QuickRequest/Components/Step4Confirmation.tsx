@@ -56,6 +56,20 @@ export default function Step4Confirmation({
   const selectedFacility = facilities.find(f => f.id === formData.facility_id);
   const manufacturerConfig = selectedProduct ? getManufacturerConfig(selectedProduct.manufacturer) : null;
 
+  // Debug logging
+  console.log('Step4Confirmation Debug:', {
+    formData: {
+      product_id: formData.product_id,
+      size: formData.size,
+      quantity: formData.quantity,
+      facility_id: formData.facility_id
+    },
+    selectedProduct,
+    selectedFacility,
+    products: products.length,
+    facilities: facilities.length
+  });
+
   const getTemplateId = () => {
     // Get template ID from manufacturer config
     if (manufacturerConfig?.docusealTemplateId) {
@@ -163,33 +177,37 @@ export default function Step4Confirmation({
             </div>
           </div>
 
-          <div className="border-t pt-4">
-            <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>
-              Product Details
-            </h4>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <div>
-                <span className={cn("font-medium", t.text.tertiary)}>Product:</span>
-                <span className={cn("ml-2", t.text.primary)}>
-                  {selectedProduct?.code} - {selectedProduct?.name}
-                </span>
-              </div>
-              <div>
-                <span className={cn("font-medium", t.text.tertiary)}>Manufacturer:</span>
-                <span className={cn("ml-2", t.text.primary)}>{selectedProduct?.manufacturer}</span>
-              </div>
-              <div>
-                <span className={cn("font-medium", t.text.tertiary)}>Size:</span>
-                <span className={cn("ml-2", t.text.primary)}>{formData.size}</span>
-              </div>
-              <div>
-                <span className={cn("font-medium", t.text.tertiary)}>Quantity:</span>
-                <span className={cn("ml-2", t.text.primary)}>{formData.quantity}</span>
+          {/* Product Details */}
+          {selectedProduct && (
+            <div>
+              <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>
+                Product Details
+              </h4>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className={cn("font-medium", t.text.tertiary)}>Product:</span>
+                  <span className={cn("ml-2", t.text.primary)}>
+                    {selectedProduct.code} - {selectedProduct.name}
+                  </span>
+                </div>
+                <div>
+                  <span className={cn("font-medium", t.text.tertiary)}>Manufacturer:</span>
+                  <span className={cn("ml-2", t.text.primary)}>{selectedProduct.manufacturer}</span>
+                </div>
+                <div>
+                  <span className={cn("font-medium", t.text.tertiary)}>Size:</span>
+                  <span className={cn("ml-2", t.text.primary)}>{formData.size || 'Not selected'}</span>
+                </div>
+                <div>
+                  <span className={cn("font-medium", t.text.tertiary)}>Quantity:</span>
+                  <span className={cn("ml-2", t.text.primary)}>{formData.quantity || 1}</span>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <div className="border-t pt-4">
+          {/* Service Details */}
+          <div>
             <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>
               Service Details
             </h4>
@@ -211,34 +229,37 @@ export default function Step4Confirmation({
               <div>
                 <span className={cn("font-medium", t.text.tertiary)}>Shipping Speed:</span>
                 <span className={cn("ml-2", t.text.primary)}>
-                  {formData.shipping_speed?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  {formData.shipping_speed?.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase()) || 'Not selected'}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="border-t pt-4">
-            <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>
-              Shipping Information
-            </h4>
-            <div className="text-sm">
-              <div className="mb-2">
-                <span className={cn("font-medium", t.text.tertiary)}>Facility:</span>
-                <span className={cn("ml-2", t.text.primary)}>{selectedFacility?.name}</span>
-              </div>
-              {selectedFacility?.address && (
-                <div>
-                  <span className={cn("font-medium", t.text.tertiary)}>Address:</span>
-                  <span className={cn("ml-2", t.text.primary)}>{selectedFacility.address}</span>
+          {/* Shipping Information */}
+          {selectedFacility && (
+            <div>
+              <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>
+                Shipping Information
+              </h4>
+              <div className="text-sm">
+                <div className="mb-2">
+                  <span className={cn("font-medium", t.text.tertiary)}>Facility:</span>
+                  <span className={cn("ml-2", t.text.primary)}>{selectedFacility.name}</span>
                 </div>
-              )}
+                {selectedFacility.address && (
+                  <div>
+                    <span className={cn("font-medium", t.text.tertiary)}>Address:</span>
+                    <span className={cn("ml-2", t.text.primary)}>{selectedFacility.address}</span>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
       {/* IVR Requirement - ALWAYS REQUIRED per Ashley's feedback */}
-      <div className={cn("p-6 rounded-lg", t.glass.base)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4 flex items-center", t.text.primary)}>
           <FiAlertCircle className="mr-2 text-blue-500" />
           Insurance Verification Request (IVR) Required
@@ -327,7 +348,7 @@ export default function Step4Confirmation({
       </div>
 
       {/* Attestations Summary */}
-      <div className={cn("p-6 rounded-lg", t.glass.base)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
           Attestations & Authorizations
         </h3>
@@ -365,7 +386,7 @@ export default function Step4Confirmation({
       </div>
 
       {/* Submit Section */}
-      <div className={cn("p-6 rounded-lg text-center", t.glass.base)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <p className={cn("mb-4", t.text.secondary)}>
           By submitting this order, you confirm that all information is accurate and complete,
           and that the IVR has been properly generated for admin review.
