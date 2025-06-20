@@ -106,6 +106,11 @@ export default function Step7FinalSubmission({
   errors,
   onSubmit
 }: Step7Props) {
+  // Debug logging
+  console.log('=== Step7FinalSubmission Debug ===');
+  console.log('formData.selected_products:', formData.selected_products);
+  console.log('products passed to component:', products?.length, products?.map(p => ({ id: p.id, name: p.name })));
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -118,23 +123,48 @@ export default function Step7FinalSubmission({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
   const [submissionUrl, setSubmissionUrl] = useState<string | null>(null);
   const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [isCreatingEpisode, setIsCreatingEpisode] = useState(false);
   const [isCreatingSubmission, setIsCreatingSubmission] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // DocuSeal Builder state
   const [builderToken, setBuilderToken] = useState<string | null>(null);
-  const [builderProps, setBuilderProps] = useState<any | null>(null);
-  const [episodeId, setEpisodeId] = useState<string | null>(null);
-  const [isCreatingEpisode, setIsCreatingEpisode] = useState(false);
+  const [builderProps, setBuilderProps] = useState<{
+    templateId?: string;
+    userEmail?: string;
+    integrationEmail?: string;
+    templateName?: string;
+  } | null>(null);
 
   // Get selected product details
   const getSelectedProduct = () => {
+    console.log('=== getSelectedProduct Debug Info ===');
+    console.log('formData.selected_products:', formData.selected_products);
+    console.log('products array length:', products.length);
+    console.log('products array:', products.map(p => ({ id: p.id, name: p.name, code: p.code })));
+
     if (!formData.selected_products || formData.selected_products.length === 0) {
+      console.log('No selected products found');
       return null;
     }
+
     const selectedProductId = formData.selected_products[0]?.product_id;
-    return products.find(p => p.id === selectedProductId);
+    console.log('Looking for product with ID:', selectedProductId);
+
+    const foundProduct = products.find(p => p.id === selectedProductId);
+    console.log('Found product in products array:', foundProduct);
+
+    // If not found in products array, use the stored product object
+    if (!foundProduct && formData.selected_products[0]?.product) {
+      console.log('Using stored product object:', formData.selected_products[0].product);
+      return formData.selected_products[0].product;
+    }
+
+    return foundProduct;
   };
 
   // Get provider details
@@ -155,36 +185,57 @@ export default function Step7FinalSubmission({
     try {
       const selectedProduct = getSelectedProduct();
       if (!selectedProduct) {
-        throw new Error('No product selected');
+        // Provide more detailed error information
+        const errorDetails = {
+          selectedProducts: formData.selected_products,
+          productsCount: products.length,
+          firstProductId: formData.selected_products?.[0]?.product_id,
+          availableProductIds: products.map(p => p.id)
+        };
+        console.error('No product selected - Debug info:', errorDetails);
+
+        // Try to use the product object from selected_products if available
+        const productFromSelection = formData.selected_products?.[0]?.product;
+        if (productFromSelection && productFromSelection.id) {
+          console.log('Using product from selection object:', productFromSelection);
+          // Continue with the product from selection
+        } else {
+          throw new Error(`No product selected. Debug: ${JSON.stringify(errorDetails)}`);
+        }
       }
+
+      // Use either the found product or the product from selection
+      const productToUse = selectedProduct || formData.selected_products?.[0]?.product;
 
       // Prepare comprehensive form data for episode creation
       const episodeData = {
         patient_id: formData.patient_id || 'new-patient',
         patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
         patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
-        selected_product_id: selectedProduct.id,
+        selected_product_id: productToUse?.id,
         facility_id: formData.facility_id,
         form_data: {
           ...formData,
           // Ensure product sizes are included
           selected_products: formData.selected_products?.map((p: { product_id: number; quantity: number; size?: string; product?: any; }) => ({
             ...p,
-            product_name: products.find(prod => prod.id === p.product_id)?.name,
-            product_code: products.find(prod => prod.id === p.product_id)?.code,
-            manufacturer: products.find(prod => prod.id === p.product_id)?.manufacturer,
+            product_name: products.find(prod => prod.id === p.product_id)?.name || p.product?.name,
+            product_code: products.find(prod => prod.id === p.product_id)?.code || p.product?.code,
+            manufacturer: products.find(prod => prod.id === p.product_id)?.manufacturer || p.product?.manufacturer,
           }))
         }
       };
 
+      console.log('Creating episode with data:', episodeData);
+
       const response = await axios.post('/quickrequest/prepare-docuseal-ivr', episodeData);
-      
+
       if (response.data.success) {
         setEpisodeId(response.data.episode_id);
         // Store the DocuSeal URL and submission ID from episode creation
         setSubmissionUrl(response.data.docuseal_url);
         setSubmissionId(response.data.docuseal_submission_id);
-        
+
         // Update form data with episode info
         updateFormData({
           episode_id: response.data.episode_id,
@@ -228,7 +279,7 @@ export default function Step7FinalSubmission({
           // Include episode information
           episode_id: episodeId || '',
           ivr_submission_id: formData.docuseal_submission_id || '',
-          
+
           // Include the selected products array for manufacturer template selection
           selected_products: formData.selected_products || [],
 
@@ -295,7 +346,7 @@ export default function Step7FinalSubmission({
           // Additional metadata
           submission_date: new Date().toISOString().split('T')[0],
           total_wound_area: (parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')).toString(),
-          
+
           // Include all other form data for comprehensive prefill
           ...formData
         }
@@ -403,13 +454,13 @@ export default function Step7FinalSubmission({
       alert('Please complete the submission form before proceeding.');
       return;
     }
-    
+
     // Ensure episode ID is included in final submission
     updateFormData({
       episode_id: episodeId,
       final_submission_completed: true
     });
-    
+
     onSubmit();
   };
 
@@ -490,8 +541,8 @@ export default function Step7FinalSubmission({
             {isCreatingEpisode ? 'Creating Episode & IVR' : 'Preparing DocuSeal Form Builder'}
           </h3>
           <p className={cn("text-sm", t.text.secondary)}>
-            {isCreatingEpisode 
-              ? 'Creating episode record and preparing IVR form with your product selection...' 
+            {isCreatingEpisode
+              ? 'Creating episode record and preparing IVR form with your product selection...'
               : 'Please wait while we prepare your interactive form builder...'}
           </p>
           {episodeId && (

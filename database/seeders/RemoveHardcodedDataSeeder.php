@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Schema;
 
 class RemoveHardcodedDataSeeder extends Seeder
 {
@@ -31,6 +32,13 @@ class RemoveHardcodedDataSeeder extends Seeder
     
     private function seedInsuranceProductRules(): void
     {
+        // Check if rules already exist
+        $existingCount = DB::table('insurance_product_rules')->count();
+        if ($existingCount > 0) {
+            $this->command->info("Insurance product rules already exist ($existingCount found), skipping...");
+            return;
+        }
+
         $rules = [
             // PPO/Commercial rules
             [
@@ -168,6 +176,13 @@ class RemoveHardcodedDataSeeder extends Seeder
     
     private function seedDiagnosisCodes(): void
     {
+        // Check if diagnosis codes already exist
+        $existingCount = DB::table('diagnosis_codes')->count();
+        if ($existingCount > 0) {
+            $this->command->info("Diagnosis codes already exist ($existingCount found), skipping...");
+            return;
+        }
+
         $codes = [
             // Yellow codes
             [
@@ -239,6 +254,13 @@ class RemoveHardcodedDataSeeder extends Seeder
     
     private function seedWoundTypes(): void
     {
+        // Check if wound types already exist
+        $existingCount = DB::table('wound_types')->count();
+        if ($existingCount > 0) {
+            $this->command->info("Wound types already exist ($existingCount found), skipping...");
+            return;
+        }
+
         $types = [
             [
                 'id' => Str::uuid(),
@@ -327,6 +349,17 @@ class RemoveHardcodedDataSeeder extends Seeder
     
     private function updateProductMueLimits(): void
     {
+        // Check which table exists
+        $tableName = null;
+        if (Schema::hasTable('msc_products')) {
+            $tableName = 'msc_products';
+        } elseif (Schema::hasTable('products')) {
+            $tableName = 'products';
+        } else {
+            $this->command->warn("Neither 'products' nor 'msc_products' table exists, skipping MUE limits update...");
+            return;
+        }
+
         $mueLimits = [
             'Q4154' => 4000, // BioVance
             'Q4271' => 4000, // Complete FT
@@ -338,7 +371,7 @@ class RemoveHardcodedDataSeeder extends Seeder
         ];
         
         foreach ($mueLimits as $qCode => $limit) {
-            DB::table('products')
+            DB::table($tableName)
                 ->where('q_code', $qCode)
                 ->update(['mue_limit' => $limit]);
         }
@@ -346,6 +379,13 @@ class RemoveHardcodedDataSeeder extends Seeder
     
     private function seedMscContacts(): void
     {
+        // Check if MSC contacts already exist
+        $existingCount = DB::table('msc_contacts')->count();
+        if ($existingCount > 0) {
+            $this->command->info("MSC contacts already exist ($existingCount found), skipping...");
+            return;
+        }
+
         $contacts = [
             [
                 'id' => Str::uuid(),

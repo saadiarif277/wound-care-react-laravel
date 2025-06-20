@@ -13,6 +13,9 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
      */
     public function run(): void
     {
+        // First ensure wound types exist
+        $this->ensureWoundTypesExist();
+        
         // Clear existing diagnosis codes and relationships
         DB::table('wound_type_diagnosis_codes')->delete();
         DB::table('diagnosis_codes')->delete();
@@ -344,5 +347,37 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         }
 
         $this->command->info('Imported ' . count($diagnosisCodes) . ' Chronic Skin Subs diagnosis codes');
+    }
+
+    private function ensureWoundTypesExist(): void
+    {
+        // Check if wound types exist
+        $requiredWoundTypes = [
+            'diabetic_foot_ulcer' => 'Diabetic Foot Ulcer',
+            'venous_leg_ulcer' => 'Venous Leg Ulcer',
+            'pressure_ulcer' => 'Pressure Ulcer',
+            'surgical_wound' => 'Surgical Wound',
+            'traumatic_wound' => 'Traumatic Wound',
+            'arterial_ulcer' => 'Arterial Ulcer',
+            'chronic_ulcer' => 'Chronic Ulcer',
+            'other' => 'Other'
+        ];
+
+        foreach ($requiredWoundTypes as $code => $displayName) {
+            $exists = DB::table('wound_types')->where('code', $code)->exists();
+            if (!$exists) {
+                DB::table('wound_types')->insert([
+                    'id' => Str::uuid(),
+                    'code' => $code,
+                    'display_name' => $displayName,
+                    'description' => null,
+                    'sort_order' => 0,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("Created wound type: $displayName");
+            }
+        }
     }
 }

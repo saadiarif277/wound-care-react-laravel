@@ -26,7 +26,7 @@ return new class extends Migration
                 $table->uuid('id')->primary();
                 $table->string('wound_type_code');
                 $table->string('diagnosis_code', 20);
-                $table->string('category', 50); // yellow, orange, or null for pressure ulcers
+                $table->string('category', 50)->nullable(); // yellow, orange, or null for pressure ulcers
                 $table->boolean('is_required')->default(false);
                 $table->timestamps();
 

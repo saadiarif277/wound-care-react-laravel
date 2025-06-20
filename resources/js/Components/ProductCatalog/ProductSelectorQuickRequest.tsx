@@ -184,8 +184,35 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       console.log('ProductSelectorQuickRequest: Products count:', data.products?.length || 0);
       if (data.products && data.products.length > 0) {
         console.log('ProductSelectorQuickRequest: First product example:', data.products[0]);
+        // Debug size data specifically
+        const firstProduct = data.products[0];
+        console.log('ProductSelectorQuickRequest: First product size data:', {
+          available_sizes: firstProduct.available_sizes,
+          size_options: firstProduct.size_options,
+          size_pricing: firstProduct.size_pricing,
+          size_unit: firstProduct.size_unit
+        });
       }
-      setProducts(data.products || []);
+
+      // Temporary fix: Add sample size data to products that don't have any
+      const productsWithSizes = (data.products || []).map((product: Product) => {
+        const hasNewSizes = product.size_options && product.size_options.length > 0;
+        const hasLegacySizes = product.available_sizes && product.available_sizes.length > 0;
+
+        if (!hasNewSizes && !hasLegacySizes) {
+          console.log(`Adding sample sizes to ${product.name} (${product.q_code})`);
+          // Add common wound care product sizes
+          return {
+            ...product,
+            available_sizes: [4, 9, 16, 25, 36], // Common sizes in cm²
+            size_unit: 'cm'
+          };
+        }
+
+        return product;
+      });
+
+      setProducts(productsWithSizes);
     } catch (error) {
       console.error('ProductSelectorQuickRequest: Error fetching products:', error);
     } finally {
@@ -862,6 +889,16 @@ const QuickRequestProductCard: React.FC<{
 }> = ({ product, onAdd, roleRestrictions, isDisabled = false, isSelected = false, isRecommended = false, isOnboarded = false, theme: t }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
+
+  // Debug size data for this product
+  console.log(`ProductCard for ${product.name} (${product.q_code}):`, {
+    available_sizes: product.available_sizes,
+    size_options: product.size_options,
+    size_pricing: product.size_pricing,
+    size_unit: product.size_unit,
+    hasNewSizes: product.size_options && product.size_options.length > 0,
+    hasLegacySizes: product.available_sizes && product.available_sizes.length > 0
+  });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
