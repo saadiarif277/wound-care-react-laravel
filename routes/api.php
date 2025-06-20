@@ -578,6 +578,13 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->middleware('permission:create-product-requests');
 });
 
+// QuickRequest Episode Creation Route
+Route::middleware(['web', 'auth'])->group(function () {
+    Route::post('/quick-request/create-episode', [\App\Http\Controllers\QuickRequestController::class, 'createEpisodeForDocuSeal'])
+        ->name('api.quick-request.create-episode')
+        ->middleware('permission:create-product-requests');
+});
+
 // Episode MAC Validation Routes
 Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
     Route::get('/{episode}/mac-validation', [\App\Http\Controllers\Api\EpisodeMacValidationController::class, 'show'])

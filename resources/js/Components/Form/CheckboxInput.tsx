@@ -1,9 +1,9 @@
-import { ComponentProps } from 'react';
+import React, { ComponentProps } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
 interface CheckboxInputProps extends ComponentProps<'input'> {
-  label?: string;
+  label?: React.ReactNode;
   error?: string;
 }
 

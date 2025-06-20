@@ -79,6 +79,7 @@ interface Step7Props {
     name: string;
     code: string;
     manufacturer: string;
+    manufacturer_id?: number;
     available_sizes?: number[];
     price_per_sq_cm?: number;
   }>;
@@ -212,10 +213,11 @@ export default function Step7FinalSubmission({
         patient_id: formData.patient_id || 'new-patient',
         patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
         patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
-        selected_product_id: productToUse?.id,
-        facility_id: formData.facility_id,
+        manufacturer_id: productToUse?.manufacturer_id || (products.find(p => p.id === productToUse?.id)?.manufacturer_id) || 1, // Get manufacturer ID from product
         form_data: {
           ...formData,
+          selected_product_id: productToUse?.id,
+          facility_id: formData.facility_id,
           // Ensure product sizes are included
           selected_products: formData.selected_products?.map((p: { product_id: number; quantity: number; size?: string; product?: any; }) => ({
             ...p,
@@ -228,23 +230,20 @@ export default function Step7FinalSubmission({
 
       console.log('Creating episode with data:', episodeData);
 
-      const response = await axios.post('/quick-requests/prepare-docuseal-ivr', episodeData);
+      const response = await axios.post('/api/quick-request/create-episode', episodeData);
 
       if (response.data.success) {
         setEpisodeId(response.data.episode_id);
-        // Store the DocuSeal URL and submission ID from episode creation
-        setSubmissionUrl(response.data.docuseal_url);
-        setSubmissionId(response.data.docuseal_submission_id);
 
         // Update form data with episode info
         updateFormData({
           episode_id: response.data.episode_id,
-          docuseal_submission_id: response.data.docuseal_submission_id
+          manufacturer_id: response.data.manufacturer_id
         });
 
         console.log('Episode created successfully:', {
           episode_id: response.data.episode_id,
-          submission_id: response.data.docuseal_submission_id
+          manufacturer_id: response.data.manufacturer_id
         });
 
         return true;

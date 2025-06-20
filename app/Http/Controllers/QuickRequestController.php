@@ -676,21 +676,27 @@ class QuickRequestController extends Controller
         ]);
 
         try {
-            // Create or find episode
-            $episode = PatientManufacturerIVREpisode::firstOrCreate([
-                'patient_fhir_id' => $validated['patient_fhir_id'],
-                'manufacturer_id' => $validated['manufacturer_id'],
-                'status' => '!=' . PatientManufacturerIVREpisode::STATUS_COMPLETED,
-            ], [
-                'patient_display_id' => $validated['patient_display_id'],
-                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
-                'metadata' => [
-                    'facility_id' => $validated['form_data']['facility_id'] ?? null,
-                    'provider_id' => Auth::id(),
-                    'created_from' => 'quick_request',
-                    'form_data' => $validated['form_data']
-                ]
-            ]);
+            // Find existing episode for this patient+manufacturer combination (not completed)
+            $episode = PatientManufacturerIVREpisode::where('patient_fhir_id', $validated['patient_fhir_id'])
+                ->where('manufacturer_id', $validated['manufacturer_id'])
+                ->where('status', '!=', PatientManufacturerIVREpisode::STATUS_COMPLETED)
+                ->first();
+
+            if (!$episode) {
+                // Create new episode if none exists
+                $episode = PatientManufacturerIVREpisode::create([
+                    'patient_fhir_id' => $validated['patient_fhir_id'],
+                    'manufacturer_id' => $validated['manufacturer_id'],
+                    'patient_display_id' => $validated['patient_display_id'],
+                    'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                    'metadata' => [
+                        'facility_id' => $validated['form_data']['facility_id'] ?? null,
+                        'provider_id' => Auth::id(),
+                        'created_from' => 'quick_request',
+                        'form_data' => $validated['form_data']
+                    ]
+                ]);
+            }
 
             Log::info('Created episode for QuickRequest DocuSeal', [
                 'episode_id' => $episode->id,

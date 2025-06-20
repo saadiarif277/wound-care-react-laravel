@@ -1026,10 +1026,7 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])
         ->name('quickrequest.docuseal.status');
 
-    // Create episode for DocuSeal integration (NEW ROUTE)
-    Route::post('/api/quick-request/create-episode', [\App\Http\Controllers\QuickRequestController::class, 'createEpisodeForDocuSeal'])
-        ->name('api.quick-request.create-episode')
-        ->middleware('permission:create-product-requests');
+    // Create episode for DocuSeal integration (NEW ROUTE) - moved to api.php
 });
 
 // ================================================================
