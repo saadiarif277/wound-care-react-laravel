@@ -126,9 +126,13 @@ interface QuickRequestFormData {
 
   // Manufacturer Fields
   manufacturer_fields?: Record<string, any>;
-
-  // DocuSeal
+  
+  // Episode tracking
+  episode_id?: string;
   docuseal_submission_id?: string;
+  final_submission_id?: string;
+  final_submission_completed?: boolean;
+  final_submission_data?: any;
 
   // Organization Info (auto-populated)
   organization_id?: number;
@@ -375,6 +379,11 @@ function QuickRequestCreateNew({
           }
         }
       });
+      
+      // Ensure episode_id is included if available
+      if (!formData.episode_id) {
+        console.error('Warning: No episode_id found in form data');
+      }
 
       // Submit the quick request
       router.post('/quick-requests', submitData, {

@@ -26,7 +26,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ & Associates',
     products: ['Ensano ACA', 'Revoshield+ Amnio', 'Dermabind FM'],
     signatureRequired: true,
-    docusealTemplateId: '852440', // ACZ Distribution IVR Form
+    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_ACZ || '852440', // TODO: Move to env config
     fields: [
       {
         name: 'physician_attestation',
@@ -46,7 +46,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Advanced Solution',
     products: ['Complete FT', 'Membrane Wrap', 'Complete AA'],
     signatureRequired: true,
-    docusealTemplateId: 'template_order_form_001', // Using default order form for now
+    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_ADVANCED || 'template_order_form_001', // TODO: Get actual template ID
     fields: [
       {
         name: 'multiple_products',
@@ -78,7 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife Solutions',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: 'template_order_form_001', // Using default order form for now
+    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_MEDLIFE || 'template_order_form_001', // TODO: Get actual template ID
     fields: [
       {
         name: 'amnio_amp_size',
@@ -153,7 +153,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'BioWound Solutions',
     products: ['Membrane Wrap Hydro', 'Neostim TL', 'Neostim DL', 'Neostim SL', 'Amnio-Maxx', 'Derm-maxx'],
     signatureRequired: true,
-    docusealTemplateId: 'template_order_form_001', // Using default order form for now
+    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_BIOWOUND || 'template_order_form_001', // TODO: Get actual template ID
     fields: [
       {
         name: 'california_facility',
@@ -219,7 +219,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Skye Biologics',
     products: ['WoundPlus'],
     signatureRequired: true,
-    docusealTemplateId: 'skye_biologics_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_SKYE || 'skye_biologics_ivr_template', // TODO: Get actual template ID
     fields: [
       {
         name: 'shipping_speed_required',

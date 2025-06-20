@@ -342,6 +342,16 @@ Route::middleware(['auth:sanctum'])->group(function () {
     // These features have been deprecated and functionality consolidated into RBAC system
 });
 
+// Configuration Routes for QuickRequest
+Route::prefix('v1/configuration')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('insurance-product-rules', [\App\Http\Controllers\ConfigurationController::class, 'getInsuranceProductRules']);
+    Route::get('diagnosis-codes', [\App\Http\Controllers\ConfigurationController::class, 'getDiagnosisCodes']);
+    Route::get('wound-types', [\App\Http\Controllers\ConfigurationController::class, 'getWoundTypes']);
+    Route::get('product-mue-limits', [\App\Http\Controllers\ConfigurationController::class, 'getProductMueLimits']);
+    Route::get('msc-contacts', [\App\Http\Controllers\ConfigurationController::class, 'getMscContacts']);
+    Route::get('quick-request', [\App\Http\Controllers\ConfigurationController::class, 'getQuickRequestConfig']);
+});
+
 // Provider Profile Management Routes
 Route::prefix('v1')->group(function () {
     Route::prefix('providers/{provider_id}')->name('providers.')->group(function () {

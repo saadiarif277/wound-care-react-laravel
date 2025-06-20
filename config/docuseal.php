@@ -12,6 +12,7 @@ return [
 
     'api_key' => env('DOCUSEAL_API_KEY'),
     'api_url' => env('DOCUSEAL_API_URL', 'https://api.docuseal.com'),
+    'account_email' => env('DOCUSEAL_ACCOUNT_EMAIL', 'limitless@mscwoundcare.com'),
 
     /*
     |--------------------------------------------------------------------------

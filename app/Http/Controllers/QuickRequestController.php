@@ -7,6 +7,7 @@ use App\Http\Controllers\Traits\QuickRequestDocuSealIntegration;
 use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
 use App\Models\PatientIVRStatus;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Fhir\Facility;
 use App\Services\PatientService;
 use App\Services\PayerService;
@@ -67,7 +68,7 @@ class QuickRequestController extends Controller
             $providers[] = [
                 'id' => $user->id,
                 'name' => $user->first_name . ' ' . $user->last_name,
-                'credentials' => 'MD', // You might want to get this from provider profile
+                'credentials' => $user->providerProfile?->credentials ?? $user->provider_credentials ?? null,
                 'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
             ];
         }
@@ -86,7 +87,7 @@ class QuickRequestController extends Controller
                     return [
                         'id' => $provider->id,
                         'name' => $provider->first_name . ' ' . $provider->last_name,
-                        'credentials' => 'MD', // You might want to get this from provider profile
+                        'credentials' => $user->providerProfile?->credentials ?? $user->provider_credentials ?? null,
                         'npi' => $provider->npi_number,
                     ];
                 })
@@ -161,6 +162,7 @@ class QuickRequestController extends Controller
                 ];
             });
 
+        // TODO: Move to database configuration or lookup table
         // Wound types
         $woundTypes = [
             'diabetic_foot_ulcer' => 'Diabetic Foot Ulcer',
@@ -177,6 +179,7 @@ class QuickRequestController extends Controller
             ->values()
             ->toArray();
 
+        // TODO: Move to database lookup table for diagnosis codes
         // Diagnosis codes
         $diagnosisCodes = [
             'yellow' => [
@@ -336,6 +339,9 @@ class QuickRequestController extends Controller
 
             // ASHLEY'S REQUIREMENT: IVR must be completed before submission
             'docuseal_submission_id' => 'required|string|min:1',
+            
+            // Episode ID from Step7
+            'episode_id' => 'required|uuid|exists:patient_manufacturer_ivr_episodes,id',
 
             // File uploads
             'insurance_card_front' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
@@ -386,13 +392,16 @@ class QuickRequestController extends Controller
             $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
             $manufacturerId = $firstProduct->manufacturer_id ?? $firstProduct->manufacturer;
 
-            // ASHLEY'S REQUIREMENT: Find or create episode for patient+manufacturer
-            $episode = $this->findOrCreateEpisode(
-                $patientIdentifiers['patient_fhir_id'],
-                $manufacturerId,
-                $patientIdentifiers['patient_display_id'],
-                $validated['docuseal_submission_id']
-            );
+            // ASHLEY'S REQUIREMENT: Use existing episode created in Step7
+            $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
+            
+            // Update episode with patient FHIR ID if it was created with temporary data
+            if ($episode->patient_fhir_id !== $patientIdentifiers['patient_fhir_id']) {
+                $episode->update([
+                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                    'patient_display_id' => $patientIdentifiers['patient_display_id'],
+                ]);
+            }
 
             // Create the product request with provider-generated IVR
             $productRequest = new ProductRequest();
@@ -784,7 +793,7 @@ class QuickRequestController extends Controller
                 'submitters' => [
                     [
                         'role' => 'Patient',
-                        'email' => 'limitless@mscwoundcare.com', // Must use account email
+                        'email' => config('docuseal.account_email', 'limitless@mscwoundcare.com'), // Configured account email
                         'name' => ($prefillData['patient_first_name'] ?? '') . ' ' . ($prefillData['patient_last_name'] ?? ''),
                         'values' => $this->formatPrefillValues($prefillData)
                     ]
@@ -833,9 +842,19 @@ class QuickRequestController extends Controller
      */
     private function getManufacturerConfigKey($manufacturerName): string
     {
+        // TODO: Create manufacturer-specific templates in DocuSeal and map them properly
         // For now, use the existing template for all manufacturers
-        // TODO: Create manufacturer-specific templates in DocuSeal
-        return 'BioWound.default'; // This maps to template 1254774
+        $manufacturerMap = [
+            'ACZ & Associates' => 'ACZ.default',
+            'Advanced Solution' => 'Advanced.default',
+            'BioWound Solutions' => 'BioWound.default',
+            'MedLife' => 'MedLife.default',
+            'Skye Biologics' => 'Skye.default',
+            // Add more as templates are created
+        ];
+        
+        $normalizedName = trim($manufacturerName);
+        return $manufacturerMap[$normalizedName] ?? 'BioWound.default'; // Fallback to BioWound template
 
         // Future manufacturer mapping (when templates are created):
         /*

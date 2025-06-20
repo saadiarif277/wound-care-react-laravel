@@ -125,6 +125,8 @@ export default function Step7FinalSubmission({
   const [error, setError] = useState<string | null>(null);
   const [builderToken, setBuilderToken] = useState<string | null>(null);
   const [builderProps, setBuilderProps] = useState<any | null>(null);
+  const [episodeId, setEpisodeId] = useState<string | null>(null);
+  const [isCreatingEpisode, setIsCreatingEpisode] = useState(false);
 
   // Get selected product details
   const getSelectedProduct = () => {
@@ -145,7 +147,69 @@ export default function Step7FinalSubmission({
     return facilities.find(f => f.id === formData.facility_id);
   };
 
-  // Create DocuSeal submission with prepopulated data
+  // Create episode before DocuSeal
+  const createEpisode = async () => {
+    setIsCreatingEpisode(true);
+    setError(null);
+
+    try {
+      const selectedProduct = getSelectedProduct();
+      if (!selectedProduct) {
+        throw new Error('No product selected');
+      }
+
+      // Prepare comprehensive form data for episode creation
+      const episodeData = {
+        patient_id: formData.patient_id || 'new-patient',
+        patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
+        patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
+        selected_product_id: selectedProduct.id,
+        facility_id: formData.facility_id,
+        form_data: {
+          ...formData,
+          // Ensure product sizes are included
+          selected_products: formData.selected_products?.map(p => ({
+            ...p,
+            product_name: products.find(prod => prod.id === p.product_id)?.name,
+            product_code: products.find(prod => prod.id === p.product_id)?.code,
+            manufacturer: products.find(prod => prod.id === p.product_id)?.manufacturer,
+          }))
+        }
+      };
+
+      const response = await axios.post('/quickrequest/prepare-docuseal-ivr', episodeData);
+      
+      if (response.data.success) {
+        setEpisodeId(response.data.episode_id);
+        // Store the DocuSeal URL and submission ID from episode creation
+        setSubmissionUrl(response.data.docuseal_url);
+        setSubmissionId(response.data.docuseal_submission_id);
+        
+        // Update form data with episode info
+        updateFormData({
+          episode_id: response.data.episode_id,
+          docuseal_submission_id: response.data.docuseal_submission_id
+        });
+
+        console.log('Episode created successfully:', {
+          episode_id: response.data.episode_id,
+          submission_id: response.data.docuseal_submission_id
+        });
+
+        return true;
+      } else {
+        throw new Error(response.data.error || 'Failed to create episode');
+      }
+    } catch (error) {
+      console.error('Error creating episode:', error);
+      setError(error instanceof Error ? error.message : 'Failed to create episode');
+      return false;
+    } finally {
+      setIsCreatingEpisode(false);
+    }
+  };
+
+  // Create DocuSeal submission with prepopulated data (final submission form)
   const createDocuSealSubmission = async () => {
     setIsCreatingSubmission(true);
     setError(null);
@@ -155,11 +219,16 @@ export default function Step7FinalSubmission({
       const providerDetails = getProviderDetails();
       const facilityDetails = getFacilityDetails();
 
-      // Use the new builder approach instead of direct submission
+      // Use the new builder approach for final submission
       const builderData = {
         use_builder: true,
         template_type: 'final_submission',
+        episode_id: episodeId, // Include episode ID for linking
         prefill_data: {
+          // Include episode information
+          episode_id: episodeId || '',
+          ivr_submission_id: formData.docuseal_submission_id || '',
+          
           // Include the selected products array for manufacturer template selection
           selected_products: formData.selected_products || [],
 
@@ -179,14 +248,17 @@ export default function Step7FinalSubmission({
           // Provider Information
           provider_name: providerDetails?.name || '',
           provider_npi: providerDetails?.npi || '',
+          provider_credentials: providerDetails?.credentials || '',
           facility_name: facilityDetails?.name || '',
           facility_address: facilityDetails?.address || '',
 
           // Clinical Information
-          wound_type: formData.wound_type || '',
+          wound_type: formData.wound_types?.join(', ') || formData.wound_type || '',
           wound_location: formData.wound_location || '',
+          wound_location_details: formData.wound_location_details || '',
           wound_size: `${formData.wound_size_length || 0} x ${formData.wound_size_width || 0} x ${formData.wound_size_depth || 0} cm`,
           wound_onset_date: formData.wound_onset_date || '',
+          wound_duration: formData.wound_duration || '',
           failed_conservative_treatment: formData.failed_conservative_treatment ? 'Yes' : 'No',
           treatment_tried: formData.treatment_tried || '',
           current_dressing: formData.current_dressing || '',
@@ -201,12 +273,13 @@ export default function Step7FinalSubmission({
           secondary_insurance: formData.secondary_insurance_name || '',
           secondary_member_id: formData.secondary_member_id || '',
 
-          // Product Information
+          // Product Information with SIZES
           selected_product_name: selectedProduct?.name || '',
           selected_product_code: selectedProduct?.code || '',
           selected_product_manufacturer: selectedProduct?.manufacturer || '',
           product_quantity: formData.selected_products?.[0]?.quantity || 0,
           product_size: formData.selected_products?.[0]?.size || '',
+          product_size_label: formData.selected_products?.[0]?.size_label || formData.selected_products?.[0]?.size || '',
 
           // Shipping Information
           shipping_same_as_patient: formData.shipping_same_as_patient ? 'Yes' : 'No',
@@ -217,10 +290,14 @@ export default function Step7FinalSubmission({
           shipping_state: formData.shipping_same_as_patient ? formData.patient_state : formData.shipping_state,
           shipping_zip: formData.shipping_same_as_patient ? formData.patient_zip : formData.shipping_zip,
           delivery_notes: formData.delivery_notes || '',
+          shipping_speed: formData.shipping_speed || '',
 
           // Additional metadata
           submission_date: new Date().toISOString().split('T')[0],
           total_wound_area: (parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')).toString(),
+          
+          // Include all other form data for comprehensive prefill
+          ...formData
         }
       };
 
@@ -267,12 +344,25 @@ export default function Step7FinalSubmission({
     }
   };
 
-  // Initialize DocuSeal submission on component mount
+  // Initialize episode and DocuSeal submission on component mount
   useEffect(() => {
-    if (!submissionUrl && !isCreatingSubmission && !error) {
-      createDocuSealSubmission();
-    }
-  }, []);
+    const initializeSubmission = async () => {
+      // First create episode if not already created
+      if (!episodeId && !isCreatingEpisode && !error) {
+        const episodeCreated = await createEpisode();
+        
+        // If episode created successfully, proceed with DocuSeal submission
+        if (episodeCreated) {
+          await createDocuSealSubmission();
+        }
+      } else if (episodeId && !submissionUrl && !builderToken && !isCreatingSubmission && !error) {
+        // Episode exists but DocuSeal submission not created yet
+        await createDocuSealSubmission();
+      }
+    };
+
+    initializeSubmission();
+  }, [episodeId]);
 
   const handleDocuSealComplete = (data: any) => {
     console.log('Final DocuSeal submission completed:', data);
@@ -311,6 +401,13 @@ export default function Step7FinalSubmission({
       alert('Please complete the submission form before proceeding.');
       return;
     }
+    
+    // Ensure episode ID is included in final submission
+    updateFormData({
+      episode_id: episodeId,
+      final_submission_completed: true
+    });
+    
     onSubmit();
   };
 
@@ -324,15 +421,22 @@ export default function Step7FinalSubmission({
           </div>
           <p className="mt-2">{error}</p>
           <button
-            onClick={createDocuSealSubmission}
-            disabled={isCreatingSubmission}
+            onClick={async () => {
+              setError(null);
+              if (!episodeId) {
+                await createEpisode();
+              } else {
+                await createDocuSealSubmission();
+              }
+            }}
+            disabled={isCreatingSubmission || isCreatingEpisode}
             className={cn(
               "mt-4 px-4 py-2 rounded-lg font-medium",
               t.button.primary.base,
               t.button.primary.hover
             )}
           >
-            {isCreatingSubmission ? 'Retrying...' : 'Retry'}
+            {(isCreatingSubmission || isCreatingEpisode) ? 'Retrying...' : 'Retry'}
           </button>
         </div>
       </div>
@@ -377,11 +481,22 @@ export default function Step7FinalSubmission({
       </div>
 
       {/* DocuSeal Form */}
-      {isCreatingSubmission ? (
+      {(isCreatingEpisode || isCreatingSubmission) ? (
         <div className={cn("p-8 text-center", t.glass.card, "rounded-lg")}>
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h3 className={cn("text-lg font-semibold", t.text.primary)}>Preparing DocuSeal Form Builder</h3>
-          <p className={cn("text-sm", t.text.secondary)}>Please wait while we prepare your interactive form builder...</p>
+          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+            {isCreatingEpisode ? 'Creating Episode & IVR' : 'Preparing DocuSeal Form Builder'}
+          </h3>
+          <p className={cn("text-sm", t.text.secondary)}>
+            {isCreatingEpisode 
+              ? 'Creating episode record and preparing IVR form with your product selection...' 
+              : 'Please wait while we prepare your interactive form builder...'}
+          </p>
+          {episodeId && (
+            <p className={cn("text-xs mt-2", t.text.secondary)}>
+              Episode ID: {episodeId}
+            </p>
+          )}
         </div>
       ) : builderToken && builderProps ? (
         <div className="space-y-4">

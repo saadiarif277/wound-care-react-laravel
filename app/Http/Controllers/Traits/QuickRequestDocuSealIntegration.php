@@ -47,6 +47,8 @@ trait QuickRequestDocuSealIntegration
                     'provider_id' => auth()->id(),
                     'created_from' => 'quick_request',
                     'product_id' => $product->id,
+                    'selected_products' => $validated['form_data']['selected_products'] ?? [],
+                    'form_data' => $validated['form_data'], // Store complete form data for future use
                 ]
             ]);
             
@@ -143,20 +145,22 @@ trait QuickRequestDocuSealIntegration
             'physicianInfo' => [
                 'physicianName' => $provider->full_name ?? $provider->name,
                 'physicianSpecialty' => $provider->providerProfile->specialty ?? null,
-                'physicianNPI' => $provider->providerProfile->npi ?? null,
+                'physicianNPI' => $provider->npi_number ?? $provider->providerProfile->npi ?? null,
                 'physicianTaxID' => $provider->providerProfile->tax_id ?? null,
                 'physicianPTAN' => $provider->providerProfile->ptan ?? null,
                 'physicianMedicaidNumber' => $provider->providerProfile->medicaid_number ?? null,
                 'physicianPhone' => $provider->providerProfile->phone ?? null,
                 'physicianFax' => $provider->providerProfile->fax ?? null,
+                'physicianEmail' => $provider->email ?? null,
+                'physicianCredentials' => is_array($provider->credentials) ? implode(', ', $provider->credentials) : $provider->credentials,
             ],            
             'facilityInfo' => [
                 'facilityName' => $facility->name ?? null,
-                'facilityAddressLine1' => $facility->address_line1 ?? null,
+                'facilityAddressLine1' => $facility->address_line1 ?? $facility->address ?? null,
                 'facilityAddressLine2' => $facility->address_line2 ?? null,
                 'facilityCity' => $facility->city ?? null,
                 'facilityState' => $facility->state ?? null,
-                'facilityZipCode' => $facility->zip ?? null,
+                'facilityZipCode' => $facility->zip_code ?? $facility->zip ?? null,
                 'facilityNPI' => $facility->npi ?? null,
                 'facilityTaxID' => $facility->tax_id ?? $organization->tax_id ?? null,
                 'facilityPTAN' => $facility->ptan ?? null,
@@ -164,7 +168,10 @@ trait QuickRequestDocuSealIntegration
                 'facilityContactPhone' => $facility->contact_phone ?? null,
                 'facilityContactFax' => $facility->contact_fax ?? null,
                 'facilityContactEmail' => $facility->contact_email ?? null,
+                'facilityPhone' => $facility->phone ?? null,
+                'facilityFax' => $facility->fax ?? $facility->contact_fax ?? null,
                 'managementCompany' => $organization->name ?? null,
+                'organizationTaxID' => $organization->tax_id ?? null,
             ],
             
             'placeOfService' => [
@@ -208,10 +215,88 @@ trait QuickRequestDocuSealIntegration
                 'productSizes' => array_map(function($product) {
                     return $product['size'] ?? null;
                 }, $formData['selected_products'] ?? []),
+                'productSizeLabels' => array_map(function($product) {
+                    return $product['size_label'] ?? $product['size'] ?? null;
+                }, $formData['selected_products'] ?? []),
+                'productQuantities' => array_map(function($product) {
+                    return $product['quantity'] ?? 1;
+                }, $formData['selected_products'] ?? []),
                 'graftSizeRequested' => $formData['graft_size_requested'] ?? null,
+                'totalProducts' => count($formData['selected_products'] ?? []),
             ],
             
+            // Simplified product fields for easy access
             'product_name' => $formData['selected_products'][0]['product_name'] ?? 'Unknown Product',
+            'product_code' => $formData['selected_products'][0]['product_code'] ?? '',
+            'product_size' => $formData['selected_products'][0]['size'] ?? '',
+            'product_size_label' => $formData['selected_products'][0]['size_label'] ?? $formData['selected_products'][0]['size'] ?? '',
+            'product_quantity' => $formData['selected_products'][0]['quantity'] ?? 1,
+            
+            // Additional comprehensive fields for 90%+ coverage
+            'shippingInfo' => [
+                'shippingSameAsPatient' => $formData['shipping_same_as_patient'] ?? true,
+                'shippingAddressLine1' => $formData['shipping_same_as_patient'] ? 
+                    ($formData['patient_address_line1'] ?? null) : 
+                    ($formData['shipping_address_line1'] ?? null),
+                'shippingAddressLine2' => $formData['shipping_same_as_patient'] ? 
+                    ($formData['patient_address_line2'] ?? null) : 
+                    ($formData['shipping_address_line2'] ?? null),
+                'shippingCity' => $formData['shipping_same_as_patient'] ? 
+                    ($formData['patient_city'] ?? null) : 
+                    ($formData['shipping_city'] ?? null),
+                'shippingState' => $formData['shipping_same_as_patient'] ? 
+                    ($formData['patient_state'] ?? null) : 
+                    ($formData['shipping_state'] ?? null),
+                'shippingZipCode' => $formData['shipping_same_as_patient'] ? 
+                    ($formData['patient_zip'] ?? null) : 
+                    ($formData['shipping_zip'] ?? null),
+                'deliveryNotes' => $formData['delivery_notes'] ?? null,
+                'shippingSpeed' => $formData['shipping_speed'] ?? 'standard',
+                'requestedDeliveryDate' => $formData['delivery_date'] ?? null,
+            ],
+            
+            // Sales and tracking information
+            'trackingInfo' => [
+                'salesRepresentative' => auth()->user()->name,
+                'salesRepEmail' => auth()->user()->email,
+                'requestDate' => now()->format('Y-m-d'),
+                'requestTime' => now()->format('H:i:s'),
+                'episodeId' => $episode->id,
+                'patientDisplayId' => $episode->patient_display_id,
+            ],
+            
+            // Eligibility and authorization
+            'eligibilityInfo' => [
+                'insuranceVerified' => $formData['insurance_verified'] ?? false,
+                'priorAuthRequired' => $formData['prior_auth_required'] ?? 'unknown',
+                'priorAuthNumber' => $formData['prior_auth_number'] ?? null,
+                'medicareAdvantage' => $formData['medicare_advantage'] ?? false,
+            ],
+            
+            // Clinical notes and additional info
+            'clinicalNotes' => [
+                'additionalDiagnoses' => $formData['additional_diagnoses'] ?? null,
+                'clinicalNotes' => $formData['clinical_notes'] ?? null,
+                'specialInstructions' => $formData['special_instructions'] ?? null,
+                'urgentRequest' => $formData['urgent_request'] ?? false,
+                'urgentReason' => $formData['urgent_reason'] ?? null,
+            ],
+            
+            // Contact preferences
+            'contactPreferences' => [
+                'preferredContactMethod' => $formData['preferred_contact_method'] ?? 'phone',
+                'bestTimeToCall' => $formData['best_time_to_call'] ?? null,
+                'alternatePhone' => $formData['alternate_phone'] ?? null,
+                'caregiverPhone' => $formData['caregiver_phone'] ?? null,
+            ],
+            
+            // Compliance and documentation
+            'complianceInfo' => [
+                'hipaaConsent' => $formData['hipaa_consent'] ?? true,
+                'insuranceCardsUploaded' => $formData['insurance_cards_uploaded'] ?? false,
+                'clinicalDocumentsUploaded' => $formData['clinical_documents_uploaded'] ?? false,
+                'photographsUploaded' => $formData['photographs_uploaded'] ?? false,
+            ],
             
             // Add manufacturer-specific fields if any
             'manufacturer_fields' => $formData['manufacturer_fields'] ?? [],
