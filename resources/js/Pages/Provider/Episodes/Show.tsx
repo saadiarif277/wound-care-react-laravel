@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Button } from '@/Components/ui/button';
+import Button from '@/Components/ui/button';
 import {
   ArrowLeft,
   Heart,

@@ -1,8 +1,8 @@
 import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/Components/ui/card';
-import { Button } from '@/Components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
+import Button from '@/Components/ui/button';
 import { ArrowLeft, Edit, Building, Mail, Phone, MapPin, User, DollarSign } from 'lucide-react';
 
 interface Organization {
@@ -68,9 +68,6 @@ export default function OrganizationShow({ organization, stats }: Props) {
           <Card>
             <CardHeader>
               <CardTitle className="text-2xl">{organization.name}</CardTitle>
-              <CardDescription>
-                Created on {organization.created_at_formatted} &bull; Last updated on {organization.updated_at_formatted}
-              </CardDescription>
             </CardHeader>
             <CardContent>
               {/* Primary Details */}

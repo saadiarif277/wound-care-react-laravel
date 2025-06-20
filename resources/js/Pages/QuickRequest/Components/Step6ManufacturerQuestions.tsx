@@ -1,8 +1,8 @@
-import React from 'react';
-import { FiInfo, FiAlertCircle } from 'react-icons/fi';
+import React, { useState, useEffect } from 'react';
+import { FiInfo, FiAlertCircle, FiLoader } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { getManufacturerByProduct, ManufacturerField, ManufacturerConfig } from '../manufacturerFields';
+import docuSealTemplateService, { ManufacturerField, ManufacturerTemplateResponse } from '@/services/docuseal/templateService';
 
 interface SelectedProduct {
   product_id: number;
@@ -25,6 +25,8 @@ interface Step6Props {
     code: string;
     name: string;
     manufacturer: string;
+    docuseal_template_id?: string;
+    signature_required?: boolean;
   }>;
   errors: Record<string, string>;
 }
@@ -47,6 +49,9 @@ export default function Step6ManufacturerQuestions({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  const [loading, setLoading] = useState(false);
+  const [manufacturerData, setManufacturerData] = useState<ManufacturerTemplateResponse | null>(null);
+
   // Get the selected product
   const getSelectedProduct = () => {
     if (!formData.selected_products || formData.selected_products.length === 0) {
@@ -59,13 +64,32 @@ export default function Step6ManufacturerQuestions({
 
   const selectedProduct = getSelectedProduct();
 
-  // Get manufacturer config for the selected product
-  const getManufacturerConfig = (): ManufacturerConfig | null => {
-    if (!selectedProduct) return null;
-    return getManufacturerByProduct(selectedProduct.name) || null;
-  };
+  // Fetch manufacturer template fields when product changes
+  useEffect(() => {
+    if (selectedProduct?.manufacturer) {
+      setLoading(true);
+      docuSealTemplateService.getManufacturerFields(selectedProduct.manufacturer)
+        .then(data => {
+          setManufacturerData(data);
 
-  const manufacturerConfig = getManufacturerConfig();
+          // Initialize form fields if not already set
+          if (!formData.manufacturer_fields) {
+            const initialFields: Record<string, any> = {};
+            data.fields.forEach(field => {
+              initialFields[field.slug] = field.default_value || (field.type === 'checkbox' ? false : '');
+            });
+            updateFormData({ manufacturer_fields: initialFields });
+          }
+        })
+        .catch(error => {
+          console.error('Error loading manufacturer fields:', error);
+          setManufacturerData({ manufacturer: selectedProduct.manufacturer, template_id: null, fields: [] });
+        })
+        .finally(() => {
+          setLoading(false);
+        });
+    }
+  }, [selectedProduct?.manufacturer]);
 
   // Update manufacturer field value
   const updateManufacturerField = (fieldName: string, value: any) => {
@@ -77,44 +101,25 @@ export default function Step6ManufacturerQuestions({
     });
   };
 
-  // Initialize manufacturer fields if needed
-  React.useEffect(() => {
-    if (manufacturerConfig && !formData.manufacturer_fields) {
-      const initialFields: Record<string, any> = {};
-      manufacturerConfig.fields.forEach(field => {
-        initialFields[field.name] = field.type === 'checkbox' ? false : '';
-      });
-      updateFormData({ manufacturer_fields: initialFields });
-    }
-  }, [manufacturerConfig?.name]);
-
   // Render field based on type
   const renderField = (field: ManufacturerField) => {
-    // Check if this field should be shown based on conditional
-    if (field.conditionalOn) {
-      const dependentValue = formData.manufacturer_fields?.[field.conditionalOn.field];
-      if (dependentValue !== field.conditionalOn.value) {
-        return null;
-      }
-    }
-
-    const fieldValue = formData.manufacturer_fields?.[field.name] || '';
-    const fieldError = errors[`manufacturer_${field.name}`];
+    const fieldValue = formData.manufacturer_fields?.[field.slug] || '';
+    const fieldError = errors[`manufacturer_${field.slug}`];
 
     switch (field.type) {
       case 'checkbox':
         return (
-          <div key={field.name} className="mb-4">
+          <div key={field.slug} className="mb-4">
             <label className="flex items-start">
               <input
                 type="checkbox"
                 className="form-checkbox h-4 w-4 text-blue-600 rounded mt-1"
                 checked={fieldValue || false}
-                onChange={(e) => updateManufacturerField(field.name, e.target.checked)}
+                onChange={(e) => updateManufacturerField(field.slug, e.target.checked)}
               />
               <div className="ml-3">
                 <span className={cn("block", t.text.primary)}>
-                  {field.label}
+                  {field.name}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
                 </span>
                 {field.description && (
@@ -132,9 +137,9 @@ export default function Step6ManufacturerQuestions({
 
       case 'text':
         return (
-          <div key={field.name} className="mb-4">
+          <div key={field.slug} className="mb-4">
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              {field.label}
+              {field.name}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <input
@@ -147,9 +152,41 @@ export default function Step6ManufacturerQuestions({
                 fieldError && 'border-red-500'
               )}
               value={fieldValue}
-              onChange={(e) => updateManufacturerField(field.name, e.target.value)}
-              placeholder={field.placeholder}
-              aria-label={field.label}
+              onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
+              placeholder={field.description || `Enter ${field.name.toLowerCase()}`}
+              aria-label={field.name}
+            />
+            {field.description && (
+              <p className={cn("text-xs mt-1", t.text.secondary)}>
+                {field.description}
+              </p>
+            )}
+            {fieldError && (
+              <p className="mt-1 text-sm text-red-500">{fieldError}</p>
+            )}
+          </div>
+        );
+
+      case 'textarea':
+        return (
+          <div key={field.slug} className="mb-4">
+            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+              {field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <textarea
+              className={cn(
+                "w-full p-2 rounded border transition-all",
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                fieldError && 'border-red-500'
+              )}
+              rows={3}
+              value={fieldValue}
+              onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
+              placeholder={field.description || `Enter ${field.name.toLowerCase()}`}
+              aria-label={field.name}
             />
             {field.description && (
               <p className={cn("text-xs mt-1", t.text.secondary)}>
@@ -164,9 +201,9 @@ export default function Step6ManufacturerQuestions({
 
       case 'radio':
         return (
-          <div key={field.name} className="mb-4">
+          <div key={field.slug} className="mb-4">
             <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-              {field.label}
+              {field.name}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <div className="space-y-2">
@@ -174,11 +211,11 @@ export default function Step6ManufacturerQuestions({
                 <label key={option.value} className="flex items-center">
                   <input
                     type="radio"
-                    name={field.name}
+                    name={field.slug}
                     className="form-radio text-blue-600"
                     value={option.value}
                     checked={fieldValue === option.value}
-                    onChange={(e) => updateManufacturerField(field.name, e.target.value)}
+                    onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
                   />
                   <span className={cn("ml-2", t.text.primary)}>{option.label}</span>
                 </label>
@@ -197,9 +234,9 @@ export default function Step6ManufacturerQuestions({
 
       case 'select':
         return (
-          <div key={field.name} className="mb-4">
+          <div key={field.slug} className="mb-4">
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              {field.label}
+              {field.name}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <select
@@ -211,8 +248,8 @@ export default function Step6ManufacturerQuestions({
                 fieldError && 'border-red-500'
               )}
               value={fieldValue}
-              onChange={(e) => updateManufacturerField(field.name, e.target.value)}
-              aria-label={field.label}
+              onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
+              aria-label={field.name}
             >
               <option value="">Select...</option>
               {field.options?.map(option => (
@@ -234,9 +271,9 @@ export default function Step6ManufacturerQuestions({
 
       case 'date':
         return (
-          <div key={field.name} className="mb-4">
+          <div key={field.slug} className="mb-4">
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              {field.label}
+              {field.name}
               {field.required && <span className="text-red-500 ml-1">*</span>}
             </label>
             <input
@@ -249,8 +286,39 @@ export default function Step6ManufacturerQuestions({
                 fieldError && 'border-red-500'
               )}
               value={fieldValue}
-              onChange={(e) => updateManufacturerField(field.name, e.target.value)}
-              aria-label={field.label}
+              onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
+              aria-label={field.name}
+            />
+            {field.description && (
+              <p className={cn("text-xs mt-1", t.text.secondary)}>
+                {field.description}
+              </p>
+            )}
+            {fieldError && (
+              <p className="mt-1 text-sm text-red-500">{fieldError}</p>
+            )}
+          </div>
+        );
+
+      case 'number':
+        return (
+          <div key={field.slug} className="mb-4">
+            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+              {field.name}
+              {field.required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+            <input
+              type="number"
+              className={cn(
+                "w-full p-2 rounded border transition-all",
+                theme === 'dark'
+                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                fieldError && 'border-red-500'
+              )}
+              value={fieldValue}
+              onChange={(e) => updateManufacturerField(field.slug, e.target.value)}
+              aria-label={field.name}
             />
             {field.description && (
               <p className={cn("text-xs mt-1", t.text.secondary)}>
@@ -277,8 +345,23 @@ export default function Step6ManufacturerQuestions({
     );
   }
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
+        <FiLoader className={cn("h-12 w-12 mx-auto mb-4 animate-spin", t.text.secondary)} />
+        <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>
+          Loading Manufacturer Requirements
+        </h3>
+        <p className={cn("text-sm", t.text.secondary)}>
+          Fetching form fields for {selectedProduct.manufacturer}...
+        </p>
+      </div>
+    );
+  }
+
   // No manufacturer-specific fields required
-  if (!manufacturerConfig || manufacturerConfig.fields.length === 0) {
+  if (!manufacturerData || manufacturerData.fields.length === 0) {
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiInfo className={cn("h-12 w-12 mx-auto mb-4", t.text.secondary)} />
@@ -291,6 +374,8 @@ export default function Step6ManufacturerQuestions({
       </div>
     );
   }
+
+  const hasSignatureRequired = selectedProduct.signature_required || manufacturerData.template_id;
 
   return (
     <div className="space-y-6">
@@ -312,8 +397,8 @@ export default function Step6ManufacturerQuestions({
       {/* Manufacturer Requirements */}
       <div className={cn("p-6 rounded-lg", theme === 'dark' ? 'bg-purple-900/20' : 'bg-purple-50')}>
         <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
-          {manufacturerConfig.name} Specific Requirements
-          {manufacturerConfig.signatureRequired && (
+          {manufacturerData.manufacturer} Specific Requirements
+          {hasSignatureRequired && (
             <span className={cn("text-sm font-normal ml-2", t.text.secondary)}>
               (Electronic Signature Required)
             </span>
@@ -321,7 +406,7 @@ export default function Step6ManufacturerQuestions({
         </h3>
 
         {/* Important Notice */}
-        {manufacturerConfig.signatureRequired && (
+        {hasSignatureRequired && (
           <div className={cn(
             "mb-6 p-4 rounded-lg border flex items-start",
             theme === 'dark'
@@ -351,7 +436,7 @@ export default function Step6ManufacturerQuestions({
         )}
 
         <div className="space-y-4">
-          {manufacturerConfig.fields.map(field => renderField(field))}
+          {manufacturerData.fields.map(field => renderField(field))}
         </div>
 
         {/* General Errors */}
@@ -389,17 +474,8 @@ export default function Step6ManufacturerQuestions({
           <li>• Face sheet or patient demographics</li>
           <li>• Clinical notes supporting medical necessity</li>
           <li>• Wound photo (if available)</li>
-          {manufacturerConfig.signatureRequired && (
+          {hasSignatureRequired && (
             <li>• Electronic signature on IVR form</li>
-          )}
-          {manufacturerConfig.name === 'BioWound' && (
-            <li>• Non-HOPD certification (California facilities only)</li>
-          )}
-          {manufacturerConfig.name === 'Advanced Health' && formData.manufacturer_fields?.previous_use && (
-            <li>• Documentation of previous product use</li>
-          )}
-          {manufacturerConfig.name === 'Extremity Care' && formData.manufacturer_fields?.order_type === 'standing' && (
-            <li>• Quarterly standing order documentation</li>
           )}
         </ul>
       </div>

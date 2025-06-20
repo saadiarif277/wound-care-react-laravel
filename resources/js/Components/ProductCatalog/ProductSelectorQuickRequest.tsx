@@ -1,27 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  AlertCircle,
   Info,
-  Clock,
   ShieldAlert,
   Package,
-  DollarSign,
   CheckCircle,
-  XCircle,
   Building,
   Tag,
-  User,
-  Calendar,
-  MapPin,
   AlertTriangle,
   X,
   Plus,
   Minus,
   ShoppingCart,
   Edit3,
-  ChevronRight,
   Users,
-  FileText,
   Phone,
   Mail
 } from 'lucide-react';
@@ -36,13 +27,19 @@ interface Product {
   sku: string;
   q_code: string;
   manufacturer: string;
+  manufacturer_id?: number;
   category: string;
   description: string;
   price_per_sq_cm: number;
-  msc_price: number;
-  available_sizes: number[];
+  msc_price?: number;
+  available_sizes?: number[] | string[];  // Support both old and new formats
   image_url?: string;
-  commission_rate: number;
+  commission_rate?: number;
+  docuseal_template_id?: string;
+  signature_required?: boolean;
+  size_options?: string[];
+  size_pricing?: Record<string, number>;
+  size_unit?: string;
 }
 
 interface SelectedProduct {
@@ -64,7 +61,7 @@ interface RoleRestrictions {
 interface Props {
   insuranceType: string; // ppo/commercial, medicare, medicaid
   patientState?: string; // for Medicaid rules
-  woundSize?: number; // in sq cm
+  woundSize: number; // in sq cm
   providerOnboardedProducts: string[]; // Q-codes
   onProductsChange: (products: SelectedProduct[]) => void;
   roleRestrictions: RoleRestrictions;
@@ -73,25 +70,26 @@ interface Props {
   className?: string;
 }
 
-// Define insurance-based product rules
+// TODO: Move to database configuration or API endpoint
+// These rules should be managed by MSC admin staff
 const INSURANCE_PRODUCT_RULES = {
   'ppo': {
-    allowedProducts: ['Q4154'], // BioVance - updated from Q5128
+    allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
     sizeRestrictions: null,
     message: 'PPO/Commercial insurance covers BioVance for any wound size'
   },
   'commercial': {
-    allowedProducts: ['Q4154'], // BioVance - updated from Q5128
+    allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
     sizeRestrictions: null,
     message: 'PPO/Commercial insurance covers BioVance for any wound size'
   },
   'medicare': {
     '0-250': {
-      allowedProducts: ['Q4250', 'Q4290'], // Amnio AMP, Membrane Wrap Hydro - updated from Q5230, Q5231
+      allowedProducts: ['Q4250', 'Q4290'], // TODO: Fetch from insurance_product_rules table
       message: 'Medicare covers Amnio AMP or Membrane Wrap Hydro for wounds 0-250 sq cm'
     },
     '251-450': {
-      allowedProducts: ['Q4290'], // Membrane Wrap Hydro only - updated from Q5231
+      allowedProducts: ['Q4290'], // TODO: Fetch from insurance_product_rules table
       message: 'Medicare covers only Membrane Wrap Hydro for wounds 251-450 sq cm'
     },
     '>450': {
@@ -101,25 +99,27 @@ const INSURANCE_PRODUCT_RULES = {
     }
   },
   'medicaid': {
+    // TODO: Move state lists to database or configuration
     // States that cover Membrane Wrap / Membrane Wrap Hydro
     membraneWrapStates: ['TX', 'FL', 'GA', 'TN', 'NC', 'AL', 'OH', 'MI', 'IN', 'KY', 'MO', 'OK', 'SC', 'LA', 'MS',
                         'WA', 'OR', 'MT', 'SD', 'UT', 'AZ', 'CA', 'CO'],
     // States that cover Restorigen
     restorigenStates: ['TX', 'CA', 'LA', 'MD'],
     // Default products for other states
-    defaultProducts: ['Q4271', 'Q4154', 'Q4238'] // Complete FT, BioVance, Derm-maxx - updated from Q5129, Q5128, Q5127
+    defaultProducts: ['Q4271', 'Q4154', 'Q4238'] // TODO: Fetch from insurance_product_rules table
   }
 };
 
+// TODO: Move to product configuration or fetch from products table
 // Maximum Units of Eligibility (MUE) limits by product
 const MUE_LIMITS: Record<string, number> = {
-  'Q4154': 4000, // BioVance
-  'Q4271': 4000, // Complete FT
-  'Q4238': 4000, // Derm-maxx
-  'Q4250': 4000, // Amnio AMP
-  'Q4290': 4000, // Membrane Wrap Hydro
-  'Q4205': 4000, // Membrane Wrap
-  'Q4191': 4000  // Restorigin
+  'Q4154': 4000, // BioVance - TODO: Get from product.mue_limit field
+  'Q4271': 4000, // Complete FT - TODO: Get from product.mue_limit field
+  'Q4238': 4000, // Derm-maxx - TODO: Get from product.mue_limit field
+  'Q4250': 4000, // Amnio AMP - TODO: Get from product.mue_limit field
+  'Q4290': 4000, // Membrane Wrap Hydro - TODO: Get from product.mue_limit field
+  'Q4205': 4000, // Membrane Wrap - TODO: Get from product.mue_limit field
+  'Q4191': 4000  // Restorigin - TODO: Get from product.mue_limit field
 };
 
 const ProductSelectorQuickRequest: React.FC<Props> = ({
@@ -859,7 +859,7 @@ const QuickRequestProductCard: React.FC<{
   isRecommended?: boolean;
   isOnboarded?: boolean;
   theme: any;
-}> = ({ product, onAdd, roleRestrictions, isDisabled = false, canAddMoreSizes = false, isSelected = false, isRecommended = false, isOnboarded = false, theme: t }) => {
+}> = ({ product, onAdd, roleRestrictions, isDisabled = false, isSelected = false, isRecommended = false, isOnboarded = false, theme: t }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -959,7 +959,30 @@ const QuickRequestProductCard: React.FC<{
       </div>
 
       {/* Size Selection */}
-      {product.available_sizes?.length > 0 && (
+      {(product.size_options && product.size_options.length > 0) ? (
+        <div className="mb-3">
+          <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
+            Size ({product.size_unit === 'cm' ? 'cm' : 'inches'})
+          </label>
+          <select
+            value={selectedSize}
+            onChange={(e) => setSelectedSize(e.target.value)}
+            className={`w-full text-xs ${t.input.base} ${t.input.focus}`}
+            disabled={isDisabled}
+          >
+            <option value="">Select size...</option>
+            {product.size_options.map(size => {
+              const price = product.size_pricing?.[size] || 0;
+              const displayPrice = roleRestrictions.can_see_msc_pricing ? (product.msc_price || price) : price;
+              return (
+                <option key={size} value={size}>
+                  {size}{product.size_unit === 'cm' ? ' cm' : '"'} - {formatPrice(displayPrice)}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      ) : (product.available_sizes && product.available_sizes.length > 0) ? (
         <div className="mb-3">
           <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
             Size (cm²)
@@ -971,14 +994,18 @@ const QuickRequestProductCard: React.FC<{
             disabled={isDisabled}
           >
             <option value="">Select size...</option>
-            {product.available_sizes.map(size => (
-              <option key={size} value={size.toString()}>
-                {getProductSizeLabel(product.name, size)} - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
-              </option>
-            ))}
+            {product.available_sizes.map(size => {
+              const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
+              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              return (
+                <option key={size} value={size.toString()}>
+                  {getProductSizeLabel(product.name, sizeNum)} - {formatPrice(pricePerUnit * sizeNum)}
+                </option>
+              );
+            })}
           </select>
         </div>
-      )}
+      ) : null}
 
       {/* Quantity Selection */}
       <div className="mb-3">
@@ -1004,7 +1031,7 @@ const QuickRequestProductCard: React.FC<{
 
       <button
         onClick={handleAddProduct}
-        disabled={(product.available_sizes?.length > 0 && !selectedSize) || isDisabled}
+        disabled={(((product.size_options && product.size_options.length > 0) || (product.available_sizes && product.available_sizes.length > 0)) && !selectedSize) || isDisabled}
         className={`w-full text-sm font-medium py-2 px-3 rounded-md transition-all duration-200 ${
           isDisabled
             ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
@@ -1102,18 +1129,18 @@ const ConsultationModal: React.FC<{
                 </h4>
                 <div className="space-y-2">
                   <div className="flex items-center text-sm">
-                    <User className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
+                    <Users className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
                     <span className={t.text.secondary}>Ashley (MSC Admin)</span>
                   </div>
                   <div className="flex items-center text-sm">
                     <Mail className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
-                    <a href="mailto:ashley@mscadmin.com" className="text-blue-600 hover:underline">
-                      ashley@mscadmin.com
+                    <a href="mailto:admin@mscwoundcare.com" className="text-blue-600 hover:underline">
+                      admin@mscwoundcare.com
                     </a>
                   </div>
                   <div className="flex items-center text-sm">
                     <Phone className={`w-4 h-4 mr-2 ${t.text.tertiary}`} />
-                    <span className={t.text.secondary}>1-800-MSC-ADMIN</span>
+                    <span className={t.text.secondary}>Contact MSC Admin</span>
                   </div>
                 </div>
               </div>
@@ -1150,7 +1177,7 @@ const ConsultationModal: React.FC<{
               Close
             </button>
             <a
-              href="mailto:ashley@mscadmin.com?subject=Medicare Consultation Request - Wound >450 sq cm"
+              href="mailto:admin@mscwoundcare.com?subject=Medicare Consultation Request - Wound >450 sq cm"
               className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md ${t.button.primary.base} ${t.button.primary.hover}`}
             >
               <Mail className="w-4 h-4 mr-2" />

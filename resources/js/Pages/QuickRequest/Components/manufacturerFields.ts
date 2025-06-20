@@ -23,10 +23,10 @@ export interface ManufacturerConfig {
 
 export const manufacturerConfigs: ManufacturerConfig[] = [
   {
-    name: 'ACZ',
-    products: ['Membrane Wrap', 'Revoshield'],
+    name: 'ACZ & Associates',
+    products: ['Ensano ACA', 'Revoshield+ Amnio', 'Dermabind FM'],
     signatureRequired: true,
-    docusealTemplateId: 'acz_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '852440', // ACZ Distribution IVR Form
     fields: [
       {
         name: 'physician_attestation',
@@ -43,10 +43,10 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     ],
   },
   {
-    name: 'Advanced Health',
-    products: ['CompleteAA', 'CompleteFT', 'WoundPlus'],
+    name: 'Advanced Solution',
+    products: ['Complete FT', 'Membrane Wrap', 'Complete AA'],
     signatureRequired: true,
-    docusealTemplateId: 'advanced_health_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: 'template_order_form_001', // Using default order form for now
     fields: [
       {
         name: 'multiple_products',
@@ -75,10 +75,10 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     ],
   },
   {
-    name: 'MedLife',
+    name: 'MedLife Solutions',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: 'medlife_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: 'template_order_form_001', // Using default order form for now
     fields: [
       {
         name: 'amnio_amp_size',
@@ -150,10 +150,10 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     ],
   },
   {
-    name: 'BioWound',
-    products: ['Membrane Wrap', 'Derm-Maxx', 'Bio-Connekt', 'NeoStim', 'Amnio-Maxx'],
+    name: 'BioWound Solutions',
+    products: ['Membrane Wrap Hydro', 'Neostim TL', 'Neostim DL', 'Neostim SL', 'Amnio-Maxx', 'Derm-maxx'],
     signatureRequired: true,
-    docusealTemplateId: 'biowound_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: 'template_order_form_001', // Using default order form for now
     fields: [
       {
         name: 'california_facility',
@@ -261,13 +261,13 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
 ];
 
 export function getManufacturerConfig(manufacturer: string): ManufacturerConfig | undefined {
-  return manufacturerConfigs.find(config => 
+  return manufacturerConfigs.find(config =>
     config.name.toLowerCase() === manufacturer.toLowerCase()
   );
 }
 
 export function getManufacturerByProduct(productName: string): ManufacturerConfig | undefined {
-  return manufacturerConfigs.find(config => 
+  return manufacturerConfigs.find(config =>
     config.products.some(p => p.toLowerCase() === productName.toLowerCase())
   );
 }

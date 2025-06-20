@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Artisan;
 use Inertia\Inertia;
 use Inertia\Response;
+use App\Models\Order\Manufacturer;
 
 class ProductController extends Controller
 {
@@ -21,53 +22,42 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
-        // Get products with pagination
-        $products = Product::with(['category', 'manufacturer'])
-            ->active()
-            ->when($request->search, function ($query, $search) {
-                $query->search($search);
+        $products = Product::query()
+            ->when($request->filled('search'), function ($query) use ($request) {
+                $search = $request->get('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('q_code', 'like', "%{$search}%");
+                });
             })
-            ->when($request->category, function ($query, $category) {
-                $query->byCategory($category);
+            ->when($request->filled('manufacturer'), function ($query) use ($request) {
+                $query->where('manufacturer', $request->get('manufacturer'));
             })
-            ->when($request->manufacturer, function ($query, $manufacturer) {
-                $query->byManufacturer($manufacturer);
+            ->when($request->filled('category'), function ($query) use ($request) {
+                $query->where('category', $request->get('category'));
             })
-            ->when($request->sort, function ($query, $sort) use ($request) {
-                $direction = $request->direction === 'desc' ? 'desc' : 'asc';
-
-                switch ($sort) {
-                    case 'name':
-                        $query->orderBy('name', $direction);
-                        break;
-                    case 'category':
-                        $query->orderBy('category', $direction);
-                        break;
-                    case 'manufacturer':
-                        $query->orderBy('manufacturer', $direction);
-                        break;
-                    case 'price':
-                        $query->orderBy('national_asp', $direction);
-                        break;
-                    default:
-                        $query->orderBy('name', 'asc');
-                }
-            }, function ($query) {
-                $query->orderBy('name', 'asc');
-            })
-            ->paginate(12);
-
-        // Filter product data based on user permissions
-        $products->getCollection()->transform(function ($product) use ($user) {
-            $filtered = $this->filterProductPricingData($product, $user);
-
-            // Add onboarding status for users with provider viewing permission
-            if ($user->hasPermission('view-providers')) {
-                $filtered->is_onboarded = $product->isAvailableForProvider($user->id);
-            }
-
-            return $filtered;
-        });
+            ->latest()
+            ->paginate($request->get('per_page', 15))
+            ->through(function ($product) use ($user) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'sku' => $product->sku,
+                    'q_code' => $product->q_code,
+                    'manufacturer' => $product->manufacturer,
+                    'category' => $product->category,
+                    'price_per_sq_cm' => $product->price_per_sq_cm,
+                    'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
+                    'size_options' => $product->size_options,
+                    'size_pricing' => $product->size_pricing,
+                    'size_unit' => $product->size_unit,
+                    'is_active' => $product->is_active,
+                    'created_at' => $product->created_at,
+                    'updated_at' => $product->updated_at,
+                    'msc_price' => $user->hasPermission('view-msc-pricing') ? $product->msc_price : null,
+                ];
+            });
 
         return Inertia::render('Products/Index', [
             'products' => $products,
@@ -134,7 +124,11 @@ class ProductController extends Controller
             'price_per_sq_cm' => 'nullable|numeric|min:0',
             'q_code' => 'nullable|string|max:10',
             'available_sizes' => 'nullable|array',
-            'available_sizes.*' => 'numeric|min:0',
+            'available_sizes.*' => 'string|max:20',
+            'size_options' => 'nullable|array',
+            'size_options.*' => 'string|max:20',
+            'size_pricing' => 'nullable|array',
+            'size_unit' => 'nullable|string|in:in,cm',
             'graph_type' => 'nullable|string|max:255',
             'image_url' => 'nullable|url',
             'document_urls' => 'nullable|array',
@@ -176,7 +170,11 @@ class ProductController extends Controller
             'price_per_sq_cm' => 'nullable|numeric|min:0',
             'q_code' => 'nullable|string|max:10',
             'available_sizes' => 'nullable|array',
-            'available_sizes.*' => 'numeric|min:0',
+            'available_sizes.*' => 'string|max:20',
+            'size_options' => 'nullable|array',
+            'size_options.*' => 'string|max:20',
+            'size_pricing' => 'nullable|array',
+            'size_unit' => 'nullable|string|in:in,cm',
             'graph_type' => 'nullable|string|max:255',
             'image_url' => 'nullable|url',
             'document_urls' => 'nullable|array',
@@ -241,37 +239,46 @@ class ProductController extends Controller
         }
 
         $products = $query
-            ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'category', 'price_per_sq_cm', 'available_sizes'])
-            ->limit(20)
-            ->get()
-            ->map(function ($product) use ($user) {
-                $data = [
-                    'id' => $product->id,
-                    'label' => $product->name,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'q_code' => $product->q_code,
-                    'manufacturer' => $product->manufacturer,
-                    'category' => $product->category,
-                    'nationalAsp' => $product->price_per_sq_cm,
-                    'graphSizes' => $product->available_sizes ?? [],
-                ];
+            ->with(['activeSizes']) // Load active sizes
+            ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'category', 'price_per_sq_cm', 'available_sizes', 'size_options', 'size_pricing', 'size_unit'])
+            ->get();
 
-                // Add MSC pricing only if user has permission
-                if ($user->hasPermission('view-msc-pricing')) {
-                    $data['pricePerSqCm'] = $product->msc_price;
-                    $data['mscPrice'] = $product->msc_price;
-                }
+        // Transform products for response
+        $transformedProducts = $products->map(function ($product) {
+            // Get sizes from new system or fall back to old
+            $availableSizes = $product->size_options ?? $product->available_sizes ?? [];
 
-                return $data;
-            });
+            // Get manufacturer info
+            $manufacturer = Manufacturer::find($product->manufacturer_id);
+
+            return [
+                'id' => $product->id,
+                'name' => $product->name,
+                'sku' => $product->sku ?? '',
+                'code' => $product->q_code ?? $product->hcpcs_code ?? '',
+                'q_code' => $product->q_code,
+                'hcpcs_code' => $product->hcpcs_code,
+                'manufacturer' => $product->manufacturer,
+                'manufacturer_id' => $product->manufacturer_id,
+                'category' => $product->category,
+                'price_per_sq_cm' => $product->price_per_sq_cm,
+                'available_sizes' => $availableSizes,
+                'size_options' => $product->size_options ?? [],
+                'size_pricing' => $product->size_pricing ?? [],
+                'size_unit' => $product->size_unit ?? 'in',
+                'graphSizes' => $product->available_sizes ?? [], // Keep for backward compatibility
+                'has_onboarding' => $product->manufacturer_requires_onboarding ?? false,
+                'signature_required' => $manufacturer?->signature_required ?? false,
+                'docuseal_template_id' => $manufacturer?->docuseal_order_form_template_id,
+            ];
+        });
 
         // Also get categories and manufacturers for filtering
         $categories = $query->distinct()->pluck('category')->filter()->sort()->values();
         $manufacturers = $query->distinct()->pluck('manufacturer')->filter()->sort()->values();
 
         return response()->json([
-            'products' => $products,
+            'products' => $transformedProducts,
             'categories' => $categories,
             'manufacturers' => $manufacturers,
         ]);
@@ -314,7 +321,26 @@ class ProductController extends Controller
             $data['commission_rate'] = $product->commission_rate;
         }
 
-        return response()->json($data);
+        return response()->json([
+            'product' => array_merge($product->toArray(), [
+                'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
+                'size_options' => $product->size_options,
+                'size_pricing' => $product->size_pricing,
+                'size_unit' => $product->size_unit,
+                'msc_price' => $user->hasPermission('view-msc-pricing') ? $product->msc_price : null,
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+            ]),
+            'categories' => Product::distinct()->pluck('category'),
+            'manufacturers' => Product::distinct()->pluck('manufacturer'),
+            'roleRestrictions' => [
+                'can_view_financials' => $user->hasPermission('view-financials'),
+                'can_see_discounts' => $user->hasPermission('view-discounts'),
+                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+                'pricing_access_level' => $this->getUserPricingAccessLevel($user),
+                'commission_access_level' => $this->getUserCommissionAccessLevel($user),
+            ],
+        ]);
     }
 
     /**

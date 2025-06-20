@@ -17,6 +17,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ## Quick Request Field Mapping
 
 ### Patient Information Fields
+
 ```
 {{patient_first_name}}        - Patient's first name
 {{patient_last_name}}         - Patient's last name  
@@ -27,6 +28,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Patient Address Fields
+
 ```
 {{patient_address_line1}}     - Street address line 1
 {{patient_address_line2}}     - Street address line 2 (optional)
@@ -36,6 +38,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Insurance Information Fields
+
 ```
 {{payer_name}}                - Insurance company name
 {{payer_id}}                  - Payer/Plan ID
@@ -43,6 +46,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Product Information Fields
+
 ```
 {{product_name}}              - Product name
 {{product_code}}              - Product Q-code
@@ -52,6 +56,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Service Information Fields
+
 ```
 {{expected_service_date}}     - Expected date of service
 {{wound_type}}                - Type of wound
@@ -59,6 +64,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Provider Information Fields
+
 ```
 {{provider_name}}             - Provider's full name
 {{provider_npi}}              - Provider NPI number
@@ -68,6 +74,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Clinical Attestations (Checkbox Fields)
+
 ```
 {{failed_conservative_treatment}}    - Conservative treatment failed (Yes/No)
 {{information_accurate}}             - Information is accurate (Yes/No)
@@ -77,12 +84,14 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Auto-Generated Fields
+
 ```
 {{todays_date}}               - Current date (MM/DD/YYYY)
 {{current_time}}              - Current time (HH:MM:SS AM/PM)
 ```
 
 ### Caregiver Information (Optional)
+
 ```
 {{caregiver_name}}            - Caregiver name
 {{caregiver_relationship}}    - Relationship to patient
@@ -90,6 +99,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Verbal Order Information (Optional)
+
 ```
 {{verbal_order_received_from}} - Who verbal order was received from
 {{verbal_order_date}}          - Date of verbal order
@@ -99,12 +109,14 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ## Manufacturer-Specific Fields
 
 ### ACZ Fields
+
 ```
 {{physician_attestation}}     - Physician attestation (Yes/No)
 {{not_used_previously}}       - Product not used previously (Yes/No)
 ```
 
 ### Advanced Health Fields
+
 ```
 {{multiple_products}}         - Multiple products in session (Yes/No)
 {{additional_products}}       - List of additional products
@@ -113,11 +125,13 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### MedLife Fields
+
 ```
 {{amnio_amp_size}}            - Amnio AMP size (2x2, 2x4, 4x4, 4x6, 4x8)
 ```
 
 ### Centurion Fields
+
 ```
 {{previous_amnion_use}}       - Previous amnion/chorion use (Yes/No)
 {{previous_product}}          - Previous product name
@@ -126,6 +140,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### BioWerX Fields
+
 ```
 {{first_application}}         - First application to wound (Yes/No)
 {{reapplication}}             - Reapplication (Yes/No)
@@ -133,6 +148,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### BioWound Fields
+
 ```
 {{california_facility}}       - California facility certification (Yes/No)
 {{mesh_configuration}}        - Mesh configuration (DL/TL/SL)
@@ -141,18 +157,21 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Extremity Care Fields
+
 ```
 {{quarter}}                   - Quarter (Q1/Q2/Q3/Q4)
 {{order_type}}                - Order type (standing/single)
 ```
 
 ### Skye Biologics Fields
+
 ```
 {{shipping_speed_required}}   - Shipping speed (standard_ground/next_day_air/etc.)
 {{temperature_controlled}}    - Temperature-controlled shipping (Yes/No)
 ```
 
 ### Total Ancillary Forms Fields
+
 ```
 {{universal_benefits_verified}} - Universal benefits verified (Yes/No)
 {{facility_account_number}}     - Facility account number
@@ -161,6 +180,7 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ## Advanced Field Attributes
 
 ### Text Fields
+
 ```
 {{field_name;type=text;required=true}}
 {{field_name;type=text;readonly=true}}
@@ -168,29 +188,34 @@ Instead of manually drawing form fields in DocuSeal, you can embed text field ta
 ```
 
 ### Signature Fields
+
 ```
 {{provider_signature;type=signature;role=Provider;required=true}}
 {{patient_signature;type=signature;role=Patient}}
 ```
 
 ### Date Fields
+
 ```
 {{service_date;type=date;required=true}}
 {{todays_date;type=datenow}}
 ```
 
 ### Checkbox Fields
+
 ```
 {{attestation_field;type=checkbox;required=true}}
 ```
 
 ### Select/Radio Fields
+
 ```
 {{wound_type;type=select;options=surgical,traumatic,diabetic_foot}}
 {{quarter;type=radio;options=Q1,Q2,Q3,Q4}}
 ```
 
 ### Conditional Fields
+
 ```
 {{additional_info;condition=previous_use=Yes}}
 ```

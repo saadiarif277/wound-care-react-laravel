@@ -1,10 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { FiCheck, FiAlertCircle, FiFileText, FiShoppingCart, FiDollarSign, FiUser, FiCalendar, FiPackage, FiTruck, FiActivity } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
 import { cn } from '@/lib/utils';
 import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
-import { getManufacturerByProduct } from '../manufacturerFields';
 
 interface SelectedProduct {
   product_id: number;
@@ -13,7 +12,7 @@ interface SelectedProduct {
   product?: any;
 }
 
-interface FormData {
+interface QuickRequestFormData {
   // Patient Information
   patient_first_name?: string;
   patient_last_name?: string;
@@ -26,21 +25,6 @@ interface FormData {
   patient_state?: string;
   patient_zip?: string;
   patient_phone?: string;
-  patient_email?: string;
-  expected_service_date?: string;
-  shipping_speed?: string;
-
-  // Provider Information
-  provider_id?: number | null;
-  provider_name?: string;
-  provider_email?: string;
-  provider_npi?: string;
-  facility_id?: number | null;
-  facility_name?: string;
-
-  // Product Selection
-  selected_products?: SelectedProduct[];
-  manufacturer_fields?: Record<string, any>;
 
   // Clinical Information
   wound_types?: string[];
@@ -48,42 +32,60 @@ interface FormData {
   wound_size_length?: string;
   wound_size_width?: string;
   wound_size_depth?: string;
-  yellow_diagnosis_code?: string;
-  orange_diagnosis_code?: string;
+  wound_onset_date?: string;
+  failed_conservative_treatment?: boolean;
+  treatment_tried?: string;
+  current_dressing?: string;
+  expected_service_date?: string;
+
+  // Products
+  selected_products?: SelectedProduct[];
+
+  // Shipping
+  shipping_same_as_patient?: boolean;
+  shipping_address_line1?: string;
+  shipping_address_line2?: string;
+  shipping_city?: string;
+  shipping_state?: string;
+  shipping_zip?: string;
+  delivery_notes?: string;
 
   // Insurance
+  insurance_type?: string;
+  payer_name?: string;
+  payer_id?: string;
   primary_insurance_name?: string;
-  primary_member_id?: string;
-  primary_plan_type?: string;
-  has_secondary_insurance?: boolean;
-  secondary_insurance_name?: string;
-  secondary_member_id?: string;
 
-  // DocuSeal
-  docuseal_submission_id?: string;
-  episode_id?: string;
+  // Provider
+  provider_name?: string;
+  provider_npi?: string;
+  facility_name?: string;
 
-  [key: string]: any;
+  // Manufacturer fields
+  manufacturer_fields?: Record<string, any>;
 }
 
 interface Step6Props {
-  formData: FormData;
-  updateFormData: (data: Partial<FormData>) => void;
+  formData: QuickRequestFormData;
+  updateFormData: (data: Partial<QuickRequestFormData>) => void;
   products: Array<{
     id: number;
     code: string;
     name: string;
     manufacturer: string;
+    manufacturer_id?: number;
     available_sizes?: any;
     price_per_sq_cm?: number;
+    docuseal_template_id?: string;
+    signature_required?: boolean;
   }>;
-  providers?: Array<{
+  providers: Array<{
     id: number;
     name: string;
-    credentials?: string;
     npi?: string;
+    credentials?: string;
   }>;
-  facilities?: Array<{
+  facilities: Array<{
     id: number;
     name: string;
     address?: string;
@@ -95,28 +97,14 @@ interface Step6Props {
 
 export default function Step6ReviewSubmit({
   formData,
-  updateFormData,
   products,
-  providers = [],
-  facilities = [],
   errors,
-  onSubmit,
-  isSubmitting
+  onSubmit
 }: Step6Props) {
-  // Theme context with fallback
-  let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
-
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    t = themes[theme];
-  } catch (e) {
-    // Fallback to dark theme if outside ThemeProvider
-  }
-
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const { theme = 'dark' } = useTheme();
+  const t = themes[theme];
 
   // Get the selected product
   const getSelectedProduct = () => {
@@ -124,410 +112,294 @@ export default function Step6ReviewSubmit({
       return null;
     }
 
-    const firstProduct = formData.selected_products[0];
-    if (!firstProduct?.product_id) {
-      return null;
-    }
-
-    return products.find(p => p.id === firstProduct.product_id);
+    const selectedProductId = formData.selected_products[0]?.product_id;
+    return products.find(p => p.id === selectedProductId);
   };
 
   const selectedProduct = getSelectedProduct();
-  const manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
 
-  // Get provider and facility details
-  const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
-  const facility = formData.facility_id ? facilities.find(f => f.id === formData.facility_id) : null;
+  // Get the appropriate template ID from the product
+  const templateId = selectedProduct?.docuseal_template_id || null;
+  const signatureRequired = selectedProduct?.signature_required || false;
 
-  // Prepare form data for DocuSeal
-  const prepareDocuSealData = () => {
-    if (!selectedProduct) return formData;
-
-    // Format selected products for display
-    const productDetails = formData.selected_products?.map((item: any) => {
-      const product = products.find(p => p.id === item.product_id);
-      return {
-        name: product?.name || '',
-        code: product?.code || '',
-        size: item.size || 'Standard',
-        quantity: item.quantity,
-        manufacturer: product?.manufacturer || ''
-      };
-    }) || [];
-
-    // Calculate total wound size
-    const woundSizeLength = parseFloat(formData.wound_size_length || '0');
-    const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
-    const totalWoundSize = woundSizeLength * woundSizeWidth;
-
-    // Format wound types
-    const woundTypesDisplay = formData.wound_types?.join(', ') || 'Not specified';
-
-    return {
-      ...formData,
-
-      // Provider Information
-      provider_name: provider?.name || formData.provider_name || '',
-      provider_credentials: provider?.credentials || '',
-      provider_npi: provider?.npi || formData.provider_npi || '',
-      provider_email: formData.provider_email || 'provider@example.com',
-
-      // Facility Information
-      facility_name: facility?.name || formData.facility_name || '',
-      facility_address: facility?.address || '',
-
-      // Product Information
-      product_name: selectedProduct.name,
-      product_code: selectedProduct.code,
-      product_manufacturer: selectedProduct.manufacturer,
-      product_details: productDetails,
-      product_details_text: productDetails.map((p: any) =>
-        `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
-      ).join('\n'),
-
-      // Clinical Information
-      wound_types_display: woundTypesDisplay,
-      total_wound_size: `${totalWoundSize} sq cm`,
-      wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
-
-      // Manufacturer Fields (convert booleans to Yes/No for display)
-      ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
-        acc[key] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
-        return acc;
-      }, {} as Record<string, any>),
-
-      // Date fields
-      service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
-      submission_date: new Date().toISOString().split('T')[0],
-
-      // Signature fields (for DocuSeal template)
-      provider_signature_required: true,
-      provider_signature_date: new Date().toISOString().split('T')[0]
-    };
+  const handleSubmit = async () => {
+    setIsSubmitting(true);
+    try {
+      await onSubmit();
+    } catch (error) {
+      console.error('Error submitting order:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDocuSealComplete = (submissionId: string) => {
-    setIsCompleted(true);
-    updateFormData({ docuseal_submission_id: submissionId });
-  };
+  const formatAddress = (prefix: string = '') => {
+    const addressLine1 = String(formData[`${prefix}address_line1` as keyof QuickRequestFormData] || '');
+    const addressLine2 = String(formData[`${prefix}address_line2` as keyof QuickRequestFormData] || '');
+    const city = String(formData[`${prefix}city` as keyof QuickRequestFormData] || '');
+    const state = String(formData[`${prefix}state` as keyof QuickRequestFormData] || '');
+    const zip = String(formData[`${prefix}zip` as keyof QuickRequestFormData] || '');
 
-  const handleDocuSealError = (error: string) => {
-    setSubmissionError(error);
-  };
+    if (!addressLine1) return 'Not provided';
 
-  // Calculate order total
-  const calculateOrderTotal = () => {
-    if (!formData.selected_products) return 0;
-
-    return formData.selected_products.reduce((total, item) => {
-      const product = products.find(p => p.id === item.product_id);
-      if (!product) return total;
-
-      const unitPrice = product.price_per_sq_cm || 0;
-      const size = item.size ? parseFloat(item.size) : 1;
-      const quantity = item.quantity || 1;
-
-      return total + (unitPrice * size * quantity);
-    }, 0);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(price);
-  };
-
-  // No product selected
-  if (!selectedProduct) {
     return (
-      <div className={cn("text-center py-12", t.text.secondary)}>
-        <p>Please select a product first</p>
-      </div>
+      <>
+        {addressLine1}
+        {addressLine2 && <>, {addressLine2}</>}
+        <br />
+        {city}, {state} {zip}
+      </>
     );
-  }
-
-  // Get the appropriate template ID
-  const templateId = manufacturerConfig?.docusealTemplateId || 'default_ivr_template';
+  };
 
   return (
     <div className="space-y-6">
-      {/* Order Summary Section */}
+      {/* Order Summary Header */}
       <div className={cn("p-6 rounded-lg", t.glass.card)}>
-        <h3 className={cn("text-xl font-semibold mb-4 flex items-center", t.text.primary)}>
-          <FiShoppingCart className="w-6 h-6 mr-3" />
-          Order Summary
-        </h3>
+        <h2 className={cn("text-xl font-semibold mb-4", t.text.primary)}>
+          Review Order Details
+        </h2>
+        <p className={cn("text-sm", t.text.secondary)}>
+          Please review all information before submitting your order.
+        </p>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Patient Information */}
-          <div>
-            <h4 className={cn("text-sm font-medium mb-3 flex items-center", t.text.secondary)}>
-              <FiUser className="w-4 h-4 mr-2" />
-              Patient Information
-            </h4>
-            <div className={cn("space-y-2 text-sm", t.glass.frost, "p-4 rounded-lg")}>
-              <div>
-                <span className={t.text.tertiary}>Name: </span>
-                <span className={t.text.primary}>
-                  {formData.patient_first_name} {formData.patient_last_name}
-                </span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>DOB: </span>
-                <span className={t.text.primary}>{formData.patient_dob}</span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>Insurance: </span>
-                <span className={t.text.primary}>
-                  {formData.primary_insurance_name} ({formData.primary_member_id})
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Clinical Information */}
-          <div>
-            <h4 className={cn("text-sm font-medium mb-3 flex items-center", t.text.secondary)}>
-              <FiActivity className="w-4 h-4 mr-2" />
-              Clinical Information
-            </h4>
-            <div className={cn("space-y-2 text-sm", t.glass.frost, "p-4 rounded-lg")}>
-              <div>
-                <span className={t.text.tertiary}>Wound Type: </span>
-                <span className={t.text.primary}>
-                  {formData.wound_types?.join(', ') || 'Not specified'}
-                </span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>Location: </span>
-                <span className={t.text.primary}>{formData.wound_location}</span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>Size: </span>
-                <span className={t.text.primary}>
-                  {formData.wound_size_length} × {formData.wound_size_width} cm
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Product Information */}
-          <div>
-            <h4 className={cn("text-sm font-medium mb-3 flex items-center", t.text.secondary)}>
-              <FiPackage className="w-4 h-4 mr-2" />
-              Product Selection
-            </h4>
-            <div className={cn("space-y-2 text-sm", t.glass.frost, "p-4 rounded-lg")}>
-              {formData.selected_products?.map((item, index) => {
-                const product = products.find(p => p.id === item.product_id);
-                return (
-                  <div key={index}>
-                    <div className={t.text.primary}>
-                      {product?.name} ({product?.code})
-                    </div>
-                    <div className={t.text.tertiary}>
-                      Size: {item.size || 'Standard'} × Qty: {item.quantity}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Delivery Information */}
-          <div>
-            <h4 className={cn("text-sm font-medium mb-3 flex items-center", t.text.secondary)}>
-              <FiTruck className="w-4 h-4 mr-2" />
-              Delivery Information
-            </h4>
-            <div className={cn("space-y-2 text-sm", t.glass.frost, "p-4 rounded-lg")}>
-              <div>
-                <span className={t.text.tertiary}>Service Date: </span>
-                <span className={t.text.primary}>{formData.expected_service_date}</span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>Shipping: </span>
-                <span className={t.text.primary}>
-                  {formData.shipping_speed === 'standard_2_day' ? '2-Day Shipping' : 'Next Day Shipping'}
-                </span>
-              </div>
-              <div>
-                <span className={t.text.tertiary}>Facility: </span>
-                <span className={t.text.primary}>{facility?.name || 'Not specified'}</span>
-              </div>
-            </div>
-          </div>
+      {/* Patient Information */}
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
+        <div className="flex items-center mb-4">
+          <FiUser className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+            Patient Information
+          </h3>
         </div>
-
-        {/* Order Total */}
-        <div className={cn("mt-6 p-4 rounded-lg", t.glass.frost)}>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center">
-              <FiDollarSign className={cn("w-5 h-5 mr-2", t.text.secondary)} />
-              <span className={cn("text-lg font-medium", t.text.primary)}>
-                Order Total:
-              </span>
-            </div>
-            <span className={cn("text-2xl font-bold text-blue-600")}>
-              {formatPrice(calculateOrderTotal())}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Name:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.patient_first_name} {formData.patient_last_name}
             </span>
           </div>
-          <p className={cn("text-xs mt-1 text-right", t.text.tertiary)}>
-            * Pricing shown is estimated National ASP
-          </p>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>DOB:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.patient_dob || 'Not provided'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Member ID:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.patient_member_id || 'Not provided'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Phone:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.patient_phone || 'Not provided'}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4">
+          <span className={cn("font-medium", t.text.primary)}>Address:</span>
+          <div className={cn("ml-2 mt-1", t.text.secondary)}>
+            {formatAddress('patient_')}
+          </div>
         </div>
       </div>
 
-      {/* DocuSeal IVR Section */}
-      {manufacturerConfig?.signatureRequired && (
-        <div className={cn("p-6 rounded-lg", t.glass.card)}>
-          <div className="flex items-start mb-4">
-            <FiFileText className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", t.text.secondary)} />
-            <div>
-              <h3 className={cn("text-lg font-medium", t.text.primary)}>
-                Electronic Signature Required
-              </h3>
+      {/* Clinical Information */}
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
+        <div className="flex items-center mb-4">
+          <FiActivity className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+            Clinical Information
+          </h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Wound Type:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.wound_types?.join(', ') || 'Not specified'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Location:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.wound_location || 'Not specified'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Dimensions:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.wound_size_length || '0'} × {formData.wound_size_width || '0'} × {formData.wound_size_depth || '0'} cm
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Onset Date:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.wound_onset_date || 'Not provided'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Service Date:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.expected_service_date || 'Not provided'}
+            </span>
+          </div>
+          <div>
+            <span className={cn("font-medium", t.text.primary)}>Failed Conservative Treatment:</span>
+            <span className={cn("ml-2", t.text.secondary)}>
+              {formData.failed_conservative_treatment ? 'Yes' : 'No'}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Product Selection */}
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
+        <div className="flex items-center mb-4">
+          <FiShoppingCart className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+            Selected Product
+          </h3>
+        </div>
+        {selectedProduct ? (
+          <div className="space-y-3">
+            <div className={cn("p-4 rounded-lg", t.glass.frost)}>
+              <h4 className={cn("font-medium", t.text.primary)}>
+                {selectedProduct.name}
+              </h4>
               <p className={cn("text-sm mt-1", t.text.secondary)}>
-                {manufacturerConfig.name} requires an electronic signature on their IVR form
+                {selectedProduct.code} • {selectedProduct.manufacturer}
               </p>
+              <div className="mt-3 space-y-2">
+                {formData.selected_products?.map((item, index) => (
+                  <div key={index} className={cn("flex justify-between text-sm", t.text.secondary)}>
+                    <span>
+                      Size: {item.size || 'Standard'} • Qty: {item.quantity}
+                    </span>
+                    {selectedProduct.price_per_sq_cm && (
+                      <span>
+                        ${((item.size ? parseFloat(item.size) : 1) * selectedProduct.price_per_sq_cm * item.quantity).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
+        ) : (
+          <p className={cn("text-sm", t.text.secondary)}>No product selected</p>
+        )}
+      </div>
 
-          {!isCompleted && !submissionError && (
-            <div className={cn(
-              "p-4 rounded-lg border mb-4",
-              theme === 'dark'
-                ? 'bg-blue-900/20 border-blue-800'
-                : 'bg-blue-50 border-blue-200'
-            )}>
-              <div className="flex items-start">
-                <FiAlertCircle className={cn(
-                  "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
-                  theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
-                )} />
-                <div>
-                  <h4 className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
-                  )}>
-                    Please Review and Sign
-                  </h4>
-                  <ul className={cn(
-                    "mt-2 space-y-1 text-sm",
-                    theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
-                  )}>
-                    <li>• All order details have been pre-filled in the form</li>
-                    <li>• Review the information for accuracy</li>
-                    <li>• Sign electronically where indicated</li>
-                    <li>• Click "Complete" when finished</li>
-                  </ul>
-                </div>
-              </div>
+      {/* Shipping Information */}
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
+        <div className="flex items-center mb-4">
+          <FiTruck className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+            Shipping Information
+          </h3>
+        </div>
+        <div className={cn("text-sm", t.text.secondary)}>
+          {formData.shipping_same_as_patient ? (
+            <p>Same as patient address</p>
+          ) : (
+            <div>{formatAddress('shipping_')}</div>
+          )}
+          {formData.delivery_notes && (
+            <div className="mt-4">
+              <span className={cn("font-medium", t.text.primary)}>Delivery Notes:</span>
+              <p className={cn("mt-1", t.text.secondary)}>{formData.delivery_notes}</p>
             </div>
           )}
+        </div>
+      </div>
 
-          {/* DocuSeal Form or Completion Status */}
-          <div className={cn("rounded-lg", t.glass.frost)}>
-            {isCompleted ? (
-              <div className="p-8 text-center">
-                <FiCheck className={cn("h-16 w-16 mx-auto mb-4 text-green-500")} />
-                <h3 className={cn("text-xl font-medium mb-2", t.text.primary)}>
-                  IVR Form Completed Successfully
-                </h3>
-                <p className={cn("text-sm", t.text.secondary)}>
-                  The IVR form has been signed and submitted.
-                </p>
-                <p className={cn("text-sm mt-2", t.text.secondary)}>
-                  Submission ID: <span className="font-mono">{formData.docuseal_submission_id}</span>
-                </p>
-              </div>
-            ) : submissionError ? (
-              <div className="p-8">
-                <div className={cn(
-                  "p-4 rounded-lg border",
-                  theme === 'dark'
-                    ? 'bg-red-900/20 border-red-800'
-                    : 'bg-red-50 border-red-200'
-                )}>
-                  <div className="flex items-start">
-                    <FiAlertCircle className={cn(
-                      "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
-                      theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                    )} />
-                    <div>
-                      <h4 className={cn(
-                        "text-sm font-medium",
-                        theme === 'dark' ? 'text-red-300' : 'text-red-900'
-                      )}>
-                        Error Loading IVR Form
-                      </h4>
-                      <p className={cn(
-                        "text-sm mt-1",
-                        theme === 'dark' ? 'text-red-400' : 'text-red-700'
-                      )}>
-                        {submissionError}
-                      </p>
-                      <button
-                        onClick={() => {
-                          setSubmissionError(null);
-                          setIsCompleted(false);
-                        }}
-                        className={cn(
-                          "mt-3 text-sm underline",
-                          theme === 'dark' ? 'text-red-300' : 'text-red-600'
-                        )}
-                      >
-                        Try Again
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <DocuSealIVRForm
-                formData={prepareDocuSealData()}
-                templateId={templateId}
-                onComplete={handleDocuSealComplete}
-                onError={handleDocuSealError}
-                episodeId={formData.episode_id}
-              />
-            )}
+      {/* Order Total */}
+      {selectedProduct && selectedProduct.price_per_sq_cm && (
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FiDollarSign className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+              <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+                Order Total
+              </h3>
+            </div>
+            <span className={cn("text-2xl font-bold", t.text.primary)}>
+              ${formData.selected_products?.reduce((total, item) => {
+                const size = item.size ? parseFloat(item.size) : 1;
+                return total + (size * (selectedProduct.price_per_sq_cm || 0) * item.quantity);
+              }, 0).toFixed(2)}
+            </span>
           </div>
+          <p className={cn("text-xs mt-2", t.text.tertiary)}>
+            * Pricing shown is National ASP
+          </p>
+        </div>
+      )}
+
+      {/* DocuSeal IVR Section */}
+      {signatureRequired && templateId && (
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <div className="mb-4">
+            <div className="flex items-center">
+              <FiFileText className={cn("w-5 h-5 mr-2", t.text.secondary)} />
+              <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+                Electronic Signature Required
+              </h3>
+            </div>
+            <p className={cn("text-sm mt-1", t.text.secondary)}>
+              {selectedProduct?.manufacturer} requires an electronic signature on their IVR form
+            </p>
+          </div>
+
+          <DocuSealIVRForm
+            templateId={templateId}
+            formData={formData}
+            onComplete={() => setIsCompleted(true)}
+            onError={(error) => console.error('DocuSeal error:', error)}
+          />
+
+          {isCompleted && (
+            <div className={cn("mt-4 p-4 rounded-lg flex items-center", t.status.success)}>
+              <FiCheck className="w-5 h-5 mr-2" />
+              <span>IVR form completed successfully!</span>
+            </div>
+          )}
         </div>
       )}
 
       {/* Submit Button */}
-      <div className="flex justify-end">
+      <div className="flex justify-end space-x-4">
         <button
-          onClick={onSubmit}
-          disabled={isSubmitting || (manufacturerConfig?.signatureRequired && !isCompleted)}
+          type="button"
+          onClick={handleSubmit}
+          disabled={isSubmitting || (signatureRequired && !isCompleted)}
           className={cn(
-            "px-8 py-3 rounded-lg font-medium flex items-center",
-            isSubmitting || (manufacturerConfig?.signatureRequired && !isCompleted)
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-              : 'bg-green-600 text-white hover:bg-green-700'
+            "px-6 py-3 rounded-lg font-medium transition-all duration-200",
+            isSubmitting || (signatureRequired && !isCompleted)
+              ? "bg-gray-300 text-gray-500 cursor-not-allowed"
+              : `${t.button.primary.base} ${t.button.primary.hover}`
           )}
         >
-          {isSubmitting ? 'Sending...' : 'Send to MSC'}
-          <FiCheck className="ml-2 h-5 w-5" />
+          {isSubmitting ? 'Submitting...' : 'Submit Order'}
         </button>
       </div>
 
-      {/* Validation Errors */}
-      {errors.docuseal && (
-        <div className={cn(
-          "p-4 rounded-lg border",
-          theme === 'dark'
-            ? 'bg-red-900/20 border-red-800'
-            : 'bg-red-50 border-red-200'
-        )}>
-          <p className={cn(
-            "text-sm",
-            theme === 'dark' ? 'text-red-400' : 'text-red-600'
-          )}>
-            {errors.docuseal}
-          </p>
+      {/* Error Display */}
+      {Object.keys(errors).length > 0 && (
+        <div className={cn("mt-4 p-4 rounded-lg", t.status.error)}>
+          <div className="flex items-start">
+            <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
+            <div>
+              <h4 className="font-medium">Please fix the following errors:</h4>
+              <ul className="mt-2 space-y-1 text-sm">
+                {Object.entries(errors).map(([field, error]) => (
+                  <li key={field}>• {error}</li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       )}
     </div>

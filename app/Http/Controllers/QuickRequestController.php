@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\Traits\QuickRequestDocuSealIntegration;
 use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
 use App\Models\PatientIVRStatus;
@@ -18,9 +19,12 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Inertia\Inertia;
+use App\Services\DocusealService;
 
 class QuickRequestController extends Controller
 {
+    use QuickRequestDocuSealIntegration;
+
     protected $patientService;
     protected $payerService;
     protected $currentOrganization;
@@ -562,7 +566,7 @@ class QuickRequestController extends Controller
         } catch (\Exception $e) {
             DB::rollBack();
 
-            Log::error('Failed to submit quick request', [
+            \Illuminate\Support\Facades\Log::error('Failed to submit quick request', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'user_id' => Auth::id(),
@@ -646,5 +650,278 @@ class QuickRequestController extends Controller
         $random = strtoupper(Str::random(4));
 
         return "{$prefix}-{$date}-{$random}";
+    }
+
+    /**
+     * Generate JWT token for DocuSeal builder
+     */
+    public function generateBuilderToken(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'user_email' => 'required|email',
+                'integration_email' => 'nullable|email',
+                'template_id' => 'nullable|string',
+                'template_name' => 'nullable|string',
+                'document_urls' => 'nullable|array',
+                'prefill_data' => 'nullable|array',
+            ]);
+
+            // Get DocuSeal API key
+            $apiKey = config('docuseal.api_key');
+            if (!$apiKey) {
+                throw new \Exception('DocuSeal API key not configured');
+            }
+
+            // Prepare JWT payload
+            $payload = [
+                'user_email' => $data['user_email'],
+                'integration_email' => $data['integration_email'] ?? $data['user_email'],
+                'iat' => time(),
+                'exp' => time() + (60 * 60), // 1 hour expiration
+            ];
+
+            // Add template-specific data
+            if (!empty($data['template_id'])) {
+                $payload['template_id'] = intval($data['template_id']);
+            }
+
+            if (!empty($data['template_name'])) {
+                $payload['name'] = $data['template_name'];
+            }
+
+            if (!empty($data['document_urls'])) {
+                $payload['document_urls'] = $data['document_urls'];
+            }
+
+            // Generate JWT token using HS256
+            $header = json_encode(['typ' => 'JWT', 'alg' => 'HS256']);
+            $payload = json_encode($payload);
+
+            $headerEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($header));
+            $payloadEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($payload));
+
+            $signature = hash_hmac('sha256', $headerEncoded . "." . $payloadEncoded, $apiKey, true);
+            $signatureEncoded = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode($signature));
+
+            $jwtToken = $headerEncoded . "." . $payloadEncoded . "." . $signatureEncoded;
+
+            return response()->json([
+                'success' => true,
+                'jwt_token' => $jwtToken,
+                'user_email' => $data['user_email'],
+                'integration_email' => $data['integration_email'] ?? $data['user_email'],
+                'template_id' => $data['template_id'] ?? null,
+                'template_name' => $data['template_name'] ?? 'MSC Wound Care IVR Form',
+                'expires_at' => date('Y-m-d H:i:s', time() + (60 * 60))
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error generating DocuSeal builder token', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate builder token: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create final submission for DocuSeal (updated to support both builder and direct submission)
+     */
+    public function createFinalSubmission(Request $request)
+    {
+        try {
+            $data = $request->validate([
+                'template_type' => 'required|string',
+                'use_builder' => 'boolean',
+                'prefill_data' => 'required|array',
+            ]);
+
+            $prefillData = $data['prefill_data'];
+
+            // Determine manufacturer and template
+            $manufacturer = 'BioWound'; // Default
+            $templateConfigKey = 'BioWound.default';
+
+            if (!empty($prefillData['selected_products'])) {
+                $selectedProducts = $prefillData['selected_products'];
+                if (!empty($selectedProducts[0]['product_id'])) {
+                    $product = \App\Models\Order\Product::find($selectedProducts[0]['product_id']);
+                    if ($product) {
+                        $manufacturer = $this->getManufacturerConfigKey($product->manufacturer);
+                        $templateConfigKey = $manufacturer . '.default';
+                    }
+                }
+            }
+
+            // If using builder mode, return JWT token instead of creating submission
+            if ($data['use_builder'] ?? false) {
+                return $this->generateBuilderToken(new Request([
+                    'user_email' => 'limitless@mscwoundcare.com',
+                    'integration_email' => $prefillData['patient_email'] ?? 'limitless@mscwoundcare.com',
+                    'template_id' => config("docuseal.templates.{$templateConfigKey}"),
+                    'template_name' => "MSC {$manufacturer} IVR Form",
+                    'document_urls' => [],
+                    'prefill_data' => $prefillData
+                ]));
+            }
+
+            // Original submission creation logic (for backward compatibility)
+            $templateId = config("docuseal.templates.{$templateConfigKey}");
+            if (!$templateId) {
+                throw new \Exception("Template not configured for {$templateConfigKey}");
+            }
+
+            $docusealService = app(DocusealService::class);
+
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'submitters' => [
+                    [
+                        'role' => 'Patient',
+                        'email' => 'limitless@mscwoundcare.com', // Must use account email
+                        'name' => ($prefillData['patient_first_name'] ?? '') . ' ' . ($prefillData['patient_last_name'] ?? ''),
+                        'values' => $this->formatPrefillValues($prefillData)
+                    ]
+                ]
+            ];
+
+            Log::info('Creating DocuSeal submission', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturer,
+                'template_config_key' => $templateConfigKey,
+                'submission_data' => $submissionData
+            ]);
+
+            $response = $docusealService->createSubmission($submissionData);
+
+            if (!$response['success']) {
+                throw new \Exception($response['error'] ?? 'Failed to create submission');
+            }
+
+            $submissionId = $response['submission_id'];
+            $embedUrl = "https://api.docuseal.com/s/{$submissionId}";
+
+            return response()->json([
+                'success' => true,
+                'submission_id' => $submissionId,
+                'embed_url' => $embedUrl,
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturer
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error creating final submission', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to create submission: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Map manufacturer name to config key for template lookup
+     */
+    private function getManufacturerConfigKey($manufacturerName): string
+    {
+        // For now, use the existing template for all manufacturers
+        // TODO: Create manufacturer-specific templates in DocuSeal
+        return 'BioWound.default'; // This maps to template 1254774
+
+        // Future manufacturer mapping (when templates are created):
+        /*
+        $manufacturerMap = [
+            'ACZ & Associates' => 'ACZ.default',
+            'Advanced Solution' => 'Advanced Health.default',
+            'BioWound Solutions' => 'BioWound.default',
+            'MedLife' => 'MedLife.default',
+            // Add more as needed
+        ];
+
+        $normalizedName = trim($manufacturerName);
+        return $manufacturerMap[$normalizedName] ?? 'BioWound.default';
+        */
+    }
+
+    /**
+     * Format prefill values for DocuSeal submission
+     */
+    private function formatPrefillValues($prefillData)
+    {
+        return $this->mapFormDataToDocuSealFields($prefillData);
+    }
+
+    /**
+     * Map form data to DocuSeal field format
+     */
+    private function mapFormDataToDocuSealFields(array $formData): array
+    {
+        return [
+            // Patient Information Fields
+            'patient_first_name' => $formData['patient_first_name'] ?? '',
+            'patient_last_name' => $formData['patient_last_name'] ?? '',
+            'patient_dob' => $formData['patient_dob'] ?? '',
+            'patient_gender' => $formData['patient_gender'] ?? '',
+            'patient_member_id' => $formData['patient_member_id'] ?? '',
+            'patient_address' => $formData['patient_address'] ?? '',
+            'patient_city' => $formData['patient_city'] ?? '',
+            'patient_state' => $formData['patient_state'] ?? '',
+            'patient_zip' => $formData['patient_zip'] ?? '',
+            'patient_phone' => $formData['patient_phone'] ?? '',
+            'patient_email' => $formData['patient_email'] ?? '',
+
+            // Provider Information Fields
+            'provider_name' => $formData['provider_name'] ?? '',
+            'provider_npi' => $formData['provider_npi'] ?? '',
+            'facility_name' => $formData['facility_name'] ?? '',
+            'facility_address' => $formData['facility_address'] ?? '',
+
+            // Clinical Information Fields
+            'wound_type' => $formData['wound_type'] ?? '',
+            'wound_location' => $formData['wound_location'] ?? '',
+            'wound_size' => $formData['wound_size'] ?? '',
+            'wound_onset_date' => $formData['wound_onset_date'] ?? '',
+            'failed_conservative_treatment' => $formData['failed_conservative_treatment'] ?? '',
+            'treatment_tried' => $formData['treatment_tried'] ?? '',
+            'current_dressing' => $formData['current_dressing'] ?? '',
+            'expected_service_date' => $formData['expected_service_date'] ?? '',
+
+            // Insurance Information Fields
+            'primary_insurance' => $formData['primary_insurance'] ?? '',
+            'primary_member_id' => $formData['primary_member_id'] ?? '',
+            'primary_plan_type' => $formData['primary_plan_type'] ?? '',
+            'primary_payer_phone' => $formData['primary_payer_phone'] ?? '',
+            'has_secondary_insurance' => $formData['has_secondary_insurance'] ?? '',
+            'secondary_insurance' => $formData['secondary_insurance'] ?? '',
+            'secondary_member_id' => $formData['secondary_member_id'] ?? '',
+
+            // Product Information Fields
+            'selected_product_name' => $formData['selected_product_name'] ?? '',
+            'selected_product_code' => $formData['selected_product_code'] ?? '',
+            'selected_product_manufacturer' => $formData['selected_product_manufacturer'] ?? '',
+            'product_quantity' => $formData['product_quantity'] ?? '',
+            'product_size' => $formData['product_size'] ?? '',
+
+            // Shipping Information Fields
+            'shipping_same_as_patient' => $formData['shipping_same_as_patient'] ?? '',
+            'shipping_address' => $formData['shipping_address'] ?? '',
+            'shipping_city' => $formData['shipping_city'] ?? '',
+            'shipping_state' => $formData['shipping_state'] ?? '',
+            'shipping_zip' => $formData['shipping_zip'] ?? '',
+            'delivery_notes' => $formData['delivery_notes'] ?? '',
+
+            // Metadata Fields
+            'submission_date' => $formData['submission_date'] ?? '',
+            'total_wound_area' => $formData['total_wound_area'] ?? '',
+        ];
     }
 }

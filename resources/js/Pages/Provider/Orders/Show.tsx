@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { Button } from '@/Components/ui/button';
+import Button from '@/Components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/Components/ui/card';
+import { Badge } from '@/Components/ui/badge';
 import {
   ArrowLeft,
   CheckCircle,
@@ -24,6 +26,27 @@ import {
   AlertCircle,
   Heart,
   Eye,
+  ShieldCheck,
+  Activity,
+  Timer,
+  Target,
+  Stethoscope,
+  ChevronRight,
+  Layers,
+  Info,
+  MapPin,
+  Shield,
+  RefreshCw,
+  FileCheck,
+  Bell,
+  Zap,
+  Share2,
+  HelpCircle,
+  Users,
+  Star,
+  BookOpen,
+  FileCheck2,
+  RefreshCcw
 } from 'lucide-react';
 
 // Clean, purposeful status configuration
@@ -33,6 +56,7 @@ const statusConfig = {
     bgColor: 'bg-blue-50',
     textColor: 'text-blue-800',
     icon: Clock,
+    label: 'Under Review',
     title: 'Under Review',
     message: 'Your order is being reviewed by our clinical team',
     progress: 25,
@@ -42,6 +66,7 @@ const statusConfig = {
     bgColor: 'bg-amber-50',
     textColor: 'text-amber-800',
     icon: FileText,
+    label: 'Insurance Processing',
     title: 'Insurance Processing',
     message: 'Insurance verification is in progress',
     progress: 50,
@@ -51,6 +76,7 @@ const statusConfig = {
     bgColor: 'bg-green-50',
     textColor: 'text-green-800',
     icon: CheckCircle,
+    label: 'Approved',
     title: 'Approved',
     message: 'Insurance verified and order approved',
     progress: 75,
@@ -60,6 +86,7 @@ const statusConfig = {
     bgColor: 'bg-purple-50',
     textColor: 'text-purple-800',
     icon: Package,
+    label: 'In Production',
     title: 'In Production',
     message: 'Order is being prepared for shipment',
     progress: 85,
@@ -69,6 +96,7 @@ const statusConfig = {
     bgColor: 'bg-indigo-50',
     textColor: 'text-indigo-800',
     icon: Truck,
+    label: 'Shipped',
     title: 'Shipped',
     message: 'Order is on its way to you',
     progress: 95,
@@ -78,28 +106,50 @@ const statusConfig = {
     bgColor: 'bg-green-50',
     textColor: 'text-green-800',
     icon: CheckCircle,
+    label: 'Delivered',
     title: 'Delivered',
     message: 'Order completed successfully',
     progress: 100,
   },
 };
 
-const ProviderOrderShow = ({ order }) => {
-  const [copied, setCopied] = useState(false);
+interface ProviderOrderShowProps {
+  order: any; // TODO: Add proper order type
+}
 
-  const formatCurrency = (amount) => {
+const ProviderOrderShow: React.FC<ProviderOrderShowProps> = ({ order }) => {
+  const [copied, setCopied] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
     }).format(amount || 0);
   };
 
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const formatDateTime = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => ({
+      ...prev,
+      [section]: !prev[section]
+    }));
   };
 
   const copyOrderNumber = async () => {
@@ -113,184 +163,119 @@ const ProviderOrderShow = ({ order }) => {
       <MainLayout title="Order Not Found">
         <div className="min-h-screen flex items-center justify-center">
           <div className="text-center">
-  Mail,
-  Phone,
-  Pill,
-  Stethoscope,
-  Eye,
-  Download,
-  MessageCircle,
-  Bell,
-  Info,
-  ShieldCheck,
-  Truck,
-  DollarSign,
-  MapPin,
-  ChevronDown,
-  ChevronUp,
-  ExternalLink,
-  AlertCircle,
-  Layers,
-  Timer,
-  Star,
-  Sparkles,
-  HelpCircle,
-  FileCheck,
-  Users,
-  Play,
-  Pause,
-  Copy,
-  Share2,
-  BookOpen,
-  Shield,
-  Zap,
-  Target,
-  TrendingUp,
-  ChevronRight,
-  RefreshCw,
-} from 'lucide-react';
+            <h2 className="text-xl font-semibold text-gray-900 mb-2">Order Not Found</h2>
+            <p className="text-gray-600">The requested order could not be found.</p>
+            <Link href="/provider/orders" className="text-blue-600 hover:underline mt-4 inline-block">
+              Return to Orders
+            </Link>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
 
-// Enhanced 2025 healthcare status configuration with patient-friendly messaging
-const statusConfig = {
-  ready_for_review: {
-    color: 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border-blue-200',
-    icon: Clock,
-    label: 'Under Review',
-    description: 'Your order is being carefully reviewed by our clinical team',
-    patientFriendly: 'We are reviewing your order details and will contact you soon with next steps',
-    progressPercent: 10,
-    estimatedTime: '1-2 business days',
-    nextStep: 'Clinical review completion'
-  },
-  ivr_sent: {
-    color: 'bg-gradient-to-r from-yellow-50 to-amber-50 text-yellow-800 border-yellow-200',
-    icon: FileText,
-    label: 'Documentation Processing',
-    description: 'Insurance verification documents are being processed',
-    patientFriendly: 'Insurance paperwork has been submitted and is being processed by your insurance provider',
-    progressPercent: 35,
-    estimatedTime: '3-5 business days',
-    nextStep: 'Insurance verification'
-  },
-  ivr_verified: {
-    color: 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-green-200',
-    icon: CheckCircle,
-    label: 'Approved & Ready',
-    description: 'Insurance verified and order approved for processing',
-    patientFriendly: 'Great news! Your insurance has been verified and your order is approved for processing',
-    progressPercent: 60,
-    estimatedTime: '1-2 business days',
-    nextStep: 'Order preparation'
-  },
-  sent_to_manufacturer: {
-    color: 'bg-gradient-to-r from-purple-50 to-violet-50 text-purple-800 border-purple-200',
-    icon: Package,
-    label: 'In Production',
-    description: 'Order is being prepared by the manufacturer',
-    patientFriendly: 'Your order is now being carefully prepared by our manufacturing partner',
-    progressPercent: 80,
-    estimatedTime: '5-7 business days',
-    nextStep: 'Quality control & shipping'
-  },
-  tracking_added: {
-    color: 'bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-800 border-indigo-200',
-    icon: Truck,
-    label: 'Shipped',
-    description: 'Order shipped with tracking information available',
-    patientFriendly: 'Your order has been shipped and is on its way to you',
-    progressPercent: 90,
-    estimatedTime: '2-3 business days',
-    nextStep: 'Delivery'
-  },
-  completed: {
-    color: 'bg-gradient-to-r from-green-50 to-teal-50 text-green-800 border-green-200',
-    icon: CheckCircle,
-    label: 'Delivered',
-    description: 'Order has been successfully completed',
-    patientFriendly: 'Your order has been completed successfully',
-    progressPercent: 100,
-    estimatedTime: 'Complete',
-    nextStep: 'Follow-up care'
-  },
-};
-
-// Enhanced IVR status with better patient communication
-const ivrStatusConfig = {
-  pending: {
-    color: 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-800 border-gray-200',
-    icon: Clock,
-    label: 'Verification Pending',
-    description: 'Insurance verification is being processed',
-    patientMessage: 'We are working with your insurance provider to verify coverage'
-  },
-  verified: {
-    color: 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-green-200',
-    icon: ShieldCheck,
-    label: 'Coverage Verified',
-    description: 'Insurance coverage has been confirmed',
-    patientMessage: 'Your insurance coverage has been verified and approved'
-  },
-  expired: {
-    color: 'bg-gradient-to-r from-red-50 to-rose-50 text-red-800 border-red-200',
-    icon: AlertTriangle,
-    label: 'Verification Expired',
-    description: 'Insurance verification needs to be renewed',
-    patientMessage: 'Please contact us to update your insurance verification'
-  },
-};
-
-const orderStatusConfig = {
-  pending_ivr: { color: 'bg-gray-100 text-gray-800', icon: Clock, label: 'Pending IVR' },
-  ivr_sent: { color: 'bg-blue-100 text-blue-800', icon: FileText, label: 'IVR Sent' },
-  ivr_confirmed: { color: 'bg-purple-100 text-purple-800', icon: CheckCircle, label: 'IVR Confirmed' },
-  approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Approved' },
-  sent_back: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Sent Back' },
-  denied: { color: 'bg-red-100 text-red-800', icon: AlertTriangle, label: 'Denied' },
-  submitted_to_manufacturer: { color: 'bg-purple-100 text-purple-800', icon: Package, label: 'Processing' },
-  shipped: { color: 'bg-indigo-100 text-indigo-800', icon: Truck, label: 'Shipped' },
-  delivered: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Delivered' },
-};
-
-const ProviderOrderShow = ({ order }) => {
-  const [expandedSections, setExpandedSections] = useState({
-    timeline: true,
-    episode: true,
-    communication: false,
-    support: false,
-  });
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-    }).format(amount);
+  // Enhanced 2025 healthcare status configuration with patient-friendly messaging
+  const statusConfigEnhanced = {
+    ready_for_review: {
+      color: 'bg-gradient-to-r from-blue-50 to-indigo-50 text-blue-800 border-blue-200',
+      icon: Clock,
+      label: 'Under Review',
+      description: 'Your order is being carefully reviewed by our clinical team',
+      patientFriendly: 'We are reviewing your order details and will contact you soon with next steps',
+      progressPercent: 10,
+      estimatedTime: '1-2 business days',
+      nextStep: 'Clinical review completion'
+    },
+    ivr_sent: {
+      color: 'bg-gradient-to-r from-yellow-50 to-amber-50 text-yellow-800 border-yellow-200',
+      icon: FileText,
+      label: 'Documentation Processing',
+      description: 'Insurance verification documents are being processed',
+      patientFriendly: 'Insurance paperwork has been submitted and is being processed by your insurance provider',
+      progressPercent: 35,
+      estimatedTime: '3-5 business days',
+      nextStep: 'Insurance verification'
+    },
+    ivr_verified: {
+      color: 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-green-200',
+      icon: CheckCircle,
+      label: 'Approved & Ready',
+      description: 'Insurance verified and order approved for processing',
+      patientFriendly: 'Great news! Your insurance has been verified and your order is approved for processing',
+      progressPercent: 60,
+      estimatedTime: '1-2 business days',
+      nextStep: 'Order preparation'
+    },
+    sent_to_manufacturer: {
+      color: 'bg-gradient-to-r from-purple-50 to-violet-50 text-purple-800 border-purple-200',
+      icon: Package,
+      label: 'In Production',
+      description: 'Order is being prepared by the manufacturer',
+      patientFriendly: 'Your order is now being carefully prepared by our manufacturing partner',
+      progressPercent: 80,
+      estimatedTime: '5-7 business days',
+      nextStep: 'Quality control & shipping'
+    },
+    tracking_added: {
+      color: 'bg-gradient-to-r from-indigo-50 to-blue-50 text-indigo-800 border-indigo-200',
+      icon: Truck,
+      label: 'Shipped',
+      description: 'Order shipped with tracking information available',
+      patientFriendly: 'Your order has been shipped and is on its way to you',
+      progressPercent: 90,
+      estimatedTime: '2-3 business days',
+      nextStep: 'Delivery'
+    },
+    completed: {
+      color: 'bg-gradient-to-r from-green-50 to-teal-50 text-green-800 border-green-200',
+      icon: CheckCircle,
+      label: 'Delivered',
+      description: 'Order has been successfully completed',
+      patientFriendly: 'Your order has been completed successfully',
+      progressPercent: 100,
+      estimatedTime: 'Complete',
+      nextStep: 'Follow-up care'
+    }
   };
 
-  const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    });
+  // Enhanced IVR status with better patient communication
+  const ivrStatusConfig = {
+    pending: {
+      color: 'bg-gradient-to-r from-gray-50 to-slate-50 text-gray-800 border-gray-200',
+      icon: Clock,
+      label: 'Verification Pending',
+      description: 'Insurance verification is being processed',
+      patientMessage: 'We are working with your insurance provider to verify coverage'
+    },
+    verified: {
+      color: 'bg-gradient-to-r from-green-50 to-emerald-50 text-green-800 border-green-200',
+      icon: ShieldCheck,
+      label: 'Coverage Verified',
+      description: 'Insurance coverage has been confirmed',
+      patientMessage: 'Your insurance coverage has been verified and approved'
+    },
+    expired: {
+      color: 'bg-gradient-to-r from-red-50 to-rose-50 text-red-800 border-red-200',
+      icon: AlertTriangle,
+      label: 'Verification Expired',
+      description: 'Insurance verification needs to be renewed',
+      patientMessage: 'Please contact us to update your insurance verification'
+    },
   };
 
-  const formatDateTime = (dateString) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-    });
+  const orderStatusConfig = {
+    pending_ivr: { color: 'bg-gray-100 text-gray-800', icon: Clock, label: 'Pending IVR' },
+    ivr_sent: { color: 'bg-blue-100 text-blue-800', icon: FileText, label: 'IVR Sent' },
+    ivr_confirmed: { color: 'bg-purple-100 text-purple-800', icon: CheckCircle, label: 'IVR Confirmed' },
+    approved: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Approved' },
+    sent_back: { color: 'bg-orange-100 text-orange-800', icon: AlertTriangle, label: 'Sent Back' },
+    denied: { color: 'bg-red-100 text-red-800', icon: AlertTriangle, label: 'Denied' },
+    submitted_to_manufacturer: { color: 'bg-purple-100 text-purple-800', icon: Package, label: 'Processing' },
+    shipped: { color: 'bg-indigo-100 text-indigo-800', icon: Truck, label: 'Shipped' },
+    delivered: { color: 'bg-green-100 text-green-800', icon: CheckCircle, label: 'Delivered' },
   };
 
-  const toggleSection = (section) => {
-    setExpandedSections(prev => ({
-      ...prev,
-      [section]: !prev[section]
-    }));
-  };
-
-  const getOrderStatusBadge = (status) => {
+  const getOrderStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
     if (!config) return <Badge variant="secondary">{status}</Badge>;
     const Icon = config.icon;
@@ -300,11 +285,6 @@ const ProviderOrderShow = ({ order }) => {
         <span className="font-medium">{config.label}</span>
       </Badge>
     );
-  };
-
-  const copyOrderNumber = () => {
-    navigator.clipboard.writeText(order.order_number);
-    // Add toast notification here
   };
 
   if (!order) return <div>Loading...</div>;
@@ -380,7 +360,7 @@ const ProviderOrderShow = ({ order }) => {
                   {/* Action buttons */}
                   <div className="flex flex-col sm:flex-row gap-3">
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       onClick={copyOrderNumber}
                       className="bg-white/80 hover:bg-white transition-all duration-200"
                     >
@@ -389,7 +369,7 @@ const ProviderOrderShow = ({ order }) => {
                     </Button>
 
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       className="bg-white/80 hover:bg-white transition-all duration-200"
                     >
                       <Download className="w-4 h-4 mr-2" />
@@ -427,11 +407,11 @@ const ProviderOrderShow = ({ order }) => {
                       })}
                       <div>
                         <h3 className="font-semibold text-gray-900">{currentStatus.label}</h3>
-                        <p className="text-sm text-gray-600">{currentStatus.patientFriendly}</p>
+                        <p className="text-sm text-gray-600">{currentStatus.message}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-2xl font-bold text-blue-600">{currentStatus.progressPercent}%</div>
+                      <div className="text-2xl font-bold text-blue-600">{currentStatus.progress}%</div>
                       <div className="text-xs text-gray-500">Complete</div>
                     </div>
                   </div>
@@ -441,7 +421,7 @@ const ProviderOrderShow = ({ order }) => {
                     <div className="w-full bg-gray-200 rounded-full h-2.5">
                       <div
                         className="bg-gradient-to-r from-blue-500 to-indigo-500 h-2.5 rounded-full transition-all duration-1000 shadow-sm"
-                        style={{ width: `${currentStatus.progressPercent}%` }}
+                        style={{ width: `${currentStatus.progress}%` }}
                       ></div>
                     </div>
                   </div>
@@ -449,11 +429,11 @@ const ProviderOrderShow = ({ order }) => {
                   <div className="flex justify-between text-sm">
                     <div className="flex items-center space-x-1 text-gray-600">
                       <Timer className="w-3 h-3" />
-                      <span>Est. Time: {currentStatus.estimatedTime}</span>
+                      <span>Est. Time: {currentStatus.title}</span>
                     </div>
                     <div className="flex items-center space-x-1 text-gray-600">
                       <Target className="w-3 h-3" />
-                      <span>Next: {currentStatus.nextStep}</span>
+                      <span>Next: {currentStatus.title}</span>
                     </div>
                   </div>
                 </div>
@@ -467,7 +447,7 @@ const ProviderOrderShow = ({ order }) => {
                       })}
                       <div>
                         <h4 className="font-medium text-green-900">{currentIvrStatus.label}</h4>
-                        <p className="text-sm text-green-700">{currentIvrStatus.patientMessage}</p>
+                        <p className="text-sm text-green-700">{currentIvrStatus.label}</p>
                       </div>
                     </div>
                   </div>
@@ -624,7 +604,7 @@ const ProviderOrderShow = ({ order }) => {
                         <label className="text-sm font-medium text-gray-500">Episode Status</label>
                         <div className="mt-1">
                           {(() => {
-                            const config = statusConfig[episode.status] || statusConfig.ready_for_review;
+                            const config = statusConfig[episode.status as keyof typeof statusConfig] || statusConfig.ready_for_review;
                             const Icon = config.icon;
                             return (
                               <Badge className={`${config.color} flex items-center space-x-2 px-3 py-1.5 rounded-xl shadow-sm border`}>
@@ -635,7 +615,7 @@ const ProviderOrderShow = ({ order }) => {
                           })()}
                         </div>
                         <p className="text-xs text-gray-600 mt-1">
-                          {statusConfig[episode.status]?.description || 'Episode is being processed'}
+                          {statusConfig[episode.status as keyof typeof statusConfig]?.message || 'Episode is being processed'}
                         </p>
                       </div>
 
@@ -665,7 +645,7 @@ const ProviderOrderShow = ({ order }) => {
                           </Badge>
                         </div>
                         <div className="space-y-2 max-h-32 overflow-y-auto">
-                          {episode.orders.map((relatedOrder) => (
+                          {episode.orders.map((relatedOrder: any) => (
                             <div key={relatedOrder.id}
                                  className="flex items-center justify-between text-sm p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                               <div className="flex items-center space-x-2">
@@ -681,7 +661,7 @@ const ProviderOrderShow = ({ order }) => {
 
                     {/* Action to view full episode */}
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       className="w-full bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700 hover:text-purple-800"
                       onClick={() => window.location.href = `/provider/episodes/${episode.id}`}
                     >
@@ -708,7 +688,7 @@ const ProviderOrderShow = ({ order }) => {
                       <p className="text-sm text-gray-600 mb-4">
                         This is an individual order not part of an episode workflow
                       </p>
-                      <Button variant="outline" size="sm" className="text-gray-600">
+                      <Button variant="secondary" size="sm" className="text-gray-600">
                         <BookOpen className="w-4 h-4 mr-2" />
                         Learn About Episodes
                       </Button>
@@ -778,7 +758,7 @@ const ProviderOrderShow = ({ order }) => {
                       {order.docuseal.signed_documents && order.docuseal.signed_documents.length > 0 && (
                         <div className="space-y-2">
                           <h4 className="text-sm font-medium text-gray-700">Available Documents</h4>
-                          {order.docuseal.signed_documents.map((doc) => (
+                          {order.docuseal.signed_documents.map((doc: any) => (
                             <div key={doc.id} className="group flex items-center justify-between p-3 bg-gray-50 hover:bg-gray-100 rounded-lg transition-colors">
                               <div className="flex items-center space-x-3">
                                 <div className="p-2 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
@@ -828,7 +808,7 @@ const ProviderOrderShow = ({ order }) => {
                       <p className="text-sm text-gray-600 mb-4">
                         Documents will appear here as they become available
                       </p>
-                      <Button variant="outline" size="sm" className="text-gray-600">
+                      <Button variant="secondary" size="sm" className="text-gray-600">
                         <Bell className="w-4 h-4 mr-2" />
                         Notify When Ready
                       </Button>
@@ -847,7 +827,7 @@ const ProviderOrderShow = ({ order }) => {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     className="w-full justify-start bg-blue-50 hover:bg-blue-100 border-blue-200 text-blue-700"
                   >
                     <Phone className="w-4 h-4 mr-3" />
@@ -855,7 +835,7 @@ const ProviderOrderShow = ({ order }) => {
                   </Button>
 
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     className="w-full justify-start bg-green-50 hover:bg-green-100 border-green-200 text-green-700"
                   >
                     <Mail className="w-4 h-4 mr-3" />
@@ -863,7 +843,7 @@ const ProviderOrderShow = ({ order }) => {
                   </Button>
 
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     className="w-full justify-start bg-purple-50 hover:bg-purple-100 border-purple-200 text-purple-700"
                   >
                     <Share2 className="w-4 h-4 mr-3" />
@@ -871,7 +851,7 @@ const ProviderOrderShow = ({ order }) => {
                   </Button>
 
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     className="w-full justify-start bg-orange-50 hover:bg-orange-100 border-orange-200 text-orange-700"
                   >
                     <HelpCircle className="w-4 h-4 mr-3" />
@@ -912,7 +892,7 @@ const ProviderOrderShow = ({ order }) => {
 
                   <div className="grid grid-cols-2 gap-2">
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       className="text-xs bg-yellow-50 hover:bg-yellow-100 border-yellow-200 text-yellow-700"
                     >
@@ -920,7 +900,7 @@ const ProviderOrderShow = ({ order }) => {
                       Rate Experience
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       className="text-xs bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700"
                     >
@@ -936,6 +916,6 @@ const ProviderOrderShow = ({ order }) => {
       </div>
     </MainLayout>
   );
-}
+};
 
 export default ProviderOrderShow;

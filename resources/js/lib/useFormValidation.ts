@@ -102,7 +102,7 @@ export const useFormValidation = (
 
             // Update errors
             if (errors.length > 0) {
-                setFieldError(field, errors[0]);
+                setFieldError(field, errors[0] || '');
                 return false;
             } else {
                 clearFieldError(field);

@@ -31,13 +31,19 @@ interface Product {
   sku: string;
   q_code: string;
   manufacturer: string;
+  manufacturer_id?: number;
   category: string;
   description: string;
   price_per_sq_cm: number;
-  msc_price: number;
-  available_sizes: number[];
+  msc_price?: number;
+  available_sizes?: number[] | string[];  // Support both old and new formats
   image_url?: string;
-  commission_rate: number;
+  commission_rate?: number;
+  docuseal_template_id?: string;
+  signature_required?: boolean;
+  size_options?: string[];
+  size_pricing?: Record<string, number>;
+  size_unit?: string;
 }
 
 interface SelectedProduct {
@@ -81,6 +87,7 @@ interface RoleRestrictions {
   can_see_msc_pricing: boolean;
   can_see_order_totals: boolean;
   pricing_access_level: string;
+  commission_access_level: string;
 }
 
 interface Props {
@@ -122,7 +129,8 @@ const ProductSelector: React.FC<Props> = ({
           can_see_discounts: false,
           can_see_msc_pricing: false,
           can_see_order_totals: false,
-          pricing_access_level: 'national_asp_only'
+          pricing_access_level: 'national_asp_only',
+          commission_access_level: 'none'
         };
       case 'msc_subrep':
         return {
@@ -130,7 +138,8 @@ const ProductSelector: React.FC<Props> = ({
           can_see_discounts: false,
           can_see_msc_pricing: false,
           can_see_order_totals: false,
-          pricing_access_level: 'limited'
+          pricing_access_level: 'limited',
+          commission_access_level: 'none'
         };
       case 'provider':
       case 'msc-rep':
@@ -142,7 +151,8 @@ const ProductSelector: React.FC<Props> = ({
           can_see_discounts: true,
           can_see_msc_pricing: true,
           can_see_order_totals: true,
-          pricing_access_level: 'full'
+          pricing_access_level: 'full',
+          commission_access_level: 'full'
         };
     }
   };
@@ -172,7 +182,7 @@ const ProductSelector: React.FC<Props> = ({
   const getCurrentSelectedProduct = (): Product | null => {
     if (selectedProducts.length === 0) return null;
     const firstProduct = selectedProducts[0];
-    return firstProduct.product || products.find(p => p.id === firstProduct.product_id) || null;
+    return firstProduct?.product || products.find(p => p.id === firstProduct?.product_id) || null;
   };
 
   // Update selected product when selectedProducts changes
@@ -229,8 +239,8 @@ const ProductSelector: React.FC<Props> = ({
       // Extract unique categories and manufacturers
       const uniqueCategories = [...new Set(productsData.map((p: Product) => p.category))];
       const uniqueManufacturers = [...new Set(productsData.map((p: Product) => p.manufacturer))];
-      setCategories(uniqueCategories);
-      setManufacturers(uniqueManufacturers);
+      setCategories(uniqueCategories as string[]);
+      setManufacturers(uniqueManufacturers as string[]);
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -264,7 +274,7 @@ const ProductSelector: React.FC<Props> = ({
 
   const addProductToSelection = (product: Product, quantity: number = 1, size?: string) => {
     // If this is a different product, clear all existing selections
-    if (selectedProducts.length > 0 && selectedProducts[0].product_id !== product.id) {
+    if (selectedProducts.length > 0 && selectedProducts[0]?.product_id !== product.id) {
       onProductsChange([{ product_id: product.id, quantity, size, product }]);
     } else {
       // Check if this size already exists
@@ -275,8 +285,11 @@ const ProductSelector: React.FC<Props> = ({
       if (existingIndex >= 0) {
         // Update existing size/quantity
         const updated = [...selectedProducts];
-        updated[existingIndex] = { ...updated[existingIndex], quantity: updated[existingIndex].quantity + quantity };
-        onProductsChange(updated);
+        const existingItem = updated[existingIndex];
+        if (existingItem) {
+          updated[existingIndex] = { ...existingItem, quantity: existingItem.quantity + quantity };
+          onProductsChange(updated);
+        }
       } else {
         // Add new size/quantity
         onProductsChange([...selectedProducts, { product_id: product.id, quantity, size, product }]);
@@ -817,7 +830,7 @@ const ProductCard: React.FC<{
       <div className="space-y-2 mb-3">
         {/* Use PricingDisplay component for consistent role-based pricing */}
         <PricingDisplay
-          roleRestrictions={roleRestrictions}
+          roleRestrictions={roleRestrictions as RoleRestrictions}
           product={{
             nationalAsp: product.price_per_sq_cm,
             mscPrice: product.msc_price,
@@ -838,7 +851,30 @@ const ProductCard: React.FC<{
       </div>
 
       {/* Size Selection */}
-      {product.available_sizes?.length > 0 && (
+      {(product.size_options && product.size_options.length > 0) ? (
+        <div className="mb-3">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Size ({product.size_unit === 'cm' ? 'cm' : 'inches'})
+          </label>
+          <select
+            value={selectedSize}
+            onChange={(e) => setSelectedSize(e.target.value)}
+            className="w-full text-xs border border-gray-300 rounded-md py-1 px-2 focus:ring-blue-500 focus:border-blue-500"
+            disabled={isDisabled}
+          >
+            <option value="">Select size...</option>
+            {product.size_options.map(size => {
+              const price = product.size_pricing?.[size] || 0;
+              const displayPrice = roleRestrictions.can_see_msc_pricing ? (product.msc_price || price) : price;
+              return (
+                <option key={size} value={size}>
+                  {size}{product.size_unit === 'cm' ? ' cm' : '"'} - {formatPrice(displayPrice)}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+      ) : (product.available_sizes && product.available_sizes.length > 0) ? (
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Size (cm²)
@@ -850,14 +886,18 @@ const ProductCard: React.FC<{
             disabled={isDisabled}
           >
             <option value="">Select size...</option>
-            {product.available_sizes.map(size => (
-              <option key={size} value={size.toString()}>
-                {getProductSizeLabel(product.name, size)} - {formatPrice((roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm) * size)}
-              </option>
-            ))}
+            {product.available_sizes.map(size => {
+              const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
+              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              return (
+                <option key={size} value={size.toString()}>
+                  {getProductSizeLabel(product.name, sizeNum)} - {formatPrice(pricePerUnit * sizeNum)}
+                </option>
+              );
+            })}
           </select>
         </div>
-      )}
+      ) : null}
 
       {/* Quantity Selection */}
       <div className="mb-3">
@@ -883,7 +923,7 @@ const ProductCard: React.FC<{
 
       <button
         onClick={handleAddProduct}
-        disabled={(product.available_sizes?.length > 0 && !selectedSize) || isDisabled}
+        disabled={(((product.size_options && product.size_options.length > 0) || (product.available_sizes && product.available_sizes.length > 0)) && !selectedSize) || isDisabled}
         className={`w-full text-sm font-medium py-2 px-3 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
           isSelected
             ? 'bg-blue-600 text-white hover:bg-blue-700'
@@ -983,7 +1023,7 @@ const AIRecommendationCard: React.FC<{
         {/* Use PricingDisplay component for consistent role-based pricing */}
         <div className="text-xs">
           <PricingDisplay
-            roleRestrictions={roleRestrictions}
+            roleRestrictions={roleRestrictions as RoleRestrictions}
             product={{
               nationalAsp: recommendation.estimated_cost.national_asp,
               mscPrice: recommendation.estimated_cost.msc_price,

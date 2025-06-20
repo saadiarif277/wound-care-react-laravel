@@ -301,7 +301,7 @@ export default function Step2PatientInsurance({
             <input
               type="text"
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_first_name}
+              value={formData.patient_first_name || ''}
               onChange={(e) => updateFormData({ patient_first_name: e.target.value })}
             />
             {errors.patient_first_name && (
@@ -316,7 +316,7 @@ export default function Step2PatientInsurance({
             <input
               type="text"
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_last_name}
+              value={formData.patient_last_name || ''}
               onChange={(e) => updateFormData({ patient_last_name: e.target.value })}
             />
             {errors.patient_last_name && (
@@ -331,7 +331,7 @@ export default function Step2PatientInsurance({
             <input
               type="date"
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_dob}
+              value={formData.patient_dob || ''}
               onChange={(e) => updateFormData({ patient_dob: e.target.value })}
             />
             {errors.patient_dob && (
@@ -345,7 +345,7 @@ export default function Step2PatientInsurance({
             </label>
             <select
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_gender}
+              value={formData.patient_gender || ''}
               onChange={(e) => updateFormData({ patient_gender: e.target.value })}
             >
               <option value="male">Male</option>
@@ -468,7 +468,7 @@ export default function Step2PatientInsurance({
                 className="form-radio text-blue-600"
                 name="subscriber"
                 value="yes"
-                checked={formData.patient_is_subscriber}
+                checked={formData.patient_is_subscriber === true}
                 onChange={(e) => {
                   updateFormData({ patient_is_subscriber: true });
                   setShowCaregiver(false);
@@ -482,7 +482,7 @@ export default function Step2PatientInsurance({
                 className="form-radio text-blue-600"
                 name="subscriber"
                 value="no"
-                checked={!formData.patient_is_subscriber}
+                checked={formData.patient_is_subscriber === false}
                 onChange={(e) => {
                   updateFormData({ patient_is_subscriber: false });
                   setShowCaregiver(true);
@@ -559,7 +559,7 @@ export default function Step2PatientInsurance({
             <input
               type="date"
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.expected_service_date}
+              value={formData.expected_service_date || ''}
               onChange={(e) => updateFormData({ expected_service_date: e.target.value })}
             />
             {errors.expected_service_date && (
@@ -573,7 +573,7 @@ export default function Step2PatientInsurance({
             </label>
             <select
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.shipping_speed}
+              value={formData.shipping_speed || ''}
               onChange={(e) => updateFormData({ shipping_speed: e.target.value })}
             >
               {shippingOptions.map(option => (
@@ -594,7 +594,7 @@ export default function Step2PatientInsurance({
             <input
               type="date"
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-              value={formData.delivery_date}
+              value={formData.delivery_date || ''}
               readOnly
             />
           </div>
@@ -636,7 +636,7 @@ export default function Step2PatientInsurance({
               <input
                 type="text"
                 className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.primary_member_id}
+                value={formData.primary_member_id || ''}
                 onChange={(e) => updateFormData({ primary_member_id: e.target.value })}
                 placeholder="1234567890A"
               />
@@ -670,7 +670,7 @@ export default function Step2PatientInsurance({
               </label>
               <select
                 className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.primary_plan_type}
+                value={formData.primary_plan_type || ''}
                 onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
               >
                 {planTypes.map(type => (
@@ -692,7 +692,7 @@ export default function Step2PatientInsurance({
             <input
               type="checkbox"
               className="form-checkbox h-4 w-4 text-blue-600 rounded"
-              checked={formData.has_secondary_insurance}
+              checked={formData.has_secondary_insurance || false}
               onChange={(e) => updateFormData({ has_secondary_insurance: e.target.checked })}
             />
             <span className="ml-2 text-gray-700 dark:text-gray-300 font-medium">
@@ -804,7 +804,7 @@ export default function Step2PatientInsurance({
             <input
               type="checkbox"
               className="form-checkbox h-4 w-4 text-green-600 rounded"
-              checked={formData.prior_auth_permission}
+              checked={formData.prior_auth_permission || false}
               onChange={(e) => updateFormData({ prior_auth_permission: e.target.checked })}
             />
             <span className="ml-2 text-gray-700 dark:text-gray-300">

@@ -29,8 +29,12 @@ interface Step5Props {
     code: string;
     name: string;
     manufacturer: string;
-    sizes?: string[];
+    manufacturer_id?: number;
+    available_sizes?: number[];
     price_per_sq_cm?: number;
+    msc_price?: number;
+    docuseal_template_id?: string;
+    signature_required?: boolean;
   }>;
   providerProducts?: Record<string, string[]>;
   errors: Record<string, string>;
@@ -98,7 +102,8 @@ export default function Step5ProductSelection({
           can_see_discounts: false,
           can_see_msc_pricing: false,
           can_see_order_totals: false,
-          pricing_access_level: 'national_asp_only'
+          pricing_access_level: 'national_asp_only',
+          commission_access_level: 'none'
         };
       case 'provider':
       default:
@@ -107,7 +112,8 @@ export default function Step5ProductSelection({
           can_see_discounts: true,
           can_see_msc_pricing: true,
           can_see_order_totals: true,
-          pricing_access_level: 'full'
+          pricing_access_level: 'full',
+          commission_access_level: 'full'
         };
     }
   };

@@ -515,6 +515,12 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/', [\App\Http\Controllers\QuickRequestController::class, 'store'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
+
+        // DocuSeal IVR Integration
+        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocuSealIVR'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.prepare-docuseal-ivr');
+
         // Test route - disabled in production
         // Route::get('/test-azure', function() {
         //     return Inertia::render('QuickRequest/Components/TestInsuranceCard');
@@ -1000,6 +1006,14 @@ Route::middleware(['auth'])->group(function () {
     // Create QuickRequest DocuSeal submission for IVR forms
     Route::post('/quickrequest/docuseal/create-submission', [\App\Http\Controllers\DocuSealSubmissionController::class, 'createSubmission'])
         ->name('quickrequest.docuseal.create-submission');
+
+    // Generate JWT token for DocuSeal builder
+    Route::post('/quickrequest/docuseal/generate-builder-token', [\App\Http\Controllers\QuickRequestController::class, 'generateBuilderToken'])
+        ->name('quickrequest.docuseal.generate-builder-token');
+
+    // Create final submission form with all QuickRequest data
+    Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
+        ->name('quickrequest.docuseal.create-final-submission');
 
     // Check DocuSeal submission status
     Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])

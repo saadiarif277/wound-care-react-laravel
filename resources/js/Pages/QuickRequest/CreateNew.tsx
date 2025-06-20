@@ -9,7 +9,7 @@ import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
-import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
+import Step7FinalSubmission from './Components/Step7FinalSubmission';
 import { getManufacturerByProduct } from './manufacturerFields';
 
 interface QuickRequestFormData {
@@ -250,7 +250,8 @@ function QuickRequestCreateNew({
     { title: 'Patient & Insurance', icon: FiPackage, estimatedTime: '30 seconds' },
     { title: 'Clinical & Billing', icon: FiActivity, estimatedTime: '20 seconds' },
     { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '15 seconds' },
-    { title: 'Review & Submit', icon: FiFileText, estimatedTime: '20 seconds' }
+    { title: 'Review & Confirm', icon: FiCheck, estimatedTime: '10 seconds' },
+    { title: 'Final Submission', icon: FiFileText, estimatedTime: '30 seconds' }
   ];
 
   const handleNext = () => {
@@ -329,9 +330,14 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 4: // Review & Submit
+      case 4: // Review & Confirm
         // No specific validation needed for review step
         // All validations from previous steps should be complete
+        break;
+
+      case 5: // Final Submission
+        // No specific validation needed for final submission step
+        // DocuSeal form will handle its own validation
         break;
     }
 
@@ -528,6 +534,18 @@ function QuickRequestCreateNew({
                 errors={errors}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
+              />
+            )}
+
+            {currentSection === 5 && (
+              <Step7FinalSubmission
+                formData={formData}
+                updateFormData={updateFormData}
+                products={products}
+                providers={providers}
+                facilities={facilities}
+                errors={errors}
+                onSubmit={handleSubmit}
               />
             )}
           </div>

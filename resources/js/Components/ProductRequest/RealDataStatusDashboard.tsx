@@ -4,15 +4,15 @@ import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Clock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Clock,
   CheckCircle,
   Package,
   Truck,
   FileText,
-  XCircle 
+  XCircle
 } from 'lucide-react';
 
 interface RealStatusCardProps {
@@ -86,7 +86,7 @@ const RealStatusCard: React.FC<RealStatusCardProps> = ({
         textColor: 'text-gray-400'
       }
     };
-    return configs[status] || configs.draft;
+    return configs[status as keyof typeof configs] || configs.draft;
   };
 
   const config = getStatusConfig(status);
@@ -101,14 +101,14 @@ const RealStatusCard: React.FC<RealStatusCardProps> = ({
     >
       {/* Animated background gradient */}
       <div className={`absolute inset-0 bg-gradient-to-br ${config.color} opacity-5 group-hover:opacity-10 transition-opacity duration-300`} />
-      
+
       <div className="relative p-5">
         {/* Header with icon and trend */}
         <div className="flex items-center justify-between mb-3">
           <div className={`p-2 rounded-xl bg-gradient-to-br ${config.color} bg-opacity-20 ${config.textColor}`}>
             {config.icon}
           </div>
-          
+
           {/* Real trend indicator (only show if we have real data) */}
           {trend !== undefined && trend !== 0 && (
             <div className={`flex items-center space-x-1 ${
@@ -132,7 +132,7 @@ const RealStatusCard: React.FC<RealStatusCardProps> = ({
           <p className={`text-3xl font-bold ${t.text.primary} group-hover:${config.textColor} transition-colors duration-300`}>
             {count}
           </p>
-          
+
           {/* Show trend description if we have real data */}
           {trend !== undefined && trend !== 0 && (
             <p className={`text-xs ${trend > 0 ? 'text-green-400' : 'text-red-400'}`}>
@@ -143,9 +143,9 @@ const RealStatusCard: React.FC<RealStatusCardProps> = ({
 
         {/* Progress bar showing relative volume */}
         <div className="mt-4 w-full bg-white/5 rounded-full h-1.5 overflow-hidden">
-          <div 
+          <div
             className={`h-full bg-gradient-to-r ${config.color} transition-all duration-1000 ease-out`}
-            style={{ 
+            style={{
               width: `${Math.min((count / Math.max(count, 10)) * 100, 100)}%` // Responsive to actual data
             }}
           />
@@ -159,13 +159,13 @@ const RealStatusCard: React.FC<RealStatusCardProps> = ({
 };
 
 // Usage component with real data calculations
-export const RealDataStatusDashboard: React.FC<{ 
+export const RealDataStatusDashboard: React.FC<{
   statusOptions: Array<{ value: string; label: string; count: number; trend?: number }>;
   onStatusFilter: (status: string) => void;
   activeFilter?: string;
   totalRequests?: number;
 }> = ({ statusOptions, onStatusFilter, activeFilter, totalRequests }) => {
-  
+
   // Calculate max count for progress bars
   const maxCount = Math.max(...statusOptions.map(s => s.count), 1);
 

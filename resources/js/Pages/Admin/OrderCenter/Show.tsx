@@ -791,6 +791,7 @@ const OrderShow: React.FC<OrderShowProps> = ({
           </div>
         </div>
       </div>
+    </div>
 
       {/* IVR Generation Modal */}
       {showIvrModal && (

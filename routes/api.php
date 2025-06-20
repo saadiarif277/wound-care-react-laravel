@@ -218,10 +218,14 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
 
     // Order submissions
     Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
+    
+    // Get manufacturer template fields
+    Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])->name('manufacturer.fields');
 });
 
 // DocuSeal Webhook (no auth required for external webhooks)
 Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
+Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])->name('docuseal.webhook.quickrequest');
 
 // eClinicalWorks Integration Routes
 Route::prefix('ecw')->name('ecw.')->group(function () {
@@ -545,6 +549,13 @@ Route::middleware(['web'])->group(function () {
 Route::middleware(['web'])->group(function () {
     Route::get('/payers/search', [\App\Http\Controllers\PayerController::class, 'search'])
         ->name('api.payers.search');
+});
+
+// Quick Request API Routes (for providers)
+Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
+    // Get manufacturer template fields for QuickRequest
+    Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])
+        ->middleware('permission:create-product-requests');
 });
 
 // Fallback Route for 404 API requests

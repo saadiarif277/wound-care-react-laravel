@@ -159,7 +159,7 @@ export function OrderTotalDisplay({ roleRestrictions, total, amountOwed, discoun
         </div>
       )}
 
-      {discount !== undefined && discount > 0 && roleRestrictions.can_see_discounts && (
+      {discount !== undefined && Number(discount) > 0 && roleRestrictions.can_see_discounts && (
         <div className="flex justify-between mt-1">
           <span className="text-gray-600">Discount:</span>
           <span className="font-semibold text-green-600">-${formatCurrency(discount)}</span>

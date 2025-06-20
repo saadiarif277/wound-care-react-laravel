@@ -2,90 +2,251 @@
 
 namespace App\Services;
 
-use App\Models\Order\Order;
+use App\Models\PatientManufacturerIVREpisode;
+use App\Models\Order\Manufacturer;
 use App\Models\Docuseal\DocusealTemplate;
-use App\Models\Docuseal\DocusealSubmission;
-use App\Models\Docuseal\DocusealFolder;
-use Docuseal\Api as DocusealApi;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
-use GuzzleHttp\Client as HttpClient;
-use Exception;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Http\Request;
-use App\Services\FhirService;
+use Illuminate\Support\Facades\Log;
 
-class DocusealService
+class DocuSealService
 {
-    private DocusealApi $docusealApi;
-    protected $apiUrl;
     protected $apiKey;
+    protected $apiUrl;
 
     public function __construct()
     {
-        // Configuration validation guard
-        $apiKey = config('services.docuseal.api_key');
-        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-
-        if (empty($apiKey)) {
-            throw new Exception('DocuSeal API key is not configured. Please set DOCUSEAL_API_KEY in your environment.');
-        }
-
-        $this->docusealApi = new DocusealApi($apiKey, $apiUrl);
-        $this->apiUrl = $apiUrl;
-        $this->apiKey = $apiKey;
+        $this->apiKey = config('services.docuseal.api_key');
+        $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
     }
 
     /**
-     * Generate documents for an approved order
+     * Create a submission from QuickRequest data
      */
-    public function generateDocumentsForOrder(Order $order): array
+    public function createIVRSubmission(array $quickRequestData, PatientManufacturerIVREpisode $episode)
+    {
+        // Get manufacturer and find the IVR template
+        $manufacturer = Manufacturer::find($episode->manufacturer_id);
+
+        if (!$manufacturer) {
+            throw new \Exception('Manufacturer not found');
+        }
+
+        // Get the IVR template from database
+        $template = $manufacturer->ivrTemplate();
+
+        if (!$template) {
+            throw new \Exception("No active IVR template found for manufacturer: {$manufacturer->name}");
+        }
+
+        // Map universal fields to DocuSeal format using template field mappings
+        $mappedFields = $this->mapFieldsUsingTemplate($quickRequestData, $template);
+
+        $submissionData = [
+            'template_id' => $template->docuseal_template_id,
+            'send_email' => false, // We'll embed it instead
+            'submitters' => [[
+                'role' => 'Provider',
+                'email' => auth()->user()->email,
+                'fields' => $mappedFields
+            ]]
+        ];
+
+        try {
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Update episode with DocuSeal info
+                $episode->update([
+                    'docuseal_submission_id' => $data['id'],
+                    'docuseal_submission_url' => $data['submitters'][0]['embed_url'] ?? null,
+                    'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                    'metadata' => array_merge($episode->metadata ?? [], [
+                        'docuseal_template_id' => $template->docuseal_template_id,
+                        'template_name' => $template->name,
+                    ])
+                ]);
+
+                return [
+                    'success' => true,
+                    'submission_id' => $data['id'],
+                    'embed_url' => $data['submitters'][0]['embed_url'] ?? null
+                ];
+            }
+
+            throw new \Exception('DocuSeal API error: ' . $response->body());
+
+        } catch (\Exception $e) {
+            Log::error('DocuSeal submission creation failed', [
+                'error' => $e->getMessage(),
+                'episode_id' => $episode->id
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Map fields using template's stored field mappings
+     */
+    protected function mapFieldsUsingTemplate(array $data, \App\Models\Docuseal\DocusealTemplate $template): array
+    {
+        $fieldMappings = $template->field_mappings ?? [];
+        $mappedFields = [];
+
+        // Get the universal mappings from config as fallback
+        $universalMappings = $this->getUniversalMappings();
+
+        foreach ($fieldMappings as $docusealFieldName => $mapping) {
+            // Get the local field path
+            $localFieldPath = $mapping['local_field'] ?? $mapping['system_field'] ?? null;
+
+            if ($localFieldPath) {
+                $value = $this->getNestedValue($data, $localFieldPath);
+                if ($value !== null) {
+                    $mappedFields[$docusealFieldName] = $value;
+                }
+            }
+        }
+
+        // Also check universal mappings for any missed fields
+        $manufacturerName = $this->normalizeManufacturerName($template->manufacturer->name ?? '');
+        $fallbackMappings = $universalMappings[$manufacturerName] ?? [];
+
+        foreach ($fallbackMappings as $universalPath => $docusealFieldName) {
+            if (!isset($mappedFields[$docusealFieldName])) {
+                $value = $this->getNestedValue($data, $universalPath);
+                if ($value !== null) {
+                    $mappedFields[$docusealFieldName] = $value;
+                }
+            }
+        }
+
+        Log::info('Mapped fields for DocuSeal submission', [
+            'template_id' => $template->id,
+            'total_mappings' => count($fieldMappings),
+            'fields_mapped' => count($mappedFields),
+            'field_names' => array_keys($mappedFields)
+        ]);
+
+        return $mappedFields;
+    }
+
+    /**
+     * Get value from nested array using dot notation
+     */
+    protected function getNestedValue(array $data, string $path)
+    {
+        $keys = explode('.', $path);
+        $value = $data;
+
+        foreach ($keys as $key) {
+            if (!isset($value[$key])) {
+                return null;
+            }
+            $value = $value[$key];
+        }
+
+        return $value;
+    }
+    /**
+     * Normalize manufacturer name for consistency
+     */
+    protected function normalizeManufacturerName(string $name): string
+    {
+        $normalized = str_replace([' ', '-', '_'], '', strtolower($name));
+
+        $mappings = [
+            'acz' => 'ACZ',
+            'aczdistribution' => 'ACZ',
+            'advancedhealth' => 'Advanced Health',
+            'advancedsolution' => 'Advanced Health',
+            'medlife' => 'MedLife',
+            'medlifesolutions' => 'MedLife',
+            'biowound' => 'BioWound',
+        ];
+
+        return $mappings[$normalized] ?? $name;
+    }
+
+    /**
+     * Get universal field mappings
+     */
+    protected function getUniversalMappings(): array
+    {
+        // This should match your UNIVERSAL_IVR_FORM.md mappings
+        return [
+            'ACZ' => [
+                'requestInfo.salesRepName' => 'REPRESENTATIVE NAME',
+                'physicianInfo.physicianName' => 'PHYSICIAN NAME',
+                'physicianInfo.physicianNPI' => 'NPI',
+                'physicianInfo.physicianTaxID' => 'TAX ID',
+                'facilityInfo.facilityName' => 'FACILITY NAME',
+                'facilityInfo.facilityAddressLine1' => 'FACILITY ADDRESS',
+                'patientInfo.patientName' => 'PATIENT NAME',
+                'patientInfo.patientDOB' => 'PATIENT DOB',
+                // Add all other mappings from your UNIVERSAL_IVR_FORM.md
+            ],
+            // Add other manufacturers...
+        ];
+    }
+
+    /**
+     * Create a submission for QuickRequest IVR
+     */
+    public function createQuickRequestSubmission(string $templateId, array $submitterData)
     {
         try {
-            $submissions = [];
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => $submitterData['send_email'] ?? false,
+                'submitters' => [[
+                    'role' => 'Signer',
+                    'email' => $submitterData['email'],
+                    'name' => $submitterData['name'],
+                    'fields' => $submitterData['fields'] ?? []
+                ]]
+            ];
 
-            // Get PHI data from FHIR service
-            $phiData = $this->getOrderPHIData($order);
-
-            // Generate Insurance Verification Form
-            $insuranceSubmission = $this->generateInsuranceVerificationForm($order, $phiData);
-            if ($insuranceSubmission) {
-                $submissions[] = $insuranceSubmission;
+            // Add external ID if provided (for episode linking)
+            if (!empty($submitterData['external_id'])) {
+                $submissionData['external_id'] = $submitterData['external_id'];
             }
 
-            // Generate Order Form
-            $orderSubmission = $this->generateOrderForm($order, $phiData);
-            if ($orderSubmission) {
-                $submissions[] = $orderSubmission;
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                Log::info('DocuSeal submission created successfully', [
+                    'submission_id' => $data['id'],
+                    'template_id' => $templateId,
+                    'external_id' => $submitterData['external_id'] ?? null
+                ]);
+
+                return [
+                    'submission_id' => $data['id'],
+                    'signing_url' => $data['submitters'][0]['embed_url'] ?? $data['submitters'][0]['sign_url'] ?? null,
+                    'status' => $data['status'] ?? 'pending'
+                ];
             }
 
-            // Generate Onboarding Form (if needed)
-            $onboardingSubmission = $this->generateOnboardingForm($order, $phiData);
-            if ($onboardingSubmission) {
-                $submissions[] = $onboardingSubmission;
-            }
+            throw new \Exception('DocuSeal API error: ' . $response->body());
 
-            // Update order status
-            $order->update([
-                'docuseal_generation_status' => 'completed',
-                'documents_generated_at' => now(),
-            ]);
-
-            Log::info('DocuSeal documents generated successfully', [
-                'order_id' => $order->id,
-                'submissions_count' => count($submissions)
-            ]);
-
-            return $submissions;
-
-        } catch (Exception $e) {
-            Log::error('Failed to generate DocuSeal documents', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage()
-            ]);
-
-            $order->update([
-                'docuseal_generation_status' => 'failed',
+        } catch (\Exception $e) {
+            Log::error('DocuSeal submission creation failed', [
+                'error' => $e->getMessage(),
+                'template_id' => $templateId
             ]);
 
             throw $e;
@@ -93,820 +254,98 @@ class DocusealService
     }
 
     /**
-     * Generate Insurance Verification Form
+     * Get submission details
      */
-    public function generateInsuranceVerificationForm(Order $order, array $phiData): ?DocusealSubmission
-    {
-        $template = DocusealTemplate::getDefaultTemplate('InsuranceVerification');
-
-        if (!$template) {
-            Log::warning('No default InsuranceVerification template found');
-            return null;
-        }
-
-        $submissionData = [
-            'template_id' => $template->docuseal_template_id,
-            'send_email' => false, // We'll manage this manually
-            'submitters' => [
-                [
-                    'role' => 'Provider',
-                    'email' => 'noreply@mscwound.com', // Placeholder - we'll update with actual provider email
-                    'name' => $phiData['provider_name'] ?? 'Provider',
-                ]
-            ],
-            'fields' => $this->mapInsuranceVerificationFields($order, $phiData),
-        ];
-
-        return $this->createSubmission($template->docuseal_template_id, $submissionData);
-    }
-
-    /**
-     * Generate Order Form
-     */
-    public function generateOrderForm(Order $order, array $phiData): ?DocusealSubmission
-    {
-        $template = DocusealTemplate::getDefaultTemplate('OrderForm');
-
-        if (!$template) {
-            Log::warning('No default OrderForm template found');
-            return null;
-        }
-
-        $submissionData = [
-            'template_id' => $template->docuseal_template_id,
-            'send_email' => false,
-            'submitters' => [
-                [
-                    'role' => 'Provider',
-                    'email' => 'noreply@mscwound.com',
-                    'name' => $phiData['provider_name'] ?? 'Provider',
-                ]
-            ],
-            'fields' => $this->mapOrderFormFields($order, $phiData),
-        ];
-
-        return $this->createSubmission($template->docuseal_template_id, $submissionData);
-    }
-
-    /**
-     * Generate Onboarding Form
-     */
-    public function generateOnboardingForm(Order $order, array $phiData): ?DocusealSubmission
-    {
-        // Only generate onboarding form if it's a new provider
-        if (!$this->isNewProvider($order)) {
-            return null;
-        }
-
-        $template = DocusealTemplate::getDefaultTemplate('OnboardingForm');
-
-        if (!$template) {
-            Log::warning('No default OnboardingForm template found');
-            return null;
-        }
-
-        $submissionData = [
-            'template_id' => $template->docuseal_template_id,
-            'send_email' => false,
-            'submitters' => [
-                [
-                    'role' => 'Provider',
-                    'email' => 'noreply@mscwound.com',
-                    'name' => $phiData['provider_name'] ?? 'Provider',
-                ]
-            ],
-            'fields' => $this->mapOnboardingFormFields($order, $phiData),
-        ];
-
-        return $this->createSubmission($template->docuseal_template_id, $submissionData);
-    }
-
-    /**
-     * Get submission status from DocuSeal
-     */
-    public function getSubmissionStatus(string $docusealSubmissionId): array
+    public function getSubmission(string $submissionId)
     {
         try {
             $response = Http::withHeaders([
                 'X-Auth-Token' => $this->apiKey,
-            ])->get("{$this->apiUrl}/submissions/{$docusealSubmissionId}");
-            return $response->json();
-        } catch (Exception $e) {
-            Log::error('Failed to get DocuSeal submission status', [
-                'submission_id' => $docusealSubmissionId,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
+            ])->get("{$this->apiUrl}/submissions/{$submissionId}");
 
-    /**
-     * Download completed document
-     */
-    public function downloadDocument(string $docusealSubmissionId): string
-    {
-        try {
-            $documents = $this->docusealApi->getSubmissionDocuments($docusealSubmissionId);
-
-            if (empty($documents)) {
-                throw new Exception('No documents found for submission');
+            if ($response->successful()) {
+                return $response->json();
             }
 
-            // Return the first document URL
-            return $documents[0]['url'] ?? '';
-        } catch (Exception $e) {
-            Log::error('Failed to download DocuSeal document', [
-                'submission_id' => $docusealSubmissionId,
-                'error' => $e->getMessage()
+            throw new \Exception('Failed to get submission: ' . $response->body());
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get DocuSeal submission', [
+                'error' => $e->getMessage(),
+                'submission_id' => $submissionId
             ]);
+
             throw $e;
         }
     }
 
     /**
-     * Create a DocuSeal submission
+     * Create a generic submission for any template
      */
-    private function createSubmission(Order $order, DocusealTemplate $template, string $documentType, array $submissionData): DocusealSubmission
+    public function createSubmission(array $submissionData)
     {
         try {
-            // Create submission in DocuSeal
-            $response = $this->docusealApi->createSubmission($submissionData);
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
 
-            // Get folder ID for manufacturer
-            $folderId = $this->getManufacturerFolderId($order);
+            if ($response->successful()) {
+                $data = $response->json();
 
-            // Create local submission record
-            $submission = DocusealSubmission::create([
-                'order_id' => $order->id,
-                'docuseal_submission_id' => $response['id'],
-                'docuseal_template_id' => $template->docuseal_template_id,
-                'document_type' => $documentType,
-                'status' => 'pending',
-                'folder_id' => $folderId,
-                'signing_url' => $response['submitters'][0]['slug'] ?? null,
-                'metadata' => [
-                    'template_name' => $template->template_name,
-                    'created_at' => now()->toISOString(),
-                    'submission_id' => $response['id'], // Only store essential non-PHI data
-                ],
-            ]);
-
-            Log::info('DocuSeal submission created', [
-                'order_id' => $order->id,
-                'submission_id' => $submission->id,
-                'docuseal_submission_id' => $response['id'],
-                'document_type' => $documentType,
-            ]);
-
-            return $submission;
-
-        } catch (Exception $e) {
-            Log::error('Failed to create DocuSeal submission', [
-                'order_id' => $order->id,
-                'document_type' => $documentType,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get PHI data from FHIR service
-     */
-    private function getOrderPHIData(Order $order): array
-    {
-        try {
-            $fhirService = new FhirService();
-
-            // Get patient data from FHIR if we have a patient FHIR ID
-            $patientData = [];
-            if ($order->patient_fhir_id) {
-                $fhirPatient = $fhirService->getPatient($order->patient_fhir_id);
-
-                if ($fhirPatient) {
-                    // Extract patient name
-                    $patientName = '';
-                    if (isset($fhirPatient['name'][0])) {
-                        $name = $fhirPatient['name'][0];
-                        $given = implode(' ', $name['given'] ?? []);
-                        $family = $name['family'] ?? '';
-                        $patientName = trim("$given $family");
-                    }
-
-                    // Extract patient DOB
-                    $patientDob = $fhirPatient['birthDate'] ?? '';
-
-                    // Extract patient address
-                    $patientAddress = '';
-                    if (isset($fhirPatient['address'][0])) {
-                        $addr = $fhirPatient['address'][0];
-                        $lines = implode(' ', $addr['line'] ?? []);
-                        $city = $addr['city'] ?? '';
-                        $state = $addr['state'] ?? '';
-                        $postal = $addr['postalCode'] ?? '';
-                        $patientAddress = trim("$lines, $city, $state $postal");
-                    }
-
-                    // Extract patient phone
-                    $patientPhone = '';
-                    if (isset($fhirPatient['telecom'])) {
-                        foreach ($fhirPatient['telecom'] as $telecom) {
-                            if ($telecom['system'] === 'phone') {
-                                $patientPhone = $telecom['value'] ?? '';
-                                break;
-                            }
-                        }
-                    }
-
-                    // Extract patient email
-                    $patientEmail = '';
-                    if (isset($fhirPatient['telecom'])) {
-                        foreach ($fhirPatient['telecom'] as $telecom) {
-                            if ($telecom['system'] === 'email') {
-                                $patientEmail = $telecom['value'] ?? '';
-                                break;
-                            }
-                        }
-                    }
-
-                    $patientData = [
-                        'patient_name' => $patientName,
-                        'patient_dob' => $patientDob,
-                        'patient_address' => $patientAddress,
-                        'patient_phone' => $patientPhone,
-                        'patient_email' => $patientEmail,
+                // DocuSeal API returns an array of submitters, extract submission info
+                if (is_array($data) && !empty($data)) {
+                    $firstSubmitter = $data[0];
+                    return [
+                        'id' => $firstSubmitter['submission_id'] ?? $firstSubmitter['id'],
+                        'submission_id' => $firstSubmitter['submission_id'] ?? $firstSubmitter['id'],
+                        'submitter_id' => $firstSubmitter['id'],
+                        'status' => $firstSubmitter['status'] ?? 'pending',
+                        'submitters' => $data
                     ];
                 }
+
+                // If it's not an array, return as-is (might be direct submission object)
+                return $data;
             }
 
-            // Get provider data
-            $provider = $order->provider;
-            $providerName = $provider ? $provider->full_name : 'Unknown Provider';
-            $providerNpi = $provider && $provider->providerProfile ? $provider->providerProfile->npi : '';
-
-            // Get insurance data from order
-            $insurancePlan = $order->insurance_plan ?? 'Unknown Plan';
-            $memberId = $order->member_id ?? '';
-
-            // Merge all data
-            return array_merge($patientData, [
-                'provider_name' => $providerName,
-                'provider_npi' => $providerNpi,
-                'facility_name' => $order->facility->name ?? 'Unknown Facility',
-                'insurance_plan' => $insurancePlan,
-                'member_id' => $memberId,
-            ]);
+            throw new \Exception('DocuSeal API error: ' . $response->body());
 
         } catch (\Exception $e) {
-            Log::error('Failed to get FHIR patient data', [
-                'order_id' => $order->id,
-                'patient_fhir_id' => $order->patient_fhir_id,
-                'error' => $e->getMessage()
+            Log::error('DocuSeal submission creation failed', [
+                'error' => $e->getMessage(),
+                'submission_data' => $submissionData
             ]);
-
-            // Return fallback data if FHIR fails
-            return [
-                'patient_name' => 'Patient Name',
-                'patient_dob' => '',
-                'patient_address' => '',
-                'patient_phone' => '',
-                'patient_email' => '',
-                'provider_name' => $order->provider->full_name ?? 'Unknown Provider',
-                'provider_npi' => $order->provider->providerProfile->npi ?? '',
-                'facility_name' => $order->facility->name ?? 'Unknown Facility',
-                'insurance_plan' => $order->insurance_plan ?? '',
-                'member_id' => $order->member_id ?? '',
-            ];
+            throw $e;
         }
     }
 
     /**
-     * Map fields for Insurance Verification form
+     * Generate embed URL for a submission
      */
-    private function mapInsuranceVerificationFields(Order $order, array $phiData): array
-    {
-        return [
-            [
-                'name' => 'patient_name',
-                'default_value' => $phiData['patient_name'] ?? ''
-            ],
-            [
-                'name' => 'patient_dob',
-                'default_value' => $phiData['patient_dob'] ?? ''
-            ],
-            [
-                'name' => 'member_id',
-                'default_value' => $phiData['member_id'] ?? ''
-            ],
-            [
-                'name' => 'insurance_plan',
-                'default_value' => $phiData['insurance_plan'] ?? ''
-            ],
-            [
-                'name' => 'provider_name',
-                'default_value' => $phiData['provider_name'] ?? ''
-            ],
-            [
-                'name' => 'provider_npi',
-                'default_value' => $phiData['provider_npi'] ?? ''
-            ],
-            [
-                'name' => 'order_date',
-                'default_value' => $order->date_of_service?->format('Y-m-d') ?? ''
-            ],
-        ];
-    }
-
-    /**
-     * Map fields for Order form
-     */
-    private function mapOrderFormFields(Order $order, array $phiData): array
-    {
-        return [
-            [
-                'name' => 'order_number',
-                'default_value' => $order->order_number ?? ''
-            ],
-            [
-                'name' => 'patient_name',
-                'default_value' => $phiData['patient_name'] ?? ''
-            ],
-            [
-                'name' => 'provider_name',
-                'default_value' => $phiData['provider_name'] ?? ''
-            ],
-            [
-                'name' => 'facility_name',
-                'default_value' => $phiData['facility_name'] ?? ''
-            ],
-            [
-                'name' => 'total_amount',
-                'default_value' => '$' . number_format($order->total_amount ?? 0, 2)
-            ],
-            [
-                'name' => 'date_of_service',
-                'default_value' => $order->date_of_service?->format('Y-m-d') ?? ''
-            ],
-        ];
-    }
-
-    /**
-     * Map fields for Onboarding form
-     */
-    private function mapOnboardingFormFields(Order $order, array $phiData): array
-    {
-        return [
-            [
-                'name' => 'provider_name',
-                'default_value' => $phiData['provider_name'] ?? ''
-            ],
-            [
-                'name' => 'provider_npi',
-                'default_value' => $phiData['provider_npi'] ?? ''
-            ],
-            [
-                'name' => 'facility_name',
-                'default_value' => $phiData['facility_name'] ?? ''
-            ],
-            [
-                'name' => 'facility_address',
-                'default_value' => '' // Remove PHI leakage - get from facility data instead
-            ],
-        ];
-    }
-
-    /**
-     * Check if this is a new provider
-     */
-    private function isNewProvider(Order $order): bool
+    public function generateEmbedUrl(string $submissionId): string
     {
         try {
-            if (!$order->provider_id) {
-                return false;
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/submissions/{$submissionId}/embed_url");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['embed_url'] ?? "{$this->apiUrl}/embed/{$submissionId}";
             }
 
-            // Check if provider has completed onboarding documents
-            $hasCompletedOnboarding = DocusealSubmission::where('provider_id', $order->provider_id)
-                ->where('document_type', 'onboarding')
-                ->where('status', 'completed')
-                ->exists();
-
-            if ($hasCompletedOnboarding) {
-                return false;
-            }
-
-            // Check if provider has completed any orders before
-            $hasCompletedOrders = Order::where('provider_id', $order->provider_id)
-                ->where('id', '!=', $order->id)
-                ->whereIn('status', ['shipped', 'delivered', 'completed'])
-                ->exists();
-
-            // If no completed orders and no onboarding docs, they're new
-            return !$hasCompletedOrders;
+            // Fallback to direct embed URL
+            return "{$this->apiUrl}/embed/{$submissionId}";
 
         } catch (\Exception $e) {
-            Log::error('Failed to check if provider is new', [
-                'order_id' => $order->id,
-                'provider_id' => $order->provider_id,
-                'error' => $e->getMessage()
-            ]);
-
-            // Default to not requiring onboarding if check fails
-            return false;
-        }
-    }
-
-    /**
-     * Get manufacturer folder ID
-     */
-    private function getManufacturerFolderId(Order $order): string
-    {
-        try {
-            // Get manufacturer from order items
-            $manufacturers = $order->orderItems()
-                ->join('msc_products', 'order_items.product_id', '=', 'msc_products.id')
-                ->join('manufacturers', 'msc_products.manufacturer_id', '=', 'manufacturers.id')
-                ->pluck('manufacturers.name')
-                ->unique();
-
-            if ($manufacturers->isEmpty()) {
-                Log::warning('No manufacturer found for order', ['order_id' => $order->id]);
-                return 'default-folder';
-            }
-
-            // If multiple manufacturers, use the first one
-            $manufacturerName = $manufacturers->first();
-
-            // Get folder from DocuSeal folders table
-            $folder = DocusealFolder::where('name', 'like', "%{$manufacturerName}%")
-                ->orWhere('folder_name', 'like', "%{$manufacturerName}%")
-                ->first();
-
-            if ($folder) {
-                return $folder->folder_id;
-            }
-
-            // If no specific folder found, try to find a general manufacturer folder
-            $generalFolder = DocusealFolder::where('name', 'Manufacturers')
-                ->orWhere('folder_name', 'Manufacturers')
-                ->first();
-
-            return $generalFolder ? $generalFolder->folder_id : 'default-folder';
-
-        } catch (\Exception $e) {
-            Log::error('Failed to determine manufacturer folder', [
-                'order_id' => $order->id,
-                'error' => $e->getMessage()
-            ]);
-            return 'default-folder';
-        }
-    }
-
-    /**
-     * Create a QuickRequest IVR submission using embedded text field tags
-     */
-    public function createQuickRequestSubmission(string $templateId, array $submissionData): array
-    {
-        $apiKey = config('services.docuseal.api_key');
-        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-
-        if (!$apiKey) {
-            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
-        }
-
-        try {
-            // Prepare fields for embedded text field tags
-            $fields = $this->prepareEmbeddedFields($submissionData['fields'] ?? []);
-
-            // Create submission payload for DocuSeal API
-            $payload = [
-                'template_id' => $templateId,
-                'send_email' => $submissionData['send_email'] ?? false,
-                'submitters' => [
-                    [
-                        'role' => 'Provider',
-                        'email' => $submissionData['email'],
-                        'name' => $submissionData['name'],
-                        'send_email' => $submissionData['send_email'] ?? false,
-                        'send_sms' => false,
-                        // Pre-fill embedded field values
-                        'values' => $fields,
-                        // Include external_id if provided
-                        'external_id' => $submissionData['external_id'] ?? null,
-                    ]
-                ],
-                'expire_after' => 7, // Days until expiration
-            ];
-
-            // Make direct HTTP request to DocuSeal API
-            $client = new HttpClient();
-            $response = $client->post($apiUrl . '/submissions', [
-                'headers' => [
-                    'X-Auth-Token' => $apiKey,
-                    'Content-Type' => 'application/json',
-                    'Accept' => 'application/json',
-                ],
-                'json' => $payload,
-                'timeout' => 30
-            ]);
-
-            $responseData = json_decode($response->getBody()->getContents(), true);
-
-            if (!$responseData || !isset($responseData['id'])) {
-                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
-            }
-
-            // Extract submission ID and signing URL
-            $submissionId = $responseData['id'];
-            $signingSlug = $responseData['submitters'][0]['slug'] ?? null;
-
-            if (!$submissionId || !$signingSlug) {
-                throw new Exception('Missing submission ID or signing slug in DocuSeal response');
-            }
-
-            // Convert slug to full URL
-            $signingUrl = "https://docuseal.com/s/{$signingSlug}";
-
-            Log::info('QuickRequest DocuSeal submission created with embedded fields', [
-                'submission_id' => $submissionId,
-                'template_id' => $templateId,
-                'fields_count' => count($fields),
-                'field_names' => array_keys($fields),
-                'signing_url' => $signingUrl,
-            ]);
-
-            return [
-                'submission_id' => $submissionId,
-                'signing_url' => $signingUrl,
-            ];
-
-        } catch (\GuzzleHttp\Exception\RequestException $e) {
-            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-
-            Log::error('DocuSeal API submission creation failed', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
-                'response_body' => $errorBody,
-                'fields_provided' => array_keys($submissionData['fields'] ?? [])
-            ]);
-
-            throw new Exception('Failed to create DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
-        } catch (Exception $e) {
-            Log::error('Failed to create QuickRequest DocuSeal submission', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-                'fields_provided' => array_keys($submissionData['fields'] ?? [])
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Prepare fields for embedded text field tags
-     */
-    private function prepareEmbeddedFields(array $fields): array
-    {
-        $prepared = [];
-
-        foreach ($fields as $fieldName => $fieldValue) {
-            // Clean field name (remove any prefixes if needed)
-            $cleanFieldName = $fieldName;
-
-            // Convert value to string and handle special cases
-            if (is_bool($fieldValue)) {
-                $prepared[$cleanFieldName] = $fieldValue ? 'Yes' : 'No';
-            } elseif ($fieldValue === 'true' || $fieldValue === true) {
-                $prepared[$cleanFieldName] = 'Yes';
-            } elseif ($fieldValue === 'false' || $fieldValue === false) {
-                $prepared[$cleanFieldName] = 'No';
-            } elseif (is_null($fieldValue)) {
-                $prepared[$cleanFieldName] = '';
-            } else {
-                $prepared[$cleanFieldName] = (string) $fieldValue;
-            }
-        }
-
-        Log::debug('Prepared embedded fields for DocuSeal', [
-            'field_count' => count($prepared),
-            'field_sample' => array_slice($prepared, 0, 5, true) // Log first 5 fields for debugging
-        ]);
-
-        return $prepared;
-    }
-
-    /**
-     * Get submission status
-     */
-    public function getSubmission(string $submissionId): array
-    {
-        $apiKey = config('services.docuseal.api_key');
-        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-
-        if (!$apiKey) {
-            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
-        }
-
-        try {
-            $client = new HttpClient();
-            $response = $client->get($apiUrl . '/submissions/' . $submissionId, [
-                'headers' => [
-                    'X-Auth-Token' => $apiKey,
-                    'Accept' => 'application/json',
-                ],
-                'timeout' => 30
-            ]);
-
-            $responseData = json_decode($response->getBody()->getContents(), true);
-
-            if (!$responseData) {
-                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
-            }
-
-            return $responseData;
-
-        } catch (\GuzzleHttp\Exception\RequestException $e) {
-            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-
-            Log::error('DocuSeal API get submission failed', [
-                'submission_id' => $submissionId,
-                'error' => $e->getMessage(),
-                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
-                'response_body' => $errorBody,
-            ]);
-
-            throw new Exception('Failed to get DocuSeal submission: ' . $e->getMessage() . '. Response: ' . $errorBody);
-        } catch (Exception $e) {
-            Log::error('Failed to get DocuSeal submission', [
+            Log::error('Failed to generate DocuSeal embed URL', [
                 'submission_id' => $submissionId,
                 'error' => $e->getMessage()
             ]);
-            throw $e;
+
+            // Return fallback embed URL
+            return "{$this->apiUrl}/embed/{$submissionId}";
         }
-    }
-
-    /**
-     * Get template information including embedded field tags
-     */
-    public function getTemplateInfo(string $templateId): array
-    {
-        $apiKey = config('services.docuseal.api_key');
-        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
-
-        if (!$apiKey) {
-            throw new Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
-        }
-
-        try {
-            $client = new HttpClient();
-            $response = $client->get($apiUrl . '/templates/' . $templateId, [
-                'headers' => [
-                    'X-Auth-Token' => $apiKey,
-                    'Accept' => 'application/json',
-                ],
-                'timeout' => 30
-            ]);
-
-            $template = json_decode($response->getBody()->getContents(), true);
-
-            if (!$template) {
-                throw new Exception('Invalid response from DocuSeal API: ' . $response->getBody());
-            }
-
-            Log::info('Retrieved DocuSeal template info', [
-                'template_id' => $templateId,
-                'template_name' => $template['name'] ?? 'Unknown',
-                'fields_count' => count($template['fields'] ?? []),
-            ]);
-
-            return $template;
-
-        } catch (\GuzzleHttp\Exception\RequestException $e) {
-            $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
-
-            Log::error('DocuSeal API get template failed', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-                'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
-                'response_body' => $errorBody,
-            ]);
-
-            throw new Exception('Failed to get DocuSeal template: ' . $e->getMessage() . '. Response: ' . $errorBody);
-        } catch (Exception $e) {
-            Log::error('Failed to get DocuSeal template info', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Validate field mapping against template
-     */
-    public function validateFieldMapping(string $templateId, array $fields): array
-    {
-        try {
-            $template = $this->getTemplateInfo($templateId);
-            $templateFields = collect($template['fields'] ?? [])->pluck('name')->toArray();
-
-            $providedFields = array_keys($fields);
-            $matchedFields = array_intersect($providedFields, $templateFields);
-            $unmatchedProvided = array_diff($providedFields, $templateFields);
-            $unmatchedTemplate = array_diff($templateFields, $providedFields);
-
-            $validation = [
-                'template_id' => $templateId,
-                'template_fields_count' => count($templateFields),
-                'provided_fields_count' => count($providedFields),
-                'matched_fields_count' => count($matchedFields),
-                'matched_fields' => $matchedFields,
-                'unmatched_provided_fields' => $unmatchedProvided,
-                'unmatched_template_fields' => $unmatchedTemplate,
-                'match_percentage' => count($templateFields) > 0 ? round((count($matchedFields) / count($templateFields)) * 100, 2) : 0,
-            ];
-
-            Log::info('DocuSeal field mapping validation', $validation);
-
-            return $validation;
-        } catch (Exception $e) {
-            Log::error('Failed to validate DocuSeal field mapping', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Debug submission creation with detailed logging
-     */
-    public function debugSubmissionCreation(string $templateId, array $submissionData): array
-    {
-        try {
-            Log::info('Starting DocuSeal submission debug', [
-                'template_id' => $templateId,
-                'submission_data_keys' => array_keys($submissionData),
-                'fields_count' => count($submissionData['fields'] ?? []),
-            ]);
-
-            // Validate field mapping first
-            $validation = $this->validateFieldMapping($templateId, $submissionData['fields'] ?? []);
-
-            if ($validation['match_percentage'] < 50) {
-                Log::warning('Low field matching percentage detected', [
-                    'match_percentage' => $validation['match_percentage'],
-                    'unmatched_fields' => $validation['unmatched_provided_fields'],
-                ]);
-            }
-
-            // Create submission with debugging
-            $result = $this->createQuickRequestSubmission($templateId, $submissionData);
-
-            Log::info('DocuSeal submission debug completed successfully', [
-                'submission_id' => $result['submission_id'],
-                'field_validation' => $validation,
-            ]);
-
-            return array_merge($result, ['field_validation' => $validation]);
-
-        } catch (Exception $e) {
-            Log::error('DocuSeal submission debug failed', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            throw $e;
-        }
-    }
-
-
-
-    /**
-     * Get signed documents for a submission
-     */
-    public function getSignedDocuments($submissionId)
-    {
-        $status = $this->getSubmissionStatus($submissionId);
-        return $status['documents'] ?? [];
-    }
-
-    /**
-     * Get the audit log URL for a submission
-     */
-    public function getAuditLogUrl($submissionId)
-    {
-        $status = $this->getSubmissionStatus($submissionId);
-        return $status['audit_log_url'] ?? null;
-    }
-
-    /**
-     * Handle DocuSeal webhook events
-     */
-    public function handleWebhook(Request $request)
-    {
-        // TODO: Implement webhook event handling (update order/episode status, notify users, etc.)
-        Log::info('DocuSeal webhook received', $request->all());
-        return response()->json(['success' => true]);
     }
 }

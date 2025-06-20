@@ -4,15 +4,15 @@ import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Clock, 
+import {
+  TrendingUp,
+  TrendingDown,
+  Clock,
   CheckCircle,
   Package,
   Truck,
   FileText,
-  XCircle 
+  XCircle
 } from 'lucide-react';
 
 interface CleanStatusCardProps {
@@ -86,7 +86,7 @@ const CleanStatusCard: React.FC<CleanStatusCardProps> = ({
         bgColor: 'bg-gray-500/10'
       }
     };
-    return configs[status] || configs.draft;
+    return configs[status as keyof typeof configs] || configs.draft;
   };
 
   const config = getStatusConfig(status);
@@ -105,12 +105,12 @@ const CleanStatusCard: React.FC<CleanStatusCardProps> = ({
           <div className={`p-2 rounded-lg ${config.bgColor} ${config.textColor}`}>
             {config.icon}
           </div>
-          
+
           {/* Theme-aware trend indicator - only show if meaningful */}
           {trend !== undefined && trend !== 0 && Math.abs(trend) < 200 && (
             <div className={`flex items-center space-x-1 text-xs ${
-              trend > 0 
-                ? (theme === 'dark' ? 'text-green-400' : 'text-green-600') 
+              trend > 0
+                ? (theme === 'dark' ? 'text-green-400' : 'text-green-600')
                 : (theme === 'dark' ? 'text-red-400' : 'text-red-600')
             }`}>
               {trend > 0 ? (
@@ -135,9 +135,9 @@ const CleanStatusCard: React.FC<CleanStatusCardProps> = ({
         <div className={`mt-3 w-full rounded-full h-1 ${
           theme === 'dark' ? 'bg-white/5' : 'bg-gray-200'
         }`}>
-          <div 
+          <div
             className={`h-full bg-gradient-to-r ${config.color} rounded-full transition-all duration-500`}
-            style={{ 
+            style={{
               width: count > 0 ? '100%' : '0%'
             }}
           />
@@ -148,16 +148,16 @@ const CleanStatusCard: React.FC<CleanStatusCardProps> = ({
 };
 
 // Clean dashboard component
-export const CleanStatusDashboard: React.FC<{ 
+export const CleanStatusDashboard: React.FC<{
   statusOptions: Array<{ value: string; label: string; count: number; trend?: number }>;
   onStatusFilter: (status: string) => void;
   activeFilter?: string;
   totalRequests?: number;
 }> = ({ statusOptions, onStatusFilter, activeFilter, totalRequests }) => {
-  
+
   const { theme } = useTheme();
   const t = themes[theme];
-  
+
   return (
     <div className="mb-8">
       {/* Clean header */}
@@ -198,8 +198,8 @@ export const CleanStatusDashboard: React.FC<{
       {/* Clean summary - only show if we have data */}
       {totalRequests && totalRequests > 0 && (
         <div className={`mt-6 p-4 backdrop-blur-xl rounded-xl border ${
-          theme === 'dark' 
-            ? 'bg-white/5 border-white/10' 
+          theme === 'dark'
+            ? 'bg-white/5 border-white/10'
             : 'bg-white/60 border-gray-200'
         }`}>
           <div className="grid grid-cols-3 gap-6 text-center">

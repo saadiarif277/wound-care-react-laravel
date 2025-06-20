@@ -21,6 +21,9 @@ interface Product {
   price_per_sq_cm: number;
   q_code: string;
   available_sizes: number[];
+  size_options?: string[];
+  size_pricing?: Record<string, number>;
+  size_unit?: 'in' | 'cm';
   graph_type: string;
   image_url: string;
   document_urls: string[];
@@ -44,6 +47,9 @@ interface FormData {
   price_per_sq_cm: string;
   q_code: string;
   available_sizes: string[];
+  size_options: string[];
+  size_pricing: Record<string, string>;
+  size_unit: 'in' | 'cm';
   graph_type: string;
   image_url: string;
   document_urls: string[];
@@ -64,6 +70,11 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     price_per_sq_cm: product.price_per_sq_cm ? product.price_per_sq_cm.toString() : '',
     q_code: product.q_code || '',
     available_sizes: product.available_sizes ? product.available_sizes.map(size => size.toString()) : [''],
+    size_options: product.size_options || [],
+    size_pricing: product.size_pricing ? Object.fromEntries(
+      Object.entries(product.size_pricing).map(([key, value]) => [key, value.toString()])
+    ) : {},
+    size_unit: product.size_unit || 'in',
     graph_type: product.graph_type || '',
     image_url: product.image_url || '',
     document_urls: product.document_urls && product.document_urls.length > 0 ? product.document_urls : [''],
@@ -74,10 +85,21 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    // Process size_pricing to convert string values back to numbers
+    const processedSizePricing: Record<string, number> = {};
+    Object.entries(data.size_pricing).forEach(([size, priceStr]) => {
+      const price = parseFloat(priceStr);
+      if (!isNaN(price)) {
+        processedSizePricing[size] = price;
+      }
+    });
+
     // Filter out empty values and convert to proper types
     const processedData = {
       ...data,
       available_sizes: data.available_sizes.filter(size => size.trim() !== '').map(size => parseFloat(size)),
+      size_options: data.size_options.filter(size => size.trim() !== ''),
+      size_pricing: processedSizePricing,
       document_urls: data.document_urls.filter(url => url.trim() !== ''),
       national_asp: data.national_asp ? parseFloat(data.national_asp) : null,
       price_per_sq_cm: data.price_per_sq_cm ? parseFloat(data.price_per_sq_cm) : null,
@@ -104,6 +126,68 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     const newSizes = [...data.available_sizes];
     newSizes[index] = value;
     setData('available_sizes', newSizes);
+  };
+
+  // Size options management functions
+  const addSizeOption = () => {
+    setData('size_options', [...data.size_options, '']);
+  };
+
+  const removeSizeOption = (index: number) => {
+    const newOptions = data.size_options.filter((_, i) => i !== index);
+    setData('size_options', newOptions);
+
+    // Also remove from pricing if it exists
+    const removedSize = data.size_options[index];
+    if (removedSize && data.size_pricing[removedSize]) {
+      const newPricing = { ...data.size_pricing };
+      delete newPricing[removedSize];
+      setData('size_pricing', newPricing);
+    }
+  };
+
+  const updateSizeOption = (index: number, value: string) => {
+    const oldValue = data.size_options[index];
+    const newOptions = [...data.size_options];
+    newOptions[index] = value;
+    setData('size_options', newOptions);
+
+    // Update the pricing key if it exists
+    if (oldValue && data.size_pricing[oldValue]) {
+      const newPricing = { ...data.size_pricing };
+      newPricing[value] = newPricing[oldValue];
+      delete newPricing[oldValue];
+      setData('size_pricing', newPricing);
+    }
+  };
+
+  const updateSizePricing = (size: string, price: string) => {
+    setData('size_pricing', {
+      ...data.size_pricing,
+      [size]: price
+    });
+  };
+
+  // Common size presets
+  const commonSizes = [
+    '1x1', '2x2', '2x3', '2x4', '3x3', '3x4', '4x4', '4x5', '4x6',
+    '5x5', '6x6', '6x8', '8x8', '8x10', '10x10', '10x12', '12x12'
+  ];
+
+  const addCommonSize = (size: string) => {
+    if (!data.size_options.includes(size)) {
+      setData('size_options', [...data.size_options, size]);
+
+      // Calculate square cm for common sizes (assuming inches)
+      const dims = size.split('x').map(d => parseFloat(d));
+      if (dims.length === 2) {
+        const sqCm = (dims[0] * 2.54) * (dims[1] * 2.54); // Convert inches to cm
+        setData('size_pricing', {
+          ...data.size_pricing,
+          [size]: sqCm.toFixed(2)
+        });
+      }
+    }
   };
 
   const addDocumentUrl = () => {
@@ -337,10 +421,110 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
             </div>
           </div>
 
-          {/* Available Sizes */}
+          {/* Size Options */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-900">Available Sizes (cm²)</h2>
+              <div>
+                <h2 className="text-xl font-semibold text-gray-900">Product Sizes</h2>
+                <p className="text-sm text-gray-600 mt-1">Define available sizes for this product</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={data.size_unit}
+                  onChange={(e) => setData('size_unit', e.target.value as 'in' | 'cm')}
+                  className="text-sm border border-gray-300 rounded-lg px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="in">Inches</option>
+                  <option value="cm">Centimeters</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={addSizeOption}
+                  className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  <FiPlus className="w-4 h-4" />
+                  Add Custom Size
+                </button>
+              </div>
+            </div>
+
+            {/* Common Size Presets */}
+            <div className="mb-6">
+              <h3 className="text-sm font-medium text-gray-700 mb-3">Quick Add Common Sizes</h3>
+              <div className="flex flex-wrap gap-2">
+                {commonSizes.map(size => (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => addCommonSize(size)}
+                    disabled={data.size_options.includes(size)}
+                    className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                      data.size_options.includes(size)
+                        ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {size}"
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Size Options List */}
+            <div className="space-y-3">
+              {data.size_options.map((size, index) => (
+                <div key={index} className="flex gap-3 items-center p-3 bg-gray-50 rounded-lg">
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Size Label
+                    </label>
+                    <input
+                      type="text"
+                      value={size}
+                      onChange={(e) => updateSizeOption(index, e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="e.g., 2x2, 4x4"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Area (sq cm)
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={data.size_pricing[size] || ''}
+                      onChange={(e) => updateSizePricing(size, e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      placeholder="Square cm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => removeSizeOption(index)}
+                    className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
+
+              {data.size_options.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  <FiPackage className="w-12 h-12 mx-auto mb-4 text-gray-300" />
+                  <p>No sizes configured yet. Add sizes using the button above or quick-add common sizes.</p>
+                </div>
+              )}
+            </div>
+
+            {errors.size_options && <p className="text-red-500 text-sm mt-2">{errors.size_options}</p>}
+            {errors.size_pricing && <p className="text-red-500 text-sm mt-2">{errors.size_pricing}</p>}
+          </div>
+
+          {/* Legacy Available Sizes (for backward compatibility) */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-semibold text-gray-900">Legacy Sizes (cm²)</h2>
               <button
                 type="button"
                 onClick={addSize}

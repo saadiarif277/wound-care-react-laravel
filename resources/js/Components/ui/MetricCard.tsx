@@ -1,7 +1,6 @@
 import React from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
-import { colors } from '@/theme/colors.config';
+import { cn } from '@/theme/glass-theme';
 
 interface MetricCardProps {
   title: string;
@@ -62,14 +61,14 @@ const getStatusStyles = (status: string, theme: 'dark' | 'light') => {
       overlayGradient: 'from-[#1925c3]/10 via-transparent to-transparent'
     }
   };
-  
-  return styles[status] || styles.default;
+
+  return styles[status as keyof typeof styles] || styles.default;
 };
 
 const ProgressIndicator: React.FC<{ value: number; theme: 'dark' | 'light' }> = ({ value, theme }) => {
   const isPositive = value >= 0;
   const percentage = Math.min(Math.abs(value), 100);
-  
+
   return (
     <div className="mt-4">
       <div className="flex justify-between items-center mb-2">
@@ -106,8 +105,8 @@ const ProgressIndicator: React.FC<{ value: number; theme: 'dark' | 'light' }> = 
           isPositive ? 'bg-emerald-500/20' : 'bg-red-500/20',
           'blur-sm'
         )} />
-        
-        <div 
+
+        <div
           className={cn(
             'relative h-full rounded-full transition-all duration-1000 ease-out',
             isPositive
@@ -136,18 +135,16 @@ const MetricCard: React.FC<MetricCardProps> = ({
 }) => {
   // Try to use theme if available, fallback to dark theme
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
-  
+
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // If not in ThemeProvider, use dark theme
   }
-  
+
   const statusStyles = getStatusStyles(status, theme);
-  
+
   // Size configurations
   const sizeConfig = {
     sm: {
@@ -184,9 +181,9 @@ const MetricCard: React.FC<MetricCardProps> = ({
       valueMargin: 'mb-2',
     }
   };
-  
+
   const config = sizeConfig[size];
-  
+
   return (
     <div className={cn(
       'relative overflow-hidden rounded-2xl transition-all duration-500 group',
@@ -205,12 +202,12 @@ const MetricCard: React.FC<MetricCardProps> = ({
         'absolute inset-0 bg-gradient-to-br opacity-0 group-hover:opacity-100 transition-opacity duration-500',
         statusStyles.overlayGradient
       )} />
-      
+
       {/* Noise texture overlay for glass effect */}
       <div className="absolute inset-0 opacity-[0.02] mix-blend-overlay">
         <div className="absolute inset-0 bg-[url('/noise.png')]" />
       </div>
-      
+
       {/* Content wrapper */}
       <div className={cn("relative z-10 flex justify-between items-start", config.padding)}>
         {/* Content */}
@@ -241,7 +238,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
             </p>
           )}
         </div>
-        
+
         {/* Enhanced Icon Container */}
         <div className="relative">
           {/* Icon glow effect */}
@@ -250,7 +247,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
             'bg-gradient-to-br',
             statusStyles.gradient
           )} />
-          
+
           {/* Icon background */}
           <div className={cn(
             'relative flex-shrink-0 rounded-2xl',
@@ -270,14 +267,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
           </div>
         </div>
       </div>
-      
+
       {/* Enhanced Progress bar */}
       {trend !== undefined && (
         <div className={cn("relative -mt-2", config.padding, "pt-0")}>
           <ProgressIndicator value={trend} theme={theme} />
         </div>
       )}
-      
+
       {/* Bottom gradient fade for depth */}
       <div className={cn(
         'absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t pointer-events-none',

@@ -19,35 +19,49 @@ class Product extends Model
     protected $table = 'msc_products';
 
     protected $fillable = [
-        'sku',
         'name',
-        'description',
+        'category',
         'manufacturer',
         'manufacturer_id',
-        'category',
-        'category_id',
-        'national_asp',
-        'mue',
-        'cms_last_updated',
-        'price_per_sq_cm',
+        'sku',
+        'hcpcs_code',
         'q_code',
+        'national_avg_selling_price',
+        'price_per_sq_cm',
+        'woundreference_url',
+        'is_featured',
+        'description',
+        'active',
         'available_sizes',
-        'graph_type',
-        'image_url',
-        'document_urls',
-        'is_active',
-        'commission_rate',
+        'size_options',
+        'size_pricing',
+        'size_unit',
+        'metadata',
+        'settings',
+        'has_variants',
+        'cms_verified_date',
+        'cms_asp_date',
+        'cms_national_asp',
+        'cms_mac_pricing',
+        'cms_mue_value',
     ];
 
     protected $casts = [
+        'is_featured' => 'boolean',
+        'active' => 'boolean',
         'available_sizes' => 'array',
-        'document_urls' => 'array',
-        'national_asp' => 'decimal:2',
-        'mue' => 'integer',
-        'cms_last_updated' => 'datetime',
+        'size_options' => 'array',
+        'size_pricing' => 'array',
+        'metadata' => 'array',
+        'settings' => 'array',
+        'has_variants' => 'boolean',
         'price_per_sq_cm' => 'decimal:2',
-        'commission_rate' => 'decimal:2',
-        'is_active' => 'boolean',
+        'national_avg_selling_price' => 'decimal:2',
+        'cms_verified_date' => 'date',
+        'cms_asp_date' => 'date',
+        'cms_national_asp' => 'decimal:2',
+        'cms_mac_pricing' => 'array',
+        'cms_mue_value' => 'integer',
     ];
 
     /**
@@ -154,7 +168,7 @@ class Product extends Model
     /**
      * Check if product has specific size available
      */
-    public function hasSize($size)
+    public function isSizeAvailable($size)
     {
         return in_array($size, $this->available_sizes ?? []);
     }
@@ -423,5 +437,80 @@ class Product extends Model
                 $model->pendingPricingChange = null;
             }
         });
+    }
+
+    /**
+     * Get available size options (labels) for the product
+     * Provides backward compatibility with available_sizes
+     */
+    public function getAvailableSizesAttribute($value)
+    {
+        // If we have size_options, return those as the primary source
+        if (!empty($this->attributes['size_options'])) {
+            return json_decode($this->attributes['size_options'], true) ?? [];
+        }
+
+        // Otherwise return the original numeric sizes for backward compatibility
+        return json_decode($value, true) ?? [];
+    }
+
+    /**
+     * Get the price for a specific size
+     */
+    public function getPriceForSize(string $size): ?float
+    {
+        $sizePricing = $this->size_pricing ?? [];
+
+        if (isset($sizePricing[$size])) {
+            // Return the square cm value for the size
+            return $sizePricing[$size] * ($this->price_per_sq_cm ?? 0);
+        }
+
+        // Fallback: try to parse as numeric size for backward compatibility
+        if (is_numeric($size)) {
+            return floatval($size) * ($this->price_per_sq_cm ?? 0);
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the square cm value for a size label
+     */
+    public function getSquareCmForSize(string $size): ?float
+    {
+        $sizePricing = $this->size_pricing ?? [];
+
+        if (isset($sizePricing[$size])) {
+            return $sizePricing[$size];
+        }
+
+        // Fallback: try to parse as numeric for backward compatibility
+        if (is_numeric($size)) {
+            return floatval($size);
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if a size (label or numeric) is available
+     */
+    public function isSizeAvailableByLabel(string $size): bool
+    {
+        $sizeOptions = $this->size_options ?? [];
+
+        // Check if it's in the new size options
+        if (in_array($size, $sizeOptions)) {
+            return true;
+        }
+
+        // Backward compatibility: check numeric sizes
+        if (is_numeric($size) && !empty($this->attributes['available_sizes'])) {
+            $numericSizes = json_decode($this->attributes['available_sizes'], true) ?? [];
+            return in_array(floatval($size), $numericSizes);
+        }
+
+        return false;
     }
 }

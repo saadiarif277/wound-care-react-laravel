@@ -5,8 +5,11 @@ namespace App\Models\Order;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
+use App\Models\Docuseal\DocusealFolder;
+use App\Models\Docuseal\DocusealTemplate;
 
 class Manufacturer extends Model
 {
@@ -64,6 +67,55 @@ class Manufacturer extends Model
     }
 
     /**
+     * Get the DocuSeal folder for this manufacturer
+     */
+    public function docusealFolder(): HasOne
+    {
+        return $this->hasOne(DocusealFolder::class, 'manufacturer_id');
+    }
+
+    /**
+     * Get the DocuSeal templates for this manufacturer
+     */
+    public function docusealTemplates(): HasMany
+    {
+        return $this->hasMany(DocusealTemplate::class, 'manufacturer_id');
+    }
+
+    /**
+     * Get the IVR template for this manufacturer
+     */
+    public function ivrTemplate()
+    {
+        return $this->docusealTemplates()
+            ->where('document_type', 'IVR')
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Get the onboarding template for this manufacturer
+     */
+    public function onboardingTemplate()
+    {
+        return $this->docusealTemplates()
+            ->where('document_type', 'OnboardingForm')
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
+     * Get the order form template for this manufacturer
+     */
+    public function orderFormTemplate()
+    {
+        return $this->docusealTemplates()
+            ->where('document_type', 'OrderForm')
+            ->where('is_active', true)
+            ->first();
+    }
+
+    /**
      * Scope to get only active manufacturers
      */
     public function scopeActive($query)
@@ -109,15 +161,15 @@ class Manufacturer extends Model
     public function getFormattedContactAttribute()
     {
         $contact = [];
-        
+
         if ($this->contact_email) {
             $contact[] = $this->contact_email;
         }
-        
+
         if ($this->contact_phone) {
             $contact[] = $this->contact_phone;
         }
-        
+
         return implode(' | ', $contact);
     }
 
