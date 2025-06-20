@@ -165,6 +165,12 @@ export default function Step2PatientInsurance({
     });
 
     updateFormData(updates);
+
+    // TODO: Optional enhancement - Create FHIR patient record early if enough data is available
+    // This would provide patient_fhir_id sooner in the process
+    // if (hasMinimalPatientData(formData, updates)) {
+    //   createFhirPatientEarly(formData, updates);
+    // }
   };
 
   // Auto-populate payer phone based on insurance selection

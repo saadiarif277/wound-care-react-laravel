@@ -4,6 +4,7 @@ namespace App\Models\Docuseal;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 
 class DocusealTemplate extends Model
@@ -30,6 +31,14 @@ class DocusealTemplate extends Model
         'is_active' => 'boolean',
         'last_extracted_at' => 'datetime',
     ];
+
+    /**
+     * Get the manufacturer that owns this template
+     */
+    public function manufacturer(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Order\Manufacturer::class, 'manufacturer_id');
+    }
 
     /**
      * Get the submissions for this template
@@ -64,6 +73,14 @@ class DocusealTemplate extends Model
     }
 
     /**
+     * Scope to get templates by manufacturer
+     */
+    public function scopeByManufacturer($query, $manufacturerId)
+    {
+        return $query->where('manufacturer_id', $manufacturerId);
+    }
+
+    /**
      * Get the default template for a specific document type
      */
     public static function getDefaultTemplate(string $documentType): ?self
@@ -73,4 +90,16 @@ class DocusealTemplate extends Model
             ->default()
             ->first();
     }
-} 
+
+    /**
+     * Get the default template for a specific manufacturer and document type
+     */
+    public static function getDefaultTemplateForManufacturer(int $manufacturerId, string $documentType): ?self
+    {
+        return static::active()
+            ->byManufacturer($manufacturerId)
+            ->byDocumentType($documentType)
+            ->default()
+            ->first();
+    }
+}

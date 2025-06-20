@@ -21,6 +21,7 @@ use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use App\Services\DocusealService;
+use App\Models\Docuseal\DocusealTemplate;
 
 class QuickRequestController extends Controller
 {
@@ -816,37 +817,104 @@ class QuickRequestController extends Controller
 
             $prefillData = $data['prefill_data'];
 
-            // Determine manufacturer and template
-            $manufacturer = 'BioWound'; // Default
-            $templateConfigKey = 'BioWound.default';
+            // Determine manufacturer and template dynamically from selected product
+            $manufacturer = null;
+            $manufacturerId = null;
+            $templateId = null;
 
+            // Try to determine manufacturer from form data
             if (!empty($prefillData['selected_products'])) {
                 $selectedProducts = $prefillData['selected_products'];
                 if (!empty($selectedProducts[0]['product_id'])) {
-                    $product = \App\Models\Order\Product::find($selectedProducts[0]['product_id']);
-                    if ($product) {
-                        $manufacturer = $this->getManufacturerConfigKey($product->manufacturer);
-                        $templateConfigKey = $manufacturer . '.default';
+                    $product = \App\Models\Order\Product::with('manufacturer')->find($selectedProducts[0]['product_id']);
+                    if ($product && $product->manufacturer_id) {
+                        $manufacturerId = $product->manufacturer_id;
+                        $manufacturer = $product->manufacturer;
+
+                        // Look up template in database based on manufacturer
+                        $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+
+                        if ($template) {
+                            $templateId = $template->docuseal_template_id;
+                        }
                     }
                 }
             }
 
+            // Fallback to manufacturer_id from prefill_data if not found from product
+            if (!$manufacturerId && !empty($prefillData['manufacturer_id'])) {
+                $manufacturerId = $prefillData['manufacturer_id'];
+
+                // Look up manufacturer and template
+                $manufacturerModel = \App\Models\Order\Manufacturer::find($manufacturerId);
+                if ($manufacturerModel) {
+                    $manufacturer = $manufacturerModel->name;
+
+                    $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+
+                    if ($template) {
+                        $templateId = $template->docuseal_template_id;
+                    }
+                }
+            }
+
+            // If no manufacturer found, use fallback logic
+            if (!$manufacturer || !$manufacturerId) {
+                // Try to find the first available manufacturer and template
+                $template = \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
+                    ->byDocumentType('IVR')
+                    ->active()
+                    ->default()
+                    ->first();
+
+                if ($template && $template->manufacturer) {
+                    $manufacturerId = $template->manufacturer_id;
+                    $manufacturer = $template->manufacturer->name;
+                    $templateId = $template->docuseal_template_id;
+                } else {
+                    // Final fallback - use BioWound from config if no database templates
+                    $manufacturer = 'BioWound';
+                    $templateId = config('docuseal.templates.BioWound.default') ?? config('docuseal.default_templates.BioWound');
+                }
+            }
+
+            Log::info('DocuSeal template resolution (dynamic)', [
+                'manufacturer_id' => $manufacturerId,
+                'manufacturer' => $manufacturer,
+                'resolved_template_id' => $templateId,
+                'use_builder' => $data['use_builder'] ?? false,
+                'resolution_method' => $templateId ? 'database' : 'config_fallback'
+            ]);
+
             // If using builder mode, return JWT token instead of creating submission
             if ($data['use_builder'] ?? false) {
-                return $this->generateBuilderToken(new Request([
+                $builderRequest = new Request([
                     'user_email' => 'limitless@mscwoundcare.com',
                     'integration_email' => $prefillData['patient_email'] ?? 'limitless@mscwoundcare.com',
-                    'template_id' => config("docuseal.templates.{$templateConfigKey}"),
+                    'template_id' => $templateId,
                     'template_name' => "MSC {$manufacturer} IVR Form",
                     'document_urls' => [],
                     'prefill_data' => $prefillData
-                ]));
+                ]);
+
+                $builderResponse = $this->generateBuilderToken($builderRequest);
+
+                // Add additional metadata to the response
+                if ($builderResponse->status() === 200) {
+                    $responseData = $builderResponse->getData(true);
+                    $responseData['manufacturer'] = $manufacturer;
+                    $responseData['manufacturer_id'] = $manufacturerId;
+                    $responseData['resolved_template_id'] = $templateId;
+
+                    return response()->json($responseData);
+                }
+
+                return $builderResponse;
             }
 
             // Original submission creation logic (for backward compatibility)
-            $templateId = config("docuseal.templates.{$templateConfigKey}");
             if (!$templateId) {
-                throw new \Exception("Template not configured for {$templateConfigKey}");
+                throw new \Exception("No DocuSeal template configured for manufacturer: {$manufacturer} (ID: {$manufacturerId}). Please configure templates in the admin panel.");
             }
 
             $docusealService = app(DocusealService::class);
@@ -864,10 +932,10 @@ class QuickRequestController extends Controller
                 ]
             ];
 
-            Log::info('Creating DocuSeal submission', [
+            Log::info('Creating DocuSeal submission (dynamic)', [
                 'template_id' => $templateId,
+                'manufacturer_id' => $manufacturerId,
                 'manufacturer' => $manufacturer,
-                'template_config_key' => $templateConfigKey,
                 'submission_data' => $submissionData
             ]);
 
@@ -885,7 +953,8 @@ class QuickRequestController extends Controller
                 'submission_id' => $submissionId,
                 'embed_url' => $embedUrl,
                 'template_id' => $templateId,
-                'manufacturer' => $manufacturer
+                'manufacturer' => $manufacturer,
+                'manufacturer_id' => $manufacturerId
             ]);
 
         } catch (\Exception $e) {
@@ -902,37 +971,67 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Map manufacturer name to config key for template lookup
+     * Get template ID for manufacturer dynamically from database
+     */
+    private function getManufacturerTemplateId($manufacturerName, $manufacturerId = null): ?string
+    {
+                // First try by manufacturer ID if provided
+        if ($manufacturerId) {
+            $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+            if ($template) {
+                return $template->docuseal_template_id;
+            }
+        }
+
+        // Try by manufacturer name if ID lookup fails
+        if ($manufacturerName) {
+            $manufacturer = \App\Models\Order\Manufacturer::where('name', 'LIKE', "%{$manufacturerName}%")
+                ->orWhere('display_name', 'LIKE', "%{$manufacturerName}%")
+                ->first();
+
+                        if ($manufacturer) {
+                $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturer->id, 'IVR');
+                if ($template) {
+                    return $template->docuseal_template_id;
+                }
+            }
+        }
+
+        // Final fallback to any available template
+        $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplate('IVR');
+
+        return $template ? $template->docuseal_template_id : null;
+    }
+
+    /**
+     * Map manufacturer name to config key for template lookup (DEPRECATED - use database instead)
+     * @deprecated Use getManufacturerTemplateId() instead for dynamic database-driven lookups
      */
     private function getManufacturerConfigKey($manufacturerName): string
     {
-        // TODO: Create manufacturer-specific templates in DocuSeal and map them properly
-        // For now, use the existing template for all manufacturers
+        // This method is deprecated - use database-driven template resolution instead
+        Log::warning('Using deprecated getManufacturerConfigKey method', [
+            'manufacturer' => $manufacturerName,
+            'recommendation' => 'Switch to database-driven template resolution'
+        ]);
+
+        // Try to get template ID from database first
+        $templateId = $this->getManufacturerTemplateId($manufacturerName);
+        if ($templateId) {
+            return $templateId;
+        }
+
+        // Legacy fallback mapping (for backward compatibility only)
         $manufacturerMap = [
             'ACZ & Associates' => 'ACZ.default',
             'Advanced Solution' => 'Advanced.default',
             'BioWound Solutions' => 'BioWound.default',
             'MedLife' => 'MedLife.default',
             'Skye Biologics' => 'Skye.default',
-            // Add more as templates are created
         ];
 
         $normalizedName = trim($manufacturerName);
         return $manufacturerMap[$normalizedName] ?? 'BioWound.default'; // Fallback to BioWound template
-
-        // Future manufacturer mapping (when templates are created):
-        /*
-        $manufacturerMap = [
-            'ACZ & Associates' => 'ACZ.default',
-            'Advanced Solution' => 'Advanced Health.default',
-            'BioWound Solutions' => 'BioWound.default',
-            'MedLife' => 'MedLife.default',
-            // Add more as needed
-        ];
-
-        $normalizedName = trim($manufacturerName);
-        return $manufacturerMap[$normalizedName] ?? 'BioWound.default';
-        */
     }
 
     /**
@@ -944,67 +1043,322 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Map form data to DocuSeal field format
+     * Map form data to DocuSeal field format with comprehensive field mapping
      */
     private function mapFormDataToDocuSealFields(array $formData): array
     {
-        return [
+        // Enhanced mapping with data transformation and validation
+        $mappedFields = [
             // Patient Information Fields
-            'patient_first_name' => $formData['patient_first_name'] ?? '',
-            'patient_last_name' => $formData['patient_last_name'] ?? '',
-            'patient_dob' => $formData['patient_dob'] ?? '',
-            'patient_gender' => $formData['patient_gender'] ?? '',
-            'patient_member_id' => $formData['patient_member_id'] ?? '',
-            'patient_address' => $formData['patient_address'] ?? '',
-            'patient_city' => $formData['patient_city'] ?? '',
-            'patient_state' => $formData['patient_state'] ?? '',
-            'patient_zip' => $formData['patient_zip'] ?? '',
-            'patient_phone' => $formData['patient_phone'] ?? '',
-            'patient_email' => $formData['patient_email'] ?? '',
+            'patient_first_name' => $this->sanitizeTextValue($formData['patient_first_name'] ?? ''),
+            'patient_last_name' => $this->sanitizeTextValue($formData['patient_last_name'] ?? ''),
+            'patient_full_name' => $this->sanitizeTextValue(
+                trim(($formData['patient_first_name'] ?? '') . ' ' . ($formData['patient_last_name'] ?? ''))
+            ),
+            'patient_dob' => $this->formatDate($formData['patient_dob'] ?? ''),
+            'patient_gender' => $this->formatGender($formData['patient_gender'] ?? ''),
+            'patient_member_id' => $this->sanitizeTextValue($formData['patient_member_id'] ?? ''),
+
+            // Address fields with fallback combinations
+            'patient_address' => $this->formatAddress($formData),
+            'patient_address_line1' => $this->sanitizeTextValue($formData['patient_address_line1'] ?? ''),
+            'patient_address_line2' => $this->sanitizeTextValue($formData['patient_address_line2'] ?? ''),
+            'patient_city' => $this->sanitizeTextValue($formData['patient_city'] ?? ''),
+            'patient_state' => $this->sanitizeTextValue($formData['patient_state'] ?? ''),
+            'patient_zip' => $this->sanitizeTextValue($formData['patient_zip'] ?? ''),
+            'patient_full_address' => $this->formatFullAddress($formData),
+
+            // Contact information
+            'patient_phone' => $this->formatPhoneNumber($formData['patient_phone'] ?? ''),
+            'patient_email' => $this->sanitizeEmail($formData['patient_email'] ?? ''),
 
             // Provider Information Fields
-            'provider_name' => $formData['provider_name'] ?? '',
-            'provider_npi' => $formData['provider_npi'] ?? '',
-            'facility_name' => $formData['facility_name'] ?? '',
-            'facility_address' => $formData['facility_address'] ?? '',
+            'provider_name' => $this->sanitizeTextValue($formData['provider_name'] ?? ''),
+            'provider_npi' => $this->sanitizeTextValue($formData['provider_npi'] ?? ''),
+            'provider_credentials' => $this->sanitizeTextValue($formData['provider_credentials'] ?? ''),
+            'facility_name' => $this->sanitizeTextValue($formData['facility_name'] ?? ''),
+            'facility_address' => $this->sanitizeTextValue($formData['facility_address'] ?? ''),
 
-            // Clinical Information Fields
-            'wound_type' => $formData['wound_type'] ?? '',
-            'wound_location' => $formData['wound_location'] ?? '',
-            'wound_size' => $formData['wound_size'] ?? '',
-            'wound_onset_date' => $formData['wound_onset_date'] ?? '',
-            'failed_conservative_treatment' => $formData['failed_conservative_treatment'] ?? '',
-            'treatment_tried' => $formData['treatment_tried'] ?? '',
-            'current_dressing' => $formData['current_dressing'] ?? '',
-            'expected_service_date' => $formData['expected_service_date'] ?? '',
+            // Clinical Information Fields with enhanced formatting
+            'wound_type' => $this->sanitizeTextValue($formData['wound_type'] ?? ''),
+            'wound_location' => $this->sanitizeTextValue($formData['wound_location'] ?? ''),
+            'wound_size' => $this->formatWoundSize($formData),
+            'wound_size_length' => $this->formatMeasurement($formData['wound_size_length'] ?? ''),
+            'wound_size_width' => $this->formatMeasurement($formData['wound_size_width'] ?? ''),
+            'wound_size_depth' => $this->formatMeasurement($formData['wound_size_depth'] ?? ''),
+            'total_wound_area' => $this->calculateWoundArea($formData),
+            'wound_onset_date' => $this->formatDate($formData['wound_onset_date'] ?? ''),
+            'failed_conservative_treatment' => $this->formatBoolean($formData['failed_conservative_treatment'] ?? ''),
+            'treatment_tried' => $this->sanitizeTextValue($formData['treatment_tried'] ?? ''),
+            'current_dressing' => $this->sanitizeTextValue($formData['current_dressing'] ?? ''),
+            'expected_service_date' => $this->formatDate($formData['expected_service_date'] ?? ''),
 
-            // Insurance Information Fields
-            'primary_insurance' => $formData['primary_insurance'] ?? '',
-            'primary_member_id' => $formData['primary_member_id'] ?? '',
-            'primary_plan_type' => $formData['primary_plan_type'] ?? '',
-            'primary_payer_phone' => $formData['primary_payer_phone'] ?? '',
-            'has_secondary_insurance' => $formData['has_secondary_insurance'] ?? '',
-            'secondary_insurance' => $formData['secondary_insurance'] ?? '',
-            'secondary_member_id' => $formData['secondary_member_id'] ?? '',
+            // Insurance Information Fields with better naming
+            'primary_insurance' => $this->sanitizeTextValue($formData['primary_insurance_name'] ?? $formData['primary_insurance'] ?? ''),
+            'primary_insurance_name' => $this->sanitizeTextValue($formData['primary_insurance_name'] ?? ''),
+            'primary_member_id' => $this->sanitizeTextValue($formData['primary_member_id'] ?? ''),
+            'primary_plan_type' => $this->sanitizeTextValue($formData['primary_plan_type'] ?? ''),
+            'primary_payer_phone' => $this->formatPhoneNumber($formData['primary_payer_phone'] ?? ''),
+            'has_secondary_insurance' => $this->formatBoolean($formData['has_secondary_insurance'] ?? ''),
+            'secondary_insurance' => $this->sanitizeTextValue($formData['secondary_insurance_name'] ?? $formData['secondary_insurance'] ?? ''),
+            'secondary_insurance_name' => $this->sanitizeTextValue($formData['secondary_insurance_name'] ?? ''),
+            'secondary_member_id' => $this->sanitizeTextValue($formData['secondary_member_id'] ?? ''),
 
-            // Product Information Fields
-            'selected_product_name' => $formData['selected_product_name'] ?? '',
-            'selected_product_code' => $formData['selected_product_code'] ?? '',
-            'selected_product_manufacturer' => $formData['selected_product_manufacturer'] ?? '',
-            'product_quantity' => $formData['product_quantity'] ?? '',
-            'product_size' => $formData['product_size'] ?? '',
+            // Product Information Fields with dynamic product handling
+            'selected_product_name' => $this->sanitizeTextValue($formData['selected_product_name'] ?? ''),
+            'selected_product_code' => $this->sanitizeTextValue($formData['selected_product_code'] ?? ''),
+            'selected_product_manufacturer' => $this->sanitizeTextValue($formData['selected_product_manufacturer'] ?? ''),
+            'product_quantity' => $this->formatQuantity($formData['product_quantity'] ?? ''),
+            'product_size' => $this->sanitizeTextValue($formData['product_size'] ?? ''),
+            'manufacturer_name' => $this->sanitizeTextValue($formData['manufacturer_name'] ?? $formData['selected_product_manufacturer'] ?? ''),
+
+            // Multi-product support
+            'selected_products_list' => $this->formatSelectedProductsList($formData),
+            'total_product_quantity' => $this->calculateTotalQuantity($formData),
 
             // Shipping Information Fields
-            'shipping_same_as_patient' => $formData['shipping_same_as_patient'] ?? '',
-            'shipping_address' => $formData['shipping_address'] ?? '',
-            'shipping_city' => $formData['shipping_city'] ?? '',
-            'shipping_state' => $formData['shipping_state'] ?? '',
-            'shipping_zip' => $formData['shipping_zip'] ?? '',
-            'delivery_notes' => $formData['delivery_notes'] ?? '',
+            'shipping_same_as_patient' => $this->formatBoolean($formData['shipping_same_as_patient'] ?? ''),
+            'shipping_address' => $this->formatShippingAddress($formData),
+            'shipping_address_line1' => $this->sanitizeTextValue($formData['shipping_address_line1'] ?? ''),
+            'shipping_address_line2' => $this->sanitizeTextValue($formData['shipping_address_line2'] ?? ''),
+            'shipping_city' => $this->sanitizeTextValue($formData['shipping_city'] ?? ''),
+            'shipping_state' => $this->sanitizeTextValue($formData['shipping_state'] ?? ''),
+            'shipping_zip' => $this->sanitizeTextValue($formData['shipping_zip'] ?? ''),
+            'shipping_full_address' => $this->formatFullShippingAddress($formData),
+            'delivery_notes' => $this->sanitizeTextValue($formData['delivery_notes'] ?? ''),
 
             // Metadata Fields
-            'submission_date' => $formData['submission_date'] ?? '',
-            'total_wound_area' => $formData['total_wound_area'] ?? '',
+            'submission_date' => $this->formatDate(now()->toDateString()),
+            'submission_timestamp' => now()->format('Y-m-d H:i:s'),
+            'episode_id' => $this->sanitizeTextValue($formData['episode_id'] ?? ''),
+            'patient_fhir_id' => $this->sanitizeTextValue($formData['patient_fhir_id'] ?? ''),
+            'organization_name' => $this->sanitizeTextValue($formData['organization_name'] ?? 'MSC Wound Care'),
+
+            // Clinical calculations
+            'wound_duration_days' => $this->calculateWoundDuration($formData),
+            'urgency_level' => $this->determineUrgencyLevel($formData),
         ];
+
+        // Add any additional custom fields from form data
+        foreach ($formData as $key => $value) {
+            if (!isset($mappedFields[$key]) && !empty($value)) {
+                $mappedFields[$key] = $this->sanitizeTextValue($value);
+            }
+        }
+
+        // Log the mapping for debugging (without PHI)
+        Log::info('DocuSeal field mapping completed', [
+            'total_fields' => count($mappedFields),
+            'has_patient_name' => !empty($mappedFields['patient_first_name']),
+            'has_wound_info' => !empty($mappedFields['wound_type']),
+            'has_insurance' => !empty($mappedFields['primary_insurance']),
+            'has_products' => !empty($mappedFields['selected_product_name'])
+        ]);
+
+        return $mappedFields;
+    }
+
+    // Helper methods for data transformation and validation
+
+    private function sanitizeTextValue($value): string
+    {
+        if (is_array($value)) {
+            $value = json_encode($value);
+        }
+        return trim(strip_tags((string)$value));
+    }
+
+    private function sanitizeEmail($email): string
+    {
+        $email = $this->sanitizeTextValue($email);
+        return filter_var($email, FILTER_VALIDATE_EMAIL) ? $email : '';
+    }
+
+    private function formatDate($date): string
+    {
+        if (empty($date)) return '';
+
+        try {
+            return \Carbon\Carbon::parse($date)->format('Y-m-d');
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    private function formatPhoneNumber($phone): string
+    {
+        $phone = preg_replace('/[^0-9]/', '', $this->sanitizeTextValue($phone));
+        if (strlen($phone) === 10) {
+            return sprintf('(%s) %s-%s', substr($phone, 0, 3), substr($phone, 3, 3), substr($phone, 6));
+        }
+        return $phone;
+    }
+
+    private function formatGender($gender): string
+    {
+        $gender = strtoupper($this->sanitizeTextValue($gender));
+        $genderMap = ['M' => 'Male', 'F' => 'Female', 'MALE' => 'Male', 'FEMALE' => 'Female'];
+        return $genderMap[$gender] ?? $gender;
+    }
+
+    private function formatBoolean($value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        }
+        $value = strtolower($this->sanitizeTextValue($value));
+        return in_array($value, ['true', '1', 'yes', 'on']) ? 'Yes' : 'No';
+    }
+
+    private function formatAddress($formData): string
+    {
+        $parts = array_filter([
+            $formData['patient_address_line1'] ?? '',
+            $formData['patient_address_line2'] ?? ''
+        ]);
+        return $this->sanitizeTextValue(implode(', ', $parts));
+    }
+
+    private function formatFullAddress($formData): string
+    {
+        $parts = array_filter([
+            $this->formatAddress($formData),
+            $formData['patient_city'] ?? '',
+            $formData['patient_state'] ?? '',
+            $formData['patient_zip'] ?? ''
+        ]);
+        return $this->sanitizeTextValue(implode(', ', $parts));
+    }
+
+    private function formatShippingAddress($formData): string
+    {
+        if ($this->formatBoolean($formData['shipping_same_as_patient'] ?? '') === 'Yes') {
+            return $this->formatAddress($formData);
+        }
+
+        $parts = array_filter([
+            $formData['shipping_address_line1'] ?? '',
+            $formData['shipping_address_line2'] ?? ''
+        ]);
+        return $this->sanitizeTextValue(implode(', ', $parts));
+    }
+
+    private function formatFullShippingAddress($formData): string
+    {
+        if ($this->formatBoolean($formData['shipping_same_as_patient'] ?? '') === 'Yes') {
+            return $this->formatFullAddress($formData);
+        }
+
+        $parts = array_filter([
+            $this->formatShippingAddress($formData),
+            $formData['shipping_city'] ?? '',
+            $formData['shipping_state'] ?? '',
+            $formData['shipping_zip'] ?? ''
+        ]);
+        return $this->sanitizeTextValue(implode(', ', $parts));
+    }
+
+    private function formatWoundSize($formData): string
+    {
+        $length = $this->formatMeasurement($formData['wound_size_length'] ?? '');
+        $width = $this->formatMeasurement($formData['wound_size_width'] ?? '');
+        $depth = $this->formatMeasurement($formData['wound_size_depth'] ?? '');
+
+        $parts = array_filter([$length, $width, $depth]);
+        return implode(' x ', $parts) . ($parts ? ' cm' : '');
+    }
+
+    private function formatMeasurement($value): string
+    {
+        $value = $this->sanitizeTextValue($value);
+        return is_numeric($value) ? number_format((float)$value, 1) : $value;
+    }
+
+    private function calculateWoundArea($formData): string
+    {
+        $length = floatval($formData['wound_size_length'] ?? 0);
+        $width = floatval($formData['wound_size_width'] ?? 0);
+
+        if ($length > 0 && $width > 0) {
+            return number_format($length * $width, 2) . ' cm²';
+        }
+        return '';
+    }
+
+    private function formatQuantity($quantity): string
+    {
+        return is_numeric($quantity) ? (string)intval($quantity) : $this->sanitizeTextValue($quantity);
+    }
+
+    private function formatSelectedProductsList($formData): string
+    {
+        if (isset($formData['selected_products']) && is_array($formData['selected_products'])) {
+            $products = [];
+            foreach ($formData['selected_products'] as $product) {
+                $name = $product['product_name'] ?? $product['name'] ?? 'Unknown Product';
+                $quantity = $product['quantity'] ?? 1;
+                $size = $product['size'] ?? '';
+
+                $productStr = "{$name} (Qty: {$quantity})";
+                if (!empty($size)) {
+                    $productStr .= " [Size: {$size}]";
+                }
+                $products[] = $productStr;
+            }
+            return implode('; ', $products);
+        }
+        return '';
+    }
+
+    private function calculateTotalQuantity($formData): string
+    {
+        if (isset($formData['selected_products']) && is_array($formData['selected_products'])) {
+            $total = 0;
+            foreach ($formData['selected_products'] as $product) {
+                $total += intval($product['quantity'] ?? 0);
+            }
+            return (string)$total;
+        }
+        return $this->formatQuantity($formData['product_quantity'] ?? '1');
+    }
+
+    private function calculateWoundDuration($formData): string
+    {
+        $onsetDate = $formData['wound_onset_date'] ?? '';
+        if (empty($onsetDate)) return '';
+
+        try {
+            $onset = \Carbon\Carbon::parse($onsetDate);
+            $now = \Carbon\Carbon::now();
+            $days = $onset->diffInDays($now);
+            return (string)$days;
+        } catch (\Exception $e) {
+            return '';
+        }
+    }
+
+    private function determineUrgencyLevel($formData): string
+    {
+        // Simple urgency determination based on wound characteristics
+        $urgencyFactors = 0;
+
+        // Check wound duration
+        $duration = intval($this->calculateWoundDuration($formData));
+        if ($duration > 90) $urgencyFactors++;
+        if ($duration > 180) $urgencyFactors++;
+
+        // Check wound size
+        $length = floatval($formData['wound_size_length'] ?? 0);
+        $width = floatval($formData['wound_size_width'] ?? 0);
+        if ($length > 5 || $width > 5) $urgencyFactors++;
+
+        // Check if conservative treatment failed
+        if ($this->formatBoolean($formData['failed_conservative_treatment'] ?? '') === 'Yes') {
+            $urgencyFactors++;
+        }
+
+        if ($urgencyFactors >= 3) return 'High';
+        if ($urgencyFactors >= 2) return 'Medium';
+        return 'Low';
     }
 }

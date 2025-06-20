@@ -21,6 +21,7 @@ class PatientIVRStatus extends Model
     protected $fillable = [
         'id',
         'patient_id',
+        'patient_fhir_id',
         'patient_display_id',
         'patient_name',
         'manufacturer_id',

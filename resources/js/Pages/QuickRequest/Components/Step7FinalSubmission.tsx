@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { FiFileText, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiShield } from 'react-icons/fi';
+import { FiCheck, FiAlertCircle, FiUser, FiShoppingCart, FiShield } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
@@ -168,16 +168,6 @@ export default function Step7FinalSubmission({
     return foundProduct;
   };
 
-  // Get provider details
-  const getProviderDetails = () => {
-    return providers.find(p => p.id === formData.provider_id);
-  };
-
-  // Get facility details
-  const getFacilityDetails = () => {
-    return facilities.find(f => f.id === formData.facility_id);
-  };
-
   // Create episode before DocuSeal
   const createEpisode = async () => {
     setIsCreatingEpisode(true);
@@ -213,7 +203,7 @@ export default function Step7FinalSubmission({
         patient_id: formData.patient_id || 'new-patient',
         patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
         patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
-        manufacturer_id: productToUse?.manufacturer_id || (products.find(p => p.id === productToUse?.id)?.manufacturer_id) || 1, // Get manufacturer ID from product
+        manufacturer_id: productToUse?.manufacturer_id || (products.find(p => p.id === productToUse?.id)?.manufacturer_id), // Get manufacturer ID from product (no hardcoded fallback)
         form_data: {
           ...formData,
           selected_product_id: productToUse?.id,
@@ -261,134 +251,168 @@ export default function Step7FinalSubmission({
 
   // Create DocuSeal submission with prepopulated data (final submission form)
   const createDocuSealSubmission = async () => {
+    if (isCreatingSubmission) return;
     setIsCreatingSubmission(true);
-    setError(null);
 
     try {
+      // Get selected product for manufacturer information
       const selectedProduct = getSelectedProduct();
-      const providerDetails = getProviderDetails();
-      const facilityDetails = getFacilityDetails();
+      if (!selectedProduct) {
+        throw new Error('No product selected for DocuSeal submission');
+      }
 
-      // Use the new builder approach for final submission
+      // Determine manufacturer ID for template resolution
+      const manufacturerId = selectedProduct.manufacturer_id ||
+                           products.find(p => p.id === selectedProduct.id)?.manufacturer_id;
+
+      console.log('Creating DocuSeal submission for manufacturer:', {
+        manufacturer_id: manufacturerId,
+        manufacturer_name: selectedProduct.manufacturer,
+        product_name: selectedProduct.name
+      });
+
       const builderData = {
-        use_builder: true,
         template_type: 'final_submission',
-        episode_id: episodeId, // Include episode ID for linking
+        use_builder: true, // Force builder mode for better UX
         prefill_data: {
-          // Include episode information
-          episode_id: episodeId || '',
-          ivr_submission_id: formData.docuseal_submission_id || '',
-
-          // Include the selected products array for manufacturer template selection
-          selected_products: formData.selected_products || [],
-
           // Patient Information
-          patient_first_name: formData.patient_first_name || '',
-          patient_last_name: formData.patient_last_name || '',
-          patient_dob: formData.patient_dob || '',
-          patient_gender: formData.patient_gender || '',
-          patient_member_id: formData.patient_member_id || '',
-          patient_address: `${formData.patient_address_line1 || ''} ${formData.patient_address_line2 || ''}`.trim(),
-          patient_city: formData.patient_city || '',
-          patient_state: formData.patient_state || '',
-          patient_zip: formData.patient_zip || '',
-          patient_phone: formData.patient_phone || '',
-          patient_email: formData.patient_email || '',
+          patient_first_name: formData.patient_first_name,
+          patient_last_name: formData.patient_last_name,
+          patient_dob: formData.patient_dob,
+          patient_gender: formData.patient_gender,
+          patient_member_id: formData.patient_member_id,
+          patient_address_line1: formData.patient_address_line1,
+          patient_address_line2: formData.patient_address_line2,
+          patient_city: formData.patient_city,
+          patient_state: formData.patient_state,
+          patient_zip: formData.patient_zip,
+          patient_phone: formData.patient_phone,
+          patient_email: formData.patient_email,
 
           // Provider Information
-          provider_name: providerDetails?.name || '',
-          provider_npi: providerDetails?.npi || '',
-          provider_credentials: providerDetails?.credentials || '',
-          facility_name: facilityDetails?.name || '',
-          facility_address: facilityDetails?.address || '',
+          provider_id: formData.provider_id,
+          provider_name: providers.find(p => p.id === formData.provider_id)?.name,
+          provider_npi: providers.find(p => p.id === formData.provider_id)?.npi,
+          facility_id: formData.facility_id,
+          facility_name: facilities.find(f => f.id === formData.facility_id)?.name,
 
           // Clinical Information
-          wound_type: formData.wound_types?.join(', ') || formData.wound_type || '',
-          wound_location: formData.wound_location || '',
-          wound_location_details: formData.wound_location_details || '',
-          wound_size: `${formData.wound_size_length || 0} x ${formData.wound_size_width || 0} x ${formData.wound_size_depth || 0} cm`,
-          wound_onset_date: formData.wound_onset_date || '',
-          wound_duration: formData.wound_duration || '',
-          failed_conservative_treatment: formData.failed_conservative_treatment ? 'Yes' : 'No',
-          treatment_tried: formData.treatment_tried || '',
-          current_dressing: formData.current_dressing || '',
-          expected_service_date: formData.expected_service_date || '',
+          wound_type: formData.wound_type,
+          wound_location: formData.wound_location,
+          wound_size_length: formData.wound_size_length,
+          wound_size_width: formData.wound_size_width,
+          wound_size_depth: formData.wound_size_depth,
+          wound_onset_date: formData.wound_onset_date,
+          failed_conservative_treatment: formData.failed_conservative_treatment,
+          treatment_tried: formData.treatment_tried,
+          current_dressing: formData.current_dressing,
+          expected_service_date: formData.expected_service_date,
 
           // Insurance Information
-          primary_insurance: formData.primary_insurance_name || '',
-          primary_member_id: formData.primary_member_id || '',
-          primary_plan_type: formData.primary_plan_type || '',
-          primary_payer_phone: formData.primary_payer_phone || '',
-          has_secondary_insurance: formData.has_secondary_insurance ? 'Yes' : 'No',
-          secondary_insurance: formData.secondary_insurance_name || '',
-          secondary_member_id: formData.secondary_member_id || '',
+          primary_insurance_name: formData.primary_insurance_name,
+          primary_member_id: formData.primary_member_id,
+          primary_plan_type: formData.primary_plan_type,
+          primary_payer_phone: formData.primary_payer_phone,
+          has_secondary_insurance: formData.has_secondary_insurance,
+          secondary_insurance_name: formData.secondary_insurance_name,
+          secondary_member_id: formData.secondary_member_id,
 
-          // Product Information with SIZES
-          selected_product_name: selectedProduct?.name || '',
-          selected_product_code: selectedProduct?.code || '',
-          selected_product_manufacturer: selectedProduct?.manufacturer || '',
-          product_quantity: formData.selected_products?.[0]?.quantity || 0,
-          product_size: formData.selected_products?.[0]?.size || '',
-          product_size_label: formData.selected_products?.[0]?.size || '',
+          // Product Information
+          selected_products: formData.selected_products,
+          manufacturer_id: manufacturerId,
+          manufacturer_name: selectedProduct.manufacturer,
 
           // Shipping Information
-          shipping_same_as_patient: formData.shipping_same_as_patient ? 'Yes' : 'No',
-          shipping_address: formData.shipping_same_as_patient
-            ? `${formData.patient_address_line1 || ''} ${formData.patient_address_line2 || ''}`.trim()
-            : `${formData.shipping_address_line1 || ''} ${formData.shipping_address_line2 || ''}`.trim(),
-          shipping_city: formData.shipping_same_as_patient ? formData.patient_city : formData.shipping_city,
-          shipping_state: formData.shipping_same_as_patient ? formData.patient_state : formData.shipping_state,
-          shipping_zip: formData.shipping_same_as_patient ? formData.patient_zip : formData.shipping_zip,
-          delivery_notes: formData.delivery_notes || '',
-          shipping_speed: formData.shipping_speed || '',
+          shipping_same_as_patient: formData.shipping_same_as_patient,
+          shipping_address_line1: formData.shipping_address_line1,
+          shipping_address_line2: formData.shipping_address_line2,
+          shipping_city: formData.shipping_city,
+          shipping_state: formData.shipping_state,
+          shipping_zip: formData.shipping_zip,
+          delivery_notes: formData.delivery_notes,
 
-          // Additional metadata
-          submission_date: new Date().toISOString().split('T')[0],
-          total_wound_area: (parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')).toString(),
+          // Episode Information
+          episode_id: episodeId,
 
-          // Include all other form data for comprehensive prefill
+          // Complete form data for debugging
           ...formData
         }
       };
 
+      console.log('Sending DocuSeal builder request with data:', {
+        template_type: builderData.template_type,
+        use_builder: builderData.use_builder,
+        manufacturer_id: manufacturerId,
+        episode_id: episodeId
+      });
+
       const response = await axios.post('/quickrequest/docuseal/create-final-submission', builderData);
       const data = response.data;
+
+      console.log('DocuSeal response:', data);
 
       if (data.success && data.jwt_token) {
         // Builder mode - store JWT token and builder props
         setBuilderToken(data.jwt_token);
+
+        // Determine template ID - try multiple sources
+        let templateId = data.template_id;
+        if (!templateId || templateId === 'null' || templateId === null) {
+          // Fallback to a default template based on manufacturer
+          const manufacturerKey = selectedProduct.manufacturer?.replace(/\s+/g, '').toLowerCase();
+          console.warn('No template ID returned, using fallback for manufacturer:', manufacturerKey);
+          templateId = null; // Let DocuSeal create a blank template
+        }
+
         setBuilderProps({
-          templateId: data.template_id,
-          userEmail: data.user_email,
-          integrationEmail: data.integration_email,
-          templateName: data.template_name
+          templateId: templateId,
+          userEmail: data.user_email || 'limitless@mscwoundcare.com',
+          integrationEmail: data.integration_email || data.user_email || 'limitless@mscwoundcare.com',
+          templateName: data.template_name || `MSC ${selectedProduct.manufacturer} IVR Form`
         });
 
         console.log('DocuSeal builder token generated:', {
-          template_id: data.template_id,
+          template_id: templateId,
           user_email: data.user_email,
-          template_name: data.template_name
+          template_name: data.template_name,
+          has_jwt_token: !!data.jwt_token
         });
       } else {
         // Legacy mode - use embed URL
-        setSubmissionUrl(data.embed_url);
-        setSubmissionId(data.submission_id);
+        if (data.embed_url) {
+          setSubmissionUrl(data.embed_url);
+          setSubmissionId(data.submission_id);
 
-        console.log('DocuSeal submission created:', {
-          template_id: data.template_id,
-          manufacturer: data.manufacturer,
-          submission_id: data.submission_id
-        });
+          console.log('DocuSeal submission created:', {
+            template_id: data.template_id,
+            manufacturer: data.manufacturer,
+            submission_id: data.submission_id
+          });
+        } else {
+          throw new Error(data.error || 'Failed to create DocuSeal submission - no embed URL or JWT token returned');
+        }
       }
 
       // Update form data with submission info
       updateFormData({
-        final_submission_id: data.submission_id || 'builder-mode'
+        final_submission_id: data.submission_id || 'builder-mode',
+        docuseal_template_id: data.template_id,
+        docuseal_jwt_token: data.jwt_token
       });
 
-    } catch (error) {
+        } catch (error: any) {
       console.error('Error creating DocuSeal submission:', error);
-      setError(error instanceof Error ? error.message : 'Failed to create submission');
+      let errorMessage = 'Failed to create submission';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+
+      setError(errorMessage);
     } finally {
       setIsCreatingSubmission(false);
     }

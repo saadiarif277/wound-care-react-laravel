@@ -124,11 +124,20 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
             setIsLoading(false);
         }, 10000);
 
+        // Additional timeout to show error if builder never loads
+        const errorTimeout = setTimeout(() => {
+            if (isLoading && !error) {
+                console.warn('DocuSeal builder failed to load within 30 seconds');
+                setError('DocuSeal builder is taking longer than expected to load. Please refresh the page or check your internet connection.');
+            }
+        }, 30000);
+
         return () => {
             window.removeEventListener('message', handleMessage);
             clearTimeout(loadingTimeout);
+            clearTimeout(errorTimeout);
         };
-    }, [handleMessage, onError]);
+    }, [handleMessage, onError, isLoading, error]);
 
     if (error) {
         return (
@@ -141,12 +150,24 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                 <div className="mt-4 space-y-2">
                     {jwtToken && <p className="text-xs text-red-500">JWT Token: {jwtToken.substring(0, 50)}...</p>}
                     {templateId && <p className="text-xs text-red-500">Template ID: {templateId}</p>}
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
-                    >
-                        Reload Page
-                    </button>
+                    <div className="mt-4 space-x-2">
+                        <button
+                            onClick={() => {
+                                setError(null);
+                                setIsLoading(true);
+                                setIsScriptLoaded(false);
+                            }}
+                            className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
+                        >
+                            Retry Loading
+                        </button>
+                        <button
+                            onClick={() => window.location.reload()}
+                            className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500"
+                        >
+                            Reload Page
+                        </button>
+                    </div>
                 </div>
             </div>
         );
@@ -158,7 +179,9 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         integrationEmail,
         templateName,
         documentUrls,
-        jwtToken: jwtToken ? `${jwtToken.substring(0, 20)}...` : 'none'
+        jwtToken: jwtToken ? `${jwtToken.substring(0, 20)}...` : 'none',
+        isScriptLoaded,
+        isLoading
     });
 
     return (
@@ -171,6 +194,11 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                         <p className="mt-1 text-xs text-gray-500">
                             {isScriptLoaded ? 'Initializing builder...' : 'Loading script...'}
                         </p>
+                        {templateId && (
+                            <p className="mt-1 text-xs text-gray-400">
+                                Template ID: {templateId}
+                            </p>
+                        )}
                     </div>
                 </div>
             )}
@@ -181,7 +209,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                         data-token={jwtToken}
                         data-user-email={userEmail}
                         data-integration-email={integrationEmail}
-                        data-template-id={templateId}
+                        data-template-id={templateId || ''} // Provide empty string if null
                         data-name={templateName}
                         data-document-urls={documentUrls.length > 0 ? JSON.stringify(documentUrls) : undefined}
                         data-folder-name="MSC Wound Care"
@@ -195,30 +223,30 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                             .btn-primary {
                                 background-color: #3b82f6 !important;
                             }
+                            .builder-header {
+                                background-color: #f8fafc !important;
+                            }
                         `}
-                        style={{ minHeight: '800px', width: '100%' }}
+                        style={{
+                            minHeight: '800px',
+                            width: '100%',
+                            border: 'none',
+                            outline: 'none'
+                        }}
                     />
                 )}
-            </div>
 
-            {/* Debug info */}
-            <div className="mt-2 text-xs text-gray-500">
-                <details>
-                    <summary className="cursor-pointer">Debug Info</summary>
-                    <div className="mt-1 space-y-1">
-                        <p>Script Loaded: {isScriptLoaded ? 'Yes' : 'No'}</p>
-                        <p>Template ID: {templateId || 'None'}</p>
-                        <p>User Email: {userEmail}</p>
-                        <p>Integration Email: {integrationEmail || 'None'}</p>
-                        <p>Template Name: {templateName}</p>
-                        <p>Document URLs: {documentUrls.length > 0 ? documentUrls.join(', ') : 'None'}</p>
-                        <p>JWT Token: {jwtToken ? `${jwtToken.substring(0, 20)}...` : 'None'}</p>
-                        <p>Loading: {isLoading ? 'Yes' : 'No'}</p>
-                        {/* Legacy props for backward compatibility */}
-                        {embedUrl && <p>Legacy Embed URL: {embedUrl}</p>}
-                        {submissionId && <p>Legacy Submission ID: {submissionId}</p>}
+                {/* Debug information in development */}
+                {process.env.NODE_ENV === 'development' && (
+                    <div className="mt-4 p-3 bg-gray-100 text-xs text-gray-600 rounded">
+                        <strong>Debug Info:</strong><br />
+                        Script Loaded: {isScriptLoaded ? 'Yes' : 'No'}<br />
+                        Template ID: {templateId || 'null'}<br />
+                        User Email: {userEmail}<br />
+                        JWT Token: {jwtToken ? 'Present' : 'Missing'}<br />
+                        Document URLs: {documentUrls.length}<br />
                     </div>
-                </details>
+                )}
             </div>
         </div>
     );
