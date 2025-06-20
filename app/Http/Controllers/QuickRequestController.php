@@ -87,7 +87,7 @@ class QuickRequestController extends Controller
                     return [
                         'id' => $provider->id,
                         'name' => $provider->first_name . ' ' . $provider->last_name,
-                        'credentials' => $user->providerProfile?->credentials ?? $user->provider_credentials ?? null,
+                        'credentials' => $provider->providerProfile?->credentials ?? $provider->provider_credentials ?? null,
                         'npi' => $provider->npi_number,
                     ];
                 })

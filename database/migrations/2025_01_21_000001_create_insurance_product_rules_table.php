@@ -63,10 +63,24 @@ return new class extends Migration
         }
 
         // Add MUE limit to products table
-        $productsTable = Schema::hasTable('msc_products') ? 'msc_products' : 'products';
-        
-        if (Schema::hasTable($productsTable) && !Schema::hasColumn($productsTable, 'mue_limit')) {
-            Schema::table($productsTable, function (Blueprint $table) {
+        $hasMscProducts = Schema::hasTable('msc_products');
+        $hasProducts = Schema::hasTable('products');
+        $targetTable = null;
+        if ($hasMscProducts && !$hasProducts) {
+            $targetTable = 'msc_products';
+        } elseif (!$hasMscProducts && $hasProducts) {
+            $targetTable = 'products';
+        } elseif ($hasMscProducts && $hasProducts) {
+            // If both exist, prefer msc_products or log a warning
+            $targetTable = 'msc_products'; // or set logic as needed
+            // Optionally: Log::warning('Both msc_products and products tables exist. Defaulting to msc_products.');
+        } else {
+            // Neither table exists, skip or throw error
+            throw new \RuntimeException('Neither msc_products nor products table exists. Cannot add mue_limit column.');
+        }
+
+        if ($targetTable && !Schema::hasColumn($targetTable, 'mue_limit')) {
+            Schema::table($targetTable, function (Blueprint $table) {
                 $table->integer('mue_limit')->nullable()->after('price_per_sq_cm')
                     ->comment('Maximum Units of Eligibility limit in sq cm');
             });

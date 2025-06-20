@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FiFileText, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiShield } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -72,8 +72,8 @@ interface FormData {
 }
 
 interface Step7Props {
-  formData: QuickRequestFormData;
-  updateFormData: (data: Partial<QuickRequestFormData>) => void;
+  formData: FormData;
+  updateFormData: (data: Partial<FormData>) => void;
   products: Array<{
     id: number;
     name: string;
@@ -168,7 +168,7 @@ export default function Step7FinalSubmission({
         form_data: {
           ...formData,
           // Ensure product sizes are included
-          selected_products: formData.selected_products?.map(p => ({
+          selected_products: formData.selected_products?.map((p: { product_id: number; quantity: number; size?: string; product?: any; }) => ({
             ...p,
             product_name: products.find(prod => prod.id === p.product_id)?.name,
             product_code: products.find(prod => prod.id === p.product_id)?.code,
@@ -279,7 +279,7 @@ export default function Step7FinalSubmission({
           selected_product_manufacturer: selectedProduct?.manufacturer || '',
           product_quantity: formData.selected_products?.[0]?.quantity || 0,
           product_size: formData.selected_products?.[0]?.size || '',
-          product_size_label: formData.selected_products?.[0]?.size_label || formData.selected_products?.[0]?.size || '',
+          product_size_label: formData.selected_products?.[0]?.size || '',
 
           // Shipping Information
           shipping_same_as_patient: formData.shipping_same_as_patient ? 'Yes' : 'No',
@@ -344,25 +344,27 @@ export default function Step7FinalSubmission({
     }
   };
 
+  // Memoize createEpisode and createDocuSealSubmission to avoid unnecessary re-renders
+  const createEpisodeMemo = useCallback(createEpisode, [formData, products]);
+  const createDocuSealSubmissionMemo = useCallback(createDocuSealSubmission, [formData, products, providers, facilities, episodeId]);
+
   // Initialize episode and DocuSeal submission on component mount
   useEffect(() => {
     const initializeSubmission = async () => {
       // First create episode if not already created
       if (!episodeId && !isCreatingEpisode && !error) {
-        const episodeCreated = await createEpisode();
-        
+        const episodeCreated = await createEpisodeMemo();
         // If episode created successfully, proceed with DocuSeal submission
         if (episodeCreated) {
-          await createDocuSealSubmission();
+          await createDocuSealSubmissionMemo();
         }
       } else if (episodeId && !submissionUrl && !builderToken && !isCreatingSubmission && !error) {
         // Episode exists but DocuSeal submission not created yet
-        await createDocuSealSubmission();
+        await createDocuSealSubmissionMemo();
       }
     };
-
     initializeSubmission();
-  }, [episodeId]);
+  }, [episodeId, isCreatingEpisode, error, submissionUrl, builderToken, isCreatingSubmission, createEpisodeMemo, createDocuSealSubmissionMemo]);
 
   const handleDocuSealComplete = (data: any) => {
     console.log('Final DocuSeal submission completed:', data);

@@ -26,7 +26,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ & Associates',
     products: ['Ensano ACA', 'Revoshield+ Amnio', 'Dermabind FM'],
     signatureRequired: true,
-    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_ACZ || '852440', // TODO: Move to env config
+    docusealTemplateId: import.meta.env.VITE_DOCUSEAL_TEMPLATE_ACZ || '852440', // TODO: Move to env config
     fields: [
       {
         name: 'physician_attestation',

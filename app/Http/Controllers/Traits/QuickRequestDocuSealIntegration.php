@@ -7,6 +7,7 @@ use App\Models\Order\Product;
 use App\Models\Order\Manufacturer;
 use App\Services\DocuSealService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -41,10 +42,10 @@ trait QuickRequestDocuSealIntegration
                 'status' => '!=' . PatientManufacturerIVREpisode::STATUS_COMPLETED,
             ], [
                 'patient_display_id' => $validated['patient_display_id'],
-                'status' => PatientManufacturerIVREpisode::STATUS_DRAFT,
+                'status' => 'draft',
                 'metadata' => [
                     'facility_id' => $validated['facility_id'],
-                    'provider_id' => auth()->id(),
+                    'provider_id' => Auth::id(),
                     'created_from' => 'quick_request',
                     'product_id' => $product->id,
                     'selected_products' => $validated['form_data']['selected_products'] ?? [],
@@ -53,7 +54,7 @@ trait QuickRequestDocuSealIntegration
             ]);
             
             // Prepare data for DocuSeal
-            $docusealData = $this->prepareDocuSealData($validated['form_data'], $episode);
+            $docusealData = $this->prepareDocuSealData($validated['form_data'], $episode, $product);
             
             // Create DocuSeal submission
             $docusealService = new DocuSealService();
@@ -88,7 +89,7 @@ trait QuickRequestDocuSealIntegration
     /**
      * Prepare data for DocuSeal submission using universal mapping
      */
-    protected function prepareDocuSealData(array $formData, PatientManufacturerIVREpisode $episode): array
+    protected function prepareDocuSealData(array $formData, PatientManufacturerIVREpisode $episode, Product $product): array
     {
         // Get organization, facility, and provider data
         $facility = \App\Models\Fhir\Facility::find($episode->metadata['facility_id']);
@@ -100,8 +101,8 @@ trait QuickRequestDocuSealIntegration
             'requestInfo' => [
                 'requestType' => $formData['request_type'] ?? 'new_request',
                 'requestDate' => now()->format('Y-m-d'),
-                'salesRepName' => $formData['sales_rep_name'] ?? auth()->user()->name,
-                'salesRepEmail' => $formData['sales_rep_email'] ?? auth()->user()->email,
+                'salesRepName' => $formData['sales_rep_name'] ?? \Illuminate\Support\Facades\Auth::user()->name,
+                'salesRepEmail' => $formData['sales_rep_email'] ?? \Illuminate\Support\Facades\Auth::user()->email,
             ],
             
             'patientInfo' => [
@@ -141,198 +142,61 @@ trait QuickRequestDocuSealIntegration
                 'requestPriorAuthAssistance' => $formData['request_prior_auth_assistance'] ?? false,
                 'cardsAttached' => $formData['insurance_cards_attached'] ?? false,
             ],
-            
-            'physicianInfo' => [
-                'physicianName' => $provider->full_name ?? $provider->name,
-                'physicianSpecialty' => $provider->providerProfile->specialty ?? null,
-                'physicianNPI' => $provider->npi_number ?? $provider->providerProfile->npi ?? null,
-                'physicianTaxID' => $provider->providerProfile->tax_id ?? null,
-                'physicianPTAN' => $provider->providerProfile->ptan ?? null,
-                'physicianMedicaidNumber' => $provider->providerProfile->medicaid_number ?? null,
-                'physicianPhone' => $provider->providerProfile->phone ?? null,
-                'physicianFax' => $provider->providerProfile->fax ?? null,
-                'physicianEmail' => $provider->email ?? null,
-                'physicianCredentials' => is_array($provider->credentials) ? implode(', ', $provider->credentials) : $provider->credentials,
-            ],            
-            'facilityInfo' => [
-                'facilityName' => $facility->name ?? null,
-                'facilityAddressLine1' => $facility->address_line1 ?? $facility->address ?? null,
-                'facilityAddressLine2' => $facility->address_line2 ?? null,
-                'facilityCity' => $facility->city ?? null,
-                'facilityState' => $facility->state ?? null,
-                'facilityZipCode' => $facility->zip_code ?? $facility->zip ?? null,
-                'facilityNPI' => $facility->npi ?? null,
-                'facilityTaxID' => $facility->tax_id ?? $organization->tax_id ?? null,
-                'facilityPTAN' => $facility->ptan ?? null,
-                'facilityContactName' => $facility->contact_name ?? null,
-                'facilityContactPhone' => $facility->contact_phone ?? null,
-                'facilityContactFax' => $facility->contact_fax ?? null,
-                'facilityContactEmail' => $facility->contact_email ?? null,
-                'facilityPhone' => $facility->phone ?? null,
-                'facilityFax' => $facility->fax ?? $facility->contact_fax ?? null,
-                'managementCompany' => $organization->name ?? null,
-                'organizationTaxID' => $organization->tax_id ?? null,
-            ],
-            
-            'placeOfService' => [
-                'placeOfService' => $formData['place_of_service'] ?? '11',
-                'snfStatus' => $formData['snf_status'] ?? false,
-                'snfDays' => $formData['snf_days'] ?? null,
-                'snfOver100Days' => $formData['snf_over_100_days'] ?? false,
-                'hospiceStatus' => $formData['hospice_status'] ?? false,
-                'partAStatus' => $formData['part_a_status'] ?? false,
-            ],
-            
-            'woundInfo' => [
-                'woundType' => $formData['wound_types'] ?? [],
-                'woundOtherSpecify' => $formData['wound_other_specify'] ?? null,
-                'woundLocation' => $formData['wound_location'] ?? null,
-                'woundLocationDetails' => $formData['wound_location_details'] ?? null,
-                'woundSizeLength' => $formData['wound_size_length'] ?? null,
-                'woundSizeWidth' => $formData['wound_size_width'] ?? null,
-                'woundSizeDepth' => $formData['wound_size_depth'] ?? null,
-                'woundSizeTotal' => ($formData['wound_size_length'] ?? 0) * ($formData['wound_size_width'] ?? 0),
-                'woundDuration' => $formData['wound_duration'] ?? null,
-                'previousTreatments' => $formData['previous_treatments'] ?? null,
-            ],            
-            'procedureInfo' => [
-                'globalPeriodStatus' => $formData['global_period_status'] ?? false,
-                'globalPeriodCptCodes' => $formData['global_period_cpt'] ?? null,
-                'globalPeriodSurgeryDate' => $formData['global_period_surgery_date'] ?? null,
-                'anticipatedTreatmentDate' => $formData['expected_service_date'] ?? null,
-                'anticipatedApplications' => $formData['anticipated_applications'] ?? null,
-                'applicationCptCodes' => $formData['application_cpt_codes'] ?? [],
-                'diagnosisCodes' => $formData['diagnosis_codes'] ?? null,
-                'primaryDiagnosisCode' => $formData['yellow_diagnosis_code'] ?? null,
-                'secondaryDiagnosisCodes' => $formData['orange_diagnosis_code'] ?? null,
-                'comorbidities' => $formData['comorbidities'] ?? null,
-            ],
-            
             'productInfo' => [
-                'selectedProducts' => array_map(function($product) {
-                    return $product['product_code'] ?? $product['product_name'] ?? 'Unknown';
-                }, $formData['selected_products'] ?? []),
-                'productSizes' => array_map(function($product) {
-                    return $product['size'] ?? null;
-                }, $formData['selected_products'] ?? []),
-                'productSizeLabels' => array_map(function($product) {
-                    return $product['size_label'] ?? $product['size'] ?? null;
-                }, $formData['selected_products'] ?? []),
-                'productQuantities' => array_map(function($product) {
-                    return $product['quantity'] ?? 1;
-                }, $formData['selected_products'] ?? []),
-                'graftSizeRequested' => $formData['graft_size_requested'] ?? null,
-                'totalProducts' => count($formData['selected_products'] ?? []),
+                'productName' => $product->name,
+                'productNDC' => $product->ndc,
+                'productUPC' => $product->upc,
+                'productLotNumber' => $formData['product_lot_number'] ?? null,
+                'productExpirationDate' => $formData['product_expiration_date'] ?? null,
+                'productQuantity' => $formData['product_quantity'] ?? 1,
+                'productFrequency' => $formData['product_frequency'] ?? null,
+                'productRoute' => $formData['product_route'] ?? null,
+                'productSite' => $formData['product_site'] ?? null,
+                'productInstructions' => $formData['product_instructions'] ?? null,
             ],
-            
-            // Simplified product fields for easy access
-            'product_name' => $formData['selected_products'][0]['product_name'] ?? 'Unknown Product',
-            'product_code' => $formData['selected_products'][0]['product_code'] ?? '',
-            'product_size' => $formData['selected_products'][0]['size'] ?? '',
-            'product_size_label' => $formData['selected_products'][0]['size_label'] ?? $formData['selected_products'][0]['size'] ?? '',
-            'product_quantity' => $formData['selected_products'][0]['quantity'] ?? 1,
-            
-            // Additional comprehensive fields for 90%+ coverage
-            'shippingInfo' => [
-                'shippingSameAsPatient' => $formData['shipping_same_as_patient'] ?? true,
-                'shippingAddressLine1' => $formData['shipping_same_as_patient'] ? 
-                    ($formData['patient_address_line1'] ?? null) : 
-                    ($formData['shipping_address_line1'] ?? null),
-                'shippingAddressLine2' => $formData['shipping_same_as_patient'] ? 
-                    ($formData['patient_address_line2'] ?? null) : 
-                    ($formData['shipping_address_line2'] ?? null),
-                'shippingCity' => $formData['shipping_same_as_patient'] ? 
-                    ($formData['patient_city'] ?? null) : 
-                    ($formData['shipping_city'] ?? null),
-                'shippingState' => $formData['shipping_same_as_patient'] ? 
-                    ($formData['patient_state'] ?? null) : 
-                    ($formData['shipping_state'] ?? null),
-                'shippingZipCode' => $formData['shipping_same_as_patient'] ? 
-                    ($formData['patient_zip'] ?? null) : 
-                    ($formData['shipping_zip'] ?? null),
-                'deliveryNotes' => $formData['delivery_notes'] ?? null,
-                'shippingSpeed' => $formData['shipping_speed'] ?? 'standard',
-                'requestedDeliveryDate' => $formData['delivery_date'] ?? null,
-            ],
-            
-            // Sales and tracking information
-            'trackingInfo' => [
-                'salesRepresentative' => auth()->user()->name,
-                'salesRepEmail' => auth()->user()->email,
-                'requestDate' => now()->format('Y-m-d'),
-                'requestTime' => now()->format('H:i:s'),
+            'episodeInfo' => [
                 'episodeId' => $episode->id,
-                'patientDisplayId' => $episode->patient_display_id,
+                'episodeStatus' => $episode->status,
+                'episodeCreatedDate' => $episode->created_at->format('Y-m-d'),
+                'episodeModifiedDate' => $episode->updated_at->format('Y-m-d'),
+                'episodeCompletionDate' => $episode->completed_at ? $episode->completed_at->format('Y-m-d') : null,
             ],
-            
-            // Eligibility and authorization
-            'eligibilityInfo' => [
-                'insuranceVerified' => $formData['insurance_verified'] ?? false,
-                'priorAuthRequired' => $formData['prior_auth_required'] ?? 'unknown',
-                'priorAuthNumber' => $formData['prior_auth_number'] ?? null,
-                'medicareAdvantage' => $formData['medicare_advantage'] ?? false,
+            'facilityInfo' => [
+                'facilityName' => $facility->name,
+                'facilityPhone' => $facility->phone,
+                'facilityFax' => $facility->fax,
+                'facilityAddressLine1' => $facility->address_line1,
+                'facilityAddressLine2' => $facility->address_line2,
+                'facilityCity' => $facility->city,
+                'facilityState' => $facility->state,
+                'facilityZipCode' => $facility->zip,
+                'facilityCountry' => $facility->country,
             ],
-            
-            // Clinical notes and additional info
-            'clinicalNotes' => [
-                'additionalDiagnoses' => $formData['additional_diagnoses'] ?? null,
-                'clinicalNotes' => $formData['clinical_notes'] ?? null,
-                'specialInstructions' => $formData['special_instructions'] ?? null,
-                'urgentRequest' => $formData['urgent_request'] ?? false,
-                'urgentReason' => $formData['urgent_reason'] ?? null,
+            'providerInfo' => [
+                'providerName' => $provider->name,
+                'providerNPI' => $provider->npi,
+                'providerPhone' => $provider->phone,
+                'providerEmail' => $provider->email,
+                'providerSpecialty' => $provider->specialty,
+                'providerAddressLine1' => $provider->address_line1,
+                'providerAddressLine2' => $provider->address_line2,
+                'providerCity' => $provider->city,
+                'providerState' => $provider->state,
+                'providerZipCode' => $provider->zip,
+                'providerCountry' => $provider->country,
             ],
-            
-            // Contact preferences
-            'contactPreferences' => [
-                'preferredContactMethod' => $formData['preferred_contact_method'] ?? 'phone',
-                'bestTimeToCall' => $formData['best_time_to_call'] ?? null,
-                'alternatePhone' => $formData['alternate_phone'] ?? null,
-                'caregiverPhone' => $formData['caregiver_phone'] ?? null,
-            ],
-            
-            // Compliance and documentation
-            'complianceInfo' => [
-                'hipaaConsent' => $formData['hipaa_consent'] ?? true,
-                'insuranceCardsUploaded' => $formData['insurance_cards_uploaded'] ?? false,
-                'clinicalDocumentsUploaded' => $formData['clinical_documents_uploaded'] ?? false,
-                'photographsUploaded' => $formData['photographs_uploaded'] ?? false,
-            ],
-            
-            // Add manufacturer-specific fields if any
-            'manufacturer_fields' => $formData['manufacturer_fields'] ?? [],
+            'organizationInfo' => $organization ? [
+                'organizationName' => $organization->name,
+                'organizationNPI' => $organization->npi,
+                'organizationPhone' => $organization->phone,
+                'organizationEmail' => $organization->email,
+                'organizationAddressLine1' => $organization->address_line1,
+                'organizationAddressLine2' => $organization->address_line2,
+                'organizationCity' => $organization->city,
+                'organizationState' => $organization->state,
+                'organizationZipCode' => $organization->zip,
+                'organizationCountry' => $organization->country,
+            ] : null,
         ];
-    }
-    
-    /**
-     * Update episode after DocuSeal webhook
-     */
-    public function handleDocuSealWebhook(Request $request)
-    {
-        Log::info('DocuSeal webhook received', $request->all());
-        
-        $eventType = $request->input('event_type');
-        $submissionId = $request->input('data.id');
-        
-        if ($eventType === 'submission.completed' && $submissionId) {
-            $episode = PatientManufacturerIVREpisode::where('docuseal_submission_id', $submissionId)->first();
-            
-            if ($episode) {
-                $episode->update([
-                    'status' => PatientManufacturerIVREpisode::STATUS_IVR_SENT,
-                    'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_PROVIDER_COMPLETED,
-                    'verification_date' => now(),
-                    'expiration_date' => now()->addDays(180), // 6 months validity
-                    'metadata' => array_merge($episode->metadata ?? [], [
-                        'docuseal_completed_at' => now()->toIso8601String(),
-                        'docuseal_data' => $request->input('data.submitters.0.values', []),
-                        'signed_document_url' => $request->input('data.submitters.0.documents.0.url'),
-                    ])
-                ]);
-                
-                Log::info('Episode updated from DocuSeal webhook', ['episode_id' => $episode->id]);
-            }
-        }
-        
-        return response()->json(['status' => 'ok']);
     }
 }

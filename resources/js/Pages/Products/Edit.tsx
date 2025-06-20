@@ -1,40 +1,51 @@
-import React, { useState } from 'react';
-import { Head, Link, useForm } from '@inertiajs/react';
+import React, { useState, useEffect } from 'react';
+import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import {
-  FiArrowLeft,
   FiSave,
-  FiPlus,
-  FiTrash2,
+  FiX,
   FiUpload,
-  FiPackage,
-  FiAlertTriangle,
-  FiDollarSign,
+  FiFileText,
   FiImage,
-  FiFile
+  FiDownload,
+  FiTrash2,
+  FiPackage,
+  FiDollarSign,
+  FiTag,
+  FiInfo,
+  FiAlertCircle,
+  FiCheck,
+  FiEye,
+  FiEdit3,
+  FiPlus,
+  FiMinus,
+  FiCopy,
+  FiExternalLink
 } from 'react-icons/fi';
 
 interface Product {
   id: number;
   sku: string;
+  q_code: string;
   name: string;
   description: string;
   manufacturer: string;
   category: string;
   price_per_sq_cm: number;
-  q_code: string;
+  national_asp?: number;
+  commission_rate: number;
   available_sizes: number[];
   size_options?: string[];
-  size_pricing?: Record<string, number>;
-  size_unit?: 'in' | 'cm';
-  graph_type: string;
-  image_url: string;
-  document_urls: string[];
-  commission_rate: number;
-  is_active: boolean;
+  size_unit?: string;
   mue_limit?: number;
+  graph_type?: string;
+  is_active: boolean;
+  image_url?: string;
+  document_urls?: string[];
+  created_at: string;
+  updated_at: string;
 }
 
 interface Props {
@@ -43,798 +54,934 @@ interface Props {
   manufacturers: string[];
 }
 
-interface FormData {
-  sku: string;
-  name: string;
-  description: string;
-  manufacturer: string;
-  category: string;
-  national_asp: string;
-  price_per_sq_cm: string;
-  q_code: string;
-  available_sizes: string[];
-  size_options: string[];
-  size_pricing: Record<string, string>;
-  size_unit: 'in' | 'cm';
-  graph_type: string;
-  image_url: string;
-  document_urls: string[];
-  commission_rate: string;
-  is_active: boolean;
-  mue_limit: string;
-}
-
 export default function ProductEdit({ product, categories, manufacturers }: Props) {
-  // Theme context with fallback
-  let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
+  const { theme } = useTheme();
+  const t = themes[theme];
 
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-    t = themes[theme];
-  } catch (e) {
-    // Fallback to dark theme if outside ThemeProvider
-  }
+  const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'sizes' | 'documents'>('basic');
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const { data, setData, put, delete: destroy, processing, errors } = useForm<FormData>({
+  const { data, setData, put, processing, errors, reset } = useForm({
     sku: product.sku || '',
+    q_code: product.q_code || '',
     name: product.name || '',
     description: product.description || '',
     manufacturer: product.manufacturer || '',
     category: product.category || '',
-    national_asp: product.price_per_sq_cm ? product.price_per_sq_cm.toString() : '',
-    price_per_sq_cm: product.price_per_sq_cm ? product.price_per_sq_cm.toString() : '',
-    q_code: product.q_code || '',
-    available_sizes: product.available_sizes ? product.available_sizes.map(size => size.toString()) : [],
+    price_per_sq_cm: product.price_per_sq_cm || 0,
+    national_asp: product.national_asp || 0,
+    commission_rate: product.commission_rate || 0,
+    available_sizes: product.available_sizes || [],
     size_options: product.size_options || [],
-    size_pricing: product.size_pricing ? Object.fromEntries(
-      Object.entries(product.size_pricing).map(([key, value]) => [key, value.toString()])
-    ) : {},
-    size_unit: product.size_unit || 'in',
+    size_unit: product.size_unit || 'cm',
+    mue_limit: product.mue_limit || 0,
     graph_type: product.graph_type || '',
+    is_active: product.is_active ?? true,
     image_url: product.image_url || '',
-    document_urls: product.document_urls && product.document_urls.length > 0 ? product.document_urls : [''],
-    commission_rate: product.commission_rate ? product.commission_rate.toString() : '',
-    is_active: product.is_active,
-    mue_limit: product.mue_limit ? product.mue_limit.toString() : '',
+    document_urls: product.document_urls || [],
+    new_documents: [] as File[],
+    remove_documents: [] as string[]
   });
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Process size_pricing to convert string values back to numbers
-    const processedSizePricing: Record<string, number> = {};
-    Object.entries(data.size_pricing).forEach(([size, priceStr]) => {
-      const price = parseFloat(priceStr);
-      if (!isNaN(price)) {
-        processedSizePricing[size] = price;
+    // Create FormData for file uploads
+    const formData = new FormData();
+
+    // Add all form fields
+    Object.entries(data).forEach(([key, value]) => {
+      if (key === 'new_documents') {
+        // Handle file uploads
+        (value as File[]).forEach((file, index) => {
+          formData.append(`new_documents[${index}]`, file);
+        });
+      } else if (Array.isArray(value)) {
+        // Handle arrays
+        value.forEach((item, index) => {
+          formData.append(`${key}[${index}]`, String(item));
+        });
+      } else {
+        formData.append(key, String(value));
       }
     });
 
-    // Filter out empty values and convert to proper types
-    const processedData = {
-      ...data,
-      available_sizes: data.available_sizes.filter(size => size.trim() !== '').map(size => parseFloat(size)),
-      size_options: data.size_options.filter(size => size.trim() !== ''),
-      size_pricing: processedSizePricing,
-      document_urls: data.document_urls.filter(url => url.trim() !== ''),
-      national_asp: data.national_asp ? parseFloat(data.national_asp) : null,
-      price_per_sq_cm: data.price_per_sq_cm ? parseFloat(data.price_per_sq_cm) : null,
-      commission_rate: data.commission_rate ? parseFloat(data.commission_rate) : null,
-      mue_limit: data.mue_limit ? parseFloat(data.mue_limit) : null,
-    };
-
-    put(`/products/${product.id}`, processedData as any);
+    router.post(`/products/${product.id}`, formData, {
+      forceFormData: true,
+      onSuccess: () => {
+        // Handle success
+      },
+      onError: (errors) => {
+        console.error('Form submission errors:', errors);
+      },
+    });
   };
 
-  const handleDelete = () => {
-    destroy(`/products/${product.id}`);
+  const handleFileUpload = (files: FileList | null) => {
+    if (!files) return;
+
+    const newFiles = Array.from(files);
+    setData('new_documents', [...data.new_documents, ...newFiles]);
+
+    // Create preview URLs
+    const newPreviewUrls = newFiles.map(file => URL.createObjectURL(file));
+    setPreviewUrls(prev => [...prev, ...newPreviewUrls]);
+  };
+
+  const removeNewDocument = (index: number) => {
+    const newDocuments = data.new_documents.filter((_, i) => i !== index);
+    setData('new_documents', newDocuments);
+
+    // Clean up preview URLs
+    URL.revokeObjectURL(previewUrls[index]);
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingDocument = (url: string) => {
+    setData('remove_documents', [...data.remove_documents, url]);
+    setData('document_urls', data.document_urls.filter(docUrl => docUrl !== url));
   };
 
   const addSize = () => {
-    setData('available_sizes', [...data.available_sizes, '']);
+    setData('available_sizes', [...data.available_sizes, 0]);
   };
 
-  const removeSize = (index: number) => {
-    const newSizes = data.available_sizes.filter((_, i) => i !== index);
-    setData('available_sizes', newSizes);
-  };
-
-  const updateSize = (index: number, value: string) => {
+  const updateSize = (index: number, value: number) => {
     const newSizes = [...data.available_sizes];
     newSizes[index] = value;
     setData('available_sizes', newSizes);
   };
 
-  // Size options management functions
+  const removeSize = (index: number) => {
+    setData('available_sizes', data.available_sizes.filter((_, i) => i !== index));
+  };
+
   const addSizeOption = () => {
     setData('size_options', [...data.size_options, '']);
   };
 
-  const removeSizeOption = (index: number) => {
-    const newOptions = data.size_options.filter((_, i) => i !== index);
-    setData('size_options', newOptions);
-
-    // Also remove from pricing if it exists
-    const removedSize = data.size_options[index];
-    if (removedSize && data.size_pricing[removedSize]) {
-      const newPricing = { ...data.size_pricing };
-      delete newPricing[removedSize];
-      setData('size_pricing', newPricing);
-    }
-  };
-
   const updateSizeOption = (index: number, value: string) => {
-    const oldValue = data.size_options[index];
     const newOptions = [...data.size_options];
     newOptions[index] = value;
     setData('size_options', newOptions);
-
-    // Update the pricing key if it exists
-    if (oldValue && data.size_pricing[oldValue]) {
-      const newPricing = { ...data.size_pricing };
-      newPricing[value] = newPricing[oldValue];
-      delete newPricing[oldValue];
-      setData('size_pricing', newPricing);
-    }
   };
 
-  const updateSizePricing = (size: string, price: string) => {
-    setData('size_pricing', {
-      ...data.size_pricing,
-      [size]: price
-    });
+  const removeSizeOption = (index: number) => {
+    setData('size_options', data.size_options.filter((_, i) => i !== index));
   };
 
-  // Common size presets
-  const commonSizes = [
-    '1x1', '2x2', '2x3', '2x4', '3x3', '3x4', '4x4', '4x5', '4x6',
-    '5x5', '6x6', '6x8', '8x8', '8x10', '10x10', '10x12', '12x12'
+  const tabs = [
+    { id: 'basic', label: 'Basic Info', icon: FiPackage },
+    { id: 'pricing', label: 'Pricing', icon: FiDollarSign },
+    { id: 'sizes', label: 'Sizes', icon: FiTag },
+    { id: 'documents', label: 'Documents', icon: FiFileText }
   ];
-
-  const addCommonSize = (size: string) => {
-    if (!data.size_options.includes(size)) {
-      setData('size_options', [...data.size_options, size]);
-
-      // Calculate square cm for common sizes (assuming inches)
-      const dims = size.split('x').map(d => parseFloat(d));
-      if (dims.length === 2) {
-        const sqCm = (dims[0] * 2.54) * (dims[1] * 2.54); // Convert inches to cm
-        setData('size_pricing', {
-          ...data.size_pricing,
-          [size]: sqCm.toFixed(2)
-        });
-      }
-    }
-  };
-
-  const addDocumentUrl = () => {
-    setData('document_urls', [...data.document_urls, '']);
-  };
-
-  const removeDocumentUrl = (index: number) => {
-    const newUrls = data.document_urls.filter((_, i) => i !== index);
-    setData('document_urls', newUrls);
-  };
-
-  const updateDocumentUrl = (index: number, value: string) => {
-    const newUrls = [...data.document_urls];
-    newUrls[index] = value;
-    setData('document_urls', newUrls);
-  };
 
   return (
     <MainLayout>
-      <Head title={`Edit ${product.name}`} />
+      <Head title={`Edit Product - ${product.name}`} />
 
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center gap-4">
-            <Link
-              href="/products"
-              className={cn(
-                "flex items-center gap-2 transition-colors",
-                t.text.secondary,
-                "hover:text-opacity-80"
-              )}
-            >
-              <FiArrowLeft className="w-4 h-4" />
-              Back to Products
-            </Link>
-            <div className={cn("w-px h-6", t.glass.border)}></div>
-            <h1 className={cn("text-3xl font-bold", t.text.primary)}>Edit Product</h1>
+        <div className={cn("p-6 rounded-2xl", t.glass.card)}>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className={cn("text-3xl font-bold flex items-center gap-3", t.text.primary)}>
+                <FiEdit3 className="w-8 h-8 text-blue-500" />
+                Edit Product
+              </h1>
+              <p className={cn("text-sm mt-2", t.text.secondary)}>
+                Update product information, pricing, and documentation
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.get(`/products/${product.id}`)}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
+                  t.button.secondary.base,
+                  t.button.secondary.hover
+                )}
+              >
+                <FiEye className="w-4 h-4" />
+                View Product
+              </button>
+              <button
+                onClick={() => router.get('/products')}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
+                  t.button.ghost.base,
+                  t.button.ghost.hover
+                )}
+              >
+                <FiX className="w-4 h-4" />
+                Cancel
+              </button>
+            </div>
           </div>
 
-          <button
-            onClick={() => setShowDeleteConfirm(true)}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg transition-colors",
-              t.status.error,
-              "hover:opacity-90"
-            )}
-          >
-            <FiTrash2 className="w-4 h-4" />
-            Delete Product
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Basic Information */}
-          <div className={cn("p-6 rounded-lg", t.glass.card)}>
-            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
-              <FiPackage className="w-5 h-5" />
-              Basic Information
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  SKU <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={data.sku}
-                  onChange={(e) => setData('sku', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.sku && t.input.error
-                  )}
-                  placeholder="e.g., BIO-Q4154"
-                />
-                {errors.sku && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.sku}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Q-Code
-                </label>
-                <input
-                  type="text"
-                  value={data.q_code}
-                  onChange={(e) => setData('q_code', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.q_code && t.input.error
-                  )}
-                  placeholder="e.g., 4154"
-                />
-                {errors.q_code && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.q_code}</p>}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Product Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={data.name}
-                  onChange={(e) => setData('name', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.name && t.input.error
-                  )}
-                  placeholder="e.g., Biovance"
-                />
-                {errors.name && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.name}</p>}
-              </div>
-
-              <div className="md:col-span-2">
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Description
-                </label>
-                <textarea
-                  value={data.description}
-                  onChange={(e) => setData('description', e.target.value)}
-                  rows={3}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.description && t.input.error
-                  )}
-                  placeholder="Product description..."
-                />
-                {errors.description && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.description}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Manufacturer
-                </label>
-                <select
-                  value={data.manufacturer}
-                  onChange={(e) => setData('manufacturer', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.manufacturer && t.input.error
-                  )}
-                >
-                  <option value="">Select Manufacturer</option>
-                  {manufacturers.map((manufacturer) => (
-                    <option key={manufacturer} value={manufacturer}>
-                      {manufacturer}
-                    </option>
-                  ))}
-                </select>
-                {errors.manufacturer && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.manufacturer}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Category
-                </label>
-                <select
-                  value={data.category}
-                  onChange={(e) => setData('category', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.category && t.input.error
-                  )}
-                >
-                  <option value="">Select Category</option>
-                  {categories.map((category) => (
-                    <option key={category} value={category}>
-                      {category}
-                    </option>
-                  ))}
-                </select>
-                {errors.category && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.category}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Graph Type
-                </label>
-                <input
-                  type="text"
-                  value={data.graph_type}
-                  onChange={(e) => setData('graph_type', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.graph_type && t.input.error
-                  )}
-                  placeholder="e.g., wound_care"
-                />
-                {errors.graph_type && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.graph_type}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Status
-                </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={data.is_active}
-                    onChange={(e) => setData('is_active', e.target.checked)}
-                    className={cn(
-                      "rounded",
-                      t.input.base,
-                      "h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                    )}
+          {/* Product Summary */}
+          <div className={cn("mt-6 p-4 rounded-xl", t.glass.frost)}>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-xl flex items-center justify-center">
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.name}
+                    className="w-full h-full object-cover rounded-xl"
                   />
-                  <span className={cn("text-sm", t.text.primary)}>Active</span>
-                </label>
+                ) : (
+                  <FiPackage className={cn("w-8 h-8", t.text.muted)} />
+                )}
               </div>
-            </div>
-          </div>
-
-          {/* Pricing Information */}
-          <div className={cn("p-6 rounded-lg", t.glass.card)}>
-            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
-              <FiDollarSign className="w-5 h-5" />
-              Pricing Information
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  National ASP ($/cm²)
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.national_asp}
-                  onChange={(e) => setData('national_asp', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.national_asp && t.input.error
-                  )}
-                  placeholder="0.00"
-                />
-                {errors.national_asp && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.national_asp}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Price per cm²
-                </label>
-                <input
-                  type="number"
-                  step="0.01"
-                  value={data.price_per_sq_cm}
-                  onChange={(e) => setData('price_per_sq_cm', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.price_per_sq_cm && t.input.error
-                  )}
-                  placeholder="0.00"
-                />
-                {errors.price_per_sq_cm && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.price_per_sq_cm}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Commission Rate (%)
-                </label>
-                <input
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  max="100"
-                  value={data.commission_rate}
-                  onChange={(e) => setData('commission_rate', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.commission_rate && t.input.error
-                  )}
-                  placeholder="0.0"
-                />
-                {errors.commission_rate && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.commission_rate}</p>}
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  MUE Limit (sq cm)
-                </label>
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  value={data.mue_limit}
-                  onChange={(e) => setData('mue_limit', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    errors.mue_limit && t.input.error
-                  )}
-                  placeholder="4000"
-                />
-                {errors.mue_limit && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.mue_limit}</p>}
-                <p className={cn("text-xs mt-1", t.text.secondary)}>
-                  Maximum Units of Eligibility limit
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Size Options */}
-          <div className={cn("p-6 rounded-lg", t.glass.card)}>
-            <div className="flex items-center justify-between mb-6">
-              <div>
-                <h2 className={cn("text-xl font-semibold", t.text.primary)}>Product Sizes</h2>
-                <p className={cn("text-sm mt-1", t.text.secondary)}>Define available sizes for this product</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <select
-                  value={data.size_unit}
-                  onChange={(e) => setData('size_unit', e.target.value as 'in' | 'cm')}
-                  className={cn(
-                    "text-sm px-2 py-1 rounded-lg",
-                    t.input.base
-                  )}
-                >
-                  <option value="in">Inches</option>
-                  <option value="cm">Centimeters</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={addSizeOption}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
-                    t.button.primary.base,
-                    t.button.primary.hover
-                  )}
-                >
-                  <FiPlus className="w-4 h-4" />
-                  Add Custom Size
-                </button>
-              </div>
-            </div>
-
-            {/* Common Size Presets */}
-            <div className="mb-6">
-              <h3 className={cn("text-sm font-medium mb-3", t.text.primary)}>Quick Add Common Sizes</h3>
-              <div className="flex flex-wrap gap-2">
-                {commonSizes.map(size => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => addCommonSize(size)}
-                    disabled={data.size_options.includes(size)}
+              <div className="flex-1">
+                <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+                  {product.name}
+                </h3>
+                <div className="flex items-center gap-4 mt-1">
+                  <span className={cn("text-sm", t.text.secondary)}>
+                    Q{product.q_code} • {product.sku}
+                  </span>
+                  <span className={cn("text-sm", t.text.secondary)}>
+                    {product.manufacturer}
+                  </span>
+                  <span
                     className={cn(
-                      "px-3 py-1 text-sm rounded-lg transition-colors",
-                      data.size_options.includes(size)
-                        ? cn(t.glass.frost, "opacity-50 cursor-not-allowed", t.text.secondary)
-                        : cn(t.glass.frost, t.text.primary, "hover:opacity-80")
+                      "px-2 py-1 text-xs font-medium rounded-full",
+                      product.is_active
+                        ? "bg-green-500/20 text-green-400"
+                        : "bg-red-500/20 text-red-400"
                     )}
                   >
-                    {size}"
-                  </button>
-                ))}
+                    {product.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className={cn("text-lg font-bold", t.text.primary)}>
+                  ${product.price_per_sq_cm.toFixed(2)}/cm²
+                </div>
+                <div className="text-sm text-green-500">
+                  {product.commission_rate}% commission
+                </div>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Size Options List */}
-            <div className="space-y-3">
-              {data.size_options.map((size, index) => (
-                <div key={index} className={cn("flex gap-3 items-center p-3 rounded-lg", t.glass.frost)}>
-                  <div className="flex-1">
-                    <label className={cn("block text-xs font-medium mb-1", t.text.secondary)}>
-                      Size Label
+        {/* Form */}
+        <div className={cn("rounded-2xl", t.glass.card)}>
+          {/* Tabs */}
+          <div className="border-b border-white/10">
+            <nav className="flex space-x-8 px-6">
+              {tabs.map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={cn(
+                      "flex items-center gap-2 py-4 px-2 border-b-2 font-medium text-sm transition-all",
+                      activeTab === tab.id
+                        ? "border-blue-500 text-blue-400"
+                        : cn("border-transparent", t.text.secondary, "hover:text-blue-400")
+                    )}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+
+          <form onSubmit={handleSubmit} className="p-6">
+            {/* Basic Info Tab */}
+            {activeTab === 'basic' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Product Name *
                     </label>
                     <input
                       type="text"
-                      value={size}
-                      onChange={(e) => updateSizeOption(index, e.target.value)}
+                      value={data.name}
+                      onChange={(e) => setData('name', e.target.value)}
                       className={cn(
-                        "w-full px-3 py-2 rounded-lg",
-                        t.input.base
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus,
+                        errors.name && "border-red-500"
                       )}
-                      placeholder="e.g., 2x2, 4x4"
+                      placeholder="Enter product name..."
                     />
+                    {errors.name && <p className="text-sm mt-1 text-red-500">{errors.name}</p>}
                   </div>
-                  <div className="flex-1">
-                    <label className={cn("block text-xs font-medium mb-1", t.text.secondary)}>
-                      Area (sq cm)
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      SKU *
+                    </label>
+                    <input
+                      type="text"
+                      value={data.sku}
+                      onChange={(e) => setData('sku', e.target.value)}
+                      className={cn(
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus,
+                        errors.sku && "border-red-500"
+                      )}
+                      placeholder="Enter SKU..."
+                    />
+                    {errors.sku && <p className="text-sm mt-1 text-red-500">{errors.sku}</p>}
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Q-Code *
+                    </label>
+                    <input
+                      type="text"
+                      value={data.q_code}
+                      onChange={(e) => setData('q_code', e.target.value)}
+                      className={cn(
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus,
+                        errors.q_code && "border-red-500"
+                      )}
+                      placeholder="Enter Q-code..."
+                    />
+                    {errors.q_code && <p className="text-sm mt-1 text-red-500">{errors.q_code}</p>}
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Manufacturer *
+                    </label>
+                    <select
+                      value={data.manufacturer}
+                      onChange={(e) => setData('manufacturer', e.target.value)}
+                      className={cn(
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus,
+                        errors.manufacturer && "border-red-500"
+                      )}
+                    >
+                      <option value="">Select manufacturer...</option>
+                      {manufacturers.map(manufacturer => (
+                        <option key={manufacturer} value={manufacturer}>
+                          {manufacturer}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.manufacturer && <p className="text-sm mt-1 text-red-500">{errors.manufacturer}</p>}
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Category *
+                    </label>
+                    <select
+                      value={data.category}
+                      onChange={(e) => setData('category', e.target.value)}
+                      className={cn(
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus,
+                        errors.category && "border-red-500"
+                      )}
+                    >
+                      <option value="">Select category...</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>
+                          {category}
+                        </option>
+                      ))}
+                    </select>
+                    {errors.category && <p className="text-sm mt-1 text-red-500">{errors.category}</p>}
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Status
+                    </label>
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={data.is_active}
+                          onChange={() => setData('is_active', true)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className={cn("text-sm", t.text.primary)}>Active</span>
+                      </label>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          checked={!data.is_active}
+                          onChange={() => setData('is_active', false)}
+                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className={cn("text-sm", t.text.primary)}>Inactive</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                    Description
+                  </label>
+                  <textarea
+                    value={data.description}
+                    onChange={(e) => setData('description', e.target.value)}
+                    rows={4}
+                    className={cn(
+                      "w-full px-4 py-3 rounded-xl",
+                      t.input.base,
+                      t.input.focus,
+                      errors.description && "border-red-500"
+                    )}
+                    placeholder="Enter product description..."
+                  />
+                  {errors.description && <p className="text-sm mt-1 text-red-500">{errors.description}</p>}
+                </div>
+
+                <div>
+                  <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                    Product Image URL
+                  </label>
+                  <input
+                    type="url"
+                    value={data.image_url}
+                    onChange={(e) => setData('image_url', e.target.value)}
+                    className={cn(
+                      "w-full px-4 py-3 rounded-xl",
+                      t.input.base,
+                      t.input.focus
+                    )}
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  {data.image_url && (
+                    <div className="mt-3">
+                      <img
+                        src={data.image_url}
+                        alt="Product preview"
+                        className="w-32 h-32 object-cover rounded-xl"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Pricing Tab */}
+            {activeTab === 'pricing' && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Price per cm² *
+                    </label>
+                    <div className="relative">
+                      <span className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", t.text.secondary)}>
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={data.price_per_sq_cm}
+                        onChange={(e) => setData('price_per_sq_cm', parseFloat(e.target.value) || 0)}
+                        className={cn(
+                          "w-full pl-8 pr-4 py-3 rounded-xl",
+                          t.input.base,
+                          t.input.focus,
+                          errors.price_per_sq_cm && "border-red-500"
+                        )}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    {errors.price_per_sq_cm && <p className="text-sm mt-1 text-red-500">{errors.price_per_sq_cm}</p>}
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      National ASP
+                    </label>
+                    <div className="relative">
+                      <span className={cn("absolute left-3 top-1/2 transform -translate-y-1/2", t.text.secondary)}>
+                        $
+                      </span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={data.national_asp}
+                        onChange={(e) => setData('national_asp', parseFloat(e.target.value) || 0)}
+                        className={cn(
+                          "w-full pl-8 pr-4 py-3 rounded-xl",
+                          t.input.base,
+                          t.input.focus
+                        )}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Commission Rate *
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        value={data.commission_rate}
+                        onChange={(e) => setData('commission_rate', parseFloat(e.target.value) || 0)}
+                        className={cn(
+                          "w-full pr-8 pl-4 py-3 rounded-xl",
+                          t.input.base,
+                          t.input.focus,
+                          errors.commission_rate && "border-red-500"
+                        )}
+                        placeholder="0.0"
+                      />
+                      <span className={cn("absolute right-3 top-1/2 transform -translate-y-1/2", t.text.secondary)}>
+                        %
+                      </span>
+                    </div>
+                    {errors.commission_rate && <p className="text-sm mt-1 text-red-500">{errors.commission_rate}</p>}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      MUE Limit
                     </label>
                     <input
                       type="number"
-                      step="0.01"
-                      value={data.size_pricing[size] || ''}
-                      onChange={(e) => updateSizePricing(size, e.target.value)}
+                      min="0"
+                      value={data.mue_limit}
+                      onChange={(e) => setData('mue_limit', parseInt(e.target.value) || 0)}
                       className={cn(
-                        "w-full px-3 py-2 rounded-lg",
-                        t.input.base
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus
                       )}
-                      placeholder="0.00"
+                      placeholder="Maximum Units of Eligibility"
                     />
+                    <p className={cn("text-xs mt-1", t.text.secondary)}>
+                      Maximum units that can be billed per patient
+                    </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => removeSizeOption(index)}
-                    className={cn(
-                      "px-3 py-2 rounded-lg transition-colors",
-                      t.status.error,
-                      "hover:opacity-80"
-                    )}
-                  >
-                    <FiTrash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              ))}
 
-              {data.size_options.length === 0 && (
-                <div className={cn("text-center py-8", t.text.secondary)}>
-                  <FiPackage className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>No sizes configured yet. Add sizes using the button above or quick-add common sizes.</p>
-                </div>
-              )}
-            </div>
-
-            {errors.size_options && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.size_options}</p>}
-            {errors.size_pricing && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.size_pricing}</p>}
-          </div>
-
-          {/* Legacy Available Sizes (for backward compatibility) */}
-          {data.available_sizes.length > 0 && (
-            <div className={cn("p-6 rounded-lg", t.glass.card)}>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className={cn("text-xl font-semibold", t.text.primary)}>Legacy Sizes (cm²)</h2>
-                <button
-                  type="button"
-                  onClick={addSize}
-                  className={cn(
-                    "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
-                    t.button.primary.base,
-                    t.button.primary.hover
-                  )}
-                >
-                  <FiPlus className="w-4 h-4" />
-                  Add Size
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {data.available_sizes.map((size, index) => (
-                  <div key={index} className="flex gap-2">
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={size}
-                      onChange={(e) => updateSize(index, e.target.value)}
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Graph Type
+                    </label>
+                    <select
+                      value={data.graph_type}
+                      onChange={(e) => setData('graph_type', e.target.value)}
                       className={cn(
-                        "flex-1 px-3 py-2 rounded-lg",
-                        t.input.base
+                        "w-full px-4 py-3 rounded-xl",
+                        t.input.base,
+                        t.input.focus
                       )}
-                      placeholder="Size in cm²"
-                    />
-                    {data.available_sizes.length > 1 && (
-                      <button
-                        type="button"
-                        onClick={() => removeSize(index)}
-                        className={cn(
-                          "px-3 py-2 rounded-lg transition-colors",
-                          t.status.error,
-                          "hover:opacity-80"
-                        )}
-                      >
-                        <FiTrash2 className="w-4 h-4" />
-                      </button>
-                    )}
+                    >
+                      <option value="">Select graph type...</option>
+                      <option value="linear">Linear</option>
+                      <option value="exponential">Exponential</option>
+                      <option value="logarithmic">Logarithmic</option>
+                    </select>
                   </div>
-                ))}
+                </div>
+
+                {/* Pricing Preview */}
+                <div className={cn("p-4 rounded-xl", t.glass.frost)}>
+                  <h3 className={cn("text-sm font-medium mb-3", t.text.primary)}>
+                    Pricing Preview
+                  </h3>
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className={cn("block", t.text.secondary)}>1 cm²</span>
+                      <span className={cn("font-medium", t.text.primary)}>
+                        ${data.price_per_sq_cm.toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={cn("block", t.text.secondary)}>10 cm²</span>
+                      <span className={cn("font-medium", t.text.primary)}>
+                        ${(data.price_per_sq_cm * 10).toFixed(2)}
+                      </span>
+                    </div>
+                    <div>
+                      <span className={cn("block", t.text.secondary)}>25 cm²</span>
+                      <span className={cn("font-medium", t.text.primary)}>
+                        ${(data.price_per_sq_cm * 25).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              {errors.available_sizes && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.available_sizes}</p>}
-            </div>
-          )}
+            )}
 
-          {/* Media & Documents */}
-          <div className={cn("p-6 rounded-lg", t.glass.card)}>
-            <h2 className={cn("text-xl font-semibold mb-6 flex items-center gap-2", t.text.primary)}>
-              <FiImage className="w-5 h-5" />
-              Media & Documents
-            </h2>
-
-            <div className="space-y-6">
-              <div>
-                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-                  Product Image URL
-                </label>
-                <input
-                  type="url"
-                  value={data.image_url}
-                  onChange={(e) => setData('image_url', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base
-                  )}
-                  placeholder="https://example.com/image.jpg"
-                />
-                {errors.image_url && <p className={cn("text-sm mt-1", "text-red-500")}>{errors.image_url}</p>}
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <label className={cn("block text-sm font-medium", t.text.primary)}>
-                    Document URLs
+            {/* Sizes Tab */}
+            {activeTab === 'sizes' && (
+              <div className="space-y-6">
+                <div>
+                  <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                    Size Unit
                   </label>
-                  <button
-                    type="button"
-                    onClick={addDocumentUrl}
+                  <select
+                    value={data.size_unit}
+                    onChange={(e) => setData('size_unit', e.target.value)}
                     className={cn(
-                      "flex items-center gap-2 px-3 py-2 text-sm rounded-lg transition-colors",
-                      t.button.primary.base,
-                      t.button.primary.hover
+                      "w-full px-4 py-3 rounded-xl max-w-xs",
+                      t.input.base,
+                      t.input.focus
                     )}
                   >
-                    <FiPlus className="w-4 h-4" />
-                    Add Document
-                  </button>
+                    <option value="cm">Centimeters (cm²)</option>
+                    <option value="inches">Inches</option>
+                  </select>
                 </div>
 
-                <div className="space-y-3">
-                  {data.document_urls.map((url, index) => (
-                    <div key={index} className="flex gap-2">
-                      <input
-                        type="url"
-                        value={url}
-                        onChange={(e) => updateDocumentUrl(index, e.target.value)}
-                        className={cn(
-                          "flex-1 px-3 py-2 rounded-lg",
-                          t.input.base
-                        )}
-                        placeholder="https://example.com/document.pdf"
-                      />
-                      {data.document_urls.length > 1 && (
+                {/* Available Sizes */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className={cn("text-lg font-medium", t.text.primary)}>
+                      Available Sizes ({data.size_unit === 'cm' ? 'cm²' : 'inches'})
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={addSize}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm",
+                        t.button.primary.base,
+                        t.button.primary.hover
+                      )}
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Size
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {data.available_sizes.map((size, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={size}
+                          onChange={(e) => updateSize(index, parseFloat(e.target.value) || 0)}
+                          className={cn(
+                            "flex-1 px-3 py-2 rounded-lg text-sm",
+                            t.input.base,
+                            t.input.focus
+                          )}
+                          placeholder="0"
+                        />
                         <button
                           type="button"
-                          onClick={() => removeDocumentUrl(index)}
+                          onClick={() => removeSize(index)}
                           className={cn(
-                            "px-3 py-2 rounded-lg transition-colors",
-                            t.status.error,
-                            "hover:opacity-80"
+                            "p-2 rounded-lg text-red-500 hover:bg-red-500/10"
+                          )}
+                        >
+                          <FiMinus className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  {data.available_sizes.length === 0 && (
+                    <div className={cn("text-center py-8", t.glass.frost, "rounded-xl")}>
+                      <FiTag className={cn("w-12 h-12 mx-auto mb-3", t.text.muted)} />
+                      <p className={cn("text-sm", t.text.secondary)}>
+                        No sizes configured. Click "Add Size" to get started.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Size Options (Alternative format) */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className={cn("text-lg font-medium", t.text.primary)}>
+                        Size Options (Text Format)
+                      </h3>
+                      <p className={cn("text-sm", t.text.secondary)}>
+                        Alternative text-based size options (e.g., "Small", "Medium", "Large")
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addSizeOption}
+                      className={cn(
+                        "flex items-center gap-2 px-3 py-2 rounded-lg text-sm",
+                        t.button.secondary.base,
+                        t.button.secondary.hover
+                      )}
+                    >
+                      <FiPlus className="w-4 h-4" />
+                      Add Option
+                    </button>
+                  </div>
+
+                  <div className="space-y-3">
+                    {data.size_options.map((option, index) => (
+                      <div key={index} className="flex items-center gap-3">
+                        <input
+                          type="text"
+                          value={option}
+                          onChange={(e) => updateSizeOption(index, e.target.value)}
+                          className={cn(
+                            "flex-1 px-4 py-3 rounded-xl",
+                            t.input.base,
+                            t.input.focus
+                          )}
+                          placeholder="Enter size option..."
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeSizeOption(index)}
+                          className={cn(
+                            "p-3 rounded-xl text-red-500 hover:bg-red-500/10"
                           )}
                         >
                           <FiTrash2 className="w-4 h-4" />
                         </button>
-                      )}
+                      </div>
+                    ))}
+                  </div>
+
+                  {data.size_options.length === 0 && (
+                    <div className={cn("text-center py-8", t.glass.frost, "rounded-xl")}>
+                      <FiTag className={cn("w-12 h-12 mx-auto mb-3", t.text.muted)} />
+                      <p className={cn("text-sm", t.text.secondary)}>
+                        No size options configured. This is optional.
+                      </p>
                     </div>
-                  ))}
+                  )}
                 </div>
-                {errors.document_urls && <p className={cn("text-sm mt-2", "text-red-500")}>{errors.document_urls}</p>}
               </div>
-            </div>
-          </div>
+            )}
 
-          {/* Submit Buttons */}
-          <div className={cn("flex items-center justify-end gap-4 pt-6 border-t", t.glass.border)}>
-            <Link
-              href="/products"
-              className={cn(
-                "px-6 py-2 rounded-lg transition-colors",
-                t.button.secondary.base,
-                t.button.secondary.hover
-              )}
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={processing}
-              className={cn(
-                "flex items-center gap-2 px-6 py-2 rounded-lg transition-colors",
-                t.button.primary.base,
-                t.button.primary.hover,
-                processing && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              <FiSave className="w-4 h-4" />
-              {processing ? 'Updating...' : 'Update Product'}
-            </button>
-          </div>
-        </form>
+            {/* Documents Tab */}
+            {activeTab === 'documents' && (
+              <div className="space-y-6">
+                {/* File Upload */}
+                <div>
+                  <label className={cn("block text-sm font-medium mb-4", t.text.primary)}>
+                    Upload Documents
+                  </label>
+                  <div
+                    className={cn(
+                      "border-2 border-dashed rounded-xl p-8 text-center transition-colors",
+                      "border-blue-500/30 hover:border-blue-500/50",
+                      t.glass.frost
+                    )}
+                  >
+                    <input
+                      type="file"
+                      multiple
+                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif"
+                      onChange={(e) => handleFileUpload(e.target.files)}
+                      className="hidden"
+                      id="file-upload"
+                    />
+                    <label htmlFor="file-upload" className="cursor-pointer">
+                      <FiUpload className={cn("w-12 h-12 mx-auto mb-4", t.text.secondary)} />
+                      <p className={cn("text-lg font-medium mb-2", t.text.primary)}>
+                        Drop files here or click to upload
+                      </p>
+                      <p className={cn("text-sm", t.text.secondary)}>
+                        Supports PDF, DOC, DOCX, JPG, PNG, GIF (max 10MB each)
+                      </p>
+                    </label>
+                  </div>
+                </div>
 
-        {/* Delete Confirmation Modal */}
-        {showDeleteConfirm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className={cn("rounded-lg p-6 max-w-md w-full mx-4", t.glass.card)}>
-              <div className="flex items-center gap-3 mb-4">
-                <FiAlertTriangle className="w-6 h-6 text-red-500" />
-                <h3 className={cn("text-lg font-semibold", t.text.primary)}>Delete Product</h3>
+                {/* Existing Documents */}
+                {data.document_urls.length > 0 && (
+                  <div>
+                    <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
+                      Existing Documents
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {data.document_urls.map((url, index) => (
+                        <div
+                          key={index}
+                          className={cn(
+                            "p-4 rounded-xl border transition-all",
+                            t.glass.frost,
+                            "hover:shadow-lg"
+                          )}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            <FiFileText className={cn("w-6 h-6 flex-shrink-0", t.text.secondary)} />
+                            <button
+                              type="button"
+                              onClick={() => removeExistingDocument(url)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <p className={cn("text-sm font-medium mb-2 truncate", t.text.primary)}>
+                            {url.split('/').pop() || 'Document'}
+                          </p>
+                          <div className="flex gap-2">
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className={cn(
+                                "flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs",
+                                t.button.secondary.base,
+                                t.button.secondary.hover
+                              )}
+                            >
+                              <FiExternalLink className="w-3 h-3" />
+                              View
+                            </a>
+                            <a
+                              href={url}
+                              download
+                              className={cn(
+                                "flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs",
+                                t.button.primary.base,
+                                t.button.primary.hover
+                              )}
+                            >
+                              <FiDownload className="w-3 h-3" />
+                              Download
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* New Documents Preview */}
+                {data.new_documents.length > 0 && (
+                  <div>
+                    <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
+                      New Documents (Pending Upload)
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {data.new_documents.map((file, index) => (
+                        <div
+                          key={index}
+                          className={cn(
+                            "p-4 rounded-xl border transition-all",
+                            "border-blue-500/30 bg-blue-500/5"
+                          )}
+                        >
+                          <div className="flex items-start justify-between mb-3">
+                            {file.type.startsWith('image/') ? (
+                              <FiImage className="w-6 h-6 flex-shrink-0 text-blue-500" />
+                            ) : (
+                              <FiFileText className="w-6 h-6 flex-shrink-0 text-blue-500" />
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => removeNewDocument(index)}
+                              className="text-red-500 hover:text-red-700"
+                            >
+                              <FiTrash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <p className={cn("text-sm font-medium mb-1 truncate", t.text.primary)}>
+                            {file.name}
+                          </p>
+                          <p className={cn("text-xs", t.text.secondary)}>
+                            {(file.size / 1024 / 1024).toFixed(2)} MB
+                          </p>
+                          {file.type.startsWith('image/') && previewUrls[index] && (
+                            <img
+                              src={previewUrls[index]}
+                              alt="Preview"
+                              className="w-full h-20 object-cover rounded-lg mt-3"
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Document Guidelines */}
+                <div className={cn("p-4 rounded-xl", t.status.info)}>
+                  <div className="flex items-start gap-3">
+                    <FiInfo className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium mb-2">Document Guidelines</h4>
+                      <ul className="text-sm space-y-1">
+                        <li>• Upload product specifications, clinical studies, or marketing materials</li>
+                        <li>• Supported formats: PDF, DOC, DOCX, JPG, PNG, GIF</li>
+                        <li>• Maximum file size: 10MB per file</li>
+                        <li>• Documents will be available to authorized users</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <p className={cn("mb-6", t.text.secondary)}>
-                Are you sure you want to delete "{product.name}"? This action cannot be undone.
-              </p>
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className={cn(
-                    "px-4 py-2 rounded-lg transition-colors",
-                    t.button.secondary.base,
-                    t.button.secondary.hover
-                  )}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDelete}
-                  disabled={processing}
-                  className={cn(
-                    "px-4 py-2 rounded-lg transition-colors",
-                    t.status.error,
-                    "hover:opacity-90",
-                    processing && "opacity-50"
-                  )}
-                >
-                  {processing ? 'Deleting...' : 'Delete'}
-                </button>
-              </div>
+            )}
+
+            {/* Form Actions */}
+            <div className="flex items-center justify-end gap-4 pt-6 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => router.get('/products')}
+                className={cn(
+                  "px-6 py-3 rounded-xl font-medium",
+                  t.button.ghost.base,
+                  t.button.ghost.hover
+                )}
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={processing}
+                className={cn(
+                  "flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all",
+                  processing
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : cn(t.button.primary.base, t.button.primary.hover)
+                )}
+              >
+                {processing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <FiSave className="w-4 h-4" />
+                    Save Product
+                  </>
+                )}
+              </button>
             </div>
-          </div>
-        )}
+          </form>
+        </div>
       </div>
     </MainLayout>
   );

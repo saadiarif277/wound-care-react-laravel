@@ -1,473 +1,389 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { PricingDisplay } from '@/Components/Pricing/PricingDisplay';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
 import {
   FiSearch,
   FiFilter,
-  FiGrid,
-  FiList,
   FiPlus,
-  FiEdit,
+  FiEdit3,
   FiTrash2,
   FiEye,
+  FiDownload,
+  FiUpload,
   FiPackage,
+  FiTag,
   FiDollarSign,
-  FiBarChart
+  FiFileText,
+  FiImage,
+  FiGrid,
+  FiList,
+  FiStar,
+  FiTrendingUp,
+  FiActivity,
+  FiBarChart3,
+  FiMoreVertical,
+  FiExternalLink,
+  FiCopy,
+  FiShare2
 } from 'react-icons/fi';
 
 interface Product {
   id: number;
-  name: string;
   sku: string;
-  q_code: string;
+  name: string;
+  description: string;
   manufacturer: string;
   category: string;
-  description: string;
   price_per_sq_cm: number;
-  msc_price?: number; // Optional based on role
+  national_asp?: number;
+  q_code: string;
   available_sizes: number[];
-  image_url: string;
-  commission_rate?: number; // Optional based on role
+  size_options?: string[];
+  commission_rate: number;
   is_active: boolean;
+  image_url?: string;
+  document_urls?: string[];
   created_at: string;
-}
-
-interface RoleRestrictions {
-  can_view_financials: boolean;
-  can_see_discounts: boolean;
-  can_see_msc_pricing: boolean;
-  can_see_order_totals: boolean;
-  pricing_access_level: string;
-  commission_access_level: string;
-  can_manage_products: boolean;
+  updated_at: string;
+  mue_limit?: number;
+  graph_type?: string;
 }
 
 interface Props {
-  products: {
-    data: Product[];
-    links: any[];
-    total: number;
-    per_page: number;
-    current_page: number;
-  };
+  products: Product[];
   categories: string[];
   manufacturers: string[];
   filters: {
     search?: string;
     category?: string;
     manufacturer?: string;
-    sort?: string;
-    direction?: string;
+    active?: boolean;
   };
-  roleRestrictions: RoleRestrictions;
 }
 
-export default function ProductsIndex({ products, categories, manufacturers, filters, roleRestrictions }: Props) {
+export default function ProductsIndex({ products, categories, manufacturers, filters }: Props) {
+  const { theme } = useTheme();
+  const t = themes[theme];
+
+  const [searchTerm, setSearchTerm] = useState(filters.search || '');
+  const [selectedCategory, setSelectedCategory] = useState(filters.category || '');
+  const [selectedManufacturer, setSelectedManufacturer] = useState(filters.manufacturer || '');
+  const [activeFilter, setActiveFilter] = useState(filters.active ?? true);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState(filters);
+  const [selectedProducts, setSelectedProducts] = useState<number[]>([]);
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'commission' | 'updated'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  const handleFilterChange = (key: string, value: string) => {
-    const newFilters = { ...localFilters, [key]: value };
-    setLocalFilters(newFilters);
+  // Filter and sort products
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          product.q_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          product.manufacturer.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesCategory = !selectedCategory || product.category === selectedCategory;
+      const matchesManufacturer = !selectedManufacturer || product.manufacturer === selectedManufacturer;
+      const matchesActive = activeFilter === undefined || product.is_active === activeFilter;
 
-    // Remove empty filters
-    Object.keys(newFilters).forEach(k => {
-      if (!newFilters[k as keyof typeof newFilters]) {
-        delete newFilters[k as keyof typeof newFilters];
+      return matchesSearch && matchesCategory && matchesManufacturer && matchesActive;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      switch (sortBy) {
+        case 'price':
+          aValue = a.price_per_sq_cm;
+          bValue = b.price_per_sq_cm;
+          break;
+        case 'commission':
+          aValue = a.commission_rate;
+          bValue = b.commission_rate;
+          break;
+        case 'updated':
+          aValue = new Date(a.updated_at).getTime();
+          bValue = new Date(b.updated_at).getTime();
+          break;
+        default:
+          aValue = a.name.toLowerCase();
+          bValue = b.name.toLowerCase();
+      }
+
+      if (sortOrder === 'asc') {
+        return aValue > bValue ? 1 : -1;
+      } else {
+        return aValue < bValue ? 1 : -1;
       }
     });
 
-    router.get('/products', newFilters, {
-      preserveState: true,
-      preserveScroll: true,
-    });
+  const handleSearch = () => {
+    router.get('/products', {
+      search: searchTerm,
+      category: selectedCategory,
+      manufacturer: selectedManufacturer,
+      active: activeFilter
+    }, { preserveState: true });
   };
 
-  const handleSort = (field: string) => {
-    const direction = localFilters.sort === field && localFilters.direction === 'asc' ? 'desc' : 'asc';
-    handleFilterChange('sort', field);
-    handleFilterChange('direction', direction);
-  };
+  const handleBulkAction = (action: string) => {
+    if (selectedProducts.length === 0) return;
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    const search = formData.get('search') as string;
-    handleFilterChange('search', search);
-  };
-
-  const clearFilters = () => {
-    setLocalFilters({});
-    router.get('/products');
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
-    }).format(price);
-  };
-
-  // Get user role for pricing display and admin capabilities
-  const getUserRole = () => {
-    if (!roleRestrictions.can_see_msc_pricing) return 'office-manager';
-    if (roleRestrictions.pricing_access_level === 'limited') return 'msc-subrep';
-    if (roleRestrictions.commission_access_level === 'full') {
-      // Could be MSC Rep, MSC Admin, or Super Admin - check for admin capabilities
-      return 'msc-admin'; // For now, treat full commission access as admin-level
+    switch (action) {
+      case 'activate':
+        router.post('/products/bulk-activate', { ids: selectedProducts });
+        break;
+      case 'deactivate':
+        router.post('/products/bulk-deactivate', { ids: selectedProducts });
+        break;
+      case 'delete':
+        if (confirm(`Are you sure you want to delete ${selectedProducts.length} products?`)) {
+          router.delete('/products/bulk-delete', { data: { ids: selectedProducts } });
+        }
+        break;
     }
-    return 'provider'; // Default for full access roles without commission
+    setSelectedProducts([]);
   };
 
-  const userRole = getUserRole();
+  const toggleProductSelection = (productId: number) => {
+    setSelectedProducts(prev =>
+      prev.includes(productId)
+        ? prev.filter(id => id !== productId)
+        : [...prev, productId]
+    );
+  };
 
-  const ProductCard = ({ product }: { product: Product }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 hover:shadow-lg transition-all duration-200 overflow-hidden group">
-      <div className="aspect-w-16 aspect-h-9 bg-gray-100 relative">
-        {product.image_url ? (
-          <img
-            src={product.image_url}
-            alt={product.name}
-            className="w-full h-48 object-cover"
-          />
-        ) : (
-          <div className="w-full h-48 bg-gradient-to-br from-blue-50 to-gray-100 flex items-center justify-center">
-            <FiPackage className="w-12 h-12 text-gray-400" />
-          </div>
-        )}
-        <div className="absolute top-3 right-3">
-          <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-            product.category === 'SkinSubstitute'
-              ? 'bg-blue-100 text-blue-800'
-              : product.category === 'Biologic'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
-          }`}>
-            {product.category}
-          </span>
-        </div>
-      </div>
-
-      <div className="p-6">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex-1">
-            <h3 className="font-semibold text-lg text-gray-900 mb-1 line-clamp-2 group-hover:text-blue-600 transition-colors">
-              {product.name}
-            </h3>
-            <p className="text-sm text-gray-500 mb-2">
-              {product.manufacturer} • Q{product.q_code}
-            </p>
-          </div>
-        </div>
-
-        <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-          {product.description || 'No description available'}
-        </p>
-
-        <div className="space-y-2 mb-4">
-          {/* Use PricingDisplay component for role-aware pricing */}
-          <PricingDisplay
-            roleRestrictions={roleRestrictions}
-            product={{
-              nationalAsp: product.price_per_sq_cm,
-              mscPrice: product.msc_price,
-            }}
-            showLabel={true}
-            className="text-sm"
-          />
-
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-500">Sizes:</span>
-            <span className="text-sm text-gray-700">
-              {product.available_sizes?.length || 0} available
-            </span>
-          </div>
-
-          {/* Show commission rate only if commission access is allowed (RBAC compliant) */}
-          {roleRestrictions.commission_access_level !== 'none' && product.commission_rate && (
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-gray-500">Commission:</span>
-              <span className="text-sm font-medium text-green-600">
-                {product.commission_rate}%
-              </span>
-            </div>
-          )}
-        </div>
-
-        <div className="flex gap-2">
-          <Link
-            href={`/products/${product.id}`}
-            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
-          >
-            <FiEye className="w-4 h-4" />
-            View Details
-          </Link>
-          {roleRestrictions.can_manage_products && (
-            <Link
-              href={`/products/${product.id}/edit`}
-              className="px-3 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-              title="Edit Product"
-            >
-              <FiEdit className="w-4 h-4" />
-            </Link>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  const ProductRow = ({ product }: { product: Product }) => (
-    <tr className="hover:bg-gray-50 transition-colors">
-      <td className="px-6 py-4">
-        <div className="flex items-center gap-3">
-          <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-            {product.image_url ? (
-              <img src={product.image_url} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
-            ) : (
-              <FiPackage className="w-5 h-5 text-gray-400" />
-            )}
-          </div>
-          <div>
-            <div className="font-medium text-gray-900">{product.name}</div>
-            <div className="text-sm text-gray-500">{product.manufacturer}</div>
-          </div>
-        </div>
-      </td>
-      <td className="px-6 py-4 text-sm text-gray-900">Q{product.q_code}</td>
-      <td className="px-6 py-4 text-sm">
-        <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
-          product.category === 'SkinSubstitute'
-            ? 'bg-blue-100 text-blue-800'
-            : product.category === 'Biologic'
-            ? 'bg-green-100 text-green-800'
-            : 'bg-gray-100 text-gray-800'
-        }`}>
-          {product.category}
-        </span>
-      </td>
-      <td className="px-6 py-4 text-sm font-medium text-gray-900">
-        {formatPrice(product.price_per_sq_cm)}
-      </td>
-      {/* Show MSC Price column only if role allows */}
-      {roleRestrictions.can_see_msc_pricing && (
-        <td className="px-6 py-4 text-sm font-semibold text-blue-600">
-          {product.msc_price ? formatPrice(product.msc_price) : 'N/A'}
-        </td>
-      )}
-      <td className="px-6 py-4 text-sm text-gray-500">
-        {product.available_sizes?.length || 0} sizes
-      </td>
-      {/* Show commission column only if commission access is allowed (RBAC compliant) */}
-      {roleRestrictions.commission_access_level !== 'none' && (
-        <td className="px-6 py-4 text-sm text-green-600">
-          {product.commission_rate ? `${product.commission_rate}%` : 'N/A'}
-        </td>
-      )}
-      <td className="px-6 py-4">
-        <div className="flex gap-2">
-          <Link
-            href={`/products/${product.id}`}
-            className="text-blue-600 hover:text-blue-800 transition-colors"
-            title="View Product"
-          >
-            <FiEye className="w-4 h-4" />
-          </Link>
-          {roleRestrictions.can_manage_products && (
-            <Link
-              href={`/products/${product.id}/edit`}
-              className="text-gray-600 hover:text-gray-800 transition-colors"
-              title="Edit Product"
-            >
-              <FiEdit className="w-4 h-4" />
-            </Link>
-          )}
-        </div>
-      </td>
-    </tr>
-  );
+  const selectAllProducts = () => {
+    if (selectedProducts.length === filteredProducts.length) {
+      setSelectedProducts([]);
+    } else {
+      setSelectedProducts(filteredProducts.map(p => p.id));
+    }
+  };
 
   return (
-    <MainLayout title="Product Catalog">
+    <MainLayout>
       <Head title="Product Catalog" />
 
-      <div className="p-6">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+        <div className={cn("p-6 rounded-2xl", t.glass.card)}>
+          <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Product Catalog</h1>
-              <p className="text-gray-600 mt-1">
-                Manage and browse MSC wound care products
+              <h1 className={cn("text-3xl font-bold flex items-center gap-3", t.text.primary)}>
+                <FiPackage className="w-8 h-8 text-blue-500" />
+                Product Catalog
+              </h1>
+              <p className={cn("text-sm mt-2", t.text.secondary)}>
+                Manage your wound care product inventory and documentation
               </p>
             </div>
-                        {/* Show Add Product button only for roles with product management capabilities */}
-            {roleRestrictions.can_manage_products && (
+            <div className="flex items-center gap-3">
               <Link
                 href="/products/create"
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
+                  t.button.primary.base,
+                  t.button.primary.hover
+                )}
               >
                 <FiPlus className="w-4 h-4" />
                 Add Product
               </Link>
-            )}
+            </div>
           </div>
 
-          {/* Role-appropriate Stats Cards */}
+          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className={cn("p-4 rounded-xl", t.glass.frost)}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">Available Products</p>
-                  <p className="text-2xl font-bold text-gray-900">{products.total}</p>
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>Total Products</p>
+                  <p className={cn("text-2xl font-bold", t.text.primary)}>{products.length}</p>
                 </div>
-                <FiPackage className="w-8 h-8 text-blue-600" />
+                <FiPackage className={cn("w-8 h-8", t.text.secondary)} />
               </div>
             </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className={cn("p-4 rounded-xl", t.glass.frost)}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    {roleRestrictions.can_see_msc_pricing ? 'Product Categories' : 'Wound Types'}
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>Active Products</p>
+                  <p className={cn("text-2xl font-bold text-green-500")}>
+                    {products.filter(p => p.is_active).length}
                   </p>
-                  <p className="text-2xl font-bold text-gray-900">{categories.length}</p>
                 </div>
-                <FiBarChart className="w-8 h-8 text-green-600" />
+                <FiActivity className="w-8 h-8 text-green-500" />
               </div>
             </div>
-
-            <div className="bg-white p-4 rounded-lg border border-gray-200">
+            <div className={cn("p-4 rounded-xl", t.glass.frost)}>
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-500">
-                    {roleRestrictions.can_see_msc_pricing ? 'Manufacturers' : 'Available Brands'}
-                  </p>
-                  <p className="text-2xl font-bold text-gray-900">{manufacturers.length}</p>
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>Categories</p>
+                  <p className={cn("text-2xl font-bold", t.text.primary)}>{categories.length}</p>
                 </div>
-                <FiGrid className="w-8 h-8 text-purple-600" />
+                <FiTag className={cn("w-8 h-8", t.text.secondary)} />
               </div>
             </div>
-
-            {/* Role-specific fourth card */}
-            {roleRestrictions.can_see_msc_pricing ? (
-              <div className="bg-white p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">Avg MSC Price</p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {formatPrice(
-                        products.data.reduce((sum, p) => sum + (p.msc_price || 0), 0) / products.data.length || 0
-                      )}
-                    </p>
-                  </div>
-                  <FiDollarSign className="w-8 h-8 text-orange-600" />
+            <div className={cn("p-4 rounded-xl", t.glass.frost)}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>Manufacturers</p>
+                  <p className={cn("text-2xl font-bold", t.text.primary)}>{manufacturers.length}</p>
                 </div>
+                <FiBarChart3 className={cn("w-8 h-8", t.text.secondary)} />
               </div>
-            ) : (
-              <div className="bg-white p-4 rounded-lg border border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {roleRestrictions.can_view_financials ? 'Clinical Solutions' : 'Treatment Options'}
-                    </p>
-                    <p className="text-2xl font-bold text-gray-900">
-                      {products.data.filter(p => p.category === 'Biologic' || p.category === 'SkinSubstitute').length}
-                    </p>
-                  </div>
-                  <FiDollarSign className="w-8 h-8 text-orange-600" />
-                </div>
-              </div>
-            )}
+            </div>
           </div>
 
           {/* Search and Filters */}
-          <div className="bg-white rounded-lg border border-gray-200 p-4">
+          <div className="space-y-4">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
-              <form onSubmit={handleSearch} className="flex-1">
-                <div className="relative">
-                  <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-                  <input
-                    type="text"
-                    name="search"
-                    placeholder="Search products, Q-codes, manufacturers..."
-                    defaultValue={localFilters.search || ''}
-                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-              </form>
+              <div className="flex-1 relative">
+                <FiSearch className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5", t.text.secondary)} />
+                <input
+                  type="text"
+                  placeholder="Search products, SKU, Q-code, or manufacturer..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  className={cn(
+                    "w-full pl-10 pr-4 py-3 rounded-xl",
+                    t.input.base,
+                    t.input.focus
+                  )}
+                />
+              </div>
+
+              {/* View Toggle */}
+              <div className={cn("flex rounded-xl p-1", t.glass.frost)}>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
+                    viewMode === 'grid'
+                      ? cn(t.button.primary.base, "text-white")
+                      : cn(t.text.secondary, "hover:bg-white/10")
+                  )}
+                >
+                  <FiGrid className="w-4 h-4" />
+                  Grid
+                </button>
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-2 rounded-lg transition-all",
+                    viewMode === 'list'
+                      ? cn(t.button.primary.base, "text-white")
+                      : cn(t.text.secondary, "hover:bg-white/10")
+                  )}
+                >
+                  <FiList className="w-4 h-4" />
+                  List
+                </button>
+              </div>
 
               {/* Filter Toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className={cn(
+                  "flex items-center gap-2 px-4 py-3 rounded-xl transition-all",
+                  showFilters
+                    ? cn(t.button.primary.base, t.button.primary.hover)
+                    : cn(t.button.secondary.base, t.button.secondary.hover)
+                )}
               >
                 <FiFilter className="w-4 h-4" />
                 Filters
               </button>
-
-              {/* View Mode Toggle */}
-              <div className="flex border border-gray-300 rounded-lg overflow-hidden">
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-2 ${viewMode === 'grid' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors`}
-                >
-                  <FiGrid className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-2 ${viewMode === 'list' ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'} transition-colors`}
-                >
-                  <FiList className="w-4 h-4" />
-                </button>
-              </div>
             </div>
 
-            {/* Expanded Filters */}
+            {/* Advanced Filters */}
             {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-gray-200">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
-                  <select
-                    value={localFilters.category || ''}
-                    onChange={(e) => handleFilterChange('category', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Categories</option>
-                    {categories.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
+              <div className={cn("p-4 rounded-xl", t.glass.frost)}>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Category
+                    </label>
+                    <select
+                      value={selectedCategory}
+                      onChange={(e) => setSelectedCategory(e.target.value)}
+                      className={cn("w-full", t.input.base, t.input.focus)}
+                    >
+                      <option value="">All Categories</option>
+                      {categories.map(category => (
+                        <option key={category} value={category}>{category}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Manufacturer
+                    </label>
+                    <select
+                      value={selectedManufacturer}
+                      onChange={(e) => setSelectedManufacturer(e.target.value)}
+                      className={cn("w-full", t.input.base, t.input.focus)}
+                    >
+                      <option value="">All Manufacturers</option>
+                      {manufacturers.map(manufacturer => (
+                        <option key={manufacturer} value={manufacturer}>{manufacturer}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Status
+                    </label>
+                    <select
+                      value={activeFilter === undefined ? '' : activeFilter.toString()}
+                      onChange={(e) => setActiveFilter(e.target.value === '' ? undefined : e.target.value === 'true')}
+                      className={cn("w-full", t.input.base, t.input.focus)}
+                    >
+                      <option value="">All Status</option>
+                      <option value="true">Active</option>
+                      <option value="false">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                      Sort By
+                    </label>
+                    <div className="flex gap-2">
+                      <select
+                        value={sortBy}
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className={cn("flex-1", t.input.base, t.input.focus)}
+                      >
+                        <option value="name">Name</option>
+                        <option value="price">Price</option>
+                        <option value="commission">Commission</option>
+                        <option value="updated">Updated</option>
+                      </select>
+                      <button
+                        onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                        className={cn(
+                          "px-3 py-2 rounded-xl",
+                          t.button.secondary.base,
+                          t.button.secondary.hover
+                        )}
+                      >
+                        {sortOrder === 'asc' ? '↑' : '↓'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Manufacturer</label>
-                  <select
-                    value={localFilters.manufacturer || ''}
-                    onChange={(e) => handleFilterChange('manufacturer', e.target.value)}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Manufacturers</option>
-                    {manufacturers.map((manufacturer) => (
-                      <option key={manufacturer} value={manufacturer}>
-                        {manufacturer}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex items-end">
+                <div className="flex justify-end mt-4">
                   <button
-                    onClick={clearFilters}
-                    className="w-full px-4 py-2 text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    onClick={handleSearch}
+                    className={cn(
+                      "px-6 py-2 rounded-xl font-medium",
+                      t.button.primary.base,
+                      t.button.primary.hover
+                    )}
                   >
-                    Clear Filters
+                    Apply Filters
                   </button>
                 </div>
               </div>
@@ -475,120 +391,374 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
           </div>
         </div>
 
-        {/* Products Display */}
-        {viewMode === 'grid' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {products.data.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('name')}
-                    >
-                      Product
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('q_code')}
-                    >
-                      Q-Code
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Category
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('price_per_sq_cm')}
-                    >
-                      National ASP
-                    </th>
-                    {/* Show MSC Price column only if role allows */}
-                    {roleRestrictions.can_see_msc_pricing && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        MSC Price
-                      </th>
-                    )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Sizes
-                    </th>
-                    {/* Show commission column only if commission access is allowed (RBAC compliant) */}
-                    {roleRestrictions.commission_access_level !== 'none' && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Commission
-                      </th>
-                    )}
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {products.data.map((product) => (
-                    <ProductRow key={product.id} product={product} />
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Pagination */}
-        {products.data.length === 0 ? (
-          <div className="text-center py-12">
-            <FiPackage className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
-            <p className="text-gray-500">Try adjusting your search or filter criteria.</p>
-          </div>
-        ) : (
-          <div className="mt-8 flex justify-center">
+        {/* Bulk Actions */}
+        {selectedProducts.length > 0 && (
+          <div className={cn("p-4 rounded-xl flex items-center justify-between", t.status.info)}>
+            <span className="font-medium">
+              {selectedProducts.length} product{selectedProducts.length !== 1 ? 's' : ''} selected
+            </span>
             <div className="flex gap-2">
-              {products.links.map((link, index) => (
-                <Link
-                  key={index}
-                  href={link.url || '#'}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    link.active
-                      ? 'bg-blue-600 text-white'
-                      : link.url
-                      ? 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-                      : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
-                >
-                  <span dangerouslySetInnerHTML={{ __html: link.label }} />
-                </Link>
-              ))}
+              <button
+                onClick={() => handleBulkAction('activate')}
+                className={cn("px-3 py-1 rounded-lg text-sm", t.button.approve.base, t.button.approve.hover)}
+              >
+                Activate
+              </button>
+              <button
+                onClick={() => handleBulkAction('deactivate')}
+                className={cn("px-3 py-1 rounded-lg text-sm", t.button.warning.base, t.button.warning.hover)}
+              >
+                Deactivate
+              </button>
+              <button
+                onClick={() => handleBulkAction('delete')}
+                className={cn("px-3 py-1 rounded-lg text-sm", t.button.danger.base, t.button.danger.hover)}
+              >
+                Delete
+              </button>
             </div>
           </div>
         )}
 
-        {/* Financial Restriction Notice for Office Managers */}
-        {!roleRestrictions.can_see_msc_pricing && (
-          <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-yellow-800">Pricing Information Restricted</h3>
-                <div className="mt-2 text-sm text-yellow-700">
-                  <p>
-                    As an Office Manager, only National ASP pricing is displayed. MSC pricing, discounts, and commission information are not available for your role.
-                  </p>
-                </div>
-              </div>
+        {/* Products Grid/List */}
+        <div className={cn("p-6 rounded-2xl", t.glass.card)}>
+          {filteredProducts.length === 0 ? (
+            <div className="text-center py-12">
+              <FiPackage className={cn("w-16 h-16 mx-auto mb-4", t.text.muted)} />
+              <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>No products found</h3>
+              <p className={cn("text-sm", t.text.secondary)}>
+                Try adjusting your search criteria or add a new product.
+              </p>
             </div>
-          </div>
-        )}
+          ) : (
+            <>
+              {/* Select All */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedProducts.length === filteredProducts.length}
+                    onChange={selectAllProducts}
+                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  />
+                  <span className={cn("text-sm", t.text.secondary)}>
+                    Select all ({filteredProducts.length} products)
+                  </span>
+                </div>
+                <span className={cn("text-sm", t.text.secondary)}>
+                  Showing {filteredProducts.length} of {products.length} products
+                </span>
+              </div>
+
+              {/* Products Display */}
+              {viewMode === 'grid' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {filteredProducts.map(product => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      isSelected={selectedProducts.includes(product.id)}
+                      onToggleSelect={() => toggleProductSelection(product.id)}
+                      theme={t}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filteredProducts.map(product => (
+                    <ProductListItem
+                      key={product.id}
+                      product={product}
+                      isSelected={selectedProducts.includes(product.id)}
+                      onToggleSelect={() => toggleProductSelection(product.id)}
+                      theme={t}
+                    />
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </MainLayout>
   );
 }
+
+// Product Card Component for Grid View
+const ProductCard: React.FC<{
+  product: Product;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  theme: any;
+}> = ({ product, isSelected, onToggleSelect, theme: t }) => {
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <div
+      className={cn(
+        "relative group rounded-xl transition-all duration-300",
+        t.glass.card,
+        t.glass.hover,
+        isSelected && "ring-2 ring-blue-500"
+      )}
+      onMouseEnter={() => setShowActions(true)}
+      onMouseLeave={() => setShowActions(false)}
+    >
+      {/* Selection Checkbox */}
+      <div className="absolute top-3 left-3 z-10">
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={onToggleSelect}
+          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+        />
+      </div>
+
+      {/* Status Badge */}
+      <div className="absolute top-3 right-3 z-10">
+        <span
+          className={cn(
+            "px-2 py-1 text-xs font-medium rounded-full",
+            product.is_active
+              ? "bg-green-500/20 text-green-400 border border-green-500/30"
+              : "bg-red-500/20 text-red-400 border border-red-500/30"
+          )}
+        >
+          {product.is_active ? 'Active' : 'Inactive'}
+        </span>
+      </div>
+
+      {/* Product Image */}
+      <div className="aspect-square bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-t-xl flex items-center justify-center">
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-full object-cover rounded-t-xl"
+          />
+        ) : (
+          <FiPackage className={cn("w-12 h-12", t.text.muted)} />
+        )}
+      </div>
+
+      {/* Product Info */}
+      <div className="p-4">
+        <div className="mb-3">
+          <h3 className={cn("font-semibold text-sm line-clamp-2", t.text.primary)}>
+            {product.name}
+          </h3>
+          <div className="flex items-center gap-2 mt-1">
+            <span className={cn("text-xs px-2 py-1 rounded-full", t.glass.frost, t.text.secondary)}>
+              Q{product.q_code}
+            </span>
+            <span className={cn("text-xs", t.text.secondary)}>
+              {product.sku}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-4">
+          <div className="flex justify-between items-center">
+            <span className={cn("text-xs", t.text.secondary)}>Price/cm²:</span>
+            <span className={cn("text-sm font-medium", t.text.primary)}>
+              ${product.price_per_sq_cm.toFixed(2)}
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className={cn("text-xs", t.text.secondary)}>Commission:</span>
+            <span className="text-sm font-medium text-green-500">
+              {product.commission_rate}%
+            </span>
+          </div>
+          <div className="flex justify-between items-center">
+            <span className={cn("text-xs", t.text.secondary)}>Category:</span>
+            <span className={cn("text-xs", t.text.secondary)}>
+              {product.category}
+            </span>
+          </div>
+        </div>
+
+        {/* Documents */}
+        {product.document_urls && product.document_urls.length > 0 && (
+          <div className="mb-4">
+            <div className="flex items-center gap-2 mb-2">
+              <FiFileText className={cn("w-3 h-3", t.text.secondary)} />
+              <span className={cn("text-xs", t.text.secondary)}>
+                {product.document_urls.length} document{product.document_urls.length !== 1 ? 's' : ''}
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {product.document_urls.slice(0, 3).map((url, index) => (
+                <a
+                  key={index}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "text-xs px-2 py-1 rounded-lg transition-colors",
+                    t.glass.frost,
+                    "hover:bg-blue-500/20 text-blue-400"
+                  )}
+                >
+                  Doc {index + 1}
+                </a>
+              ))}
+              {product.document_urls.length > 3 && (
+                <span className={cn("text-xs px-2 py-1", t.text.muted)}>
+                  +{product.document_urls.length - 3} more
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className={cn(
+          "flex gap-2 transition-all duration-300",
+          showActions ? "opacity-100" : "opacity-0"
+        )}>
+          <Link
+            href={`/products/${product.id}`}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs transition-all",
+              t.button.secondary.base,
+              t.button.secondary.hover
+            )}
+          >
+            <FiEye className="w-3 h-3" />
+            View
+          </Link>
+          <Link
+            href={`/products/${product.id}/edit`}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg text-xs transition-all",
+              t.button.primary.base,
+              t.button.primary.hover
+            )}
+          >
+            <FiEdit3 className="w-3 h-3" />
+            Edit
+          </Link>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Product List Item Component for List View
+const ProductListItem: React.FC<{
+  product: Product;
+  isSelected: boolean;
+  onToggleSelect: () => void;
+  theme: any;
+}> = ({ product, isSelected, onToggleSelect, theme: t }) => {
+  return (
+    <div
+      className={cn(
+        "flex items-center gap-4 p-4 rounded-xl transition-all",
+        t.glass.frost,
+        t.glass.hover,
+        isSelected && "ring-2 ring-blue-500"
+      )}
+    >
+      {/* Selection */}
+      <input
+        type="checkbox"
+        checked={isSelected}
+        onChange={onToggleSelect}
+        className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      />
+
+      {/* Image */}
+      <div className="w-12 h-12 bg-gradient-to-br from-blue-500/10 to-purple-500/10 rounded-lg flex items-center justify-center flex-shrink-0">
+        {product.image_url ? (
+          <img
+            src={product.image_url}
+            alt={product.name}
+            className="w-full h-full object-cover rounded-lg"
+          />
+        ) : (
+          <FiPackage className={cn("w-6 h-6", t.text.muted)} />
+        )}
+      </div>
+
+      {/* Info */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-3 mb-1">
+          <h3 className={cn("font-medium truncate", t.text.primary)}>
+            {product.name}
+          </h3>
+          <span
+            className={cn(
+              "px-2 py-1 text-xs font-medium rounded-full flex-shrink-0",
+              product.is_active
+                ? "bg-green-500/20 text-green-400"
+                : "bg-red-500/20 text-red-400"
+            )}
+          >
+            {product.is_active ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        <div className="flex items-center gap-4 text-sm">
+          <span className={cn("text-xs", t.text.secondary)}>
+            Q{product.q_code} • {product.sku}
+          </span>
+          <span className={cn("text-xs", t.text.secondary)}>
+            {product.manufacturer}
+          </span>
+          <span className={cn("text-xs", t.text.secondary)}>
+            {product.category}
+          </span>
+        </div>
+      </div>
+
+      {/* Price & Commission */}
+      <div className="text-right flex-shrink-0">
+        <div className={cn("font-medium", t.text.primary)}>
+          ${product.price_per_sq_cm.toFixed(2)}/cm²
+        </div>
+        <div className="text-sm text-green-500">
+          {product.commission_rate}% commission
+        </div>
+      </div>
+
+      {/* Documents */}
+      <div className="flex-shrink-0">
+        {product.document_urls && product.document_urls.length > 0 ? (
+          <div className="flex items-center gap-1">
+            <FiFileText className={cn("w-4 h-4", t.text.secondary)} />
+            <span className={cn("text-xs", t.text.secondary)}>
+              {product.document_urls.length}
+            </span>
+          </div>
+        ) : (
+          <span className={cn("text-xs", t.text.muted)}>No docs</span>
+        )}
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-2 flex-shrink-0">
+        <Link
+          href={`/products/${product.id}`}
+          className={cn(
+            "p-2 rounded-lg transition-all",
+            t.button.ghost.base,
+            t.button.ghost.hover
+          )}
+        >
+          <FiEye className="w-4 h-4" />
+        </Link>
+        <Link
+          href={`/products/${product.id}/edit`}
+          className={cn(
+            "p-2 rounded-lg transition-all",
+            t.button.primary.base,
+            t.button.primary.hover
+          )}
+        >
+          <FiEdit3 className="w-4 h-4" />
+        </Link>
+      </div>
+    </div>
+  );
+};
