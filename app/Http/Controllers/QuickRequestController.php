@@ -840,13 +840,13 @@ class QuickRequestController extends Controller
             if (!empty($prefillData['selected_products'])) {
                 $selectedProducts = $prefillData['selected_products'];
                 if (!empty($selectedProducts[0]['product_id'])) {
-                    $product = \App\Models\Order\Product::with('manufacturer')->find($selectedProducts[0]['product_id']);
+                    $product = Product::with('manufacturer')->find($selectedProducts[0]['product_id']);
                     if ($product && $product->manufacturer_id) {
                         $manufacturerId = $product->manufacturer_id;
                         $manufacturer = $product->manufacturer;
 
                         // Look up template in database based on manufacturer
-                        $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+                        $template = DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
 
                         if ($template) {
                             $templateId = $template->docuseal_template_id;

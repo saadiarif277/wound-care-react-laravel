@@ -22,12 +22,8 @@ fi
 
 # Create .env file if it doesn't exist
 if [ ! -f ".env" ]; then
-    if [ -f ".env.example" ]; then
-        echo "Creating .env file from .env.example..."
-        cp .env.example .env
-    else
-        echo "Creating basic .env file..."
-        cat > .env << EOF
+    echo "Creating .env file..."
+    cat > .env << EOF
 APP_NAME=Laravel
 APP_ENV=production
 APP_KEY=
@@ -75,7 +71,6 @@ PUSHER_APP_CLUSTER=mt1
 MIX_PUSHER_APP_KEY="\${PUSHER_APP_KEY}"
 MIX_PUSHER_APP_CLUSTER="\${PUSHER_APP_CLUSTER}"
 EOF
-    fi
 fi
 
 # Generate application key
