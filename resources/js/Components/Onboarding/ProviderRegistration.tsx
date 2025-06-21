@@ -4,10 +4,10 @@ import { useForm } from '@inertiajs/react';
 // import { useParams } from 'react-router-dom'; // If using react-router for token
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
 import { Button } from '@/Components/ui/Button';
-import { Input } from '@/components/ui/input'; // Assuming Shadcn Input
-import { Label } from '@/components/ui/label';   // Assuming Shadcn Label
-import { Checkbox } from '@/components/ui/checkbox'; // Assuming Shadcn Checkbox
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"; // Assuming Shadcn Alert
+import { Input } from '@/Components/ui/input'; // Assuming Shadcn Input
+import { Label } from '@/Components/ui/label';   // Assuming Shadcn Label
+import { Checkbox } from '@/Components/ui/checkbox'; // Assuming Shadcn Checkbox
+import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert"; // Assuming Shadcn Alert
 import { CheckCircle2 } from 'lucide-react';
 // For a real form, you'd likely use react-hook-form with Shadcn components
 // import { useForm } from 'react-hook-form';
