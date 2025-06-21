@@ -30,3 +30,4 @@ class InsuranceAnalyticsService
             ")
             ->get();
     }
+}

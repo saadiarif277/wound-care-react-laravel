@@ -2,7 +2,7 @@ import React from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
-import Button from '@/Components/ui/button';
+import Button from '@/Components/ui/Button';
 import { ArrowLeft, Edit, Building, Mail, Phone, MapPin, User, DollarSign } from 'lucide-react';
 
 interface Organization {

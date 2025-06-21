@@ -15,15 +15,16 @@ use Illuminate\Support\Facades\Cache;
 class UnifiedEligibilityService
 {
     private array $providers = [];
-    
+
     public function __construct()
     {
         // Register all available providers
-        $this->registerProvider('availity', new AvailityProvider());
-        $this->registerProvider('optum', new OptumProvider());
-        $this->registerProvider('default', new DefaultProvider());
+        // TODO: Create provider classes that implement EligibilityProviderInterface
+        // $this->registerProvider('availity', new AvailityProvider());
+        // $this->registerProvider('optum', new OptumProvider());
+        // $this->registerProvider('default', new DefaultProvider());
     }
-    
+
     /**
      * Register an eligibility provider
      */
@@ -31,7 +32,7 @@ class UnifiedEligibilityService
     {
         $this->providers[$name] = $provider;
     }
-    
+
     /**
      * Check eligibility for a product request
      */
@@ -40,17 +41,16 @@ class UnifiedEligibilityService
         try {
             // Get or create coverage record
             $coverage = $this->getOrCreateCoverage($productRequest);
-            
+
             // Determine which provider to use based on payer
             $provider = $this->selectProvider($coverage->payor_identifier);
-            
+
             // Build unified request
             $request = $this->buildUnifiedRequest($productRequest, $coverage);
-            
             // Check cache first
             $cacheKey = $this->generateCacheKey($request);
             $cachedResult = Cache::get($cacheKey);
-            
+
             if ($cachedResult && !$this->isStale($cachedResult)) {
                 Log::info('Using cached eligibility result', [
                     'cache_key' => $cacheKey,
@@ -58,35 +58,45 @@ class UnifiedEligibilityService
                 ]);
                 return $cachedResult;
             }
-            
+
             // Make the eligibility check
             $result = $provider->checkEligibility($request);
-            
             // Save to database
-            $eligibilityCheck = $this->saveEligibilityCheck($coverage, $result);
-            
-            // Update product request
-            $this->updateProductRequest($productRequest, $eligibilityCheck);
-            
+            $eligibilityCheck = EligibilityCheck::create([
+                'coverage_id' => $coverage->id,
+                'product_request_id' => $productRequest->id,
+                'provider' => $provider->getName(),
+                'status' => $result['status'] ?? 'unknown',
+                'response_data' => $result,
+                'checked_at' => now(),
+            ]);
+
+            // Update product request with eligibility status
+            $productRequest->update([
+                'eligibility_status' => $result['status'] ?? 'unknown',
+                'eligibility_checked_at' => now(),
+                'eligibility_check_id' => $eligibilityCheck->id,
+            ]);
+
             // Cache the result
             Cache::put($cacheKey, $result, now()->addHours(24));
-            
+
             // Trigger events
             event(new \App\Events\EligibilityChecked($eligibilityCheck));
-            
+
             return $result;
-            
+
         } catch (\Exception $e) {
             Log::error('Eligibility check failed', [
                 'product_request_id' => $productRequest->id,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            
+
             throw $e;
         }
     }
-    
+
     /**
      * Check eligibility for an order
      */
@@ -96,14 +106,14 @@ class UnifiedEligibilityService
         $mockProductRequest = $this->convertOrderToProductRequest($order);
         return $this->checkEligibility($mockProductRequest);
     }
-    
+
     /**
      * Get or create coverage record from product request
      */
     private function getOrCreateCoverage(ProductRequest $productRequest): Coverage
     {
         $patientData = $productRequest->patient_api_input;
-        
+
         return Coverage::firstOrCreate([
             'patient_id' => $productRequest->patient->id ?? null,
             'subscriber_id' => $patientData['member_id'] ?? null,
@@ -118,7 +128,7 @@ class UnifiedEligibilityService
             'verification_status' => 'pending',
         ]);
     }
-    
+
     /**
      * Select the appropriate provider based on payer
      */
@@ -126,21 +136,22 @@ class UnifiedEligibilityService
     {
         // Load payer configuration
         $payerConfig = $this->loadPayerConfiguration($payorIdentifier);
-        
+
         if ($payerConfig && isset($payerConfig['eligibility_provider'])) {
             $providerName = $payerConfig['eligibility_provider'];
             if (isset($this->providers[$providerName])) {
                 return $this->providers[$providerName];
             }
         }
-        
+
         // Check each provider if they support this payer
         foreach ($this->providers as $name => $provider) {
             if ($provider->supportsPayor($payorIdentifier)) {
                 return $provider;
             }
         }
-        
+
         // Default provider
         return $this->providers['default'];
     }
+}
