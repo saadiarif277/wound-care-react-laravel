@@ -3,7 +3,7 @@ import { Head, Link, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
-import { Button } from '@/Components/ui/button';
+import { Button } from '@/Components/ui/Button';
 import {
   Heart,
   Clock,
