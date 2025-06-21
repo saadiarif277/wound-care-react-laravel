@@ -1,2 +1,4 @@
 [config]
 command = bash deploy.sh
+SCM_REPOSITORY_PATH = .
+POST_BUILD_COMMAND = php artisan config:cache && php artisan route:cache
