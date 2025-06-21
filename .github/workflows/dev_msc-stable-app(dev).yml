@@ -95,5 +95,5 @@ jobs:
         id: deploy-to-webapp
         with:
           app-name: 'msc-stable-app'
-          slot-name: 'stage'
+          slot-name: 'dev'
           package: .
