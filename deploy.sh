@@ -14,12 +14,6 @@ npm ci
 echo "Building frontend assets..."
 npm run prod
 
-# Run Laravel optimizations
-echo "Running Laravel optimizations..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
-
 # Set proper permissions
 echo "Setting permissions..."
 chmod -R 775 storage bootstrap/cache
