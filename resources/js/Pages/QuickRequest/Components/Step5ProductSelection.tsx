@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
@@ -51,6 +52,9 @@ export default function Step5ProductSelection({
   errors,
   currentUser
 }: Step5Props) {
+  const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -62,6 +66,28 @@ export default function Step5ProductSelection({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
+
+  // Fetch provider's onboarded products when provider_id changes
+  useEffect(() => {
+    const fetchProviderProducts = async () => {
+      if (formData.provider_id) {
+        setLoading(true);
+        try {
+          const response = await fetch(`/api/v1/providers/${formData.provider_id}/onboarded-products`);
+          const data = await response.json();
+          if (data.success) {
+            setProviderOnboardedProducts(data.q_codes || []);
+          }
+        } catch (error) {
+          console.error('Error fetching provider products:', error);
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchProviderProducts();
+  }, [formData.provider_id]);
 
   // Determine insurance type for product filtering
   const getInsuranceType = () => {
@@ -87,8 +113,8 @@ export default function Step5ProductSelection({
 
   // Get provider onboarded products
   const getProviderOnboardedProducts = () => {
-    if (!formData.provider_id) return [];
-    return providerProducts[formData.provider_id.toString()] || [];
+    // Use the fetched provider onboarded products from the API
+    return providerOnboardedProducts;
   };
 
   // Get role restrictions based on user role
@@ -124,17 +150,31 @@ export default function Step5ProductSelection({
 
   return (
     <div className="space-y-6">
-      <ProductSelectorQuickRequest
-        insuranceType={getInsuranceType()}
-        patientState={formData.patient_state}
-        woundSize={calculateWoundSize()}
-        providerOnboardedProducts={getProviderOnboardedProducts()}
-        onProductsChange={handleProductsChange}
-        roleRestrictions={getRoleRestrictions()}
-        last24HourOrders={formData.last_24_hour_orders}
-        selectedProducts={formData.selected_products || []}
-        className=""
-      />
+      {loading && formData.provider_id ? (
+        <div className={cn(
+          "p-8 text-center rounded-lg",
+          theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
+        )}>
+          <p className={cn(
+            "text-sm",
+            theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
+          )}>
+            Loading provider products...
+          </p>
+        </div>
+      ) : (
+        <ProductSelectorQuickRequest
+          insuranceType={getInsuranceType()}
+          patientState={formData.patient_state}
+          woundSize={calculateWoundSize()}
+          providerOnboardedProducts={getProviderOnboardedProducts()}
+          onProductsChange={handleProductsChange}
+          roleRestrictions={getRoleRestrictions()}
+          last24HourOrders={formData.last_24_hour_orders}
+          selectedProducts={formData.selected_products || []}
+          className=""
+        />
+      )}
 
       {/* Validation Errors */}
       {errors.products && (

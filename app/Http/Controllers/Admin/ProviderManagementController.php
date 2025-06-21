@@ -13,6 +13,8 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Inertia\Inertia;
 use Carbon\Carbon;
+use App\Services\FhirService;
+use Illuminate\Support\Facades\Log;
 
 class ProviderManagementController extends Controller
 {
@@ -564,7 +566,7 @@ class ProviderManagementController extends Controller
     /**
      * Store a newly created provider
      */
-    public function store(Request $request)
+    public function store(Request $request, FhirService $fhirService)
     {
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
@@ -580,7 +582,7 @@ class ProviderManagementController extends Controller
             'is_verified' => 'boolean',
         ]);
 
-        DB::transaction(function () use ($validated, $request) {
+        DB::transaction(function () use ($validated, $request, $fhirService) {
             // Create the user
             $user = User::create([
                 'first_name' => $validated['first_name'],
@@ -596,6 +598,65 @@ class ProviderManagementController extends Controller
                 'is_verified' => $validated['is_verified'] ?? false,
                 'account_id' => 1, // Default account
             ]);
+
+            // Create FHIR Practitioner resource
+            try {
+                $practitionerData = [
+                    'resourceType' => 'Practitioner',
+                    'identifier' => [],
+                    'active' => true,
+                    'name' => [
+                        [
+                            'use' => 'official',
+                            'family' => $validated['last_name'],
+                            'given' => [$validated['first_name']],
+                            'text' => $validated['first_name'] . ' ' . $validated['last_name']
+                        ]
+                    ],
+                    'telecom' => [
+                        [
+                            'system' => 'email',
+                            'value' => $validated['email'],
+                            'use' => 'work'
+                        ]
+                    ]
+                ];
+
+                // Add NPI identifier if available
+                if (!empty($validated['npi_number'])) {
+                    $practitionerData['identifier'][] = [
+                        'system' => 'http://hl7.org/fhir/sid/us-npi',
+                        'value' => $validated['npi_number']
+                    ];
+                }
+
+                // Add DEA identifier if available
+                if (!empty($validated['dea_number'])) {
+                    $practitionerData['identifier'][] = [
+                        'system' => 'http://hl7.org/fhir/sid/dea',
+                        'value' => $validated['dea_number']
+                    ];
+                }
+
+                // Add license identifier if available
+                if (!empty($validated['license_number']) && !empty($validated['license_state'])) {
+                    $practitionerData['identifier'][] = [
+                        'system' => 'https://mscwoundcare.com/license/' . strtolower($validated['license_state']),
+                        'value' => $validated['license_number']
+                    ];
+                }
+
+                // Create the FHIR resource
+                $practitioner = $fhirService->createPractitioner($practitionerData);
+                
+                if ($practitioner && isset($practitioner['id'])) {
+                    // Update user with FHIR practitioner ID
+                    $user->update(['fhir_practitioner_id' => $practitioner['id']]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to create FHIR Practitioner for user ' . $user->id . ': ' . $e->getMessage());
+                // Continue with user creation even if FHIR fails
+            }
 
             // Assign provider role
             $providerRole = DB::table('roles')->where('slug', 'provider')->first();

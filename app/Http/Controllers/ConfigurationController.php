@@ -13,9 +13,9 @@ class ConfigurationController extends Controller
      */
     public function getInsuranceProductRules(Request $request)
     {
-        $insuranceType = $request->input('insurance_type');
-        $state = $request->input('state');
-        $woundSize = $request->input('wound_size');
+        $insuranceType = $request->input('insurance_type') ?? '';
+        $state = $request->input('state') ?? '';
+        $woundSize = $request->input('wound_size') ?? 0;
         
         $cacheKey = "insurance_rules_{$insuranceType}_{$state}_{$woundSize}";
         
@@ -75,7 +75,7 @@ class ConfigurationController extends Controller
      */
     public function getDiagnosisCodes(Request $request)
     {
-        $category = $request->input('category');
+        $category = $request->input('category') ?? '';
         
         $cacheKey = "diagnosis_codes_{$category}";
         
@@ -136,8 +136,8 @@ class ConfigurationController extends Controller
      */
     public function getMscContacts(Request $request)
     {
-        $department = $request->input('department');
-        $purpose = $request->input('purpose');
+        $department = $request->input('department') ?? '';
+        $purpose = $request->input('purpose') ?? '';
         
         $cacheKey = "msc_contacts_{$department}_{$purpose}";
         

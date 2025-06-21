@@ -23,10 +23,14 @@
         <env name="CACHE_STORE" value="array"/>
 
         <!-- ⚠️ DATABASE CONFIGURATION FOR TESTS ⚠️ -->
-        <!-- Option 1: Use a separate MySQL test database (RECOMMENDED) -->
+        <!-- Option 1: Use a separate SQL Server test database (RECOMMENDED) -->
         <!-- Uncomment these lines and create a database named 'msc_test_db' -->
-        <!-- <env name="DB_CONNECTION" value="mysql"/> -->
+        <!-- <env name="DB_CONNECTION" value="sqlsrv"/> -->
         <!-- <env name="DB_DATABASE" value="msc_test_db"/> -->
+        <!-- <env name="DB_HOST" value="localhost"/> -->
+        <!-- <env name="DB_PORT" value="1433"/> -->
+        <!-- <env name="DB_USERNAME" value="sa"/> -->
+        <!-- <env name="DB_PASSWORD" value=""/> -->
 
         <!-- Option 2: Use SQLite in-memory database (fastest, but may have compatibility issues) -->
         <!-- <env name="DB_CONNECTION" value="sqlite"/> -->

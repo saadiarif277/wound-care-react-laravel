@@ -180,9 +180,9 @@ Route::prefix('v1')->group(function () {
 Route::post('v1/eligibility/preauth/callback', [EligibilityController::class, 'handleCallback'])->name('eligibility.callback');
 
 // FHIR Server REST API Routes
-Route::prefix('fhir')->name('fhir.')->group(function () {
-    // CapabilityStatement
-    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata');
+Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(function () {
+    // CapabilityStatement (public)
+    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata')->withoutMiddleware(['auth']);
 
     // Patient Resource Routes
     Route::prefix('Patient')->name('patient.')->group(function () {
@@ -365,6 +365,18 @@ Route::prefix('v1')->group(function () {
         Route::get('expired', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getExpiredCredentials'])->name('expired');
         Route::get('pending-verification', [\App\Http\Controllers\Api\ProviderCredentialController::class, 'getPendingVerification'])->name('pending');
     });
+});
+
+// Provider Product Routes
+Route::prefix('v1')->group(function () {
+    // Provider product endpoints
+    Route::get('providers/{providerId}/onboarded-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getOnboardedProducts']);
+    Route::get('providers/all-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getAllProvidersProducts']);
+    
+    // IVR field mapping endpoints
+    Route::get('ivr/manufacturers', [\App\Http\Controllers\Api\IvrFieldController::class, 'getManufacturers']);
+    Route::get('ivr/manufacturers/{key}/fields', [\App\Http\Controllers\Api\IvrFieldController::class, 'getManufacturerFields']);
+    Route::post('ivr/calculate-coverage', [\App\Http\Controllers\Api\IvrFieldController::class, 'calculateFieldCoverage']);
 });
 
 // Deprecated CustomerManagementController routes removed
@@ -556,8 +568,16 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
 
 // QuickRequest Episode Creation Route
 Route::middleware(['web', 'auth'])->group(function () {
-    Route::post('/quick-request/create-episode', [\App\Http\Controllers\QuickRequestController::class, 'createEpisodeForDocuSeal'])
+    Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisode'])
         ->name('api.quick-request.create-episode')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisodeWithDocuments'])
+        ->name('api.quick-request.create-episode-with-documents')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\QuickRequestController::class, 'extractIvrFields'])
+        ->name('api.quick-request.extract-ivr-fields')
         ->middleware('permission:create-product-requests');
 });
 

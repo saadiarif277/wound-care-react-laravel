@@ -13,6 +13,7 @@ import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7FinalSubmission from './Components/Step7FinalSubmission';
 import { getManufacturerByProduct } from './manufacturerFields';
+import axios from 'axios';
 
 interface QuickRequestFormData {
   // Context & Request Type
@@ -133,6 +134,13 @@ interface QuickRequestFormData {
 
   // Episode tracking
   episode_id?: string;
+  patient_display_id?: string;
+  patient_fhir_id?: string;
+  fhir_practitioner_id?: string;
+  fhir_organization_id?: string;
+  fhir_coverage_ids?: string[];
+  fhir_questionnaire_response_id?: string;
+  fhir_device_request_id?: string;
   docuseal_submission_id?: string;
   final_submission_id?: string;
   final_submission_completed?: boolean;
@@ -141,6 +149,9 @@ interface QuickRequestFormData {
   // Organization Info (auto-populated)
   organization_id?: number;
   organization_name?: string;
+  
+  // Manufacturer tracking
+  manufacturer_id?: number;
 }
 
 interface Props {
@@ -154,12 +165,14 @@ interface Props {
     name: string;
     credentials?: string;
     npi?: string;
+    fhir_practitioner_id?: string;
   }>;
   products: Array<{
     id: number;
     code: string;
     name: string;
     manufacturer: string;
+    manufacturer_id?: number;
     available_sizes?: number[];
     price_per_sq_cm?: number;
   }>;
@@ -174,11 +187,13 @@ interface Props {
     name: string;
     npi?: string;
     role?: string;
+    fhir_practitioner_id?: string;
     organization?: {
       id: number;
       name: string;
       address?: string;
       phone?: string;
+      fhir_organization_id?: string;
     };
   };
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
@@ -248,7 +263,14 @@ function QuickRequestCreateNew({
     selected_products: [],
     manufacturer_fields: {},
     docuseal_submission_id: '',
+    // FHIR IDs from providers/orgs
+    fhir_practitioner_id: currentUser.role === 'provider' ? currentUser.fhir_practitioner_id : undefined,
+    fhir_organization_id: currentUser.organization?.fhir_organization_id,
   });
+
+  // State for IVR fields
+  const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
+  const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
 
   const updateFormData = (updates: Partial<QuickRequestFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
@@ -263,24 +285,6 @@ function QuickRequestCreateNew({
     { title: 'Final Submission', icon: FiPackage, estimatedTime: '10 seconds' }
   ];
 
-  const handleNext = () => {
-    // Validate current section
-    const sectionErrors = validateSection(currentSection);
-    if (Object.keys(sectionErrors).length > 0) {
-      setErrors(sectionErrors);
-      // Scroll to top to show errors
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-      return;
-    }
-    setErrors({});
-    setCurrentSection(prev => Math.min(prev + 1, sections.length - 1));
-  };
-
-  const handlePrevious = () => {
-    setCurrentSection(prev => Math.max(prev - 1, 0));
-    setErrors({});
-  };
-
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
 
@@ -288,7 +292,7 @@ function QuickRequestCreateNew({
       case 0: // Create Episode & Upload
         if (!formData.provider_id) errors.provider_id = 'Provider selection is required';
         if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
-        if (!formData.episode_id) errors.episode_id = 'Episode must be created before proceeding';
+        if (!formData.patient_name) errors.patient_name = 'Patient name is required';
         break;
 
       case 1: // Patient & Insurance (combined)
@@ -342,19 +346,382 @@ function QuickRequestCreateNew({
 
       case 4: // Review & Confirm
         // No specific validation needed for review step
-        // All validations from previous steps should be complete
         break;
 
       case 5: // Final Submission
         // No specific validation needed for final submission step
-        // DocuSeal form will handle its own validation
         break;
     }
 
     return errors;
   };
 
-    const handleSubmit = async () => {
+  // Create FHIR resources as user progresses through the form
+  const createFhirResources = async (resourceType: string) => {
+    try {
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) {
+        throw new Error('Unable to obtain security token');
+      }
+
+      switch (resourceType) {
+        case 'Coverage':
+          // Create primary insurance coverage
+          if (formData.primary_insurance_name && formData.primary_member_id && formData.patient_fhir_id) {
+            const coverageResource = {
+              resourceType: 'Coverage',
+              status: 'active',
+              beneficiary: {
+                reference: `Patient/${formData.patient_fhir_id}`
+              },
+              subscriber: {
+                reference: formData.patient_is_subscriber ? `Patient/${formData.patient_fhir_id}` : undefined,
+                display: formData.patient_is_subscriber ? undefined : formData.caregiver_name
+              },
+              subscriberId: formData.primary_member_id,
+              payor: [{
+                display: formData.primary_insurance_name
+              }],
+              order: 1,
+              network: formData.primary_plan_type
+            };
+
+            const response = await axios.post('/fhir/Coverage', coverageResource, {
+              headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/fhir+json'
+              }
+            });
+
+            if (response.data?.id) {
+              const coverageIds = [...(formData.fhir_coverage_ids || []), response.data.id];
+              updateFormData({ fhir_coverage_ids: coverageIds });
+            }
+          }
+          break;
+
+        case 'QuestionnaireResponse':
+          // Create clinical assessment questionnaire response
+          if (formData.patient_fhir_id && formData.wound_types.length > 0) {
+            const questionnaireResponse = {
+              resourceType: 'QuestionnaireResponse',
+              status: 'completed',
+              subject: {
+                reference: `Patient/${formData.patient_fhir_id}`
+              },
+              authored: new Date().toISOString(),
+              item: [
+                {
+                  linkId: 'wound-type',
+                  answer: [{
+                    valueCoding: {
+                      display: formData.wound_types[0]
+                    }
+                  }]
+                },
+                {
+                  linkId: 'wound-location',
+                  answer: [{
+                    valueString: formData.wound_location
+                  }]
+                },
+                {
+                  linkId: 'wound-size-length',
+                  answer: [{
+                    valueDecimal: parseFloat(formData.wound_size_length) || 0
+                  }]
+                },
+                {
+                  linkId: 'wound-size-width',
+                  answer: [{
+                    valueDecimal: parseFloat(formData.wound_size_width) || 0
+                  }]
+                },
+                {
+                  linkId: 'place-of-service',
+                  answer: [{
+                    valueCoding: {
+                      code: formData.place_of_service,
+                      display: formData.place_of_service === '11' ? 'Office' : 'Other'
+                    }
+                  }]
+                }
+              ]
+            };
+
+            const response = await axios.post('/fhir/QuestionnaireResponse', questionnaireResponse, {
+              headers: {
+                'X-CSRF-TOKEN': csrfToken,
+                'Content-Type': 'application/fhir+json'
+              }
+            });
+
+            if (response.data?.id) {
+              updateFormData({ fhir_questionnaire_response_id: response.data.id });
+            }
+          }
+          break;
+
+        case 'DeviceRequest':
+          // Create device request after product selection
+          if (formData.patient_fhir_id && formData.selected_products && formData.selected_products.length > 0) {
+            const firstSelectedProduct = formData.selected_products[0];
+            if (firstSelectedProduct) {
+              const product = products.find(p => p.id === firstSelectedProduct.product_id);
+              if (product) {
+                const deviceRequest = {
+                  resourceType: 'DeviceRequest',
+                  status: 'draft',
+                  intent: 'order',
+                  subject: {
+                    reference: `Patient/${formData.patient_fhir_id}`
+                  },
+                  code: {
+                    coding: [{
+                      system: 'https://mscwoundcare.com/products',
+                      code: product.code,
+                      display: product.name
+                    }]
+                  },
+                  occurrenceDateTime: formData.expected_service_date,
+                  requester: formData.fhir_practitioner_id ? {
+                    reference: `Practitioner/${formData.fhir_practitioner_id}`
+                  } : undefined
+                };
+
+                const response = await axios.post('/fhir/DeviceRequest', deviceRequest, {
+                  headers: {
+                    'X-CSRF-TOKEN': csrfToken,
+                    'Content-Type': 'application/fhir+json'
+                  }
+                });
+
+                if (response.data?.id) {
+                  updateFormData({ fhir_device_request_id: response.data.id });
+                }
+              }
+            }
+          }
+          break;
+      }
+    } catch (error) {
+      console.error(`Error creating FHIR ${resourceType}:`, error);
+    }
+  };
+
+  // Extract IVR fields when moving to Step 6 (after product selection)
+  const extractIvrFields = async () => {
+    if (!formData.selected_products || formData.selected_products.length === 0) return;
+
+    const firstProduct = formData.selected_products[0];
+    if (!firstProduct) return;
+    
+    const product = products.find(p => p.id === firstProduct.product_id);
+    if (!product) return;
+
+    const manufacturerKey = getManufacturerByProduct(product.code);
+    if (!manufacturerKey) return;
+
+    setIsExtractingIvrFields(true);
+    try {
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) throw new Error('Unable to obtain security token');
+
+      // Get FHIR IDs from form data and providers/facilities
+      const selectedProvider = providers.find(p => p.id === formData.provider_id);
+      const selectedFacility = facilities.find(f => f.id === formData.facility_id);
+
+      const response = await axios.post('/api/quick-request/extract-ivr-fields', {
+        patient_id: formData.patient_fhir_id,
+        practitioner_id: formData.fhir_practitioner_id || selectedProvider?.fhir_practitioner_id,
+        organization_id: formData.fhir_organization_id || currentUser.organization?.fhir_organization_id,
+        questionnaire_response_id: formData.fhir_questionnaire_response_id,
+        device_request_id: formData.fhir_device_request_id,
+        episode_id: formData.episode_id,
+        manufacturer_key: manufacturerKey,
+        sales_rep: formData.sales_rep_id ? {
+          name: 'MSC Distribution',
+          email: 'orders@mscwoundcare.com'
+        } : undefined,
+        selected_products: formData.selected_products?.map(sp => ({
+          name: product.name,
+          code: product.code,
+          size: sp.size
+        }))
+      }, {
+        headers: { 'X-CSRF-TOKEN': csrfToken }
+      });
+
+      if (response.data.success) {
+        setIvrFields(response.data.ivr_fields);
+        updateFormData({ manufacturer_fields: response.data.ivr_fields });
+        console.log(`IVR Field Coverage: ${response.data.field_coverage.percentage}%`);
+      }
+    } catch (error) {
+      console.error('Error extracting IVR fields:', error);
+    } finally {
+      setIsExtractingIvrFields(false);
+    }
+  };
+
+  const handleNext = async () => {
+    // Validate current section
+    const sectionErrors = validateSection(currentSection);
+    if (Object.keys(sectionErrors).length > 0) {
+      setErrors(sectionErrors);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+    setErrors({});
+
+    // Create FHIR patient when moving from section 0 to section 1
+    if (currentSection === 0 && !formData.patient_fhir_id) {
+      try {
+        const csrfToken = await ensureValidCSRFToken();
+        if (!csrfToken) {
+          setErrors({ patient_fhir_id: 'Unable to obtain security token. Please refresh the page.' });
+          return;
+        }
+
+        // Parse patient name into first and last
+        const nameParts = (formData.patient_name || '').trim().split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
+        
+        // Create FHIR patient resource
+        const patientResource = {
+          resourceType: 'Patient',
+          identifier: [{
+            system: 'https://mscwoundcare.com/patient-id',
+            value: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10) + '_' + Date.now()
+          }],
+          name: [{
+            given: [firstName],
+            family: lastName
+          }],
+          active: true,
+          meta: {
+            tag: [{
+              system: 'https://mscwoundcare.com/tags',
+              code: 'quick-request-patient'
+            }]
+          }
+        };
+
+        const response = await axios.post('/fhir/Patient', patientResource, {
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+            'Content-Type': 'application/fhir+json'
+          },
+        });
+
+        if (response.data && response.data.id) {
+          // Update practitioner ID if provider is selected
+          const selectedProvider = providers.find(p => p.id === formData.provider_id);
+          
+          updateFormData({
+            patient_fhir_id: response.data.id,
+            patient_display_id: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10),
+            fhir_practitioner_id: selectedProvider?.fhir_practitioner_id || formData.fhir_practitioner_id
+          });
+        } else {
+          setErrors({ patient_fhir_id: 'Failed to create patient record. Please try again.' });
+          return;
+        }
+      } catch (error: any) {
+        console.error('Error creating patient:', error);
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create patient';
+        setErrors({ patient_fhir_id: errorMessage });
+        return;
+      }
+    }
+
+    // Create FHIR Coverage when moving from section 1 to 2
+    if (currentSection === 1) {
+      await createFhirResources('Coverage');
+    }
+
+    // Create FHIR QuestionnaireResponse when moving from section 2 to 3
+    if (currentSection === 2) {
+      await createFhirResources('QuestionnaireResponse');
+    }
+
+    // Create episode and DeviceRequest when moving from section 3 to 4 (after product selection)
+    if (currentSection === 3 && !formData.episode_id && formData.selected_products && formData.selected_products.length > 0) {
+      // First create the DeviceRequest
+      await createFhirResources('DeviceRequest');
+      
+      try {
+        const csrfToken = await ensureValidCSRFToken();
+        if (!csrfToken) {
+          setErrors({ episode_id: 'Unable to obtain security token. Please refresh the page.' });
+          return;
+        }
+
+        // Get the first selected product to determine manufacturer
+        const selectedProduct = formData.selected_products[0];
+        if (!selectedProduct) {
+          setErrors({ episode_id: 'No product selected. Please select a product.' });
+          return;
+        }
+        
+        const product = products.find(p => p.id === selectedProduct.product_id);
+        
+        if (!product) {
+          setErrors({ episode_id: 'Selected product not found. Please select a valid product.' });
+          return;
+        }
+
+        const response = await axios.post('/api/quick-request/create-episode', {
+          patient_id: formData.patient_fhir_id,
+          patient_fhir_id: formData.patient_fhir_id,
+          patient_display_id: formData.patient_display_id,
+          manufacturer_id: product.manufacturer_id || null,
+          selected_product_id: selectedProduct.product_id,
+          form_data: {
+            provider_id: formData.provider_id,
+            facility_id: formData.facility_id,
+            patient_name: formData.patient_name,
+            request_type: formData.request_type,
+            selected_products: formData.selected_products
+          }
+        }, {
+          headers: {
+            'X-CSRF-TOKEN': csrfToken,
+          },
+        });
+
+        if (response.data.success) {
+          updateFormData({
+            episode_id: response.data.episode_id,
+            manufacturer_id: response.data.manufacturer_id
+          });
+        } else {
+          setErrors({ episode_id: 'Failed to create episode. Please try again.' });
+          return;
+        }
+      } catch (error: any) {
+        console.error('Error creating episode:', error);
+        const errorMessage = error.response?.data?.message || 'Failed to create episode';
+        setErrors({ episode_id: errorMessage });
+        return;
+      }
+    }
+
+    // Extract IVR fields when moving from section 4 to 5
+    if (currentSection === 4) {
+      await extractIvrFields();
+    }
+
+    setCurrentSection(prev => Math.min(prev + 1, sections.length - 1));
+  };
+
+  const handlePrevious = () => {
+    setCurrentSection(prev => Math.max(prev - 1, 0));
+    setErrors({});
+  };
+
+  const handleSubmit = async () => {
     // Validate all sections
     let allErrors: Record<string, string> = {};
     for (let i = 0; i <= 4; i++) {
@@ -370,21 +737,6 @@ function QuickRequestCreateNew({
 
     setIsSubmitting(true);
     try {
-      // Test CSRF token validity before submission
-      console.log('Testing CSRF token validity...');
-      const isTokenValid = await testCSRFToken();
-
-      if (!isTokenValid) {
-        console.log('CSRF token invalid, refreshing...');
-        const newToken = await ensureValidCSRFToken();
-        if (!newToken) {
-          alert('Session expired. Please refresh the page and try again.');
-          window.location.reload();
-          return;
-        }
-      }
-
-      // Ensure we have a valid CSRF token
       const csrfToken = await ensureValidCSRFToken();
       if (!csrfToken) {
         alert('Unable to get security token. Please refresh the page and try again.');
@@ -398,8 +750,13 @@ function QuickRequestCreateNew({
       // Add CSRF token to FormData
       addCSRFTokenToFormData(submitData, csrfToken);
 
-      // Add all form fields
-      Object.entries(formData).forEach(([key, value]) => {
+      // Add all form fields including IVR fields
+      const finalFormData = {
+        ...formData,
+        manufacturer_fields: ivrFields
+      };
+
+      Object.entries(finalFormData).forEach(([key, value]) => {
         if (value instanceof File) {
           submitData.append(key, value);
         } else if (value !== null && value !== undefined) {
@@ -410,11 +767,6 @@ function QuickRequestCreateNew({
           }
         }
       });
-
-      // Ensure episode_id is included if available
-      if (!formData.episode_id) {
-        console.error('Warning: No episode_id found in form data');
-      }
 
       console.log('Submitting form with CSRF token:', csrfToken.substring(0, 10) + '...');
 
@@ -429,23 +781,6 @@ function QuickRequestCreateNew({
         onError: (errors) => {
           console.error('Form submission errors:', errors);
           setErrors(errors as Record<string, string>);
-
-          // If it's a 419 error, refresh the page to get a new CSRF token
-          if (errors && typeof errors === 'object' && 'status' in errors && errors.status === 419) {
-            console.log('CSRF token expired during submission, refreshing page...');
-            alert('Your session has expired. The page will refresh automatically.');
-            setTimeout(() => window.location.reload(), 1000);
-            return;
-          }
-        },
-        onStart: () => {
-          console.log('Starting form submission...');
-        },
-        onProgress: (progress) => {
-          console.log('Upload progress:', progress);
-        },
-        onFinish: () => {
-          console.log('Form submission finished');
         },
       });
     } catch (error) {
@@ -572,8 +907,8 @@ function QuickRequestCreateNew({
 
             {currentSection === 0 && (
               <Step1CreateEpisode
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 providers={providers}
                 facilities={facilities}
                 currentUser={currentUser}
@@ -584,16 +919,16 @@ function QuickRequestCreateNew({
 
             {currentSection === 1 && (
               <Step2PatientInsurance
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 errors={errors}
               />
             )}
 
             {currentSection === 2 && (
               <Step4ClinicalBilling
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 diagnosisCodes={diagnosisCodes}
                 woundArea={woundArea}
                 errors={errors}
@@ -602,8 +937,8 @@ function QuickRequestCreateNew({
 
             {currentSection === 3 && (
               <Step5ProductSelection
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 products={products}
                 providerProducts={providerProducts}
                 errors={errors}
@@ -613,8 +948,8 @@ function QuickRequestCreateNew({
 
             {currentSection === 4 && (
               <Step6ReviewSubmit
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 products={products}
                 providers={providers}
                 facilities={facilities}
@@ -626,8 +961,8 @@ function QuickRequestCreateNew({
 
             {currentSection === 5 && (
               <Step7FinalSubmission
-                formData={formData}
-                updateFormData={updateFormData}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
                 products={products}
                 providers={providers}
                 facilities={facilities}
@@ -662,12 +997,27 @@ function QuickRequestCreateNew({
             ) : null /* Submit button is now inside Step6ReviewSubmit */}
           </div>
 
-          {/* Timer Display */}
+          {/* Status Display */}
           <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Total estimated completion time: <span className="font-semibold">90 seconds</span>
+            {formData.patient_fhir_id && (
+              <div className="mt-2 text-green-600 dark:text-green-400">
+                ✅ Patient FHIR ID: {formData.patient_fhir_id}
+              </div>
+            )}
             {formData.episode_id && (
               <div className="mt-2 text-green-600 dark:text-green-400">
                 ✅ Episode created: {formData.episode_id}
+              </div>
+            )}
+            {isExtractingIvrFields && (
+              <div className="mt-2 text-blue-600 dark:text-blue-400">
+                ⏳ Extracting IVR fields from FHIR resources...
+              </div>
+            )}
+            {Object.keys(ivrFields).length > 0 && (
+              <div className="mt-2 text-green-600 dark:text-green-400">
+                ✅ IVR fields extracted: {Object.keys(ivrFields).length} fields
               </div>
             )}
           </div>

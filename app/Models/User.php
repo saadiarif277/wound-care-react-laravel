@@ -483,6 +483,16 @@ class User extends Authenticatable
     }
 
     /**
+     * Onboarded products (alias for activeProducts for compatibility)
+     */
+    public function onboardedProducts(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Order\Product::class, 'provider_products', 'user_id', 'product_id')
+            ->withPivot(['onboarding_status', 'expiration_date', 'notes'])
+            ->withTimestamps();
+    }
+
+    /**
      * Check if provider is onboarded with a specific product
      */
     public function isOnboardedWithProduct($productId): bool

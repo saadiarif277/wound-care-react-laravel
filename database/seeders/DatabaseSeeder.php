@@ -614,7 +614,6 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,                     // Creates comprehensive product catalog with CMS data
             DocusealFolderSeeder::class,               // Creates folders before templates
             DocusealTemplateSeeder::class,             // Creates templates that reference folders
-            EpisodeSeeder::class,                      // Creates episode test data
         ]);
 
         $this->command->info('Database seeded successfully!');

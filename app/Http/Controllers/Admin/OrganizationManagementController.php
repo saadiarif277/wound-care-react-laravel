@@ -9,6 +9,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use Illuminate\Support\Str;
+use App\Services\FhirService;
+use Illuminate\Support\Facades\Log;
 
 class OrganizationManagementController extends Controller
 {
@@ -103,7 +105,7 @@ class OrganizationManagementController extends Controller
     /**
      * Store a newly created organization
      */
-    public function store(Request $request)
+    public function store(Request $request, FhirService $fhirService)
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
@@ -116,21 +118,114 @@ class OrganizationManagementController extends Controller
             'zip_code' => 'nullable|string|max:10',
         ]);
 
-        $organization = Organization::create([
-            'id' => Str::uuid(),
-            'name' => $validated['name'],
-            'type' => $validated['type'],
-            'status' => 'active',
-            'contact_email' => $validated['contact_email'],
-            'phone' => $validated['phone'],
-            'address' => $validated['address'],
-            'city' => $validated['city'] ?? null,
-            'state' => $validated['state'] ?? null,
-            'zip_code' => $validated['zip_code'] ?? null,
-        ]);
+        DB::transaction(function () use ($validated, $fhirService) {
+            $organization = Organization::create([
+                'id' => Str::uuid(),
+                'name' => $validated['name'],
+                'type' => $validated['type'],
+                'status' => 'active',
+                'contact_email' => $validated['contact_email'],
+                'phone' => $validated['phone'],
+                'address' => $validated['address'],
+                'city' => $validated['city'] ?? null,
+                'state' => $validated['state'] ?? null,
+                'zip_code' => $validated['zip_code'] ?? null,
+            ]);
+
+            // Create FHIR Organization resource
+            try {
+                $organizationData = [
+                    'resourceType' => 'Organization',
+                    'identifier' => [
+                        [
+                            'system' => 'https://mscwoundcare.com/organization-id',
+                            'value' => $organization->id
+                        ]
+                    ],
+                    'active' => true,
+                    'type' => [
+                        [
+                            'coding' => [
+                                [
+                                    'system' => 'http://terminology.hl7.org/CodeSystem/organization-type',
+                                    'code' => $this->mapOrganizationType($validated['type']),
+                                    'display' => ucfirst($validated['type'])
+                                ]
+                            ]
+                        ]
+                    ],
+                    'name' => $validated['name'],
+                    'telecom' => []
+                ];
+
+                // Add email if available
+                if (!empty($validated['contact_email'])) {
+                    $organizationData['telecom'][] = [
+                        'system' => 'email',
+                        'value' => $validated['contact_email'],
+                        'use' => 'work'
+                    ];
+                }
+
+                // Add phone if available
+                if (!empty($validated['phone'])) {
+                    $organizationData['telecom'][] = [
+                        'system' => 'phone',
+                        'value' => $validated['phone'],
+                        'use' => 'work'
+                    ];
+                }
+
+                // Add address if available
+                if (!empty($validated['address'])) {
+                    $address = [
+                        'use' => 'work',
+                        'type' => 'both',
+                        'line' => [$validated['address']]
+                    ];
+
+                    if (!empty($validated['city'])) {
+                        $address['city'] = $validated['city'];
+                    }
+                    if (!empty($validated['state'])) {
+                        $address['state'] = $validated['state'];
+                    }
+                    if (!empty($validated['zip_code'])) {
+                        $address['postalCode'] = $validated['zip_code'];
+                    }
+
+                    $organizationData['address'] = [$address];
+                }
+
+                // Create the FHIR resource
+                $fhirOrganization = $fhirService->createOrganization($organizationData);
+                
+                if ($fhirOrganization && isset($fhirOrganization['id'])) {
+                    // Update organization with FHIR organization ID
+                    $organization->update(['fhir_organization_id' => $fhirOrganization['id']]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Failed to create FHIR Organization for organization ' . $organization->id . ': ' . $e->getMessage());
+                // Continue with organization creation even if FHIR fails
+            }
+        });
 
         return redirect()->route('admin.organizations.index')
             ->with('success', 'Organization created successfully.');
+    }
+
+    /**
+     * Map organization type to FHIR coding system
+     */
+    private function mapOrganizationType(string $type): string
+    {
+        return match ($type) {
+            'healthcare' => 'prov',
+            'hospital' => 'hosp',
+            'clinic' => 'dept',
+            'other' => 'other',
+            default => 'other'
+        };
     }
 
     /**

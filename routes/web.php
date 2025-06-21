@@ -41,6 +41,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\DocuSealWebhookController;
+use App\Http\Controllers\FhirController;
 use Illuminate\Support\Facades\Log;
 
 /*
@@ -293,21 +294,20 @@ Route::get('/orders/create', function () {
 })->name('orders.create')->middleware('auth');
 
 // ================================================================
-// CONSOLIDATED ORGANIZATIONS & ANALYTICS
+// PROVIDER DASHBOARD ROUTES
 // ================================================================
 
-// Organization Management Routes
-Route::middleware(['permission:manage-users'])->prefix('admin')->group(function () {
-    Route::get('/organizations', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'index'])->name('admin.organizations.index');
-});
-
-Route::middleware(['permission:manage-users'])->prefix('admin')->group(function () {
-    Route::get('/organizations/create', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'create'])->name('admin.organizations.create');
-    Route::post('/organizations', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'store'])->name('admin.organizations.store');
-    Route::get('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'show'])->name('admin.organizations.show');
-    Route::get('/organizations/{organization}/edit', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'edit'])->name('admin.organizations.edit');
-    Route::put('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'update'])->name('admin.organizations.update');
-    Route::delete('/organizations/{organization}', [App\Http\Controllers\Admin\OrganizationManagementController::class, 'destroy'])->name('admin.organizations.destroy');
+// Provider Dashboard Routes - for authenticated providers
+Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group(function () {
+    Route::get('/dashboard', [ProviderDashboardController::class, 'index'])
+        ->name('provider.dashboard')
+        ->middleware('permission:view-dashboard');
+    Route::get('/episodes', [ProviderDashboardController::class, 'episodes'])
+        ->name('provider.episodes')
+        ->middleware('permission:view-orders');
+    Route::get('/episodes/{episode}', [ProviderDashboardController::class, 'showEpisode'])
+        ->name('provider.episodes.show')
+        ->middleware('permission:view-orders');
 });
 
 // Legacy routes (redirect to consolidated page)
@@ -510,7 +510,7 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // Quick Request Routes
-    Route::prefix('quick-requests')->group(function () {
+    Route::prefix('quick-requests')->middleware('auth')->group(function () {
         Route::get('/create', [\App\Http\Controllers\QuickRequestController::class, 'create'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create');
@@ -1092,4 +1092,46 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
     Route::post('/role/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus'])->name('rbac.roles.toggle-status');
     Route::get('/role/{role}/permissions', [RBACController::class, 'getRolePermissions'])->name('rbac.roles.permissions');
     Route::put('/role/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('rbac.roles.update-permissions');
+});
+
+// FHIR Server REST API Routes
+Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(function () {
+    // CapabilityStatement (public)
+    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata')->withoutMiddleware(['auth']);
+
+    // Patient Resource Routes
+    Route::prefix('Patient')->name('patient.')->group(function () {
+        Route::post('/', [FhirController::class, 'createPatient'])->name('create');
+        Route::get('/', [FhirController::class, 'searchPatients'])->name('search');
+        Route::get('_history', [FhirController::class, 'patientsHistory'])->name('history_all');
+        Route::get('{id}', [FhirController::class, 'readPatient'])->name('read');
+        Route::put('{id}', [FhirController::class, 'updatePatient'])->name('update');
+        Route::patch('{id}', [FhirController::class, 'patchPatient'])->name('patch');
+        Route::delete('{id}', [FhirController::class, 'deletePatient'])->name('delete');
+        Route::get('{id}/_history', [FhirController::class, 'patientHistory'])->name('history');
+    });
+
+    // Coverage Resource Routes
+    Route::prefix('Coverage')->name('coverage.')->group(function () {
+        Route::post('/', [FhirController::class, 'createCoverage'])->name('create');
+    });
+
+    // QuestionnaireResponse Resource Routes
+    Route::prefix('QuestionnaireResponse')->name('questionnaire_response.')->group(function () {
+        Route::post('/', [FhirController::class, 'createQuestionnaireResponse'])->name('create');
+    });
+
+    // DeviceRequest Resource Routes
+    Route::prefix('DeviceRequest')->name('device_request.')->group(function () {
+        Route::post('/', [FhirController::class, 'createDeviceRequest'])->name('create');
+    });
+
+    // Observation Resource Routes
+    Route::prefix('Observation')->name('observation.')->group(function () {
+        Route::get('/', [FhirController::class, 'searchObservations'])->name('search');
+        // Add other Observation specific routes here if needed (e.g., create, read, update)
+    });
+
+    // Transaction/Batch endpoint
+    Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });

@@ -1155,7 +1155,7 @@ const ConsultationModal: React.FC<{
                 <Mail className="w-8 h-8 text-blue-600" />
               </div>
               <p className={`text-sm ${t.text.secondary}`}>
-                Please reach out to Ashley at MSC Admin for assistance with Medicare orders exceeding 450 sq cm.
+                Please reach out to MSC for assistance with Medicare orders exceeding 450 sq cm.
               </p>
             </div>
 

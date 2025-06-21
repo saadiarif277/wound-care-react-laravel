@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { FiInfo, FiUploadCloud, FiFile, FiX, FiUser, FiMapPin, FiLoader } from 'react-icons/fi';
+import { FiInfo, FiUploadCloud, FiFile, FiX, FiUser, FiMapPin, FiLoader, FiPlus } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import axios from 'axios';
@@ -54,7 +54,67 @@ export default function Step1CreateEpisode({
   const [processingDocuments, setProcessingDocuments] = useState(false);
   const [documentProcessingStatus, setDocumentProcessingStatus] = useState<string>('');
   const [fieldCoverage, setFieldCoverage] = useState<any>(null);
+  const [creatingEpisode, setCreatingEpisode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Function to create episode without documents
+  const createEpisodeWithoutDocuments = async () => {
+    if (!formData.provider_id || !formData.facility_id || !formData.patient_name) {
+      return;
+    }
+
+    setCreatingEpisode(true);
+    setDocumentProcessingStatus('Creating episode...');
+
+    try {
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) {
+        throw new Error('Unable to obtain valid CSRF token');
+      }
+
+      // Create a temporary patient ID for now
+      const tempPatientId = `TEMP_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      const response = await axios.post('/api/quick-request/create-episode', {
+        patient_id: tempPatientId,
+        patient_fhir_id: tempPatientId, // Will be updated when patient is created
+        patient_display_id: formData.patient_name.replace(/\s+/g, '').substring(0, 10),
+        manufacturer_id: null, // Will be determined later from product selection
+        selected_product_id: null, // No product selected yet
+        form_data: {
+          provider_id: formData.provider_id,
+          facility_id: formData.facility_id,
+          patient_name: formData.patient_name,
+          request_type: formData.request_type || 'new_request'
+        }
+      }, {
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+        },
+      });
+
+      if (response.data.success) {
+        updateFormData({
+          episode_id: response.data.episode_id,
+          patient_fhir_id: response.data.patient_fhir_id,
+          patient_display_id: formData.patient_name.replace(/\s+/g, '').substring(0, 10)
+        });
+
+        if (onEpisodeCreated) {
+          onEpisodeCreated(response.data);
+        }
+
+        setDocumentProcessingStatus('✅ Episode created successfully!');
+      } else {
+        throw new Error('Failed to create episode');
+      }
+    } catch (error: any) {
+      console.error('Error creating episode:', error);
+      setDocumentProcessingStatus('❌ Failed to create episode. Please try again.');
+    } finally {
+      setCreatingEpisode(false);
+    }
+  };
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -187,6 +247,14 @@ export default function Step1CreateEpisode({
       updateFormData({ provider_id: currentUser.id });
     }
   }, [currentUser, formData.provider_id, updateFormData]);
+
+  // Make the function available through props
+  React.useEffect(() => {
+    if (onEpisodeCreated) {
+      // Pass the function to parent through a callback
+      (onEpisodeCreated as any).createEpisodeFunction = createEpisodeWithoutDocuments;
+    }
+  }, [onEpisodeCreated]);
 
   return (
     <div className="space-y-6">
@@ -388,6 +456,8 @@ export default function Step1CreateEpisode({
                   }}
                   className="p-1 text-red-500 hover:text-red-400"
                   disabled={processingDocuments}
+                  aria-label={`Remove ${file.name}`}
+                  title={`Remove ${file.name}`}
                 >
                   <FiX className="h-5 w-5" />
                 </button>
