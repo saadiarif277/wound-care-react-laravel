@@ -22,7 +22,7 @@ import {
   FiStar,
   FiTrendingUp,
   FiActivity,
-  FiBarChart3,
+  FiBarChart,
   FiMoreVertical,
   FiExternalLink,
   FiCopy,
@@ -230,7 +230,7 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
                   <p className={cn("text-xs font-medium", t.text.secondary)}>Manufacturers</p>
                   <p className={cn("text-2xl font-bold", t.text.primary)}>{manufacturers.length}</p>
                 </div>
-                <FiBarChart3 className={cn("w-8 h-8", t.text.secondary)} />
+                <FiBarChart className={cn("w-8 h-8", t.text.secondary)} />
               </div>
             </div>
           </div>

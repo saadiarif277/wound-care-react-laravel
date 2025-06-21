@@ -422,17 +422,17 @@ Route::middleware(['web', 'auth'])->group(function () {
 
         // Create facilities
         Route::middleware('permission:create-facilities')->group(function () {
-            Route::post('/', [\App\Http\Controllers\FacilityController::class, 'apiStore'])->name('store');
+            Route::post('/', [FacilityController::class, 'apiStore'])->name('store');
         });
 
         // Update facilities
         Route::middleware('permission:edit-facilities')->group(function () {
-            Route::put('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiUpdate'])->name('update');
+            Route::put('/{id}', [FacilityController::class, 'apiUpdate'])->name('update');
         });
 
         // Delete facilities
         Route::middleware('permission:delete-facilities')->group(function () {
-            Route::delete('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiDestroy'])->name('destroy');
+            Route::delete('/{id}', [FacilityController::class, 'apiDestroy'])->name('destroy');
         });
     });
 });

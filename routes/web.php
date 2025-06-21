@@ -113,11 +113,6 @@ Route::post('/api/support/escalate', function (Request $request) {
     ]);
 })->name('api.support.escalate')->middleware('auth');
 
-// Demo Routes
-Route::get('/demo/ai-overlay', function () {
-    return Inertia::render('Demo/AIOverlayDemo');
-})->name('demo.ai-overlay')->middleware('auth');
-
 // Auth
 
 Route::get('login', [LoginController::class, 'create'])
@@ -172,7 +167,18 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
                 'full_address' => $facility->full_address,
             ];
         }),
-        'states' => config('constants.states'), // Assuming you have a states config
+        'states' => [
+            'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas', 'CA' => 'California',
+            'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware', 'FL' => 'Florida', 'GA' => 'Georgia',
+            'HI' => 'Hawaii', 'ID' => 'Idaho', 'IL' => 'Illinois', 'IN' => 'Indiana', 'IA' => 'Iowa',
+            'KS' => 'Kansas', 'KY' => 'Kentucky', 'LA' => 'Louisiana', 'ME' => 'Maine', 'MD' => 'Maryland',
+            'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota', 'MS' => 'Mississippi', 'MO' => 'Missouri',
+            'MT' => 'Montana', 'NE' => 'Nebraska', 'NV' => 'Nevada', 'NH' => 'New Hampshire', 'NJ' => 'New Jersey',
+            'NM' => 'New Mexico', 'NY' => 'New York', 'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio',
+            'OK' => 'Oklahoma', 'OR' => 'Oregon', 'PA' => 'Pennsylvania', 'RI' => 'Rhode Island', 'SC' => 'South Carolina',
+            'SD' => 'South Dakota', 'TN' => 'Tennessee', 'TX' => 'Texas', 'UT' => 'Utah', 'VT' => 'Vermont',
+            'VA' => 'Virginia', 'WA' => 'Washington', 'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming'
+        ]
     ]);
 })->name('auth.provider-invitation.show')->middleware('guest');
 
@@ -1023,17 +1029,17 @@ Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group
 
 // Notifications Route - for all authenticated users
 Route::middleware(['auth'])->group(function () {
-    Route::get('/notifications', [\App\Http\Controllers\NotificationController::class, 'index'])
+    Route::get('/notifications', [NotificationController::class, 'index'])
         ->name('notifications');
-    Route::post('/notifications/{notification}/mark-read', [\App\Http\Controllers\NotificationController::class, 'markAsRead'])
+    Route::post('/notifications/{notification}/mark-read', [NotificationController::class, 'markAsRead'])
         ->name('notifications.mark-read');
-    Route::post('/notifications/mark-all-read', [\App\Http\Controllers\NotificationController::class, 'markAllAsRead'])
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])
         ->name('notifications.mark-all-read');
-    Route::delete('/notifications/{notification}', [\App\Http\Controllers\NotificationController::class, 'destroy'])
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])
         ->name('notifications.destroy');
-    Route::get('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'preferences'])
+    Route::get('/notifications/preferences', [NotificationController::class, 'preferences'])
         ->name('notifications.preferences');
-    Route::put('/notifications/preferences', [\App\Http\Controllers\NotificationController::class, 'updatePreferences'])
+    Route::put('/notifications/preferences', [NotificationController::class, 'updatePreferences'])
         ->name('notifications.preferences.update');
 });
 

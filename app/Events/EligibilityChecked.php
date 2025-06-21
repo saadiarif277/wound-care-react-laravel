@@ -14,12 +14,14 @@ class EligibilityChecked
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
+    public $eligibilityCheck;
+
     /**
      * Create a new event instance.
      */
-    public function __construct()
+    public function __construct($eligibilityCheck)
     {
-        //
+        $this->eligibilityCheck = $eligibilityCheck;
     }
 
     /**
