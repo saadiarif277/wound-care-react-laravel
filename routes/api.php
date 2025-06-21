@@ -93,25 +93,29 @@ Route::prefix('v1')->group(function () {
 
         // Bulk operations
         Route::prefix('bulk')->name('bulk.')->group(function () {
-            Route::post('validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'bulkValidate'])->name('validate');
-            Route::post('enable-monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'bulkEnableMonitoring'])->name('enable_monitoring');
-            Route::post('disable-monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'bulkDisableMonitoring'])->name('disable_monitoring');
+            Route::post('validate', [MedicareMacValidationController::class, 'bulkValidate'])->name('validate');
+            Route::post('enable-monitoring', [MedicareMacValidationController::class, 'bulkEnableMonitoring'])->name('enable_monitoring');
+            Route::post('disable-monitoring', [MedicareMacValidationController::class, 'bulkDisableMonitoring'])->name('disable_monitoring');
         });
 
         // Reports and analytics
         Route::prefix('reports')->name('reports.')->group(function () {
-            Route::get('compliance-summary', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getComplianceSummaryReport'])->name('compliance_summary');
-            Route::get('reimbursement-risk', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getReimbursementRiskReport'])->name('reimbursement_risk');
-            Route::get('specialty-performance', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getSpecialtyPerformanceReport'])->name('specialty_performance');
-            Route::get('mac-contractor-analysis', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getMacContractorAnalysis'])->name('mac_contractor_analysis');
-            Route::get('validation-trends', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidationTrends'])->name('validation_trends');
+            Route::get('compliance-summary', [MedicareMacValidationController::class, 'getComplianceSummaryReport'])->name('compliance_summary');
+            Route::get('reimbursement-risk', [MedicareMacValidationController::class, 'getReimbursementRiskReport'])->name('reimbursement_risk');
+            Route::get('specialty-performance', [MedicareMacValidationController::class, 'getSpecialtyPerformanceReport'])->name('specialty_performance');
+            Route::get('mac-contractor-analysis', [MedicareMacValidationController::class, 'getMacContractorAnalysis'])->name('mac_contractor_analysis');
+            Route::get('validation-trends', [MedicareMacValidationController::class, 'getValidationTrends'])->name('validation_trends');
         });
 
         // Frontend validation endpoints
-        Route::post('quick-check', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'quickCheck'])->name('quick_check');
-        Route::post('thorough-validate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'thoroughValidate'])->name('thorough_validate');
+        Route::post('quick-check', [MedicareMacValidationController::class, 'quickCheck'])->name('quick_check');
+        Route::post('thorough-validate', [MedicareMacValidationController::class, 'thoroughValidate'])->name('thorough_validate');
     });
 });
+
+// Episode-centric workflow
+Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\QuickRequestEpisodeWithDocumentsController::class, 'createEpisodeWithDocuments'])
+    ->middleware(['auth:sanctum']);
 
 // MAC Validation & Eligibility Routes (Public)
 Route::prefix('v1')->group(function () {
@@ -415,9 +419,9 @@ Route::middleware(['web', 'auth'])->group(function () {
     Route::prefix('facilities')->name('api.facilities.')->group(function () {
         // View facilities
         Route::middleware('permission:view-facilities')->group(function () {
-            Route::get('/', [\App\Http\Controllers\FacilityController::class, 'apiIndex'])->name('index');
-            Route::get('/stats', [\App\Http\Controllers\FacilityController::class, 'apiStats'])->name('stats');
-            Route::get('/{id}', [\App\Http\Controllers\FacilityController::class, 'apiShow'])->name('show');
+            Route::get('/', [FacilityController::class, 'apiIndex'])->name('index');
+            Route::get('/stats', [FacilityController::class, 'apiStats'])->name('stats');
+            Route::get('/{id}', [FacilityController::class, 'apiShow'])->name('show');
         });
 
         // Create facilities
@@ -485,15 +489,15 @@ Route::middleware(['auth:sanctum'])->group(function () {
 // Provider Management - Facilities and Products
 Route::group([], function () {
     // Provider Facility Management
-    Route::post('/providers/{provider}/facilities', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'addFacility'])
+    Route::post('/providers/{provider}/facilities', [ProviderManagementController::class, 'addFacility'])
         ->name('api.providers.facilities.add');
-    Route::delete('/providers/{provider}/facilities/{facility}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeFacility'])
+    Route::delete('/providers/{provider}/facilities/{facility}', [ProviderManagementController::class, 'removeFacility'])
         ->name('api.providers.facilities.remove');
 
     // Provider Product Management
     Route::post('/providers/{provider}/products', [ProviderManagementController::class, 'addProduct'])
         ->name('api.providers.products.add');
-    Route::delete('/providers/{provider}/products/{product}', [\App\Http\Controllers\Admin\ProviderManagementController::class, 'removeProduct'])
+    Route::delete('/providers/{provider}/products/{product}', [ProviderManagementController::class, 'removeProduct'])
         ->name('api.providers.products.remove');
 });
 
@@ -567,4 +571,3 @@ Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
 });
 
 // Fallback Route for 404 API requests
-

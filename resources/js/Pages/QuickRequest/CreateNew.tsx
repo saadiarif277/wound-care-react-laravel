@@ -4,7 +4,9 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiPackage, FiCreditCard, FiActivity, FiShoppingCart, FiHelpCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import Step1ContextRequest from './Components/Step1ContextRequest';
+import { ensureValidCSRFToken, addCSRFTokenToFormData, testCSRFToken } from '@/lib/csrf';
+import CSRFTestButton from '@/Components/CSRFTestButton';
+import Step1CreateEpisode from './Components/Step1CreateEpisode';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
@@ -20,6 +22,7 @@ interface QuickRequestFormData {
   sales_rep_id?: string;
 
   // Patient Information
+  patient_name?: string; // Combined name for episode creation
   insurance_card_front?: File | null;
   insurance_card_back?: File | null;
   insurance_card_auto_filled?: boolean;
@@ -127,7 +130,7 @@ interface QuickRequestFormData {
 
   // Manufacturer Fields
   manufacturer_fields?: Record<string, any>;
-  
+
   // Episode tracking
   episode_id?: string;
   docuseal_submission_id?: string;
@@ -215,6 +218,7 @@ function QuickRequestCreateNew({
     sales_rep_id: currentUser.role === 'sales_rep' ? `AUTO-${currentUser.id}` : undefined,
     organization_id: currentUser.organization?.id,
     organization_name: currentUser.organization?.name,
+    patient_name: '',
     patient_first_name: '',
     patient_last_name: '',
     patient_dob: '',
@@ -251,12 +255,12 @@ function QuickRequestCreateNew({
   };
 
   const sections = [
-    { title: 'Context & Request', icon: FiUser, estimatedTime: '15 seconds' },
-    { title: 'Patient & Insurance', icon: FiPackage, estimatedTime: '30 seconds' },
-    { title: 'Clinical & Billing', icon: FiActivity, estimatedTime: '20 seconds' },
-    { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '15 seconds' },
+    { title: 'Create Episode & Upload', icon: FiFileText, estimatedTime: '30 seconds' },
+    { title: 'Verify Patient & Insurance', icon: FiUser, estimatedTime: '15 seconds' },
+    { title: 'Verify Clinical & Billing', icon: FiActivity, estimatedTime: '15 seconds' },
+    { title: 'Select Products', icon: FiShoppingCart, estimatedTime: '10 seconds' },
     { title: 'Review & Confirm', icon: FiCheck, estimatedTime: '10 seconds' },
-    { title: 'Final Submission', icon: FiFileText, estimatedTime: '30 seconds' }
+    { title: 'Final Submission', icon: FiPackage, estimatedTime: '10 seconds' }
   ];
 
   const handleNext = () => {
@@ -281,9 +285,10 @@ function QuickRequestCreateNew({
     const errors: Record<string, string> = {};
 
     switch (section) {
-      case 0: // Context & Request
+      case 0: // Create Episode & Upload
         if (!formData.provider_id) errors.provider_id = 'Provider selection is required';
         if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
+        if (!formData.episode_id) errors.episode_id = 'Episode must be created before proceeding';
         break;
 
       case 1: // Patient & Insurance (combined)
@@ -349,7 +354,7 @@ function QuickRequestCreateNew({
     return errors;
   };
 
-  const handleSubmit = async () => {
+    const handleSubmit = async () => {
     // Validate all sections
     let allErrors: Record<string, string> = {};
     for (let i = 0; i <= 4; i++) {
@@ -365,8 +370,33 @@ function QuickRequestCreateNew({
 
     setIsSubmitting(true);
     try {
+      // Test CSRF token validity before submission
+      console.log('Testing CSRF token validity...');
+      const isTokenValid = await testCSRFToken();
+
+      if (!isTokenValid) {
+        console.log('CSRF token invalid, refreshing...');
+        const newToken = await ensureValidCSRFToken();
+        if (!newToken) {
+          alert('Session expired. Please refresh the page and try again.');
+          window.location.reload();
+          return;
+        }
+      }
+
+      // Ensure we have a valid CSRF token
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) {
+        alert('Unable to get security token. Please refresh the page and try again.');
+        window.location.reload();
+        return;
+      }
+
       // Create FormData for file uploads
       const submitData = new FormData();
+
+      // Add CSRF token to FormData
+      addCSRFTokenToFormData(submitData, csrfToken);
 
       // Add all form fields
       Object.entries(formData).forEach(([key, value]) => {
@@ -380,20 +410,42 @@ function QuickRequestCreateNew({
           }
         }
       });
-      
+
       // Ensure episode_id is included if available
       if (!formData.episode_id) {
         console.error('Warning: No episode_id found in form data');
       }
 
+      console.log('Submitting form with CSRF token:', csrfToken.substring(0, 10) + '...');
+
       // Submit the quick request
       router.post('/quick-requests', submitData, {
+        forceFormData: true,
+        preserveState: false,
+        preserveScroll: false,
         onSuccess: () => {
-          // Redirect handled by server
+          console.log('Form submission successful');
         },
         onError: (errors) => {
           console.error('Form submission errors:', errors);
           setErrors(errors as Record<string, string>);
+
+          // If it's a 419 error, refresh the page to get a new CSRF token
+          if (errors && typeof errors === 'object' && 'status' in errors && errors.status === 419) {
+            console.log('CSRF token expired during submission, refreshing page...');
+            alert('Your session has expired. The page will refresh automatically.');
+            setTimeout(() => window.location.reload(), 1000);
+            return;
+          }
+        },
+        onStart: () => {
+          console.log('Starting form submission...');
+        },
+        onProgress: (progress) => {
+          console.log('Upload progress:', progress);
+        },
+        onFinish: () => {
+          console.log('Form submission finished');
         },
       });
     } catch (error) {
@@ -418,6 +470,23 @@ function QuickRequestCreateNew({
     }
   }, [formData.expected_service_date, formData.shipping_speed]);
 
+  // Sync patient_name with first_name and last_name
+  useEffect(() => {
+    if (formData.patient_first_name && formData.patient_last_name) {
+      const fullName = `${formData.patient_first_name} ${formData.patient_last_name}`.trim();
+      if (fullName !== formData.patient_name) {
+        updateFormData({ patient_name: fullName });
+      }
+    }
+  }, [formData.patient_first_name, formData.patient_last_name]);
+
+  // Handle episode creation callback
+  const handleEpisodeCreated = (episodeData: any) => {
+    console.log('Episode created successfully:', episodeData);
+    // The form data is already updated in Step1CreateEpisode
+    // We can add additional logic here if needed
+  };
+
   // Calculate wound area
   const woundArea = formData.wound_size_length && formData.wound_size_width
     ? (parseFloat(formData.wound_size_length) * parseFloat(formData.wound_size_width)).toFixed(2)
@@ -432,11 +501,18 @@ function QuickRequestCreateNew({
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              MSC Enhanced Order Flow
+              MSC Episode-Centric Order Flow
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Complete wound care product ordering in 90 seconds
+              Upload documents first → AI auto-fills form → Verify & submit in 90 seconds
             </p>
+
+            {/* Debug: CSRF Test Component */}
+            {process.env.NODE_ENV === 'development' && (
+              <div className="mt-4">
+                <CSRFTestButton />
+              </div>
+            )}
           </div>
 
           {/* Progress Bar */}
@@ -495,13 +571,14 @@ function QuickRequestCreateNew({
             </h2>
 
             {currentSection === 0 && (
-              <Step1ContextRequest
+              <Step1CreateEpisode
                 formData={formData}
                 updateFormData={updateFormData}
                 providers={providers}
                 facilities={facilities}
                 currentUser={currentUser}
                 errors={errors}
+                onEpisodeCreated={handleEpisodeCreated}
               />
             )}
 
@@ -588,6 +665,11 @@ function QuickRequestCreateNew({
           {/* Timer Display */}
           <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
             Total estimated completion time: <span className="font-semibold">90 seconds</span>
+            {formData.episode_id && (
+              <div className="mt-2 text-green-600 dark:text-green-400">
+                ✅ Episode created: {formData.episode_id}
+              </div>
+            )}
           </div>
         </div>
       </div>

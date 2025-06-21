@@ -186,7 +186,7 @@ Field Format Rules:
 ### **Business Logic Validation**
 ```javascript
 Business Rules:
-  - Shipping address defaults to patient address if "same as patient"
+  - Shipping address defaults to facility address
   - Gender codes (M/F) expanded to full words (Male/Female)
   - Wound area calculated only if both length and width provided
   - Product list formatted with quantities and sizes

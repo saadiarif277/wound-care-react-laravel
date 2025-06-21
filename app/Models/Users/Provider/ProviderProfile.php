@@ -56,11 +56,6 @@ class ProviderProfile extends Model
     protected $attributes = [
         'profile_completion_percentage' => 0,
         'verification_status' => 'pending',
-        'notification_preferences' => '{}',
-        'practice_preferences' => '{}',
-        'workflow_settings' => '{}',
-        'specializations' => '[]',
-        'languages_spoken' => '[]',
         'two_factor_enabled' => false,
     ];
 
