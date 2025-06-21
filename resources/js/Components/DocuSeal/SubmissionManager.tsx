@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/Components/ui/button';
+import { Button } from '@/Components/ui/Button';
 import { Badge } from '@/Components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/Components/ui/card';
 
@@ -207,7 +207,7 @@ export default function SubmissionManager({
                                             Sign Document
                                         </Button>
                                     )}
-                                    
+
                                     {submission.status === 'completed' && submission.download_url && (
                                         <Button
                                             variant="outline"
@@ -225,4 +225,4 @@ export default function SubmissionManager({
             )}
         </div>
     );
-} 
+}

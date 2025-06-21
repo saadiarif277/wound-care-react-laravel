@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useForm } from '@inertiajs/react';
 // import { useParams } from 'react-router-dom'; // If using react-router for token
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/Components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/Components/ui/Button';
 import { Input } from '@/components/ui/input'; // Assuming Shadcn Input
 import { Label } from '@/components/ui/label';   // Assuming Shadcn Label
 import { Checkbox } from '@/components/ui/checkbox'; // Assuming Shadcn Checkbox
