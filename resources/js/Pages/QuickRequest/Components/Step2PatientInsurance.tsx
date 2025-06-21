@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
 import PayerSearchInput from '@/Components/PayerSearchInput';
+import FormInputWithIndicator from '@/Components/UI/FormInputWithIndicator';
 
 interface Step2Props {
   formData: any;
@@ -300,50 +301,35 @@ export default function Step2PatientInsurance({
         <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-3">Patient Information</h3>
 
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              First Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_first_name || ''}
-              onChange={(e) => updateFormData({ patient_first_name: e.target.value })}
-            />
-            {errors.patient_first_name && (
-              <p className="mt-1 text-sm text-red-500">{errors.patient_first_name}</p>
-            )}
-          </div>
+          <FormInputWithIndicator
+            label="First Name"
+            value={formData.patient_first_name || ''}
+            onChange={(value) => updateFormData({ patient_first_name: value })}
+            required={true}
+            error={errors.patient_first_name}
+            isExtracted={formData.patient_first_name_extracted}
+            placeholder="Enter first name"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Last Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_last_name || ''}
-              onChange={(e) => updateFormData({ patient_last_name: e.target.value })}
-            />
-            {errors.patient_last_name && (
-              <p className="mt-1 text-sm text-red-500">{errors.patient_last_name}</p>
-            )}
-          </div>
+          <FormInputWithIndicator
+            label="Last Name"
+            value={formData.patient_last_name || ''}
+            onChange={(value) => updateFormData({ patient_last_name: value })}
+            required={true}
+            error={errors.patient_last_name}
+            isExtracted={formData.patient_last_name_extracted}
+            placeholder="Enter last name"
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Date of Birth <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="date"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_dob || ''}
-              onChange={(e) => updateFormData({ patient_dob: e.target.value })}
-            />
-            {errors.patient_dob && (
-              <p className="mt-1 text-sm text-red-500">{errors.patient_dob}</p>
-            )}
-          </div>
+          <FormInputWithIndicator
+            label="Date of Birth"
+            type="date"
+            value={formData.patient_dob || ''}
+            onChange={(value) => updateFormData({ patient_dob: value })}
+            required={true}
+            error={errors.patient_dob}
+            isExtracted={formData.patient_dob_extracted}
+          />
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

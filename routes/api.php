@@ -113,9 +113,7 @@ Route::prefix('v1')->group(function () {
     });
 });
 
-// Episode-centric workflow
-Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\QuickRequestEpisodeWithDocumentsController::class, 'createEpisodeWithDocuments'])
-    ->middleware(['auth:sanctum']);
+// Episode-centric workflow - moved to web.php for proper CSRF handling
 
 // MAC Validation & Eligibility Routes (Public)
 Route::prefix('v1')->group(function () {

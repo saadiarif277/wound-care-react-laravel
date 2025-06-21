@@ -78,20 +78,24 @@ class IvrFieldMappingService
 
     /**
      * Map standard DocuSeal fields according to the embedded fields guide
+     * Enhanced to include episode extracted data
      */
     private function mapStandardDocuSealFields(ProductRequest $productRequest, array $patientData): array
     {
         $fields = [];
-        
-        // Patient Information Fields (from FHIR data)
+
+        // Patient Information Fields (enhanced from FHIR + extracted data)
         if (!empty($patientData)) {
             $fields['patient_first_name'] = $patientData['given'][0] ?? '';
             $fields['patient_last_name'] = $patientData['family'] ?? '';
             $fields['patient_dob'] = isset($patientData['birthDate']) ? Carbon::parse($patientData['birthDate'])->format('Y-m-d') : '';
             $fields['patient_member_id'] = $productRequest->payer_id ?? '';
             $fields['patient_gender'] = $patientData['gender'] ?? '';
-            
-            // Patient Address from FHIR
+
+            // Enhanced Patient Contact Information
+            $fields['patient_email'] = $patientData['email'] ?? '';
+
+            // Patient Address from FHIR (enhanced)
             if (isset($patientData['address'][0])) {
                 $address = $patientData['address'][0];
                 $fields['patient_address_line1'] = $address['line'][0] ?? '';
@@ -100,7 +104,7 @@ class IvrFieldMappingService
                 $fields['patient_state'] = $address['state'] ?? '';
                 $fields['patient_zip'] = $address['postalCode'] ?? '';
             }
-            
+
             // Patient Phone from FHIR
             if (isset($patientData['telecom'])) {
                 foreach ($patientData['telecom'] as $telecom) {
@@ -110,15 +114,32 @@ class IvrFieldMappingService
                     }
                 }
             }
+
+            // Enhanced Caregiver Information (from extracted data)
+            $fields['caregiver_name'] = $patientData['caregiver_name'] ?? '';
+            $fields['caregiver_relationship'] = $patientData['caregiver_relationship'] ?? '';
+            $fields['caregiver_phone'] = $patientData['caregiver_phone'] ?? '';
         }
-        
+
         // Patient Display ID (de-identified)
         $fields['patient_display_id'] = $productRequest->patient_display_id ?? '';
 
-        // Insurance Information Fields
-        $fields['payer_name'] = $productRequest->payer_name_submitted ?? '';
-        $fields['payer_id'] = $productRequest->payer_id ?? '';
-        $fields['insurance_type'] = $productRequest->insurance_type ?? '';
+        // Enhanced Insurance Information Fields (from extracted data)
+        $fields['primary_insurance_name'] = $productRequest->payer_name_submitted ?? '';
+        $fields['primary_member_id'] = $productRequest->payer_id ?? '';
+        $fields['primary_plan_type'] = $productRequest->insurance_type ?? '';
+
+        // Additional insurance fields from episode extraction
+        $episodeData = $productRequest->episode?->metadata['extracted_data'] ?? [];
+        $fields['primary_payer_phone'] = $episodeData['primary_payer_phone'] ?? '';
+        $fields['secondary_insurance_name'] = $episodeData['secondary_insurance_name'] ?? '';
+        $fields['secondary_member_id'] = $episodeData['secondary_member_id'] ?? '';
+        $fields['insurance_group_number'] = $episodeData['insurance_group_number'] ?? '';
+
+        // Legacy fields for backwards compatibility
+        $fields['payer_name'] = $fields['primary_insurance_name'];
+        $fields['payer_id'] = $fields['primary_member_id'];
+        $fields['insurance_type'] = $fields['primary_plan_type'];
 
         // Product Information Fields
         $product = $productRequest->products->first();
@@ -131,7 +152,7 @@ class IvrFieldMappingService
         }
 
         // Service Information Fields
-        $fields['expected_service_date'] = $productRequest->expected_service_date ? 
+        $fields['expected_service_date'] = $productRequest->expected_service_date ?
             Carbon::parse($productRequest->expected_service_date)->format('Y-m-d') : '';
         $fields['wound_type'] = $productRequest->wound_type ?? '';
         $fields['place_of_service'] = $this->mapPlaceOfService($productRequest->place_of_service);
@@ -162,8 +183,25 @@ class IvrFieldMappingService
         $fields['todays_date'] = Carbon::now()->format('m/d/Y');
         $fields['current_time'] = Carbon::now()->format('h:i:s A');
 
-        // Clinical Summary Fields (if available)
-        if ($productRequest->clinical_summary) {
+        // Enhanced Clinical Information (from episode extraction + clinical summary)
+        $episodeData = $productRequest->episode?->metadata['extracted_data'] ?? [];
+
+        // Wound details from extraction
+        $fields['wound_location'] = $episodeData['wound_location'] ?? '';
+        $fields['wound_size_length'] = $episodeData['wound_size_length'] ?? '';
+        $fields['wound_size_width'] = $episodeData['wound_size_width'] ?? '';
+        $fields['wound_size_depth'] = $episodeData['wound_size_depth'] ?? '';
+        $fields['wound_duration'] = $episodeData['wound_duration'] ?? '';
+        $fields['total_wound_area'] = $episodeData['total_wound_area'] ?? '';
+
+        // Diagnosis and treatment codes
+        $fields['yellow_diagnosis_code'] = $episodeData['yellow_diagnosis_code'] ?? '';
+        $fields['orange_diagnosis_code'] = $episodeData['orange_diagnosis_code'] ?? '';
+        $fields['previous_treatments'] = $episodeData['previous_treatments'] ?? '';
+        $fields['application_cpt_codes'] = $episodeData['application_cpt_codes'] ?? [];
+
+        // Clinical Summary Fields (fallback to existing if extraction not available)
+        if ($productRequest->clinical_summary && empty($fields['wound_location'])) {
             $clinical = json_decode($productRequest->clinical_summary, true);
             if (isset($clinical['woundDetails'])) {
                 $fields['wound_location'] = $clinical['woundDetails']['location'] ?? '';
@@ -341,7 +379,7 @@ class IvrFieldMappingService
             case 'wound_location_details':
                 // Try to get from clinical summary first
                 if ($productRequest->clinical_summary) {
-                    $clinical = is_string($productRequest->clinical_summary) ? 
+                    $clinical = is_string($productRequest->clinical_summary) ?
                         json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
                     $value = $clinical['woundDetails']['location'] ?? $productRequest->wound_location ?? '';
                 } else {
@@ -352,7 +390,7 @@ class IvrFieldMappingService
             case 'wound_size':
                 // Try to get from clinical summary
                 if ($productRequest->clinical_summary) {
-                    $clinical = is_string($productRequest->clinical_summary) ? 
+                    $clinical = is_string($productRequest->clinical_summary) ?
                         json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
                     $value = $clinical['woundDetails']['size'] ?? '';
                 }
@@ -361,7 +399,7 @@ class IvrFieldMappingService
             case 'wound_duration':
                 // Try to get from clinical summary
                 if ($productRequest->clinical_summary) {
-                    $clinical = is_string($productRequest->clinical_summary) ? 
+                    $clinical = is_string($productRequest->clinical_summary) ?
                         json_decode($productRequest->clinical_summary, true) : $productRequest->clinical_summary;
                     $value = $clinical['woundDetails']['duration'] ?? '';
                 }
@@ -464,32 +502,32 @@ class IvrFieldMappingService
         switch ($fieldName) {
             case 'patient_first_name':
                 return $patientData['given'][0] ?? '';
-            
+
             case 'patient_last_name':
                 return $patientData['family'] ?? '';
-                
+
             case 'patient_dob':
-                return isset($patientData['birthDate']) ? 
+                return isset($patientData['birthDate']) ?
                     Carbon::parse($patientData['birthDate'])->format('Y-m-d') : '';
-                    
+
             case 'patient_gender':
                 return $patientData['gender'] ?? '';
-                
+
             case 'patient_address_line1':
                 return $patientData['address'][0]['line'][0] ?? '';
-                
+
             case 'patient_address_line2':
                 return $patientData['address'][0]['line'][1] ?? '';
-                
+
             case 'patient_city':
                 return $patientData['address'][0]['city'] ?? '';
-                
+
             case 'patient_state':
                 return $patientData['address'][0]['state'] ?? '';
-                
+
             case 'patient_zip':
                 return $patientData['address'][0]['postalCode'] ?? '';
-                
+
             case 'patient_phone':
                 foreach ($patientData['telecom'] ?? [] as $telecom) {
                     if ($telecom['system'] === 'phone') {
@@ -497,7 +535,7 @@ class IvrFieldMappingService
                     }
                 }
                 return '';
-                
+
             default:
                 return '';
         }

@@ -529,6 +529,11 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
 
+        // Episode-centric workflow with document processing
+        Route::post('/create-episode-with-documents', [\App\Http\Controllers\QuickRequestEpisodeWithDocumentsController::class, 'createEpisodeWithDocuments'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.create-episode-with-documents');
+
         // Test route - disabled in production
         // Route::get('/test-azure', function() {
         //     return Inertia::render('QuickRequest/Components/TestInsuranceCard');

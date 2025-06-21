@@ -3,6 +3,8 @@ import { FiInfo, FiUploadCloud, FiFile, FiX, FiUser, FiMapPin, FiLoader } from '
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import axios from 'axios';
+import IVRFieldCoverageIndicator from '@/Components/DocuSeal/IVRFieldCoverageIndicator';
+import { ensureValidCSRFToken, addCSRFTokenToFormData, testCSRFToken } from '@/lib/csrf';
 
 interface Step1Props {
   formData: any;
@@ -51,6 +53,7 @@ export default function Step1CreateEpisode({
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [processingDocuments, setProcessingDocuments] = useState(false);
   const [documentProcessingStatus, setDocumentProcessingStatus] = useState<string>('');
+  const [fieldCoverage, setFieldCoverage] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -96,27 +99,45 @@ export default function Step1CreateEpisode({
     }
 
     setProcessingDocuments(true);
-    setDocumentProcessingStatus('Creating episode and processing documents...');
+    setDocumentProcessingStatus('Validating session and creating episode...');
 
     try {
+      // First, ensure we have a valid CSRF token
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) {
+        throw new Error('Unable to obtain valid CSRF token');
+      }
+
+      // Test CSRF token validity before proceeding
+      const isTokenValid = await testCSRFToken();
+      if (!isTokenValid) {
+        throw new Error('CSRF token validation failed');
+      }
+
+      setDocumentProcessingStatus('Creating episode and processing documents...');
+
       const formDataToSend = new FormData();
       formDataToSend.append('provider_id', formData.provider_id.toString());
       formDataToSend.append('facility_id', formData.facility_id.toString());
       formDataToSend.append('patient_name', formData.patient_name);
       formDataToSend.append('request_type', formData.request_type || 'new_request');
 
+      // Add CSRF token to form data
+      addCSRFTokenToFormData(formDataToSend, csrfToken);
+
       files.forEach((file, index) => {
         formDataToSend.append(`documents[${index}]`, file);
       });
 
-      const response = await axios.post('/api/quick-request/create-episode-with-documents', formDataToSend, {
+      const response = await axios.post('/quick-requests/create-episode-with-documents', formDataToSend, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'X-CSRF-TOKEN': csrfToken,
         },
       });
 
       if (response.data.success) {
-        const { episode_id, patient_fhir_id, extracted_data } = response.data;
+        const { episode_id, patient_fhir_id, extracted_data, field_coverage } = response.data;
 
         // Update form data with extracted information
         updateFormData({
@@ -125,18 +146,29 @@ export default function Step1CreateEpisode({
           ...extracted_data, // This will include patient demographics, insurance info, etc.
         });
 
+        // Store field coverage for display
+        setFieldCoverage(field_coverage);
+
         // Notify parent component
         if (onEpisodeCreated) {
           onEpisodeCreated(response.data);
         }
 
-        setDocumentProcessingStatus('✅ Documents processed successfully! Form has been pre-filled.');
+        setDocumentProcessingStatus(`✅ Documents processed! ${field_coverage?.percentage || 0}% of IVR fields auto-filled.`);
       } else {
         setDocumentProcessingStatus('⚠️ Document processing failed. You can continue manually.');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error processing documents:', error);
-      setDocumentProcessingStatus('⚠️ Document processing failed. You can continue manually.');
+
+      // Handle specific error types
+      if (error.response?.status === 401) {
+        setDocumentProcessingStatus('🔐 Session expired. Please refresh the page and try again.');
+      } else if (error.message?.includes('CSRF')) {
+        setDocumentProcessingStatus('🔐 Security token issue. Please refresh the page and try again.');
+      } else {
+        setDocumentProcessingStatus('⚠️ Document processing failed. You can continue manually.');
+      }
     } finally {
       setProcessingDocuments(false);
     }
@@ -364,6 +396,17 @@ export default function Step1CreateEpisode({
           </div>
         )}
       </div>
+
+            {/* Field Coverage Indicator */}
+      {fieldCoverage && (
+        <IVRFieldCoverageIndicator
+          coverage={fieldCoverage}
+          className="mt-4"
+          showDetails={true}
+          formData={formData}
+          showPreviewButton={true}
+        />
+      )}
 
       {/* Info Box */}
       <div className={cn(
