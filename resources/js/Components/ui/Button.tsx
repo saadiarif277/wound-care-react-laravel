@@ -5,7 +5,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 
 const getButtonVariants = (theme: 'dark' | 'light') => {
   const t = themes[theme];
-  
+
   return cva(
     'inline-flex items-center justify-center rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-offset-transparent disabled:opacity-50 disabled:pointer-events-none disabled:transform-none',
     {
@@ -15,7 +15,7 @@ const getButtonVariants = (theme: 'dark' | 'light') => {
           secondary: t.button.secondary + (theme === 'dark' ? ' focus:ring-white/20' : ' focus:ring-gray-300'),
           danger: t.button.danger + ' focus:ring-red-500/50',
           ghost: t.button.ghost + (theme === 'dark' ? ' focus:ring-white/20' : ' focus:ring-gray-300'),
-          success: theme === 'dark' 
+          success: theme === 'dark'
             ? 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-[0_0_30px_rgba(16,185,129,0.5)] transform hover:scale-105 transition-all duration-200 shadow-lg focus:ring-emerald-500/50'
             : 'bg-gradient-to-r from-emerald-500 to-emerald-600 text-white hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md transform hover:scale-105 transition-all duration-200 shadow-md focus:ring-emerald-500/50',
           glass: theme === 'dark'
@@ -65,7 +65,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     // Get theme context with fallback
     let theme: 'dark' | 'light' = 'dark';
-    
+
     try {
       const themeContext = useTheme();
       theme = themeContext.theme;
@@ -121,4 +121,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = 'Button';
 
 export default Button;
-export { getButtonVariants };
+export { Button, getButtonVariants };
