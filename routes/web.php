@@ -34,17 +34,14 @@ use App\Http\Controllers\TeamController;
 use App\Http\Controllers\EngineController;
 use App\Http\Controllers\SystemAdminController;
 use App\Http\Controllers\RoleManagementController;
-use App\Models\MedicareMacValidation;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
-use App\Http\Controllers\Auth\ProviderInvitationController;
-use App\Models\ProviderInvitation;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\DocuSealWebhookController;
-use App\Http\Controllers\DocuSealSubmissionController;
+use Illuminate\Support\Facades\Log;
 
 /*
 |--------------------------------------------------------------------------
@@ -97,8 +94,8 @@ Route::post('/api/support/escalate', function (Request $request) {
     ]);
 
         // Log the escalation request
-    \Illuminate\Support\Facades\Log::info('AI Support Escalation', [
-        'user_id' => \Illuminate\Support\Facades\Auth::id(),
+    Log::info('AI Support Escalation', [
+        'user_id' => Auth::id(),
         'message' => $validated['message'],
         'metadata' => $validated['metadata'] ?? [],
         'ip' => $request->ip(),
@@ -111,7 +108,7 @@ Route::post('/api/support/escalate', function (Request $request) {
     return response()->json([
         'success' => true,
         'message' => 'Your message has been sent to our support team.',
-        'ticket_id' => 'AI-' . time() . '-' . (\Illuminate\Support\Facades\Auth::id() ?? 'guest'),
+        'ticket_id' => 'AI-' . time() . '-' . (Auth::id() ?? 'guest'),
         'estimated_response_time' => '2-4 hours during business hours',
     ]);
 })->name('api.support.escalate')->middleware('auth');
@@ -748,11 +745,11 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('engines.commission');
     });
 
-    Route::middleware(['permission:view-team'])->group(function () {
-        Route::get('/team', [TeamController::class, 'index'])
-            ->name('team.index');
-        Route::get('/team/{member}', [TeamController::class, 'show'])
-            ->name('team.show');
+   // Route::middleware(['permission:view-team'])->group(function () {
+        // Route::get('/team', [TeamController::class, 'index'])
+        //     ->name('team.index');
+        // Route::get('/team/{member}', [TeamController::class, 'show'])
+        //     ->name('team.show');
     });
 
     // Test route for role restrictions
@@ -973,26 +970,6 @@ Route::middleware(['web', 'auth'])->group(function () {
             'order_status' => $order->order_status
         ]);
     });
-});
-
-// Demo Showcase Routes for DocuSeal Integration (accessible with specific login)
-Route::middleware(['auth'])->group(function () {
-    Route::get('/demo', function() {
-        return Inertia::render('Demo/Index');
-    })->name('demo.index');
-
-    Route::get('/demo/order-showcase', function() {
-        return Inertia::render('Demo/OrderShowcase');
-    })->name('demo.order-showcase');
-
-    Route::get('/demo/complete-order-flow', function() {
-        return Inertia::render('Demo/CompleteOrderFlow');
-    })->name('demo.complete-order-flow');
-
-    Route::get('/demo/docuseal-ivr', function() {
-        return Inertia::render('Demo/DocuSealIVRDemo');
-    })->name('demo.docuseal-ivr');
-});
 
 // DocuSeal Routes
 Route::middleware(['auth'])->group(function () {
@@ -1107,30 +1084,12 @@ Route::get('/test-csrf', function() {
     ]);
 });
 
-// Simple test form to verify CSRF
-// Route::get('/test-form', function() {
-//     return view('test-form');
-// });
-
-// Route::post('/test-form', function() {
-//     return response()->json(['success' => true, 'message' => 'CSRF token is working!']);
-// });
-
-// Temporary migration route (remove after running)
-Route::get('/run-field-discovery-migration', [App\Http\Controllers\RunMigrationController::class, 'runMigration'])
-    ->middleware(['auth', 'web']);
-
-// Diagnostic route
-Route::get('/api/diagnostics/permissions', [\App\Http\Controllers\DiagnosticController::class, 'checkPermissions'])
-    ->middleware('auth')
-    ->name('diagnostics.permissions');
-
 // RBAC Management Routes
 Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function () {
-    Route::get('/', [\App\Http\Controllers\RBACController::class, 'index'])->name('rbac.index');
-    Route::get('/security-audit', [\App\Http\Controllers\RBACController::class, 'getSecurityAudit'])->name('rbac.security-audit');
-    Route::get('/stats', [\App\Http\Controllers\RBACController::class, 'getSystemStats'])->name('rbac.stats');
-    Route::post('/role/{role}/toggle-status', [\App\Http\Controllers\RBACController::class, 'toggleRoleStatus'])->name('rbac.roles.toggle-status');
-    Route::get('/role/{role}/permissions', [\App\Http\Controllers\RBACController::class, 'getRolePermissions'])->name('rbac.roles.permissions');
-    Route::put('/role/{role}/permissions', [\App\Http\Controllers\RBACController::class, 'updateRolePermissions'])->name('rbac.roles.update-permissions');
+    Route::get('/', [RBACController::class, 'index'])->name('rbac.index');
+    Route::get('/security-audit', [RBACController::class, 'getSecurityAudit'])->name('rbac.security-audit');
+    Route::get('/stats', [RBACController::class, 'getSystemStats'])->name('rbac.stats');
+    Route::post('/role/{role}/toggle-status', [RBACController::class, 'toggleRoleStatus'])->name('rbac.roles.toggle-status');
+    Route::get('/role/{role}/permissions', [RBACController::class, 'getRolePermissions'])->name('rbac.roles.permissions');
+    Route::put('/role/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('rbac.roles.update-permissions');
 });

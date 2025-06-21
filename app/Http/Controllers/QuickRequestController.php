@@ -42,28 +42,71 @@ class QuickRequestController extends Controller
      */
     public function create()
     {
-        $user = Auth::user()->load([
+        $user = $this->loadUserWithRelations();
+        $currentOrg = $user->organizations->first();
+
+        if ($currentOrg) {
+            $this->currentOrganization->setId($currentOrg->id);
+        }
+
+        return Inertia::render('QuickRequest/CreateNew', [
+            'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
+            'providers' => $this->getProvidersForUser($user, $currentOrg),
+            'products' => $this->getActiveProducts(),
+            'woundTypes' => $this->getWoundTypes(),
+            'insuranceCarriers' => $this->getInsuranceCarriers(),
+            'diagnosisCodes' => $this->getDiagnosisCodes(),
+            'currentUser' => $this->getCurrentUserData($user, $currentOrg),
+            'providerProducts' => [],
+        ]);
+    }
+
+    private function loadUserWithRelations()
+    {
+        return Auth::user()->load([
             'roles',
             'providerProfile',
             'providerCredentials',
             'organizations' => fn($q) => $q->where('organization_users.is_active', true),
             'facilities'
         ]);
+    }
 
-        $currentOrg = $user->organizations->first();
+    private function getFacilitiesForUser($user, $currentOrg)
+    {
+        $userFacilities = $user->facilities->map(function($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->full_address,
+                'source' => 'user_relationship'
+            ];
+        });
 
-        // Set the current organization for the scope filtering
-        if ($currentOrg) {
-            $this->currentOrganization->setId($currentOrg->id);
+        if ($userFacilities->count() > 0) {
+            return $userFacilities;
         }
 
-        $primaryFacility = $user->facilities()->where('facility_user.is_primary', true)->first() ?? $user->facilities->first();
+        return \App\Models\Fhir\Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
+            ->where('active', true)
+            ->take(10)
+            ->get()
+            ->map(function($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->full_address ?? 'No address',
+                    'organization_id' => $facility->organization_id,
+                    'source' => 'all_facilities'
+                ];
+            });
+    }
 
-        // Get all providers in the organization
+    private function getProvidersForUser($user, $currentOrg)
+    {
         $providers = [];
-
-        // Add current user as provider if they have provider role
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+
         if ($userRole === 'provider') {
             $providers[] = [
                 'id' => $user->id,
@@ -73,7 +116,6 @@ class QuickRequestController extends Controller
             ];
         }
 
-        // Add other providers from organization
         if ($currentOrg) {
             $orgProviders = \App\Models\User::whereHas('organizations', function($q) use ($currentOrg) {
                     $q->where('organizations.id', $currentOrg->id);
@@ -81,7 +123,7 @@ class QuickRequestController extends Controller
                 ->whereHas('roles', function($q) {
                     $q->where('slug', 'provider');
                 })
-                ->where('id', '!=', $user->id) // Exclude current user to avoid duplicates
+                ->where('id', '!=', $user->id)
                 ->get(['id', 'first_name', 'last_name', 'npi_number'])
                 ->map(function($provider) {
                     return [
@@ -96,55 +138,15 @@ class QuickRequestController extends Controller
             $providers = array_merge($providers, $orgProviders);
         }
 
-        // Get facilities - temporarily bypass organization scope for debugging
-        $facilities = collect();
+        return $providers;
+    }
 
-        // First try user's direct facilities (many-to-many relationship)
-        $userFacilities = $user->facilities->map(function($facility) {
-            return [
-                'id' => $facility->id,
-                'name' => $facility->name,
-                'address' => $facility->full_address,
-                'source' => 'user_relationship'
-            ];
-        });
-
-        // Also get all facilities without scope to see what's available
-        $allFacilities = \App\Models\Fhir\Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
-            ->where('active', true)
-            ->take(10)
-            ->get()
-            ->map(function($facility) {
-                return [
-                    'id' => $facility->id,
-                    'name' => $facility->name,
-                    'address' => $facility->full_address ?? 'No address',
-                    'organization_id' => $facility->organization_id,
-                    'source' => 'all_facilities'
-                ];
-            });
-
-        // Use user facilities if available, otherwise use all facilities for now
-        $facilities = $userFacilities->count() > 0 ? $userFacilities : $allFacilities;
-
-        // Debug log facilities
-        Log::info('QuickRequest facilities debug', [
-            'user_id' => $user->id,
-            'user_email' => $user->email,
-            'current_org_id' => $currentOrg?->id,
-            'user_facilities_count' => $userFacilities->count(),
-            'all_facilities_count' => $allFacilities->count(),
-            'final_facilities_count' => $facilities->count(),
-            'user_facilities' => $userFacilities->toArray(),
-            'all_facilities' => $allFacilities->toArray(),
-        ]);
-
-        // Get products with proper structure
-        $products = Product::where('is_active', true)
+    private function getActiveProducts()
+    {
+        return Product::where('is_active', true)
             ->whereNotNull('manufacturer_id')
             ->get()
             ->map(function($product) {
-                // Handle available_sizes which might be JSON string or array
                 $sizes = $product->available_sizes;
                 if (is_string($sizes)) {
                     $sizes = json_decode($sizes, true) ?? [];
@@ -161,24 +163,29 @@ class QuickRequestController extends Controller
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
                 ];
             });
+    }
 
-        // Load wound types from database
-        $woundTypes = DB::table('wound_types')
+    private function getWoundTypes()
+    {
+        return DB::table('wound_types')
             ->where('is_active', true)
             ->orderBy('sort_order')
             ->pluck('display_name', 'code')
             ->toArray();
+    }
 
-        // Insurance carriers - you might want to get this from a config or database
-        $insuranceCarriers = $this->payerService->getAllPayers()
+    private function getInsuranceCarriers()
+    {
+        return $this->payerService->getAllPayers()
             ->pluck('name')
             ->unique()
             ->values()
             ->toArray();
+    }
 
-        // Load all diagnosis codes for initial display
-        // Frontend will make API calls to get specific codes by wound type
-        $diagnosisCodes = DB::table('diagnosis_codes')
+    private function getDiagnosisCodes()
+    {
+        return DB::table('diagnosis_codes')
             ->where('is_active', true)
             ->select(['code', 'description', 'category'])
             ->orderBy('category')
@@ -194,9 +201,11 @@ class QuickRequestController extends Controller
                 })->values()->toArray();
             })
             ->toArray();
+    }
 
-        // Current user data
-        $currentUser = [
+    private function getCurrentUserData($user, $currentOrg)
+    {
+        return [
             'id' => $user->id,
             'name' => $user->first_name . ' ' . $user->last_name,
             'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
@@ -208,27 +217,6 @@ class QuickRequestController extends Controller
                 'phone' => $currentOrg->phone,
             ] : null,
         ];
-
-        // Provider products mapping - load from actual provider-product relationships
-        $providerProducts = [];
-
-        // Get provider products for all providers (this should come from a provider_products table or similar)
-        $providers = collect($providers);
-        foreach ($providers as $provider) {
-            // For now, leave empty - this should be populated from actual onboarding data
-            $providerProducts[$provider['id']] = [];
-        }
-
-        return Inertia::render('QuickRequest/CreateNew', [
-            'facilities' => $facilities,
-            'providers' => $providers,
-            'products' => $products,
-            'woundTypes' => $woundTypes,
-            'insuranceCarriers' => $insuranceCarriers,
-            'diagnosisCodes' => $diagnosisCodes,
-            'currentUser' => $currentUser,
-            'providerProducts' => $providerProducts,
-        ]);
     }
 
     /**
