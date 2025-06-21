@@ -8,7 +8,7 @@
     @inertiaHead
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
-    
+
     <!-- Google Maps Script -->
     @if(config('services.google.maps_api_key'))
     <script>
@@ -16,7 +16,7 @@
         window.ENV.GOOGLE_MAPS_API_KEY = "{{ config('services.google.maps_api_key') }}";
     </script>
     <script async defer
-        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key') }}&libraries=places">
+        src="https://maps.googleapis.com/maps/api/js?key={{ config('services.google.maps_api_key') }}&libraries=places&loading=async&v=weekly">
     </script>
     @endif
 </head>

@@ -63,7 +63,7 @@ export default function GoogleAddressAutocompleteSimple({
           return;
         }
 
-        // Create script with standard loading
+        // Create script with async loading to prevent deprecation warnings
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
         if (!apiKey) {
           console.error('VITE_GOOGLE_MAPS_API_KEY environment variable not found');
@@ -72,7 +72,7 @@ export default function GoogleAddressAutocompleteSimple({
         }
 
         const script = document.createElement('script');
-        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&v=weekly`;
+        script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places&loading=async&v=weekly`;
         script.async = true;
         script.defer = true;
 
@@ -133,11 +133,6 @@ export default function GoogleAddressAutocompleteSimple({
         return;
       }
 
-      if (!window.google.maps.places.Autocomplete) {
-        console.error('Google Places Autocomplete constructor not available');
-        return;
-      }
-
       try {
         // Clean up any existing autocomplete
         if (autocompleteElementRef.current) {
@@ -149,7 +144,41 @@ export default function GoogleAddressAutocompleteSimple({
           autocompleteElementRef.current = null;
         }
 
-        // Use the standard Autocomplete API which is stable and well-supported
+        // Try to use the new PlaceAutocompleteElement (recommended) first
+        if (window.google.maps.places.PlaceAutocompleteElement) {
+          try {
+            // Create the new PlaceAutocompleteElement
+            const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement({
+              componentRestrictions: { country: 'us' },
+              fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id'],
+              types: ['address']
+            });
+
+            // Replace the input with the new element
+            if (inputRef.current.parentNode) {
+              inputRef.current.parentNode.replaceChild(placeAutocomplete, inputRef.current);
+              autocompleteElementRef.current = placeAutocomplete;
+
+              // Set up event listener
+              placeAutocomplete.addEventListener('gmp-placeselect', (event: any) => {
+                const place = event.place;
+                if (place && onPlaceSelect) {
+                  onPlaceSelect(place);
+                }
+              });
+            }
+            return;
+          } catch (error) {
+            console.warn('Failed to use new PlaceAutocompleteElement, falling back to legacy Autocomplete:', error);
+          }
+        }
+
+        // Fallback to legacy Autocomplete API
+        if (!window.google.maps.places.Autocomplete) {
+          console.error('Neither PlaceAutocompleteElement nor legacy Autocomplete available');
+          return;
+        }
+
         const autocomplete = new window.google.maps.places.Autocomplete(inputRef.current, {
           types: ['address'],
           componentRestrictions: { country: 'us' },

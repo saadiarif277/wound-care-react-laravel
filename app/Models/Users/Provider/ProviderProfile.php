@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Str;
 
 class ProviderProfile extends Model
 {
     protected $table = 'provider_profiles';
     protected $primaryKey = 'provider_id';
     public $incrementing = false;
-    protected $keyType = 'int';
+    protected $keyType = 'string';
 
     protected $fillable = [
         'provider_id',
@@ -62,6 +63,13 @@ class ProviderProfile extends Model
         'languages_spoken' => '[]',
         'two_factor_enabled' => false,
     ];
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        // No need to generate UUID since we use provider_id as primary key
+    }
 
     /**
      * Get the provider (user) that owns this profile.

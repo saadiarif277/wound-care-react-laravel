@@ -611,7 +611,6 @@ class ProviderManagementController extends Controller
             // Create provider profile if table exists
             if (Schema::hasTable('provider_profiles')) {
                 ProviderProfile::create([
-                    'id' => \Illuminate\Support\Str::uuid(),
                     'provider_id' => $user->id,
                     'verification_status' => $user->npi_number ? 'pending' : 'unverified',
                     'last_profile_update' => now(),
@@ -636,7 +635,7 @@ class ProviderManagementController extends Controller
 
         $organizations = Organization::orderBy('name')->get(['id', 'name']);
         $states = $this->getUSStates();
-        
+
         // Get provider profile data
         $providerProfile = null;
         if (Schema::hasTable('provider_profiles')) {
@@ -719,10 +718,9 @@ class ProviderManagementController extends Controller
         // Update provider profile if it exists
         if (Schema::hasTable('provider_profiles')) {
             $profile = ProviderProfile::firstOrCreate(
-                ['provider_id' => $provider->id],
-                ['id' => \Illuminate\Support\Str::uuid()]
+                ['provider_id' => $provider->id]
             );
-            
+
             $profile->update([
                 'specialty' => $validated['specialty'] ?? null,
                 'tax_id' => $validated['tax_id'] ?? null,

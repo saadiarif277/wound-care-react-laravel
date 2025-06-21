@@ -42,6 +42,11 @@ type ThemeStructure = {
     error: string;
     disabled: string;
     select?: string;
+    border: string;
+  };
+  checkbox: {
+    base: string;
+    checked: string;
   };
   button: {
     primary: { base: string; hover: string; };
@@ -155,6 +160,13 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       error: 'border-red-500/50 focus:border-red-500 focus:ring-red-500/30',
       disabled: 'opacity-50 cursor-not-allowed bg-white/[0.02]',
       select: 'bg-white/[0.05] backdrop-blur-md border border-white/[0.1] text-white/90 rounded-xl px-4 py-2.5 [&>option]:bg-gray-900 [&>option]:text-white',
+      border: 'border border-white/[0.12]',
+    },
+
+    // Checkbox styles - Dark theme
+    checkbox: {
+      base: 'bg-white/[0.05] border-2 border-white/[0.15] rounded transition-all duration-200 cursor-pointer',
+      checked: 'checked:bg-gradient-to-r checked:from-[#1925c3] checked:to-[#c71719] checked:border-transparent focus:ring-2 focus:ring-[#1925c3]/50',
     },
 
     // Button variants - Enhanced visibility and pop
@@ -297,6 +309,13 @@ export const themes: Record<'dark' | 'light', ThemeStructure> = {
       error: 'border-red-600 focus:ring-red-600/40 focus:border-red-600',
       disabled: 'opacity-60 cursor-not-allowed bg-gray-100',
       select: 'bg-white border border-gray-400 text-gray-900 rounded-xl px-4 py-2.5 [&>option]:bg-white [&>option]:text-gray-900',
+      border: 'border border-gray-200/60',
+    },
+
+    // Checkbox styles - Light theme
+    checkbox: {
+      base: 'bg-gray-50 border-2 border-gray-300 rounded transition-all duration-200 cursor-pointer',
+      checked: 'checked:bg-gradient-to-r checked:from-[#1925c3] checked:to-[#c71719] checked:border-transparent focus:ring-2 focus:ring-[#1925c3]/50',
     },
 
         // Button variants - Enhanced for light mode visibility and pop

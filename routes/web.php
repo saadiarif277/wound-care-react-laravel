@@ -964,18 +964,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         ]);
     });
 
-    // Test route with manual model finding
-    Route::get('/test-order/{id}', function($id) {
-        $order = \App\Models\Order\ProductRequest::find($id);
-        if (!$order) {
-            return response()->json(['error' => 'Order not found'], 404);
-        }
-        return response()->json([
-            'id' => $order->id,
-            'request_number' => $order->request_number,
-            'order_status' => $order->order_status
-        ]);
-    });
+
 
 // DocuSeal Routes
 Route::middleware(['auth'])->group(function () {

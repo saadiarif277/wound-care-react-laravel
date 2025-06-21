@@ -180,8 +180,8 @@ class AvailityServiceReviewsService
             'requestTypeCode' => 'AR',
             'serviceType' => 'DME', // Durable Medical Equipment
             'serviceTypeCode' => '30',
-            'placeOfService' => $this->getPlaceOfServiceFromFacility($productRequest->facility),
-            'placeOfServiceCode' => $this->getPlaceOfServiceCodeFromFacility($productRequest->facility),
+            'placeOfService' => $this->getPlaceOfServiceFromFacility($productRequest->facility_id),
+            'placeOfServiceCode' => $this->getPlaceOfServiceCodeFromFacility($productRequest->facility_id),
             'fromDate' => $productRequest->expected_service_date->format('Y-m-d'),
             'toDate' => $productRequest->expected_service_date->format('Y-m-d'),
             'quantity' => $this->calculateTotalQuantity($productRequest),

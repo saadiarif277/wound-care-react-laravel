@@ -4,9 +4,8 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 use App\Models\User;
-use App\Models\Order;
+use App\Models\Order\Order;
 use App\Services\ValidationBuilderEngine;
-use App\Services\CmsCoverageApiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;

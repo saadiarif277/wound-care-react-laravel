@@ -686,9 +686,30 @@ class QuickRequestController extends Controller
             'patient_id' => 'required|string',
             'patient_fhir_id' => 'required|string',
             'patient_display_id' => 'required|string',
-            'manufacturer_id' => 'required|exists:manufacturers,id',
+            'manufacturer_id' => 'nullable|exists:manufacturers,id',
+            'selected_product_id' => 'nullable|exists:products,id',
             'form_data' => 'required|array',
         ]);
+
+        // If manufacturer_id is not provided, try to get it from the selected product
+        if (!$validated['manufacturer_id'] && $validated['selected_product_id']) {
+            $product = Product::find($validated['selected_product_id']);
+            if ($product && $product->manufacturer_id) {
+                $validated['manufacturer_id'] = $product->manufacturer_id;
+                Log::info('Retrieved manufacturer_id from product', [
+                    'product_id' => $validated['selected_product_id'],
+                    'manufacturer_id' => $validated['manufacturer_id']
+                ]);
+            }
+        }
+
+        // Ensure we have a manufacturer_id at this point
+        if (!$validated['manufacturer_id']) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unable to determine manufacturer. Please ensure a product is selected.',
+            ], 422);
+        }
 
         try {
             // Find existing episode for this patient+manufacturer combination (not completed)

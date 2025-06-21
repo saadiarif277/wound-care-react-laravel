@@ -199,11 +199,24 @@ export default function Step7FinalSubmission({
       const productToUse = selectedProduct || formData.selected_products?.[0]?.product;
 
       // Prepare comprehensive form data for episode creation
+      // Try to get manufacturer_id from multiple sources
+      let manufacturerId = productToUse?.manufacturer_id ||
+                          (products.find(p => p.id === productToUse?.id)?.manufacturer_id) ||
+                          formData.selected_products?.[0]?.product?.manufacturer_id;
+
+      // If still no manufacturer_id, try to fetch it from the selected product
+      if (!manufacturerId && formData.selected_products?.[0]?.product_id) {
+        console.warn('No manufacturer_id found, will need to fetch from backend');
+        // For now, we'll let the backend handle this by looking up the product
+        manufacturerId = null;
+      }
+
       const episodeData = {
         patient_id: formData.patient_id || 'new-patient',
         patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
         patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
-        manufacturer_id: productToUse?.manufacturer_id || (products.find(p => p.id === productToUse?.id)?.manufacturer_id), // Get manufacturer ID from product (no hardcoded fallback)
+        manufacturer_id: manufacturerId,
+        selected_product_id: productToUse?.id || formData.selected_products?.[0]?.product_id, // Include product ID for backend lookup
         form_data: {
           ...formData,
           selected_product_id: productToUse?.id,
