@@ -85,10 +85,10 @@ Route::prefix('v1')->group(function () {
 
         // Individual validation management
         Route::prefix('{validation_id}')->group(function () {
-            Route::patch('monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'toggleMonitoring'])->name('toggle_monitoring');
-            Route::get('audit', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getAuditTrail'])->name('audit');
-            Route::post('revalidate', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'revalidate'])->name('revalidate');
-            Route::get('compliance-details', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getComplianceDetails'])->name('compliance_details');
+            Route::patch('monitoring', [MedicareMacValidationController::class, 'toggleMonitoring'])->name('toggle_monitoring');
+            Route::get('audit', [MedicareMacValidationController::class, 'getAuditTrail'])->name('audit');
+            Route::post('revalidate', [MedicareMacValidationController::class, 'revalidate'])->name('revalidate');
+            Route::get('compliance-details', [MedicareMacValidationController::class, 'getComplianceDetails'])->name('compliance_details');
         });
 
         // Bulk operations
