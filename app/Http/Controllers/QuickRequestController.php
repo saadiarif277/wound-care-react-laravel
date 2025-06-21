@@ -225,8 +225,45 @@ class QuickRequestController extends Controller
      */
     public function store(Request $request)
     {
-        // ASHLEY'S REQUIREMENT: Validate that IVR was completed by provider
-        $validated = $request->validate([
+        $validated = $this->validateQuickRequest($request);
+
+        DB::beginTransaction();
+
+        try {
+            $patientIdentifiers = $this->createPatientRecord($validated);
+            $episode = $this->updateEpisode($validated, $patientIdentifiers);
+            $productRequest = $this->createProductRequest($validated, $patientIdentifiers, $episode);
+            $this->handleFileUploads($request, $productRequest);
+
+            $productRequest->save();
+            $this->updateEpisodeStatus($episode);
+
+            DB::commit();
+
+            session()->flash('episode_id', $episode->id);
+
+            return redirect()->route('admin.episodes.show', $episode->id)
+                ->with('success', 'Order submitted successfully with IVR completed! Your order is now ready for admin review.')
+                ->with('episode_id', $episode->id);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            Log::error('Failed to submit quick request', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'user_id' => Auth::id(),
+            ]);
+
+            return back()
+                ->withInput()
+                ->withErrors(['error' => 'Failed to submit order: ' . $e->getMessage()]);
+        }
+    }
+
+    private function validateQuickRequest(Request $request): array
+    {
+        return $request->validate([
             // Context & Request Type
             'request_type' => 'required|in:new_request,reverification,additional_applications',
             'provider_id' => 'required|exists:users,id',
@@ -344,236 +381,226 @@ class QuickRequestController extends Controller
             'selected_products.required' => 'Please select at least one product.',
             'facility_id.required' => 'Please select a facility.',
         ]);
+    }
 
-        DB::beginTransaction();
+    private function createPatientRecord(array $validated): array
+    {
+        $patientData = [
+            'first_name' => $validated['patient_first_name'],
+            'last_name' => $validated['patient_last_name'],
+            'date_of_birth' => $validated['patient_dob'],
+            'gender' => $validated['patient_gender'] ?? 'unknown',
+            'member_id' => $validated['patient_member_id'],
+            'address' => [
+                'line1' => $validated['patient_address_line1'],
+                'line2' => $validated['patient_address_line2'],
+                'city' => $validated['patient_city'],
+                'state' => $validated['patient_state'],
+                'postal_code' => $validated['patient_zip'],
+            ],
+            'phone' => $validated['patient_phone'],
+            'email' => $validated['patient_email'] ?? null,
+            'caregiver' => [
+                'name' => $validated['caregiver_name'],
+                'relationship' => $validated['caregiver_relationship'],
+                'phone' => $validated['caregiver_phone'],
+            ],
+        ];
 
-        try {
-            // Prepare patient data for FHIR
-            $patientData = [
-                'first_name' => $validated['patient_first_name'],
-                'last_name' => $validated['patient_last_name'],
-                'date_of_birth' => $validated['patient_dob'],
-                'gender' => $validated['patient_gender'] ?? 'unknown',
-                'member_id' => $validated['patient_member_id'],
-                'address' => [
-                    'line1' => $validated['patient_address_line1'],
-                    'line2' => $validated['patient_address_line2'],
-                    'city' => $validated['patient_city'],
-                    'state' => $validated['patient_state'],
-                    'postal_code' => $validated['patient_zip'],
+        return $this->patientService->createPatientRecord(
+            $patientData,
+            $validated['facility_id']
+        );
+    }
+
+    private function updateEpisode(array $validated, array $patientIdentifiers): PatientManufacturerIVREpisode
+    {
+        $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
+
+        if ($episode->patient_fhir_id !== $patientIdentifiers['patient_fhir_id']) {
+            $episode->update([
+                'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
+                'patient_display_id' => $patientIdentifiers['patient_display_id'],
+            ]);
+        }
+
+        return $episode;
+    }
+
+    private function createProductRequest(array $validated, array $patientIdentifiers, PatientManufacturerIVREpisode $episode): ProductRequest
+    {
+        $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
+
+        $productRequest = new ProductRequest();
+        $productRequest->id = Str::uuid();
+        $productRequest->request_number = $this->generateRequestNumber();
+        $productRequest->requester_id = Auth::id();
+        $productRequest->provider_id = $validated['provider_id'];
+        $productRequest->facility_id = $validated['facility_id'];
+        $productRequest->request_type = $validated['request_type'];
+
+        // ASHLEY'S REQUIREMENT: Status indicates provider completed IVR
+        $productRequest->order_status = 'ready_for_review';
+        $productRequest->submission_type = 'quick_request';
+
+        // Store only patient identifiers, NOT PHI
+        $productRequest->patient_fhir_id = $patientIdentifiers['patient_fhir_id'];
+        $productRequest->patient_display_id = $patientIdentifiers['patient_display_id'];
+
+        // Store insurance information
+        $productRequest->payer_name = $validated['primary_insurance_name'];
+        $productRequest->payer_id = $validated['primary_member_id'];
+        $productRequest->insurance_type = $validated['primary_plan_type'];
+
+        // Set service information
+        $productRequest->expected_service_date = $validated['expected_service_date'];
+        $productRequest->delivery_date = $validated['delivery_date'] ??
+            Carbon::parse($validated['expected_service_date'])->subDay();
+
+        // Clinical information
+        $productRequest->wound_type = implode(', ', $validated['wound_types']);
+        $productRequest->place_of_service = $validated['place_of_service'];
+
+        // ASHLEY'S REQUIREMENT: Store IVR completion info
+        $productRequest->docuseal_submission_id = $validated['docuseal_submission_id'];
+        $productRequest->provider_ivr_completed_at = now();
+        $productRequest->ivr_status = 'provider_completed';
+
+        // Store metadata
+        $productRequest->metadata = $this->buildMetadata($validated);
+
+        // Set primary product info (for backwards compatibility)
+        $productRequest->product_id = $firstProduct->id;
+        $productRequest->product_name = $firstProduct->name;
+        $productRequest->product_code = $firstProduct->q_code;
+        $productRequest->manufacturer = $firstProduct->manufacturer;
+        $productRequest->size = $validated['selected_products'][0]['size'] ?? '';
+        $productRequest->quantity = $validated['selected_products'][0]['quantity'];
+
+        // Link to episode
+        $productRequest->ivr_episode_id = $episode->id;
+
+        return $productRequest;
+    }
+
+    private function buildMetadata(array $validated): array
+    {
+        return [
+            'products' => $validated['selected_products'],
+            'clinical_info' => [
+                'wound_types' => $validated['wound_types'],
+                'wound_other_specify' => $validated['wound_other_specify'],
+                'wound_location' => $validated['wound_location'],
+                'wound_location_details' => $validated['wound_location_details'],
+                'diagnosis_codes' => [
+                    'yellow' => $validated['yellow_diagnosis_code'],
+                    'orange' => $validated['orange_diagnosis_code'],
                 ],
-                'phone' => $validated['patient_phone'],
-                'email' => $validated['patient_email'] ?? null,
-                'caregiver' => [
-                    'name' => $validated['caregiver_name'],
-                    'relationship' => $validated['caregiver_relationship'],
-                    'phone' => $validated['caregiver_phone'],
+                'wound_measurements' => [
+                    'length' => $validated['wound_size_length'],
+                    'width' => $validated['wound_size_width'],
+                    'depth' => $validated['wound_size_depth'],
                 ],
-            ];
+                'wound_duration' => $validated['wound_duration'],
+                'previous_treatments' => $validated['previous_treatments'],
+                'cpt_codes' => $validated['application_cpt_codes'],
+                'prior_applications' => $validated['prior_applications'],
+                'anticipated_applications' => $validated['anticipated_applications'],
+            ],
+            'billing_info' => [
+                'medicare_part_b_authorized' => $validated['medicare_part_b_authorized'],
+                'snf_days' => $validated['snf_days'],
+                'hospice_status' => $validated['hospice_status'],
+                'part_a_status' => $validated['part_a_status'],
+                'global_period_status' => $validated['global_period_status'],
+                'global_period_cpt' => $validated['global_period_cpt'],
+                'global_period_surgery_date' => $validated['global_period_surgery_date'],
+            ],
+            'insurance_info' => [
+                'primary' => [
+                    'name' => $validated['primary_insurance_name'],
+                    'member_id' => $validated['primary_member_id'],
+                    'plan_type' => $validated['primary_plan_type'],
+                    'payer_phone' => $validated['primary_payer_phone'],
+                ],
+                'has_secondary' => $validated['has_secondary_insurance'],
+                'secondary' => $validated['has_secondary_insurance'] ? [
+                    'name' => $validated['secondary_insurance_name'],
+                    'member_id' => $validated['secondary_member_id'],
+                    'plan_type' => $validated['secondary_plan_type'],
+                    'subscriber_name' => $validated['secondary_subscriber_name'],
+                    'subscriber_dob' => $validated['secondary_subscriber_dob'],
+                    'payer_phone' => $validated['secondary_payer_phone'],
+                ] : null,
+                'prior_auth_permission' => $validated['prior_auth_permission'],
+            ],
+            'manufacturer_fields' => $validated['manufacturer_fields'] ?? [],
+            'shipping_speed' => $validated['shipping_speed'],
+            'attestations' => [
+                'failed_conservative_treatment' => $validated['failed_conservative_treatment'],
+                'information_accurate' => $validated['information_accurate'],
+                'medical_necessity_established' => $validated['medical_necessity_established'],
+                'maintain_documentation' => $validated['maintain_documentation'],
+                'authorize_prior_auth' => $validated['authorize_prior_auth'] ?? false,
+            ],
+            'provider_authorization' => [
+                'provider_name' => $validated['provider_name'] ?? Auth::user()->first_name . ' ' . Auth::user()->last_name,
+                'provider_npi' => $validated['provider_npi'] ?? Auth::user()->npi_number,
+                'signature_date' => $validated['signature_date'] ?? now()->format('Y-m-d'),
+                'verbal_order' => $validated['verbal_order'] ?? null,
+            ],
+            'ivr_submission' => [
+                'docuseal_submission_id' => $validated['docuseal_submission_id'],
+                'completed_at' => now(),
+                'completed_by' => Auth::id(),
+            ],
+        ];
+    }
 
-            // Create patient in FHIR and get identifiers
-            $patientIdentifiers = $this->patientService->createPatientRecord(
-                $patientData,
-                $validated['facility_id']
-            );
+    private function handleFileUploads(Request $request, ProductRequest $productRequest): void
+    {
+        $documentMetadata = [];
+        $documentTypes = [
+            'insurance_card_front' => 'phi/insurance-cards/',
+            'insurance_card_back' => 'phi/insurance-cards/',
+            'face_sheet' => 'phi/face-sheets/',
+            'clinical_notes' => 'phi/clinical-notes/',
+            'wound_photo' => 'phi/wound-photos/',
+        ];
 
-            // Process each selected product
-            $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
-            $manufacturerId = $firstProduct->manufacturer_id ?? $firstProduct->manufacturer;
+        foreach ($documentTypes as $fieldName => $storagePath) {
+            if ($request->hasFile($fieldName)) {
+                $path = $request->file($fieldName)->store($storagePath . date('Y/m'), 's3-encrypted');
+                $documentMetadata[$fieldName] = [
+                    'path' => $path,
+                    'uploaded_at' => now(),
+                    'size' => $request->file($fieldName)->getSize(),
+                    'mime_type' => $request->file($fieldName)->getMimeType()
+                ];
 
-            // ASHLEY'S REQUIREMENT: Use existing episode created in Step7
-            $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
-
-            // Update episode with patient FHIR ID if it was created with temporary data
-            if ($episode->patient_fhir_id !== $patientIdentifiers['patient_fhir_id']) {
-                $episode->update([
-                    'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
-                    'patient_display_id' => $patientIdentifiers['patient_display_id'],
+                // Audit PHI document upload
+                PhiAuditService::logCreation('Document', $path, [
+                    'document_type' => $fieldName,
+                    'patient_fhir_id' => $productRequest->patient_fhir_id,
+                    'product_request_id' => $productRequest->id
                 ]);
             }
+        }
 
-            // Create the product request with provider-generated IVR
-            $productRequest = new ProductRequest();
-            $productRequest->id = Str::uuid();
-            $productRequest->request_number = $this->generateRequestNumber();
-            $productRequest->requester_id = Auth::id();
-            $productRequest->provider_id = $validated['provider_id'];
-            $productRequest->facility_id = $validated['facility_id'];
-            $productRequest->request_type = $validated['request_type'];
-
-            // ASHLEY'S REQUIREMENT: Status indicates provider completed IVR
-            $productRequest->order_status = 'ready_for_review'; // Not 'pending_ivr'
-            $productRequest->submission_type = 'quick_request';
-
-            // Store only patient identifiers, NOT PHI
-            $productRequest->patient_fhir_id = $patientIdentifiers['patient_fhir_id'];
-            $productRequest->patient_display_id = $patientIdentifiers['patient_display_id'];
-
-            // Store insurance information
-            $productRequest->payer_name = $validated['primary_insurance_name'];
-            $productRequest->payer_id = $validated['primary_member_id'];
-            $productRequest->insurance_type = $validated['primary_plan_type'];
-
-            // Set service information
-            $productRequest->expected_service_date = $validated['expected_service_date'];
-            $productRequest->delivery_date = $validated['delivery_date'] ??
-                Carbon::parse($validated['expected_service_date'])->subDay(); // Default to day before
-
-            // Clinical information
-            $productRequest->wound_type = implode(', ', $validated['wound_types']);
-            $productRequest->place_of_service = $validated['place_of_service'];
-
-            // ASHLEY'S REQUIREMENT: Store IVR completion info
-            $productRequest->docuseal_submission_id = $validated['docuseal_submission_id'];
-            $productRequest->provider_ivr_completed_at = now();
-            $productRequest->ivr_status = 'provider_completed';
-
-            // Store metadata
-            $metadata = [
-                'products' => $validated['selected_products'],
-                'clinical_info' => [
-                    'wound_types' => $validated['wound_types'],
-                    'wound_other_specify' => $validated['wound_other_specify'],
-                    'wound_location' => $validated['wound_location'],
-                    'wound_location_details' => $validated['wound_location_details'],
-                    'diagnosis_codes' => [
-                        'yellow' => $validated['yellow_diagnosis_code'],
-                        'orange' => $validated['orange_diagnosis_code'],
-                    ],
-                    'wound_measurements' => [
-                        'length' => $validated['wound_size_length'],
-                        'width' => $validated['wound_size_width'],
-                        'depth' => $validated['wound_size_depth'],
-                    ],
-                    'wound_duration' => $validated['wound_duration'],
-                    'previous_treatments' => $validated['previous_treatments'],
-                    'cpt_codes' => $validated['application_cpt_codes'],
-                    'prior_applications' => $validated['prior_applications'],
-                    'anticipated_applications' => $validated['anticipated_applications'],
-                ],
-                'billing_info' => [
-                    'medicare_part_b_authorized' => $validated['medicare_part_b_authorized'],
-                    'snf_days' => $validated['snf_days'],
-                    'hospice_status' => $validated['hospice_status'],
-                    'part_a_status' => $validated['part_a_status'],
-                    'global_period_status' => $validated['global_period_status'],
-                    'global_period_cpt' => $validated['global_period_cpt'],
-                    'global_period_surgery_date' => $validated['global_period_surgery_date'],
-                ],
-                'insurance_info' => [
-                    'primary' => [
-                        'name' => $validated['primary_insurance_name'],
-                        'member_id' => $validated['primary_member_id'],
-                        'plan_type' => $validated['primary_plan_type'],
-                        'payer_phone' => $validated['primary_payer_phone'],
-                    ],
-                    'has_secondary' => $validated['has_secondary_insurance'],
-                    'secondary' => $validated['has_secondary_insurance'] ? [
-                        'name' => $validated['secondary_insurance_name'],
-                        'member_id' => $validated['secondary_member_id'],
-                        'plan_type' => $validated['secondary_plan_type'],
-                        'subscriber_name' => $validated['secondary_subscriber_name'],
-                        'subscriber_dob' => $validated['secondary_subscriber_dob'],
-                        'payer_phone' => $validated['secondary_payer_phone'],
-                    ] : null,
-                    'prior_auth_permission' => $validated['prior_auth_permission'],
-                ],
-                'manufacturer_fields' => $validated['manufacturer_fields'] ?? [],
-                'shipping_speed' => $validated['shipping_speed'],
-                'attestations' => [
-                    'failed_conservative_treatment' => $validated['failed_conservative_treatment'],
-                    'information_accurate' => $validated['information_accurate'],
-                    'medical_necessity_established' => $validated['medical_necessity_established'],
-                    'maintain_documentation' => $validated['maintain_documentation'],
-                    'authorize_prior_auth' => $validated['authorize_prior_auth'] ?? false,
-                ],
-                'provider_authorization' => [
-                    'provider_name' => $validated['provider_name'] ?? Auth::user()->first_name . ' ' . Auth::user()->last_name,
-                    'provider_npi' => $validated['provider_npi'] ?? Auth::user()->npi_number,
-                    'signature_date' => $validated['signature_date'] ?? now()->format('Y-m-d'),
-                    'verbal_order' => $validated['verbal_order'] ?? null,
-                ],
-                'ivr_submission' => [
-                    'docuseal_submission_id' => $validated['docuseal_submission_id'],
-                    'completed_at' => now(),
-                    'completed_by' => Auth::id(),
-                ],
-            ];
-
-            // Handle file uploads with PHI protection
-            $documentMetadata = [];
-            $documentTypes = [
-                'insurance_card_front' => 'phi/insurance-cards/',
-                'insurance_card_back' => 'phi/insurance-cards/',
-                'face_sheet' => 'phi/face-sheets/',
-                'clinical_notes' => 'phi/clinical-notes/',
-                'wound_photo' => 'phi/wound-photos/',
-            ];
-
-            foreach ($documentTypes as $fieldName => $storagePath) {
-                if ($request->hasFile($fieldName)) {
-                    $path = $request->file($fieldName)->store($storagePath . date('Y/m'), 's3-encrypted');
-                    $documentMetadata[$fieldName] = [
-                        'path' => $path,
-                        'uploaded_at' => now(),
-                        'size' => $request->file($fieldName)->getSize(),
-                        'mime_type' => $request->file($fieldName)->getMimeType()
-                    ];
-
-                    // Audit PHI document upload
-                    PhiAuditService::logCreation('Document', $path, [
-                        'document_type' => $fieldName,
-                        'patient_fhir_id' => $patientIdentifiers['patient_fhir_id'],
-                        'product_request_id' => $productRequest->id
-                    ]);
-                }
-            }
-
+        if (!empty($documentMetadata)) {
+            $metadata = $productRequest->metadata;
             $metadata['documents'] = $documentMetadata;
             $productRequest->metadata = $metadata;
-
-            // Set primary product info (for backwards compatibility)
-            $productRequest->product_id = $firstProduct->id;
-            $productRequest->product_name = $firstProduct->name;
-            $productRequest->product_code = $firstProduct->q_code;
-            $productRequest->manufacturer = $firstProduct->manufacturer;
-            $productRequest->size = $validated['selected_products'][0]['size'] ?? '';
-            $productRequest->quantity = $validated['selected_products'][0]['quantity'];
-
-            // Link to episode
-            $productRequest->ivr_episode_id = $episode->id;
-
-            $productRequest->save();
-
-            // Update episode status
-            $episode->update([
-                'status' => 'ready_for_review',
-                'ivr_status' => 'provider_completed',
-                'last_order_date' => now(),
-            ]);
-
-            DB::commit();
-
-            // Store episode ID in session for the frontend to use
-            session()->flash('episode_id', $episode->id);
-
-            return redirect()->route('admin.episodes.show', $episode->id)
-                ->with('success', 'Order submitted successfully with IVR completed! Your order is now ready for admin review.')
-                ->with('episode_id', $episode->id);
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-
-            \Illuminate\Support\Facades\Log::error('Failed to submit quick request', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'user_id' => Auth::id(),
-            ]);
-
-            return back()
-                ->withInput()
-                ->withErrors(['error' => 'Failed to submit order: ' . $e->getMessage()]);
         }
+    }
+
+    private function updateEpisodeStatus(PatientManufacturerIVREpisode $episode): void
+    {
+        $episode->update([
+            'status' => 'ready_for_review',
+            'ivr_status' => 'provider_completed',
+            'last_order_date' => now(),
+        ]);
     }
 
     /**

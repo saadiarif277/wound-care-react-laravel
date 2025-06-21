@@ -10,7 +10,7 @@ use App\Http\Controllers\Api\ValidationBuilderController;
 use App\Http\Controllers\Api\ClinicalOpportunitiesController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\PermissionController;
-use App\Http\Controllers\UserController;
+use App\Http\Controllers\UsersController;
 use App\Http\Controllers\Commission\CommissionController;
 use App\Http\Controllers\RBACController;
 // Deprecated controllers removed - AccessControlController, CustomerManagementController
@@ -28,59 +28,59 @@ Route::prefix('v1')->group(function () {
 
     // Order-specific Medicare validation routes
     Route::prefix('orders/{order_id}')->group(function () {
-        Route::post('medicare-validation', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'validateOrder'])->name('medicare.validate');
-        Route::get('medicare-validation', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getValidation'])->name('medicare.get');
+        Route::post('medicare-validation', [MedicareMacValidationController::class, 'validateOrder'])->name('medicare.validate');
+        Route::get('medicare-validation', [MedicareMacValidationController::class, 'getValidation'])->name('medicare.get');
     });
 
     // Medicare validation management and monitoring
     Route::prefix('medicare-validation')->name('medicare.')->group(function () {
 
         // Dashboard and reporting
-        Route::get('dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getDashboard'])->name('dashboard');
-        Route::post('daily-monitoring', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'runDailyMonitoring'])->name('daily_monitoring');
+        Route::get('dashboard', [MedicareMacValidationController::class, 'getDashboard'])->name('dashboard');
+        Route::post('daily-monitoring', [MedicareMacValidationController::class, 'runDailyMonitoring'])->name('daily_monitoring');
 
         // Specialty-based validation groupings
         Route::prefix('specialty')->name('specialty.')->group(function () {
             // Vascular Surgery Specialty
             Route::prefix('vascular-surgery')->name('vascular_surgery.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularSurgeryValidations'])->name('index');
-                Route::get('dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularSurgeryDashboard'])->name('dashboard');
-                Route::get('compliance-report', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularSurgeryCompliance'])->name('compliance');
+                Route::get('/', [MedicareMacValidationController::class, 'getVascularSurgeryValidations'])->name('index');
+                Route::get('dashboard', [MedicareMacValidationController::class, 'getVascularSurgeryDashboard'])->name('dashboard');
+                Route::get('compliance-report', [MedicareMacValidationController::class, 'getVascularSurgeryCompliance'])->name('compliance');
             });
 
             // Interventional Radiology Specialty
             Route::prefix('interventional-radiology')->name('interventional_radiology.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getInterventionalRadiologyValidations'])->name('index');
-                Route::get('dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getInterventionalRadiologyDashboard'])->name('dashboard');
+                Route::get('/', [MedicareMacValidationController::class, 'getInterventionalRadiologyValidations'])->name('index');
+                Route::get('dashboard', [MedicareMacValidationController::class, 'getInterventionalRadiologyDashboard'])->name('dashboard');
             });
 
             // Cardiology Specialty
             Route::prefix('cardiology')->name('cardiology.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getCardiologyValidations'])->name('index');
-                Route::get('dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getCardiologyDashboard'])->name('dashboard');
+                Route::get('/', [MedicareMacValidationController::class, 'getCardiologyValidations'])->name('index');
+                Route::get('dashboard', [MedicareMacValidationController::class, 'getCardiologyDashboard'])->name('dashboard');
             });
 
             // Wound Care Specialty
             Route::prefix('wound-care')->name('wound_care.')->group(function () {
-                Route::get('/', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getWoundCareValidations'])->name('index');
-                Route::get('dashboard', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getWoundCareOnlyDashboard'])->name('dashboard');
+                Route::get('/', [MedicareMacValidationController::class, 'getWoundCareValidations'])->name('index');
+                Route::get('dashboard', [MedicareMacValidationController::class, 'getWoundCareOnlyDashboard'])->name('dashboard');
             });
         });
 
         // Validation type groupings (legacy support)
         Route::prefix('type')->name('type.')->group(function () {
-            Route::get('vascular-group', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularGroupValidations'])->name('vascular_group');
-            Route::get('wound-care-only', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getWoundCareValidations'])->name('wound_care_only');
-            Route::get('vascular-only', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getVascularOnlyValidations'])->name('vascular_only');
+            Route::get('vascular-group', [MedicareMacValidationController::class, 'getVascularGroupValidations'])->name('vascular_group');
+            Route::get('wound-care-only', [MedicareMacValidationController::class, 'getWoundCareValidations'])->name('wound_care_only');
+            Route::get('vascular-only', [MedicareMacValidationController::class, 'getVascularOnlyValidations'])->name('vascular_only');
         });
 
         // MAC Contractor specific routes
         Route::prefix('mac-contractor')->name('mac.')->group(function () {
-            Route::get('novitas', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getNovitasValidations'])->name('novitas');
-            Route::get('cgs', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getCgsValidations'])->name('cgs');
-            Route::get('palmetto', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getPalmettoValidations'])->name('palmetto');
-            Route::get('wisconsin-physicians', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getWisconsinPhysiciansValidations'])->name('wisconsin_physicians');
-            Route::get('noridian', [\App\Http\Controllers\Api\MedicareMacValidationController::class, 'getNoridianValidations'])->name('noridian');
+            Route::get('novitas', [MedicareMacValidationController::class, 'getNovitasValidations'])->name('novitas');
+            Route::get('cgs', [MedicareMacValidationController::class, 'getCgsValidations'])->name('cgs');
+            Route::get('palmetto', [MedicareMacValidationController::class, 'getPalmettoValidations'])->name('palmetto');
+            Route::get('wisconsin-physicians', [MedicareMacValidationController::class, 'getWisconsinPhysiciansValidations'])->name('wisconsin_physicians');
+            Route::get('noridian', [MedicareMacValidationController::class, 'getNoridianValidations'])->name('noridian');
         });
 
         // Individual validation management
@@ -298,9 +298,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     ]);
 
     // User Role Management with unique names
-    Route::post('users/{user}/roles', [UserController::class, 'assignRoles'])->name('api.users.roles.assign');
-    Route::delete('users/{user}/roles/{role}', [UserController::class, 'removeRole'])->name('api.users.roles.remove');
-    Route::put('users/{user}/roles', [UserController::class, 'syncRoles'])->name('api.users.roles.sync');
+    Route::post('users/{user}/roles', [UsersController::class, 'assignRoles'])->name('api.users.roles.assign');
+    Route::delete('users/{user}/roles/{role}', [UsersController::class, 'removeRole'])->name('api.users.roles.remove');
+    Route::put('users/{user}/roles', [UsersController::class, 'syncRoles'])->name('api.users.roles.sync');
 
     // RBAC Management Routes with unique names
     Route::middleware(['auth:sanctum', 'role:msc-admin'])->group(function () {
