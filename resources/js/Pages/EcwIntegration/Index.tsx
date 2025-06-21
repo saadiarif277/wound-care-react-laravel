@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import MainLayout from '@/Layouts/MainLayout';
-import EcwConnection from '@/Components/EcwIntegration/EcwConnection';
 import { FiActivity, FiDatabase, FiLink, FiUser, FiCheckCircle, FiAlertTriangle, FiSettings } from 'react-icons/fi';
 
 interface EcwIntegrationPageProps {
@@ -39,7 +38,19 @@ const EcwIntegrationPage: React.FC<EcwIntegrationPageProps> = ({ title = 'eClini
 
         {/* Connection Management */}
         <div className="mb-8">
-          <EcwConnection onConnectionChange={handleConnectionChange} />
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-6">
+            <div className="text-center">
+              <FiLink className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">eClinicalWorks Connection</h3>
+              <p className="text-gray-600 mb-4">Connect to your eClinicalWorks system to enable integration features.</p>
+              <button
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                onClick={() => setConnectionStatus(prev => ({ ...prev, connected: !prev.connected }))}
+              >
+                {connectionStatus.connected ? 'Disconnect' : 'Connect to eClinicalWorks'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Integration Features Grid */}

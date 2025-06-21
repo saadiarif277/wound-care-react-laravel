@@ -154,4 +154,70 @@ class UnifiedEligibilityService
         // Default provider
         return $this->providers['default'];
     }
+
+    /**
+     * Build unified request from product request and coverage
+     */
+    private function buildUnifiedRequest(ProductRequest $productRequest, Coverage $coverage): array
+    {
+        return [
+            'product_request_id' => $productRequest->id,
+            'coverage_id' => $coverage->id,
+            'patient_data' => $productRequest->patient_api_input,
+            'payer_id' => $coverage->payor_identifier,
+            'member_id' => $coverage->subscriber_id,
+            'service_codes' => $productRequest->service_codes ?? [],
+            'diagnosis_codes' => $productRequest->diagnosis_codes ?? [],
+        ];
+    }
+
+    /**
+     * Generate cache key for eligibility request
+     */
+    private function generateCacheKey(array $request): string
+    {
+        return 'eligibility_' . md5(json_encode($request));
+    }
+
+    /**
+     * Check if cached result is stale
+     */
+    private function isStale(array $cachedResult): bool
+    {
+        $timestamp = $cachedResult['timestamp'] ?? null;
+        return !$timestamp || now()->diffInHours($timestamp) > 24;
+    }
+
+    /**
+     * Convert order to product request format
+     */
+    private function convertOrderToProductRequest(Order $order): ProductRequest
+    {
+        // Create a mock ProductRequest from Order data
+        $productRequest = new ProductRequest();
+        $productRequest->id = $order->id;
+        $productRequest->patient = $order->patient;
+        $productRequest->patient_fhir_id = $order->patient_fhir_id;
+        $productRequest->patient_api_input = $order->patient_data ?? [];
+        $productRequest->payer_id_submitted = $order->payer_id;
+        $productRequest->payer_name_submitted = $order->payer_name;
+
+        return $productRequest;
+    }
+
+    /**
+     * Load payer configuration
+     */
+    private function loadPayerConfiguration(string $payorIdentifier): ?array
+    {
+        // Load from config or database
+        $config = config('payers.' . $payorIdentifier);
+
+        if (!$config) {
+            // Try to load from database or external source
+            Log::info('No configuration found for payer', ['payer_id' => $payorIdentifier]);
+        }
+
+        return $config;
+    }
 }
