@@ -1,4 +1,4 @@
 [config]
-command = bash deploy.sh
-SCM_REPOSITORY_PATH = .
-POST_BUILD_COMMAND = php artisan config:cache && php artisan route:cache
+SCM_DO_BUILD_DURING_DEPLOYMENT=false
+ENABLE_ORYX_BUILD=false
+WEBSITE_RUN_FROM_PACKAGE=1
