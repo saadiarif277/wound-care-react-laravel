@@ -1,11 +1,12 @@
-name: Deploy to Azure
+# .github/workflows/deploy.yml
+name: Build and Deploy to Azure
 
 on:
   push:
-    branches: [azure-dev]
+    branches: [main]
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -15,24 +16,24 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
+          tools: composer:v2
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v3
         with:
-          node-version: '20'
+          node-version: '18'
+          cache: 'npm'
 
-      - name: Install Composer Dependencies
-        run: composer install --no-dev --optimize-autoloader
-
-      - name: Install NPM Dependencies
-        run: npm ci
-
-      - name: Build Assets
-        run: npm run prod
+      - name: Build Application
+        run: |
+          composer install --no-dev --optimize-autoloader
+          npm ci
+          npm run build
+          php artisan config:cache
+          php artisan route:cache
 
       - name: Deploy to Azure
         uses: azure/webapps-deploy@v2
         with:
           app-name: msc-dev-app
-          slot-name: production
           publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
