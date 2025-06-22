@@ -346,7 +346,7 @@ export default function Step3Documentation({
               htmlFor="authorize_prior_auth"
               className={cn("ml-3 text-sm", t.text.secondary)}
             >
-              I authorize MSC to initiate and follow up on prior authorization if required
+              I consent to prior authorization processing if required
             </label>
           </div>
 

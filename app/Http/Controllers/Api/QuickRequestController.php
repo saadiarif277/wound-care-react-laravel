@@ -31,6 +31,7 @@ class QuickRequestController extends Controller
             'questionnaire_response_id' => 'nullable|string',
             'device_request_id' => 'nullable|string',
             'episode_id' => 'nullable|string',
+            'episode_of_care_id' => 'nullable|string',
             'manufacturer_key' => 'required|string',
             'sales_rep' => 'nullable|array',
             'sales_rep.name' => 'nullable|string',
@@ -50,6 +51,7 @@ class QuickRequestController extends Controller
                 'questionnaire_response_id' => $validated['questionnaire_response_id'] ?? null,
                 'device_request_id' => $validated['device_request_id'] ?? null,
                 'episode_id' => $validated['episode_id'] ?? null,
+                'episode_of_care_id' => $validated['episode_of_care_id'] ?? null,
                 'sales_rep' => $validated['sales_rep'] ?? null,
                 'selected_products' => $validated['selected_products'] ?? [],
             ];

@@ -792,7 +792,7 @@ class QuickRequestController extends Controller
 
             // Add template-specific data
             if (!empty($data['template_id'])) {
-                $payload['template_id'] = intval($data['template_id']);
+                $payload['template_id'] = strval($data['template_id']);
             }
 
             if (!empty($data['template_name'])) {
@@ -916,7 +916,7 @@ class QuickRequestController extends Controller
             Log::info('DocuSeal template resolution (dynamic)', [
                 'manufacturer_id' => $manufacturerId,
                 'manufacturer' => $manufacturer,
-                'resolved_template_id' => $templateId,
+                'resolved_template_id' => strval($templateId),
                 'use_builder' => $data['use_builder'] ?? false,
                 'resolution_method' => $templateId ? 'database' : 'config_fallback'
             ]);
@@ -926,7 +926,7 @@ class QuickRequestController extends Controller
                 $builderRequest = new Request([
                     'user_email' => 'limitless@mscwoundcare.com',
                     'integration_email' => $prefillData['admin@mscwound.com'] ?? 'limitless@mscwoundcare.com',
-                    'template_id' => $templateId,
+                    'template_id' => strval($templateId),
                     'template_name' => "{$manufacturer} IVR Form",
                     'document_urls' => [],
                     'prefill_data' => $prefillData
@@ -939,7 +939,7 @@ class QuickRequestController extends Controller
                     $responseData = $builderResponse->getData(true);
                     $responseData['manufacturer'] = $manufacturer;
                     $responseData['manufacturer_id'] = $manufacturerId;
-                    $responseData['resolved_template_id'] = $templateId;
+                    $responseData['resolved_template_id'] = strval($templateId);
 
                     return response()->json($responseData);
                 }

@@ -76,12 +76,12 @@ const INSURANCE_PRODUCT_RULES = {
   'ppo': {
     allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
     sizeRestrictions: null,
-    message: 'PPO/Commercial insurance covers BioVance for any wound size'
+    message: 'Coverage available for BioVance'
   },
   'commercial': {
     allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
     sizeRestrictions: null,
-    message: 'PPO/Commercial insurance covers BioVance for any wound size'
+    message: 'Coverage available for BioVance'
   },
   'medicare': {
     '0-250': {
@@ -626,7 +626,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                 <div>
                   <h3 className={`text-sm font-semibold ${t.text.primary} mb-3 flex items-center`}>
                     <Info className="w-4 h-4 mr-2 text-blue-500" />
-                    Insurance Recommended Products (Not Yet Onboarded)
+                    Suggested Products (Not Yet Onboarded)
                   </h3>
                   <div className={`p-3 mb-3 ${t.status.warning} rounded-md`}>
                     <p className="text-sm">
@@ -945,7 +945,7 @@ const QuickRequestProductCard: React.FC<{
         )}
         {isRecommended && (
           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            Insurance Recommended
+            Suggested
           </span>
         )}
         {isOnboarded && (

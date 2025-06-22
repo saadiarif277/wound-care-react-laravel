@@ -280,27 +280,13 @@ export default function ProviderOrdersDashboard({
               <div>
                 <h1 className={`text-lg lg:text-2xl font-bold ${t.text.primary}`}>My Orders</h1>
                 <p className={`text-xs lg:text-sm ${t.text.secondary} hidden sm:block`}>
-                  Track and manage your wound care orders • {theme === 'dark' ? '🌙' : '☀️'} {theme} mode
+                  Quickly create and manage your orders
                 </p>
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
-              <button
-                onClick={() => router.reload()}
-                className={`${t.button.ghost} p-2`}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => router.visit(route('notifications'))}
-                className={`${t.button.ghost} p-2 relative`}
-              >
-                <Bell className="w-4 h-4" />
-                {upcomingDeadlines.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-                )}
-              </button>
+              {/* Refresh button and notifications removed as requested */}
             </div>
           </div>
         </div>
@@ -343,67 +329,15 @@ export default function ProviderOrdersDashboard({
           </div>
         </div>
 
-        {/* AI Insights - Mobile Optimized */}
+        {/* AI Insights - Mobile Optimized - REMOVED */}
         <div className="p-4 lg:p-6">
-          <div className={`${t.glass.card} ${t.glass.border} p-4 relative overflow-hidden mb-4 ${
-            aiInsights.hasActions ? 'border-orange-500/50' : ''
-          }`}>
-            <div className={`absolute inset-0 ${
-              aiInsights.hasActions
-                ? 'bg-gradient-to-r from-orange-500/10 to-red-500/10'
-                : 'bg-gradient-to-r from-blue-500/10 to-purple-500/10'
-            }`}></div>
-            <div className="relative">
-              <div className="flex items-center space-x-3">
-                <div className={`p-2 rounded-lg ${
-                  aiInsights.hasActions
-                    ? 'bg-gradient-to-br from-orange-500 to-red-500'
-                    : 'bg-gradient-to-br from-blue-500 to-purple-500'
-                }`}>
-                  {aiInsights.hasActions ? (
-                    <AlertTriangle className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-                  ) : (
-                    <Brain className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center space-x-2">
-                    <h3 className={`text-sm lg:text-base font-semibold ${t.text.primary}`}>AI Assistant</h3>
-                    {aiInsights.urgentCount > 0 && (
-                      <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-                    )}
-                  </div>
-                  <p className={`text-xs ${t.text.secondary}`}>
-                    {aiInsights.message}
-                  </p>
-                </div>
-                <div className="flex flex-col items-center">
-                  {(aiInsights.urgentCount > 0 || aiInsights.upcomingCount > 0) && (
-                    <div className="flex space-x-1 mb-1">
-                      {aiInsights.urgentCount > 0 && (
-                        <span className="text-xs px-2 py-1 bg-red-500/20 text-red-400 rounded-full">
-                          {aiInsights.urgentCount}
-                        </span>
-                      )}
-                      {aiInsights.upcomingCount > 0 && (
-                        <span className="text-xs px-2 py-1 bg-yellow-500/20 text-yellow-400 rounded-full">
-                          {aiInsights.upcomingCount}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <ChevronRight className={`w-4 h-4 ${t.text.muted}`} />
-                </div>
-              </div>
-            </div>
-          </div>
+          {/* AI Assistant banner removed as requested */}
 
           {/* Mobile Stats Grid */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <div className={`${t.glass.card} ${t.glass.border} p-4`}>
               <div className="flex items-center justify-between mb-2">
                 <Package className="w-5 h-5 text-blue-500" />
-                <span className="text-xs text-green-500">+12%</span>
               </div>
               <p className={`text-xl font-bold ${t.text.primary}`}>{stats.total_orders}</p>
               <p className={`text-xs ${t.text.secondary}`}>Total Orders</p>
@@ -412,9 +346,6 @@ export default function ProviderOrdersDashboard({
             <div className={`${t.glass.card} ${t.glass.border} p-4`}>
               <div className="flex items-center justify-between mb-2">
                 <Clock className="w-5 h-5 text-yellow-500" />
-                {stats.pending_ivr > 0 && (
-                  <span className="text-xs text-yellow-500">Action</span>
-                )}
               </div>
               <p className={`text-xl font-bold ${t.text.primary}`}>{stats.pending_ivr}</p>
               <p className={`text-xs ${t.text.secondary}`}>Pending IVR</p>
@@ -423,7 +354,6 @@ export default function ProviderOrdersDashboard({
             <div className={`${t.glass.card} ${t.glass.border} p-4`}>
               <div className="flex items-center justify-between mb-2">
                 <Activity className="w-5 h-5 text-purple-500" />
-                <ArrowUp className="w-3 h-3 text-green-500" />
               </div>
               <p className={`text-xl font-bold ${t.text.primary}`}>{stats.in_progress}</p>
               <p className={`text-xs ${t.text.secondary}`}>Processing</p>
@@ -432,7 +362,6 @@ export default function ProviderOrdersDashboard({
             <div className={`${t.glass.card} ${t.glass.border} p-4`}>
               <div className="flex items-center justify-between mb-2">
                 <CheckCircle className="w-5 h-5 text-green-500" />
-                <span className="text-xs text-green-500">{stats.success_rate}%</span>
               </div>
               <p className={`text-xl font-bold ${t.text.primary}`}>{stats.completed}</p>
               <p className={`text-xs ${t.text.secondary}`}>Completed</p>
@@ -626,52 +555,7 @@ export default function ProviderOrdersDashboard({
           </div>
         )}
 
-        {/* Upcoming Deadlines - Desktop Sidebar */}
-        <div className="hidden lg:block fixed right-6 top-24 w-80">
-          <div className={`${t.glass.card} ${t.glass.border} p-6`}>
-            <div className="flex items-center justify-between mb-4">
-              <h3 className={`text-lg font-semibold ${t.text.primary}`}>Upcoming Deadlines</h3>
-              <Bell className="w-5 h-5 text-yellow-500" />
-            </div>
-            <div className="space-y-3">
-              {upcomingDeadlines.slice(0, 5).map((deadline) => (
-                <div key={deadline.id} className={`p-3 ${t.glass.hover} rounded-lg`}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className={`text-sm ${t.text.primary}`}>{deadline.description}</p>
-                      <p className={`text-xs ${t.text.secondary} mt-1`}>
-                        Due: {new Date(deadline.due_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <span className={`text-xs px-2 py-1 rounded-full ${getPriorityColor(deadline.priority)}`}>
-                      {deadline.priority}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Recent Activity - Desktop */}
-          <div className={`${t.glass.card} ${t.glass.border} p-6 mt-4`}>
-            <h3 className={`text-lg font-semibold ${t.text.primary} mb-4`}>Recent Activity</h3>
-            <div className="space-y-3">
-              {recentActivity.slice(0, 5).map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3">
-                  <div className="p-2 bg-blue-500/20 rounded-lg">
-                    <Activity className="w-3 h-3 text-blue-500" />
-                  </div>
-                  <div className="flex-1">
-                    <p className={`text-xs ${t.text.primary}`}>{activity.description}</p>
-                    <p className={`text-xs ${t.text.muted} mt-1`}>
-                      {new Date(activity.timestamp).toLocaleTimeString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
       </div>
     </MainLayout>
   );

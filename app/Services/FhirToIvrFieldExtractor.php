@@ -96,7 +96,10 @@ class FhirToIvrFieldExtractor
         }
         
         // EpisodeOfCare (for existing IVR tracking)
-        if (isset($context['episode_id'])) {
+        // Check for FHIR EpisodeOfCare ID first, then fall back to local episode_id
+        if (isset($context['episode_of_care_id'])) {
+            $this->fhirResources['episode'] = $this->fhirService->getEpisodeOfCare($context['episode_of_care_id']);
+        } elseif (isset($context['episode_id'])) {
             $this->fhirResources['episode'] = $this->fhirService->getEpisodeOfCare($context['episode_id']);
         }
         

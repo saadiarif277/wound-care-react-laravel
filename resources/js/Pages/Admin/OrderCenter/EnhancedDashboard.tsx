@@ -441,76 +441,9 @@ export default function EnhancedDashboard({
                 </div>
               )}
 
-              <button
-                onClick={() => router.reload()}
-                className={`${t.button.ghost} p-2`}
-                title="Refresh Dashboard"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
             </div>
           </div>
         </div>
-
-        {/* AI Insights Banner */}
-        {showPredictiveAlerts && aiInsights.length > 0 && (
-          <div className={`${t.glass.card} ${t.glass.border} p-4 mb-6 relative overflow-hidden`}>
-            <div className="absolute inset-0 bg-gradient-to-r from-blue-500/10 to-purple-500/10 animate-pulse"></div>
-            <div className="relative">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg">
-                    <Brain className="w-5 h-5 text-white" />
-                  </div>
-                  <h3 className={`font-semibold ${t.text.primary}`}>AI Predictive Insights</h3>
-                </div>
-                <button
-                  onClick={() => setShowPredictiveAlerts(false)}
-                  className={`${t.button.ghost} p-1`}
-                  title="Hide AI Predictive Insights"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {aiInsights.slice(0, 3).map((insight) => (
-                  <div
-                    key={insight.id}
-                    className={`${t.glass.card} p-3 hover:shadow-lg transition-all cursor-pointer`}
-                    onClick={() => insight.action && router.visit(insight.action.route)}
-                  >
-                    <div className="flex items-start space-x-2">
-                      <div className={`p-1.5 rounded ${
-                        insight.type === 'critical' ? 'bg-red-500/20 text-red-500' :
-                        insight.type === 'warning' ? 'bg-yellow-500/20 text-yellow-500' :
-                        insight.type === 'success' ? 'bg-green-500/20 text-green-500' :
-                        'bg-blue-500/20 text-blue-500'
-                      }`}>
-                        {insight.type === 'critical' ? <AlertTriangle className="w-4 h-4" /> :
-                         insight.type === 'warning' ? <AlertTriangle className="w-4 h-4" /> :
-                         insight.type === 'success' ? <CheckCircle className="w-4 h-4" /> :
-                         <Info className="w-4 h-4" />}
-                      </div>
-                      <div className="flex-1">
-                        <h4 className={`text-sm font-medium ${t.text.primary}`}>{insight.title}</h4>
-                        <p className={`text-xs ${t.text.secondary} mt-1`}>{insight.description}</p>
-                        {insight.action && (
-                          <span className="text-xs text-blue-500 hover:text-blue-400 mt-2 inline-flex items-center">
-                            {insight.action.label} <ChevronRight className="w-3 h-3 ml-1" />
-                          </span>
-                        )}
-                      </div>
-                      <span className={`text-xs ${t.text.muted}`}>
-                        {Math.round(insight.confidence * 100)}%
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Streamlined Key Metrics - Less Crowded Design */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
@@ -565,7 +498,7 @@ export default function EnhancedDashboard({
                   ${(stats.total_value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </p>
                 <p className="text-xs text-green-500 mt-1">
-                  {stats.completion_rate}% complete
+                  Total pipeline
                 </p>
               </div>
               <DollarSign className="w-5 h-5 text-green-500" />

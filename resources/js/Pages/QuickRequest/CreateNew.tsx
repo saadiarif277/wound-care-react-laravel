@@ -5,13 +5,12 @@ import { FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiPackage, FiAct
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
-import CSRFTestButton from '@/Components/CSRFTestButton';
-import Step1CreateEpisode from './Components/Step1CreateEpisode';
-import Step2PatientInsurance from './Components/Step2PatientInsurance';
+// CSRFTestButton import removed as requested
+import Step1PatientInformation from './Components/Step1PatientInfoNew';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
-import Step7FinalSubmission from './Components/Step7FinalSubmission';
+import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
 import { getManufacturerByProduct } from './manufacturerFields';
 import axios from 'axios';
 
@@ -138,6 +137,7 @@ interface QuickRequestFormData {
   patient_fhir_id?: string;
   fhir_practitioner_id?: string;
   fhir_organization_id?: string;
+  fhir_episode_of_care_id?: string;
   fhir_coverage_ids?: string[];
   fhir_questionnaire_response_id?: string;
   fhir_device_request_id?: string;
@@ -149,7 +149,7 @@ interface QuickRequestFormData {
   // Organization Info (auto-populated)
   organization_id?: number;
   organization_name?: string;
-  
+
   // Manufacturer tracking
   manufacturer_id?: number;
 }
@@ -277,37 +277,30 @@ function QuickRequestCreateNew({
   };
 
   const sections = [
-    { title: 'Create Episode & Upload', icon: FiFileText, estimatedTime: '30 seconds' },
-    { title: 'Verify Patient & Insurance', icon: FiUser, estimatedTime: '15 seconds' },
-    { title: 'Verify Clinical & Billing', icon: FiActivity, estimatedTime: '15 seconds' },
-    { title: 'Select Products', icon: FiShoppingCart, estimatedTime: '10 seconds' },
-    { title: 'Review & Confirm', icon: FiCheck, estimatedTime: '10 seconds' },
-    { title: 'Final Submission', icon: FiPackage, estimatedTime: '10 seconds' }
+    { title: 'Patient Information', icon: FiUser, estimatedTime: '2 minutes' },
+    { title: 'Clinical Details', icon: FiActivity, estimatedTime: '2 minutes' },
+    { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '1 minute' },
+    { title: 'Complete IVR Form', icon: FiFileText, estimatedTime: '2 minutes' },
+    { title: 'Review & Submit Order', icon: FiCheck, estimatedTime: '1 minute' }
   ];
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
 
     switch (section) {
-      case 0: // Create Episode & Upload
+      case 0: // Patient Information (including insurance, service date, shipping)
+        // Provider & Facility validation
         if (!formData.provider_id) errors.provider_id = 'Provider selection is required';
         if (!formData.facility_id) errors.facility_id = 'Facility selection is required';
-        if (!formData.patient_name) errors.patient_name = 'Patient name is required';
-        break;
 
-      case 1: // Patient & Insurance (combined)
         // Patient info validation
         if (!formData.patient_first_name) errors.patient_first_name = 'First name is required';
         if (!formData.patient_last_name) errors.patient_last_name = 'Last name is required';
         if (!formData.patient_dob) errors.patient_dob = 'Date of birth is required';
+
+        // Service & Shipping validation
         if (!formData.expected_service_date) errors.expected_service_date = 'Service date is required';
         if (!formData.shipping_speed) errors.shipping_speed = 'Shipping speed is required';
-
-        // If patient is not subscriber, validate caregiver info
-        if (!formData.patient_is_subscriber) {
-          if (!formData.caregiver_name) errors.caregiver_name = 'Caregiver name is required';
-          if (!formData.caregiver_relationship) errors.caregiver_relationship = 'Caregiver relationship is required';
-        }
 
         // Insurance validation
         if (!formData.primary_insurance_name) errors.primary_insurance_name = 'Primary insurance is required';
@@ -320,36 +313,36 @@ function QuickRequestCreateNew({
         }
         break;
 
-      case 2: // Clinical & Billing
-        if (!formData.wound_types.length) errors.wound_types = 'At least one wound type must be selected';
-        if (formData.wound_types.includes('other') && !formData.wound_other_specify) {
+      case 1: // Clinical Details
+        if (!formData.wound_types || formData.wound_types.length === 0) errors.wound_types = 'At least one wound type must be selected';
+        if (formData.wound_types && formData.wound_types.includes('other') && !formData.wound_other_specify) {
           errors.wound_other_specify = 'Please specify the other wound type';
         }
         if (!formData.wound_location) errors.wound_location = 'Wound location is required';
         if (!formData.wound_size_length) errors.wound_size = 'Wound length is required';
         if (!formData.wound_size_width) errors.wound_size = 'Wound width is required';
-        if (!formData.application_cpt_codes.length) errors.cpt_codes = 'At least one CPT code must be selected';
+        if (!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) errors.cpt_codes = 'At least one CPT code must be selected';
         if (!formData.place_of_service) errors.place_of_service = 'Place of service is required';
 
         // Validate diagnosis codes for specific wound types
-        if (formData.wound_types.includes('diabetic_foot_ulcer')) {
+        if (formData.wound_types && formData.wound_types.includes('diabetic_foot_ulcer')) {
           if (!formData.yellow_diagnosis_code) errors.yellow_diagnosis = 'Yellow (diabetes) diagnosis code is required for DFU';
           if (!formData.orange_diagnosis_code) errors.orange_diagnosis = 'Orange (chronic ulcer) diagnosis code is required for DFU';
         }
         break;
 
-      case 3: // Product Selection
+      case 2: // Product Selection
         if (!formData.selected_products || formData.selected_products.length === 0) {
           errors.products = 'Product selection is required';
         }
         break;
 
-      case 4: // Review & Confirm
-        // No specific validation needed for review step
+      case 3: // Complete IVR Form
+        // IVR completion validation - manufacturer fields should be filled
         break;
 
-      case 5: // Final Submission
-        // No specific validation needed for final submission step
+      case 4: // Review & Submit Order
+        // Final review validation
         break;
     }
 
@@ -383,7 +376,14 @@ function QuickRequestCreateNew({
                 display: formData.primary_insurance_name
               }],
               order: 1,
-              network: formData.primary_plan_type
+              network: formData.primary_plan_type,
+              // Link to EpisodeOfCare
+              extension: formData.fhir_episode_of_care_id ? [{
+                url: 'https://mscwoundcare.com/fhir/StructureDefinition/episode-context',
+                valueReference: {
+                  reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
+                }
+              }] : undefined
             };
 
             const response = await axios.post('/fhir/Coverage', coverageResource, {
@@ -410,6 +410,10 @@ function QuickRequestCreateNew({
                 reference: `Patient/${formData.patient_fhir_id}`
               },
               authored: new Date().toISOString(),
+              // Link to EpisodeOfCare
+              encounter: formData.fhir_episode_of_care_id ? {
+                reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
+              } : undefined,
               item: [
                 {
                   linkId: 'wound-type',
@@ -486,6 +490,10 @@ function QuickRequestCreateNew({
                   occurrenceDateTime: formData.expected_service_date,
                   requester: formData.fhir_practitioner_id ? {
                     reference: `Practitioner/${formData.fhir_practitioner_id}`
+                  } : undefined,
+                  // Link to EpisodeOfCare
+                  encounter: formData.fhir_episode_of_care_id ? {
+                    reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
                   } : undefined
                 };
 
@@ -515,7 +523,7 @@ function QuickRequestCreateNew({
 
     const firstProduct = formData.selected_products[0];
     if (!firstProduct) return;
-    
+
     const product = products.find(p => p.id === firstProduct.product_id);
     if (!product) return;
 
@@ -538,6 +546,7 @@ function QuickRequestCreateNew({
         questionnaire_response_id: formData.fhir_questionnaire_response_id,
         device_request_id: formData.fhir_device_request_id,
         episode_id: formData.episode_id,
+        episode_of_care_id: formData.fhir_episode_of_care_id,
         manufacturer_key: manufacturerKey,
         sales_rep: formData.sales_rep_id ? {
           name: 'MSC Distribution',
@@ -587,7 +596,7 @@ function QuickRequestCreateNew({
         const nameParts = (formData.patient_name || '').trim().split(' ');
         const firstName = nameParts[0] || '';
         const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
-        
+
         // Create FHIR patient resource
         const patientResource = {
           resourceType: 'Patient',
@@ -616,14 +625,64 @@ function QuickRequestCreateNew({
         });
 
         if (response.data && response.data.id) {
+          const patientFhirId = response.data.id;
+
           // Update practitioner ID if provider is selected
           const selectedProvider = providers.find(p => p.id === formData.provider_id);
-          
-          updateFormData({
-            patient_fhir_id: response.data.id,
-            patient_display_id: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10),
-            fhir_practitioner_id: selectedProvider?.fhir_practitioner_id || formData.fhir_practitioner_id
+
+          // Create FHIR EpisodeOfCare resource
+          const episodeOfCareResource = {
+            resourceType: 'EpisodeOfCare',
+            status: 'active',
+            patient: {
+              reference: `Patient/${patientFhirId}`
+            },
+            managingOrganization: formData.fhir_organization_id ? {
+              reference: `Organization/${formData.fhir_organization_id}`
+            } : undefined,
+            team: selectedProvider?.fhir_practitioner_id ? [{
+              reference: `CareTeam/${selectedProvider.fhir_practitioner_id}`
+            }] : undefined,
+            type: [{
+              coding: [{
+                system: 'http://snomed.info/sct',
+                code: '225358003',
+                display: 'Wound care'
+              }]
+            }],
+            period: {
+              start: new Date().toISOString()
+            },
+            identifier: [{
+              system: 'https://mscwoundcare.com/episode-id',
+              value: `EPISODE_${Date.now()}`
+            }],
+            meta: {
+              tag: [{
+                system: 'https://mscwoundcare.com/tags',
+                code: 'wound-care-episode'
+              }]
+            }
+          };
+
+          const episodeResponse = await axios.post('/fhir/EpisodeOfCare', episodeOfCareResource, {
+            headers: {
+              'X-CSRF-TOKEN': csrfToken,
+              'Content-Type': 'application/fhir+json'
+            },
           });
+
+          if (episodeResponse.data && episodeResponse.data.id) {
+            updateFormData({
+              patient_fhir_id: patientFhirId,
+              patient_display_id: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10),
+              fhir_practitioner_id: selectedProvider?.fhir_practitioner_id || formData.fhir_practitioner_id,
+              fhir_episode_of_care_id: episodeResponse.data.id
+            });
+          } else {
+            setErrors({ episode_of_care: 'Failed to create episode of care. Please try again.' });
+            return;
+          }
         } else {
           setErrors({ patient_fhir_id: 'Failed to create patient record. Please try again.' });
           return;
@@ -650,7 +709,7 @@ function QuickRequestCreateNew({
     if (currentSection === 3 && !formData.episode_id && formData.selected_products && formData.selected_products.length > 0) {
       // First create the DeviceRequest
       await createFhirResources('DeviceRequest');
-      
+
       try {
         const csrfToken = await ensureValidCSRFToken();
         if (!csrfToken) {
@@ -664,9 +723,9 @@ function QuickRequestCreateNew({
           setErrors({ episode_id: 'No product selected. Please select a product.' });
           return;
         }
-        
+
         const product = products.find(p => p.id === selectedProduct.product_id);
-        
+
         if (!product) {
           setErrors({ episode_id: 'Selected product not found. Please select a valid product.' });
           return;
@@ -836,18 +895,13 @@ function QuickRequestCreateNew({
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              MSC Episode-Centric Order Flow
+              Create New Order
             </h1>
             <p className="text-gray-600 dark:text-gray-400">
-              Upload documents first → AI auto-fills form → Verify & submit in 90 seconds
+              Complete your wound care order in 5 simple steps
             </p>
 
-            {/* Debug: CSRF Test Component */}
-            {process.env.NODE_ENV === 'development' && (
-              <div className="mt-4">
-                <CSRFTestButton />
-              </div>
-            )}
+            {/* CSRF Test Component removed as requested */}
           </div>
 
           {/* Progress Bar */}
@@ -906,26 +960,27 @@ function QuickRequestCreateNew({
             </h2>
 
             {currentSection === 0 && (
-              <Step1CreateEpisode
+              <Step1PatientInformation
                 formData={formData as any}
                 updateFormData={updateFormData as any}
                 providers={providers}
                 facilities={facilities}
+                woundTypes={woundTypes}
                 currentUser={currentUser}
                 errors={errors}
-                onEpisodeCreated={handleEpisodeCreated}
+                prefillData={{
+                  provider_name: currentUser?.name || '',
+                  provider_npi: currentUser?.npi || '',
+                  facility_name: facilities.find(f => f.id === formData.facility_id)?.name || '',
+                  facility_npi: '', // Add facility NPI if available
+                  facility_address: facilities.find(f => f.id === formData.facility_id)?.address || '',
+                  default_place_of_service: formData.place_of_service || '',
+                  organization_name: currentUser?.organization?.name || ''
+                }}
               />
             )}
 
             {currentSection === 1 && (
-              <Step2PatientInsurance
-                formData={formData as any}
-                updateFormData={updateFormData as any}
-                errors={errors}
-              />
-            )}
-
-            {currentSection === 2 && (
               <Step4ClinicalBilling
                 formData={formData as any}
                 updateFormData={updateFormData as any}
@@ -935,14 +990,25 @@ function QuickRequestCreateNew({
               />
             )}
 
-            {currentSection === 3 && (
+            {currentSection === 2 && (
               <Step5ProductSelection
-              formData={formData as any}
-              updateFormData={updateFormData as any}
-              products={products}
-              providerProducts={providerProducts}
-              errors={errors}
-              currentUser={currentUser}
+                formData={formData as any}
+                updateFormData={updateFormData as any}
+                products={products}
+                providerProducts={providerProducts}
+                errors={errors}
+                currentUser={currentUser}
+              />
+            )}
+
+            {currentSection === 3 && (
+              <Step7DocuSealIVR
+                formData={formData as any}
+                updateFormData={updateFormData as any}
+                products={products}
+                providers={providers}
+                facilities={facilities}
+                errors={errors}
               />
             )}
 
@@ -956,18 +1022,6 @@ function QuickRequestCreateNew({
                 errors={errors}
                 onSubmit={handleSubmit}
                 isSubmitting={isSubmitting}
-              />
-            )}
-
-            {currentSection === 5 && (
-              <Step7FinalSubmission
-                formData={formData as any}
-                updateFormData={updateFormData as any}
-                products={products}
-                providers={providers}
-                facilities={facilities}
-                errors={errors}
-                onSubmit={handleSubmit}
               />
             )}
           </div>
@@ -999,10 +1053,15 @@ function QuickRequestCreateNew({
 
           {/* Status Display */}
           <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Total estimated completion time: <span className="font-semibold">90 seconds</span>
+            Total estimated completion time: <span className="font-semibold">8 minutes</span>
             {formData.patient_fhir_id && (
               <div className="mt-2 text-green-600 dark:text-green-400">
                 ✅ Patient FHIR ID: {formData.patient_fhir_id}
+              </div>
+            )}
+            {formData.fhir_episode_of_care_id && (
+              <div className="mt-2 text-green-600 dark:text-green-400">
+                ✅ FHIR EpisodeOfCare ID: {formData.fhir_episode_of_care_id}
               </div>
             )}
             {formData.episode_id && (

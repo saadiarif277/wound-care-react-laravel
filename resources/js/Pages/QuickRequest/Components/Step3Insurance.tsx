@@ -351,7 +351,7 @@ export default function Step3Insurance({
               onChange={(e) => updateFormData({ prior_auth_permission: e.target.checked })}
             />
             <span className={cn("ml-2", t.text.primary)}>
-              MSC may initiate/follow up on prior authorization
+              I consent to prior authorization processing
             </span>
           </label>
           <p className={cn("mt-2 text-sm ml-6", t.text.secondary)}>

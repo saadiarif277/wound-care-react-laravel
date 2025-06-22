@@ -9,6 +9,7 @@ import React, { useEffect } from 'react';
 import {
   FiLogOut,
   FiMenu,
+  FiHelpCircle,
   FiX,
   FiChevronLeft,
   FiChevronRight,
@@ -201,6 +202,24 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
                     <ThemeToggleCompact className="ml-2" />
                   </div>
 
+                  {/* Help & Support Button */}
+                  <button
+                    onClick={() => {
+                      // Open help/support - could be a modal, external link, or page
+                      window.open('mailto:support@mschealthcare.com', '_blank');
+                    }}
+                    className={cn(
+                      "flex items-center w-full px-4 py-3 text-sm font-medium rounded-xl transition-all duration-200 mb-2",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500/50",
+                      theme === 'dark'
+                        ? `${t.glass.base} ${t.glass.border} ${t.glass.hover} backdrop-blur-md text-blue-400 hover:text-blue-300`
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 shadow-sm'
+                    )}
+                  >
+                    <FiHelpCircle className="flex-shrink-0 w-5 h-5 mr-3" />
+                    <span>Help & Support</span>
+                  </button>
+
                   {/* Logout Button */}
                   <button
                     onClick={async () => {
@@ -267,6 +286,23 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
 
                   {/* Theme Toggle in Collapsed State */}
                   <ThemeToggleCompact />
+
+                  {/* Collapsed Help & Support Button */}
+                  <button
+                    onClick={() => {
+                      window.open('mailto:support@mschealthcare.com', '_blank');
+                    }}
+                    className={cn(
+                      "flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-200",
+                      "focus:outline-none focus:ring-2 focus:ring-blue-500/50",
+                      theme === 'dark'
+                        ? `${t.glass.base} ${t.glass.border} ${t.glass.hover} text-blue-400`
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    )}
+                    title="Help & Support"
+                  >
+                    <FiHelpCircle className="w-4 h-4" />
+                  </button>
 
                   {/* Collapsed Logout Button */}
                   <button

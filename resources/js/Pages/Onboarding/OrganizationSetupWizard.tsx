@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Head, useForm, router } from '@inertiajs/react';
+import { Head, useForm } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Button } from '@/Components/Button';
 import { Card } from '@/Components/Card';
@@ -134,7 +134,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
         }
     ];
 
-    const { data, setData, post, processing, errors } = useForm<OnboardingFormData>({
+    const { data, setData, post, processing } = useForm<OnboardingFormData>({
         business_license: null,
         insurance_certificate: null,
         tax_exemption: null,
@@ -739,4 +739,4 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
             </div>
         </MainLayout>
     );
-} 
+}

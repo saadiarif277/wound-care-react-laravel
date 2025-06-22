@@ -611,8 +611,8 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                           <p className={cn(t.text.primary, "text-sm")}>Uploading documents...</p>
                           <div className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full mt-2">
                             <div
-                              className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300"
-                              style={{ width: `${uploadProgress}%` }}
+                              className={`h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300 upload-progress-bar`}
+                              data-progress={uploadProgress}
                             />
                           </div>
                         </div>

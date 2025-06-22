@@ -409,10 +409,10 @@ export default function Step4ClinicalBilling({
             </>
           )}
 
-          {/* Wound Location */}
+          {/* Wound Location with CPT Codes */}
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Wound Location <span className="text-red-500">*</span>
+              Wound Location & CPT Code <span className="text-red-500">*</span>
             </label>
             <select
               className={cn(
@@ -445,24 +445,56 @@ export default function Step4ClinicalBilling({
             {errors.wound_location && (
               <p className="mt-1 text-sm text-red-500">{errors.wound_location}</p>
             )}
-          </div>
 
-          <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Specific Wound Location (Optional)
-            </label>
-            <input
-              type="text"
-              className={cn(
-                "w-full p-2 rounded border transition-all",
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-              )}
-              value={formData.wound_location_details || ''}
-              onChange={(e) => updateFormData({ wound_location_details: e.target.value })}
-              placeholder="e.g., Right foot, plantar surface, 1st metatarsal"
-            />
+            {/* CPT Codes - Now inline with location */}
+            {formData.wound_location && (
+              <div className="mt-3">
+                <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                  Application CPT Codes (Based on Location) <span className="text-red-500">*</span>
+                </label>
+
+                {woundArea !== '0' && (
+                  <div className={cn(
+                    "p-2 rounded mb-2 text-sm",
+                    theme === 'dark' ? 'bg-blue-800/30 text-blue-300' : 'bg-blue-100 text-blue-800'
+                  )}>
+                    <strong>Auto-selected:</strong> {formData.wound_location.includes('trunk_arms_legs') ? 'Trunk/Arms/Legs' : 'Feet/Hands/Head'} | {woundArea} sq cm
+                  </div>
+                )}
+
+                <div className="space-y-1">
+                  {cptOptions.map(option => (
+                    <label key={option.value} className="flex items-center text-sm">
+                      <input
+                        type="checkbox"
+                        className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                        checked={formData.application_cpt_codes?.includes(option.value) || suggestedCodes.includes(option.value)}
+                        onChange={() => handleCPTCodeToggle(option.value)}
+                      />
+                      <span className={cn(
+                        "ml-2",
+                        suggestedCodes.includes(option.value)
+                          ? theme === 'dark' ? 'font-medium text-blue-400' : 'font-medium text-blue-700'
+                          : t.text.primary
+                      )}>
+                        {option.label}
+                        {suggestedCodes.includes(option.value) && (
+                          <span className={cn(
+                            "ml-2 text-xs px-2 py-1 rounded",
+                            theme === 'dark' ? 'bg-blue-800' : 'bg-blue-200'
+                          )}>
+                            Suggested
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {errors.cpt_codes && (
+                  <p className="mt-1 text-sm text-red-500">{errors.cpt_codes}</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Wound Size */}
@@ -581,60 +613,6 @@ export default function Step4ClinicalBilling({
         </h3>
 
         <div className="space-y-4">
-          {/* CPT Codes */}
-          <div>
-            <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-              Application CPT Codes <span className="text-red-500">*</span>
-            </label>
-
-            {formData.wound_location && woundArea !== '0' && (
-              <div className={cn(
-                "p-3 rounded mb-3",
-                theme === 'dark' ? 'bg-blue-800/30' : 'bg-blue-100'
-              )}>
-                <p className={cn("text-sm", theme === 'dark' ? 'text-blue-300' : 'text-blue-800')}>
-                  <strong>Auto-selected based on:</strong> {formData.wound_location.includes('trunk_arms_legs') ? 'Trunk/Arms/Legs' : 'Feet/Hands/Head'} | {woundArea} sq cm
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              {cptOptions.map(option => (
-                <label key={option.value} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                    checked={formData.application_cpt_codes?.includes(option.value) || suggestedCodes.includes(option.value)}
-                    onChange={() => handleCPTCodeToggle(option.value)}
-                  />
-                  <span className={cn(
-                    "ml-2 text-sm",
-                    suggestedCodes.includes(option.value)
-                      ? theme === 'dark' ? 'font-medium text-blue-400' : 'font-medium text-blue-700'
-                      : t.text.primary
-                  )}>
-                    {option.label}
-                    {suggestedCodes.includes(option.value) && (
-                      <span className={cn(
-                        "ml-2 text-xs px-2 py-1 rounded",
-                        theme === 'dark' ? 'bg-blue-800' : 'bg-blue-200'
-                      )}>
-                        Recommended
-                      </span>
-                    )}
-                  </span>
-                </label>
-              ))}
-            </div>
-            {errors.cpt_codes && (
-              <p className="mt-1 text-sm text-red-500">{errors.cpt_codes}</p>
-            )}
-
-            <p className={cn("text-xs mt-3 italic", t.text.secondary)}>
-              Note: CPT code recommendations are based on wound size and location. Final billing code selection is the provider's responsibility.
-            </p>
-          </div>
-
           {/* Prior Applications */}
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
