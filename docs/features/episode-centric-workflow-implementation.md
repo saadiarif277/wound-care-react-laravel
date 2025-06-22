@@ -34,7 +34,7 @@ Successfully refactored the QuickRequest module from a traditional step-by-step 
 - **Form Auto-fill**: Populates form with extracted data
 
 ### 4. API Integration
-**Route**: `POST /api/quick-request/create-episode-with-documents`
+**Route**: `POST /quick-request/create-episode-with-documents`
 
 - **Multipart Support**: Handles file uploads with form data
 - **Authentication**: Secured with `auth:sanctum` middleware

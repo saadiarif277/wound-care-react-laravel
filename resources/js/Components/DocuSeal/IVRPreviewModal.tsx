@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { X, FileText, CheckCircle, AlertCircle, Eye } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -111,6 +112,7 @@ const IVRPreviewModal: React.FC<IVRPreviewModalProps> = ({
             </div>
           </div>
           <button
+            title="Close Preview"
             onClick={onClose}
             className={cn(
               "p-2 rounded-lg transition-colors",

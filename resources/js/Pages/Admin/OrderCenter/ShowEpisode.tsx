@@ -8,28 +8,17 @@ import {
   ArrowLeft,
   FileText,
   Clock,
-  User,
-  Building2,
   Package,
   CheckCircle,
-  AlertTriangle,
-  Activity,
-  Calendar,
   Heart,
   Send,
   ChevronDown,
   ChevronUp,
-  DollarSign,
   FileCheck,
   Download,
-  AlertCircle,
-  RefreshCw,
   Info,
-  Bell,
   Upload,
-  X,
   Truck,
-  Image,
   Trash2,
   Plus,
 } from 'lucide-react';
@@ -831,7 +820,7 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
             </div>
 
             {/* Provider Information */}
-            {episode.orders.length > 0 && episode.orders[0].provider && (
+            {episode.orders.length > 0 && episode.orders[0]?.provider && (
               <div className={cn(t.glass.card, t.glass.border, "p-6")}>
                 <h3 className={cn(t.text.primary, "text-lg font-semibold mb-4")}>Provider Information</h3>
 

@@ -144,7 +144,6 @@ class QuickRequestController extends Controller
     private function getActiveProducts()
     {
         return Product::where('is_active', true)
-            ->whereNotNull('manufacturer_id')
             ->get()
             ->map(function($product) {
                 $sizes = $product->available_sizes;
@@ -159,6 +158,7 @@ class QuickRequestController extends Controller
                     'code' => $product->q_code,
                     'name' => $product->name,
                     'manufacturer' => $product->manufacturer,
+                    'manufacturer_id' => $product->manufacturer_id,
                     'available_sizes' => $sizes,
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
                 ];
@@ -925,9 +925,9 @@ class QuickRequestController extends Controller
             if ($data['use_builder'] ?? false) {
                 $builderRequest = new Request([
                     'user_email' => 'limitless@mscwoundcare.com',
-                    'integration_email' => $prefillData['patient_email'] ?? 'limitless@mscwoundcare.com',
+                    'integration_email' => $prefillData['admin@mscwound.com'] ?? 'limitless@mscwoundcare.com',
                     'template_id' => $templateId,
-                    'template_name' => "MSC {$manufacturer} IVR Form",
+                    'template_name' => "{$manufacturer} IVR Form",
                     'document_urls' => [],
                     'prefill_data' => $prefillData
                 ]);

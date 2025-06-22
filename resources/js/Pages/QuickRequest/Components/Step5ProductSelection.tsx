@@ -1,13 +1,34 @@
 import { useState, useEffect } from 'react';
+import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
+
+interface Product {
+  id: number;
+  name: string;
+  sku: string;
+  q_code: string;
+  manufacturer: string;
+  manufacturer_id?: number;
+  category: string;
+  description: string;
+  price_per_sq_cm: number;
+  msc_price?: number;
+  available_sizes?: number[] | string[];
+  image_url?: string;
+  commission_rate?: number;
+  docuseal_template_id?: string;
+  signature_required?: boolean;
+  size_options?: string[];
+  size_pricing?: Record<string, number>;
+  size_unit?: string;
+}
 
 interface SelectedProduct {
   product_id: number;
   quantity: number;
   size?: string;
-  product?: any;
+  product: Product;
 }
 
 interface FormData {
@@ -25,30 +46,16 @@ interface FormData {
 interface Step5Props {
   formData: FormData;
   updateFormData: (data: Partial<FormData>) => void;
-  products: Array<{
-    id: number;
-    code: string;
-    name: string;
-    manufacturer: string;
-    manufacturer_id?: number;
-    available_sizes?: number[];
-    price_per_sq_cm?: number;
-    msc_price?: number;
-    docuseal_template_id?: string;
-    signature_required?: boolean;
-  }>;
-  providerProducts?: Record<string, string[]>;
   errors: Record<string, string>;
   currentUser?: {
     role?: string;
   };
 }
 
+
 export default function Step5ProductSelection({
   formData,
   updateFormData,
-  products,
-  providerProducts = {},
   errors,
   currentUser
 }: Step5Props) {

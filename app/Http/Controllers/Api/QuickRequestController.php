@@ -111,7 +111,7 @@ class QuickRequestController extends Controller
                 'patient_display_id' => $validated['patient_display_id'],
                 'manufacturer_id' => $validated['manufacturer_id'],
                 'status' => 'draft',
-                'form_data' => $validated['form_data'] ?? [],
+                'metadata' => $validated['form_data'] ?? [],
             ]);
 
             return response()->json([
@@ -180,10 +180,8 @@ class QuickRequestController extends Controller
                 'patient_id' => $tempPatientId,
                 'patient_fhir_id' => $tempPatientId,
                 'patient_display_id' => explode(' ', $validated['patient_name'])[0] ?? 'PATIENT',
-                'provider_id' => $validated['provider_id'],
-                'facility_id' => $validated['facility_id'],
                 'status' => 'draft',
-                'form_data' => array_merge($validated, ['extracted_data' => $extractedData]),
+                'metadata' => array_merge($validated, ['extracted_data' => $extractedData]),
             ]);
 
             return response()->json([

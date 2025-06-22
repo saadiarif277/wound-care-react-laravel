@@ -76,7 +76,22 @@ const handleProductSelectionComplete = async () => {
     const selectedProduct = products.find(p => p.id === formData.selected_products[0].product_id);
     
     // Create episode for DocuSeal
+    ```typescript
     const response = await fetch('/api/quick-request/create-episode', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+        },
+        body: JSON.stringify({
+            patient_id: formData.patient_id,
+            patient_fhir_id: formData.patient_fhir_id,
+            patient_display_id: formData.patient_display_id,
+            manufacturer_id: selectedProduct.manufacturer_id,
+            form_data: formData
+        })
+    });
+    ```
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

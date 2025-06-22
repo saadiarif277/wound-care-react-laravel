@@ -4,7 +4,6 @@ import MainLayout from '@/Layouts/MainLayout';
 import { Card } from '@/Components/ui/card';
 import { Badge } from '@/Components/ui/badge';
 import { GlassTable, Table, Thead, Tbody, Tr, Th, Td } from '@/Components/ui/GlassTable';
-import { glassTheme } from '@/theme/glass-theme';
 import {
   Search,
   Filter,
@@ -17,8 +16,6 @@ import {
   Package,
   FileText,
   ChevronRight,
-  TrendingUp,
-  Calendar,
   CreditCard,
   UserPlus
 } from 'lucide-react';

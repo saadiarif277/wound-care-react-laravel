@@ -224,7 +224,7 @@ export default function PayerSearchInput({
           ) : (
             <div>
               {payers.length === 50 && (
-                <div className={cn("px-3 py-2 text-xs sticky top-0", t.glass.panel, t.text.secondary)}>
+                <div className={cn("px-3 py-2 text-xs sticky top-0", t.glass.card, t.text.secondary)}>
                   Showing first 50 results. Type more to refine search.
                 </div>
               )}

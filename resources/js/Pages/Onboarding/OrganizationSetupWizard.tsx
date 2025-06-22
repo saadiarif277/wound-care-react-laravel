@@ -15,6 +15,7 @@ import {
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+
 interface OnboardingStep {
     id: number;
     title: string;
@@ -518,7 +519,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             value={user.first_name}
                             onChange={(e) => {
                                 const users = [...data.additional_users];
-                                users[index].first_name = e.target.value;
+                                users[index]!.first_name = e.target.value;
                                 setData('additional_users', users);
                             }}
                             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -529,8 +530,10 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             value={user.last_name}
                             onChange={(e) => {
                                 const users = [...data.additional_users];
-                                users[index].last_name = e.target.value;
-                                setData('additional_users', users);
+                                if (users[index]) {
+                                    users[index].last_name = e.target.value;
+                                    setData('additional_users', users);
+                                }
                             }}
                             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -540,8 +543,10 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             value={user.email}
                             onChange={(e) => {
                                 const users = [...data.additional_users];
-                                users[index].email = e.target.value;
-                                setData('additional_users', users);
+                                if (users[index]) {
+                                    users[index].email = e.target.value;
+                                    setData('additional_users', users);
+                                }
                             }}
                             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
@@ -549,7 +554,9 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                             value={user.role}
                             onChange={(e) => {
                                 const users = [...data.additional_users];
-                                users[index].role = e.target.value;
+                                if (users[index]) {
+                                    users[index].role = e.target.value;
+                                }
                                 setData('additional_users', users);
                             }}
                             className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"

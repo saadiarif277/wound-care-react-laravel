@@ -659,7 +659,7 @@ const ProductSelector: React.FC<Props> = ({
                     }
 
                     const totalPrice = unitPrice * item.quantity;
-
+                    
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className="border border-gray-200 rounded-md p-3">
                         <div className="flex items-start justify-between mb-2">
@@ -685,27 +685,37 @@ const ProductSelector: React.FC<Props> = ({
                             )}
                           </div>
                           <button
+                            type="button"
                             onClick={() => removeProduct(item.product_id, item.size)}
                             className="text-red-500 hover:text-red-700"
+                            aria-label="Remove size"
+                            title="Remove size"
                           >
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-
+                    
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
+                    
                             <button
+                              type="button"
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity - 1)}
                               className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                              aria-label="Decrease quantity"
+                              title="Decrease quantity"
                             >
                               <Minus className="w-3 h-3" />
                             </button>
                             <span className="text-sm font-medium w-8 text-center">
                               {item.quantity}
                             </span>
+                    
                             <button
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity + 1)}
                               className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"
+                              aria-label="Increase quantity"
+                              title="Increase quantity"
                             >
                               <Plus className="w-3 h-3" />
                             </button>
@@ -756,7 +766,7 @@ const ProductCard: React.FC<{
   isDisabled?: boolean;
   canAddMoreSizes?: boolean;
   isSelected?: boolean;
-}> = ({ product, onAdd, isRecommended = false, roleRestrictions, isDisabled = false, canAddMoreSizes = false, isSelected = false }) => {
+}> = ({ product, onAdd, isRecommended = false, roleRestrictions, isDisabled = false, isSelected = false }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -891,7 +901,7 @@ const ProductCard: React.FC<{
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
               return (
                 <option key={size} value={size.toString()}>
-                  {getProductSizeLabel(product.name, sizeNum)} - {formatPrice(pricePerUnit * sizeNum)}
+                  {getProductSizeLabel(product.name)} - {formatPrice(pricePerUnit * sizeNum)}
                 </option>
               );
             })}

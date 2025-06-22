@@ -9,7 +9,7 @@ use App\Models\User;
 use App\Models\Users\Organization\Organization;
 use App\Models\Fhir\Facility;
 use Illuminate\Support\Str;
-
+use Illuminate\Support\Facades\DB;
 class TestOrderSeeder extends Seeder
 {
     public function run()

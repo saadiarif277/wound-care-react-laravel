@@ -279,6 +279,11 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Super administrator with complete system control',
                 'permissions' => array_keys($permissions),
             ],
+            'patient' => [
+                'name'        => 'Patient',
+                'description' => 'A patient user, typically managed via FHIR records.',
+                'permissions' => [],
+            ],
         ];
 
         $roleIds = [];
@@ -368,6 +373,56 @@ class DatabaseSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ],
+            [
+                'account_id' => $accountId,
+                'first_name' => 'Patient',
+                'last_name'  => 'One',
+                'email'      => 'patient1@example.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $accountId,
+                'first_name' => 'Patient',
+                'last_name'  => 'Two',
+                'email'      => 'patient2@example.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $accountId,
+                'first_name' => 'Patient',
+                'last_name'  => 'Three',
+                'email'      => 'patient3@example.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $accountId,
+                'first_name' => 'Patient',
+                'last_name'  => 'Four',
+                'email'      => 'patient4@example.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $accountId,
+                'first_name' => 'Patient',
+                'last_name'  => 'Five',
+                'email'      => 'patient5@example.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => false,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ];
 
         $userIds = [];
@@ -377,21 +432,30 @@ class DatabaseSeeder extends Seeder
 
         // 8. Assign roles to users
         $roleAssignments = [
-            'msc-admin'     => 'admin@msc.com',
-            'provider'      => 'provider@example.com',
-            'office-manager'=> 'manager@example.com',
-            'msc-rep'       => 'rep@msc.com',
-            'msc-subrep'    => 'subrep@msc.com',
+            'msc-admin'     => ['admin@msc.com'],
+            'provider'      => ['provider@example.com'],
+            'office-manager'=> ['manager@example.com'],
+            'msc-rep'       => ['rep@msc.com'],
+            'msc-subrep'    => ['subrep@msc.com'],
+            'patient'       => [
+                'patient1@example.com',
+                'patient2@example.com',
+                'patient3@example.com',
+                'patient4@example.com',
+                'patient5@example.com',
+            ],
         ];
 
-        foreach ($roleAssignments as $roleSlug => $email) {
-            if (isset($roleIds[$roleSlug], $userIds[$email])) {
-                DB::table('user_role')->insert([
-                    'user_id'    => $userIds[$email],
-                    'role_id'    => $roleIds[$roleSlug],
-                    'created_at' => now(),
-                    'updated_at' => now(),
-                ]);
+        foreach ($roleAssignments as $roleSlug => $emails) {
+            foreach ($emails as $email) {
+                if (isset($roleIds[$roleSlug], $userIds[$email])) {
+                    DB::table('user_role')->insert([
+                        'user_id'    => $userIds[$email],
+                        'role_id'    => $roleIds[$roleSlug],
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ]);
+                }
             }
         }
 
@@ -614,6 +678,7 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,                     // Creates comprehensive product catalog with CMS data
             DocusealFolderSeeder::class,               // Creates folders before templates
             DocusealTemplateSeeder::class,             // Creates templates that reference folders
+            PatientManufacturerIVREpisodeSeeder::class, // Creates sample episode data
         ]);
 
         $this->command->info('Database seeded successfully!');

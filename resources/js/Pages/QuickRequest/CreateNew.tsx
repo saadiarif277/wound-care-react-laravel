@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiPackage, FiCreditCard, FiActivity, FiShoppingCart, FiHelpCircle, FiFileText } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiPackage, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { ensureValidCSRFToken, addCSRFTokenToFormData, testCSRFToken } from '@/lib/csrf';
+import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
 import CSRFTestButton from '@/Components/CSRFTestButton';
 import Step1CreateEpisode from './Components/Step1CreateEpisode';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
@@ -937,12 +937,12 @@ function QuickRequestCreateNew({
 
             {currentSection === 3 && (
               <Step5ProductSelection
-                formData={formData as any}
-                updateFormData={updateFormData as any}
-                products={products}
-                providerProducts={providerProducts}
-                errors={errors}
-                currentUser={currentUser}
+              formData={formData as any}
+              updateFormData={updateFormData as any}
+              products={products}
+              providerProducts={providerProducts}
+              errors={errors}
+              currentUser={currentUser}
               />
             )}
 

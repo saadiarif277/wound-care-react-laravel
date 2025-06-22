@@ -46,7 +46,7 @@ interface SelectedProduct {
   product_id: number;
   quantity: number;
   size?: string;
-  product?: Product;
+  product: Product;
 }
 
 interface RoleRestrictions {
@@ -387,9 +387,11 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   }, [selectedProductsMemo, products, last24HourOrdersMemo]);
 
   const addProductToSelection = (product: Product, quantity: number = 1, size?: string) => {
+    const newSelection: SelectedProduct = { product_id: product.id, quantity, size, product };
+
     // If this is a different product, clear all existing selections
     if (selectedProductsMemo.length > 0 && selectedProductsMemo[0]?.product_id !== product.id) {
-      onProductsChange([{ product_id: product.id, quantity, size, product }]);
+      onProductsChange([newSelection]);
     } else {
       // Check if this size already exists
       const existingIndex = selectedProductsMemo.findIndex(item =>
@@ -400,13 +402,13 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
         // Update existing size/quantity
         const updated = [...selectedProductsMemo];
         const existingItem = updated[existingIndex];
-        if (existingItem && existingItem.product_id) {
-          updated[existingIndex] = { ...existingItem, quantity: existingItem.quantity + quantity };
+        if (existingItem) {
+          updated[existingIndex] = { ...existingItem, quantity: existingItem.quantity + quantity, product };
           onProductsChange(updated);
         }
       } else {
         // Add new size/quantity
-        onProductsChange([...selectedProductsMemo, { product_id: product.id, quantity, size, product }]);
+        onProductsChange([...selectedProductsMemo, newSelection]);
       }
     }
   };
@@ -566,6 +568,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
+                      title="Manage Sizes"
                       onClick={() => setShowSizeManager(!showSizeManager)}
                       className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md ${t.button.secondary.base} ${t.button.secondary.hover}`}
                     >
@@ -816,6 +819,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                           <button
                             onClick={() => removeProduct(item.product_id, item.size)}
                             className="text-red-500 hover:text-red-700"
+                            title="Remove product"
                           >
                             <X className="w-4 h-4" />
                           </button>
@@ -823,16 +827,20 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
+
                             <button
+                              title="Decrease quantity"
+                              aria-label="Decrease quantity"
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity - 1)}
                               className={`w-6 h-6 rounded-full border ${theme === 'dark' ? 'border-white/20 hover:bg-white/10' : 'border-gray-300 hover:bg-gray-50'} flex items-center justify-center`}
                             >
                               <Minus className="w-3 h-3" />
                             </button>
-                            <span className={`text-sm font-medium w-8 text-center ${t.text.primary}`}>
                               {item.quantity}
-                            </span>
+
                             <button
+                              title="Increase quantity"
+                              aria-label="Increase quantity"
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity + 1)}
                               className={`w-6 h-6 rounded-full border ${theme === 'dark' ? 'border-white/20 hover:bg-white/10' : 'border-gray-300 hover:bg-gray-50'} flex items-center justify-center`}
                             >
@@ -1032,11 +1040,12 @@ const QuickRequestProductCard: React.FC<{
           >
             <option value="">Select size...</option>
             {product.available_sizes.map(size => {
+              const sizeStr = size.toString();
               const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
               return (
-                <option key={size} value={size.toString()}>
-                  {getProductSizeLabel(product.name, sizeNum)} - {formatPrice(pricePerUnit * sizeNum)}
+                <option key={sizeStr} value={sizeStr}>
+                  {getProductSizeLabel(product.name, sizeStr)} - {formatPrice(pricePerUnit * sizeNum)}
                 </option>
               );
             })}
@@ -1140,7 +1149,10 @@ const ConsultationModal: React.FC<{
             <h3 className={`text-lg font-semibold ${t.text.primary}`}>
               Contact MSC Admin
             </h3>
+
             <button
+              type="button"
+              title="Close"
               onClick={onClose}
               className={`${t.text.secondary} hover:${t.text.primary}`}
             >
