@@ -311,6 +311,180 @@ class FhirController extends Controller
     }
 
     /**
+     * Create an EpisodeOfCare resource
+     * POST /fhir/EpisodeOfCare
+     */
+    public function createEpisodeOfCare(Request $request): JsonResponse
+    {
+        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
+        if (!Auth::user()->hasPermission('create-product-requests')) {
+            return $this->fhirError('forbidden', 'Insufficient permissions to create episode of care records', 403);
+        }
+
+        try {
+            $data = $request->all();
+            
+            // Validate the incoming EpisodeOfCare resource
+            $validator = Validator::make($data, [
+                'resourceType' => 'required|string|in:EpisodeOfCare',
+                'status' => 'required|string|in:planned,waitlist,active,onhold,finished,cancelled,entered-in-error',
+                'patient' => 'required|array',
+                'patient.reference' => 'required|string',
+                'period' => 'sometimes|array',
+                'managingOrganization' => 'sometimes|array',
+                'type' => 'sometimes|array',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->fhirError('invalid', 'Invalid EpisodeOfCare resource format', 400, $validator->errors()->toArray());
+            }
+
+            // For now, just return the resource with a generated ID
+            // In a real implementation, this would be saved to Azure FHIR
+            $data['id'] = \Illuminate\Support\Str::uuid()->toString();
+            $data['meta'] = [
+                'versionId' => '1',
+                'lastUpdated' => now()->toIso8601String()
+            ];
+
+            Log::info('FHIR EpisodeOfCare created', ['episode_of_care_id' => $data['id']]);
+
+            return response()->json($data, 201)
+                ->header('Content-Type', 'application/fhir+json')
+                ->header('Location', url("/fhir/EpisodeOfCare/" . $data['id']));
+
+        } catch (\Exception $e) {
+            Log::error('FHIR EpisodeOfCare creation failed', ['error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error: ' . $e->getMessage(), 500);
+        }
+    }
+
+    /**
+     * Read an EpisodeOfCare resource
+     * GET /fhir/EpisodeOfCare/{id}
+     */
+    public function readEpisodeOfCare(string $id): JsonResponse
+    {
+        // Check PHI permissions
+        if (!Auth::user()->hasPermission('view-phi')) {
+            return $this->fhirError('forbidden', 'Insufficient permissions to view PHI', 403);
+        }
+
+        try {
+            // For now, return a mock response
+            // In a real implementation, this would fetch from Azure FHIR
+            $episodeOfCare = [
+                'resourceType' => 'EpisodeOfCare',
+                'id' => $id,
+                'meta' => [
+                    'versionId' => '1',
+                    'lastUpdated' => now()->toIso8601String()
+                ],
+                'status' => 'active',
+                'patient' => [
+                    'reference' => 'Patient/' . \Illuminate\Support\Str::uuid()->toString()
+                ]
+            ];
+
+            return response()->json($episodeOfCare)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (\Exception $e) {
+            Log::error('FHIR EpisodeOfCare read failed', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error', 500);
+        }
+    }
+
+    /**
+     * Update an EpisodeOfCare resource
+     * PUT /fhir/EpisodeOfCare/{id}
+     */
+    public function updateEpisodeOfCare(Request $request, string $id): JsonResponse
+    {
+        try {
+            $validator = Validator::make($request->all(), [
+                'resourceType' => 'required|string|in:EpisodeOfCare',
+                'id' => 'required|string',
+                'status' => 'required|string',
+                'patient' => 'required|array',
+            ]);
+
+            if ($validator->fails()) {
+                return $this->fhirError('invalid', 'Invalid resource format', 400);
+            }
+
+            if ($request->input('id') !== $id) {
+                return $this->fhirError('invalid', 'Resource ID mismatch', 400);
+            }
+
+            // For now, return the updated resource
+            // In a real implementation, this would update in Azure FHIR
+            $data = $request->all();
+            $data['meta'] = [
+                'versionId' => '2',
+                'lastUpdated' => now()->toIso8601String()
+            ];
+
+            return response()->json($data)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (\Exception $e) {
+            Log::error('FHIR EpisodeOfCare update failed', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error', 500);
+        }
+    }
+
+    /**
+     * Delete an EpisodeOfCare resource
+     * DELETE /fhir/EpisodeOfCare/{id}
+     */
+    public function deleteEpisodeOfCare(string $id): JsonResponse
+    {
+        try {
+            // For now, just return success
+            // In a real implementation, this would delete from Azure FHIR
+            return response()->json(null, 204);
+
+        } catch (\Exception $e) {
+            Log::error('FHIR EpisodeOfCare deletion failed', ['id' => $id, 'error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error', 500);
+        }
+    }
+
+    /**
+     * Search EpisodeOfCare resources
+     * GET /fhir/EpisodeOfCare
+     */
+    public function searchEpisodeOfCare(Request $request): JsonResponse
+    {
+        try {
+            $searchParams = [
+                'patient' => $request->query('patient'),
+                'status' => $request->query('status'),
+                'organization' => $request->query('organization'),
+                '_count' => (int) ($request->query('_count', 20)),
+                '_page' => (int) ($request->query('_page', 1)),
+            ];
+
+            // For now, return an empty bundle
+            // In a real implementation, this would search Azure FHIR
+            $bundle = [
+                'resourceType' => 'Bundle',
+                'type' => 'searchset',
+                'total' => 0,
+                'entry' => []
+            ];
+
+            return response()->json($bundle)
+                ->header('Content-Type', 'application/fhir+json');
+
+        } catch (\Exception $e) {
+            Log::error('FHIR EpisodeOfCare search failed', ['params' => $request->query(), 'error' => $e->getMessage()]);
+            return $this->fhirError('processing', 'Internal server error', 500);
+        }
+    }
+
+    /**
      * Create a Coverage resource
      * POST /fhir/Coverage
      */

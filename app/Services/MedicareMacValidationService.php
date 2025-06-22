@@ -2,66 +2,18 @@
 
 namespace App\Services;
 
-use App\Models\Order;
-use App\Models\MedicareMacValidation;
+use App\Models\Order\Order;
+use App\Models\Insurance\MedicareMacValidation;
 use App\Services\ValidationBuilderEngine;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Support\Facades\Log;
-use Carbon\Carbon;
 
 class MedicareMacValidationService
 {
     private ValidationBuilderEngine $validationEngine;
     private CmsCoverageApiService $cmsService;
 
-    /**
-     * MAC Contractor mappings by state/region
-     */
-    private array $macContractors = [
-        // MAC Jurisdiction J1 (J1)
-        'CA' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'NV' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'HI' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'AK' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'WA' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'OR' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'ID' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'UT' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
-        'AZ' => ['contractor' => 'Noridian Healthcare Solutions', 'jurisdiction' => 'J1'],
 
-        // MAC Jurisdiction J5 (J5)
-        'IA' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J5'],
-        'KS' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J5'],
-        'MO' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J5'],
-        'NE' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J5'],
-
-        // MAC Jurisdiction J6 (J6)
-        'IL' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
-        'IN' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
-        'MI' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
-        'MN' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
-        'WI' => ['contractor' => 'Wisconsin Physicians Service', 'jurisdiction' => 'J6'],
-
-        // MAC Jurisdiction J8 (J8)
-        // Note: J8 covers specific DME jurisdictions
-
-        // MAC Jurisdiction JH (JH)
-        'NY' => ['contractor' => 'CGS Administrators', 'jurisdiction' => 'JH'],
-
-        // MAC Jurisdiction JJ (JJ)
-        'GA' => ['contractor' => 'Palmetto GBA', 'jurisdiction' => 'JJ'],
-        'SC' => ['contractor' => 'Palmetto GBA', 'jurisdiction' => 'JJ'],
-        'WV' => ['contractor' => 'Palmetto GBA', 'jurisdiction' => 'JJ'],
-        'VA' => ['contractor' => 'Palmetto GBA', 'jurisdiction' => 'JJ'],
-        'NC' => ['contractor' => 'Palmetto GBA', 'jurisdiction' => 'JJ'],
-
-        // MAC Jurisdiction JL (JL)
-        'DE' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'JL'],
-        'DC' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'JL'],
-        'MD' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'JL'],
-        'NJ' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'JL'],
-        'PA' => ['contractor' => 'Novitas Solutions', 'jurisdiction' => 'JL'],
-    ];
 
     /**
      * Common wound care CPT codes and their coverage requirements
@@ -184,9 +136,16 @@ class MedicareMacValidationService
         // Use ValidationBuilderEngine for comprehensive validation
         $validationResults = $this->validationEngine->validateOrder($order, $specialty);
 
-        // Set specialty-specific requirements enhanced with CMS data
+        // Set specialty-specific requirements and include CMS LCDs
         $specialtyRequirements = $this->getSpecialtyRequirements($specialty, $validationType);
-        $specialtyRequirements['cms_lcds'] = $cmsLcds;
+        if (is_array($specialtyRequirements)) {
+            $specialtyRequirements['cms_lcds'] = $cmsLcds;
+        } else {
+            $specialtyRequirements = [
+                'requirements' => $specialtyRequirements,
+                'cms_lcds' => $cmsLcds
+            ];
+        }
         $specialtyRequirements['cms_ncds'] = $cmsNcds;
         $specialtyRequirements['validation_results'] = $validationResults;
 

@@ -202,6 +202,30 @@ Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(functio
         // Add other Observation specific routes here if needed (e.g., create, read, update)
     });
 
+    // EpisodeOfCare Resource Routes
+    Route::prefix('EpisodeOfCare')->name('episodeOfCare.')->group(function () {
+        Route::post('/', [FhirController::class, 'createEpisodeOfCare'])->name('create');
+        Route::get('/', [FhirController::class, 'searchEpisodeOfCare'])->name('search');
+        Route::get('{id}', [FhirController::class, 'readEpisodeOfCare'])->name('read');
+        Route::put('{id}', [FhirController::class, 'updateEpisodeOfCare'])->name('update');
+        Route::delete('{id}', [FhirController::class, 'deleteEpisodeOfCare'])->name('delete');
+    });
+
+    // Coverage Resource Routes
+    Route::prefix('Coverage')->name('coverage.')->group(function () {
+        Route::post('/', [FhirController::class, 'createCoverage'])->name('create');
+    });
+
+    // QuestionnaireResponse Resource Routes
+    Route::prefix('QuestionnaireResponse')->name('questionnaireResponse.')->group(function () {
+        Route::post('/', [FhirController::class, 'createQuestionnaireResponse'])->name('create');
+    });
+
+    // DeviceRequest Resource Routes
+    Route::prefix('DeviceRequest')->name('deviceRequest.')->group(function () {
+        Route::post('/', [FhirController::class, 'createDeviceRequest'])->name('create');
+    });
+
     // Transaction/Batch endpoint
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });

@@ -299,22 +299,17 @@ export default function Step4ClinicalBilling({
                     : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
                   errors.pressure_ulcer_diagnosis && 'border-red-500'
                 )}
-                style={theme === 'dark' ? {
-                  backgroundColor: '#1f2937',
-                  color: '#ffffff'
-                } : {}}
                 value={formData.pressure_ulcer_diagnosis_code || ''}
                 onChange={(e) => updateFormData({ pressure_ulcer_diagnosis_code: e.target.value })}
                 disabled={loadingCodes}
               >
-                <option value="" style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}>
+                <option value="">
                   Select diagnosis code...
                 </option>
                 {pressureUlcerCodes.map(code => (
                   <option
                     key={code.code}
                     value={code.code}
-                    style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}
                   >
                     {code.code} - {code.description}
                   </option>
@@ -341,23 +336,17 @@ export default function Step4ClinicalBilling({
                       : 'bg-yellow-50 border-yellow-400 text-gray-900 focus:border-yellow-500 [&>option]:bg-white [&>option]:text-gray-900',
                     errors.yellow_diagnosis && 'border-red-500'
                   )}
-                  style={theme === 'dark' ? {
-                    backgroundColor: '#1f2937',
-                    color: '#ffffff',
-                    borderColor: '#d97706'
-                  } : {}}
                   value={formData.yellow_diagnosis_code || ''}
                   onChange={(e) => updateFormData({ yellow_diagnosis_code: e.target.value })}
                   disabled={loadingCodes}
                 >
-                  <option value="" style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}>
+                  <option value="">
                     {loadingCodes ? 'Loading...' : 'Select yellow code...'}
                   </option>
                   {yellowCodes.map(code => (
                     <option
                       key={code.code}
                       value={code.code}
-                      style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}
                     >
                       {code.code} - {code.description}
                     </option>
@@ -380,23 +369,17 @@ export default function Step4ClinicalBilling({
                       : 'bg-orange-50 border-orange-400 text-gray-900 focus:border-orange-500 [&>option]:bg-white [&>option]:text-gray-900',
                     errors.orange_diagnosis && 'border-red-500'
                   )}
-                  style={theme === 'dark' ? {
-                    backgroundColor: '#1f2937',
-                    color: '#ffffff',
-                    borderColor: '#ea580c'
-                  } : {}}
                   value={formData.orange_diagnosis_code || ''}
                   onChange={(e) => updateFormData({ orange_diagnosis_code: e.target.value })}
                   disabled={loadingCodes}
                 >
-                  <option value="" style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}>
+                  <option value="">
                     {loadingCodes ? 'Loading...' : 'Select orange code...'}
                   </option>
                   {orangeCodes.map(code => (
                     <option
                       key={code.code}
                       value={code.code}
-                      style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}
                     >
                       {code.code} - {code.description}
                     </option>
@@ -422,21 +405,16 @@ export default function Step4ClinicalBilling({
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
                 errors.wound_location && 'border-red-500'
               )}
-              style={theme === 'dark' ? {
-                backgroundColor: '#1f2937',
-                color: '#ffffff'
-              } : {}}
               value={formData.wound_location || ''}
               onChange={(e) => updateFormData({ wound_location: e.target.value })}
             >
-              <option value="" style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}>
+              <option value="">
                 Select location...
               </option>
               {woundLocations.map(loc => (
                 <option
                   key={loc.value}
                   value={loc.value}
-                  style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}
                 >
                   {loc.label}
                 </option>
@@ -683,10 +661,6 @@ export default function Step4ClinicalBilling({
                   : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
                 errors.place_of_service && 'border-red-500'
               )}
-              style={theme === 'dark' ? {
-                backgroundColor: '#1f2937',
-                color: '#ffffff'
-              } : {}}
               value={formData.place_of_service || '11'}
               onChange={(e) => updateFormData({ place_of_service: e.target.value })}
             >
@@ -694,7 +668,6 @@ export default function Step4ClinicalBilling({
                 <option
                   key={option.value}
                   value={option.value}
-                  style={theme === 'dark' ? { backgroundColor: '#1f2937', color: '#ffffff' } : {}}
                 >
                   {option.label}
                 </option>

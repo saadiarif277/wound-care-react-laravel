@@ -134,7 +134,7 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
         }
     ];
 
-    const { data, setData, post, processing } = useForm<OnboardingFormData>({
+    const { data, setData, post } = useForm<OnboardingFormData>({
         business_license: null,
         insurance_certificate: null,
         tax_exemption: null,

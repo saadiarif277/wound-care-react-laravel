@@ -386,7 +386,7 @@ function QuickRequestCreateNew({
               }] : undefined
             };
 
-            const response = await axios.post('/fhir/Coverage', coverageResource, {
+            const response = await axios.post('/api/fhir/Coverage', coverageResource, {
               headers: {
                 'X-CSRF-TOKEN': csrfToken,
                 'Content-Type': 'application/fhir+json'
@@ -453,7 +453,7 @@ function QuickRequestCreateNew({
               ]
             };
 
-            const response = await axios.post('/fhir/QuestionnaireResponse', questionnaireResponse, {
+            const response = await axios.post('/api/fhir/QuestionnaireResponse', questionnaireResponse, {
               headers: {
                 'X-CSRF-TOKEN': csrfToken,
                 'Content-Type': 'application/fhir+json'
@@ -497,7 +497,7 @@ function QuickRequestCreateNew({
                   } : undefined
                 };
 
-                const response = await axios.post('/fhir/DeviceRequest', deviceRequest, {
+                const response = await axios.post('/api/fhir/DeviceRequest', deviceRequest, {
                   headers: {
                     'X-CSRF-TOKEN': csrfToken,
                     'Content-Type': 'application/fhir+json'
@@ -617,7 +617,7 @@ function QuickRequestCreateNew({
           }
         };
 
-        const response = await axios.post('/fhir/Patient', patientResource, {
+        const response = await axios.post('/api/fhir/Patient', patientResource, {
           headers: {
             'X-CSRF-TOKEN': csrfToken,
             'Content-Type': 'application/fhir+json'
@@ -665,7 +665,7 @@ function QuickRequestCreateNew({
             }
           };
 
-          const episodeResponse = await axios.post('/fhir/EpisodeOfCare', episodeOfCareResource, {
+          const episodeResponse = await axios.post('/api/fhir/EpisodeOfCare', episodeOfCareResource, {
             headers: {
               'X-CSRF-TOKEN': csrfToken,
               'Content-Type': 'application/fhir+json'

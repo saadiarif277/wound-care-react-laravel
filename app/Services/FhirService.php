@@ -5,7 +5,6 @@ namespace App\Services;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
-use Carbon\Carbon;
 
 class FhirService
 {
@@ -662,7 +661,7 @@ class FhirService
             }
 
             $bundle = $response->json();
-            
+
             // Extract entries from bundle
             $coverages = [];
             if (isset($bundle['entry'])) {

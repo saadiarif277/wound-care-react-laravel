@@ -9,13 +9,12 @@ use App\Models\Order\Manufacturer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
-use Illuminate\Support\Str;
 
 class EpisodeWorkflowTest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
-    protected $user;
+    protected User $user;
     protected $manufacturer;
 
     protected function setUp(): void

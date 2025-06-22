@@ -67,8 +67,8 @@ class DocuSealJwtTest extends TestCase
         $this->assertEquals($this->user->email, $decoded->user_email);
         $this->assertEquals('test-template-123', $decoded->template_id);
         $this->assertEquals('Test Form', $decoded->name);
-        $this->assertObjectHasAttribute('iat', $decoded);
-        $this->assertObjectHasAttribute('exp', $decoded);
+        $this->assertTrue(property_exists($decoded, 'iat'));
+        $this->assertTrue(property_exists($decoded, 'exp'));
     }
 
     public function test_can_generate_jwt_token_with_order()
@@ -101,7 +101,7 @@ class DocuSealJwtTest extends TestCase
         $token = $response->json('token');
         $decoded = JWT::decode($token, new Key('test-api-key', 'HS256'));
 
-        $this->assertObjectHasAttribute('metadata', $decoded);
+        $this->assertTrue(property_exists($decoded, 'metadata'));
         $this->assertEquals($order->id, $decoded->metadata->order_id);
         $this->assertEquals($order->order_number, $decoded->metadata->order_number);
         $this->assertEquals($order->organization_id, $decoded->metadata->organization_id);

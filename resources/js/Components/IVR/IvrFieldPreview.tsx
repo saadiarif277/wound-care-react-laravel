@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/UI/GlassCard';
+import Heading from '@/Components/UI/Heading';
 
 interface IvrFieldPreviewProps {
     formData: any;
     manufacturer: string;
+    className?: string;
 }
 
 interface FieldCoverage {
@@ -14,16 +19,35 @@ interface FieldCoverage {
     coverage_level: 'excellent' | 'good' | 'fair' | 'poor';
 }
 
-export function IvrFieldPreview({ formData, manufacturer }: IvrFieldPreviewProps) {
+export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldPreviewProps) {
     const [fields, setFields] = useState<any[]>([]);
     const [coverage, setCoverage] = useState<FieldCoverage | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    
+    // Theme context with fallback
+    let theme: 'dark' | 'light' = 'dark';
+    let t = themes.dark;
+
+    try {
+        const themeContext = useTheme();
+        theme = themeContext.theme;
+        t = themes[theme];
+    } catch (e) {
+        // Fallback to dark theme if outside ThemeProvider
+    }
     
     useEffect(() => {
         const fetchFieldsAndCoverage = async () => {
             try {
+                setLoading(true);
+                setError(null);
+                
                 // Get manufacturer fields
                 const fieldsResponse = await fetch(`/api/v1/ivr/manufacturers/${manufacturer}/fields`);
+                if (!fieldsResponse.ok) {
+                    throw new Error('Failed to fetch manufacturer fields');
+                }
                 const fieldsData = await fieldsResponse.json();
                 setFields(fieldsData.fields || []);
                 
@@ -40,88 +64,174 @@ export function IvrFieldPreview({ formData, manufacturer }: IvrFieldPreviewProps
                         patient_data: formData.patient_fhir_data || {}
                     })
                 });
+                
+                if (!coverageResponse.ok) {
+                    throw new Error('Failed to calculate coverage');
+                }
+                
                 const coverageData = await coverageResponse.json();
                 setCoverage(coverageData.coverage);
             } catch (error) {
                 console.error('Error fetching IVR data:', error);
+                setError(error instanceof Error ? error.message : 'Failed to load IVR preview');
             } finally {
                 setLoading(false);
             }
         };
         
-        fetchFieldsAndCoverage();
+        if (manufacturer) {
+            fetchFieldsAndCoverage();
+        }
     }, [manufacturer, formData]);
     
     if (loading) {
-        return <div className="text-center py-4">Loading IVR field preview...</div>;
+        return (
+            <GlassCard variant="primary" className={cn("p-6", className)}>
+                <div className="animate-pulse">
+                    <div className="h-6 bg-gray-700/50 rounded w-1/3 mb-4"></div>
+                    <div className="space-y-2">
+                        <div className="h-4 bg-gray-700/30 rounded w-full"></div>
+                        <div className="h-4 bg-gray-700/30 rounded w-3/4"></div>
+                        <div className="h-4 bg-gray-700/30 rounded w-5/6"></div>
+                    </div>
+                </div>
+            </GlassCard>
+        );
+    }
+    
+    if (error) {
+        return (
+            <GlassCard variant="danger" className={cn("p-6", className)}>
+                <p className={t.text.danger}>Error loading IVR preview: {error}</p>
+            </GlassCard>
+        );
     }
     
     const getCoverageColor = (level: string) => {
         switch (level) {
-            case 'excellent': return 'text-green-600';
-            case 'good': return 'text-blue-600';
-            case 'fair': return 'text-yellow-600';
-            case 'poor': return 'text-red-600';
-            default: return 'text-gray-600';
+            case 'excellent': return 'text-green-400';
+            case 'good': return 'text-blue-400';
+            case 'fair': return 'text-yellow-400';
+            case 'poor': return 'text-red-400';
+            default: return t.text.muted;
         }
     };
     
+    const getCoverageBarColor = (percentage: number) => {
+        if (percentage >= 90) return 'bg-green-500';
+        if (percentage >= 75) return 'bg-blue-500';
+        if (percentage >= 50) return 'bg-yellow-500';
+        return 'bg-red-500';
+    };
+    
     return (
-        <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4">IVR Field Coverage Preview</h3>
+        <GlassCard variant="primary" className={cn("p-6", className)}>
+            <Heading size="md" className="mb-6">IVR Field Coverage Preview</Heading>
             
             {coverage && (
-                <div className="mb-6">
-                    <div className="flex items-center gap-4 mb-2">
-                        <span className="text-3xl font-bold">{coverage.percentage}%</span>
-                        <span className={`text-sm font-medium ${getCoverageColor(coverage.coverage_level)}`}>
-                            {coverage.coverage_level.charAt(0).toUpperCase() + coverage.coverage_level.slice(1)} Coverage
-                        </span>
+                <>
+                    {/* Coverage Summary */}
+                    <div className="mb-6">
+                        <div className="flex items-center gap-4 mb-3">
+                            <span className="text-4xl font-bold">{coverage.percentage}%</span>
+                            <span className={cn(
+                                "text-sm font-medium uppercase tracking-wider",
+                                getCoverageColor(coverage.coverage_level)
+                            )}>
+                                {coverage.coverage_level} Coverage
+                            </span>
+                        </div>
+                        
+                        <p className={cn("text-sm mb-3", t.text.muted)}>
+                            {coverage.filled_fields} of {coverage.total_fields} fields will be auto-filled
+                        </p>
+                        
+                        {/* Progress bar */}
+                        <div className={cn(
+                            "rounded-full h-3 overflow-hidden",
+                            theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'
+                        )}>
+                            <div 
+                                className={cn(
+                                    "h-full rounded-full transition-all duration-500",
+                                    getCoverageBarColor(coverage.percentage)
+                                )}
+                                style={{ width: `${coverage.percentage}%` }}
+                            />
+                        </div>
                     </div>
-                    <div className="text-sm text-gray-600">
-                        {coverage.filled_fields} of {coverage.total_fields} fields will be auto-filled
+            
+                    {/* Field Status Lists */}
+                    <div className="space-y-6">
+                        {coverage.extracted_fields.length > 0 && (
+                            <div>
+                                <h4 className={cn(
+                                    "font-medium mb-3 flex items-center gap-2",
+                                    "text-green-400"
+                                )}>
+                                    <span className="text-lg">✓</span>
+                                    Auto-filled Fields ({coverage.extracted_fields.length})
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {coverage.extracted_fields.map((field, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg text-sm",
+                                                theme === 'dark' 
+                                                    ? 'bg-green-900/20 text-green-300' 
+                                                    : 'bg-green-50 text-green-700'
+                                            )}
+                                        >
+                                            • {field}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                        
+                        {coverage.missing_fields.length > 0 && (
+                            <div>
+                                <h4 className={cn(
+                                    "font-medium mb-3 flex items-center gap-2",
+                                    "text-amber-400"
+                                )}>
+                                    <span className="text-lg">⚠</span>
+                                    Manual Entry Required ({coverage.missing_fields.length})
+                                </h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    {coverage.missing_fields.map((field, idx) => (
+                                        <div 
+                                            key={idx} 
+                                            className={cn(
+                                                "px-3 py-2 rounded-lg text-sm",
+                                                theme === 'dark' 
+                                                    ? 'bg-amber-900/20 text-amber-300' 
+                                                    : 'bg-amber-50 text-amber-700'
+                                            )}
+                                        >
+                                            • {field}
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                     
-                    {/* Progress bar */}
-                    <div className="mt-2 bg-gray-200 rounded-full h-2">
-                        <div 
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${coverage.percentage}%` }}
-                        />
+                    {/* Coverage Insights */}
+                    <div className={cn(
+                        "mt-6 p-4 rounded-lg",
+                        theme === 'dark' ? 'bg-gray-800/50' : 'bg-gray-100'
+                    )}>
+                        <p className={cn("text-sm", t.text.muted)}>
+                            {coverage.percentage >= 90 && "Excellent coverage! Most fields will be auto-populated from your episode data."}
+                            {coverage.percentage >= 75 && coverage.percentage < 90 && "Good coverage. Some manual entry will be required for manufacturer-specific fields."}
+                            {coverage.percentage >= 50 && coverage.percentage < 75 && "Fair coverage. Several fields will require manual entry to complete the IVR."}
+                            {coverage.percentage < 50 && "Low coverage. Most fields will need manual entry. Consider adding more clinical data to improve auto-population."}
+                        </p>
                     </div>
-                </div>
+                </>
             )}
-            
-            {/* Field status list */}
-            <div className="space-y-4">
-                <div>
-                    <h4 className="font-medium text-green-600 mb-2">
-                        ✓ Auto-filled Fields ({coverage?.extracted_fields?.length || 0})
-                    </h4>
-                    {coverage && coverage.extracted_fields && coverage.extracted_fields.length > 0 ? (
-                        <ul className="text-sm space-y-1">
-                            {coverage.extracted_fields.map((field, idx) => (
-                                <li key={idx} className="text-gray-600">• {field}</li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-gray-500 italic">No fields will be auto-filled</p>
-                    )}
-                </div>
-                
-                {coverage && coverage.missing_fields && coverage.missing_fields.length > 0 && (
-                    <div>
-                        <h4 className="font-medium text-amber-600 mb-2">
-                            ⚠ Manual Entry Required ({coverage.missing_fields.length})
-                        </h4>
-                        <ul className="text-sm space-y-1">
-                            {coverage.missing_fields.map((field, idx) => (
-                                <li key={idx} className="text-gray-600">• {field}</li>
-                            ))}
-                        </ul>
-                    </div>
-                )}
-            </div>
-        </div>
+        </GlassCard>
     );
 }

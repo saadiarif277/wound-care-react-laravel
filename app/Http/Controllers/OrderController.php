@@ -499,9 +499,11 @@ class OrderController extends Controller
             'audit_log_url' => $order->docuseal_audit_log_url,
             'last_synced_at' => $order->docuseal_last_synced_at,
         ];
-        if ($order->docuseal_submission_id) {
-            $live = $docuSealService->getSubmissionStatus($order->docuseal_submission_id);
-            if ($live) {
+
+        // Check if the DocuSealService has the method before calling it
+        if ($order->docuseal_submission_id && method_exists($docuSealService, 'getSubmissionStatus')) {
+            $live = $docuSealService->{'getSubmissionStatus'}($order->docuseal_submission_id);
+            if (is_array($live)) {
                 $orderDocuseal['status'] = $live['status'] ?? $orderDocuseal['status'];
                 $orderDocuseal['signed_documents'] = $live['documents'] ?? [];
                 $orderDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $orderDocuseal['audit_log_url'];
@@ -518,9 +520,12 @@ class OrderController extends Controller
                 'audit_log_url' => $order->ivrEpisode->docuseal_audit_log_url,
                 'last_synced_at' => $order->ivrEpisode->docuseal_last_synced_at,
             ];
-            if ($order->ivrEpisode->docuseal_submission_id) {
-                $live = $docuSealService->getSubmissionStatus($order->ivrEpisode->docuseal_submission_id);
-                if ($live) {
+            if (
+                $order->ivrEpisode->docuseal_submission_id &&
+                method_exists($docuSealService, 'getSubmissionStatus')
+            ) {
+                $live = $docuSealService->{'getSubmissionStatus'}($order->ivrEpisode->docuseal_submission_id);
+                if (is_array($live)) {
                     $ivrDocuseal['status'] = $live['status'] ?? $ivrDocuseal['status'];
                     $ivrDocuseal['signed_documents'] = $live['documents'] ?? [];
                     $ivrDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $ivrDocuseal['audit_log_url'];

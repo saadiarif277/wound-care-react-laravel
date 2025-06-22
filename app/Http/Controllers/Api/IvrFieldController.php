@@ -8,6 +8,9 @@ use App\Models\Manufacturer;
 use App\Models\Order\ProductRequest;
 use App\Models\Order\Product;
 use App\Models\Users\Organization\Organization;
+use App\Models\PatientManufacturerIVREpisode;
+use App\Models\User;
+use App\Models\Fhir\Facility;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -198,14 +201,14 @@ class IvrFieldController extends Controller
         ]);
         
         // Create mock relationships
-        $productRequest->setRelation('provider', new \App\Models\User([
+        $productRequest->setRelation('provider', new User([
             'id' => $formData['provider_id'] ?? null,
             'first_name' => $formData['provider_first_name'] ?? '',
             'last_name' => $formData['provider_last_name'] ?? '',
             'npi_number' => $formData['provider_npi'] ?? ''
         ]));
         
-        $productRequest->setRelation('facility', new \App\Models\Fhir\Facility([
+        $productRequest->setRelation('facility', new Facility([
             'id' => $formData['facility_id'] ?? null,
             'name' => $formData['facility_name'] ?? '',
             'address' => $formData['facility_address'] ?? '',
@@ -227,7 +230,7 @@ class IvrFieldController extends Controller
         $products = [];
         if (isset($formData['selected_products']) && is_array($formData['selected_products'])) {
             foreach ($formData['selected_products'] as $productData) {
-                $product = new \App\Models\Order\Product([
+                $product = new Product([
                     'name' => $productData['name'] ?? '',
                     'code' => $productData['code'] ?? '',
                     'q_code' => $productData['q_code'] ?? '',
@@ -242,7 +245,7 @@ class IvrFieldController extends Controller
         $productRequest->setRelation('products', collect($products));
         
         // Add episode with metadata
-        $productRequest->setRelation('episode', new \App\Models\PatientManufacturerIVREpisode([
+        $productRequest->setRelation('episode', new PatientManufacturerIVREpisode([
             'metadata' => [
                 'extracted_data' => $formData['extracted_data'] ?? []
             ]

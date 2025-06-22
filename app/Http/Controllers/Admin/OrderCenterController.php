@@ -281,7 +281,7 @@ class OrderCenterController extends Controller
 
             return back()->with('success', 'IVR approved successfully. Episode ready to send to manufacturer.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to review episode', [
                 'episode_id' => $episodeId,
@@ -337,7 +337,7 @@ class OrderCenterController extends Controller
             $result = $emailService->sendEpisodeToManufacturer($episode, $emailData);
 
             if (!$result['success']) {
-                throw new \Exception($result['message']);
+                throw new Exception($result['message']);
             }
 
             // Update episode status
@@ -367,7 +367,7 @@ class OrderCenterController extends Controller
 
             return back()->with('success', 'Episode sent to manufacturer successfully.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to send episode to manufacturer', [
                 'episode_id' => $episodeId,
@@ -418,7 +418,7 @@ class OrderCenterController extends Controller
 
             return back()->with('success', 'Tracking information updated successfully.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to update episode tracking', [
                 'episode_id' => $episodeId,
@@ -457,7 +457,7 @@ class OrderCenterController extends Controller
 
             return back()->with('success', 'Episode marked as completed successfully.');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
             Log::error('Failed to mark episode as completed', [
                 'episode_id' => $episodeId,
@@ -550,7 +550,7 @@ class OrderCenterController extends Controller
                 'documents' => $uploadedDocuments
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Episode document upload failed', [
                 'episode_id' => $episodeId,
                 'error' => $e->getMessage(),
@@ -583,7 +583,7 @@ class OrderCenterController extends Controller
                 ->header('Content-Type', 'application/octet-stream')
                 ->header('Content-Disposition', 'attachment; filename="' . $fileName . '"');
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Episode document download failed', [
                 'episode_id' => $episodeId,
                 'document_path' => $documentPath,
@@ -620,7 +620,7 @@ class OrderCenterController extends Controller
                 'message' => 'Document deleted successfully'
             ]);
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             Log::error('Episode document deletion failed', [
                 'episode_id' => $episodeId,
                 'document_id' => $documentId,

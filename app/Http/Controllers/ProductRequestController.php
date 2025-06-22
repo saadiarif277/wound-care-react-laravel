@@ -905,49 +905,35 @@ class ProductRequestController extends Controller
             $checklistService = app(\App\Services\HealthData\Services\Fhir\SkinSubstituteChecklistService::class);
 
             // Prepare the checklist input data
-            $checklistInput = new \App\Services\HealthData\DTO\SkinSubstituteChecklistInput(
-                patientId: $productRequest->patient_fhir_id,
-                providerId: 'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
-                facilityId: 'Organization/' . $productRequest->facility_id,
-
-                // Wound characteristics
-                woundType: $clinicalData['wound_type'] ?? $productRequest->wound_type,
-                woundLocation: $clinicalData['wound_location'] ?? null,
-                woundLength: $clinicalData['wound_length'] ?? null,
-                woundWidth: $clinicalData['wound_width'] ?? null,
-                woundDepth: $clinicalData['wound_depth'] ?? null,
-                woundArea: $clinicalData['wound_area'] ?? null,
-                woundDuration: $clinicalData['wound_duration'] ?? null,
-
-                // Conservative care
-                conservativeCareWeeks: $clinicalData['conservative_care_weeks'] ?? null,
-                conservativeCareTypes: $clinicalData['conservative_care_types'] ?? [],
-
-                // Medical conditions
-                diabetesType: $clinicalData['diabetes_type'] ?? null,
-                hba1cLevel: $clinicalData['hba1c_level'] ?? null,
-                venousInsufficiency: $clinicalData['venous_insufficiency'] ?? false,
-                arterialInsufficiency: $clinicalData['arterial_insufficiency'] ?? false,
-
-                // Circulation tests
-                ankleArmIndex: $clinicalData['ankle_arm_index'] ?? null,
-                tcpo2Level: $clinicalData['tcpo2_level'] ?? null,
-
-                // Documentation compliance
-                woundPhotosTaken: $clinicalData['wound_photos_taken'] ?? false,
-                measurementDocumented: $clinicalData['measurement_documented'] ?? false,
-                conservativeCareDocumented: $clinicalData['conservative_care_documented'] ?? false,
-
-                // Additional clinical data
-                infectionPresent: $clinicalData['infection_present'] ?? false,
-                osteoMyelitisPresent: $clinicalData['osteo_myelitis_present'] ?? false,
-                healingProgress: $clinicalData['healing_progress'] ?? null,
-                painLevel: $clinicalData['pain_level'] ?? null,
-
-                // Provider assessment
-                clinicalNotes: $clinicalData['clinical_notes'] ?? null,
-                recommendedProducts: $clinicalData['recommended_products'] ?? []
-            );
+            $checklistInput = new \App\Services\HealthData\DTO\SkinSubstituteChecklistInput([
+                'patient_fhir_id' => $productRequest->patient_fhir_id,
+                'practitioner_id' => 'Practitioner/' . Auth::id(),
+                'organization_id' => 'Organization/' . $productRequest->facility_id,
+                'wound_type' => $clinicalData['wound_type'] ?? $productRequest->wound_type,
+                'wound_location' => $clinicalData['wound_location'] ?? null,
+                'wound_length' => $clinicalData['wound_length'] ?? null,
+                'wound_width' => $clinicalData['wound_width'] ?? null,
+                'wound_depth' => $clinicalData['wound_depth'] ?? null,
+                'wound_area' => $clinicalData['wound_area'] ?? null,
+                'wound_duration' => $clinicalData['wound_duration'] ?? null,
+                'conservative_care_weeks' => $clinicalData['conservative_care_weeks'] ?? null,
+                'conservative_care_types' => $clinicalData['conservative_care_types'] ?? [],
+                'diabetes_type' => $clinicalData['diabetes_type'] ?? null,
+                'hba1c_level' => $clinicalData['hba1c_level'] ?? null,
+                'venous_insufficiency' => $clinicalData['venous_insufficiency'] ?? false,
+                'arterial_insufficiency' => $clinicalData['arterial_insufficiency'] ?? false,
+                'ankle_arm_index' => $clinicalData['ankle_arm_index'] ?? null,
+                'tcpo2_level' => $clinicalData['tcpo2_level'] ?? null,
+                'wound_photos_taken' => $clinicalData['wound_photos_taken'] ?? false,
+                'measurement_documented' => $clinicalData['measurement_documented'] ?? false,
+                'conservative_care_documented' => $clinicalData['conservative_care_documented'] ?? false,
+                'infection_present' => $clinicalData['infection_present'] ?? false,
+                'osteo_myelitis_present' => $clinicalData['osteo_myelitis_present'] ?? false,
+                'healing_progress' => $clinicalData['healing_progress'] ?? null,
+                'pain_level' => $clinicalData['pain_level'] ?? null,
+                'clinical_notes' => $clinicalData['clinical_notes'] ?? null,
+                'recommended_products' => $clinicalData['recommended_products'] ?? []
+            ]);
 
             // Create FHIR Bundle and send to Azure
             $bundleResponse = $checklistService->createPreApplicationAssessment(

@@ -331,7 +331,7 @@ class OnboardingService
         }
 
         // For providers joining an existing practice, load from invitation
-        return $invitation->organization;
+        return $invitation->Organization;
     }
 
     /**
