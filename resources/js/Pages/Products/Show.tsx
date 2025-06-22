@@ -17,7 +17,7 @@ import {
   FiShare2,
   FiActivity,
   FiTrendingUp,
-  FiBarChart3,
+  FiBarChart,
   FiCalendar,
   FiUser,
   FiCheck,
@@ -387,7 +387,7 @@ export default function ProductShow({ product }: Props) {
                   </div>
 
                   <div className={cn("p-6 rounded-xl text-center", t.glass.frost)}>
-                    <FiBarChart3 className={cn("w-8 h-8 mx-auto mb-3 text-purple-500")} />
+                    <FiBarChart className={cn("w-8 h-8 mx-auto mb-3 text-purple-500")} />
                     <div className={cn("text-2xl font-bold mb-1", t.text.primary)}>
                       ${product.national_asp?.toFixed(2) || 'N/A'}
                     </div>

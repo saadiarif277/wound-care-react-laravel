@@ -1,0 +1,402 @@
+[
+  {
+    "name": "APP_DEBUG",
+    "value": "true",
+    "slotSetting": true
+  },
+  {
+    "name": "APP_ENV",
+    "value": "dev",
+    "slotSetting": true
+  },
+  {
+    "name": "APP_KEY",
+    "value": "base64:yx5RddlP8msjP7Gsy/hzl49m0NROdpw+EM+pf3sR9Ys=",
+    "slotSetting": true
+  },
+  {
+    "name": "APP_NAME",
+    "value": "MSC Platform",
+    "slotSetting": false
+  },
+  {
+    "name": "APP_URL",
+    "value": "https://dev.mscwound.com",
+    "slotSetting": true
+  },
+  {
+    "name": "AVAILITY_API_BASE_URL",
+    "value": "https://api.availity.com/availity/development-partner/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_CACHE_ENABLED",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_CACHE_TTL",
+    "value": "3600",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_CLIENT_ID",
+    "value": "33b643080448344321873840c85f0dd9",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_CLIENT_SECRET",
+    "value": "23688a3fd16b4f0f6c5c4db43c9b81df",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_LOG_LEVEL",
+    "value": "info",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_LOG_REQUEST_BODY",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_LOG_RESPONSE_BODY",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "AVAILITY_LOGGING_ENABLED",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_AISERVICES_COGNITIVESERVICES_ENDPOINT",
+    "value": "https://msc-ai-services.cognitiveservices.azure.com/",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_AISERVICES_OPENAI_BASE",
+    "value": "https://msc-ai-services.openai.azure.com/",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_AISERVICES_SPEECH_ENDPOINT",
+    "value": "https://eastus2.stt.speech.microsoft.com",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_FHIR_BASE_URL",
+    "value": "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_FHIR_CLIENT_ID",
+    "value": "032a9600-5750-495b-bb91-122a4faea0da",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_FHIR_CLIENT_SECRET",
+    "value": "Gqb8Q~dldpP1hlU-SVT8w8Vo_8JpxMjAttHWRdgx",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_FHIR_TENANT_ID",
+    "value": "0cb4abeb-8281-4b8c-8de8-6a7f8c777f0a",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_KEYVAULT_RESOURCEENDPOINT",
+    "value": "https://msckey-vault.vault.azure.net/",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_KEYVAULT_SCOPE",
+    "value": "https://vault.azure.net/.default",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_MYSQL_CLIENTID",
+    "value": "e9e7d33e-f26a-4556-a4c8-17c53e2691d8",
+    "slotSetting": false
+  },
+  {
+    "name": "AZURE_MYSQL_DBNAME",
+    "value": "mscdevdb",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_MYSQL_HOST",
+    "value": "msc-stage-db.mysql.database.azure.com",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_MYSQL_PORT",
+    "value": "3306",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_MYSQL_USERNAME",
+    "value": "mscstagedb",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_REDIS_DATABASE",
+    "value": "1",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_REDIS_HOST",
+    "value": "mscwound.redis.cache.windows.net",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_REDIS_PASSWORD",
+    "value": "n1swelsBiZkvTx3IXq8cIOq210vbRgfc0AzCaLScFmI=",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_REDIS_PORT",
+    "value": "6380",
+    "slotSetting": true
+  },
+  {
+    "name": "AZURE_REDIS_SSL",
+    "value": "true",
+    "slotSetting": true
+  },
+  {
+    "name": "CACHE_DRIVER",
+    "value": "redis",
+    "slotSetting": true
+  },
+  {
+    "name": "CMS_API_BASE_URL",
+    "value": "https://api.coverage.cms.gov/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "CMS_API_CACHE_MINUTES",
+    "value": "60",
+    "slotSetting": false
+  },
+  {
+    "name": "CMS_API_MAX_RETRIES",
+    "value": "3",
+    "slotSetting": false
+  },
+  {
+    "name": "CMS_API_THROTTLE_LIMIT",
+    "value": "9000",
+    "slotSetting": false
+  },
+  {
+    "name": "CMS_API_TIMEOUT",
+    "value": "30",
+    "slotSetting": false
+  },
+  {
+    "name": "DB_CONNECTION",
+    "value": "mysql",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_DATABASE",
+    "value": "mscdevdb",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_HOST",
+    "value": "msc-stage-db.mysql.database.azure.com",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_PASSWORD",
+    "value": "B@xter1123$$!",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_PORT",
+    "value": "3306",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_SCHEMA",
+    "value": "public",
+    "slotSetting": true
+  },
+  {
+    "name": "DB_SSL_KEY",
+    "value": "/home/site/wwwroot/BaltimoreCyberTrustRoot.crt.pem",
+    "slotSetting": false
+  },
+  {
+    "name": "DB_USERNAME",
+    "value": "mscstagedb",
+    "slotSetting": true
+  },
+  {
+    "name": "DOCUSEAL_API_BASE_URL",
+    "value": "https://api.docuseal.com/v1",
+    "slotSetting": false
+  },
+  {
+    "name": "DOCUSEAL_API_KEY",
+    "value": "RDiw3DDJVmRqKVYMCeqXVqmZg1zg4WfvReWNnRAmrUD",
+    "slotSetting": false
+  },
+  {
+    "name": "ECW_CLIENT_ID",
+    "value": "your-client-id",
+    "slotSetting": false
+  },
+  {
+    "name": "ECW_CLIENT_SECRET",
+    "value": "your-client-secret",
+    "slotSetting": false
+  },
+  {
+    "name": "ECW_ENVIRONMENT",
+    "value": "sandbox",
+    "slotSetting": false
+  },
+  {
+    "name": "ECW_REDIRECT_URI",
+    "value": "https://your-domain.com/api/ecw/callback",
+    "slotSetting": false
+  },
+  {
+    "name": "ECW_SCOPE",
+    "value": "patient/Patient.read patient/Observation.read patient/DocumentReference.read",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_AUTHORIZATION_ENDPOINT",
+    "value": "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/authorize",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_CLIENT_ID",
+    "value": "your_epic_client_id_here",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_CLIENT_SECRET",
+    "value": "your_epic_client_secret_here",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_ENVIRONMENT",
+    "value": "sandbox",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_FHIR_BASE_URL",
+    "value": "https://fhir.epic.com/interconnect-fhir-oauth/api/FHIR/R4",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_SCOPE",
+    "value": "patient/Patient.read patient/Condition.read patient/Observation.read patient/DiagnosticReport.read",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_TIMEOUT",
+    "value": "30",
+    "slotSetting": false
+  },
+  {
+    "name": "EPIC_TOKEN_ENDPOINT",
+    "value": "https://fhir.epic.com/interconnect-fhir-oauth/oauth2/token",
+    "slotSetting": false
+  },
+  {
+    "name": "FILESYSTEM_DISK",
+    "value": "supabase",
+    "slotSetting": true
+  },
+  {
+    "name": "MYSQL_ATTR_SSL_CA",
+    "value": "/home/site/wwwroot/ssl/DigiCertGlobalRootCA.crt.pem",
+    "slotSetting": true
+  },
+  {
+    "name": "PORT",
+    "value": "8080",
+    "slotSetting": false
+  },
+  {
+    "name": "QUEUE_CONNECTION",
+    "value": "redis",
+    "slotSetting": true
+  },
+  {
+    "name": "REDIS_HOST",
+    "value": "127.0.0.1",
+    "slotSetting": true
+  },
+  {
+    "name": "REDIS_PASSWORD",
+    "value": "null",
+    "slotSetting": true
+  },
+  {
+    "name": "REDIS_PORT",
+    "value": "6379",
+    "slotSetting": true
+  },
+  {
+    "name": "SANCTUM_STATEFUL_DOMAINS",
+    "value": "https://dev.mscwound.com,127.0.0.1",
+    "slotSetting": true
+  },
+  {
+    "name": "SESSION_CONNECTION",
+    "value": "database",
+    "slotSetting": true
+  },
+  {
+    "name": "SESSION_DRIVER",
+    "value": "database",
+    "slotSetting": false
+  },
+  {
+    "name": "SESSION_LIFETIME",
+    "value": "120",
+    "slotSetting": false
+  },
+  {
+    "name": "VITE_APP_NAME",
+    "value": "${APP_NAME}",
+    "slotSetting": false
+  },
+  {
+    "name": "VITE_PUSHER_APP_CLUSTER",
+    "value": "${PUSHER_APP_CLUSTER}",
+    "slotSetting": false
+  },
+  {
+    "name": "VITE_PUSHER_APP_KEY",
+    "value": "${PUSHER_APP_KEY}",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITE_HEALTHCHECK_MAXPINGFAILURES",
+    "value": "10",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITE_WEBDEPLOY_USE_SCM",
+    "value": "false",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITES_INCLUDE_CLOUD_CERTS",
+    "value": "true",
+    "slotSetting": false
+  },
+  {
+    "name": "WEBSITES_PORT",
+    "value": "3000",
+    "slotSetting": false
+  }
+]
