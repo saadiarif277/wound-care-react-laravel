@@ -254,9 +254,9 @@ class DocuSealService
     }
 
     /**
-     * Get submission details
+     * Get submission details (rename from getSubmission to getSubmissionStatus for consistency)
      */
-    public function getSubmission(string $submissionId)
+    public function getSubmissionStatus(string $submissionId)
     {
         try {
             $response = Http::withHeaders([
@@ -264,7 +264,21 @@ class DocuSealService
             ])->get("{$this->apiUrl}/submissions/{$submissionId}");
 
             if ($response->successful()) {
-                return $response->json();
+                $data = $response->json();
+
+                // If it's an array of submitters, get the first one's status
+                if (is_array($data) && isset($data[0])) {
+                    return [
+                        'status' => $data[0]['status'] ?? 'pending',
+                        'completed_at' => $data[0]['completed_at'] ?? null,
+                    ];
+                }
+
+                // If it's a submission object
+                return [
+                    'status' => $data['status'] ?? 'pending',
+                    'completed_at' => $data['completed_at'] ?? null,
+                ];
             }
 
             throw new \Exception('Failed to get submission: ' . $response->body());
@@ -276,6 +290,100 @@ class DocuSealService
             ]);
 
             throw $e;
+        }
+    }
+
+    /**
+     * Download completed document
+     */
+    public function downloadDocument(string $submissionId): ?string
+    {
+        try {
+            // Get the submission details first
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/submissions/{$submissionId}");
+
+            if ($response->successful()) {
+                $data = $response->json();
+
+                // Check if it's an array of submitters
+                if (is_array($data) && isset($data[0]['documents'])) {
+                    $documents = $data[0]['documents'];
+                    if (!empty($documents)) {
+                        return $documents[0]['url'] ?? null;
+                    }
+                }
+
+                // Check if it's a submission object with documents
+                if (isset($data['documents']) && !empty($data['documents'])) {
+                    return $data['documents'][0]['url'] ?? null;
+                }
+            }
+
+            return null;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get DocuSeal document download URL', [
+                'error' => $e->getMessage(),
+                'submission_id' => $submissionId
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Generate documents for an order
+     */
+    public function generateDocumentsForOrder($order): array
+    {
+        // This is a placeholder implementation
+        // You'll need to implement the actual logic based on your order structure
+
+        try {
+            $submissions = [];
+
+            // Example: Create a submission for the order
+            // You'll need to determine the appropriate template ID and fields
+            $templateId = config('services.docuseal.default_template_id', '123456');
+
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'submitters' => [[
+                    'role' => 'Signer',
+                    'email' => $order->provider->email ?? 'provider@example.com',
+                    'name' => $order->provider->name ?? 'Provider',
+                    'fields' => [
+                        'order_number' => $order->order_number,
+                        'patient_id' => $order->patient_fhir_id,
+                        // Add more fields as needed
+                    ]
+                ]]
+            ];
+
+            $result = $this->createSubmission($submissionData);
+
+            if ($result) {
+                // Create a DocusealSubmission record if you have that model
+                $submissions[] = (object)[
+                    'id' => uniqid(),
+                    'docuseal_submission_id' => $result['submission_id'],
+                    'status' => 'pending',
+                    'signing_url' => $result['submitters'][0]['embed_url'] ?? null,
+                ];
+            }
+
+            return $submissions;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate documents for order', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+
+            return [];
         }
     }
 

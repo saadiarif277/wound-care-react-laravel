@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
 use App\Models\Docuseal\DocusealSubmission;
-use App\Models\User;
+use GetSubmissionStatusResponse;
 use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -277,7 +277,7 @@ class DocusealController extends Controller
 
         try {
             $user = Auth::user();
-            
+
             // If order_id is provided, check access
             if ($request->order_id) {
                 $order = Order::findOrFail($request->order_id);
@@ -304,12 +304,12 @@ class DocusealController extends Controller
                     if (is_bool($fieldValue)) {
                         $fieldValue = $fieldValue ? 'true' : 'false';
                     }
-                    
+
                     // DocuSeal expects values as a key-value object
                     $submitterValues[$fieldName] = (string) $fieldValue;
                 }
             }
-            
+
             Log::info('DocuSeal submission attempt', [
                 'template_id' => $request->template_id,
                 'email' => $request->email,
@@ -329,7 +329,7 @@ class DocusealController extends Controller
                     ]
                 ],
             ];
-            
+
             Log::info('DocuSeal API request', [
                 'url' => $apiUrl . '/submissions',
                 'template_id' => $requestData['template_id'],
@@ -361,19 +361,19 @@ class DocusealController extends Controller
             $signingUrl = null;
             $submitterSlug = null;
             $submissionId = null;
-            
+
             // DocuSeal returns an array of submitters directly
             if (is_array($data) && isset($data[0])) {
                 $submitter = $data[0];
-                
+
                 // Get the submission ID
                 $submissionId = $submitter['submission_id'] ?? null;
-                
+
                 // Get the slug for constructing the URL
                 if (isset($submitter['slug'])) {
                     $submitterSlug = $submitter['slug'];
                 }
-                
+
                 // Check for embed_src which contains the full URL
                 if (isset($submitter['embed_src'])) {
                     $signingUrl = $submitter['embed_src'];
@@ -434,7 +434,7 @@ class DocusealController extends Controller
     {
         // This endpoint is for demo purposes and doesn't require manage-orders permission
         // It still requires authentication to prevent abuse
-        
+
         $request->validate([
             'template_id' => 'required|string',
             'email' => 'required|email',
@@ -445,7 +445,7 @@ class DocusealController extends Controller
 
         try {
             $user = Auth::user();
-            
+
             // Call DocuSeal API to create submission
             $apiKey = config('services.docuseal.api_key');
             $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
@@ -462,12 +462,12 @@ class DocusealController extends Controller
                     if (is_bool($fieldValue)) {
                         $fieldValue = $fieldValue ? 'true' : 'false';
                     }
-                    
+
                     // DocuSeal expects values as a key-value object
                     $submitterValues[$fieldName] = (string) $fieldValue;
                 }
             }
-            
+
             Log::info('DocuSeal demo submission attempt', [
                 'template_id' => $request->template_id,
                 'email' => $request->email,
@@ -504,19 +504,19 @@ class DocusealController extends Controller
             $signingUrl = null;
             $submitterSlug = null;
             $submissionId = null;
-            
+
             // DocuSeal returns an array of submitters directly
             if (is_array($data) && isset($data[0])) {
                 $submitter = $data[0];
-                
+
                 // Get the submission ID
                 $submissionId = $submitter['submission_id'] ?? null;
-                
+
                 // Get the slug for constructing the URL
                 if (isset($submitter['slug'])) {
                     $submitterSlug = $submitter['slug'];
                 }
-                
+
                 // Check for embed_src which contains the full URL
                 if (isset($submitter['embed_src'])) {
                     $signingUrl = $submitter['embed_src'];

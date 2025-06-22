@@ -1135,3 +1135,47 @@ Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(functio
     // Transaction/Batch endpoint
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });
+
+// DocuSeal debug routes (remove in production)
+Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
+    Route::get('/test', [\App\Http\Controllers\DocuSealDebugController::class, 'debug'])
+        ->name('docuseal.debug');
+    Route::get('/test-submission', [\App\Http\Controllers\DocuSealDebugController::class, 'testSubmission'])
+        ->name('docuseal.test-submission');
+});
+
+// Quick DocuSeal template check (remove in production)
+Route::get('/docuseal-templates', function () {
+    if (!Auth::check()) {
+        return 'Please log in first';
+    }
+
+    $apiKey = config('services.docuseal.api_key');
+    if (!$apiKey) {
+        return 'DOCUSEAL_API_KEY not set in .env file';
+    }
+
+    try {
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Auth-Token' => $apiKey,
+        ])->get('https://api.docuseal.com/templates');
+
+        if ($response->successful()) {
+            $templates = $response->json();
+            return response()->json([
+                'api_key_works' => true,
+                'templates' => collect($templates)->map(function ($t) {
+                    return [
+                        'id' => $t['id'],
+                        'name' => $t['name'],
+                        'use_this_id' => $t['id'], // <-- Use this ID in your manufacturerFields.ts
+                    ];
+                })
+            ]);
+        }
+
+        return 'API Error: ' . $response->body();
+    } catch (\Exception $e) {
+        return 'Error: ' . $e->getMessage();
+    }
+})->middleware('auth');

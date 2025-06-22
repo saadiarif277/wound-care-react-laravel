@@ -26,7 +26,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ',
     products: ['Membrane Wrap', 'Revoshield'],
     signatureRequired: true,
-    docusealTemplateId: 'acz_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '123456', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'physician_attestation',
@@ -46,7 +46,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Advanced Health',
     products: ['CompleteAA', 'CompleteFT', 'WoundPlus'],
     signatureRequired: true,
-    docusealTemplateId: 'advanced_health_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '123457', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'multiple_products',
@@ -78,7 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: 'medlife_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '123458', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'amnio_amp_size',
@@ -86,11 +86,11 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
         type: 'radio',
         required: true,
         options: [
-          { value: '2x2', label: '2×2 cm' },
-          { value: '2x4', label: '2×4 cm' },
-          { value: '4x4', label: '4×4 cm' },
-          { value: '4x6', label: '4×6 cm' },
-          { value: '4x8', label: '4×8 cm' },
+          { value: '2x2', label: '2ï¿½2 cm' },
+          { value: '2x4', label: '2ï¿½4 cm' },
+          { value: '4x4', label: '4ï¿½4 cm' },
+          { value: '4x6', label: '4ï¿½6 cm' },
+          { value: '4x8', label: '4ï¿½8 cm' },
         ],
       },
     ],
@@ -153,7 +153,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'BioWound',
     products: ['Membrane Wrap', 'Derm-Maxx', 'Bio-Connekt', 'NeoStim', 'Amnio-Maxx'],
     signatureRequired: true,
-    docusealTemplateId: 'biowound_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '123459', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'california_facility',
@@ -219,7 +219,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Skye Biologics',
     products: ['WoundPlus'],
     signatureRequired: true,
-    docusealTemplateId: 'skye_biologics_ivr_template', // TODO: Replace with actual DocuSeal template ID
+    docusealTemplateId: '123460', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'shipping_speed_required',
@@ -261,13 +261,13 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
 ];
 
 export function getManufacturerConfig(manufacturer: string): ManufacturerConfig | undefined {
-  return manufacturerConfigs.find(config => 
+  return manufacturerConfigs.find(config =>
     config.name.toLowerCase() === manufacturer.toLowerCase()
   );
 }
 
 export function getManufacturerByProduct(productName: string): ManufacturerConfig | undefined {
-  return manufacturerConfigs.find(config => 
+  return manufacturerConfigs.find(config =>
     config.products.some(p => p.toLowerCase() === productName.toLowerCase())
   );
 }
@@ -278,7 +278,7 @@ export function validateManufacturerFields(
   fields: Record<string, any>
 ): Record<string, string> {
   const errors: Record<string, string> = {};
-  
+
   manufacturerConfig.fields.forEach(field => {
     // Check if field should be shown based on conditional
     if (field.conditionalOn) {
@@ -287,7 +287,7 @@ export function validateManufacturerFields(
         return; // Skip validation for hidden fields
       }
     }
-    
+
     // Validate required fields
     if (field.required) {
       const value = fields[field.name];
@@ -296,7 +296,7 @@ export function validateManufacturerFields(
       }
     }
   });
-  
+
   return errors;
 }
 
@@ -307,12 +307,12 @@ export function getManufacturerDocumentRequirements(manufacturer: string): strin
     'Clinical notes supporting medical necessity',
     'Wound photo (if available)',
   ];
-  
+
   const config = getManufacturerConfig(manufacturer);
   if (config?.signatureRequired) {
     requirements.push('Provider signature and attestations');
   }
-  
+
   // Add manufacturer-specific requirements
   switch (manufacturer.toLowerCase()) {
     case 'biowound':
@@ -325,6 +325,6 @@ export function getManufacturerDocumentRequirements(manufacturer: string): strin
       requirements.push('Quarterly standing order documentation (if applicable)');
       break;
   }
-  
+
   return requirements;
 }

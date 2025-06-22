@@ -232,7 +232,7 @@ export default function Step7DocuSealIVR({
   }
 
   // Get the appropriate template ID
-  const templateId = manufacturerConfig.docusealTemplateId || 'default_ivr_template';
+  const templateId = manufacturerConfig.docusealTemplateId || '123456'; // Replace with your default DocuSeal template ID
 
   return (
     <div className="space-y-6">

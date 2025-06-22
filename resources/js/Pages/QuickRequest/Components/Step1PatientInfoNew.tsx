@@ -161,17 +161,17 @@ export default function Step1PatientInformation({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
                 <Label htmlFor="patient_first_name" className={cn(t.text.secondary)}>First Name</Label>
-                <Input name="patient_first_name" value={formData.patient_first_name} onChange={handleInputChange} className={cn(t.glass.input)} />
+                <Input name="patient_first_name" value={formData.patient_first_name || ''} onChange={handleInputChange} className={cn(t.glass.input)} />
                 {errors.patient_first_name && <p className="text-red-500 text-xs mt-1">{errors.patient_first_name}</p>}
             </div>
             <div>
                 <Label htmlFor="patient_last_name" className={cn(t.text.secondary)}>Last Name</Label>
-                <Input name="patient_last_name" value={formData.patient_last_name} onChange={handleInputChange} className={cn(t.glass.input)} />
+                <Input name="patient_last_name" value={formData.patient_last_name || ''} onChange={handleInputChange} className={cn(t.glass.input)} />
                 {errors.patient_last_name && <p className="text-red-500 text-xs mt-1">{errors.patient_last_name}</p>}
             </div>
             <div>
                 <Label htmlFor="patient_dob" className={cn(t.text.secondary)}>Date of Birth</Label>
-                <Input type="date" name="patient_dob" value={formData.patient_dob} onChange={handleInputChange} className={cn(t.glass.input)} />
+                <Input type="date" name="patient_dob" value={formData.patient_dob || ''} onChange={handleInputChange} className={cn(t.glass.input)} />
                 {errors.patient_dob && <p className="text-red-500 text-xs mt-1">{errors.patient_dob}</p>}
             </div>
         </div>
@@ -204,7 +204,7 @@ export default function Step1PatientInformation({
             </div>
             <div>
                 <Label htmlFor="payer_name" className={cn(t.text.secondary)}>Payer Name</Label>
-                <Input name="payer_name" value={formData.payer_name} onChange={handleInputChange} className={cn(t.glass.input)} />
+                <Input name="payer_name" value={formData.payer_name || ''} onChange={handleInputChange} className={cn(t.glass.input)} />
                 {errors.payer_name && <p className="text-red-500 text-xs mt-1">{errors.payer_name}</p>}
             </div>
              <div>
