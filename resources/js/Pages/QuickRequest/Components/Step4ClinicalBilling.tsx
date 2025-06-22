@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { FiAlertCircle } from 'react-icons/fi';
+import { useEffect, useState } from 'react';
+import { FiAlertCircle, FiSearch, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import axios from 'axios';
@@ -47,6 +47,14 @@ export default function Step4ClinicalBilling({
   const [requirementMessages, setRequirementMessages] = useState<string[]>([]);
   const [loadingCodes, setLoadingCodes] = useState(false);
 
+  // State for searchable diagnosis codes
+  const [yellowSearchTerm, setYellowSearchTerm] = useState('');
+  const [orangeSearchTerm, setOrangeSearchTerm] = useState('');
+  const [pressureSearchTerm, setPressureSearchTerm] = useState('');
+  const [showYellowDropdown, setShowYellowDropdown] = useState(false);
+  const [showOrangeDropdown, setShowOrangeDropdown] = useState(false);
+  const [showPressureDropdown, setShowPressureDropdown] = useState(false);
+
   // Wound type options - these should match the database wound_types table
   const woundTypes = [
     { value: 'diabetic_foot_ulcer', label: 'Diabetic Foot Ulcer' },
@@ -73,6 +81,21 @@ export default function Step4ClinicalBilling({
       setRequirementMessages([]);
     }
   }, [formData.wound_types]);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.diagnosis-dropdown')) {
+        setShowYellowDropdown(false);
+        setShowOrangeDropdown(false);
+        setShowPressureDropdown(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchDiagnosisCodes = async (woundTypes: string[]) => {
     setLoadingCodes(true);
@@ -196,6 +219,44 @@ export default function Step4ClinicalBilling({
     }
   };
 
+  // Helper functions for searchable diagnosis codes
+  const getFilteredYellowCodes = () => {
+    return yellowCodes.filter(code => 
+      code.code.toLowerCase().includes(yellowSearchTerm.toLowerCase()) ||
+      code.description.toLowerCase().includes(yellowSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredOrangeCodes = () => {
+    return orangeCodes.filter(code => 
+      code.code.toLowerCase().includes(orangeSearchTerm.toLowerCase()) ||
+      code.description.toLowerCase().includes(orangeSearchTerm.toLowerCase())
+    );
+  };
+
+  const getFilteredPressureCodes = () => {
+    return pressureUlcerCodes.filter(code => 
+      code.code.toLowerCase().includes(pressureSearchTerm.toLowerCase()) ||
+      code.description.toLowerCase().includes(pressureSearchTerm.toLowerCase())
+    );
+  };
+
+  const handleDiagnosisCodeSelect = (code: string, type: 'yellow' | 'orange' | 'pressure') => {
+    if (type === 'yellow') {
+      updateFormData({ yellow_diagnosis_code: code });
+      setYellowSearchTerm('');
+      setShowYellowDropdown(false);
+    } else if (type === 'orange') {
+      updateFormData({ orange_diagnosis_code: code });
+      setOrangeSearchTerm('');
+      setShowOrangeDropdown(false);
+    } else if (type === 'pressure') {
+      updateFormData({ pressure_ulcer_diagnosis_code: code });
+      setPressureSearchTerm('');
+      setShowPressureDropdown(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Wound Information */}
@@ -287,34 +348,85 @@ export default function Step4ClinicalBilling({
 
           {/* Diagnosis Codes for Pressure Ulcer (no color categories) */}
           {formData.wound_types?.includes('pressure_ulcer') && pressureUlcerCodes.length > 0 && (
-            <div>
+            <div className="relative">
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                 Pressure Ulcer Diagnosis Code <span className="text-red-500">*</span>
               </label>
-              <select
-                className={cn(
-                  "w-full p-2 rounded border transition-all",
-                  theme === 'dark'
-                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500 [&>option]:bg-gray-800 [&>option]:text-white'
-                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
-                  errors.pressure_ulcer_diagnosis && 'border-red-500'
-                )}
-                value={formData.pressure_ulcer_diagnosis_code || ''}
-                onChange={(e) => updateFormData({ pressure_ulcer_diagnosis_code: e.target.value })}
-                disabled={loadingCodes}
-              >
-                <option value="">
-                  Select diagnosis code...
-                </option>
-                {pressureUlcerCodes.map(code => (
-                  <option
-                    key={code.code}
-                    value={code.code}
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
+                </div>
+                <input
+                  type="text"
+                  className={cn(
+                    "w-full pl-10 pr-10 p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    errors.pressure_ulcer_diagnosis && 'border-red-500'
+                  )}
+                  placeholder="Search diagnosis codes..."
+                  value={pressureSearchTerm}
+                  onChange={(e) => {
+                    setPressureSearchTerm(e.target.value);
+                    setShowPressureDropdown(true);
+                  }}
+                  onFocus={() => setShowPressureDropdown(true)}
+                  disabled={loadingCodes}
+                />
+                {formData.pressure_ulcer_diagnosis_code && (
+                  <button
+                    type="button"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                    onClick={() => {
+                      updateFormData({ pressure_ulcer_diagnosis_code: '' });
+                      setPressureSearchTerm('');
+                    }}
                   >
-                    {code.code} - {code.description}
-                  </option>
-                ))}
-              </select>
+                    <FiX className={cn("h-4 w-4", t.text.tertiary)} />
+                  </button>
+                )}
+              </div>
+
+              {/* Display selected code */}
+              {formData.pressure_ulcer_diagnosis_code && (
+                <div className={cn(
+                  "mt-2 p-2 rounded border text-sm",
+                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                )}>
+                  <strong>Selected:</strong> {formData.pressure_ulcer_diagnosis_code} - {
+                    pressureUlcerCodes.find(c => c.code === formData.pressure_ulcer_diagnosis_code)?.description
+                  }
+                </div>
+              )}
+
+              {/* Dropdown */}
+              {showPressureDropdown && (
+                <div className={cn(
+                  "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
+                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
+                )}>
+                  {getFilteredPressureCodes().length > 0 ? (
+                    getFilteredPressureCodes().map(code => (
+                      <button
+                        key={code.code}
+                        type="button"
+                        className={cn(
+                          "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
+                          t.text.primary
+                        )}
+                        onClick={() => handleDiagnosisCodeSelect(code.code, 'pressure')}
+                      >
+                        <span className="font-medium">{code.code}</span> - {code.description}
+                      </button>
+                    ))
+                  ) : (
+                    <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
+                      No codes found
+                    </div>
+                  )}
+                </div>
+              )}
               {errors.pressure_ulcer_diagnosis && (
                 <p className="mt-1 text-sm text-red-500">{errors.pressure_ulcer_diagnosis}</p>
               )}
@@ -324,67 +436,169 @@ export default function Step4ClinicalBilling({
           {/* Diagnosis Codes for DFU and VLU */}
           {(formData.wound_types?.includes('diabetic_foot_ulcer') || formData.wound_types?.includes('venous_leg_ulcer')) && (
             <>
-              <div>
+              <div className="relative">
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Yellow Diagnosis Code (Diabetes) <span className="text-red-500">*</span>
+                  Diabetes Diagnosis Code <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className={cn(
-                    "w-full p-2 rounded border transition-all",
-                    theme === 'dark'
-                      ? 'bg-gray-800 border-yellow-600 text-white focus:border-yellow-400 [&>option]:bg-gray-800 [&>option]:text-white'
-                      : 'bg-yellow-50 border-yellow-400 text-gray-900 focus:border-yellow-500 [&>option]:bg-white [&>option]:text-gray-900',
-                    errors.yellow_diagnosis && 'border-red-500'
-                  )}
-                  value={formData.yellow_diagnosis_code || ''}
-                  onChange={(e) => updateFormData({ yellow_diagnosis_code: e.target.value })}
-                  disabled={loadingCodes}
-                >
-                  <option value="">
-                    {loadingCodes ? 'Loading...' : 'Select yellow code...'}
-                  </option>
-                  {yellowCodes.map(code => (
-                    <option
-                      key={code.code}
-                      value={code.code}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
+                  </div>
+                  <input
+                    type="text"
+                    className={cn(
+                      "w-full pl-10 pr-10 p-2 rounded border transition-all",
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                      errors.yellow_diagnosis && 'border-red-500'
+                    )}
+                    placeholder="Search diabetes diagnosis codes..."
+                    value={yellowSearchTerm}
+                    onChange={(e) => {
+                      setYellowSearchTerm(e.target.value);
+                      setShowYellowDropdown(true);
+                    }}
+                    onFocus={() => setShowYellowDropdown(true)}
+                    disabled={loadingCodes}
+                  />
+                  {formData.yellow_diagnosis_code && (
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => {
+                        updateFormData({ yellow_diagnosis_code: '' });
+                        setYellowSearchTerm('');
+                      }}
                     >
-                      {code.code} - {code.description}
-                    </option>
-                  ))}
-                </select>
+                      <FiX className={cn("h-4 w-4", t.text.tertiary)} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Display selected code */}
+                {formData.yellow_diagnosis_code && (
+                  <div className={cn(
+                    "mt-2 p-2 rounded border text-sm",
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                  )}>
+                    <strong>Selected:</strong> {formData.yellow_diagnosis_code} - {
+                      yellowCodes.find(c => c.code === formData.yellow_diagnosis_code)?.description
+                    }
+                  </div>
+                )}
+
+                {/* Dropdown */}
+                {showYellowDropdown && (
+                  <div className={cn(
+                    "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
+                  )}>
+                    {getFilteredYellowCodes().length > 0 ? (
+                      getFilteredYellowCodes().map(code => (
+                        <button
+                          key={code.code}
+                          type="button"
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
+                            t.text.primary
+                          )}
+                          onClick={() => handleDiagnosisCodeSelect(code.code, 'yellow')}
+                        >
+                          <span className="font-medium">{code.code}</span> - {code.description}
+                        </button>
+                      ))
+                    ) : (
+                      <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
+                        No codes found
+                      </div>
+                    )}
+                  </div>
+                )}
                 {errors.yellow_diagnosis && (
                   <p className="mt-1 text-sm text-red-500">{errors.yellow_diagnosis}</p>
                 )}
               </div>
 
-              <div>
+              <div className="relative">
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Orange Diagnosis Code (Chronic Ulcer) <span className="text-red-500">*</span>
+                  Chronic Ulcer Diagnosis Code <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className={cn(
-                    "w-full p-2 rounded border transition-all",
-                    theme === 'dark'
-                      ? 'bg-gray-800 border-orange-600 text-white focus:border-orange-400 [&>option]:bg-gray-800 [&>option]:text-white'
-                      : 'bg-orange-50 border-orange-400 text-gray-900 focus:border-orange-500 [&>option]:bg-white [&>option]:text-gray-900',
-                    errors.orange_diagnosis && 'border-red-500'
-                  )}
-                  value={formData.orange_diagnosis_code || ''}
-                  onChange={(e) => updateFormData({ orange_diagnosis_code: e.target.value })}
-                  disabled={loadingCodes}
-                >
-                  <option value="">
-                    {loadingCodes ? 'Loading...' : 'Select orange code...'}
-                  </option>
-                  {orangeCodes.map(code => (
-                    <option
-                      key={code.code}
-                      value={code.code}
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
+                  </div>
+                  <input
+                    type="text"
+                    className={cn(
+                      "w-full pl-10 pr-10 p-2 rounded border transition-all",
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                      errors.orange_diagnosis && 'border-red-500'
+                    )}
+                    placeholder="Search chronic ulcer diagnosis codes..."
+                    value={orangeSearchTerm}
+                    onChange={(e) => {
+                      setOrangeSearchTerm(e.target.value);
+                      setShowOrangeDropdown(true);
+                    }}
+                    onFocus={() => setShowOrangeDropdown(true)}
+                    disabled={loadingCodes}
+                  />
+                  {formData.orange_diagnosis_code && (
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
+                      onClick={() => {
+                        updateFormData({ orange_diagnosis_code: '' });
+                        setOrangeSearchTerm('');
+                      }}
                     >
-                      {code.code} - {code.description}
-                    </option>
-                  ))}
-                </select>
+                      <FiX className={cn("h-4 w-4", t.text.tertiary)} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Display selected code */}
+                {formData.orange_diagnosis_code && (
+                  <div className={cn(
+                    "mt-2 p-2 rounded border text-sm",
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                  )}>
+                    <strong>Selected:</strong> {formData.orange_diagnosis_code} - {
+                      orangeCodes.find(c => c.code === formData.orange_diagnosis_code)?.description
+                    }
+                  </div>
+                )}
+
+                {/* Dropdown */}
+                {showOrangeDropdown && (
+                  <div className={cn(
+                    "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
+                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
+                  )}>
+                    {getFilteredOrangeCodes().length > 0 ? (
+                      getFilteredOrangeCodes().map(code => (
+                        <button
+                          key={code.code}
+                          type="button"
+                          className={cn(
+                            "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
+                            t.text.primary
+                          )}
+                          onClick={() => handleDiagnosisCodeSelect(code.code, 'orange')}
+                        >
+                          <span className="font-medium">{code.code}</span> - {code.description}
+                        </button>
+                      ))
+                    ) : (
+                      <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
+                        No codes found
+                      </div>
+                    )}
+                  </div>
+                )}
                 {errors.orange_diagnosis && (
                   <p className="mt-1 text-sm text-red-500">{errors.orange_diagnosis}</p>
                 )}
@@ -446,7 +660,7 @@ export default function Step4ClinicalBilling({
                       <input
                         type="checkbox"
                         className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                        checked={formData.application_cpt_codes?.includes(option.value) || suggestedCodes.includes(option.value)}
+                        checked={formData.application_cpt_codes?.includes(option.value) || false}
                         onChange={() => handleCPTCodeToggle(option.value)}
                       />
                       <span className={cn(

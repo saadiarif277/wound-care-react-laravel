@@ -78,7 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: '123458', // Replace with your actual DocuSeal template ID (numeric)
+    docusealTemplateId: '1233913', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'amnio_amp_size',

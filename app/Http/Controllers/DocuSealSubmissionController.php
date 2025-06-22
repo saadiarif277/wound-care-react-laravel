@@ -62,12 +62,55 @@ class DocuSealSubmissionController extends Controller
     }
 
     /**
+     * Generate JWT token for DocuSeal builder
+     */
+    public function generateBuilderToken(Request $request)
+    {
+        $validated = $request->validate([
+            'template_id' => 'required|string',
+            'email' => 'required|email',
+            'name' => 'required|string',
+            'fields' => 'array',
+            'external_id' => 'nullable|string',
+        ]);
+
+        try {
+            // Generate JWT token for DocuSeal builder
+            $token = $this->docuSealService->generateBuilderToken(
+                $validated['template_id'],
+                [
+                    'email' => $validated['email'],
+                    'name' => $validated['name'],
+                    'fields' => $validated['fields'] ?? [],
+                    'external_id' => $validated['external_id'] ?? null,
+                ]
+            );
+
+            return response()->json([
+                'success' => true,
+                'jwt_token' => $token,
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('DocuSeal builder token generation failed', [
+                'error' => $e->getMessage(),
+                'template_id' => $validated['template_id'],
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to generate builder token: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
      * Check the status of a DocuSeal submission
      */
     public function checkStatus($submissionId)
     {
         try {
-            $submission = $this->docuSealService->getSubmission($submissionId);
+            $submission = $this->docuSealService->getSubmissionStatus($submissionId);
 
             return response()->json([
                 'success' => true,

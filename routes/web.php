@@ -990,7 +990,7 @@ Route::middleware(['auth'])->group(function () {
         ->name('quickrequest.docuseal.create-submission');
 
     // Generate JWT token for DocuSeal builder
-    Route::post('/quickrequest/docuseal/generate-builder-token', [\App\Http\Controllers\QuickRequestController::class, 'generateBuilderToken'])
+    Route::post('/quickrequest/docuseal/generate-builder-token', [\App\Http\Controllers\DocuSealSubmissionController::class, 'generateBuilderToken'])
         ->name('quickrequest.docuseal.generate-builder-token');
 
     // Create final submission form with all QuickRequest data
@@ -1144,13 +1144,32 @@ Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
         ->name('docuseal.test-submission');
 });
 
+// DocuSeal API Test Route (remove in production)
+Route::get('/test-docuseal-connection', function () {
+    if (!Auth::check()) {
+        return response()->json(['error' => 'Please log in first'], 401);
+    }
+
+    try {
+        $docuSealService = app(\App\Services\DocuSealService::class);
+        $result = $docuSealService->testConnection();
+        
+        return response()->json($result);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+})->middleware('auth')->name('test.docuseal.connection');
+
 // Quick DocuSeal template check (remove in production)
 Route::get('/docuseal-templates', function () {
     if (!Auth::check()) {
         return 'Please log in first';
     }
 
-    $apiKey = config('services.docuseal.api_key');
+    $apiKey = config('docuseal.api_key'); // Fixed: use docuseal.api_key instead of services.docuseal.api_key
     if (!$apiKey) {
         return 'DOCUSEAL_API_KEY not set in .env file';
     }

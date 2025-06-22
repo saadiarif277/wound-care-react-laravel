@@ -36,8 +36,8 @@ return [
             'WoundPlus' => env('DOCUSEAL_TEMPLATE_ADVANCED_WOUNDPLUS', 1000007),
         ],
         'MedLife' => [
-            'default' => env('DOCUSEAL_TEMPLATE_MEDLIFE', 1000008),
-            'Amnio AMP' => env('DOCUSEAL_TEMPLATE_MEDLIFE_AMNIO', 1000009),
+            'default' => env('DOCUSEAL_TEMPLATE_MEDLIFE', 1233913),
+            'Amnio AMP' => env('DOCUSEAL_TEMPLATE_MEDLIFE_AMNIO', 1233913),
         ],
         'BioWound' => [
             'default' => env('DOCUSEAL_TEMPLATE_BIOWOUND', 1000010),
@@ -48,9 +48,9 @@ return [
             'Amnio-Maxx' => env('DOCUSEAL_TEMPLATE_BIOWOUND_AMNIOMAXX', 1000015),
         ],
         'Centurion' => [
-            'default' => env('DOCUSEAL_TEMPLATE_CENTURION', 1000016),
-            'AmnioBand' => env('DOCUSEAL_TEMPLATE_CENTURION_AMNIOBAND', 1000017),
-            'Allopatch' => env('DOCUSEAL_TEMPLATE_CENTURION_ALLOPATCH', 1000018),
+            'default' => env('DOCUSEAL_TEMPLATE_CENTURION', 1233918),
+            'AmnioBand' => env('DOCUSEAL_TEMPLATE_CENTURION_AMNIOBAND', 1233918),
+            'Allopatch' => env('DOCUSEAL_TEMPLATE_CENTURION_ALLOPATCH', 1233918),
         ],
         'BioWerX' => [
             'default' => env('DOCUSEAL_TEMPLATE_BIOWERX', 1000019),

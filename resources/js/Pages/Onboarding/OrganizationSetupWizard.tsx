@@ -15,6 +15,7 @@ import {
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
+import '@/resources/css/OrganizationSetupWizard.css';
 
 interface OnboardingStep {
     id: number;
@@ -680,10 +681,9 @@ export default function OrganizationSetupWizard({ organization, onboardingData }
                                 <span className="text-sm px-3 py-1 bg-blue-100 text-blue-800 rounded-full">
                                     {Math.round(progress)}% Complete
                                 </span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
                                 <div
-                                    className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                                    className={`bg-blue-600 h-2 rounded-full transition-all duration-300 progress-bar`}
+                                    data-progress={progress}
                                     style={{ width: `${progress}%` }}
                                 />
                             </div>

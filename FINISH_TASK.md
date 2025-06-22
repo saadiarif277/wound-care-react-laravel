@@ -23,7 +23,6 @@ This document outlines the remaining work to complete the dynamic IVR field mapp
    - Episode creation flow in `Step1CreateEpisode.tsx`
 
 3. **Configuration**
-   - `config/ivr-field-mappings.php` - Comprehensive field mappings for all manufacturers
    - `manufacturerFields.ts` - Frontend manufacturer field definitions
 
 ### 🔧 Needs Completion

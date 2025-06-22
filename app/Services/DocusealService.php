@@ -7,6 +7,7 @@ use App\Models\Order\Manufacturer;
 use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class DocuSealService
 {
@@ -15,8 +16,26 @@ class DocuSealService
 
     public function __construct()
     {
-        $this->apiKey = config('services.docuseal.api_key');
-        $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+        $this->apiKey = config('docuseal.api_key');
+        $this->apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
+        
+        // Debug logging for configuration validation
+        Log::info('DocuSeal Configuration Loaded', [
+            'api_key_present' => !empty($this->apiKey),
+            'api_key_length' => strlen($this->apiKey ?? ''),
+            'api_url' => $this->apiUrl,
+            'config_api_key' => config('docuseal.api_key') ? 'SET' : 'MISSING',
+            'config_api_url' => config('docuseal.api_url') ?? 'MISSING',
+        ]);
+        
+        if (empty($this->apiKey)) {
+            Log::error('DocuSeal API Key not configured', [
+                'config_check' => [
+                    'docuseal.api_key' => config('docuseal.api_key'),
+                    'env_DOCUSEAL_API_KEY' => env('DOCUSEAL_API_KEY'),
+                ]
+            ]);
+        }
     }
 
     /**
@@ -46,7 +65,7 @@ class DocuSealService
             'send_email' => false, // We'll embed it instead
             'submitters' => [[
                 'role' => 'Provider',
-                'email' => auth()->user()->email,
+                'email' => Auth::user()->email,
                 'fields' => $mappedFields
             ]]
         ];
@@ -101,42 +120,70 @@ class DocuSealService
         $fieldMappings = $template->field_mappings ?? [];
         $mappedFields = [];
 
-        // Get the universal mappings from config as fallback
-        $universalMappings = $this->getUniversalMappings();
-
         foreach ($fieldMappings as $docusealFieldName => $mapping) {
-            // Get the local field path
-            $localFieldPath = $mapping['local_field'] ?? $mapping['system_field'] ?? null;
-
-            if ($localFieldPath) {
-                $value = $this->getNestedValue($data, $localFieldPath);
+            // Get the system field path (this maps to QuickRequest data structure)
+            $systemFieldPath = $mapping['system_field'] ?? null;
+            
+            if ($systemFieldPath) {
+                $value = $this->getNestedValue($data, $systemFieldPath);
                 if ($value !== null) {
-                    $mappedFields[$docusealFieldName] = $value;
-                }
-            }
-        }
-
-        // Also check universal mappings for any missed fields
-        $manufacturerName = $this->normalizeManufacturerName($template->manufacturer->name ?? '');
-        $fallbackMappings = $universalMappings[$manufacturerName] ?? [];
-
-        foreach ($fallbackMappings as $universalPath => $docusealFieldName) {
-            if (!isset($mappedFields[$docusealFieldName])) {
-                $value = $this->getNestedValue($data, $universalPath);
-                if ($value !== null) {
-                    $mappedFields[$docusealFieldName] = $value;
+                    $mappedFields[$docusealFieldName] = $this->transformValue($value, $mapping);
                 }
             }
         }
 
         Log::info('Mapped fields for DocuSeal submission', [
             'template_id' => $template->id,
+            'docuseal_template_id' => $template->docuseal_template_id,
             'total_mappings' => count($fieldMappings),
             'fields_mapped' => count($mappedFields),
-            'field_names' => array_keys($mappedFields)
+            'field_names' => array_keys($mappedFields),
+            'manufacturer' => $template->manufacturer?->name
         ]);
 
         return $mappedFields;
+    }
+
+    /**
+     * Transform value based on field mapping configuration
+     */
+    protected function transformValue($value, array $mapping)
+    {
+        $dataType = $mapping['data_type'] ?? 'string';
+        
+        switch ($dataType) {
+            case 'date':
+                if ($value && !empty($value)) {
+                    try {
+                        return \Carbon\Carbon::parse($value)->format('Y-m-d');
+                    } catch (\Exception $e) {
+                        return $value;
+                    }
+                }
+                break;
+                
+            case 'phone':
+                if ($value) {
+                    // Clean and format phone number
+                    $cleaned = preg_replace('/[^0-9]/', '', $value);
+                    if (strlen($cleaned) === 10) {
+                        return sprintf('(%s) %s-%s', 
+                            substr($cleaned, 0, 3),
+                            substr($cleaned, 3, 3),
+                            substr($cleaned, 6, 4)
+                        );
+                    }
+                }
+                break;
+                
+            case 'boolean':
+                return (bool) $value;
+                
+            case 'number':
+                return is_numeric($value) ? (float) $value : $value;
+        }
+        
+        return $value;
     }
 
     /**
@@ -156,6 +203,7 @@ class DocuSealService
 
         return $value;
     }
+
     /**
      * Normalize manufacturer name for consistency
      */
@@ -176,27 +224,6 @@ class DocuSealService
         return $mappings[$normalized] ?? $name;
     }
 
-    /**
-     * Get universal field mappings
-     */
-    protected function getUniversalMappings(): array
-    {
-        // This should match your UNIVERSAL_IVR_FORM.md mappings
-        return [
-            'ACZ' => [
-                'requestInfo.salesRepName' => 'REPRESENTATIVE NAME',
-                'physicianInfo.physicianName' => 'PHYSICIAN NAME',
-                'physicianInfo.physicianNPI' => 'NPI',
-                'physicianInfo.physicianTaxID' => 'TAX ID',
-                'facilityInfo.facilityName' => 'FACILITY NAME',
-                'facilityInfo.facilityAddressLine1' => 'FACILITY ADDRESS',
-                'patientInfo.patientName' => 'PATIENT NAME',
-                'patientInfo.patientDOB' => 'PATIENT DOB',
-                // Add all other mappings from your UNIVERSAL_IVR_FORM.md
-            ],
-            // Add other manufacturers...
-        ];
-    }
 
     /**
      * Create a submission for QuickRequest IVR
@@ -229,16 +256,54 @@ class DocuSealService
                 $data = $response->json();
 
                 Log::info('DocuSeal submission created successfully', [
-                    'submission_id' => $data['id'],
+                    'submission_id' => $data['id'] ?? null,
                     'template_id' => $templateId,
                     'external_id' => $submitterData['external_id'] ?? null
                 ]);
 
+                // Handle both array and object response formats
+                $submissionId = null;
+                $signingUrl = null;
+
+                if (is_array($data) && !empty($data)) {
+                    $firstSubmitter = $data[0];
+                    $submissionId = $firstSubmitter['submission_id'] ?? $firstSubmitter['id'];
+                    $signingUrl = $firstSubmitter['embed_url'] ?? $firstSubmitter['sign_url'] ?? null;
+                } else {
+                    $submissionId = $data['id'] ?? null;
+                    $signingUrl = $data['embed_url'] ?? $data['sign_url'] ?? null;
+                }
+
                 return [
-                    'submission_id' => $data['id'],
-                    'signing_url' => $data['submitters'][0]['embed_url'] ?? $data['submitters'][0]['sign_url'] ?? null,
+                    'submission_id' => $submissionId,
+                    'signing_url' => $signingUrl,
                     'status' => $data['status'] ?? 'pending'
                 ];
+            }
+
+            // Enhanced error handling for specific HTTP status codes
+            if ($response->status() === 401) {
+                Log::error('DocuSeal Authentication Failed', [
+                    'api_url' => $this->apiUrl,
+                    'api_key_length' => strlen($this->apiKey ?? ''),
+                    'api_key_prefix' => substr($this->apiKey ?? '', 0, 8) . '...',
+                    'request_url' => "{$this->apiUrl}/submissions",
+                    'response_body' => $response->body(),
+                    'template_id' => $templateId,
+                    'config_check' => [
+                        'api_key' => config('docuseal.api_key') ? 'configured' : 'missing',
+                        'api_url' => config('docuseal.api_url') ?? 'missing',
+                    ]
+                ]);
+                throw new \Exception('DocuSeal API Authentication Failed: Invalid API key or insufficient permissions');
+            }
+
+            if ($response->status() === 404) {
+                Log::error('DocuSeal Template Not Found', [
+                    'template_id' => $templateId,
+                    'response_body' => $response->body(),
+                ]);
+                throw new \Exception("DocuSeal Template not found: {$templateId}");
             }
 
             throw new \Exception('DocuSeal API error: ' . $response->body());
@@ -254,7 +319,7 @@ class DocuSealService
     }
 
     /**
-     * Get submission details (rename from getSubmission to getSubmissionStatus for consistency)
+     * Get submission details
      */
     public function getSubmissionStatus(string $submissionId)
     {
@@ -346,7 +411,7 @@ class DocuSealService
 
             // Example: Create a submission for the order
             // You'll need to determine the appropriate template ID and fields
-            $templateId = config('services.docuseal.default_template_id', '123456');
+            $templateId = config('docuseal.default_templates.BioWound', '123456');
 
             $submissionData = [
                 'template_id' => $templateId,
@@ -454,6 +519,133 @@ class DocuSealService
 
             // Return fallback embed URL
             return "{$this->apiUrl}/embed/{$submissionId}";
+        }
+    }
+
+    /**
+     * Generate JWT token for DocuSeal builder
+     */
+    public function generateBuilderToken(string $templateId, array $submitterData): string
+    {
+        try {
+            $tokenData = [
+                'template_id' => $templateId,
+                'user_email' => $submitterData['email'],
+                'integration_email' => $submitterData['email'], // Same as user email for our use case
+                'name' => $submitterData['name'],
+                'external_id' => $submitterData['external_id'] ?? null,
+            ];
+
+            // Add pre-filled fields if provided
+            if (!empty($submitterData['fields'])) {
+                $tokenData['fields'] = $submitterData['fields'];
+            }
+
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/builder/jwt", $tokenData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                Log::info('DocuSeal builder token generated successfully', [
+                    'template_id' => $templateId,
+                    'user_email' => $submitterData['email'],
+                    'external_id' => $submitterData['external_id'] ?? null
+                ]);
+
+                return $data['jwt'] ?? $data['token'] ?? '';
+            }
+
+            // Enhanced error handling
+            if ($response->status() === 401) {
+                Log::error('DocuSeal Builder Authentication Failed', [
+                    'api_url' => $this->apiUrl,
+                    'template_id' => $templateId,
+                    'response_body' => $response->body(),
+                ]);
+                throw new \Exception('DocuSeal API Authentication Failed: Invalid API key');
+            }
+
+            if ($response->status() === 404) {
+                Log::error('DocuSeal Builder Template Not Found', [
+                    'template_id' => $templateId,
+                    'response_body' => $response->body(),
+                ]);
+                throw new \Exception("DocuSeal Template not found: {$templateId}");
+            }
+
+            throw new \Exception('DocuSeal builder token generation failed: ' . $response->body());
+
+        } catch (\Exception $e) {
+            Log::error('DocuSeal builder token generation failed', [
+                'error' => $e->getMessage(),
+                'template_id' => $templateId,
+                'user_email' => $submitterData['email'] ?? null
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Test DocuSeal API connectivity and authentication
+     */
+    public function testConnection(): array
+    {
+        try {
+            Log::info('Testing DocuSeal API connection', [
+                'api_url' => $this->apiUrl,
+                'api_key_length' => strlen($this->apiKey ?? ''),
+                'api_key_prefix' => substr($this->apiKey ?? '', 0, 8) . '...',
+            ]);
+
+            // Test with a simple API call (list templates)
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/templates");
+
+            $result = [
+                'success' => $response->successful(),
+                'status_code' => $response->status(),
+                'api_key_length' => strlen($this->apiKey ?? ''),
+                'api_url' => $this->apiUrl,
+                'config_check' => [
+                    'api_key' => config('docuseal.api_key') ? 'configured' : 'missing',
+                    'api_url' => config('docuseal.api_url') ?? 'missing',
+                ],
+            ];
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $result['message'] = 'Connection successful';
+                $result['templates_count'] = is_array($data) ? count($data) : 0;
+                $result['sample_templates'] = is_array($data) ? array_slice($data, 0, 3) : [];
+            } else {
+                $result['message'] = 'Connection failed';
+                $result['error'] = $response->body();
+                
+                if ($response->status() === 401) {
+                    $result['error_type'] = 'authentication';
+                    $result['recommendation'] = 'Check API key validity and permissions';
+                }
+            }
+
+            Log::info('DocuSeal connection test result', $result);
+            return $result;
+
+        } catch (\Exception $e) {
+            $result = [
+                'success' => false,
+                'message' => 'Connection test failed',
+                'error' => $e->getMessage(),
+                'api_key_length' => strlen($this->apiKey ?? ''),
+                'api_url' => $this->apiUrl,
+            ];
+
+            Log::error('DocuSeal connection test exception', $result);
+            return $result;
         }
     }
 }

@@ -1,112 +1,149 @@
-import React, { useEffect, useState, Fragment, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, Fragment, useMemo } from 'react';
 import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
 import { 
-  Upload, Loader2, CheckCircle, AlertCircle, X, ExternalLink, 
-  FileEdit, Eye, Database, ChevronRight, Package, Settings,
-  Zap, AlertTriangle, FileText, Hash, CheckSquare
+  RefreshCw, Search, Filter, Plus, Settings, ExternalLink, 
+  FileText, Database, CheckCircle2, AlertCircle, Clock,
+  Zap, Package, Users, TrendingUp, BarChart3, Eye,
+  Download, Upload, Edit3, Trash2, Copy, Star,
+  ChevronDown, ChevronRight, X, Calendar, Hash,
+  CheckSquare, AlertTriangle, Info, MapIcon
 } from 'lucide-react';
 
-// Types
+// Enhanced Types
 interface Template {
   id: string;
   template_name: string;
   docuseal_template_id: string;
-  document_type: string;
+  document_type: 'IVR' | 'OnboardingForm' | 'OrderForm' | 'InsuranceVerification';
   manufacturer_id: string;
-  manufacturer_name?: string;
+  manufacturer?: {
+    id: string;
+    name: string;
+    contact_email?: string;
+    is_active: boolean;
+  };
   is_active: boolean;
   is_default: boolean;
   field_mappings: Record<string, any>;
-  extraction_metadata?: Record<string, any>;
+  extraction_metadata?: {
+    total_fields?: number;
+    mapped_fields?: number;
+    extraction_confidence?: number;
+    last_sync_at?: string;
+    folder_info?: {
+      folder_name?: string;
+      is_top_level?: boolean;
+    };
+  };
   last_extracted_at?: string;
-  field_discovery_status?: string;
-  total_fields?: number;
-  mapped_fields?: number;
-  ivr_success_rate?: number;
-  quick_request_enabled?: boolean;
+  created_at: string;
+  updated_at: string;
+  // Computed metrics
+  field_coverage_percentage?: number;
+  submission_count?: number;
+  success_rate?: number;
 }
 
-interface FieldSuggestion {
-  ivr_field_name: string;
-  original_text: string;
-  field_type: string;
-  category: string;
-  is_checkbox: boolean;
-  suggested_mapping: string | null;
-  mapping_type: string | null;
-  confidence: number;
-  is_mapped: boolean;
-  current_mapping: any;
+interface DashboardStats {
+  total_templates: number;
+  active_templates: number;
+  manufacturers_covered: number;
+  avg_field_coverage: number;
+  total_submissions: number;
+  templates_needing_attention: number;
 }
 
-interface DiscoverySummary {
-  total_fields: number;
-  mapped_fields: number;
-  suggested_fields: number;
-  unmapped_fields: number;
-  mapping_percentage: number;
-  categories: Record<string, number>;
-  has_product_checkboxes: boolean;
-  has_multiple_npis: boolean;
+interface SyncStatus {
+  is_syncing: boolean;
+  last_sync: string | null;
+  templates_found: number;
+  templates_updated: number;
+  errors: number;
 }
 
 // Main Component
 export default function Templates() {
   // Core state
   const [templates, setTemplates] = useState<Template[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [syncing, setSyncing] = useState(false);
+  
+  // Sync state
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>({
+    is_syncing: false,
+    last_sync: null,
+    templates_found: 0,
+    templates_updated: 0,
+    errors: 0
+  });
+  
+  // UI state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
+  const [selectedDocType, setSelectedDocType] = useState<string>('all');
+  const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   
   // Modal state
-  const [activeModal, setActiveModal] = useState<'none' | 'configure' | 'preview'>('none');
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
-  const [modalStep, setModalStep] = useState<'overview' | 'discovery' | 'mapping' | 'embedded'>('overview');
-  
-  // Field discovery state
-  const [discovering, setDiscovering] = useState(false);
-  const [fieldSuggestions, setFieldSuggestions] = useState<FieldSuggestion[]>([]);
-  const [discoverySummary, setDiscoverySummary] = useState<DiscoverySummary | null>(null);
-  const [pendingChanges, setPendingChanges] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showSyncModal, setShowSyncModal] = useState(false);
 
-  // Group templates by manufacturer
+  // Computed values
+  const manufacturers = useMemo(() => {
+    const unique = Array.from(new Set(templates.map(t => t.manufacturer?.name).filter(Boolean)));
+    return unique.sort();
+  }, [templates]);
+
+  const documentTypes = useMemo(() => {
+    const unique = Array.from(new Set(templates.map(t => t.document_type)));
+    return unique.sort();
+  }, [templates]);
+
+  const filteredTemplates = useMemo(() => {
+    return templates.filter(template => {
+      const matchesSearch = !searchTerm || 
+        template.template_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        template.manufacturer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesManufacturer = selectedManufacturer === 'all' || 
+        template.manufacturer?.name === selectedManufacturer;
+      
+      const matchesDocType = selectedDocType === 'all' || 
+        template.document_type === selectedDocType;
+      
+      return matchesSearch && matchesManufacturer && matchesDocType;
+    });
+  }, [templates, searchTerm, selectedManufacturer, selectedDocType]);
+
+  // Group templates by manufacturer for grid view
   const groupedTemplates = useMemo(() => {
     const groups: Record<string, Template[]> = {};
-    templates.forEach(template => {
-      const mfg = template.manufacturer_id || 'Other';
+    filteredTemplates.forEach(template => {
+      const mfg = template.manufacturer?.name || 'Unknown';
       if (!groups[mfg]) groups[mfg] = [];
       groups[mfg].push(template);
     });
     return groups;
-  }, [templates]);
+  }, [filteredTemplates]);
 
-  // Calculate template metrics
-  const getTemplateMetrics = useCallback((template: Template) => {
-    const totalFields = Object.keys(template.field_mappings || {}).length;
-    const mappedFields = Object.values(template.field_mappings || {})
-      .filter((mapping: any) => mapping?.local_field).length;
-    const mappingPercentage = totalFields > 0 ? Math.round((mappedFields / totalFields) * 100) : 0;
-    
-    return {
-      totalFields,
-      mappedFields,
-      mappingPercentage,
-      isConfigured: mappingPercentage > 80,
-      hasQuickRequest: template.extraction_metadata?.template_type === 'embedded_tags'
-    };
-  }, []);
-
-  // API calls
+  // API Functions
   const fetchTemplates = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await axios.get('/api/v1/docuseal/templates');
+      const response = await axios.get('/api/v1/admin/docuseal/templates');
       setTemplates(response.data.templates || []);
+      setStats(response.data.stats);
+      
+      // Update sync status if available
+      if (response.data.sync_status) {
+        setSyncStatus(response.data.sync_status);
+      }
     } catch (e: any) {
       setError(e.response?.data?.message || 'Failed to load templates');
     } finally {
@@ -114,137 +151,78 @@ export default function Templates() {
     }
   };
 
-  const syncTemplates = async () => {
-    setSyncing(true);
-    setError(null);
-    try {
-      const response = await axios.post('/api/v1/docuseal/templates/sync');
-      setTemplates(response.data.templates || []);
-    } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to sync templates');
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const discoverFields = async (template: Template, file: File) => {
-    setDiscovering(true);
+  const syncTemplates = async (force = false) => {
+    setSyncStatus(prev => ({ ...prev, is_syncing: true }));
     setError(null);
     
-    const formData = new FormData();
-    formData.append('pdf', file);
-    formData.append('template_id', template.id);
-    formData.append('manufacturer_id', template.manufacturer_id);
-    
     try {
-      const response = await axios.post('/api/v1/docuseal/templates/extract-fields', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+      const response = await axios.post('/api/v1/admin/docuseal/sync', {
+        force,
+        queue: true // Use queue for large syncs
       });
       
       if (response.data.success) {
-        setFieldSuggestions(response.data.suggestions || []);
-        setDiscoverySummary(response.data.summary);
-        setModalStep('mapping');
+        setSyncStatus({
+          is_syncing: false,
+          last_sync: new Date().toISOString(),
+          templates_found: response.data.templates_found || 0,
+          templates_updated: response.data.templates_updated || 0,
+          errors: response.data.errors || 0
+        });
+        
+        // Refresh templates after sync
+        await fetchTemplates();
       }
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to discover fields');
-    } finally {
-      setDiscovering(false);
+      setError(e.response?.data?.message || 'Sync failed');
+      setSyncStatus(prev => ({ ...prev, is_syncing: false }));
     }
   };
 
-  const saveMappings = async () => {
-    if (!selectedTemplate || Object.keys(pendingChanges).length === 0) return;
-    
-    setSaving(true);
-    setError(null);
-    
-    const mappings = Object.entries(pendingChanges).map(([field, value]) => ({
-      ivr_field_name: field,
-      system_field: value,
-      field_type: 'text',
-      mapping_type: 'manual'
-    }));
-    
+  const testSync = async () => {
     try {
-      const response = await axios.post(
-        `/api/v1/docuseal/templates/${selectedTemplate.id}/update-mappings`,
-        { mappings }
-      );
-      
-      if (response.data.success) {
-        setTemplates(prev => prev.map(t => 
-          t.id === selectedTemplate.id ? response.data.template : t
-        ));
-        setPendingChanges({});
-        setModalStep('overview');
-        alert('Mappings saved successfully!');
-      }
+      const response = await axios.post('/api/v1/admin/docuseal/test-sync');
+      alert(`Sync Test Results:\n${response.data.message}`);
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Failed to save mappings');
-    } finally {
-      setSaving(false);
+      alert(`Test failed: ${e.response?.data?.message || e.message}`);
     }
   };
 
-  // Modal handlers
-  const openConfigureModal = (template: Template) => {
-    setSelectedTemplate(template);
-    setActiveModal('configure');
-    setModalStep('overview');
-    setPendingChanges({});
-    
-    // Load existing discovery data if available
-    if (template.extraction_metadata?.field_suggestions) {
-      setFieldSuggestions(template.extraction_metadata.field_suggestions);
-      setDiscoverySummary(template.extraction_metadata.discovery_summary);
-    }
+  // Helper Functions
+  const getTemplateStatusColor = (template: Template) => {
+    const coverage = template.field_coverage_percentage || 0;
+    if (coverage >= 90) return 'text-green-600 bg-green-50 border-green-200';
+    if (coverage >= 70) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (coverage >= 50) return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+    return 'text-red-600 bg-red-50 border-red-200';
   };
 
-  const closeModal = () => {
-    setActiveModal('none');
-    setSelectedTemplate(null);
-    setModalStep('overview');
-    setFieldSuggestions([]);
-    setDiscoverySummary(null);
-    setPendingChanges({});
+  const getTemplateStatusText = (template: Template) => {
+    if (!template.is_active) return 'Inactive';
+    
+    const coverage = template.field_coverage_percentage || 0;
+    const fieldCount = Object.keys(template.field_mappings || {}).length;
+    
+    if (fieldCount === 0) return 'Not Configured';
+    if (coverage >= 90) return 'Excellent';
+    if (coverage >= 70) return 'Good';
+    if (coverage >= 50) return 'Fair';
+    return 'Needs Work';
   };
 
-  // Auto-mapping functions
-  const applyAutoMappings = () => {
-    const autoMappings: Record<string, string> = {};
-    let count = 0;
-    
-    fieldSuggestions.forEach(suggestion => {
-      if (!suggestion.is_mapped && suggestion.suggested_mapping && suggestion.confidence > 0.8) {
-        autoMappings[suggestion.ivr_field_name] = suggestion.suggested_mapping;
-        count++;
-      }
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
     });
-    
-    setPendingChanges(prev => ({ ...prev, ...autoMappings }));
-    if (count > 0) alert(`Applied ${count} high-confidence mappings!`);
   };
 
   useEffect(() => {
     fetchTemplates();
   }, []);
-
-  // Render helpers
-  const renderTemplateStatus = (template: Template) => {
-    const metrics = getTemplateMetrics(template);
-    
-    if (metrics.hasQuickRequest) {
-      return <span className="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-full">Quick Request</span>;
-    }
-    if (metrics.isConfigured) {
-      return <span className="px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Configured</span>;
-    }
-    if (metrics.totalFields > 0) {
-      return <span className="px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded-full">Needs Mapping</span>;
-    }
-    return <span className="px-2 py-1 text-xs bg-gray-100 text-gray-800 rounded-full">Not Configured</span>;
-  };
 
   return (
     <MainLayout>
@@ -252,150 +230,457 @@ export default function Templates() {
 
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
-        <div className="bg-white shadow-sm border-b">
+        <div className="bg-white border-b border-gray-200">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="py-6 flex items-center justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">IVR Templates</h1>
-                <p className="mt-1 text-sm text-gray-600">
-                  Manage manufacturer IVR forms and Quick Request templates
-                </p>
+            <div className="py-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">DocuSeal Templates</h1>
+                  <p className="mt-2 text-gray-600">
+                    Manage manufacturer IVR forms and automation templates
+                  </p>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => setShowSyncModal(true)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Sync Options
+                  </button>
+                  
+                  <button
+                    onClick={testSync}
+                    className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
+                  >
+                    <Zap className="w-4 h-4" />
+                    Test Sync
+                  </button>
+                  
+                  <button
+                    onClick={() => syncTemplates(false)}
+                    disabled={syncStatus.is_syncing}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {syncStatus.is_syncing ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 animate-spin" />
+                        Syncing...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4" />
+                        Sync Templates
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <button
-                onClick={syncTemplates}
-                disabled={syncing}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition disabled:opacity-60 flex items-center gap-2"
-              >
-                {syncing ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Syncing...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="w-4 h-4" />
-                    Sync Templates
-                  </>
-                )}
-              </button>
+
+              {/* Stats Dashboard */}
+              {stats && (
+                <div className="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-6">
+                  <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
+                    <div className="flex items-center">
+                      <FileText className="w-8 h-8 text-blue-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-blue-900">Total Templates</p>
+                        <p className="text-2xl font-bold text-blue-600">{stats.total_templates}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-green-50 rounded-xl p-4 border border-green-100">
+                    <div className="flex items-center">
+                      <CheckCircle2 className="w-8 h-8 text-green-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-green-900">Active</p>
+                        <p className="text-2xl font-bold text-green-600">{stats.active_templates}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 rounded-xl p-4 border border-purple-100">
+                    <div className="flex items-center">
+                      <Package className="w-8 h-8 text-purple-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-purple-900">Manufacturers</p>
+                        <p className="text-2xl font-bold text-purple-600">{stats.manufacturers_covered}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                    <div className="flex items-center">
+                      <BarChart3 className="w-8 h-8 text-yellow-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-yellow-900">Avg Coverage</p>
+                        <p className="text-2xl font-bold text-yellow-600">{stats.avg_field_coverage}%</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                    <div className="flex items-center">
+                      <TrendingUp className="w-8 h-8 text-indigo-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-indigo-900">Submissions</p>
+                        <p className="text-2xl font-bold text-indigo-600">{stats.total_submissions}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-red-50 rounded-xl p-4 border border-red-100">
+                    <div className="flex items-center">
+                      <AlertTriangle className="w-8 h-8 text-red-600" />
+                      <div className="ml-3">
+                        <p className="text-sm font-medium text-red-900">Need Attention</p>
+                        <p className="text-2xl font-bold text-red-600">{stats.templates_needing_attention}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* Main Content */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Filters and Search */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              {/* Search */}
+              <div className="relative flex-1 max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                <input
+                  type="text"
+                  placeholder="Search templates..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+
+              {/* Filters */}
+              <div className="flex items-center gap-3">
+                <select
+                  value={selectedManufacturer}
+                  onChange={(e) => setSelectedManufacturer(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Manufacturers</option>
+                  {manufacturers.map(mfg => (
+                    <option key={mfg} value={mfg}>{mfg}</option>
+                  ))}
+                </select>
+
+                <select
+                  value={selectedDocType}
+                  onChange={(e) => setSelectedDocType(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Types</option>
+                  {documentTypes.map(type => (
+                    <option key={type} value={type}>{type}</option>
+                  ))}
+                </select>
+
+                {/* View Mode Toggle */}
+                <div className="flex rounded-lg border border-gray-300 p-1">
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <Package className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  >
+                    <FileText className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Active Filters Display */}
+            {(searchTerm || selectedManufacturer !== 'all' || selectedDocType !== 'all') && (
+              <div className="mt-3 flex items-center gap-2 text-sm">
+                <span className="text-gray-500">Active filters:</span>
+                {searchTerm && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                    Search: "{searchTerm}"
+                  </span>
+                )}
+                {selectedManufacturer !== 'all' && (
+                  <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                    {selectedManufacturer}
+                  </span>
+                )}
+                {selectedDocType !== 'all' && (
+                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                    {selectedDocType}
+                  </span>
+                )}
+                <button
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedManufacturer('all');
+                    setSelectedDocType('all');
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Error Display */}
+          {error && (
+            <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
+              <AlertCircle className="w-5 h-5 text-red-600 mr-3 flex-shrink-0" />
+              <span className="text-red-800">{error}</span>
+              <button
+                onClick={() => setError(null)}
+                className="ml-auto text-red-400 hover:text-red-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
+          {/* Loading State */}
           {loading ? (
             <div className="text-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
+              <RefreshCw className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
               <p className="text-gray-500">Loading templates...</p>
             </div>
-          ) : error ? (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 flex items-center">
-              <AlertCircle className="w-5 h-5 text-red-600 mr-3" />
-              <span className="text-red-800">{error}</span>
-            </div>
-          ) : Object.keys(groupedTemplates).length === 0 ? (
-            <div className="text-center py-12">
-              <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-500">No templates found</p>
-            </div>
           ) : (
-            <div className="space-y-8">
-              {Object.entries(groupedTemplates).map(([manufacturer, manufacturerTemplates]) => (
-                <div key={manufacturer} className="bg-white rounded-lg shadow-sm overflow-hidden">
-                  <div className="px-6 py-4 bg-gray-50 border-b">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <Package className="w-5 h-5 text-gray-600" />
-                        <h2 className="text-lg font-semibold text-gray-900">{manufacturer}</h2>
-                        <span className="text-sm text-gray-500">
-                          {manufacturerTemplates.length} template{manufacturerTemplates.length !== 1 ? 's' : ''}
-                        </span>
-                      </div>
-                      {manufacturerTemplates.some(t => getTemplateMetrics(t).hasQuickRequest) && (
-                        <span className="px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full flex items-center gap-1">
-                          <Zap className="w-3 h-3" />
-                          Quick Request Enabled
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="divide-y">
-                    {manufacturerTemplates.map(template => {
-                      const metrics = getTemplateMetrics(template);
-                      
-                      return (
-                        <div key={template.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
-                          <div className="flex items-center justify-between">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-3">
-                                <h3 className="font-medium text-gray-900">{template.template_name}</h3>
-                                {renderTemplateStatus(template)}
-                                {template.is_default && (
-                                  <span className="text-xs text-gray-500">Default</span>
-                                )}
-                              </div>
-                              <div className="mt-2 flex items-center gap-6 text-sm text-gray-600">
-                                <span>Type: {template.document_type}</span>
-                                {metrics.totalFields > 0 && (
-                                  <span className="flex items-center gap-1">
-                                    <Hash className="w-3 h-3" />
-                                    {metrics.mappedFields}/{metrics.totalFields} fields mapped
-                                    {metrics.mappingPercentage > 0 && (
-                                      <span className="text-xs text-gray-500">
-                                        ({metrics.mappingPercentage}%)
-                                      </span>
-                                    )}
-                                  </span>
-                                )}
-                                {template.ivr_success_rate && (
-                                  <span className="flex items-center gap-1">
-                                    <CheckCircle className="w-3 h-3 text-green-600" />
-                                    {template.ivr_success_rate}% success rate
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => openConfigureModal(template)}
-                                className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                                title="Configure Template"
-                              >
-                                <Settings className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
-                                className="p-2 text-gray-600 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
-                                title="Edit in DocuSeal"
-                              >
-                                <FileEdit className="w-5 h-5" />
-                              </button>
-                              <button
-                                onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/submissions`, '_blank')}
-                                className="p-2 text-gray-600 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                                title="View Submissions"
-                              >
-                                <Eye className="w-5 h-5" />
-                              </button>
-                            </div>
+            /* Templates Display */
+            <div className="space-y-6">
+              {filteredTemplates.length === 0 ? (
+                <div className="text-center py-12 bg-white rounded-lg border border-gray-200">
+                  <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
+                  <p className="text-gray-500 mb-4">
+                    {templates.length === 0 
+                      ? "No templates have been synced yet. Click 'Sync Templates' to get started."
+                      : "No templates match your current filters. Try adjusting your search criteria."
+                    }
+                  </p>
+                  {templates.length === 0 && (
+                    <button
+                      onClick={() => syncTemplates(false)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Sync Templates Now
+                    </button>
+                  )}
+                </div>
+              ) : viewMode === 'grid' ? (
+                /* Grid View */
+                Object.entries(groupedTemplates).map(([manufacturer, manufacturerTemplates]) => (
+                  <div key={manufacturer} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <Package className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div>
+                            <h2 className="text-xl font-bold text-gray-900">{manufacturer}</h2>
+                            <p className="text-sm text-gray-600">
+                              {manufacturerTemplates.length} template{manufacturerTemplates.length !== 1 ? 's' : ''}
+                            </p>
                           </div>
                         </div>
-                      );
-                    })}
+                        
+                        <div className="text-right">
+                          <div className="text-sm text-gray-500">Avg Coverage</div>
+                          <div className="text-lg font-bold text-gray-900">
+                            {Math.round(manufacturerTemplates.reduce((sum, t) => sum + (t.field_coverage_percentage || 0), 0) / manufacturerTemplates.length)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {manufacturerTemplates.map(template => (
+                          <div
+                            key={template.id}
+                            className="border border-gray-200 rounded-lg p-4 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer"
+                            onClick={() => {
+                              setSelectedTemplate(template);
+                              setShowDetailsModal(true);
+                            }}
+                          >
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex-1">
+                                <h3 className="font-semibold text-gray-900 line-clamp-2 mb-1">
+                                  {template.template_name}
+                                </h3>
+                                <span className="inline-block px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                                  {template.document_type}
+                                </span>
+                              </div>
+                              {template.is_default && (
+                                <Star className="w-4 h-4 text-yellow-500 flex-shrink-0 ml-2" />
+                              )}
+                            </div>
+                            
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">Field Coverage</span>
+                                <span className="font-semibold text-gray-900">
+                                  {template.field_coverage_percentage || 0}%
+                                </span>
+                              </div>
+                              <div className="w-full bg-gray-200 rounded-full h-2">
+                                <div
+                                  className="bg-blue-600 h-2 rounded-full transition-all"
+                                  style={{ width: `${template.field_coverage_percentage || 0}%` }}
+                                />
+                              </div>
+                              
+                              <div className="flex items-center justify-between text-xs text-gray-500">
+                                <span>{Object.keys(template.field_mappings || {}).length} fields</span>
+                                <span className={`px-2 py-1 rounded-full border ${getTemplateStatusColor(template)}`}>
+                                  {getTemplateStatusText(template)}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                /* List View */
+                <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Template
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Manufacturer
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Type
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Coverage
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Last Updated
+                          </th>
+                          <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {filteredTemplates.map(template => (
+                          <tr key={template.id} className="hover:bg-gray-50">
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <FileText className="w-5 h-5 text-gray-400 mr-3" />
+                                <div>
+                                  <div className="text-sm font-medium text-gray-900">
+                                    {template.template_name}
+                                  </div>
+                                  <div className="text-sm text-gray-500">
+                                    ID: {template.docuseal_template_id}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <Package className="w-4 h-4 text-gray-400 mr-2" />
+                                <span className="text-sm text-gray-900">
+                                  {template.manufacturer?.name || 'Unknown'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className="inline-flex px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800">
+                                {template.document_type}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex items-center">
+                                <div className="w-16 bg-gray-200 rounded-full h-2 mr-3">
+                                  <div
+                                    className="bg-blue-600 h-2 rounded-full"
+                                    style={{ width: `${template.field_coverage_percentage || 0}%` }}
+                                  />
+                                </div>
+                                <span className="text-sm text-gray-900">
+                                  {template.field_coverage_percentage || 0}%
+                                </span>
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <span className={`inline-flex px-2 py-1 text-xs rounded-full border ${getTemplateStatusColor(template)}`}>
+                                {getTemplateStatusText(template)}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {formatDate(template.updated_at)}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                              <div className="flex items-center justify-end gap-2">
+                                <button
+                                  onClick={() => {
+                                    setSelectedTemplate(template);
+                                    setShowDetailsModal(true);
+                                  }}
+                                  className="text-blue-600 hover:text-blue-900"
+                                  title="View Details"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
+                                  className="text-green-600 hover:text-green-900"
+                                  title="Edit in DocuSeal"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}`, '_blank')}
+                                  className="text-gray-600 hover:text-gray-900"
+                                  title="Open in DocuSeal"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
       </div>
 
-      {/* Configuration Modal */}
-      <Transition appear show={activeModal === 'configure'} as={Fragment}>
-        <Dialog as="div" className="relative z-50" onClose={closeModal}>
+      {/* Template Details Modal */}
+      <Transition appear show={showDetailsModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowDetailsModal(false)}>
           <Transition.Child
             as={Fragment}
             enter="ease-out duration-300"
@@ -405,11 +690,11 @@ export default function Templates() {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <div className="fixed inset-0 bg-black bg-opacity-30" />
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
           </Transition.Child>
 
           <div className="fixed inset-0 overflow-y-auto">
-            <div className="flex min-h-full items-center justify-center p-4">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
               <Transition.Child
                 as={Fragment}
                 enter="ease-out duration-300"
@@ -419,365 +704,229 @@ export default function Templates() {
                 leaveFrom="opacity-100 scale-100"
                 leaveTo="opacity-0 scale-95"
               >
-                <Dialog.Panel className="w-full max-w-5xl transform overflow-hidden rounded-xl bg-white shadow-xl transition-all">
+                <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                   {selectedTemplate && (
                     <>
-                      {/* Modal Header */}
-                      <div className="bg-gray-50 px-6 py-4 border-b">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <Dialog.Title className="text-lg font-semibold text-gray-900">
-                              Configure {selectedTemplate.template_name}
-                            </Dialog.Title>
-                            <p className="text-sm text-gray-600 mt-1">
-                              {selectedTemplate.manufacturer_id} • {selectedTemplate.document_type}
-                            </p>
-                          </div>
-                          <button onClick={closeModal} className="text-gray-400 hover:text-gray-600">
-                            <X className="w-5 h-5" />
-                          </button>
+                      <div className="flex items-center justify-between mb-6">
+                        <div>
+                          <Dialog.Title className="text-2xl font-bold text-gray-900">
+                            {selectedTemplate.template_name}
+                          </Dialog.Title>
+                          <p className="text-gray-600 mt-1">
+                            {selectedTemplate.manufacturer?.name} • {selectedTemplate.document_type}
+                          </p>
                         </div>
+                        <button
+                          onClick={() => setShowDetailsModal(false)}
+                          className="text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="w-6 h-6" />
+                        </button>
                       </div>
 
-                      {/* Step Navigation */}
-                      <div className="flex border-b">
-                        {['overview', 'discovery', 'mapping', 'embedded'].map((step) => (
-                          <button
-                            key={step}
-                            onClick={() => setModalStep(step as any)}
-                            className={`flex-1 px-6 py-3 text-sm font-medium capitalize transition-colors ${
-                              modalStep === step
-                                ? 'text-blue-600 border-b-2 border-blue-600 bg-blue-50'
-                                : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                            }`}
-                          >
-                            {step === 'embedded' ? 'Quick Request' : step}
-                          </button>
-                        ))}
-                      </div>
-
-                      {/* Modal Content */}
-                      <div className="p-6 max-h-[60vh] overflow-y-auto">
-                        {error && (
-                          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-                            <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-                            {error}
-                          </div>
-                        )}
-
-                        {/* Overview Step */}
-                        {modalStep === 'overview' && (
-                          <div className="space-y-6">
-                            <div className="grid grid-cols-2 gap-6">
-                              <div className="bg-gray-50 rounded-lg p-4">
-                                <h4 className="font-medium text-gray-900 mb-3">Template Information</h4>
-                                <dl className="space-y-2 text-sm">
-                                  <div className="flex justify-between">
-                                    <dt className="text-gray-600">DocuSeal ID:</dt>
-                                    <dd className="font-mono text-gray-900">{selectedTemplate.docuseal_template_id}</dd>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <dt className="text-gray-600">Status:</dt>
-                                    <dd>{selectedTemplate.is_active ? 
-                                      <span className="text-green-600">Active</span> : 
-                                      <span className="text-gray-400">Inactive</span>
-                                    }</dd>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <dt className="text-gray-600">Created:</dt>
-                                    <dd>{new Date(selectedTemplate.last_extracted_at || '').toLocaleDateString()}</dd>
-                                  </div>
-                                </dl>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {/* Template Info */}
+                        <div className="space-y-4">
+                          <div className="bg-gray-50 rounded-lg p-4">
+                            <h3 className="font-semibold text-gray-900 mb-3">Template Information</h3>
+                            <dl className="space-y-2 text-sm">
+                              <div className="flex justify-between">
+                                <dt className="text-gray-600">DocuSeal ID:</dt>
+                                <dd className="font-mono text-gray-900">{selectedTemplate.docuseal_template_id}</dd>
                               </div>
+                              <div className="flex justify-between">
+                                <dt className="text-gray-600">Status:</dt>
+                                <dd>
+                                  {selectedTemplate.is_active ? (
+                                    <span className="text-green-600">Active</span>
+                                  ) : (
+                                    <span className="text-red-600">Inactive</span>
+                                  )}
+                                </dd>
+                              </div>
+                              <div className="flex justify-between">
+                                <dt className="text-gray-600">Default:</dt>
+                                <dd>
+                                  {selectedTemplate.is_default ? (
+                                    <span className="text-blue-600">Yes</span>
+                                  ) : (
+                                    <span className="text-gray-500">No</span>
+                                  )}
+                                </dd>
+                              </div>
+                              <div className="flex justify-between">
+                                <dt className="text-gray-600">Last Updated:</dt>
+                                <dd>{formatDate(selectedTemplate.updated_at)}</dd>
+                              </div>
+                            </dl>
+                          </div>
 
-                              <div className="bg-blue-50 rounded-lg p-4">
-                                <h4 className="font-medium text-blue-900 mb-3">Field Mapping Status</h4>
-                                <div className="space-y-3">
-                                  {(() => {
-                                    const metrics = getTemplateMetrics(selectedTemplate);
-                                    return (
-                                      <>
-                                        <div className="flex justify-between items-center">
-                                          <span className="text-sm text-blue-700">Total Fields</span>
-                                          <span className="font-semibold text-blue-900">{metrics.totalFields}</span>
-                                        </div>
-                                        <div className="flex justify-between items-center">
-                                          <span className="text-sm text-blue-700">Mapped Fields</span>
-                                          <span className="font-semibold text-blue-900">{metrics.mappedFields}</span>
-                                        </div>
-                                        <div className="mt-3 pt-3 border-t border-blue-200">
-                                          <div className="flex justify-between items-center">
-                                            <span className="text-sm font-medium text-blue-700">Completion</span>
-                                            <span className="font-bold text-blue-900">{metrics.mappingPercentage}%</span>
-                                          </div>
-                                          <div className="mt-2 bg-blue-200 rounded-full h-2 overflow-hidden">
-                                            <div 
-                                              className="bg-blue-600 h-full transition-all duration-500"
-                                              style={{ width: `${metrics.mappingPercentage}%` }}
-                                            />
-                                          </div>
-                                        </div>
-                                      </>
-                                    );
-                                  })()}
+                          {/* Field Mappings Preview */}
+                          <div className="bg-blue-50 rounded-lg p-4">
+                            <h3 className="font-semibold text-blue-900 mb-3">Field Mappings</h3>
+                            <div className="space-y-2">
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Total Fields:</span>
+                                <span className="font-semibold">{Object.keys(selectedTemplate.field_mappings || {}).length}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-blue-700">Coverage:</span>
+                                <span className="font-semibold">{selectedTemplate.field_coverage_percentage || 0}%</span>
+                              </div>
+                              <div className="mt-3">
+                                <div className="bg-blue-200 rounded-full h-3">
+                                  <div
+                                    className="bg-blue-600 h-3 rounded-full transition-all"
+                                    style={{ width: `${selectedTemplate.field_coverage_percentage || 0}%` }}
+                                  />
                                 </div>
                               </div>
                             </div>
-
-                            <div className="border-t pt-6 flex justify-center">
-                              <button
-                                onClick={() => setModalStep('discovery')}
-                                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-                              >
-                                Start Field Discovery
-                                <ChevronRight className="w-4 h-4" />
-                              </button>
-                            </div>
                           </div>
-                        )}
+                        </div>
 
-                        {/* Discovery Step */}
-                        {modalStep === 'discovery' && (
-                          <div className="space-y-6">
-                            <div className="text-center">
-                              <h3 className="text-lg font-medium text-gray-900 mb-2">
-                                Upload IVR PDF for Field Discovery
-                              </h3>
-                              <p className="text-sm text-gray-600 mb-6">
-                                Upload the manufacturer's IVR form to automatically discover and map fields
-                              </p>
-                            </div>
-
-                            <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
-                              <input
-                                type="file"
-                                accept=".pdf"
-                                onChange={(e) => {
-                                  const file = e.target.files?.[0];
-                                  if (file && selectedTemplate) {
-                                    discoverFields(selectedTemplate, file);
-                                  }
-                                }}
-                                className="hidden"
-                                id="pdf-upload"
-                                disabled={discovering}
-                              />
-                              <label htmlFor="pdf-upload" className="cursor-pointer">
-                                {discovering ? (
-                                  <>
-                                    <Loader2 className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
-                                    <p className="text-gray-600">Analyzing PDF...</p>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                                    <p className="text-gray-600 mb-2">Drop PDF here or click to browse</p>
-                                    <p className="text-sm text-gray-500">
-                                      Supports {selectedTemplate.manufacturer_id} IVR forms
-                                    </p>
-                                  </>
-                                )}
-                              </label>
-                            </div>
-
-                            {fieldSuggestions.length > 0 && (
-                              <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                                <p className="text-green-800 flex items-center gap-2">
-                                  <CheckCircle className="w-5 h-5" />
-                                  Previous discovery found {fieldSuggestions.length} fields
-                                </p>
-                                <button
-                                  onClick={() => setModalStep('mapping')}
-                                  className="mt-2 text-sm text-green-700 underline hover:no-underline"
-                                >
-                                  View existing mappings →
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Mapping Step */}
-                        {modalStep === 'mapping' && fieldSuggestions.length > 0 && (
-                          <div className="space-y-6">
-                            {discoverySummary && (
-                              <div className="bg-gray-50 rounded-lg p-4">
-                                <div className="grid grid-cols-4 gap-4 text-center">
-                                  <div>
-                                    <p className="text-2xl font-bold text-gray-900">{discoverySummary.total_fields}</p>
-                                    <p className="text-sm text-gray-600">Total Fields</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-2xl font-bold text-green-600">{discoverySummary.mapped_fields}</p>
-                                    <p className="text-sm text-gray-600">Mapped</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-2xl font-bold text-blue-600">{discoverySummary.suggested_fields}</p>
-                                    <p className="text-sm text-gray-600">Suggestions</p>
-                                  </div>
-                                  <div>
-                                    <p className="text-2xl font-bold text-red-600">{discoverySummary.unmapped_fields}</p>
-                                    <p className="text-sm text-gray-600">Unmapped</p>
-                                  </div>
+                        {/* Sample Fields */}
+                        <div className="space-y-4">
+                          <div className="bg-green-50 rounded-lg p-4">
+                            <h3 className="font-semibold text-green-900 mb-3">Sample Fields</h3>
+                            <div className="space-y-2 max-h-64 overflow-y-auto">
+                              {Object.entries(selectedTemplate.field_mappings || {}).slice(0, 10).map(([field, mapping]: [string, any]) => (
+                                <div key={field} className="flex justify-between text-sm">
+                                  <span className="text-green-700 font-mono">{field}</span>
+                                  <span className="text-green-600">{mapping?.system_field || 'unmapped'}</span>
                                 </div>
-                              </div>
-                            )}
-
-                            <div className="flex justify-between items-center">
-                              <h4 className="font-medium text-gray-900">Field Mappings</h4>
-                              <button
-                                onClick={applyAutoMappings}
-                                className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700"
-                              >
-                                Auto-Map High Confidence
-                              </button>
-                            </div>
-
-                            <div className="overflow-x-auto">
-                              <table className="min-w-full divide-y divide-gray-200">
-                                <thead className="bg-gray-50">
-                                  <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">IVR Field</th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Current</th>
-                                    <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Suggested</th>
-                                    <th className="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase">Confidence</th>
-                                  </tr>
-                                </thead>
-                                <tbody className="bg-white divide-y divide-gray-100">
-                                  {fieldSuggestions.map((suggestion) => {
-                                    const hasChange = pendingChanges[suggestion.ivr_field_name] !== undefined;
-                                    
-                                    return (
-                                      <tr key={suggestion.ivr_field_name} className={hasChange ? 'bg-yellow-50' : ''}>
-                                        <td className="px-3 py-2 text-sm">
-                                          {suggestion.is_checkbox && <CheckSquare className="w-3 h-3 inline mr-1" />}
-                                          {suggestion.ivr_field_name}
-                                        </td>
-                                        <td className="px-3 py-2">
-                                          <span className={`px-2 py-1 text-xs rounded-full ${
-                                            suggestion.field_type === 'checkbox' ? 'bg-purple-100 text-purple-800' :
-                                            suggestion.field_type === 'date' ? 'bg-blue-100 text-blue-800' :
-                                            'bg-gray-100 text-gray-800'
-                                          }`}>
-                                            {suggestion.field_type}
-                                          </span>
-                                        </td>
-                                        <td className="px-3 py-2 text-sm">
-                                          {suggestion.is_mapped ? (
-                                            <span className="text-green-600 font-mono text-xs">
-                                              {suggestion.current_mapping?.local_field}
-                                            </span>
-                                          ) : (
-                                            <span className="text-gray-400">unmapped</span>
-                                          )}
-                                        </td>
-                                        <td className="px-3 py-2">
-                                          <input
-                                            type="text"
-                                            value={pendingChanges[suggestion.ivr_field_name] ?? suggestion.suggested_mapping ?? ''}
-                                            onChange={(e) => setPendingChanges(prev => ({
-                                              ...prev,
-                                              [suggestion.ivr_field_name]: e.target.value
-                                            }))}
-                                            placeholder="Enter mapping..."
-                                            className="w-full px-2 py-1 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                                          />
-                                        </td>
-                                        <td className="px-3 py-2 text-sm text-center">
-                                          {suggestion.confidence > 0 && (
-                                            <span className={`font-semibold ${
-                                              suggestion.confidence > 0.8 ? 'text-green-600' :
-                                              suggestion.confidence > 0.6 ? 'text-yellow-600' :
-                                              'text-red-600'
-                                            }`}>
-                                              {Math.round(suggestion.confidence * 100)}%
-                                            </span>
-                                          )}
-                                        </td>
-                                      </tr>
-                                    );
-                                  })}
-                                </tbody>
-                              </table>
-                            </div>
-
-                            <div className="flex justify-end gap-3">
-                              <button
-                                onClick={() => setModalStep('discovery')}
-                                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                              >
-                                Back to Discovery
-                              </button>
-                              <button
-                                onClick={saveMappings}
-                                disabled={saving || Object.keys(pendingChanges).length === 0}
-                                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
-                              >
-                                {saving ? 'Saving...' : 'Save Mappings'}
-                              </button>
+                              ))}
+                              {Object.keys(selectedTemplate.field_mappings || {}).length > 10 && (
+                                <div className="text-xs text-green-600 text-center">
+                                  ... and {Object.keys(selectedTemplate.field_mappings || {}).length - 10} more fields
+                                </div>
+                              )}
                             </div>
                           </div>
-                        )}
 
-                        {/* Quick Request Step */}
-                        {modalStep === 'embedded' && (
-                          <div className="space-y-6">
-                            <div className="bg-green-50 rounded-lg p-6">
-                              <h3 className="text-lg font-semibold text-green-900 mb-4">
-                                Quick Request Configuration
-                              </h3>
-                              <p className="text-sm text-green-800 mb-4">
-                                This template supports embedded field tags for Quick Request IVR generation.
-                              </p>
-                              
-                              <div className="grid grid-cols-2 gap-6">
-                                <div>
-                                  <h4 className="font-medium text-green-900 mb-2">Standard Fields</h4>
-                                  <div className="space-y-1 text-xs font-mono bg-white rounded p-3">
-                                    <div>{`{patient_first_name}`}</div>
-                                    <div>{`{patient_last_name}`}</div>
-                                    <div>{`{patient_dob}`}</div>
-                                    <div>{`{patient_member_id}`}</div>
-                                    <div>{`{provider_name}`}</div>
-                                    <div>{`{provider_npi}`}</div>
-                                    <div>{`{product_name}`}</div>
-                                    <div>{`{product_code}`}</div>
-                                  </div>
-                                </div>
-                                
-                                <div>
-                                  <h4 className="font-medium text-green-900 mb-2">Checkbox Fields</h4>
-                                  <div className="space-y-1 text-xs font-mono bg-white rounded p-3 text-purple-600">
-                                    <div>{`{failed_conservative_treatment}`}</div>
-                                    <div>{`{information_accurate}`}</div>
-                                    <div>{`{medical_necessity_established}`}</div>
-                                    <div>{`{maintain_documentation}`}</div>
-                                    <div>{`{authorize_prior_auth}`}</div>
-                                  </div>
-                                </div>
-                              </div>
-
-                              <div className="mt-6 flex gap-3">
-                                <button
-                                  onClick={() => window.open('/docs/quick-request-guide.pdf', '_blank')}
-                                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-                                >
-                                  View Field Guide
-                                </button>
-                                <button
-                                  onClick={() => {/* Test submission logic */}}
-                                  className="px-4 py-2 border border-green-600 text-green-600 rounded-lg hover:bg-green-50"
-                                >
-                                  Test Submission
-                                </button>
-                              </div>
-                            </div>
+                          {/* Actions */}
+                          <div className="space-y-3">
+                            <button
+                              onClick={() => window.open(`https://app.docuseal.com/templates/${selectedTemplate.docuseal_template_id}/edit`, '_blank')}
+                              className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              Edit in DocuSeal
+                            </button>
+                            <button
+                              onClick={() => window.open(`https://app.docuseal.com/templates/${selectedTemplate.docuseal_template_id}`, '_blank')}
+                              className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                            >
+                              <ExternalLink className="w-4 h-4" />
+                              View in DocuSeal
+                            </button>
                           </div>
-                        )}
+                        </div>
                       </div>
                     </>
                   )}
+                </Dialog.Panel>
+              </Transition.Child>
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Sync Options Modal */}
+      <Transition appear show={showSyncModal} as={Fragment}>
+        <Dialog as="div" className="relative z-50" onClose={() => setShowSyncModal(false)}>
+          <Transition.Child
+            as={Fragment}
+            enter="ease-out duration-300"
+            enterFrom="opacity-0"
+            enterTo="opacity-100"
+            leave="ease-in duration-200"
+            leaveFrom="opacity-100"
+            leaveTo="opacity-0"
+          >
+            <div className="fixed inset-0 bg-black bg-opacity-25" />
+          </Transition.Child>
+
+          <div className="fixed inset-0 overflow-y-auto">
+            <div className="flex min-h-full items-center justify-center p-4 text-center">
+              <Transition.Child
+                as={Fragment}
+                enter="ease-out duration-300"
+                enterFrom="opacity-0 scale-95"
+                enterTo="opacity-100 scale-100"
+                leave="ease-in duration-200"
+                leaveFrom="opacity-100 scale-100"
+                leaveTo="opacity-0 scale-95"
+              >
+                <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                  <div className="flex items-center justify-between mb-4">
+                    <Dialog.Title className="text-lg font-semibold text-gray-900">
+                      Sync Options
+                    </Dialog.Title>
+                    <button
+                      onClick={() => setShowSyncModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="bg-blue-50 rounded-lg p-4">
+                      <h3 className="font-medium text-blue-900 mb-2">Sync Status</h3>
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Last Sync:</span>
+                          <span>{syncStatus.last_sync ? formatDate(syncStatus.last_sync) : 'Never'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Templates Found:</span>
+                          <span>{syncStatus.templates_found}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-700">Updated:</span>
+                          <span>{syncStatus.templates_updated}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => {
+                          syncTemplates(false);
+                          setShowSyncModal(false);
+                        }}
+                        disabled={syncStatus.is_syncing}
+                        className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Regular Sync
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          syncTemplates(true);
+                          setShowSyncModal(false);
+                        }}
+                        disabled={syncStatus.is_syncing}
+                        className="w-full bg-orange-600 text-white py-2 px-4 rounded-lg hover:bg-orange-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        <RefreshCw className="w-4 h-4" />
+                        Force Sync (Update All)
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          testSync();
+                          setShowSyncModal(false);
+                        }}
+                        className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Zap className="w-4 h-4" />
+                        Test Connection
+                      </button>
+                    </div>
+                  </div>
                 </Dialog.Panel>
               </Transition.Child>
             </div>

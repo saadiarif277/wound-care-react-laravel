@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiPackage, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
 // CSRFTestButton import removed as requested
-import Step1PatientInformation from './Components/Step1PatientInfoNew';
+import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
@@ -22,7 +22,7 @@ interface QuickRequestFormData {
   sales_rep_id?: string;
 
   // Patient Information
-  patient_name?: string; // Combined name for episode creation
+  patient_name: string; // Combined name for episode creation
   insurance_card_front?: File | null;
   insurance_card_back?: File | null;
   insurance_card_auto_filled?: boolean;
@@ -177,7 +177,6 @@ interface Props {
     price_per_sq_cm?: number;
   }>;
   woundTypes?: Record<string, string>;
-  insuranceCarriers?: string[];
   diagnosisCodes?: {
     yellow: Array<{ code: string; description: string }>;
     orange: Array<{ code: string; description: string }>;
@@ -203,8 +202,6 @@ function QuickRequestCreateNew({
   facilities = [],
   providers = [],
   products = [],
-  woundTypes = {},
-  insuranceCarriers = [],
   diagnosisCodes,
   currentUser,
   providerProducts = {}
@@ -225,6 +222,13 @@ function QuickRequestCreateNew({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // Get tomorrow's date as default for service date
+  const getTomorrowDate = (): string => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0] || '';
+  };
+
   const [formData, setFormData] = useState<QuickRequestFormData>({
     // Initialize with defaults
     request_type: 'new_request',
@@ -232,7 +236,7 @@ function QuickRequestCreateNew({
     facility_id: null,
     sales_rep_id: currentUser.role === 'sales_rep' ? `AUTO-${currentUser.id}` : undefined,
     organization_id: currentUser.organization?.id,
-    organization_name: currentUser.organization?.name,
+    organization_name: currentUser.organization?.name || '',
     patient_name: '',
     patient_first_name: '',
     patient_last_name: '',
@@ -252,7 +256,7 @@ function QuickRequestCreateNew({
     application_cpt_codes: [],
     place_of_service: '11',
     shipping_speed: 'standard_next_day',
-    expected_service_date: '',
+    expected_service_date: getTomorrowDate(),
     order_items: [],
     failed_conservative_treatment: false,
     information_accurate: false,
@@ -277,11 +281,11 @@ function QuickRequestCreateNew({
   };
 
   const sections = [
-    { title: 'Patient Information', icon: FiUser, estimatedTime: '2 minutes' },
-    { title: 'Clinical Details', icon: FiActivity, estimatedTime: '2 minutes' },
-    { title: 'Product Selection', icon: FiShoppingCart, estimatedTime: '1 minute' },
+    { title: 'Patient & Insurance', icon: FiUser, estimatedTime: '2 minutes' },
+    { title: 'Clinical Validation', icon: FiActivity, estimatedTime: '2 minutes' },
+    { title: 'Select Products', icon: FiShoppingCart, estimatedTime: '1 minute' },
     { title: 'Complete IVR Form', icon: FiFileText, estimatedTime: '2 minutes' },
-    { title: 'Review & Submit Order', icon: FiCheck, estimatedTime: '1 minute' }
+    { title: 'Review & Confirm', icon: FiCheck, estimatedTime: '1 minute' }
   ];
 
   const validateSection = (section: number): Record<string, string> => {
@@ -298,8 +302,17 @@ function QuickRequestCreateNew({
         if (!formData.patient_last_name) errors.patient_last_name = 'Last name is required';
         if (!formData.patient_dob) errors.patient_dob = 'Date of birth is required';
 
-        // Service & Shipping validation
-        if (!formData.expected_service_date) errors.expected_service_date = 'Service date is required';
+        // Service & Shipping validation with proper date validation
+        if (!formData.expected_service_date) {
+          errors.expected_service_date = 'Service date is required';
+        } else {
+          const serviceDate = new Date(formData.expected_service_date);
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          if (serviceDate <= today) {
+            errors.expected_service_date = 'Service date must be in the future';
+          }
+        }
         if (!formData.shipping_speed) errors.shipping_speed = 'Shipping speed is required';
 
         // Insurance validation
@@ -349,171 +362,227 @@ function QuickRequestCreateNew({
     return errors;
   };
 
-  // Create FHIR resources as user progresses through the form
+  // Enhanced FHIR resource creation with best practices
   const createFhirResources = async (resourceType: string) => {
-    try {
-      const csrfToken = await ensureValidCSRFToken();
-      if (!csrfToken) {
-        throw new Error('Unable to obtain security token');
-      }
+    const maxAttempts = 3;
+    let attempt = 0;
 
-      switch (resourceType) {
-        case 'Coverage':
-          // Create primary insurance coverage
-          if (formData.primary_insurance_name && formData.primary_member_id && formData.patient_fhir_id) {
-            const coverageResource = {
-              resourceType: 'Coverage',
-              status: 'active',
-              beneficiary: {
-                reference: `Patient/${formData.patient_fhir_id}`
-              },
-              subscriber: {
-                reference: formData.patient_is_subscriber ? `Patient/${formData.patient_fhir_id}` : undefined,
-                display: formData.patient_is_subscriber ? undefined : formData.caregiver_name
-              },
-              subscriberId: formData.primary_member_id,
-              payor: [{
-                display: formData.primary_insurance_name
-              }],
-              order: 1,
-              network: formData.primary_plan_type,
-              // Link to EpisodeOfCare
-              extension: formData.fhir_episode_of_care_id ? [{
-                url: 'https://mscwoundcare.com/fhir/StructureDefinition/episode-context',
-                valueReference: {
+    while (attempt < maxAttempts) {
+      try {
+        const csrfToken = await ensureValidCSRFToken();
+        if (!csrfToken) {
+          throw new Error('Unable to obtain security token');
+        }
+
+        switch (resourceType) {
+          case 'Coverage':
+            // Create primary insurance coverage with enhanced error handling
+            if (formData.primary_insurance_name && formData.primary_member_id && formData.patient_fhir_id) {
+              const coverageResource = {
+                resourceType: 'Coverage',
+                status: 'active',
+                beneficiary: {
+                  reference: `Patient/${formData.patient_fhir_id}`
+                },
+                subscriber: {
+                  reference: formData.patient_is_subscriber ? `Patient/${formData.patient_fhir_id}` : undefined,
+                  display: formData.patient_is_subscriber ? undefined : formData.caregiver_name
+                },
+                subscriberId: formData.primary_member_id,
+                payor: [{
+                  display: formData.primary_insurance_name
+                }],
+                order: 1,
+                network: formData.primary_plan_type,
+                // Link to EpisodeOfCare
+                extension: formData.fhir_episode_of_care_id ? [{
+                  url: 'https://mscwoundcare.com/fhir/StructureDefinition/episode-context',
+                  valueReference: {
+                    reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
+                  }
+                }] : undefined
+              };
+
+              const response = await axios.post('/api/fhir/Coverage', coverageResource, {
+                headers: {
+                  'X-CSRF-TOKEN': csrfToken,
+                  'Content-Type': 'application/fhir+json',
+                  'Accept': 'application/fhir+json',
+                  'User-Agent': 'MSC-WoundCare/1.0'
+                },
+                timeout: 30000
+              });
+
+              if (response.data?.id) {
+                const coverageIds = [...(formData.fhir_coverage_ids || []), response.data.id];
+                updateFormData({ fhir_coverage_ids: coverageIds });
+                console.log(`✅ FHIR Coverage created: ${response.data.id}`);
+              }
+            }
+            break;
+
+          case 'QuestionnaireResponse':
+            // Create clinical assessment questionnaire response with enhanced logging
+            if (formData.patient_fhir_id && formData.wound_types.length > 0) {
+              const questionnaireResponse = {
+                resourceType: 'QuestionnaireResponse',
+                status: 'completed',
+                subject: {
+                  reference: `Patient/${formData.patient_fhir_id}`
+                },
+                authored: new Date().toISOString(),
+                // Link to EpisodeOfCare
+                encounter: formData.fhir_episode_of_care_id ? {
                   reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-                }
-              }] : undefined
-            };
-
-            const response = await axios.post('/api/fhir/Coverage', coverageResource, {
-              headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'Content-Type': 'application/fhir+json'
-              }
-            });
-
-            if (response.data?.id) {
-              const coverageIds = [...(formData.fhir_coverage_ids || []), response.data.id];
-              updateFormData({ fhir_coverage_ids: coverageIds });
-            }
-          }
-          break;
-
-        case 'QuestionnaireResponse':
-          // Create clinical assessment questionnaire response
-          if (formData.patient_fhir_id && formData.wound_types.length > 0) {
-            const questionnaireResponse = {
-              resourceType: 'QuestionnaireResponse',
-              status: 'completed',
-              subject: {
-                reference: `Patient/${formData.patient_fhir_id}`
-              },
-              authored: new Date().toISOString(),
-              // Link to EpisodeOfCare
-              encounter: formData.fhir_episode_of_care_id ? {
-                reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-              } : undefined,
-              item: [
-                {
-                  linkId: 'wound-type',
-                  answer: [{
-                    valueCoding: {
-                      display: formData.wound_types[0]
-                    }
-                  }]
-                },
-                {
-                  linkId: 'wound-location',
-                  answer: [{
-                    valueString: formData.wound_location
-                  }]
-                },
-                {
-                  linkId: 'wound-size-length',
-                  answer: [{
-                    valueDecimal: parseFloat(formData.wound_size_length) || 0
-                  }]
-                },
-                {
-                  linkId: 'wound-size-width',
-                  answer: [{
-                    valueDecimal: parseFloat(formData.wound_size_width) || 0
-                  }]
-                },
-                {
-                  linkId: 'place-of-service',
-                  answer: [{
-                    valueCoding: {
-                      code: formData.place_of_service,
-                      display: formData.place_of_service === '11' ? 'Office' : 'Other'
-                    }
-                  }]
-                }
-              ]
-            };
-
-            const response = await axios.post('/api/fhir/QuestionnaireResponse', questionnaireResponse, {
-              headers: {
-                'X-CSRF-TOKEN': csrfToken,
-                'Content-Type': 'application/fhir+json'
-              }
-            });
-
-            if (response.data?.id) {
-              updateFormData({ fhir_questionnaire_response_id: response.data.id });
-            }
-          }
-          break;
-
-        case 'DeviceRequest':
-          // Create device request after product selection
-          if (formData.patient_fhir_id && formData.selected_products && formData.selected_products.length > 0) {
-            const firstSelectedProduct = formData.selected_products[0];
-            if (firstSelectedProduct) {
-              const product = products.find(p => p.id === firstSelectedProduct.product_id);
-              if (product) {
-                const deviceRequest = {
-                  resourceType: 'DeviceRequest',
-                  status: 'draft',
-                  intent: 'order',
-                  subject: {
-                    reference: `Patient/${formData.patient_fhir_id}`
-                  },
-                  code: {
-                    coding: [{
-                      system: 'https://mscwoundcare.com/products',
-                      code: product.code,
-                      display: product.name
+                } : undefined,
+                item: [
+                  {
+                    linkId: 'wound-type',
+                    answer: [{
+                      valueCoding: {
+                        display: formData.wound_types[0]
+                      }
                     }]
                   },
-                  occurrenceDateTime: formData.expected_service_date,
-                  requester: formData.fhir_practitioner_id ? {
-                    reference: `Practitioner/${formData.fhir_practitioner_id}`
-                  } : undefined,
-                  // Link to EpisodeOfCare
-                  encounter: formData.fhir_episode_of_care_id ? {
-                    reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-                  } : undefined
-                };
-
-                const response = await axios.post('/api/fhir/DeviceRequest', deviceRequest, {
-                  headers: {
-                    'X-CSRF-TOKEN': csrfToken,
-                    'Content-Type': 'application/fhir+json'
+                  {
+                    linkId: 'wound-location',
+                    answer: [{
+                      valueString: formData.wound_location
+                    }]
+                  },
+                  {
+                    linkId: 'wound-size-length',
+                    answer: [{
+                      valueDecimal: parseFloat(formData.wound_size_length) || 0
+                    }]
+                  },
+                  {
+                    linkId: 'wound-size-width',
+                    answer: [{
+                      valueDecimal: parseFloat(formData.wound_size_width) || 0
+                    }]
+                  },
+                  {
+                    linkId: 'place-of-service',
+                    answer: [{
+                      valueCoding: {
+                        code: formData.place_of_service,
+                        display: formData.place_of_service === '11' ? 'Office' : 'Other'
+                      }
+                    }]
                   }
-                });
+                ]
+              };
 
-                if (response.data?.id) {
-                  updateFormData({ fhir_device_request_id: response.data.id });
+              const response = await axios.post('/api/fhir/QuestionnaireResponse', questionnaireResponse, {
+                headers: {
+                  'X-CSRF-TOKEN': csrfToken,
+                  'Content-Type': 'application/fhir+json',
+                  'Accept': 'application/fhir+json',
+                  'User-Agent': 'MSC-WoundCare/1.0'
+                },
+                timeout: 30000
+              });
+
+              if (response.data?.id) {
+                updateFormData({ fhir_questionnaire_response_id: response.data.id });
+                console.log(`✅ FHIR QuestionnaireResponse created: ${response.data.id}`);
+              }
+            }
+            break;
+
+          case 'DeviceRequest':
+            // Create device request after product selection with improved error handling
+            if (formData.patient_fhir_id && formData.selected_products && formData.selected_products.length > 0) {
+              const firstSelectedProduct = formData.selected_products[0];
+              if (firstSelectedProduct) {
+                const product = products.find(p => p.id === firstSelectedProduct.product_id);
+                if (product) {
+                  const deviceRequest = {
+                    resourceType: 'DeviceRequest',
+                    status: 'draft',
+                    intent: 'order',
+                    subject: {
+                      reference: `Patient/${formData.patient_fhir_id}`
+                    },
+                    code: {
+                      coding: [{
+                        system: 'https://mscwoundcare.com/products',
+                        code: product.code,
+                        display: product.name
+                      }]
+                    },
+                    occurrenceDateTime: formData.expected_service_date,
+                    requester: formData.fhir_practitioner_id ? {
+                      reference: `Practitioner/${formData.fhir_practitioner_id}`
+                    } : undefined,
+                    // Link to EpisodeOfCare
+                    encounter: formData.fhir_episode_of_care_id ? {
+                      reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
+                    } : undefined
+                  };
+
+                  const response = await axios.post('/api/fhir/DeviceRequest', deviceRequest, {
+                    headers: {
+                      'X-CSRF-TOKEN': csrfToken,
+                      'Content-Type': 'application/fhir+json',
+                      'Accept': 'application/fhir+json',
+                      'User-Agent': 'MSC-WoundCare/1.0'
+                    },
+                    timeout: 30000
+                  });
+
+                  if (response.data?.id) {
+                    updateFormData({ fhir_device_request_id: response.data.id });
+                    console.log(`✅ FHIR DeviceRequest created: ${response.data.id}`);
+                  }
                 }
               }
             }
+            break;
+        }
+
+        // Success - break out of retry loop
+        break;
+
+      } catch (error: any) {
+        attempt++;
+        console.error(`❌ Error creating FHIR ${resourceType} (attempt ${attempt}/${maxAttempts}):`, error);
+
+        // Handle specific error types
+        if (error.response?.status === 401) {
+          console.warn('🔑 Authentication failed, will retry with fresh token');
+          // Token refresh will happen on next attempt
+        } else if (error.response?.status === 429) {
+          console.warn('⏰ Rate limit exceeded, implementing exponential backoff');
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        } else if (error.code === 'ECONNABORTED') {
+          console.warn('⏱️ Request timeout, will retry');
+        }
+
+        // If this was the last attempt, log final error
+        if (attempt >= maxAttempts) {
+          console.error(`💥 Final error creating FHIR ${resourceType} after ${maxAttempts} attempts:`, {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            data: error.response?.data,
+            message: error.message
+          });
+          
+          // Don't throw error to prevent blocking user flow
+          // Instead, log for monitoring and continue
+          if (resourceType === 'Coverage') {
+            console.warn('⚠️ Failed to create FHIR Coverage - continuing without it');
+          } else if (resourceType === 'QuestionnaireResponse') {
+            console.warn('⚠️ Failed to create FHIR QuestionnaireResponse - continuing without it');
+          } else if (resourceType === 'DeviceRequest') {
+            console.warn('⚠️ Failed to create FHIR DeviceRequest - continuing without it');
           }
-          break;
+        } else {
+          // Wait before retrying (exponential backoff)
+          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        }
       }
-    } catch (error) {
-      console.error(`Error creating FHIR ${resourceType}:`, error);
     }
   };
 
@@ -695,80 +764,23 @@ function QuickRequestCreateNew({
       }
     }
 
-    // Create FHIR Coverage when moving from section 1 to 2
-    if (currentSection === 1) {
+    // Create FHIR Coverage when moving from section 0 to 1
+    if (currentSection === 0) {
       await createFhirResources('Coverage');
     }
 
-    // Create FHIR QuestionnaireResponse when moving from section 2 to 3
-    if (currentSection === 2) {
+    // Create FHIR QuestionnaireResponse when moving from section 1 to 2
+    if (currentSection === 1) {
       await createFhirResources('QuestionnaireResponse');
     }
 
-    // Create episode and DeviceRequest when moving from section 3 to 4 (after product selection)
-    if (currentSection === 3 && !formData.episode_id && formData.selected_products && formData.selected_products.length > 0) {
-      // First create the DeviceRequest
+    // Create DeviceRequest when moving from section 2 to 3 (after product selection)
+    if (currentSection === 2) {
       await createFhirResources('DeviceRequest');
-
-      try {
-        const csrfToken = await ensureValidCSRFToken();
-        if (!csrfToken) {
-          setErrors({ episode_id: 'Unable to obtain security token. Please refresh the page.' });
-          return;
-        }
-
-        // Get the first selected product to determine manufacturer
-        const selectedProduct = formData.selected_products[0];
-        if (!selectedProduct) {
-          setErrors({ episode_id: 'No product selected. Please select a product.' });
-          return;
-        }
-
-        const product = products.find(p => p.id === selectedProduct.product_id);
-
-        if (!product) {
-          setErrors({ episode_id: 'Selected product not found. Please select a valid product.' });
-          return;
-        }
-
-        const response = await axios.post('/api/quick-request/create-episode', {
-          patient_id: formData.patient_fhir_id,
-          patient_fhir_id: formData.patient_fhir_id,
-          patient_display_id: formData.patient_display_id,
-          manufacturer_id: product.manufacturer_id || null,
-          selected_product_id: selectedProduct.product_id,
-          form_data: {
-            provider_id: formData.provider_id,
-            facility_id: formData.facility_id,
-            patient_name: formData.patient_name,
-            request_type: formData.request_type,
-            selected_products: formData.selected_products
-          }
-        }, {
-          headers: {
-            'X-CSRF-TOKEN': csrfToken,
-          },
-        });
-
-        if (response.data.success) {
-          updateFormData({
-            episode_id: response.data.episode_id,
-            manufacturer_id: response.data.manufacturer_id
-          });
-        } else {
-          setErrors({ episode_id: 'Failed to create episode. Please try again.' });
-          return;
-        }
-      } catch (error: any) {
-        console.error('Error creating episode:', error);
-        const errorMessage = error.response?.data?.message || 'Failed to create episode';
-        setErrors({ episode_id: errorMessage });
-        return;
-      }
     }
 
-    // Extract IVR fields when moving from section 4 to 5
-    if (currentSection === 4) {
+    // Extract IVR fields when moving from section 3 to 4
+    if (currentSection === 3) {
       await extractIvrFields();
     }
 
@@ -812,14 +824,30 @@ function QuickRequestCreateNew({
       // Add all form fields including IVR fields
       const finalFormData = {
         ...formData,
-        manufacturer_fields: ivrFields
+        manufacturer_fields: ivrFields || {}
       };
 
       Object.entries(finalFormData).forEach(([key, value]) => {
         if (value instanceof File) {
           submitData.append(key, value);
         } else if (value !== null && value !== undefined) {
-          if (Array.isArray(value) || typeof value === 'object') {
+          if (Array.isArray(value)) {
+            // Handle arrays properly for Laravel validation
+            if (value.length === 0) {
+              submitData.append(`${key}[]`, '');
+            } else {
+              value.forEach((item, index) => {
+                if (typeof item === 'object') {
+                  submitData.append(`${key}[${index}]`, JSON.stringify(item));
+                } else {
+                  submitData.append(`${key}[${index}]`, String(item));
+                }
+              });
+            }
+          } else if (typeof value === 'boolean') {
+            // Handle booleans properly for Laravel validation
+            submitData.append(key, value ? '1' : '0');
+          } else if (typeof value === 'object') {
             submitData.append(key, JSON.stringify(value));
           } else {
             submitData.append(key, String(value));
@@ -890,14 +918,14 @@ function QuickRequestCreateNew({
     <MainLayout>
       <Head title="Quick Request - Enhanced Flow" />
 
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <div className={cn("min-h-screen", t.background.base, t.background.noise)}>
         <div className="max-w-5xl mx-auto p-6">
           {/* Header */}
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className={cn("text-3xl font-bold mb-2", t.text.primary)}>
               Create New Order
             </h1>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className={cn(t.text.secondary)}>
               Complete your wound care order in 5 simple steps
             </p>
 
@@ -909,23 +937,33 @@ function QuickRequestCreateNew({
             <div className="flex items-center justify-between mb-2">
               {sections.map((section, index) => {
                 const Icon = section.icon;
+                const isActive = index <= currentSection;
+                const isCompleted = index < currentSection;
                 return (
                   <div
                     key={index}
                     className={`flex items-center ${index < sections.length - 1 ? 'flex-1' : ''}`}
                   >
-                    <div className={`flex flex-col items-center ${index <= currentSection ? 'text-blue-600' : 'text-gray-400'}`}>
-                      <div className={`rounded-full p-3 ${index <= currentSection ? 'bg-blue-100 dark:bg-blue-900' : 'bg-gray-100 dark:bg-gray-800'}`}>
-                        {index < currentSection ? <FiCheck className="h-6 w-6" /> : <Icon className="h-6 w-6" />}
+                    <div className={cn("flex flex-col items-center", isActive ? "text-blue-500" : t.text.muted)}>
+                      <div className={cn(
+                        "rounded-full p-3",
+                        isActive 
+                          ? "bg-blue-500/20 border-2 border-blue-500/40" 
+                          : cn("border-2", t.glass.border, t.glass.base)
+                      )}>
+                        {isCompleted ? <FiCheck className="h-6 w-6 text-emerald-400" /> : <Icon className="h-6 w-6" />}
                       </div>
-                      <span className="text-xs mt-2 text-center max-w-[100px]">{section.title}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center mt-1">
+                      <span className={cn("text-xs mt-2 text-center max-w-[100px]", t.text.secondary)}>{section.title}</span>
+                      <span className={cn("text-xs flex items-center mt-1", t.text.tertiary)}>
                         <FiClock className="h-3 w-3 mr-1" />
                         {section.estimatedTime}
                       </span>
                     </div>
                     {index < sections.length - 1 && (
-                      <div className={`flex-1 h-0.5 mx-2 ${index < currentSection ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-700'}`} />
+                      <div className={cn(
+                        "flex-1 h-0.5 mx-2 rounded",
+                        isCompleted ? "bg-gradient-to-r from-blue-500 to-emerald-500" : t.glass.border
+                      )} />
                     )}
                   </div>
                 );
@@ -935,14 +973,14 @@ function QuickRequestCreateNew({
 
           {/* Validation Error Summary */}
           {Object.keys(errors).length > 0 && (
-            <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className={cn("mb-6 p-4 rounded-lg border", t.status.error, t.shadows.danger)}>
               <div className="flex items-start">
-                <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-red-600 dark:text-red-400" />
+                <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-red-400" />
                 <div>
-                  <h4 className="text-sm font-medium mb-1 text-red-800 dark:text-red-300">
+                  <h4 className={cn("text-sm font-medium mb-1", t.text.primary)}>
                     Please fix the following errors:
                   </h4>
-                  <ul className="text-sm space-y-1 text-red-700 dark:text-red-400">
+                  <ul className={cn("text-sm space-y-1", t.text.secondary)}>
                     {Object.entries(errors).map(([field, message]) => (
                       <li key={field}>• {message}</li>
                     ))}
@@ -953,30 +991,20 @@ function QuickRequestCreateNew({
           )}
 
           {/* Section Content */}
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-8 mb-6">
-            <h2 className="text-2xl font-semibold mb-6 flex items-center text-gray-900 dark:text-white">
-              {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-blue-600" })}
+          <div className={cn("rounded-2xl p-8 mb-6", t.glass.card, t.shadows.glass)}>
+            <h2 className={cn("text-2xl font-semibold mb-6 flex items-center", t.text.primary)}>
+              {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-blue-500" })}
               {sections[currentSection]?.title}
             </h2>
 
             {currentSection === 0 && (
-              <Step1PatientInformation
+              <Step2PatientInsurance
                 formData={formData as any}
                 updateFormData={updateFormData as any}
-                providers={providers}
-                facilities={facilities}
-                woundTypes={woundTypes}
-                currentUser={currentUser}
                 errors={errors}
-                prefillData={{
-                  provider_name: currentUser?.name || '',
-                  provider_npi: currentUser?.npi || '',
-                  facility_name: facilities.find(f => f.id === formData.facility_id)?.name || '',
-                  facility_npi: '', // Add facility NPI if available
-                  facility_address: facilities.find(f => f.id === formData.facility_id)?.address || '',
-                  default_place_of_service: formData.place_of_service || '',
-                  organization_name: currentUser?.organization?.name || ''
-                }}
+                facilities={facilities}
+                providers={providers}
+                currentUser={currentUser}
               />
             )}
 
@@ -994,8 +1022,6 @@ function QuickRequestCreateNew({
               <Step5ProductSelection
                 formData={formData as any}
                 updateFormData={updateFormData as any}
-                products={products}
-                providerProducts={providerProducts}
                 errors={errors}
                 currentUser={currentUser}
               />
@@ -1031,11 +1057,12 @@ function QuickRequestCreateNew({
             <button
               onClick={handlePrevious}
               disabled={currentSection === 0}
-              className={`px-6 py-3 rounded-lg font-medium ${
+              className={cn(
+                "px-6 py-3 rounded-xl font-medium transition-all duration-200",
                 currentSection === 0
-                  ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 dark:text-gray-600 cursor-not-allowed'
-                  : 'bg-gray-600 dark:bg-gray-700 text-white hover:bg-gray-700 dark:hover:bg-gray-600'
-              }`}
+                  ? cn("cursor-not-allowed opacity-50", t.glass.base, t.text.muted)
+                  : cn(t.button.secondary.base, t.button.secondary.hover)
+              )}
             >
               Previous
             </button>
@@ -1043,7 +1070,11 @@ function QuickRequestCreateNew({
             {currentSection < sections.length - 1 ? (
               <button
                 onClick={handleNext}
-                className="px-6 py-3 rounded-lg font-medium flex items-center bg-blue-600 text-white hover:bg-blue-700"
+                className={cn(
+                  "px-6 py-3 rounded-xl font-medium flex items-center transition-all duration-200",
+                  t.button.primary.base,
+                  t.button.primary.hover
+                )}
               >
                 Next
                 <FiArrowRight className="ml-2 h-5 w-5" />
@@ -1052,30 +1083,30 @@ function QuickRequestCreateNew({
           </div>
 
           {/* Status Display */}
-          <div className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            Total estimated completion time: <span className="font-semibold">8 minutes</span>
+          <div className={cn("mt-6 text-center text-sm", t.text.tertiary)}>
+            Total estimated completion time: <span className={cn("font-semibold", t.text.secondary)}>8 minutes</span>
             {formData.patient_fhir_id && (
-              <div className="mt-2 text-green-600 dark:text-green-400">
+              <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ Patient FHIR ID: {formData.patient_fhir_id}
               </div>
             )}
             {formData.fhir_episode_of_care_id && (
-              <div className="mt-2 text-green-600 dark:text-green-400">
+              <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ FHIR EpisodeOfCare ID: {formData.fhir_episode_of_care_id}
               </div>
             )}
             {formData.episode_id && (
-              <div className="mt-2 text-green-600 dark:text-green-400">
+              <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ Episode created: {formData.episode_id}
               </div>
             )}
             {isExtractingIvrFields && (
-              <div className="mt-2 text-blue-600 dark:text-blue-400">
+              <div className={cn("mt-2 p-2 rounded-lg", t.status.info)}>
                 ⏳ Extracting IVR fields from FHIR resources...
               </div>
             )}
             {Object.keys(ivrFields).length > 0 && (
-              <div className="mt-2 text-green-600 dark:text-green-400">
+              <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ IVR fields extracted: {Object.keys(ivrFields).length} fields
               </div>
             )}

@@ -25,17 +25,29 @@ class FhirToIvrFieldExtractor
         // Load all relevant FHIR resources
         $this->loadFhirResources($context);
         
-        // Get manufacturer field mappings
-        $mappings = config("ivr-field-mappings.manufacturers.{$manufacturerKey}.field_mappings");
+        // Get manufacturer's IVR template from database
+        $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerKey)->first();
+        if (!$manufacturer) {
+            throw new \Exception("Manufacturer not found: {$manufacturerKey}");
+        }
         
-        if (!$mappings) {
-            throw new \Exception("No field mappings found for manufacturer: {$manufacturerKey}");
+        $template = $manufacturer->ivrTemplate();
+        if (!$template) {
+            throw new \Exception("No IVR template found for manufacturer: {$manufacturerKey}");
+        }
+        
+        $fieldMappings = $template->field_mappings ?? [];
+        if (empty($fieldMappings)) {
+            throw new \Exception("No field mappings found for manufacturer template: {$manufacturerKey}");
         }
         
         // Extract data for each mapped field
         $extractedData = [];
-        foreach ($mappings as $ivrFieldName => $systemFieldName) {
-            $extractedData[$ivrFieldName] = $this->extractFieldValue($systemFieldName);
+        foreach ($fieldMappings as $ivrFieldName => $mappingConfig) {
+            $systemFieldName = $mappingConfig['system_field'] ?? $mappingConfig['local_field'] ?? null;
+            if ($systemFieldName) {
+                $extractedData[$ivrFieldName] = $this->extractFieldValue($systemFieldName);
+            }
         }
         
         // Apply manufacturer-specific post-processing

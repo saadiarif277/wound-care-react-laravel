@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { FiCamera, FiRefreshCw, FiFile, FiCheck, FiInfo } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
+import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
@@ -10,21 +10,37 @@ interface Step2Props {
   formData: any;
   updateFormData: (data: any) => void;
   errors: Record<string, string>;
+  facilities?: Array<{
+    id: number;
+    name: string;
+    address?: string;
+  }>;
+  providers?: Array<{
+    id: number;
+    name: string;
+    credentials?: string;
+    npi?: string;
+  }>;
+  currentUser?: {
+    role?: string;
+    id?: number;
+  };
 }
 
 export default function Step2PatientInsurance({
   formData,
   updateFormData,
-  errors
+  errors,
+  facilities = [],
+  providers = [],
+  currentUser
 }: Step2Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
 
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
@@ -188,6 +204,56 @@ export default function Step2PatientInsurance({
 
   return (
     <div className="space-y-6">
+      {/* Provider & Facility Selection */}
+      <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
+        <h3 className="font-medium text-orange-900 dark:text-orange-300 mb-3">Provider & Facility Information</h3>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Provider <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              value={formData.provider_id || ''}
+              onChange={(e) => updateFormData({ provider_id: parseInt(e.target.value) })}
+              disabled={currentUser?.role === 'provider'}
+            >
+              <option value="">Select a provider...</option>
+              {providers.map(p => (
+                <option key={p.id} value={p.id}>
+                  {p.name}{p.credentials ? `, ${p.credentials}` : ''} {p.npi ? `(NPI: ${p.npi})` : ''}
+                </option>
+              ))}
+            </select>
+            {errors.provider_id && (
+              <p className="mt-1 text-sm text-red-500">{errors.provider_id}</p>
+            )}
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Facility <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              value={formData.facility_id || ''}
+              onChange={(e) => updateFormData({ facility_id: parseInt(e.target.value) })}
+            >
+              <option value="">Select a facility...</option>
+              {facilities.map(f => (
+                <option key={f.id} value={f.id}>
+                  {f.name} {f.address ? `(${f.address})` : ''}
+                </option>
+              ))}
+            </select>
+            {errors.facility_id && (
+              <p className="mt-1 text-sm text-red-500">{errors.facility_id}</p>
+            )}
+          </div>
+        </div>
+      </div>
+
       {/* Insurance Card Upload Section */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
         <div className="flex items-start">
@@ -448,96 +514,6 @@ export default function Step2PatientInsurance({
           </div>
         </div>
 
-        {/* Patient is subscriber checkbox */}
-        <div className="mt-4">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            Is the patient the insurance subscriber?
-          </label>
-          <div className="space-x-4">
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="subscriber"
-                value="yes"
-                checked={formData.patient_is_subscriber === true}
-                onChange={(e) => {
-                  updateFormData({ patient_is_subscriber: true });
-                  setShowCaregiver(false);
-                }}
-              />
-              <span className="ml-2 text-gray-700 dark:text-gray-300">Yes</span>
-            </label>
-            <label className="inline-flex items-center">
-              <input
-                type="radio"
-                className="form-radio text-blue-600"
-                name="subscriber"
-                value="no"
-                checked={formData.patient_is_subscriber === false}
-                onChange={(e) => {
-                  updateFormData({ patient_is_subscriber: false });
-                  setShowCaregiver(true);
-                }}
-              />
-              <span className="ml-2 text-gray-700 dark:text-gray-300">No</span>
-            </label>
-          </div>
-        </div>
-
-        {/* Caregiver Information */}
-        {showCaregiver && (
-          <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-            <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2">
-              Caregiver/Responsible Party Information
-            </h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Caregiver Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  value={formData.caregiver_name || ''}
-                  onChange={(e) => updateFormData({ caregiver_name: e.target.value })}
-                />
-                {errors.caregiver_name && (
-                  <p className="mt-1 text-sm text-red-500">{errors.caregiver_name}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Relationship <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  value={formData.caregiver_relationship || ''}
-                  onChange={(e) => updateFormData({ caregiver_relationship: e.target.value })}
-                  placeholder="Spouse, Parent, etc."
-                />
-                {errors.caregiver_relationship && (
-                  <p className="mt-1 text-sm text-red-500">{errors.caregiver_relationship}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Phone Number
-                </label>
-                <input
-                  type="tel"
-                  className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                  value={formData.caregiver_phone || ''}
-                  onChange={(e) => updateFormData({ caregiver_phone: e.target.value })}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Service Date & Shipping */}
@@ -598,6 +574,97 @@ export default function Step2PatientInsurance({
         <h3 className="font-medium text-purple-900 dark:text-purple-300 mb-3">Primary Insurance</h3>
 
         <div className="space-y-4">
+          {/* Patient is subscriber question */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Is the patient the insurance subscriber? <span className="text-red-500">*</span>
+            </label>
+            <div className="space-x-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-blue-600"
+                  name="subscriber"
+                  value="yes"
+                  checked={formData.patient_is_subscriber === true}
+                  onChange={() => {
+                    updateFormData({ patient_is_subscriber: true });
+                    setShowCaregiver(false);
+                  }}
+                />
+                <span className="ml-2 text-gray-700 dark:text-gray-300">Yes</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  className="form-radio text-blue-600"
+                  name="subscriber"
+                  value="no"
+                  checked={formData.patient_is_subscriber === false}
+                  onChange={() => {
+                    updateFormData({ patient_is_subscriber: false });
+                    setShowCaregiver(true);
+                  }}
+                />
+                <span className="ml-2 text-gray-700 dark:text-gray-300">No</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Caregiver Information */}
+          {showCaregiver && (
+            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+              <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2">
+                Subscriber/Responsible Party Information
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Subscriber Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    value={formData.caregiver_name || ''}
+                    onChange={(e) => updateFormData({ caregiver_name: e.target.value })}
+                  />
+                  {errors.caregiver_name && (
+                    <p className="mt-1 text-sm text-red-500">{errors.caregiver_name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Relationship to Patient <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    value={formData.caregiver_relationship || ''}
+                    onChange={(e) => updateFormData({ caregiver_relationship: e.target.value })}
+                    placeholder="Spouse, Parent, etc."
+                  />
+                  {errors.caregiver_relationship && (
+                    <p className="mt-1 text-sm text-red-500">{errors.caregiver_relationship}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                    value={formData.caregiver_phone || ''}
+                    onChange={(e) => updateFormData({ caregiver_phone: e.target.value })}
+                    placeholder="(555) 123-4567"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">

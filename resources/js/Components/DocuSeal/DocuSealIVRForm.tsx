@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { FiCheck, FiAlertCircle, FiLoader } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { FiAlertCircle, FiLoader } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import { ensureValidCSRFToken } from '@/lib/csrf';
+import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
 
 /**
  * DocuSeal IVR Form Component
@@ -54,60 +56,57 @@ export default function DocuSealIVRForm({
   }
 
   const [loading, setLoading] = useState(true);
-  const [signingUrl, setSigningUrl] = useState<string | null>(null);
-  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [jwtToken, setJwtToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    createDocuSealSubmission();
+    generateBuilderToken();
   }, []);
 
-  const createDocuSealSubmission = async () => {
+  const generateBuilderToken = async () => {
     try {
-      // Prepare the fields to pre-fill in the IVR form
-      const fields = prepareIVRFields(formData);
+      // Get CSRF token using the robust function
+      const csrfToken = await ensureValidCSRFToken();
+      if (!csrfToken) {
+        throw new Error('Unable to obtain security token. Please refresh the page.');
+      }
 
-      // Get CSRF token
-      const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
-
-      const response = await fetch('/quickrequest/docuseal/create-submission', {
+      const response = await fetch('/quickrequest/docuseal/generate-builder-token', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': csrfToken || '',
+          'X-CSRF-TOKEN': csrfToken,
         },
         credentials: 'include',
         body: JSON.stringify({
           template_id: templateId,
-          email: formData.provider_email || 'provider@example.com',
+          email: 'limitless@mscwoundcare.com',
           name: formData.provider_name || 'Provider',
-          send_email: false,
-          fields: fields,
-          external_id: episodeId || formData.episode_id || null, // Include episode ID for webhook linking
+          fields: prepareIVRFields(formData),
+          external_id: episodeId || formData.episode_id || null,
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create submission');
+        throw new Error(errorData.message || 'Failed to generate builder token');
       }
 
       const data = await response.json();
 
-      if (data.signing_url) {
-        setSigningUrl(data.signing_url);
-        setSubmissionId(data.submission_id);
+      if (data.jwt_token) {
+        setJwtToken(data.jwt_token);
         setLoading(false);
       } else {
-        throw new Error('No signing URL received');
+        throw new Error('No JWT token received');
       }
-    } catch (err) {
-      console.error('Error creating DocuSeal submission:', err);
-      setError(err.message || 'Failed to create signature form');
+    } catch (err: any) {
+      console.error('Error generating DocuSeal builder token:', err);
+      const errorMessage = err?.message || 'Failed to initialize signature form';
+      setError(errorMessage);
       setLoading(false);
-      onError(err.message || 'Failed to create signature form');
+      onError(errorMessage);
     }
   };
 
@@ -220,21 +219,16 @@ export default function DocuSealIVRForm({
     return mapped;
   };
 
-  const handleIframeMessage = (event: MessageEvent) => {
-    // Listen for completion messages from DocuSeal iframe
-    if (event.origin !== 'https://docuseal.com') return;
-
-    if (event.data.type === 'docuseal:submission_completed') {
-      onComplete(submissionId || '');
-    }
+  const handleDocuSealComplete = (data: any) => {
+    console.log('DocuSeal builder completed:', data);
+    onComplete(data.submission_id || data.id || 'completed');
   };
 
-  useEffect(() => {
-    window.addEventListener('message', handleIframeMessage);
-    return () => {
-      window.removeEventListener('message', handleIframeMessage);
-    };
-  }, [submissionId]);
+  const handleDocuSealError = (error: string) => {
+    console.error('DocuSeal builder error:', error);
+    setError(error);
+    onError(error);
+  };
 
   if (loading) {
     return (
@@ -251,7 +245,7 @@ export default function DocuSealIVRForm({
 
   if (error) {
     return (
-      <div className={cn("p-6 rounded-lg", t.glass.panel)}>
+      <div className={cn("p-6 rounded-lg", t.glass.card)}>
         <div className="flex items-start">
           <FiAlertCircle className="h-5 w-5 text-red-500 mt-0.5 mr-3" />
           <div>
@@ -262,10 +256,11 @@ export default function DocuSealIVRForm({
               {error}
             </p>
             <button
-              onClick={createDocuSealSubmission}
+              onClick={generateBuilderToken}
               className={cn(
                 "mt-3 px-4 py-2 rounded text-sm font-medium",
-                t.button.secondary
+                t.button.secondary.base,
+                t.button.secondary.hover
               )}
             >
               Try Again
@@ -278,16 +273,19 @@ export default function DocuSealIVRForm({
 
   return (
     <div className="h-full">
-      {signingUrl ? (
-        <iframe
-          src={signingUrl}
-          className="w-full h-full border-0 rounded-lg"
-          style={{ minHeight: '600px' }}
-          allow="camera; microphone"
-          title="DocuSeal IVR Signature Form"
+      {jwtToken ? (
+        <DocuSealEmbed
+          templateId={templateId}
+          jwtToken={jwtToken}
+          userEmail="limitless@mscwoundcare.com"
+          integrationEmail="limitless@mscwoundcare.com"
+          templateName="MSC Wound Care IVR Form"
+          onComplete={handleDocuSealComplete}
+          onError={handleDocuSealError}
+          className="w-full h-full"
         />
       ) : (
-        <div className={cn("p-6 text-center", t.glass.panel)}>
+        <div className={cn("p-6 text-center", t.glass.card)}>
           <FiAlertCircle className="h-8 w-8 mx-auto mb-3 text-yellow-500" />
           <p className={cn("text-sm", t.text.secondary)}>
             Unable to load signature form. Please try again.
