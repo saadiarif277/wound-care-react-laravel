@@ -37,6 +37,7 @@ This migration ensures all tables are created in the correct order with proper d
      - Manufacturer approval fields
      - Clinical attestation fields
      - Additional order fields
+     
 
 3. **Adds Foreign Key Constraints**:
    - Only after ensuring all referenced tables exist
