@@ -55,33 +55,7 @@ use Illuminate\Support\Facades\Log;
 |
 */
 
-// CSRF Token Management Routes
-Route::get('/csrf-token', function () {
-    return response()->json([
-        'token' => csrf_token(),
-        'session_id' => session()->getId(),
-        'timestamp' => time(),
-    ]);
-})->name('csrf.token');
-
-// Test routes for debugging CSRF issues
-Route::get('/test/csrf', function () {
-    return response()->json([
-        'message' => 'CSRF test endpoint',
-        'token' => csrf_token(),
-        'session_id' => session()->getId(),
-        'headers' => request()->headers->all(),
-    ]);
-})->name('test.csrf');
-
-Route::post('/test/csrf', function () {
-    return response()->json([
-        'message' => 'CSRF POST test successful',
-        'token' => csrf_token(),
-        'session_id' => session()->getId(),
-        'received_data' => request()->all(),
-    ]);
-})->name('test.csrf.post');
+// Removed debug CSRF routes - security vulnerability fixed
 
 // AI Support Escalation Route
 Route::post('/api/support/escalate', function (Request $request) {
