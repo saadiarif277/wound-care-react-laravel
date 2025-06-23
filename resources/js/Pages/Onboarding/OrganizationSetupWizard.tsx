@@ -15,7 +15,6 @@ import {
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
-import '@/resources/css/OrganizationSetupWizard.css';
 
 interface OnboardingStep {
     id: number;
@@ -61,7 +60,7 @@ interface OnboardingFormData {
         first_name: string;
         last_name: string;
     }>;
-    
+
     step?: number;
 }
 
