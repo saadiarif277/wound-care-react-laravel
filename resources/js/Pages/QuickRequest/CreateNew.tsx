@@ -272,13 +272,19 @@ function QuickRequestCreateNew({
     fhir_organization_id: currentUser.organization?.fhir_organization_id,
   });
 
-  // State for IVR fields
-  const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
-  const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
-
   const updateFormData = (updates: Partial<QuickRequestFormData>) => {
     setFormData(prev => ({ ...prev, ...updates }));
   };
+
+{
+useEffect(() => {
+(window as any).getFormData = () => formData;
+(window as any).updateFormData = updateFormData;
+}, [formData, updateFormData])
+}
+  // State for IVR fields
+  const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
+  const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
 
   const sections = [
     { title: 'Patient & Insurance', icon: FiUser, estimatedTime: '2 minutes' },
@@ -811,7 +817,7 @@ function QuickRequestCreateNew({
           if (episodeCreationResponse.data && episodeCreationResponse.data.episode_id) {
             updateFormData({
               episode_id: episodeCreationResponse.data.episode_id,
-              manufacturer_id: product?.manufacturer_id || null
+              manufacturer_id: product?.manufacturer_id || undefined
             });
           } else {
             setErrors({ episode: 'Failed to create local episode. Please try again.' });

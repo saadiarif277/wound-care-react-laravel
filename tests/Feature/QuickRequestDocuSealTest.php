@@ -42,7 +42,7 @@ class QuickRequestDocuSealTest extends TestCase
         ]);
 
         // Mock DocuSealBuilder service to return expected token and URL
-        $mockBuilder = Mockery::mock(DocuSealBuilder::class);
+        $mockBuilder = Mockery::mock(\App\Services\Templates\DocuSealBuilder::class);
         $mockBuilder->shouldReceive('generateBuilderToken')
             ->once()
             ->with($manufacturer->id, 'PROD1')

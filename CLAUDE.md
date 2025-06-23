@@ -426,6 +426,63 @@ draft → pending_review → manufacturer_review → completed
 - Glass effects: 30% opacity with backdrop blur
 - Typography: System font stack with medical clarity
 
+## Laravel Development Best Practices
+
+### 1. Follow Laravel's Conventions
+- Use PSR-12 coding standards for PHP.
+- Name controllers, models, and other classes according to Laravel's naming conventions (e.g., PascalCase for class names, snake_case for database columns).
+- Place logic in the appropriate layers (e.g., controllers for handling requests, models for database interactions, services for business logic).
+
+### 2. Use Eloquent ORM Effectively
+- Leverage Eloquent relationships (e.g., hasOne, hasMany, belongsTo) to simplify database queries.
+- Use query scopes for reusable query logic.
+- Avoid N+1 query problems by using eager loading (with()).
+
+### 3. Keep Controllers Thin
+- Avoid placing business logic in controllers. Instead, use Service Classes or Action Classes to handle complex logic.
+- Controllers should primarily handle request validation and return responses.
+
+### 4. Validate Input Properly
+- Use Form Requests for validation instead of writing validation logic directly in controllers.
+- Always sanitize and validate user input to prevent security vulnerabilities like SQL injection or XSS.
+
+### 5. Use Migrations and Seeders
+- Use migrations to manage database schema changes and ensure consistency across environments.
+- Use seeders and factories to populate test data for development and testing.
+
+### 6. Secure Your Application
+- Use Laravel's built-in CSRF protection for forms.
+- Escape output using {{ }} to prevent XSS attacks.
+- Use hashed passwords with Laravel's Hash facade.
+- Avoid exposing sensitive data in .env files and use proper environment variable management.
+
+### 7. Optimize Performance
+- Cache frequently accessed data using Laravel's caching mechanisms (e.g., Redis, file cache).
+- Use queues for time-consuming tasks like sending emails or processing files.
+- Optimize database queries by indexing columns and avoiding unnecessary joins.
+
+### 8. Write Tests
+- Use PHPUnit or Pest to write unit and feature tests.
+- Test controllers, models, and services to ensure your application behaves as expected.
+- Use Laravel's testing helpers for mocking and simulating HTTP requests.
+
+### 9. Use Dependency Injection
+- Inject dependencies (e.g., services, repositories) into controllers or classes instead of instantiating them directly.
+- Use Laravel's Service Container to manage dependencies.
+
+### 10. Keep Code DRY (Don't Repeat Yourself)
+- Reuse code by creating helpers, traits, or service classes.
+- Use Blade components and layouts to avoid duplicating HTML in views.
+
+### 11. Use Version Control
+- Use Git for version control and maintain a clean commit history.
+- Follow a branching strategy like Git Flow or Trunk-Based Development.
+
+### 12. Stay Updated
+- Regularly update Laravel and its dependencies to the latest stable versions to benefit from security patches and new features.
+
+By adhering to these principles, you'll ensure your Laravel application is robust, maintainable, and scalable.
+
 This guide reflects the current state of the MSC Wound Portal with the Quick Request workflow and Azure SQL implementation. Reference this when implementing new features to ensure consistency with established patterns and compliance requirements.
 
 ---
