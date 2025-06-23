@@ -125,7 +125,7 @@ class ConfigurationController extends Controller
     public function getProductMueLimits()
     {
         return Cache::remember('product_mue_limits', 3600, function () {
-            return DB::table('products')
+            return DB::table('msc_products')
                 ->whereNotNull('mue_limit')
                 ->pluck('mue_limit', 'q_code');
         });

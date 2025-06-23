@@ -857,20 +857,6 @@ export default function Step2PatientInsurance({
           </div>
         )}
 
-        {/* Prior Authorization Permission */}
-        <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <label className="flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              className="form-checkbox h-4 w-4 text-green-600 rounded"
-              checked={formData.prior_auth_permission || false}
-              onChange={(e) => updateFormData({ prior_auth_permission: e.target.checked })}
-            />
-            <span className="ml-2 text-gray-700 dark:text-gray-300">
-              I consent to prior authorization processing
-            </span>
-          </label>
-        </div>
       </div>
     </div>
   );

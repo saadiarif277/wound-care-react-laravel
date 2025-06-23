@@ -1059,7 +1059,7 @@ class QuickRequestController extends Controller
     {
                 // First try by manufacturer ID if provided
         if ($manufacturerId) {
-            $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+            $template = DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
             if ($template) {
                 return $template->docuseal_template_id;
             }

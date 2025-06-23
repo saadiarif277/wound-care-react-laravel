@@ -69,22 +69,35 @@ interface QuickRequestFormData {
   prior_auth_permission: boolean;
 
   // Clinical Information
-  wound_types: string[];
+  wound_type?: string; // Changed from array to single string
+  wound_types: string[]; // Keep for backward compatibility
   wound_other_specify?: string;
   wound_location: string;
   wound_location_details?: string;
+  // Old diagnosis code fields
   yellow_diagnosis_code?: string;
   orange_diagnosis_code?: string;
   pressure_ulcer_diagnosis_code?: string;
+  // New diagnosis code fields
+  primary_diagnosis_code?: string;
+  secondary_diagnosis_code?: string;
+  diagnosis_code?: string;
   wound_size_length: string;
   wound_size_width: string;
   wound_size_depth: string;
   wound_duration?: string;
+  // New duration fields
+  wound_duration_days?: string;
+  wound_duration_weeks?: string;
+  wound_duration_months?: string;
+  wound_duration_years?: string;
   previous_treatments?: string;
 
   // Procedure Information
   application_cpt_codes: string[];
   prior_applications?: string;
+  prior_application_product?: string; // NEW
+  prior_application_within_12_months?: boolean; // NEW
   anticipated_applications?: string;
 
   // Billing Status
@@ -92,6 +105,8 @@ interface QuickRequestFormData {
   medicare_part_b_authorized?: boolean;
   snf_days?: string;
   hospice_status?: boolean;
+  hospice_family_consent?: boolean; // NEW
+  hospice_clinically_necessary?: boolean; // NEW
   part_a_status?: boolean;
   global_period_status?: boolean;
   global_period_cpt?: string;
@@ -248,7 +263,8 @@ function QuickRequestCreateNew({
     primary_plan_type: 'ffs',
     has_secondary_insurance: false,
     prior_auth_permission: true,
-    wound_types: [],
+    wound_type: '', // Changed from array to single string
+    wound_types: [], // Keep for backward compatibility
     wound_location: '',
     wound_size_length: '',
     wound_size_width: '',
@@ -287,11 +303,11 @@ useEffect(() => {
   const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
 
   const sections = [
-    { title: 'Patient & Insurance', icon: FiUser, estimatedTime: '2 minutes' },
-    { title: 'Clinical Validation', icon: FiActivity, estimatedTime: '2 minutes' },
-    { title: 'Select Products', icon: FiShoppingCart, estimatedTime: '1 minute' },
-    { title: 'Complete IVR Form', icon: FiFileText, estimatedTime: '2 minutes' },
-    { title: 'Review & Confirm', icon: FiCheck, estimatedTime: '1 minute' }
+    { title: 'Patient & Insurance', icon: FiUser },
+    { title: 'Clinical Validation', icon: FiActivity },
+    { title: 'Select Products', icon: FiShoppingCart },
+    { title: 'Complete IVR Form', icon: FiFileText },
+    { title: 'Review & Confirm', icon: FiCheck }
   ];
 
   const validateSection = (section: number): Record<string, string> => {
@@ -333,8 +349,8 @@ useEffect(() => {
         break;
 
       case 1: // Clinical Details
-        if (!formData.wound_types || formData.wound_types.length === 0) errors.wound_types = 'At least one wound type must be selected';
-        if (formData.wound_types && formData.wound_types.includes('other') && !formData.wound_other_specify) {
+        if (!formData.wound_type) errors.wound_type = 'Please select a wound type';
+        if (formData.wound_type === 'other' && !formData.wound_other_specify) {
           errors.wound_other_specify = 'Please specify the other wound type';
         }
         if (!formData.wound_location) errors.wound_location = 'Wound location is required';
@@ -343,10 +359,18 @@ useEffect(() => {
         if (!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) errors.cpt_codes = 'At least one CPT code must be selected';
         if (!formData.place_of_service) errors.place_of_service = 'Place of service is required';
 
-        // Validate diagnosis codes for specific wound types
-        if (formData.wound_types && formData.wound_types.includes('diabetic_foot_ulcer')) {
-          if (!formData.yellow_diagnosis_code) errors.yellow_diagnosis = 'Yellow (diabetes) diagnosis code is required for DFU';
-          if (!formData.orange_diagnosis_code) errors.orange_diagnosis = 'Orange (chronic ulcer) diagnosis code is required for DFU';
+        // Validate diagnosis codes based on wound type
+        if (formData.wound_type === 'diabetic_foot_ulcer' || formData.wound_type === 'venous_leg_ulcer') {
+          if (!formData.primary_diagnosis_code) errors.primary_diagnosis_code = 'Primary diagnosis code is required';
+          if (!formData.secondary_diagnosis_code) errors.secondary_diagnosis_code = 'Secondary diagnosis code is required';
+        } else if (formData.wound_type) {
+          if (!formData.diagnosis_code) errors.diagnosis_code = 'Diagnosis code is required';
+        }
+        
+        // Validate at least one duration field is filled
+        if (!formData.wound_duration_days && !formData.wound_duration_weeks && 
+            !formData.wound_duration_months && !formData.wound_duration_years) {
+          errors.wound_duration = 'At least one duration field is required';
         }
         break;
 
@@ -1025,10 +1049,6 @@ useEffect(() => {
                         {isCompleted ? <FiCheck className="h-6 w-6 text-emerald-400" /> : <Icon className="h-6 w-6" />}
                       </div>
                       <span className={cn("text-xs mt-2 text-center max-w-[100px]", t.text.secondary)}>{section.title}</span>
-                      <span className={cn("text-xs flex items-center mt-1", t.text.tertiary)}>
-                        <FiClock className="h-3 w-3 mr-1" />
-                        {section.estimatedTime}
-                      </span>
                     </div>
                     {index < sections.length - 1 && (
                       <div className={cn(
@@ -1155,7 +1175,6 @@ useEffect(() => {
 
           {/* Status Display */}
           <div className={cn("mt-6 text-center text-sm", t.text.tertiary)}>
-            Total estimated completion time: <span className={cn("font-semibold", t.text.secondary)}>8 minutes</span>
             {formData.patient_fhir_id && (
               <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ Patient FHIR ID: {formData.patient_fhir_id}

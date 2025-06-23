@@ -120,6 +120,30 @@ describe('DiagnosisCodeSelector', () => {
     });
   });
 
+  it('should properly set diagnosis_code for single-code wound types', () => {
+    render(<DiagnosisCodeSelector {...defaultProps} />);
+    
+    fireEvent.click(screen.getByLabelText('Pressure Ulcer'));
+    
+    // Wait for codes to load
+    waitFor(() => {
+      expect(screen.getByText('Search for a diagnosis code...')).toBeInTheDocument();
+    });
+    
+    // Click dropdown
+    fireEvent.click(screen.getByText('Search for a diagnosis code...'));
+    
+    // Select a code
+    fireEvent.click(screen.getByText('L89.001'));
+    
+    expect(mockOnChange).toHaveBeenCalledWith({
+      wound_type: 'pressure_ulcer',
+      diagnosis_code: 'L89.001',
+      primary_diagnosis_code: '',
+      secondary_diagnosis_code: ''
+    });
+  });
+
   it('should show selection complete when all required codes are selected', () => {
     const props = {
       ...defaultProps,
@@ -219,5 +243,56 @@ describe('DiagnosisCodeSelector', () => {
     await waitFor(() => {
       expect(screen.getByText('Showing first 50 results. Type to narrow search.')).toBeInTheDocument();
     });
+  });
+
+  it('should show all available codes for "Other" wound type', async () => {
+    render(<DiagnosisCodeSelector {...defaultProps} />);
+    
+    fireEvent.click(screen.getByLabelText('Other'));
+    
+    await waitFor(() => {
+      expect(screen.getByText('Search for a diagnosis code...')).toBeInTheDocument();
+    });
+    
+    // Click dropdown
+    fireEvent.click(screen.getByText('Search for a diagnosis code...'));
+    
+    // Should show codes from both yellow and orange categories
+    await waitFor(() => {
+      // Check for codes from yellow category
+      expect(screen.getByText('E11.621')).toBeInTheDocument();
+      // Check for codes from orange category  
+      expect(screen.getByText('L97.101')).toBeInTheDocument();
+    });
+  });
+
+  it('should show diagnosis codes for all wound types', async () => {
+    const woundTypesToTest = [
+      'Surgical Wound',
+      'Traumatic Wound', 
+      'Arterial Ulcer',
+      'Chronic Ulcer'
+    ];
+    
+    for (const woundType of woundTypesToTest) {
+      const { unmount } = render(<DiagnosisCodeSelector {...defaultProps} />);
+      
+      fireEvent.click(screen.getByLabelText(woundType));
+      
+      await waitFor(() => {
+        expect(screen.getByText('Search for a diagnosis code...')).toBeInTheDocument();
+      });
+      
+      // Click dropdown
+      fireEvent.click(screen.getByText('Search for a diagnosis code...'));
+      
+      // Should show at least one diagnosis code option
+      await waitFor(() => {
+        const options = screen.getAllByText(/^[A-Z]\d{2}/, { selector: '.font-mono' });
+        expect(options.length).toBeGreaterThan(0);
+      });
+      
+      unmount();
+    }
   });
 });

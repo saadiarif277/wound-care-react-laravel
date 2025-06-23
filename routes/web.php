@@ -152,7 +152,7 @@ Route::get('auth/provider-invitation/{token}', function ($token) {
             'organization_type' => $invitation->organization->type ?? 'Healthcare Organization',
             'invited_email' => $invitation->email,
             'invited_role' => 'Provider', // This can be dynamic from invitation record later
-            'expires_at' => $invitation->expires_at->toISOString(),
+            'expires_at' => $invitation->expires_at ?? now()->addDays(7)->toIso8601String(),
             'status' => $invitation->status,
             'metadata' => [
                 'organization_id' => $invitation->organization_id,

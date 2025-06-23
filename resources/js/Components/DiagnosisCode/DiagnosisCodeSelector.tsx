@@ -309,14 +309,25 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
     const mockPrimaryCodes: DiagnosisCode[] = [];
     const mockSecondaryCodes: DiagnosisCode[] = [];
 
-    // Use provided diagnosis codes if available
+    // Use provided diagnosis codes if available for specific categories
     if (currentWoundType.primaryCategory === 'diabetes' && diagnosisCodes?.yellow) {
       mockPrimaryCodes.push(...diagnosisCodes.yellow.map(c => ({
         ...c,
         category: 'diabetes'
       })));
+    } else if (currentWoundType.primaryCategory === 'varicose' && diagnosisCodes?.orange) {
+      // For venous leg ulcer primary codes
+      mockPrimaryCodes.push(...[
+        { code: 'I83.001', description: 'Varicose veins of unspecified lower extremity with ulcer of thigh', category: 'varicose' },
+        { code: 'I83.002', description: 'Varicose veins of unspecified lower extremity with ulcer of calf', category: 'varicose' },
+        { code: 'I83.003', description: 'Varicose veins of unspecified lower extremity with ulcer of ankle', category: 'varicose' },
+        { code: 'I83.004', description: 'Varicose veins of unspecified lower extremity with ulcer of heel and midfoot', category: 'varicose' },
+        { code: 'I83.005', description: 'Varicose veins of unspecified lower extremity with ulcer other part of foot', category: 'varicose' },
+        { code: 'I83.009', description: 'Varicose veins of unspecified lower extremity with ulcer of unspecified site', category: 'varicose' }
+      ]);
     }
 
+    // Secondary codes for dual-coding wound types
     if (currentWoundType.secondaryCategory === 'chronic_ulcer' && diagnosisCodes?.orange) {
       mockSecondaryCodes.push(...diagnosisCodes.orange.map(c => ({
         ...c,
@@ -324,15 +335,84 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
       })));
     }
 
-    // Add some mock codes for other wound types
+    // Add mock codes for specific wound types
     if (currentWoundType.primaryCategory === 'pressure') {
       mockPrimaryCodes.push(
         { code: 'L89.000', description: 'Pressure ulcer of unspecified elbow, unstageable', category: 'pressure' },
         { code: 'L89.001', description: 'Pressure ulcer of unspecified elbow, stage 1', category: 'pressure' },
         { code: 'L89.002', description: 'Pressure ulcer of unspecified elbow, stage 2', category: 'pressure' },
         { code: 'L89.003', description: 'Pressure ulcer of unspecified elbow, stage 3', category: 'pressure' },
-        { code: 'L89.004', description: 'Pressure ulcer of unspecified elbow, stage 4', category: 'pressure' }
+        { code: 'L89.004', description: 'Pressure ulcer of unspecified elbow, stage 4', category: 'pressure' },
+        { code: 'L89.100', description: 'Pressure ulcer of unspecified part of back, unstageable', category: 'pressure' },
+        { code: 'L89.101', description: 'Pressure ulcer of unspecified part of back, stage 1', category: 'pressure' },
+        { code: 'L89.102', description: 'Pressure ulcer of unspecified part of back, stage 2', category: 'pressure' },
+        { code: 'L89.103', description: 'Pressure ulcer of unspecified part of back, stage 3', category: 'pressure' },
+        { code: 'L89.104', description: 'Pressure ulcer of unspecified part of back, stage 4', category: 'pressure' }
       );
+    } else if (currentWoundType.primaryCategory === 'surgical') {
+      mockPrimaryCodes.push(
+        { code: 'T81.31XA', description: 'Disruption of external operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.32XA', description: 'Disruption of internal operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.33XA', description: 'Disruption of traumatic injury wound repair, initial encounter', category: 'surgical' },
+        { code: 'T81.89XA', description: 'Other complications of procedures, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.4XXA', description: 'Infection following a procedure, initial encounter', category: 'surgical' }
+      );
+    } else if (currentWoundType.primaryCategory === 'trauma') {
+      mockPrimaryCodes.push(
+        { code: 'S71.001A', description: 'Unspecified open wound, right hip, initial encounter', category: 'trauma' },
+        { code: 'S71.101A', description: 'Unspecified open wound, right thigh, initial encounter', category: 'trauma' },
+        { code: 'S81.001A', description: 'Unspecified open wound, right knee, initial encounter', category: 'trauma' },
+        { code: 'S81.801A', description: 'Unspecified open wound, right lower leg, initial encounter', category: 'trauma' },
+        { code: 'S91.001A', description: 'Unspecified open wound, right ankle, initial encounter', category: 'trauma' }
+      );
+    } else if (currentWoundType.primaryCategory === 'arterial') {
+      mockPrimaryCodes.push(
+        { code: 'I70.231', description: 'Atherosclerosis of native arteries of right leg with ulceration of thigh', category: 'arterial' },
+        { code: 'I70.232', description: 'Atherosclerosis of native arteries of right leg with ulceration of calf', category: 'arterial' },
+        { code: 'I70.233', description: 'Atherosclerosis of native arteries of right leg with ulceration of ankle', category: 'arterial' },
+        { code: 'I70.234', description: 'Atherosclerosis of native arteries of right leg with ulceration of heel and midfoot', category: 'arterial' },
+        { code: 'I70.235', description: 'Atherosclerosis of native arteries of right leg with ulceration of other part of foot', category: 'arterial' }
+      );
+    } else if (currentWoundType.primaryCategory === 'chronic_ulcer') {
+      // For non-specific chronic ulcers
+      mockPrimaryCodes.push(...(diagnosisCodes?.orange || []).map(c => ({
+        ...c,
+        category: 'chronic_ulcer'
+      })));
+      // Add additional chronic ulcer codes if needed
+      if (mockPrimaryCodes.length === 0) {
+        mockPrimaryCodes.push(
+          { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'chronic_ulcer' },
+          { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'chronic_ulcer' },
+          { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'chronic_ulcer' },
+          { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
+          { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'chronic_ulcer' }
+        );
+      }
+    } else if (currentWoundType.primaryCategory === 'other' || !mockPrimaryCodes.length) {
+      // For 'other' wound types or if no specific codes were added, show all available diagnosis codes
+      // Combine all available codes from the provided data
+      const allCodes: DiagnosisCode[] = [];
+      
+      if (diagnosisCodes?.yellow) {
+        allCodes.push(...diagnosisCodes.yellow.map(c => ({ ...c, category: 'general' })));
+      }
+      if (diagnosisCodes?.orange) {
+        allCodes.push(...diagnosisCodes.orange.map(c => ({ ...c, category: 'general' })));
+      }
+      
+      // Add some common wound-related codes as fallback
+      if (allCodes.length === 0) {
+        allCodes.push(
+          { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'other' },
+          { code: 'L98.492', description: 'Non-pressure chronic ulcer of skin of other sites with fat layer exposed', category: 'other' },
+          { code: 'L98.493', description: 'Non-pressure chronic ulcer of skin of other sites with necrosis of muscle', category: 'other' },
+          { code: 'L98.494', description: 'Non-pressure chronic ulcer of skin of other sites with necrosis of bone', category: 'other' },
+          { code: 'L98.499', description: 'Non-pressure chronic ulcer of skin of other sites with unspecified severity', category: 'other' }
+        );
+      }
+      
+      mockPrimaryCodes.push(...allCodes);
     }
 
     setDynamicCodes({ primary: mockPrimaryCodes, secondary: mockSecondaryCodes });
@@ -351,12 +431,15 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
     if (currentWoundType?.requiresDualCoding) {
       onChange({
         ...value,
-        primary_diagnosis_code: code
+        primary_diagnosis_code: code,
+        diagnosis_code: '' // Clear single code field when using dual coding
       });
     } else {
       onChange({
         ...value,
-        diagnosis_code: code
+        diagnosis_code: code,
+        primary_diagnosis_code: '', // Clear dual code fields when using single code
+        secondary_diagnosis_code: ''
       });
     }
   };
