@@ -1,12 +1,12 @@
 # Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
 # More GitHub Actions for Azure: https://github.com/Azure/actions
 
-name: Build and deploy PHP app to Azure Web App - msc-dev-app
+name: Build and deploy PHP app to Azure Web App - msc-prod
 
 on:
   push:
     branches:
-      - dev
+      - azure-dev
   workflow_dispatch:
 
 jobs:
@@ -34,29 +34,7 @@ jobs:
         run: composer validate --no-check-publish && composer install --prefer-dist --no-progress
 
       - name: Zip artifact for deployment
-        run: |
-          zip -r release.zip . \
-            -x '*.git*' \
-            -x 'tests/*' \
-            -x 'storage/logs/*' \
-            -x '.env*' \
-            -x 'node_modules/*' \
-            -x 'vendor/bin/*' \
-            -x '*.md' \
-            -x '*.yml' \
-            -x '*.yaml' \
-            -x '*.log' \
-            -x 'docker-compose*' \
-            -x 'Makefile' \
-            -x 'README*' \
-            -x 'docs/*' \
-            -x '.github/*' \
-            -x 'composer.lock' \
-            -x 'package-lock.json' \
-            -x 'postcss.config.js' \
-            -x 'tailwind.config.js' \
-            -x 'vite.config.js' \
-            -x 'tsconfig.json'
+        run: zip release.zip ./* -r
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -67,13 +45,8 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    environment:
-      name: 'dev'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-    permissions:
-      id-token: write #This is required for requesting the JWT
-      contents: read #This is required for actions/checkout
-
+    
+    
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
@@ -83,17 +56,11 @@ jobs:
       - name: Unzip artifact for deployment
         run: unzip release.zip
       
-      - name: Login to Azure
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_DEV }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_DEV }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_DEV }}
-
       - name: 'Deploy to Azure Web App'
         uses: azure/webapps-deploy@v3
         id: deploy-to-webapp
         with:
-          app-name: 'msc-dev-app'
-          slot-name: 'dev'
+          app-name: 'msc-prod'
+          slot-name: 'Production'
           package: .
+          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_4B72568643774FE097B588EAA20F9BFF }}
