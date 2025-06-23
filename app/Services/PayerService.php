@@ -4,6 +4,7 @@ namespace App\Services;
 
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class PayerService
 {
@@ -15,10 +16,10 @@ class PayerService
     public function getAllPayers(): Collection
     {
         return Cache::remember('payers_list', 3600, function () {
-            $csvPath = base_path('docs/data/payers.csv');
+            $csvPath = base_path('docs/data-and-reference/payers.csv');
             
             if (!file_exists($csvPath)) {
-                \Log::error('Payers CSV file not found at: ' . $csvPath);
+                Log::error('Payers CSV file not found at: ' . $csvPath);
                 return collect();
             }
             
@@ -55,7 +56,7 @@ class PayerService
                 
                 fclose($handle);
                 
-                \Log::info('Loaded payers from CSV', [
+                Log::info('Loaded payers from CSV', [
                     'total_rows' => $rowCount,
                     'unique_payers' => count($uniquePayers)
                 ]);

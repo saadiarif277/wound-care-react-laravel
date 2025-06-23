@@ -27,6 +27,7 @@
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.0",
         "league/glide-symfony": "^2.0",
+        "sentry/sentry-laravel": "^4.15",
         "tightenco/ziggy": "^2.2"
     },
     "require-dev": {

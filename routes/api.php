@@ -397,10 +397,8 @@ Route::prefix('v1')->group(function () {
     Route::get('providers/{providerId}/onboarded-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getOnboardedProducts']);
     Route::get('providers/all-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getAllProvidersProducts']);
     
-    // IVR field mapping endpoints
-    Route::get('ivr/manufacturers', [\App\Http\Controllers\Api\IvrFieldController::class, 'getManufacturers']);
-    Route::get('ivr/manufacturers/{key}/fields', [\App\Http\Controllers\Api\IvrFieldController::class, 'getManufacturerFields']);
-    Route::post('ivr/calculate-coverage', [\App\Http\Controllers\Api\IvrFieldController::class, 'calculateFieldCoverage']);
+    // IVR field mapping endpoints - Using modern DocuSealTemplateController
+    Route::get('ivr/manufacturers/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
 });
 
 // Deprecated CustomerManagementController routes removed

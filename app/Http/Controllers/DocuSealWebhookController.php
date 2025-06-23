@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\IvrDocusealService;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
@@ -11,11 +10,9 @@ use Illuminate\Support\Str;
 
 class DocuSealWebhookController extends Controller
 {
-    private IvrDocusealService $ivrService;
-
-    public function __construct(IvrDocusealService $ivrService)
+    public function __construct()
     {
-        $this->ivrService = $ivrService;
+        // No service dependencies needed - webhook processing is self-contained
     }
 
     /**
@@ -163,7 +160,7 @@ class DocuSealWebhookController extends Controller
     /**
      * Find episode based on patient information
      */
-    private function findEpisodeByPatientInfo(array $patientInfo, array $webhookData): ?PatientIVRStatus
+    private function findEpisodeByPatientInfo(array $patientInfo, array $webhookData): ?PatientManufacturerIVREpisode
     {
         // Try to find by external_id if present in submitter data
         if (!empty($webhookData['external_id'])) {
@@ -266,8 +263,11 @@ class DocuSealWebhookController extends Controller
             return;
         }
 
-        // Process IVR signature
-        $this->ivrService->processIvrSignature($submissionId);
+        // Legacy submission completed event - now handled by form.completed event
+        Log::info('Legacy submission completed event received', [
+            'submission_id' => $submissionId,
+            'note' => 'Processing moved to form.completed event handler'
+        ]);
     }
 
     /**

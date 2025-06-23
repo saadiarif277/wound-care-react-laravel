@@ -14,7 +14,6 @@ use App\Services\ValidationBuilderEngine;
 use App\Services\PatientService;
 use App\Services\FhirService;
 use App\Services\DocusealService;
-use App\Services\IvrDocusealService;
 use Illuminate\Support\Facades\Response;
 
 class AppServiceProvider extends ServiceProvider
@@ -81,18 +80,21 @@ class AppServiceProvider extends ServiceProvider
             return new DocusealService();
         });
 
-        // Register IvrDocusealService
-        $this->app->singleton(IvrDocusealService::class, function ($app) {
-            return new IvrDocusealService(
-                $app->make(DocusealService::class),
-                $app->make(FhirService::class),
-                $app->make(\App\Services\IvrFieldMappingService::class)
+        // Register FhirToIvrFieldExtractor
+        $this->app->singleton(\App\Services\FhirToIvrFieldExtractor::class, function ($app) {
+            return new \App\Services\FhirToIvrFieldExtractor(
+                $app->make(FhirService::class)
             );
         });
 
         // Register PayerService
         $this->app->singleton(\App\Services\PayerService::class, function ($app) {
             return new \App\Services\PayerService();
+        });
+
+        // Register Azure Document Intelligence Service
+        $this->app->singleton(\App\Services\AzureDocumentIntelligenceService::class, function ($app) {
+            return new \App\Services\AzureDocumentIntelligenceService();
         });
     }
 

@@ -4,87 +4,27 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Services\DocuSealTemplateSyncService;
 use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use App\Services\IvrFormExtractionService;
-use App\Services\IvrFieldDiscoveryService;
-use App\Services\DocuSealFieldSyncService;
 use App\Services\AzureDocumentIntelligenceService;
 use GuzzleHttp\Client as HttpClient;
 
 class DocuSealTemplateController extends Controller
 {
-    protected DocuSealTemplateSyncService $syncService;
-    protected ?IvrFormExtractionService $extractionService = null;
-    protected ?IvrFieldDiscoveryService $discoveryService = null;
-    protected ?DocuSealFieldSyncService $fieldSyncService = null;
     protected ?AzureDocumentIntelligenceService $azureService = null;
 
-    public function __construct(DocuSealTemplateSyncService $syncService)
+    public function __construct()
     {
-        $this->syncService = $syncService;
-        
-        // Initialize the new services only when needed to avoid dependency issues
+        // Initialize Azure service only when needed to avoid dependency issues
         try {
-            $this->extractionService = app(IvrFormExtractionService::class);
-            $this->discoveryService = app(IvrFieldDiscoveryService::class);
-            $this->fieldSyncService = app(DocuSealFieldSyncService::class);
             $this->azureService = app(AzureDocumentIntelligenceService::class);
         } catch (\Exception $e) {
-            Log::warning('IVR field discovery services not available', ['error' => $e->getMessage()]);
+            Log::warning('Azure Document Intelligence service not available', ['error' => $e->getMessage()]);
         }
     }
 
-    /**
-     * Sync templates from DocuSeal API and return updated list.
-     */
-    public function sync(Request $request): JsonResponse
-    {
-        try {
-            // Check permission - but allow MSC admin role even without specific permission
-            $user = Auth::user();
-            if (!$user) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Unauthorized',
-                ], 401);
-            }
-            
-            // Allow if user has manage-orders permission OR is msc-admin
-            if (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin')) {
-                Log::warning('DocuSeal sync access denied', [
-                    'user_id' => $user->id,
-                    'user_email' => $user->email,
-                    'roles' => $user->roles->pluck('slug'),
-                ]);
-                
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied. You need manage-orders permission or msc-admin role.',
-                ], 403);
-            }
-            
-            $templates = $this->syncService->pullTemplatesFromDocuSeal();
-            
-            return response()->json([
-                'success' => true,
-                'templates' => $templates,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('DocuSeal template sync failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-            
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
 
     /**
      * List all templates from local DB.
@@ -137,107 +77,6 @@ class DocuSealTemplateController extends Controller
         }
     }
 
-    /**
-     * Extract fields from an uploaded IVR PDF
-     */
-    public function extractFields(Request $request): JsonResponse
-    {
-        try {
-            // Check if services are available
-            if (!$this->extractionService || !$this->discoveryService) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Field extraction service not available. Please check Azure DI configuration.',
-                ], 503);
-            }
-            
-            // Check permissions
-            $user = Auth::user();
-            if (!$user || (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin'))) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied. You need manage-orders permission or msc-admin role.',
-                ], 403);
-            }
-
-            // Validate request
-            $request->validate([
-                'pdf' => 'required|file|mimes:pdf|max:10240', // 10MB max
-                'template_id' => 'required|string|exists:docuseal_templates,id',
-                'manufacturer_id' => 'required|string'
-            ]);
-
-            // Store uploaded file temporarily on local disk
-            $pdfFile = $request->file('pdf');
-            // Generate a unique filename
-            $tempFileName = 'temp/' . uniqid('ivr_') . '.pdf';
-            // Store file using Storage facade to ensure we use local disk
-            \Illuminate\Support\Facades\Storage::disk('local')->put($tempFileName, file_get_contents($pdfFile->getRealPath()));
-            $fullPath = storage_path('app/' . $tempFileName);
-
-            try {
-                // Extract fields and metadata from PDF
-                $extractionResult = $this->extractionService->extractFieldsAndMetadata(
-                    $fullPath,
-                    $request->manufacturer_id
-                );
-                
-                $extractedFields = $extractionResult['fields'] ?? [];
-                $formMetadata = $extractionResult['metadata'] ?? [];
-
-                // Generate mapping suggestions
-                $suggestions = $this->discoveryService->generateMappingSuggestions(
-                    $extractedFields,
-                    $request->template_id
-                );
-
-                // Get summary statistics
-                $summary = $this->discoveryService->getDiscoverySummary($extractedFields, $suggestions);
-
-                // Clean up temp file
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($tempFileName);
-
-                // Update template with extraction metadata and field suggestions
-                if (!empty($formMetadata)) {
-                    $template = DocusealTemplate::find($request->template_id);
-                    if ($template) {
-                        $template->update([
-                            'extraction_metadata' => array_merge($template->extraction_metadata ?? [], [
-                                'last_extraction' => $formMetadata,
-                                'field_suggestions' => $suggestions,
-                                'discovery_summary' => $summary,
-                                'last_extracted_at' => now()->toIso8601String()
-                            ])
-                        ]);
-                    }
-                }
-                
-                return response()->json([
-                    'success' => true,
-                    'fields' => $extractedFields,
-                    'suggestions' => $suggestions,
-                    'summary' => $summary,
-                    'metadata' => $formMetadata ?? []
-                ]);
-
-            } catch (\Exception $e) {
-                // Clean up temp file on error
-                \Illuminate\Support\Facades\Storage::disk('local')->delete($tempFileName);
-                throw $e;
-            }
-
-        } catch (\Exception $e) {
-            Log::error('Field extraction failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
 
     /**
      * Update field mappings for a template
@@ -564,56 +403,6 @@ class DocuSealTemplateController extends Controller
         return 'text';
     }
     
-    /**
-     * Sync fields from DocuSeal template
-     */
-    public function syncFields(string $templateId): JsonResponse
-    {
-        try {
-            // Check if service is available
-            if (!$this->fieldSyncService) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Field sync service not available.',
-                ], 503);
-            }
-            
-            // Check permissions
-            $user = Auth::user();
-            if (!$user || (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin'))) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Access denied. You need manage-orders permission or msc-admin role.',
-                ], 403);
-            }
-
-            // Find template
-            $template = DocusealTemplate::findOrFail($templateId);
-
-            // Sync fields from DocuSeal
-            $result = $this->fieldSyncService->syncTemplateFields($template);
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Fields synced successfully',
-                'field_mappings' => $template->fresh()->field_mappings,
-                'total_fields' => $result['total_fields'],
-                'new_fields' => $result['new_fields'],
-                'updated_fields' => $result['updated_fields']
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('DocuSeal field sync failed', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage(),
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 500);
-        }
-    }
 
     /**
      * Upload PDF template with embedded text field tags
