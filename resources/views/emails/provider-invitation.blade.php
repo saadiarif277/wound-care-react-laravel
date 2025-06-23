@@ -1,51 +1,78 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invitation to Join MSC Wound Care Portal</title>
+    <title>Provider Invitation - MSC Wound Care</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             line-height: 1.6;
             color: #333;
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
-            background-color: #f4f4f4;
+            background-color: #f8f9fa;
         }
-        .container {
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        .email-container {
+            background-color: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             overflow: hidden;
         }
         .header {
             background: linear-gradient(135deg, #1925c3 0%, #c71719 100%);
             color: white;
-            padding: 30px;
+            padding: 30px 20px;
             text-align: center;
         }
         .header h1 {
             margin: 0;
-            font-size: 28px;
+            font-size: 24px;
+            font-weight: 600;
         }
         .content {
-            padding: 30px;
+            padding: 30px 20px;
         }
-        .button {
+        .invitation-text {
+            font-size: 16px;
+            margin-bottom: 25px;
+            color: #555;
+        }
+        .cta-button {
             display: inline-block;
             background: linear-gradient(135deg, #1925c3 0%, #c71719 100%);
             color: white;
-            padding: 15px 30px;
             text-decoration: none;
-            border-radius: 5px;
+            padding: 15px 30px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 16px;
             margin: 20px 0;
-            font-weight: bold;
             text-align: center;
+            transition: transform 0.2s ease;
         }
-        .button:hover {
-            opacity: 0.9;
+        .cta-button:hover {
+            transform: translateY(-2px);
+        }
+        .details {
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            padding: 20px;
+            margin: 25px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .detail-label {
+            font-weight: 600;
+            color: #666;
+        }
+        .detail-value {
+            color: #333;
         }
         .footer {
             background-color: #f8f9fa;
@@ -53,88 +80,124 @@
             text-align: center;
             font-size: 12px;
             color: #666;
+            border-top: 1px solid #e9ecef;
         }
-        .benefits {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 5px;
-            margin: 20px 0;
+        .logo {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 10px;
         }
-        .benefits h3 {
-            color: #1925c3;
-            margin-top: 0;
-        }
-        .benefits ul {
-            margin: 10px 0;
-            padding-left: 20px;
-        }
-        .warning {
+        .expiry-notice {
             background-color: #fff3cd;
             border: 1px solid #ffeaa7;
-            color: #856404;
+            border-radius: 6px;
             padding: 15px;
-            border-radius: 5px;
             margin: 20px 0;
+            font-size: 14px;
+            color: #856404;
+        }
+        .security-notice {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 14px;
+            color: #0c5460;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px 15px;
+            }
+            .header {
+                padding: 20px 15px;
+            }
+            .detail-row {
+                flex-direction: column;
+                margin-bottom: 15px;
+            }
+            .detail-label {
+                margin-bottom: 5px;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
+    <div class="email-container">
         <div class="header">
-            <h1>Welcome to MSC Wound Care Portal</h1>
-            <p>You've been invited to join our healthcare provider network</p>
+            <div class="logo">MSC</div>
+            <h1>Provider Invitation</h1>
+            <p style="margin: 10px 0 0 0; opacity: 0.9;">Wound Care Portal Access</p>
         </div>
-        
+
         <div class="content">
-            <h2>Hello!</h2>
-            
-            <p>{{ $inviterName }} has invited you to join the MSC Wound Care Portal, where you can streamline your wound care product ordering and patient management.</p>
-            
-            <div class="benefits">
-                <h3>As a member, you'll be able to:</h3>
-                <ul>
-                    <li>Submit wound care product requests online</li>
-                    <li>Track order status in real-time</li>
-                    <li>Access patient documentation securely</li>
-                    <li>Manage insurance verification efficiently</li>
-                    <li>Collaborate with your care team</li>
+            <div class="invitation-text">
+                <p>Hello,</p>
+
+                <p>You have been invited by <strong>{{ $inviterName }}</strong> to join the MSC Wound Care Portal as a healthcare provider.</p>
+
+                <p>This invitation will allow you to:</p>
+                <ul style="margin: 15px 0; padding-left: 20px;">
+                    <li>Submit product requests for your patients</li>
+                    <li>Track order status and delivery information</li>
+                    <li>Access clinical resources and product information</li>
+                    <li>Manage patient documentation and insurance verification</li>
                 </ul>
             </div>
-            
-            <p>To get started, simply click the button below to create your account:</p>
-            
+
             <div style="text-align: center;">
-                <a href="{{ $invitationUrl }}" class="button">Accept Invitation</a>
+                <a href="{{ $invitationUrl }}" class="cta-button">
+                    Accept Invitation & Create Account
+                </a>
             </div>
-            
-            <div class="warning">
-                <strong>Important:</strong> This invitation will expire on {{ $expiresAt }}. 
-                Please complete your registration before this date.
+
+            <div class="expiry-notice">
+                <strong>⏰ Important:</strong> This invitation expires on {{ $expiresAt }}. Please accept the invitation before this date to ensure access to the portal.
             </div>
-            
-            <h3>What happens next?</h3>
-            <ol>
-                <li>Click the "Accept Invitation" button above</li>
-                <li>Create your secure password</li>
-                <li>Complete your profile information</li>
-                <li>Start submitting wound care orders immediately</li>
-            </ol>
-            
-            <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
-            
-            <p>We look forward to having you as part of the MSC Wound Care network!</p>
-            
-            <p>Best regards,<br>
-            The MSC Wound Care Team</p>
+
+            <div class="security-notice">
+                <strong>🔒 Security Notice:</strong> This invitation link is unique to your email address and should not be shared with others. If you did not expect this invitation, please contact our support team.
+            </div>
+
+            <div class="details">
+                <div class="detail-row">
+                    <span class="detail-label">Invited By:</span>
+                    <span class="detail-value">{{ $inviterName }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Invitation Expires:</span>
+                    <span class="detail-value">{{ $expiresAt }}</span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Portal Access:</span>
+                    <span class="detail-value">MSC Wound Care Provider Portal</span>
+                </div>
+            </div>
+
+            <div style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #e9ecef;">
+                <p style="font-size: 14px; color: #666; margin-bottom: 10px;">
+                    <strong>Need Help?</strong>
+                </p>
+                <p style="font-size: 14px; color: #666; margin: 5px 0;">
+                    • For technical support: <a href="mailto:support@mscwoundcare.com" style="color: #1925c3;">support@mscwoundcare.com</a>
+                </p>
+                <p style="font-size: 14px; color: #666; margin: 5px 0;">
+                    • For account questions: <a href="mailto:accounts@mscwoundcare.com" style="color: #1925c3;">accounts@mscwoundcare.com</a>
+                </p>
+            </div>
         </div>
-        
+
         <div class="footer">
-            <p>This invitation was sent to you by {{ $inviterName }}.</p>
-            <p>If you believe you received this email in error, please ignore it.</p>
-            <p>&copy; {{ date('Y') }} MSC Wound Care. All rights reserved.</p>
-            <p>
-                <a href="{{ url('/') }}" style="color: #1925c3;">Visit our website</a> | 
-                <a href="{{ url('/privacy') }}" style="color: #1925c3;">Privacy Policy</a>
+            <p style="margin: 0 0 10px 0;">
+                <strong>MSC Wound Care</strong><br>
+                Healthcare Distribution & Clinical Support
+            </p>
+            <p style="margin: 0; font-size: 11px; opacity: 0.7;">
+                This email was sent to you because you were invited to join the MSC Wound Care Portal.<br>
+                If you have any questions, please contact our support team.
             </p>
         </div>
     </div>

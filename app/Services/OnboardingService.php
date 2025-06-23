@@ -866,17 +866,20 @@ class OnboardingService
     private function sendProviderInvitationEmail(ProviderInvitation $invitation): void
     {
         try {
-            // Implementation would go here when email templates are ready
-            // Mail::to($invitation->email)->queue(new ProviderInvitationMail($invitation));
-            Log::info('Provider invitation email would be sent', [
-                'email' => $invitation->email,
-                'invitation_id' => $invitation->id
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Failed to send provider invitation email', [
+            // Send the actual email using the ProviderInvitationEmail class
+            Mail::to($invitation->email)->send(new \App\Mail\ProviderInvitationEmail($invitation));
+
+            Log::info('Provider invitation email sent successfully', [
                 'email' => $invitation->email,
                 'invitation_id' => $invitation->id,
-                'error' => $e->getMessage()
+                'invitation_token' => $invitation->invitation_token
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to send provider invitation email', [
+                'email' => $invitation->email,
+                'invitation_id' => $invitation->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
             ]);
             throw $e; // Re-throw to handle in calling method
         }

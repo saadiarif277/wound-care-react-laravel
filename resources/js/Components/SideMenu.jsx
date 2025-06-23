@@ -19,6 +19,11 @@ const SideMenu = () => {
                     roles: ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin'],
                 },
                 {
+                    label: 'Quick Request (Beta)',
+                    href: '/quick-requests/create',
+                    roles: ['provider', 'office_manager', 'msc_rep', 'msc_subrep', 'msc_admin'],
+                },
+                {
                     label: 'Facility Requests',
                     href: '/product-requests/facility',
                     roles: ['office_manager', 'msc_rep', 'msc_subrep', 'msc_admin'],

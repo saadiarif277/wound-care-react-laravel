@@ -108,12 +108,12 @@ class AppServiceProvider extends ServiceProvider
         $this->bootRoute();
 
         // Response macro for security headers
-        Response::macro('withSecurityHeaders', function ($response) {
-            $response->headers->set('X-Content-Type-Options', 'nosniff');
-            $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
-            $response->headers->set('X-XSS-Protection', '1; mode=block');
-            return $response;
-        });
+        // Response::macro('withSecurityHeaders', function ($response) {
+        //     $response->headers->set('X-Content-Type-Options', 'nosniff');
+        //     $response->headers->set('X-Frame-Options', 'SAMEORIGIN');
+        //     $response->headers->set('X-XSS-Protection', '1; mode=block');
+        //     return $response;
+        // });
     }
 
     public function bootRoute(): void
