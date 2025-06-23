@@ -29,8 +29,8 @@ class QuickRequestServiceTest extends TestCase
     {
         parent::setUp();
         
-        $this->mockFhirClient = \Mockery::mock(AzureFhirClient::class);
-        $this->mockDocuSealService = \Mockery::mock(DocuSealService::class);
+        $this->mockFhirClient = \Mockery::mock(AzureFhirClient::class, []);
+        $this->mockDocuSealService = \Mockery::mock(DocuSealService::class, []);
         
         $this->service = new QuickRequestService(
             $this->mockFhirClient,
@@ -304,7 +304,7 @@ class QuickRequestServiceTest extends TestCase
     {
         Mail::fake();
 
-        $fhirClient = \Mockery::mock(AzureFhirClient::class);
+        $fhirClient = \Mockery::mock(AzureFhirClient::class, []);
         $docuSealService = \Mockery::mock(DocuSealService::class);
         $service = new QuickRequestService($fhirClient, $docuSealService);
 

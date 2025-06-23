@@ -15,7 +15,8 @@
       "Bash(npx tsc:*)",
       "Bash(rg:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(composer:*)"
+      "Bash(composer:*)",
+      "Bash(npm run:*)"
     ],
     "deny": []
   }

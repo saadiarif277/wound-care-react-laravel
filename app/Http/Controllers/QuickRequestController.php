@@ -314,21 +314,38 @@ class QuickRequestController extends Controller
             'prior_auth_permission' => 'required|boolean',
 
             // Clinical Information
-            'wound_types' => 'required|array|min:1',
+            'wound_type' => 'required|string|max:100', // Changed from array to single string
+            'wound_types' => 'nullable|array|min:1', // Keep for backward compatibility
             'wound_other_specify' => 'nullable|string|max:255',
             'wound_location' => 'required|string|max:255',
             'wound_location_details' => 'nullable|string|max:255',
+            
+            // Diagnosis codes - support both old and new format
             'yellow_diagnosis_code' => 'nullable|string|max:20',
             'orange_diagnosis_code' => 'nullable|string|max:20',
+            'primary_diagnosis_code' => 'nullable|string|max:20',
+            'secondary_diagnosis_code' => 'nullable|string|max:20',
+            'diagnosis_code' => 'nullable|string|max:20',
+            
+            // Wound measurements
             'wound_size_length' => 'required|numeric|min:0.1|max:100',
             'wound_size_width' => 'required|numeric|min:0.1|max:100',
             'wound_size_depth' => 'nullable|numeric|min:0|max:100',
-            'wound_duration' => 'nullable|string|max:255',
+            
+            // Wound duration - new fields
+            'wound_duration' => 'nullable|string|max:255', // Keep for backward compatibility
+            'wound_duration_days' => 'nullable|numeric|min:0|max:30',
+            'wound_duration_weeks' => 'nullable|numeric|min:0|max:52',
+            'wound_duration_months' => 'nullable|numeric|min:0|max:12',
+            'wound_duration_years' => 'nullable|numeric|min:0|max:10',
+            
             'previous_treatments' => 'nullable|string|max:1000',
 
             // Procedure Information
             'application_cpt_codes' => 'required|array|min:1',
             'prior_applications' => 'nullable|string|max:20',
+            'prior_application_product' => 'nullable|string|max:255', // NEW
+            'prior_application_within_12_months' => 'nullable|boolean', // NEW
             'anticipated_applications' => 'nullable|string|max:20',
 
             // Billing Status
@@ -336,6 +353,8 @@ class QuickRequestController extends Controller
             'medicare_part_b_authorized' => 'nullable|boolean',
             'snf_days' => 'nullable|string|max:10',
             'hospice_status' => 'nullable|boolean',
+            'hospice_family_consent' => 'nullable|boolean', // NEW
+            'hospice_clinically_necessary' => 'nullable|boolean', // NEW
             'part_a_status' => 'nullable|boolean',
             'global_period_status' => 'nullable|boolean',
             'global_period_cpt' => 'nullable|string|max:10',
@@ -380,7 +399,35 @@ class QuickRequestController extends Controller
             'expected_service_date.after' => 'Service date must be in the future.',
             'selected_products.required' => 'Please select at least one product.',
             'facility_id.required' => 'Please select a facility.',
+            'wound_type.required' => 'Please select a wound type.',
         ]);
+        
+        // Custom validation: At least one wound duration field must be filled
+        if (!($validated['wound_duration_days'] ?? false) && 
+            !($validated['wound_duration_weeks'] ?? false) && 
+            !($validated['wound_duration_months'] ?? false) && 
+            !($validated['wound_duration_years'] ?? false)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'wound_duration' => 'At least one duration field (days, weeks, months, or years) is required.'
+            ]);
+        }
+        
+        // Custom validation: Ensure appropriate diagnosis codes are provided based on wound type
+        if ($validated['wound_type'] === 'diabetic_foot_ulcer' || $validated['wound_type'] === 'venous_leg_ulcer') {
+            if (empty($validated['primary_diagnosis_code']) || empty($validated['secondary_diagnosis_code'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'diagnosis_code' => 'This wound type requires both a primary and secondary diagnosis code.'
+                ]);
+            }
+        } else {
+            if (empty($validated['diagnosis_code']) && empty($validated['primary_diagnosis_code'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'diagnosis_code' => 'A diagnosis code is required.'
+                ]);
+            }
+        }
+        
+        return $validated;
     }
 
     private function createPatientRecord(array $validated): array

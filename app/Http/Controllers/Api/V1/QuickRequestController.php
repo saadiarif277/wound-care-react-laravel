@@ -8,6 +8,8 @@ use App\Services\QuickRequestService;
 use App\Services\Templates\DocuSealBuilder;
 use App\Services\DocuSealService;
 use App\Models\Episode;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 
 class QuickRequestController extends Controller
 {
@@ -73,7 +75,7 @@ class QuickRequestController extends Controller
      */
     public function generateBuilderToken(Request $request)
     {
-        \Log::info('generateBuilderToken called', [
+        Log::info('generateBuilderToken called', [
             'method' => $request->method(),
             'url' => $request->fullUrl(),
             'headers' => $request->headers->all(),
@@ -105,7 +107,7 @@ class QuickRequestController extends Controller
             $builder = new DocuSealBuilder($docuSealService);
             $template = $builder->getTemplate($manufacturerId, $productCode);
             
-            \Log::info('DocuSeal template found', [
+            Log::info('DocuSeal template found', [
                 'template_id' => $template->id,
                 'docuseal_template_id' => $template->docuseal_template_id,
                 'manufacturer_id' => $manufacturerId,
@@ -113,8 +115,8 @@ class QuickRequestController extends Controller
             ]);
             
             // Generate a builder token using the DocuSeal builder approach
-            $user = auth()->user();
-            $submitterData = [
+                        $user = Auth::user();
+                        $submitterData = [
                 'email' => $user->email,
                 'name' => $user->name,
                 'external_id' => 'quickrequest_' . uniqid(),
@@ -134,7 +136,7 @@ class QuickRequestController extends Controller
             ], 200, ['Content-Type' => 'application/json']);
             
         } catch (\Exception $e) {
-            \Log::error('DocuSeal builder token generation failed', [
+            Log::error('DocuSeal builder token generation failed', [
                 'error' => $e->getMessage(),
                 'manufacturer_id' => $manufacturerId,
                 'product_code' => $productCode,

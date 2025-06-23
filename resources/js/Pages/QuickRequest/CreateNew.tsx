@@ -777,6 +777,53 @@ function QuickRequestCreateNew({
     // Create DeviceRequest when moving from section 2 to 3 (after product selection)
     if (currentSection === 2) {
       await createFhirResources('DeviceRequest');
+      
+      // Create local episode record for IVR tracking after product selection
+      if (!formData.episode_id && formData.patient_fhir_id) {
+        try {
+          const csrfToken = await ensureValidCSRFToken();
+          if (!csrfToken) {
+            setErrors({ episode: 'Unable to obtain security token. Please refresh the page.' });
+            return;
+          }
+          
+          const selectedProduct = formData.selected_products?.[0];
+          const product = selectedProduct ? products.find(p => p.id === selectedProduct.product_id) : null;
+          
+          const episodeCreationResponse = await axios.post('/api/quick-request/create-episode', {
+            patient_id: formData.patient_fhir_id, // Using FHIR ID as patient_id
+            patient_fhir_id: formData.patient_fhir_id,
+            patient_display_id: formData.patient_display_id || 'PATIENT',
+            manufacturer_id: product?.manufacturer_id || null,
+            selected_product_id: selectedProduct?.product_id || null,
+            form_data: {
+              provider_id: formData.provider_id,
+              facility_id: formData.facility_id,
+              fhir_episode_of_care_id: formData.fhir_episode_of_care_id
+            }
+          }, {
+            headers: {
+              'X-CSRF-TOKEN': csrfToken,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (episodeCreationResponse.data && episodeCreationResponse.data.episode_id) {
+            updateFormData({
+              episode_id: episodeCreationResponse.data.episode_id,
+              manufacturer_id: product?.manufacturer_id || null
+            });
+          } else {
+            setErrors({ episode: 'Failed to create local episode. Please try again.' });
+            return;
+          }
+        } catch (error: any) {
+          console.error('Error creating episode:', error);
+          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create episode';
+          setErrors({ episode: errorMessage });
+          return;
+        }
+      }
     }
 
     // Extract IVR fields when moving from section 3 to 4

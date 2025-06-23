@@ -1,12 +1,54 @@
-import { useEffect, useState } from 'react';
-import { FiAlertCircle, FiSearch, FiX } from 'react-icons/fi';
+import { useState } from 'react';
+import { FiCalendar, FiHome, FiActivity, FiFileText, FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import axios from 'axios';
+import PlaceOfServiceSelector from '@/Components/PlaceOfService/PlaceOfServiceSelector';
+import DiagnosisCodeSelector from '@/Components/DiagnosisCode/DiagnosisCodeSelector';
+
+interface FormData {
+  // Clinical Information
+  wound_type?: string; // Changed from array to single string
+  wound_other_specify?: string;
+  wound_location?: string;
+  wound_location_details?: string;
+  primary_diagnosis_code?: string; // For dual-coding wounds
+  secondary_diagnosis_code?: string; // For dual-coding wounds
+  diagnosis_code?: string; // For single-code wounds
+  wound_size_length?: string;
+  wound_size_width?: string;
+  wound_size_depth?: string;
+  // Duration fields - NEW
+  wound_duration_days?: string;
+  wound_duration_weeks?: string;
+  wound_duration_months?: string;
+  wound_duration_years?: string;
+  previous_treatments?: string;
+
+  // Procedure Information
+  application_cpt_codes?: string[];
+  prior_applications?: string;
+  prior_application_product?: string; // NEW - Product used if > 1
+  prior_application_within_12_months?: boolean; // NEW - Within 12 months checkbox
+  anticipated_applications?: string;
+
+  // Facility Information (renamed from Billing Status)
+  place_of_service?: string;
+  medicare_part_b_authorized?: boolean;
+  snf_days?: string;
+  hospice_status?: boolean;
+  hospice_family_consent?: boolean; // NEW field
+  hospice_clinically_necessary?: boolean; // NEW field
+  part_a_status?: boolean;
+  global_period_status?: boolean;
+  global_period_cpt?: string;
+  global_period_surgery_date?: string;
+
+  [key: string]: any;
+}
 
 interface Step4Props {
-  formData: any;
-  updateFormData: (data: any) => void;
+  formData: FormData;
+  updateFormData: (data: Partial<FormData>) => void;
   diagnosisCodes?: {
     yellow: Array<{ code: string; description: string }>;
     orange: Array<{ code: string; description: string }>;
@@ -33,121 +75,6 @@ export default function Step4ClinicalBilling({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-
-  // State for dynamic diagnosis codes
-  const [dynamicDiagnosisCodes, setDynamicDiagnosisCodes] = useState<{
-    yellow: Array<{ code: string; description: string }>;
-    orange: Array<{ code: string; description: string }>;
-    none: Array<{ code: string; description: string }>;
-  }>({
-    yellow: [],
-    orange: [],
-    none: []
-  });
-  const [requirementMessages, setRequirementMessages] = useState<string[]>([]);
-  const [loadingCodes, setLoadingCodes] = useState(false);
-
-  // State for searchable diagnosis codes
-  const [yellowSearchTerm, setYellowSearchTerm] = useState('');
-  const [orangeSearchTerm, setOrangeSearchTerm] = useState('');
-  const [pressureSearchTerm, setPressureSearchTerm] = useState('');
-  const [showYellowDropdown, setShowYellowDropdown] = useState(false);
-  const [showOrangeDropdown, setShowOrangeDropdown] = useState(false);
-  const [showPressureDropdown, setShowPressureDropdown] = useState(false);
-
-  // Wound type options - these should match the database wound_types table
-  const woundTypes = [
-    { value: 'diabetic_foot_ulcer', label: 'Diabetic Foot Ulcer' },
-    { value: 'venous_leg_ulcer', label: 'Venous Leg Ulcer' },
-    { value: 'pressure_ulcer', label: 'Pressure Ulcer' },
-    { value: 'surgical_wound', label: 'Surgical Wound' },
-    { value: 'traumatic_wound', label: 'Traumatic Wound' },
-    { value: 'arterial_ulcer', label: 'Arterial Ulcer' },
-    { value: 'chronic_ulcer', label: 'Chronic Ulcer' },
-    { value: 'other', label: 'Other' },
-  ];
-
-  // Fetch diagnosis codes when wound types change
-  useEffect(() => {
-    if (formData.wound_types && formData.wound_types.length > 0) {
-      fetchDiagnosisCodes(formData.wound_types);
-    } else {
-      // Reset to default if no wound types selected
-      setDynamicDiagnosisCodes({
-        yellow: diagnosisCodes?.yellow || [],
-        orange: diagnosisCodes?.orange || [],
-        none: []
-      });
-      setRequirementMessages([]);
-    }
-  }, [formData.wound_types]);
-
-  // Close dropdowns when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('.diagnosis-dropdown')) {
-        setShowYellowDropdown(false);
-        setShowOrangeDropdown(false);
-        setShowPressureDropdown(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const fetchDiagnosisCodes = async (woundTypes: string[]) => {
-    setLoadingCodes(true);
-    try {
-      const response = await axios.post('/api/diagnosis-codes/by-wound-type', {
-        wound_types: woundTypes
-      });
-
-      const { codes, requirements } = response.data;
-      setDynamicDiagnosisCodes({
-        yellow: codes.yellow || [],
-        orange: codes.orange || [],
-        none: codes.none || []
-      });
-      setRequirementMessages(requirements || []);
-
-      // Clear selected diagnosis codes if they're no longer valid
-      if (formData.yellow_diagnosis_code) {
-        const validYellow = codes.yellow?.find((c: any) => c.code === formData.yellow_diagnosis_code);
-        if (!validYellow) {
-          updateFormData({ yellow_diagnosis_code: '' });
-        }
-      }
-      if (formData.orange_diagnosis_code) {
-        const validOrange = codes.orange?.find((c: any) => c.code === formData.orange_diagnosis_code);
-        if (!validOrange) {
-          updateFormData({ orange_diagnosis_code: '' });
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching diagnosis codes:', error);
-      // Fallback to default codes
-      setDynamicDiagnosisCodes({
-        yellow: diagnosisCodes?.yellow || [],
-        orange: diagnosisCodes?.orange || [],
-        none: []
-      });
-    } finally {
-      setLoadingCodes(false);
-    }
-  };
-
-  // Use dynamic codes or fallback to default
-  const yellowCodes = dynamicDiagnosisCodes.yellow.length > 0
-    ? dynamicDiagnosisCodes.yellow
-    : (diagnosisCodes?.yellow || []);
-
-  const orangeCodes = dynamicDiagnosisCodes.orange.length > 0
-    ? dynamicDiagnosisCodes.orange
-    : (diagnosisCodes?.orange || []);
-
-  const pressureUlcerCodes = dynamicDiagnosisCodes.none;
 
   // Wound location options
   const woundLocations = [
@@ -201,15 +128,6 @@ export default function Step4ClinicalBilling({
 
   const suggestedCodes = getSuggestedCPTCodes();
 
-  const handleWoundTypeToggle = (type: string) => {
-    const currentTypes = formData.wound_types || [];
-    if (currentTypes.includes(type)) {
-      updateFormData({ wound_types: currentTypes.filter((t: string) => t !== type) });
-    } else {
-      updateFormData({ wound_types: [...currentTypes, type] });
-    }
-  };
-
   const handleCPTCodeToggle = (code: string) => {
     const currentCodes = formData.application_cpt_codes || [];
     if (currentCodes.includes(code)) {
@@ -219,42 +137,23 @@ export default function Step4ClinicalBilling({
     }
   };
 
-  // Helper functions for searchable diagnosis codes
-  const getFilteredYellowCodes = () => {
-    return yellowCodes.filter(code => 
-      code.code.toLowerCase().includes(yellowSearchTerm.toLowerCase()) ||
-      code.description.toLowerCase().includes(yellowSearchTerm.toLowerCase())
-    );
+  const handleDiagnosisChange = (selection: {
+    wound_type: string;
+    primary_diagnosis_code?: string;
+    secondary_diagnosis_code?: string;
+    diagnosis_code?: string;
+  }) => {
+    updateFormData(selection);
   };
 
-  const getFilteredOrangeCodes = () => {
-    return orangeCodes.filter(code => 
-      code.code.toLowerCase().includes(orangeSearchTerm.toLowerCase()) ||
-      code.description.toLowerCase().includes(orangeSearchTerm.toLowerCase())
+  // Validate at least one duration field is filled
+  const isDurationValid = () => {
+    return !!(
+      formData.wound_duration_days ||
+      formData.wound_duration_weeks ||
+      formData.wound_duration_months ||
+      formData.wound_duration_years
     );
-  };
-
-  const getFilteredPressureCodes = () => {
-    return pressureUlcerCodes.filter(code => 
-      code.code.toLowerCase().includes(pressureSearchTerm.toLowerCase()) ||
-      code.description.toLowerCase().includes(pressureSearchTerm.toLowerCase())
-    );
-  };
-
-  const handleDiagnosisCodeSelect = (code: string, type: 'yellow' | 'orange' | 'pressure') => {
-    if (type === 'yellow') {
-      updateFormData({ yellow_diagnosis_code: code });
-      setYellowSearchTerm('');
-      setShowYellowDropdown(false);
-    } else if (type === 'orange') {
-      updateFormData({ orange_diagnosis_code: code });
-      setOrangeSearchTerm('');
-      setShowOrangeDropdown(false);
-    } else if (type === 'pressure') {
-      updateFormData({ pressure_ulcer_diagnosis_code: code });
-      setPressureSearchTerm('');
-      setShowPressureDropdown(false);
-    }
   };
 
   return (
@@ -266,344 +165,45 @@ export default function Step4ClinicalBilling({
         </h3>
 
         <div className="space-y-4">
-          {/* Wound Type */}
-          <div>
-            <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
-              Wound Type (Select all that apply) <span className="text-red-500">*</span>
-            </label>
-            <div className="space-y-2">
-              {woundTypes.map(type => (
-                <label key={type.value} className="flex items-center">
-                  <input
-                    type="checkbox"
-                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
-                    checked={formData.wound_types?.includes(type.value) || false}
-                    onChange={() => handleWoundTypeToggle(type.value)}
-                  />
-                  <span className={cn("ml-2 text-sm", t.text.primary)}>{type.label}</span>
-                </label>
-              ))}
-            </div>
-            {errors.wound_types && (
-              <p className="mt-1 text-sm text-red-500">{errors.wound_types}</p>
-            )}
+          {/* Diagnosis Code Selector - Includes wound type selection */}
+          <DiagnosisCodeSelector
+            value={{
+              wound_type: formData.wound_type,
+              primary_diagnosis_code: formData.primary_diagnosis_code,
+              secondary_diagnosis_code: formData.secondary_diagnosis_code,
+              diagnosis_code: formData.diagnosis_code
+            }}
+            onChange={handleDiagnosisChange}
+            errors={{
+              wound_type: errors.wound_type,
+              diagnosis: errors.diagnosis_code || errors.primary_diagnosis_code || errors.secondary_diagnosis_code
+            }}
+            diagnosisCodes={diagnosisCodes}
+          />
 
-            {formData.wound_types?.includes('other') && (
-              <div className="mt-3">
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Specify Other Wound Type <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  className={cn(
-                    "w-full p-2 rounded border transition-all",
-                    theme === 'dark'
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
-                    errors.wound_other_specify && 'border-red-500'
-                  )}
-                  value={formData.wound_other_specify || ''}
-                  onChange={(e) => updateFormData({ wound_other_specify: e.target.value })}
-                  placeholder="Please specify..."
-                />
-                {errors.wound_other_specify && (
-                  <p className="mt-1 text-sm text-red-500">{errors.wound_other_specify}</p>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Diagnosis Code Requirements Alert */}
-          {requirementMessages.length > 0 && (
-            <div className={cn(
-              "p-3 rounded-lg border-l-4",
-              theme === 'dark'
-                ? 'bg-yellow-900/20 border-yellow-500'
-                : 'bg-yellow-100 border-yellow-500'
-            )}>
-              <div className="flex items-start">
-                <FiAlertCircle className={cn(
-                  "h-5 w-5 mt-0.5 flex-shrink-0",
-                  theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600'
-                )} />
-                <div className="ml-3">
-                  <h4 className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-yellow-300' : 'text-yellow-800'
-                  )}>
-                    Diagnosis Codes Required
-                  </h4>
-                  <div className={cn(
-                    "mt-1 text-sm space-y-1",
-                    theme === 'dark' ? 'text-yellow-400' : 'text-yellow-700'
-                  )}>
-                    {requirementMessages.map((message, index) => (
-                      <p key={index}>{message}</p>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Diagnosis Codes for Pressure Ulcer (no color categories) */}
-          {formData.wound_types?.includes('pressure_ulcer') && pressureUlcerCodes.length > 0 && (
-            <div className="relative">
+          {/* Other wound type specification */}
+          {formData.wound_type === 'other' && (
+            <div className="mt-3">
               <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                Pressure Ulcer Diagnosis Code <span className="text-red-500">*</span>
+                Specify Other Wound Type <span className="text-red-500">*</span>
               </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
-                </div>
-                <input
-                  type="text"
-                  className={cn(
-                    "w-full pl-10 pr-10 p-2 rounded border transition-all",
-                    theme === 'dark'
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
-                    errors.pressure_ulcer_diagnosis && 'border-red-500'
-                  )}
-                  placeholder="Search diagnosis codes..."
-                  value={pressureSearchTerm}
-                  onChange={(e) => {
-                    setPressureSearchTerm(e.target.value);
-                    setShowPressureDropdown(true);
-                  }}
-                  onFocus={() => setShowPressureDropdown(true)}
-                  disabled={loadingCodes}
-                />
-                {formData.pressure_ulcer_diagnosis_code && (
-                  <button
-                    type="button"
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                    onClick={() => {
-                      updateFormData({ pressure_ulcer_diagnosis_code: '' });
-                      setPressureSearchTerm('');
-                    }}
-                  >
-                    <FiX className={cn("h-4 w-4", t.text.tertiary)} />
-                  </button>
+              <input
+                type="text"
+                className={cn(
+                  "w-full p-2 rounded border transition-all",
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                  errors.wound_other_specify && 'border-red-500'
                 )}
-              </div>
-
-              {/* Display selected code */}
-              {formData.pressure_ulcer_diagnosis_code && (
-                <div className={cn(
-                  "mt-2 p-2 rounded border text-sm",
-                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-                )}>
-                  <strong>Selected:</strong> {formData.pressure_ulcer_diagnosis_code} - {
-                    pressureUlcerCodes.find(c => c.code === formData.pressure_ulcer_diagnosis_code)?.description
-                  }
-                </div>
-              )}
-
-              {/* Dropdown */}
-              {showPressureDropdown && (
-                <div className={cn(
-                  "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
-                  theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
-                )}>
-                  {getFilteredPressureCodes().length > 0 ? (
-                    getFilteredPressureCodes().map(code => (
-                      <button
-                        key={code.code}
-                        type="button"
-                        className={cn(
-                          "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
-                          t.text.primary
-                        )}
-                        onClick={() => handleDiagnosisCodeSelect(code.code, 'pressure')}
-                      >
-                        <span className="font-medium">{code.code}</span> - {code.description}
-                      </button>
-                    ))
-                  ) : (
-                    <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
-                      No codes found
-                    </div>
-                  )}
-                </div>
-              )}
-              {errors.pressure_ulcer_diagnosis && (
-                <p className="mt-1 text-sm text-red-500">{errors.pressure_ulcer_diagnosis}</p>
+                value={formData.wound_other_specify || ''}
+                onChange={(e) => updateFormData({ wound_other_specify: e.target.value })}
+                placeholder="Please specify..."
+              />
+              {errors.wound_other_specify && (
+                <p className="mt-1 text-sm text-red-500">{errors.wound_other_specify}</p>
               )}
             </div>
-          )}
-
-          {/* Diagnosis Codes for DFU and VLU */}
-          {(formData.wound_types?.includes('diabetic_foot_ulcer') || formData.wound_types?.includes('venous_leg_ulcer')) && (
-            <>
-              <div className="relative">
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Diabetes Diagnosis Code <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
-                  </div>
-                  <input
-                    type="text"
-                    className={cn(
-                      "w-full pl-10 pr-10 p-2 rounded border transition-all",
-                      theme === 'dark'
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
-                      errors.yellow_diagnosis && 'border-red-500'
-                    )}
-                    placeholder="Search diabetes diagnosis codes..."
-                    value={yellowSearchTerm}
-                    onChange={(e) => {
-                      setYellowSearchTerm(e.target.value);
-                      setShowYellowDropdown(true);
-                    }}
-                    onFocus={() => setShowYellowDropdown(true)}
-                    disabled={loadingCodes}
-                  />
-                  {formData.yellow_diagnosis_code && (
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => {
-                        updateFormData({ yellow_diagnosis_code: '' });
-                        setYellowSearchTerm('');
-                      }}
-                    >
-                      <FiX className={cn("h-4 w-4", t.text.tertiary)} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Display selected code */}
-                {formData.yellow_diagnosis_code && (
-                  <div className={cn(
-                    "mt-2 p-2 rounded border text-sm",
-                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-                  )}>
-                    <strong>Selected:</strong> {formData.yellow_diagnosis_code} - {
-                      yellowCodes.find(c => c.code === formData.yellow_diagnosis_code)?.description
-                    }
-                  </div>
-                )}
-
-                {/* Dropdown */}
-                {showYellowDropdown && (
-                  <div className={cn(
-                    "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
-                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
-                  )}>
-                    {getFilteredYellowCodes().length > 0 ? (
-                      getFilteredYellowCodes().map(code => (
-                        <button
-                          key={code.code}
-                          type="button"
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
-                            t.text.primary
-                          )}
-                          onClick={() => handleDiagnosisCodeSelect(code.code, 'yellow')}
-                        >
-                          <span className="font-medium">{code.code}</span> - {code.description}
-                        </button>
-                      ))
-                    ) : (
-                      <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
-                        No codes found
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.yellow_diagnosis && (
-                  <p className="mt-1 text-sm text-red-500">{errors.yellow_diagnosis}</p>
-                )}
-              </div>
-
-              <div className="relative">
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  Chronic Ulcer Diagnosis Code <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className={cn("h-4 w-4", t.text.tertiary)} />
-                  </div>
-                  <input
-                    type="text"
-                    className={cn(
-                      "w-full pl-10 pr-10 p-2 rounded border transition-all",
-                      theme === 'dark'
-                        ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                        : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
-                      errors.orange_diagnosis && 'border-red-500'
-                    )}
-                    placeholder="Search chronic ulcer diagnosis codes..."
-                    value={orangeSearchTerm}
-                    onChange={(e) => {
-                      setOrangeSearchTerm(e.target.value);
-                      setShowOrangeDropdown(true);
-                    }}
-                    onFocus={() => setShowOrangeDropdown(true)}
-                    disabled={loadingCodes}
-                  />
-                  {formData.orange_diagnosis_code && (
-                    <button
-                      type="button"
-                      className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                      onClick={() => {
-                        updateFormData({ orange_diagnosis_code: '' });
-                        setOrangeSearchTerm('');
-                      }}
-                    >
-                      <FiX className={cn("h-4 w-4", t.text.tertiary)} />
-                    </button>
-                  )}
-                </div>
-
-                {/* Display selected code */}
-                {formData.orange_diagnosis_code && (
-                  <div className={cn(
-                    "mt-2 p-2 rounded border text-sm",
-                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
-                  )}>
-                    <strong>Selected:</strong> {formData.orange_diagnosis_code} - {
-                      orangeCodes.find(c => c.code === formData.orange_diagnosis_code)?.description
-                    }
-                  </div>
-                )}
-
-                {/* Dropdown */}
-                {showOrangeDropdown && (
-                  <div className={cn(
-                    "diagnosis-dropdown absolute z-10 w-full mt-1 max-h-60 overflow-auto rounded border shadow-lg",
-                    theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-300'
-                  )}>
-                    {getFilteredOrangeCodes().length > 0 ? (
-                      getFilteredOrangeCodes().map(code => (
-                        <button
-                          key={code.code}
-                          type="button"
-                          className={cn(
-                            "w-full text-left px-3 py-2 text-sm hover:bg-blue-500/10 transition-colors",
-                            t.text.primary
-                          )}
-                          onClick={() => handleDiagnosisCodeSelect(code.code, 'orange')}
-                        >
-                          <span className="font-medium">{code.code}</span> - {code.description}
-                        </button>
-                      ))
-                    ) : (
-                      <div className={cn("px-3 py-2 text-sm", t.text.tertiary)}>
-                        No codes found
-                      </div>
-                    )}
-                  </div>
-                )}
-                {errors.orange_diagnosis && (
-                  <p className="mt-1 text-sm text-red-500">{errors.orange_diagnosis}</p>
-                )}
-              </div>
-            </>
           )}
 
           {/* Wound Location with CPT Codes */}
@@ -759,23 +359,91 @@ export default function Step4ClinicalBilling({
             </p>
           </div>
 
-          {/* Additional Wound Info */}
+          {/* Wound Duration - NEW FIELDS */}
           <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Wound Duration
+            <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+              Wound Duration <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              className={cn(
-                "w-full p-2 rounded border transition-all",
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-              )}
-              value={formData.wound_duration || ''}
-              onChange={(e) => updateFormData({ wound_duration: e.target.value })}
-              placeholder="e.g., 6 weeks, 3 months"
-            />
+            <div className="grid grid-cols-4 gap-3">
+              <div>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Days</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    !isDurationValid() && errors.wound_duration && 'border-red-500'
+                  )}
+                  value={formData.wound_duration_days || ''}
+                  onChange={(e) => updateFormData({ wound_duration_days: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Weeks</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="52"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    !isDurationValid() && errors.wound_duration && 'border-red-500'
+                  )}
+                  value={formData.wound_duration_weeks || ''}
+                  onChange={(e) => updateFormData({ wound_duration_weeks: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Months</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="12"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    !isDurationValid() && errors.wound_duration && 'border-red-500'
+                  )}
+                  value={formData.wound_duration_months || ''}
+                  onChange={(e) => updateFormData({ wound_duration_months: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Years</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    !isDurationValid() && errors.wound_duration && 'border-red-500'
+                  )}
+                  value={formData.wound_duration_years || ''}
+                  onChange={(e) => updateFormData({ wound_duration_years: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+            </div>
+            {!isDurationValid() && errors.wound_duration && (
+              <p className="mt-1 text-sm text-red-500">{errors.wound_duration}</p>
+            )}
+            <p className={cn("text-xs mt-1", t.text.secondary)}>
+              Enter at least one duration value
+            </p>
           </div>
 
           <div>
@@ -829,6 +497,45 @@ export default function Step4ClinicalBilling({
             </p>
           </div>
 
+          {/* NEW: If prior applications > 1, show additional fields */}
+          {parseInt(formData.prior_applications || '0') > 0 && (
+            <div className={cn(
+              "ml-4 p-3 rounded-lg border-l-4 space-y-3",
+              theme === 'dark' 
+                ? 'bg-gray-800 border-blue-500' 
+                : 'bg-gray-50 border-blue-500'
+            )}>
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Which product was previously used?
+                </label>
+                <input
+                  type="text"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                  )}
+                  value={formData.prior_application_product || ''}
+                  onChange={(e) => updateFormData({ prior_application_product: e.target.value })}
+                  placeholder="Product name..."
+                />
+              </div>
+              <label className="flex items-center">
+                <input
+                  type="checkbox"
+                  className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                  checked={formData.prior_application_within_12_months || false}
+                  onChange={(e) => updateFormData({ prior_application_within_12_months: e.target.checked })}
+                />
+                <span className={cn("ml-2 text-sm", t.text.primary)}>
+                  Applied within the last 12 months
+                </span>
+              </label>
+            </div>
+          )}
+
           {/* Anticipated Applications */}
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
@@ -855,10 +562,10 @@ export default function Step4ClinicalBilling({
         </div>
       </div>
 
-      {/* Facility & Billing Status */}
+      {/* Facility Information (renamed from Billing Status) */}
       <div className={cn("p-4 rounded-lg", theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50')}>
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
-          Facility & Billing Status
+          Facility Information
         </h3>
 
         <div className="space-y-4">
@@ -988,6 +695,37 @@ export default function Step4ClinicalBilling({
               />
               <span className={cn("ml-2 text-sm", t.text.primary)}>Patient is in Hospice</span>
             </label>
+
+            {/* NEW: Hospice consent fields */}
+            {formData.hospice_status && (
+              <div className={cn(
+                "ml-6 p-3 rounded-lg space-y-2",
+                theme === 'dark' ? 'bg-gray-800' : 'bg-gray-50'
+              )}>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                    checked={formData.hospice_family_consent || false}
+                    onChange={(e) => updateFormData({ hospice_family_consent: e.target.checked })}
+                  />
+                  <span className={cn("ml-2 text-sm", t.text.primary)}>
+                    Family consent obtained
+                  </span>
+                </label>
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                    checked={formData.hospice_clinically_necessary || false}
+                    onChange={(e) => updateFormData({ hospice_clinically_necessary: e.target.checked })}
+                  />
+                  <span className={cn("ml-2 text-sm", t.text.primary)}>
+                    Clinically necessary per hospice guidelines
+                  </span>
+                </label>
+              </div>
+            )}
 
             <label className="flex items-center">
               <input

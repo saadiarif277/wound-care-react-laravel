@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -39,13 +39,35 @@ interface FormData {
   manufacturer_fields?: Record<string, any>;
 
   // Clinical Information
-  wound_types?: string[];
+  wound_type?: string; // Changed from array to single string
+  wound_types?: string[]; // Keep for backward compatibility
   wound_location?: string;
   wound_size_length?: string;
   wound_size_width?: string;
   wound_size_depth?: string;
   yellow_diagnosis_code?: string;
   orange_diagnosis_code?: string;
+  
+  // New diagnosis code fields
+  primary_diagnosis_code?: string;
+  secondary_diagnosis_code?: string;
+  diagnosis_code?: string;
+  
+  // New duration fields
+  wound_duration_days?: string;
+  wound_duration_weeks?: string;
+  wound_duration_months?: string;
+  wound_duration_years?: string;
+  
+  // Prior application fields
+  prior_applications?: string;
+  prior_application_product?: string;
+  prior_application_within_12_months?: boolean;
+  
+  // Hospice fields
+  hospice_status?: boolean;
+  hospice_family_consent?: boolean;
+  hospice_clinically_necessary?: boolean;
 
   // Insurance
   primary_insurance_name?: string;
@@ -153,8 +175,27 @@ export default function Step7DocuSealIVR({
     const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
     const totalWoundSize = woundSizeLength * woundSizeWidth;
 
-    // Format wound types
-    const woundTypesDisplay = formData.wound_types?.join(', ') || 'Not specified';
+    // Format wound types - handle both single wound_type and array wound_types
+    const woundTypesDisplay = formData.wound_type || formData.wound_types?.join(', ') || 'Not specified';
+    
+    // Format wound duration
+    const durationParts = [];
+    if (formData.wound_duration_years) durationParts.push(`${formData.wound_duration_years} years`);
+    if (formData.wound_duration_months) durationParts.push(`${formData.wound_duration_months} months`);
+    if (formData.wound_duration_weeks) durationParts.push(`${formData.wound_duration_weeks} weeks`);
+    if (formData.wound_duration_days) durationParts.push(`${formData.wound_duration_days} days`);
+    const woundDuration = durationParts.length > 0 ? durationParts.join(', ') : 'Not specified';
+    
+    // Format diagnosis codes
+    let diagnosisCodeDisplay = '';
+    if (formData.primary_diagnosis_code && formData.secondary_diagnosis_code) {
+      diagnosisCodeDisplay = `Primary: ${formData.primary_diagnosis_code}, Secondary: ${formData.secondary_diagnosis_code}`;
+    } else if (formData.diagnosis_code) {
+      diagnosisCodeDisplay = formData.diagnosis_code;
+    } else if (formData.yellow_diagnosis_code || formData.orange_diagnosis_code) {
+      // Backward compatibility
+      diagnosisCodeDisplay = formData.yellow_diagnosis_code || formData.orange_diagnosis_code || '';
+    }
 
     return {
       ...formData,
@@ -181,8 +222,30 @@ export default function Step7DocuSealIVR({
 
       // Clinical Information
       wound_types_display: woundTypesDisplay,
+      wound_type: formData.wound_type || woundTypesDisplay,
       total_wound_size: `${totalWoundSize} sq cm`,
       wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
+      wound_duration: woundDuration,
+      wound_duration_days: formData.wound_duration_days || '',
+      wound_duration_weeks: formData.wound_duration_weeks || '',
+      wound_duration_months: formData.wound_duration_months || '',
+      wound_duration_years: formData.wound_duration_years || '',
+      
+      // Diagnosis codes
+      diagnosis_codes_display: diagnosisCodeDisplay,
+      primary_diagnosis_code: formData.primary_diagnosis_code || '',
+      secondary_diagnosis_code: formData.secondary_diagnosis_code || '',
+      diagnosis_code: formData.diagnosis_code || '',
+      
+      // Prior applications
+      prior_applications: formData.prior_applications || '0',
+      prior_application_product: formData.prior_application_product || '',
+      prior_application_within_12_months: formData.prior_application_within_12_months ? 'Yes' : 'No',
+      
+      // Hospice information
+      hospice_status: formData.hospice_status ? 'Yes' : 'No',
+      hospice_family_consent: formData.hospice_family_consent ? 'Yes' : 'No',
+      hospice_clinically_necessary: formData.hospice_clinically_necessary ? 'Yes' : 'No',
 
       // Manufacturer Fields (convert booleans to Yes/No for display)
       ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
@@ -220,6 +283,13 @@ export default function Step7DocuSealIVR({
 
   // No IVR required for this manufacturer
   if (!manufacturerConfig || !manufacturerConfig.signatureRequired) {
+    // Set a placeholder submission ID when IVR is not required
+    React.useEffect(() => {
+      if (!formData.docuseal_submission_id) {
+        updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
+      }
+    }, []);
+    
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
