@@ -54,7 +54,18 @@ class DocuSealService
         $template = $manufacturer->ivrTemplate();
 
         if (!$template) {
-            throw new \Exception("No active IVR template found for manufacturer: {$manufacturer->name}");
+            Log::warning('No active IVR template found in database, attempting API fallback', [
+                'manufacturer_id' => $manufacturer->id,
+                'manufacturer_name' => $manufacturer->name,
+                'episode_id' => $episode->id,
+            ]);
+            
+            // Try to fetch from API as fallback
+            $template = $this->fetchTemplateFromApi($manufacturer, 'IVR');
+            
+            if (!$template) {
+                throw new \Exception("No active IVR template found for manufacturer: {$manufacturer->name}");
+            }
         }
 
         // Map universal fields to DocuSeal format using template field mappings
@@ -528,65 +539,242 @@ class DocuSealService
     public function generateBuilderToken(string $templateId, array $submitterData): string
     {
         try {
-            $tokenData = [
-                'template_id' => $templateId,
-                'user_email' => $submitterData['email'],
-                'integration_email' => $submitterData['email'], // Same as user email for our use case
-                'name' => $submitterData['name'],
+            // Generate JWT token locally using the API key as the secret
+            // Following DocuSeal's React SaaS guide exactly
+            $payload = [
+                'user_email' => config('docuseal.account_email', 'limitless@mscwoundcare.com'), // Admin email that owns the API key
+                'integration_email' => $submitterData['email'], // SaaS user's email
                 'external_id' => $submitterData['external_id'] ?? null,
+                'name' => $submitterData['name'] ?? 'IVR Form',
+                'template_id' => $templateId,
+                // 'document_urls' => [], // Empty array if using template_id
             ];
 
             // Add pre-filled fields if provided
             if (!empty($submitterData['fields'])) {
-                $tokenData['fields'] = $submitterData['fields'];
+                $payload['fields'] = $submitterData['fields'];
             }
 
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $this->apiKey,
-                'Content-Type' => 'application/json'
-            ])->post("{$this->apiUrl}/builder/jwt", $tokenData);
-
-            if ($response->successful()) {
-                $data = $response->json();
-                
-                Log::info('DocuSeal builder token generated successfully', [
-                    'template_id' => $templateId,
-                    'user_email' => $submitterData['email'],
-                    'external_id' => $submitterData['external_id'] ?? null
-                ]);
-
-                return $data['jwt'] ?? $data['token'] ?? '';
-            }
-
-            // Enhanced error handling
-            if ($response->status() === 401) {
-                Log::error('DocuSeal Builder Authentication Failed', [
-                    'api_url' => $this->apiUrl,
-                    'template_id' => $templateId,
-                    'response_body' => $response->body(),
-                ]);
-                throw new \Exception('DocuSeal API Authentication Failed: Invalid API key');
-            }
-
-            if ($response->status() === 404) {
-                Log::error('DocuSeal Builder Template Not Found', [
-                    'template_id' => $templateId,
-                    'response_body' => $response->body(),
-                ]);
-                throw new \Exception("DocuSeal Template not found: {$templateId}");
-            }
-
-            throw new \Exception('DocuSeal builder token generation failed: ' . $response->body());
-
-        } catch (\Exception $e) {
-            Log::error('DocuSeal builder token generation failed', [
-                'error' => $e->getMessage(),
+            // Generate JWT token using Firebase JWT library
+            $jwt = \Firebase\JWT\JWT::encode($payload, $this->apiKey, 'HS256');
+            
+            Log::info('DocuSeal builder JWT token generated successfully', [
                 'template_id' => $templateId,
-                'user_email' => $submitterData['email'] ?? null
+                'integration_email' => $submitterData['email'],
+                'external_id' => $submitterData['external_id'] ?? null
             ]);
 
-            throw $e;
+            return $jwt;
+        } catch (\Exception $e) {
+            Log::error('DocuSeal Builder JWT Generation Failed', [
+                'error' => $e->getMessage(),
+                'template_id' => $templateId
+            ]);
+            
+            throw new \Exception('Failed to generate DocuSeal builder token: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Fetch template from DocuSeal API and save to database
+     */
+    protected function fetchTemplateFromApi(Manufacturer $manufacturer, string $documentType = 'IVR'): ?\App\Models\Docuseal\DocusealTemplate
+    {
+        try {
+            Log::info('Fetching templates from DocuSeal API for manufacturer', [
+                'manufacturer' => $manufacturer->name,
+                'document_type' => $documentType
+            ]);
+
+            // Fetch all templates from API
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/templates");
+
+            if (!$response->successful()) {
+                Log::error('Failed to fetch templates from DocuSeal API', [
+                    'error' => $response->body(),
+                    'status' => $response->status()
+                ]);
+                return null;
+            }
+
+            $templates = $response->json();
+            
+            if (!is_array($templates)) {
+                Log::error('Invalid response format from DocuSeal API');
+                return null;
+            }
+
+            // Search for matching template
+            $manufacturerNameLower = strtolower($manufacturer->name);
+            $manufacturerPatterns = [
+                'acz distribution' => ['acz'],
+                'biowound' => ['biowound'],
+                'integra' => ['integra'],
+                'kerecis' => ['kerecis'],
+                'mimedx' => ['mimedx'],
+                'organogenesis' => ['organogenesis'],
+                'mtf biologics' => ['mtf'],
+                'stimlabs' => ['stimlabs'],
+                'sanara medtech' => ['sanara'],
+                'skye biologics' => ['skye']
+            ];
+
+            $patterns = $manufacturerPatterns[$manufacturerNameLower] ?? [str_replace(' ', '', $manufacturerNameLower)];
+            
+            foreach ($templates as $template) {
+                $templateName = strtolower($template['name'] ?? '');
+                
+                // Check if template matches manufacturer and document type
+                $matchesManufacturer = false;
+                foreach ($patterns as $pattern) {
+                    if (str_contains($templateName, $pattern)) {
+                        $matchesManufacturer = true;
+                        break;
+                    }
+                }
+                
+                $matchesType = false;
+                if ($documentType === 'IVR' && (str_contains($templateName, 'ivr') || str_contains($templateName, 'authorization'))) {
+                    $matchesType = true;
+                } elseif ($documentType === 'OrderForm' && str_contains($templateName, 'order')) {
+                    $matchesType = true;
+                } elseif ($documentType === 'OnboardingForm' && str_contains($templateName, 'onboard')) {
+                    $matchesType = true;
+                }
+                
+                if ($matchesManufacturer && $matchesType) {
+                    // Fetch detailed template info
+                    $detailResponse = Http::withHeaders([
+                        'X-Auth-Token' => $this->apiKey,
+                    ])->get("{$this->apiUrl}/templates/{$template['id']}");
+                    
+                    if ($detailResponse->successful()) {
+                        $detailedTemplate = $detailResponse->json();
+                        
+                        // Extract field mappings
+                        $fieldMappings = $this->extractFieldMappingsFromApi($detailedTemplate);
+                        
+                        // Create template in database
+                        $dbTemplate = \App\Models\Docuseal\DocusealTemplate::create([
+                            'template_name' => $template['name'],
+                            'docuseal_template_id' => $template['id'],
+                            'manufacturer_id' => $manufacturer->id,
+                            'document_type' => $documentType,
+                            'is_default' => false,
+                            'field_mappings' => $fieldMappings,
+                            'is_active' => true,
+                            'extraction_metadata' => [
+                                'fetched_from_api' => true,
+                                'fetched_at' => now()->toISOString(),
+                                'total_fields' => count($fieldMappings)
+                            ],
+                            'field_discovery_status' => 'completed',
+                            'last_extracted_at' => now()
+                        ]);
+                        
+                        Log::info('Successfully fetched and saved template from API', [
+                            'template_id' => $dbTemplate->id,
+                            'docuseal_id' => $template['id'],
+                            'manufacturer' => $manufacturer->name
+                        ]);
+                        
+                        return $dbTemplate;
+                    }
+                }
+            }
+            
+            Log::warning('No matching template found in DocuSeal API', [
+                'manufacturer' => $manufacturer->name,
+                'document_type' => $documentType,
+                'total_templates_checked' => count($templates)
+            ]);
+            
+            return null;
+            
+        } catch (\Exception $e) {
+            Log::error('Error fetching template from DocuSeal API', [
+                'error' => $e->getMessage(),
+                'manufacturer' => $manufacturer->name
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Extract field mappings from API template structure
+     */
+    protected function extractFieldMappingsFromApi(array $template): array
+    {
+        $fieldMappings = [];
+        
+        // Check various possible field structures in the API response
+        $fields = $template['fields'] ?? $template['schema'] ?? $template['submitters'][0]['fields'] ?? [];
+        
+        foreach ($fields as $field) {
+            $fieldName = $field['name'] ?? $field['field_name'] ?? '';
+            if (empty($fieldName)) continue;
+            
+            // Map common DocuSeal fields to system fields
+            $systemField = $this->mapDocuSealFieldToSystem($fieldName);
+            
+            $fieldMappings[$fieldName] = [
+                'docuseal_field_name' => $fieldName,
+                'field_type' => $field['type'] ?? 'text',
+                'required' => $field['required'] ?? false,
+                'local_field' => $systemField['local_field'],
+                'system_field' => $systemField['system_field'],
+                'data_type' => $systemField['data_type'],
+                'validation_rules' => $field['required'] ? ['required'] : [],
+                'default_value' => $field['default_value'] ?? null,
+                'extracted_at' => now()->toISOString()
+            ];
+        }
+        
+        return $fieldMappings;
+    }
+
+    /**
+     * Map DocuSeal field names to system fields
+     */
+    protected function mapDocuSealFieldToSystem(string $fieldName): array
+    {
+        $fieldNameLower = strtolower(str_replace([' ', '_', '-'], '', $fieldName));
+        
+        // Common field mappings
+        $mappings = [
+            'patientname' => ['local_field' => 'patientInfo.patientName', 'system_field' => 'patient_name', 'data_type' => 'string'],
+            'patientdob' => ['local_field' => 'patientInfo.patientDOB', 'system_field' => 'patient_dob', 'data_type' => 'date'],
+            'patientphone' => ['local_field' => 'patientInfo.patientPhone', 'system_field' => 'patient_phone', 'data_type' => 'phone'],
+            'patientaddress' => ['local_field' => 'patientInfo.patientAddressLine1', 'system_field' => 'patient_address', 'data_type' => 'string'],
+            'primaryinsurance' => ['local_field' => 'insuranceInfo.primaryInsurance.primaryInsuranceName', 'system_field' => 'primary_insurance', 'data_type' => 'string'],
+            'policynumber' => ['local_field' => 'insuranceInfo.primaryInsurance.primaryPolicyNumber', 'system_field' => 'policy_number', 'data_type' => 'string'],
+            'facilityname' => ['local_field' => 'facilityInfo.facilityName', 'system_field' => 'facility_name', 'data_type' => 'string'],
+            'providername' => ['local_field' => 'providerInfo.providerName', 'system_field' => 'provider_name', 'data_type' => 'string'],
+            'providernpi' => ['local_field' => 'providerInfo.providerNPI', 'system_field' => 'provider_npi', 'data_type' => 'string'],
+            'repname' => ['local_field' => 'requestInfo.salesRepName', 'system_field' => 'sales_rep_name', 'data_type' => 'string'],
+            'requestdate' => ['local_field' => 'requestInfo.requestDate', 'system_field' => 'request_date', 'data_type' => 'date'],
+        ];
+        
+        // Check for exact match
+        if (isset($mappings[$fieldNameLower])) {
+            return $mappings[$fieldNameLower];
+        }
+        
+        // Check for partial matches
+        foreach ($mappings as $key => $mapping) {
+            if (str_contains($fieldNameLower, $key)) {
+                return $mapping;
+            }
+        }
+        
+        // Default mapping
+        return [
+            'local_field' => 'customFields.' . $fieldName,
+            'system_field' => strtolower(str_replace(' ', '_', $fieldName)),
+            'data_type' => 'string'
+        ];
     }
 
     /**

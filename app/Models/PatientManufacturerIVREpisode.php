@@ -72,7 +72,7 @@ class PatientManufacturerIVREpisode extends Model
      */
     public function orders(): HasMany
     {
-        return $this->hasMany(Order::class, 'ivr_episode_id');
+        return $this->hasMany(Order::class, 'episode_id');
     }
 
     /**

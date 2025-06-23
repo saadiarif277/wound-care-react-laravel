@@ -9,8 +9,8 @@ return new class extends Migration
     public function up()
     {
         Schema::table('orders', function (Blueprint $table) {
-            if (!Schema::hasColumn('orders', 'ivr_episode_id')) {
-                $table->uuid('ivr_episode_id')->nullable();
+            if (!Schema::hasColumn('orders', 'episode_id')) {
+                $table->uuid('episode_id')->nullable();
             }
         });
     }
@@ -18,7 +18,7 @@ return new class extends Migration
     public function down()
     {
         Schema::table('orders', function (Blueprint $table) {
-            $table->dropColumn('ivr_episode_id');
+            $table->dropColumn('episode_id');
         });
     }
 };

@@ -53,6 +53,9 @@ class Order extends Model
         'paid_at',
         'date_of_service',
         'submitted_at',
+        'episode_id',
+        'parent_order_id',
+        'type',
         // NO PHI fields like patient name, DOB, etc.
     ];
 
@@ -132,7 +135,7 @@ class Order extends Model
      */
     public function episode()
     {
-        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'ivr_episode_id');
+        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'episode_id');
     }
 
     /**
@@ -181,7 +184,23 @@ class Order extends Model
     public function ivrEpisode()
     {
         // Reference the episode model directly
-        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'ivr_episode_id');
+        return $this->belongsTo(PatientManufacturerIVREpisode::class, 'episode_id');
+    }
+
+    /**
+     * Parent order for follow-up relationships.
+     */
+    public function parent()
+    {
+        return $this->belongsTo(self::class, 'parent_order_id');
+    }
+
+    /**
+     * Follow-up orders.
+     */
+    public function children()
+    {
+        return $this->hasMany(self::class, 'parent_order_id');
     }
 
     /**

@@ -128,191 +128,52 @@ class SyncDocuSealTemplatesCommand extends Command
     private function fetchAllTemplates(): array
     {
         $this->info('🔍 Fetching templates from DocuSeal API...');
-        $allTemplates = [];
 
-        try {
-            // First, fetch top-level templates
-            $this->info('📁 Fetching top-level templates...');
-            $topLevelTemplates = $this->fetchTopLevelTemplates();
-            $allTemplates = array_merge($allTemplates, $topLevelTemplates);
-            
-            if (!empty($topLevelTemplates)) {
-                $this->info("✅ Found " . count($topLevelTemplates) . " top-level templates");
-            }
-
-            // Then, fetch all folders and their templates
-            $this->info('📂 Fetching folders and folder-based templates...');
-            $folders = $this->fetchFolders();
-            
-            if (!empty($folders)) {
-                $this->info("📂 Found " . count($folders) . " folders");
-                
-                foreach ($folders as $folder) {
-                    $folderName = $folder['name'] ?? 'Unknown Folder';
-                    $folderId = $folder['id'] ?? null;
-                    
-                    if ($folderId) {
-                        $this->line("  📁 Processing folder: {$folderName}");
-                        $folderTemplates = $this->fetchFolderTemplates($folderId, $folderName);
-                        
-                        if (!empty($folderTemplates)) {
-                            $this->line("    ✅ Found " . count($folderTemplates) . " templates in {$folderName}");
-                            $allTemplates = array_merge($allTemplates, $folderTemplates);
-                        } else {
-                            $this->line("    ⚪ No templates in {$folderName}");
-                        }
-                    }
-                }
-            } else {
-                $this->warn('⚠️  No folders found - only processing top-level templates');
-            }
-
-            // Remove duplicates (in case a template appears both at top level and in folder)
-            $uniqueTemplates = $this->removeDuplicateTemplates($allTemplates);
-            
-            $this->info("🎯 Total unique templates found: " . count($uniqueTemplates));
-            
-            return $uniqueTemplates;
-
-        } catch (\Exception $e) {
-            throw new \Exception('Failed to fetch templates: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Fetch top-level templates
-     */
-    private function fetchTopLevelTemplates(): array
-    {
         try {
             $response = Http::withHeaders([
                 'X-Auth-Token' => config('docuseal.api_key'),
             ])->get(config('docuseal.api_url') . '/templates');
 
             if (!$response->successful()) {
-                throw new \Exception('Top-level templates API request failed: ' . $response->body());
+                throw new \Exception('Templates API request failed: ' . $response->body());
             }
 
-            $templates = $response->json();
+            $responseData = $response->json();
+            
+            // Handle both wrapped and unwrapped responses
+            $templates = isset($responseData['data']) ? $responseData['data'] : $responseData;
             
             if (!is_array($templates)) {
-                throw new \Exception('Invalid response format for top-level templates');
+                throw new \Exception('Invalid response format for templates');
             }
 
-            // Add metadata to indicate these are top-level
-            foreach ($templates as &$template) {
-                $template['_folder_info'] = [
-                    'is_top_level' => true,
-                    'folder_name' => null,
-                    'folder_id' => null
-                ];
+            $this->info("✅ Found " . count($templates) . " templates");
+            
+            // Group templates by folder for better reporting
+            $folderGroups = [];
+            foreach ($templates as $template) {
+                $folderName = $template['folder_name'] ?? 'Default';
+                if (!isset($folderGroups[$folderName])) {
+                    $folderGroups[$folderName] = [];
+                }
+                $folderGroups[$folderName][] = $template;
             }
-
+            
+            $this->info("📂 Templates organized in " . count($folderGroups) . " folders:");
+            foreach ($folderGroups as $folderName => $folderTemplates) {
+                $this->line("  📁 {$folderName}: " . count($folderTemplates) . " templates");
+            }
+            
             return $templates;
 
         } catch (\Exception $e) {
-            Log::warning('Could not fetch top-level templates', ['error' => $e->getMessage()]);
-            return [];
+            throw new \Exception('Failed to fetch templates: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Fetch all folders
-     */
-    private function fetchFolders(): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Auth-Token' => config('docuseal.api_key'),
-            ])->get(config('docuseal.api_url') . '/folders');
 
-            if (!$response->successful()) {
-                throw new \Exception('Folders API request failed: ' . $response->body());
-            }
 
-            $folders = $response->json();
-            
-            if (!is_array($folders)) {
-                throw new \Exception('Invalid response format for folders');
-            }
 
-            return $folders;
-
-        } catch (\Exception $e) {
-            Log::warning('Could not fetch folders', ['error' => $e->getMessage()]);
-            return [];
-        }
-    }
-
-    /**
-     * Fetch templates from a specific folder
-     */
-    private function fetchFolderTemplates(string $folderId, string $folderName): array
-    {
-        try {
-            $response = Http::withHeaders([
-                'X-Auth-Token' => config('docuseal.api_key'),
-            ])->get(config('docuseal.api_url') . "/folders/{$folderId}/templates");
-
-            if (!$response->successful()) {
-                Log::warning("Failed to fetch templates from folder {$folderName}", [
-                    'folder_id' => $folderId,
-                    'error' => $response->body()
-                ]);
-                return [];
-            }
-
-            $templates = $response->json();
-            
-            if (!is_array($templates)) {
-                Log::warning("Invalid response format for folder {$folderName} templates");
-                return [];
-            }
-
-            // Add folder metadata to each template
-            foreach ($templates as &$template) {
-                $template['_folder_info'] = [
-                    'is_top_level' => false,
-                    'folder_name' => $folderName,
-                    'folder_id' => $folderId
-                ];
-            }
-
-            return $templates;
-
-        } catch (\Exception $e) {
-            Log::warning("Could not fetch templates from folder {$folderName}", [
-                'folder_id' => $folderId,
-                'error' => $e->getMessage()
-            ]);
-            return [];
-        }
-    }
-
-    /**
-     * Remove duplicate templates (same ID from different sources)
-     */
-    private function removeDuplicateTemplates(array $templates): array
-    {
-        $uniqueTemplates = [];
-        $seenIds = [];
-
-        foreach ($templates as $template) {
-            $templateId = $template['id'] ?? null;
-            
-            if ($templateId && !in_array($templateId, $seenIds)) {
-                $seenIds[] = $templateId;
-                $uniqueTemplates[] = $template;
-            }
-        }
-
-        $duplicateCount = count($templates) - count($uniqueTemplates);
-        if ($duplicateCount > 0) {
-            $this->line("🔄 Removed {$duplicateCount} duplicate templates");
-        }
-
-        return $uniqueTemplates;
-    }
 
     /**
      * Process individual template
@@ -410,9 +271,8 @@ class SyncDocuSealTemplatesCommand extends Command
     private function determineManufacturer(string $templateName, array $templateData): ?Manufacturer
     {
         // First, try to determine from folder name (primary method)
-        $folderInfo = $templateData['_folder_info'] ?? null;
-        if ($folderInfo && !$folderInfo['is_top_level']) {
-            $folderName = $folderInfo['folder_name'];
+        $folderName = $templateData['folder_name'] ?? null;
+        if ($folderName && $folderName !== 'Default') {
             $manufacturer = $this->determineManufacturerFromFolderName($folderName);
             if ($manufacturer) {
                 return $manufacturer;
@@ -429,8 +289,9 @@ class SyncDocuSealTemplatesCommand extends Command
     private function determineManufacturerFromFolderName(string $folderName): ?Manufacturer
     {
         // Direct folder name to manufacturer mappings
+        // Map to actual manufacturer names in database
         $folderMappings = [
-            'ACZ' => 'ACZ',
+            'ACZ' => 'ACZ Distribution',  // Fixed to match DB
             'Advanced Health (Complete AA)' => 'Advanced Health',
             'Advanced Health' => 'Advanced Health',
             'Amnio Amp-MSC BAA' => 'MiMedx',
@@ -438,44 +299,57 @@ class SyncDocuSealTemplatesCommand extends Command
             'BioWerX' => 'BioWerX',
             'BioWound Onboarding' => 'BioWound',
             'BioWound' => 'BioWound',
+            'Biowound' => 'BioWound',  // Added from API response
             'Extremity Care Onboarding' => 'Extremity Care',
             'Extremity Care' => 'Extremity Care',
             'MSC Forms' => 'MSC',
-            'SKYE Onboarding' => 'SKYE',
-            'SKYE' => 'SKYE',
+            'SKYE Onboarding' => 'Skye Biologics',  // Fixed to match DB
+            'SKYE' => 'Skye Biologics',  // Fixed to match DB
             'Total Ancillary Forms' => 'Total Ancillary',
             'Integra' => 'Integra',
             'Kerecis' => 'Kerecis',
             'MiMedx' => 'MiMedx',
+            'Medlife' => 'MedLife',  // Added from API response
+            'MedLife' => 'MedLife',
             'Organogenesis' => 'Organogenesis',
             'Smith & Nephew' => 'Smith & Nephew',
             'StimLabs' => 'StimLabs',
-            'Tissue Tech' => 'Tissue Tech'
+            'Tissue Tech' => 'Tissue Tech',
+            'MTF Biologics' => 'MTF Biologics',
+            'Sanara MedTech' => 'Sanara MedTech'
         ];
 
         // Try exact match first
         if (isset($folderMappings[$folderName])) {
             $manufacturerName = $folderMappings[$folderName];
-            return Manufacturer::firstOrCreate(
-                ['name' => $manufacturerName],
-                [
-                    'is_active' => true,
-                    'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
-                ]
-            );
+            // Use where to find existing manufacturer by name
+            $manufacturer = Manufacturer::where('name', $manufacturerName)->first();
+            if ($manufacturer) {
+                return $manufacturer;
+            }
+            // Only create if not found
+            return Manufacturer::create([
+                'name' => $manufacturerName,
+                'is_active' => true,
+                'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
+            ]);
         }
 
         // Try fuzzy matching for folder names
         $folderNameLower = strtolower($folderName);
         foreach ($folderMappings as $pattern => $manufacturerName) {
             if (strpos($folderNameLower, strtolower($pattern)) !== false) {
-                return Manufacturer::firstOrCreate(
-                    ['name' => $manufacturerName],
-                    [
-                        'is_active' => true,
-                        'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
-                    ]
-                );
+                // Use where to find existing manufacturer by name
+                $manufacturer = Manufacturer::where('name', $manufacturerName)->first();
+                if ($manufacturer) {
+                    return $manufacturer;
+                }
+                // Only create if not found
+                return Manufacturer::create([
+                    'name' => $manufacturerName,
+                    'is_active' => true,
+                    'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
+                ]);
             }
         }
 
@@ -488,8 +362,9 @@ class SyncDocuSealTemplatesCommand extends Command
     private function determineManufacturerFromTemplateName(string $templateName): ?Manufacturer
     {
         // Manufacturer name patterns from template names
+        // Map to actual manufacturer names in database
         $manufacturerPatterns = [
-            'ACZ' => ['acz', 'advanced clinical zone'],
+            'ACZ Distribution' => ['acz', 'advanced clinical zone'],  // Fixed to match DB
             'Integra' => ['integra'],
             'Kerecis' => ['kerecis'],
             'MiMedx' => ['mimedx', 'mimedx group', 'amnio amp'],
@@ -501,9 +376,11 @@ class SyncDocuSealTemplatesCommand extends Command
             'Advanced Health' => ['advanced health', 'advancedhealth'],
             'AmnioBand' => ['amnioband', 'amnio band'],
             'BioWerX' => ['biowerx', 'bio werx'],
-            'SKYE' => ['skye'],
+            'Skye Biologics' => ['skye', 'skye biologics'],  // Fixed to match DB
             'Extremity Care' => ['extremity care', 'extremitycare'],
-            'Total Ancillary' => ['total ancillary', 'ancillary']
+            'Total Ancillary' => ['total ancillary', 'ancillary'],
+            'MTF Biologics' => ['mtf', 'mtf biologics'],
+            'Sanara MedTech' => ['sanara', 'sanara medtech']
         ];
 
         $templateNameLower = strtolower($templateName);
@@ -511,13 +388,17 @@ class SyncDocuSealTemplatesCommand extends Command
         foreach ($manufacturerPatterns as $manufacturerName => $patterns) {
             foreach ($patterns as $pattern) {
                 if (strpos($templateNameLower, strtolower($pattern)) !== false) {
-                    return Manufacturer::firstOrCreate(
-                        ['name' => $manufacturerName],
-                        [
-                            'is_active' => true,
-                            'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
-                        ]
-                    );
+                    // Use where to find existing manufacturer by name
+                    $manufacturer = Manufacturer::where('name', $manufacturerName)->first();
+                    if ($manufacturer) {
+                        return $manufacturer;
+                    }
+                    // Only create if not found
+                    return Manufacturer::create([
+                        'name' => $manufacturerName,
+                        'is_active' => true,
+                        'contact_email' => config("manufacturers.email_recipients.{$manufacturerName}.0")
+                    ]);
                 }
             }
         }

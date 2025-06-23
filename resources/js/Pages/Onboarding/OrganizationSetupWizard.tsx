@@ -15,7 +15,7 @@ import {
     Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
-import '@/resources/css/OrganizationSetupWizard.css';
+import '@/../css/OrganizationSetupWizard.css';
 
 interface OnboardingStep {
     id: number;

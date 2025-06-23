@@ -14,9 +14,9 @@ return new class extends Migration
     {
         Schema::table('product_requests', function (Blueprint $table) {
             // Add ivr_episode_id column if it doesn't exist
-            if (!Schema::hasColumn('product_requests', 'ivr_episode_id')) {
-                $table->uuid('ivr_episode_id')->nullable()->after('patient_display_id');
-                $table->index('ivr_episode_id');
+            if (!Schema::hasColumn('product_requests', 'episode_id')) {
+                $table->uuid('episode_id')->nullable()->after('patient_display_id');
+                $table->index('episode_id');
             }
         });
 
@@ -38,10 +38,10 @@ return new class extends Migration
         };
 
         Schema::table('product_requests', function (Blueprint $table) use ($foreignKeyExists) {
-            if (Schema::hasColumn('product_requests', 'ivr_episode_id') &&
+            if (Schema::hasColumn('product_requests', 'episode_id') &&
                 Schema::hasTable('patient_manufacturer_ivr_episodes') &&
                 !$foreignKeyExists('product_requests', 'ivr_episode_id')) {
-                $table->foreign('ivr_episode_id')->references('id')->on('patient_manufacturer_ivr_episodes')->nullOnDelete();
+                $table->foreign('episode_id')->references('id')->on('patient_manufacturer_ivr_episodes')->nullOnDelete();
             }
         });
     }
@@ -53,10 +53,10 @@ return new class extends Migration
     {
         Schema::table('product_requests', function (Blueprint $table) {
             // Drop foreign key first
-            if (Schema::hasColumn('product_requests', 'ivr_episode_id')) {
-                $table->dropForeign(['ivr_episode_id']);
-                $table->dropIndex(['ivr_episode_id']);
-                $table->dropColumn('ivr_episode_id');
+            if (Schema::hasColumn('product_requests', 'episode_id')) {
+                $table->dropForeign(['episode_id']);
+                $table->dropIndex(['episode_id']);
+                $table->dropColumn('episode_id');
             }
         });
     }

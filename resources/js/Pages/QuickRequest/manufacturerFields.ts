@@ -78,7 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: '1233913', // Replace with your actual DocuSeal template ID (numeric)
+    docusealTemplateId: '1234974', // Using AMNIO AMP MedLife IVR-fillable template
     fields: [
       {
         name: 'amnio_amp_size',

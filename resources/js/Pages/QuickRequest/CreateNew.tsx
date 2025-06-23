@@ -831,8 +831,26 @@ function QuickRequestCreateNew({
         if (value instanceof File) {
           submitData.append(key, value);
         } else if (value !== null && value !== undefined) {
-          if (Array.isArray(value)) {
-            // Handle arrays properly for Laravel validation
+          if (key === 'selected_products' && Array.isArray(value)) {
+            // Handle selected_products array specially for Laravel validation
+            value.forEach((item, index) => {
+              if (item.product_id) {
+                submitData.append(`selected_products[${index}][product_id]`, String(item.product_id));
+              }
+              if (item.quantity) {
+                submitData.append(`selected_products[${index}][quantity]`, String(item.quantity));
+              }
+              if (item.size) {
+                submitData.append(`selected_products[${index}][size]`, String(item.size));
+              }
+            });
+          } else if (key === 'manufacturer_fields' && typeof value === 'object') {
+            // Handle manufacturer_fields as an array for Laravel
+            Object.entries(value).forEach(([fieldKey, fieldValue]) => {
+              submitData.append(`manufacturer_fields[${fieldKey}]`, String(fieldValue || ''));
+            });
+          } else if (Array.isArray(value)) {
+            // Handle other arrays properly for Laravel validation
             if (value.length === 0) {
               submitData.append(`${key}[]`, '');
             } else {

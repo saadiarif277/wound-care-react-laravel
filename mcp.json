@@ -8,7 +8,9 @@
       ],
       "env": {
         "DEFAULT_MINIMUM_TOKENS": ""
-      }
+      },
+      "disabled": true,
+      "alwaysAllow": []
     },
     "sequentialthinking": {
       "command": "npx",
@@ -50,6 +52,16 @@
         "mcp/sentry",
         "--auth-token",
         "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"
+      ]
+    },
+    "qdrant": {
+      "command": "npx",
+      "args": [
+        "@smithery/cli",
+        "install",
+        "mcp-server-qdrant",
+        "--client",
+        "claude"
       ]
     }
   }

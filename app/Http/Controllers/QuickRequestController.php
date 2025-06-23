@@ -87,7 +87,7 @@ class QuickRequestController extends Controller
             return $userFacilities;
         }
 
-        return \App\Models\Fhir\Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
+        return Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
             ->where('active', true)
             ->take(10)
             ->get()
@@ -885,7 +885,7 @@ class QuickRequestController extends Controller
                 if ($manufacturerModel) {
                     $manufacturer = $manufacturerModel->name;
 
-                    $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+                    $template = DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
 
                     if ($template) {
                         $templateId = $template->docuseal_template_id;
@@ -896,7 +896,7 @@ class QuickRequestController extends Controller
             // If no manufacturer found, use fallback logic
             if (!$manufacturer || !$manufacturerId) {
                 // Try to find the first available manufacturer and template
-                $template = \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
+                $template = DocusealTemplate::with('manufacturer')
                     ->byDocumentType('IVR')
                     ->active()
                     ->default()
@@ -1025,7 +1025,7 @@ class QuickRequestController extends Controller
                 ->first();
 
                         if ($manufacturer) {
-                $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturer->id, 'IVR');
+                $template = DocusealTemplate::getDefaultTemplateForManufacturer($manufacturer->id, 'IVR');
                 if ($template) {
                     return $template->docuseal_template_id;
                 }
@@ -1033,7 +1033,7 @@ class QuickRequestController extends Controller
         }
 
         // Final fallback to any available template
-        $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplate('IVR');
+        $template = DocusealTemplate::getDefaultTemplate('IVR');
 
         return $template ? $template->docuseal_template_id : null;
     }
@@ -1214,7 +1214,7 @@ class QuickRequestController extends Controller
         if (empty($date)) return '';
 
         try {
-            return \Carbon\Carbon::parse($date)->format('Y-m-d');
+            return Carbon::parse($date)->format('Y-m-d');
         } catch (\Exception $e) {
             return '';
         }
@@ -1363,8 +1363,8 @@ class QuickRequestController extends Controller
         if (empty($onsetDate)) return '';
 
         try {
-            $onset = \Carbon\Carbon::parse($onsetDate);
-            $now = \Carbon\Carbon::now();
+            $onset = Carbon::parse($onsetDate);
+            $now = Carbon::now();
             $days = $onset->diffInDays($now);
             return (string)$days;
         } catch (\Exception $e) {

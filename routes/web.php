@@ -528,6 +528,11 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocuSealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
+            
+        // DocuSeal Builder Token Generation (web auth)
+        Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.generate-builder-token');
 
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\QuickRequestEpisodeWithDocumentsController::class, 'createEpisodeWithDocuments'])

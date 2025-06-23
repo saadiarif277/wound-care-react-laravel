@@ -15,4 +15,10 @@ abstract class TestCase extends BaseTestCase
 
         $this->withoutVite();
     }
+
+    protected function tearDown(): void
+    {
+        \Illuminate\Support\Facades\Schema::enableForeignKeyConstraints();
+        parent::tearDown();
+    }
 }

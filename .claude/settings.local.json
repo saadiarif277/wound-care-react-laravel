@@ -13,7 +13,9 @@
       "Bash(rmdir:*)",
       "Bash(ls:*)",
       "Bash(npx tsc:*)",
-      "Bash(rg:*)"
+      "Bash(rg:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(composer:*)"
     ],
     "deny": []
   }

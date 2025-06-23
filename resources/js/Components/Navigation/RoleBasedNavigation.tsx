@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { router } from '@inertiajs/react';
 import { IconType } from 'react-icons';
 import {
   FiHome,
@@ -86,17 +86,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           children: [
             {
               name: 'Quick Request',
-              href: '/quick-requests/create',
-              icon: FiLink,
-              roles: ['provider'],
-              description: 'Fast-track your orders'
-            },
-            {
-              name: 'Quick Request (Beta)',
               href: '/quick-requests/create-new',
               icon: FiLink,
               roles: ['provider'],
-              description: 'Next-gen quick order form (pilot)'
+              description: 'Next-gen quick order form'
             },
             {
               name: 'New Request',
@@ -170,17 +163,10 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           children: [
             {
               name: 'Quick Request',
-              href: '/quick-requests/create',
-              icon: FiLink,
-              roles: ['office-manager'],
-              description: 'Fast-track your orders'
-            },
-            {
-              name: 'Quick Request (Beta)',
               href: '/quick-requests/create-new',
               icon: FiLink,
               roles: ['office-manager'],
-              description: 'Next-gen quick order form (pilot)'
+              description: 'Next-gen quick order form'
             },
             {
               name: 'New Request',
@@ -467,7 +453,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
       ];
 
     case 'super-admin':
-    case 'superadmin':
       return [
         {
           name: 'Dashboard',

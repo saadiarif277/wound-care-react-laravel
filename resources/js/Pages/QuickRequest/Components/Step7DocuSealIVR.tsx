@@ -132,15 +132,19 @@ export default function Step7DocuSealIVR({
   const prepareDocuSealData = () => {
     if (!selectedProduct) return formData;
 
+    // Get the product with full details
+    const product = products.find(p => p.id === formData.selected_products?.[0]?.product_id);
+    
     // Format selected products for display
     const productDetails = formData.selected_products?.map((item: any) => {
-      const product = products.find(p => p.id === item.product_id);
+      const prod = products.find(p => p.id === item.product_id);
       return {
-        name: product?.name || '',
-        code: product?.code || '',
+        name: prod?.name || '',
+        code: prod?.code || '',
         size: item.size || 'Standard',
         quantity: item.quantity,
-        manufacturer: product?.manufacturer || ''
+        manufacturer: prod?.manufacturer || '',
+        manufacturer_id: prod?.manufacturer_id || prod?.id // Include manufacturer_id
       };
     }) || [];
 
@@ -169,6 +173,7 @@ export default function Step7DocuSealIVR({
       product_name: selectedProduct.name,
       product_code: selectedProduct.code,
       product_manufacturer: selectedProduct.manufacturer,
+      manufacturer_id: product?.manufacturer_id || selectedProduct.manufacturer_id, // Add manufacturer_id
       product_details: productDetails,
       product_details_text: productDetails.map((p: any) =>
         `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`

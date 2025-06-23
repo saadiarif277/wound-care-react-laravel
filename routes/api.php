@@ -16,6 +16,7 @@ use App\Http\Controllers\RBACController;
 // Deprecated controllers removed - AccessControlController, CustomerManagementController
 use App\Http\Controllers\Api\V1\ProviderOnboardingController;
 use App\Http\Controllers\Api\V1\ProviderProfileController;
+use App\Http\Controllers\Api\V1\QuickRequestController;
 use App\Http\Controllers\Api\ProductRequestPatientController;
 use App\Http\Controllers\Api\ProductRequestClinicalAssessmentController;
 use Illuminate\Support\Facades\Route;
@@ -114,6 +115,31 @@ Route::prefix('v1')->group(function () {
 });
 
 // Episode-centric workflow - moved to web.php for proper CSRF handling
+
+// Quick Request API routes
+Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
+    // Episode endpoints
+    Route::post('/episodes', [App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'store'])
+        ->name('api.quickrequest.episodes.store');
+    Route::get('/episodes/{episode}', [App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'show'])
+        ->name('api.quickrequest.episodes.show');
+    Route::post('/episodes/{episode}/approve', [App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'approve'])
+        ->name('api.quickrequest.episodes.approve');
+    
+    // Order endpoints
+    Route::get('/episodes/{episode}/orders', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'index'])
+        ->name('api.quickrequest.orders.index');
+    Route::post('/episodes/{episode}/orders', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'store'])
+        ->name('api.quickrequest.orders.store');
+    Route::get('/orders/{order}', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'show'])
+        ->name('api.quickrequest.orders.show');
+    Route::patch('/orders/{order}/status', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'updateStatus'])
+        ->name('api.quickrequest.orders.updateStatus');
+    
+    // DocuSeal endpoints
+    Route::post('/docuseal/generate-builder-token', [App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
+        ->name('api.quickrequest.docuseal.generate-builder-token');
+});
 
 // MAC Validation & Eligibility Routes (Public)
 Route::prefix('v1')->group(function () {
@@ -585,6 +611,14 @@ Route::post('/diagnosis-codes/by-wound-type', [\App\Http\Controllers\Api\Diagnos
 Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
     // Get manufacturer template fields for QuickRequest
     Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])
+        ->middleware('permission:create-product-requests');
+// Quick Request backend endpoints
+    Route::post('episodes', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'startEpisode'])->middleware('permission:create-product-requests');
+    Route::post('episodes/{episode}/follow-up', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'addFollowUp'])->middleware('permission:create-product-requests');
+    Route::post('episodes/{episode}/approve', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'approve'])->middleware('permission:manage-episodes');
+    
+    // DocuSeal Builder Token
+    Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
         ->middleware('permission:create-product-requests');
 });
 
