@@ -126,8 +126,8 @@ class ConfigurationController extends Controller
     {
         return Cache::remember('product_mue_limits', 3600, function () {
             return DB::table('msc_products')
-                ->whereNotNull('mue_limit')
-                ->pluck('mue_limit', 'q_code');
+                ->whereNotNull('mue')
+                ->pluck('mue', 'q_code');
         });
     }
     
