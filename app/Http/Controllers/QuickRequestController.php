@@ -111,7 +111,7 @@ class QuickRequestController extends Controller
             $providers[] = [
                 'id' => $user->id,
                 'name' => $user->first_name . ' ' . $user->last_name,
-                'credentials' => $user->providerProfile?->credentials ?? $user->provider_credentials ?? null,
+                'credentials' => $user->providerProfile?->credentials ?? $user->providerCredentials->pluck('credential_number')->implode(', ') ?? null,
                 'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
             ];
         }
@@ -401,33 +401,49 @@ class QuickRequestController extends Controller
             'facility_id.required' => 'Please select a facility.',
             'wound_type.required' => 'Please select a wound type.',
         ]);
-        
-        // Custom validation: At least one wound duration field must be filled
-        if (!($validated['wound_duration_days'] ?? false) && 
-            !($validated['wound_duration_weeks'] ?? false) && 
-            !($validated['wound_duration_months'] ?? false) && 
-            !($validated['wound_duration_years'] ?? false)) {
+
+        $this->validateWoundDurationFields($validated);
+        $this->validateDiagnosisCodes($validated);
+
+        return $validated;
+    }
+
+    /**
+     * Custom validation: At least one wound duration field must be filled
+     */
+    private function validateWoundDurationFields(array $validated): void
+    {
+        if (
+            !($validated['wound_duration_days'] ?? false) &&
+            !($validated['wound_duration_weeks'] ?? false) &&
+            !($validated['wound_duration_months'] ?? false) &&
+            !($validated['wound_duration_years'] ?? false)
+        ) {
             throw \Illuminate\Validation\ValidationException::withMessages([
                 'wound_duration' => 'At least one duration field (days, weeks, months, or years) is required.'
             ]);
         }
-        
-        // Custom validation: Ensure appropriate diagnosis codes are provided based on wound type
-        if ($validated['wound_type'] === 'diabetic_foot_ulcer' || $validated['wound_type'] === 'venous_leg_ulcer') {
+    }
+
+    /**
+     * Custom validation: Ensure appropriate diagnosis codes are provided based on wound type
+     */
+    private function validateDiagnosisCodes(array $validated): void
+    {
+        if (
+            $validated['wound_type'] === 'diabetic_foot_ulcer' ||
+            $validated['wound_type'] === 'venous_leg_ulcer'
+        ) {
             if (empty($validated['primary_diagnosis_code']) || empty($validated['secondary_diagnosis_code'])) {
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'diagnosis_code' => 'This wound type requires both a primary and secondary diagnosis code.'
                 ]);
             }
-        } else {
-            if (empty($validated['diagnosis_code']) && empty($validated['primary_diagnosis_code'])) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'diagnosis_code' => 'A diagnosis code is required.'
-                ]);
-            }
+        } elseif (empty($validated['diagnosis_code']) && empty($validated['primary_diagnosis_code'])) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'diagnosis_code' => 'A diagnosis code is required.'
+            ]);
         }
-        
-        return $validated;
     }
 
     private function createPatientRecord(array $validated): array

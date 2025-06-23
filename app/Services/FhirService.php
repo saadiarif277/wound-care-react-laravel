@@ -46,6 +46,44 @@ class FhirService
             throw $e;
         }
     }
+// ... existing code for AzureFhirClient class
+
+/**
+ * Search for FHIR resources.
+ * @param string $resourceType
+ * @param array $params
+ * @return array
+ */
+public function search(string $resourceType, array $params = []): array
+{
+    // Example implementation using GET with query parameters
+    $query = http_build_query($params);
+    $url = "{$this->azureFhirEndpoint}/{$resourceType}";
+    try {
+        $response = Http::withHeaders([
+            'Authorization' => "Bearer {$this->azureAccessToken}",
+            'Accept' => 'application/fhir+json',
+        ])->get($url, $params);
+
+        if (!$response->successful()) {
+            throw new \Exception("Azure FHIR API error: " . $response->body());
+        }
+
+        $bundle = $response->json();
+
+        // Optionally update URLs to point to your FHIR server
+        $bundle = $this->updateBundleUrls($bundle);
+
+        return $bundle;
+    } catch (\Exception $e) {
+        Log::error('Failed to search FHIR resource in Azure', [
+            'resourceType' => $resourceType,
+            'params' => $params,
+            'error' => $e->getMessage()
+        ]);
+        throw $e;
+    }
+}
 
     /**
      * Get Patient by ID from Azure FHIR

@@ -496,25 +496,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Insurance Coverage Information */}
-      <div className={`${t.glass.card} rounded-lg p-4`}>
-        <div className="flex items-start space-x-3">
-          <ShieldAlert className="w-5 h-5 text-blue-500 mt-0.5" />
-          <div className="flex-1">
-            <h3 className={`text-sm font-semibold ${t.text.primary} mb-1`}>
-              Insurance Coverage Information
-            </h3>
-            <p className={`text-sm ${t.text.secondary}`}>
-              {getAllowedProducts.message}
-            </p>
-            {woundSize > 0 && (
-              <p className={`text-xs ${t.text.tertiary} mt-1`}>
-                Current wound size: {woundSize} sq cm
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Warnings Section */}
       {warnings.length > 0 && (
@@ -595,31 +576,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
             )}
 
             <div className="space-y-6">
-              {/* Onboarded AND Recommended Products */}
-              {categorizedProducts.onboardedAndRecommended.length > 0 && (
-                <div>
-                  <h3 className={`text-sm font-semibold ${t.text.primary} mb-3 flex items-center`}>
-                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                    Recommended Products (Provider Onboarded)
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categorizedProducts.onboardedAndRecommended.map(product => (
-                      <QuickRequestProductCard
-                        key={product.id}
-                        product={product}
-                        onAdd={addProductToSelection}
-                        roleRestrictions={roleRestrictions}
-                        isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
-                        canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
-                        isSelected={selectedProduct?.id === product.id}
-                        isRecommended={true}
-                        isOnboarded={true}
-                        theme={t}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
 
               {/* Recommended Only Products */}
               {categorizedProducts.recommendedOnly.length > 0 && (
@@ -799,7 +755,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                             {item.size ? (
                               <div>
                                 <h5 className={`text-sm font-medium ${t.text.primary}`}>
-                                  Size: {getProductSizeLabel(product.name, item.size)}
+                                  Size: {getProductSizeLabel(item.size, product.size_unit)}
                                 </h5>
                                 <p className={`text-xs ${t.text.secondary}`}>
                                   {formatPrice(unitPrice)} per unit
@@ -1045,7 +1001,7 @@ const QuickRequestProductCard: React.FC<{
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
               return (
                 <option key={sizeStr} value={sizeStr}>
-                  {getProductSizeLabel(product.name, sizeStr)} - {formatPrice(pricePerUnit * sizeNum)}
+                  {getProductSizeLabel(sizeStr, product.size_unit)} - {formatPrice(pricePerUnit * sizeNum)}
                 </option>
               );
             })}

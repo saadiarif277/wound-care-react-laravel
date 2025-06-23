@@ -325,6 +325,16 @@ class DatabaseSeeder extends Seeder
         $users = [
             [
                 'account_id' => $accountId,
+                'first_name' => 'RV',
+                'last_name'  => 'CTO',
+                'email'      => 'richard@mscwoundcare.com',
+                'password'   => Hash::make('secret'),
+                'owner'      => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'account_id' => $accountId,
                 'first_name' => 'Admin',
                 'last_name'  => 'User',
                 'email'      => 'admin@msc.com',
@@ -432,6 +442,7 @@ class DatabaseSeeder extends Seeder
 
         // 8. Assign roles to users
         $roleAssignments = [
+            'super-admin'   => ['richard@mscwoundcare.com'],
             'msc-admin'     => ['admin@msc.com'],
             'provider'      => ['provider@example.com'],
             'office-manager'=> ['manager@example.com'],
