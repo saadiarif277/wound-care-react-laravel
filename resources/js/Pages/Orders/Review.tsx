@@ -1,5 +1,5 @@
 import { Head } from '@inertiajs/react';
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout';
+import MainLayout from '@/Layouts/MainLayout';
 import OrderReviewSummary from '@/Pages/QuickRequest/Components/OrderReviewSummary';
 import { router } from '@inertiajs/react';
 import { PageProps } from '@/types';
@@ -30,31 +30,25 @@ export default function OrderReview({ auth, order }: OrderReviewProps) {
         }
     };
 
-    const handleSubmit = async () => {
-        // Submit the order
-        return new Promise((resolve, reject) => {
-            router.post(`/api/v1/orders/${order.id}/submit`, {
-                confirmation: true
-            }, {
-                onSuccess: () => {
-                    resolve(true);
-                    // Redirect to order center or success page
-                    router.visit('/admin/order-center');
-                },
-                onError: (errors) => {
-                    reject(errors);
-                }
-            });
+    const handleSubmit = async (): Promise<void> => {
+        router.post(`/api/v1/orders/${order.id}/submit`, {
+            confirmation: true
+        }, {
+            onSuccess: () => {
+                // Redirect to order center or success page
+                router.visit('/admin/order-center');
+            },
+            onError: (errors) => {
+                // Handle errors if needed
+                // Optionally show a message or log
+            }
         });
     };
 
     const isPreSubmission = ['draft', 'ready_for_review'].includes(order.status);
 
     return (
-        <AuthenticatedLayout
-            user={auth.user}
-            header={<h2 className="font-semibold text-xl text-gray-800 dark:text-gray-200 leading-tight">Order Review</h2>}
-        >
+        <MainLayout title="Order Review">
             <Head title="Order Review" />
 
             <div className="py-12">
@@ -67,6 +61,6 @@ export default function OrderReview({ auth, order }: OrderReviewProps) {
                     />
                 </div>
             </div>
-        </AuthenticatedLayout>
+        </MainLayout>
     );
 }

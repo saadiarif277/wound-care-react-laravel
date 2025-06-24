@@ -20,7 +20,7 @@ return new class extends Migration
 
             // Add patient_display_id column if it doesn't exist
             if (!Schema::hasColumn('patient_manufacturer_ivr_episodes', 'patient_display_id')) {
-                $table->string('patient_display_id', 7)->nullable()->after('patient_fhir_id');
+                $table->string('patient_display_id', 15)->nullable()->after('patient_fhir_id');
                 $table->index('patient_display_id');
             }
 
