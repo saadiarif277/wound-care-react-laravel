@@ -42,6 +42,7 @@ use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\DocuSealWebhookController;
 use App\Http\Controllers\FhirController;
+use App\Http\Controllers\Api\AuthTokenController;
 use Illuminate\Support\Facades\Log;
 
 /*
@@ -92,6 +93,7 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
 // Removed debug CSRF routes - security vulnerability fixed
 
 // AI Support Escalation Route
+Route::post('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
 Route::post('/api/support/escalate', function (Request $request) {
     // Validate the request
     $validated = $request->validate([
