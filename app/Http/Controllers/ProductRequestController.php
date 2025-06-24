@@ -6,12 +6,9 @@ namespace App\Http\Controllers;
 
 use App\Models\Order\ProductRequest;
 use App\Models\Order\Product;
-use App\Models\User;
-use App\Models\Fhir\Facility;
 use App\Services\PatientService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Redirect;
 use Inertia\Inertia;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
 use Illuminate\Support\Facades\Log;
@@ -20,7 +17,6 @@ use Illuminate\Support\Facades\DB;
 use App\Services\ValidationBuilderEngine;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Support\Facades\Validator;
-use Illuminate\Http\Response;
 use Inertia\Response as InertiaResponse;
 
 final class ProductRequestController extends Controller
@@ -197,7 +193,7 @@ final class ProductRequestController extends Controller
             'provider_npi' => $user->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
             'provider_ptan' => $user->providerCredentials->where('credential_type', 'ptan')->first()->credential_number ?? null,
 
-            'organization_name' => $currentOrg->name ?? null,
+            'provider_name' => "{$user->first_name} {$user->last_name}",
             'organization_tax_id' => $currentOrg->tax_id ?? null,
 
             'facility_id' => $primaryFacility->id ?? null,
@@ -910,11 +906,10 @@ final class ProductRequestController extends Controller
             $checklistInput = new \App\Services\HealthData\DTO\SkinSubstituteChecklistInput([
                 'patient_fhir_id' => $productRequest->patient_fhir_id,
                 'practitioner_id' => 'Practitioner/' . Auth::id(),
-                'organization_id' => 'Organization/' . $productRequest->facility_id,
+                'organization_id' => "Organization/{$productRequest->facility_id}",
                 'wound_type' => $clinicalData['wound_type'] ?? $productRequest->wound_type,
                 'wound_location' => $clinicalData['wound_location'] ?? null,
                 'wound_length' => $clinicalData['wound_length'] ?? null,
-                'wound_width' => $clinicalData['wound_width'] ?? null,
                 'wound_depth' => $clinicalData['wound_depth'] ?? null,
                 'wound_area' => $clinicalData['wound_area'] ?? null,
                 'wound_duration' => $clinicalData['wound_duration'] ?? null,
@@ -941,13 +936,13 @@ final class ProductRequestController extends Controller
             $bundleResponse = $checklistService->createPreApplicationAssessment(
                 $checklistInput,
                 $productRequest->patient_fhir_id,
-                'Practitioner/' . Auth::id(), // Using provider's user ID as practitioner ID
-                'Organization/' . $productRequest->facility_id
+                "Practitioner/" . Auth::id(),
+                "Organization/{$productRequest->facility_id}"
             );
 
-            // Extract the DocumentReference ID from the bundle response
             $documentReferenceId = null;
-            $entries = method_exists($bundleResponse, 'getEntry') ? $bundleResponse->getEntry() : [];
+            $entries = $bundleResponse['entries'] ?? [];
+
             if (!empty($entries) && is_array($entries)) {
                 foreach ($entries as $entry) {
                     // Try to get response location if available
