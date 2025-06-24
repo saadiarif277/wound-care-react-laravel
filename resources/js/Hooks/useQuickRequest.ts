@@ -1,4 +1,4 @@
-import { useReducer, useCallback, useContext, createContext, useEffect } from 'react';
+import { useReducer, useCallback, useContext, createContext, useEffect, ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePage } from '@inertiajs/react';
 import axios from 'axios';
@@ -113,7 +113,7 @@ function quickRequestReducer(
 const QuickRequestContext = createContext<QuickRequestContextValue | null>(null);
 
 // Provider component
-export function QuickRequestProvider({ children }: { children: React.ReactNode }) {
+export function QuickRequestProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(quickRequestReducer, initialState);
   const { props } = usePage();
   const navigate = useNavigate();

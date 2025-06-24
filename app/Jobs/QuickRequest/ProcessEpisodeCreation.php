@@ -1,20 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs\QuickRequest;
 
 use App\Models\Episode;
-use App\Services\QuickRequestOrchestrator;
+use App\Notifications\EpisodeCreatedNotification;
+use App\Notifications\EpisodeCreationFailedNotification;
 use App\Services\Compliance\PhiAuditService;
 use App\Services\Fhir\FhirService;
-use App\Notifications\EpisodeCreatedNotification;
+use App\Services\QuickRequestOrchestrator;
+use Exception;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
-use Exception;
+use Illuminate\Support\Facades\Log;
 
 class ProcessEpisodeCreation implements ShouldQueue
 {

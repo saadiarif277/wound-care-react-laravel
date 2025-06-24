@@ -40,8 +40,8 @@ class QuickRequestErrorBoundary extends Component<Props, State> {
     console.error('Quick Request Error:', error, errorInfo);
 
     // Log to error tracking service (e.g., Sentry)
-    if (window.Sentry) {
-      window.Sentry.captureException(error, {
+    if ((window as any).Sentry) {
+      (window as any).Sentry.captureException(error, {
         contexts: {
           react: {
             componentStack: errorInfo.componentStack,

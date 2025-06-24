@@ -607,7 +607,7 @@ export default function Step7FinalSubmission({
           )}
 
           <DocuSealEmbed
-            Token={builderToken}
+            token={builderToken}
             templateId={builderProps.templateId}
             userEmail={builderProps.userEmail}
             integrationEmail={builderProps.integrationEmail}
