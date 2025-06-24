@@ -5,6 +5,7 @@ namespace App\Services\Compliance;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Request;
+use Illuminate\Support\Facades\Log;
 use App\Logging\PhiSafeLogger;
 
 class PhiAuditService
@@ -240,7 +241,7 @@ class PhiAuditService
         );
 
         // Log to emergency channel
-        \Log::channel('emergency')->critical($message);
+        Log::channel('emergency')->critical($message);
         
         // Could also trigger other notifications here
     }
@@ -270,6 +271,54 @@ class PhiAuditService
         }
 
         return true;
+    }
+
+    /**
+     * Get audit logs for a specific resource
+     */
+    public function getAuditLogs(string $resourceType, string $resourceId, int $limit = 50): \Illuminate\Support\Collection
+    {
+        try {
+            $logs = DB::table('phi_audit_logs as pal')
+                ->leftJoin('users as u', 'pal.user_id', '=', 'u.id')
+                ->where('pal.resource_type', $resourceType)
+                ->where('pal.resource_id', $resourceId)
+                ->select([
+                    'pal.id',
+                    'pal.action',
+                    'pal.user_email',
+                    'pal.ip_address',
+                    'pal.user_agent',
+                    'pal.context',
+                    'pal.accessed_at',
+                    'pal.created_at',
+                    'u.name as user_name'
+                ])
+                ->orderBy('pal.accessed_at', 'desc')
+                ->limit($limit)
+                ->get();
+
+            // Parse context JSON for each log
+            $logs = $logs->map(function ($log) {
+                $log->details = json_decode($log->context, true) ?? [];
+                $log->user = (object) [
+                    'name' => $log->user_name ?? $log->user_email ?? 'Unknown User'
+                ];
+                return $log;
+            });
+
+            return $logs;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to retrieve audit logs', [
+                'error' => $e->getMessage(),
+                'resource_type' => $resourceType,
+                'resource_id' => $resourceId
+            ]);
+            
+            // Return empty collection on error
+            return collect([]);
+        }
     }
 
     /**

@@ -72,6 +72,43 @@ class OrderPolicy
     }
 
     /**
+     * Determine whether the user can submit the order.
+     */
+    public function submit(User $user, Order $order): bool
+    {
+        // Order must be in a submittable state
+        if (!in_array($order->status, ['draft', 'ready_for_review'])) {
+            return false;
+        }
+
+        // Provider can submit their own orders
+        if ($order->provider_id === $user->id) {
+            return true;
+        }
+
+        // Office managers can submit orders for their facility
+        if ($user->hasRole('office-manager') && $user->facilities->contains($order->facility_id)) {
+            return true;
+        }
+
+        // Admins can submit any order
+        if ($user->hasRole('msc-admin') || $user->hasRole('super-admin')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determine whether the user can add notes to the order.
+     */
+    public function addNote(User $user, Order $order): bool
+    {
+        // Must be able to view the order
+        return $this->view($user, $order);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Order $order): bool

@@ -128,8 +128,8 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
 
   return (
     <Modal show={isOpen} onClose={handleClose} maxWidth="md">
-      <div className={cn(t.modal.body, "relative overflow-visible")}>
-        <div className="flex items-center justify-between mb-4">
+      <div className={cn(t.modal.body, "relative", "flex flex-col")} style={{ maxHeight: '85vh' }}>
+        <div className="flex items-center justify-between mb-4 flex-shrink-0">
           <h2 className={cn("text-lg font-semibold", t.text.primary)}>Add Product Onboarding</h2>
           <button
             onClick={handleClose}
@@ -144,7 +144,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 overflow-y-auto flex-1 px-1" style={{ maxHeight: 'calc(85vh - 180px)' }}>
           {/* Product Search */}
           <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
@@ -168,28 +168,45 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
             )}
           </div>
 
-          {/* Product Selection */}
-          <div className="relative">
+          {/* Product Selection - Custom dropdown for better control */}
+          <div>
             <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
               Select Product
             </label>
-            <div className="relative z-50">
-              <SelectInput
-                name="product_id"
-                value={data.product_id}
-                onChange={(e) => setData('product_id', e.target.value)}
-                error={errors.product_id}
-                required
-                className="relative"
-                options={[
-                  { value: '', label: 'Choose a product...' },
-                  ...filteredProducts.map((product) => ({
-                    value: String(product.id),
-                    label: `${product.name} - ${product.sku} (${product.manufacturer})`,
-                  })),
-                ]}
-              />
-            </div>
+            <select
+              name="product_id"
+              value={data.product_id}
+              onChange={(e) => setData('product_id', e.target.value)}
+              required
+              className={cn(
+                "w-full px-3 py-2 rounded-lg cursor-pointer",
+                t.input.base,
+                t.input.focus,
+                "max-h-[200px]",
+                errors.product_id && "border-red-500 focus:border-red-500"
+              )}
+              style={{ 
+                backgroundColor: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'white',
+                color: theme === 'dark' ? 'white' : 'black'
+              }}
+            >
+              <option value="" disabled>Choose a product...</option>
+              {filteredProducts.map((product) => (
+                <option 
+                  key={product.id} 
+                  value={String(product.id)}
+                  style={{
+                    backgroundColor: theme === 'dark' ? '#1a1a1a' : 'white',
+                    color: theme === 'dark' ? 'white' : 'black'
+                  }}
+                >
+                  {`${product.name} - ${product.sku} (${product.manufacturer})`}
+                </option>
+              ))}
+            </select>
+            {errors.product_id && (
+              <p className="mt-1 text-sm text-red-500">{errors.product_id}</p>
+            )}
           </div>
 
           <div>
@@ -226,8 +243,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
             rows={3}
             placeholder="Any additional notes about this product onboarding..."
           />
-
-          <div className={cn("flex justify-end gap-3 pt-4")}>
+          <div className={cn("flex justify-end gap-3 pt-4 mt-4 border-t", theme === 'dark' ? 'border-white/10' : 'border-gray-200')}>
             <button
               type="button"
               onClick={handleClose}

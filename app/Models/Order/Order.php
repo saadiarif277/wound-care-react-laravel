@@ -209,8 +209,24 @@ class Order extends Model
     public function products()
     {
         return $this->belongsToMany(Product::class, 'order_items')
-                    ->withPivot('quantity', 'unit_price', 'total_price')
+                    ->withPivot('quantity', 'unit_price', 'total_price', 'sizes')
                     ->withTimestamps();
+    }
+
+    /**
+     * Get the notes for this order.
+     */
+    public function notes()
+    {
+        return $this->hasMany(\App\Models\OrderNote::class);
+    }
+
+    /**
+     * Get the documents for this order.
+     */
+    public function documents()
+    {
+        return $this->hasMany(\App\Models\OrderDocument::class);
     }
 
     /**

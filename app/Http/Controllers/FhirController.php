@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Services\FhirService;
+use App\Exceptions\FhirException;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +31,40 @@ class FhirController extends Controller
         }
 
         try {
+            // Check if FHIR service is configured
+            if (!$this->fhirService->isAzureConfigured()) {
+                Log::warning('Azure FHIR not configured, creating mock patient resource');
+                
+                // Create a mock patient resource for development/testing
+                $mockPatient = [
+                    'resourceType' => 'Patient',
+                    'id' => 'mock-' . uniqid(),
+                    'meta' => [
+                        'versionId' => '1',
+                        'lastUpdated' => now()->toIso8601String(),
+                        'profile' => ['http://hl7.org/fhir/StructureDefinition/Patient']
+                    ],
+                    'identifier' => [[
+                        'system' => 'http://mscwoundcare.com/patient-id',
+                        'value' => 'MOCK-' . strtoupper(uniqid())
+                    ]],
+                    'name' => [[
+                        'use' => 'official',
+                        'family' => 'MockPatient',
+                        'given' => ['Test']
+                    ]],
+                    'active' => true,
+                    'extension' => [[
+                        'url' => 'http://mscwoundcare.com/fhir/StructureDefinition/mock-resource',
+                        'valueBoolean' => true
+                    ]]
+                ];
+
+                return response()->json($mockPatient, 201)
+                    ->header('Content-Type', 'application/fhir+json')
+                    ->header('Location', url("/fhir/Patient/" . $mockPatient['id']));
+            }
+
             // Check if the request contains a FHIR resource or form data
             $data = $request->all();
             
@@ -127,8 +162,11 @@ class FhirController extends Controller
             return response()->json($createdFhirPatient, 201)
                 ->header('Content-Type', 'application/fhir+json')
                 // Ensure $createdFhirPatient has an 'id' before using it here
-                ->header('Location', url("/api/v1/fhir/patient/" . ($createdFhirPatient['id'] ?? 'unknown')));
+                ->header('Location', url("/fhir/Patient/" . ($createdFhirPatient['id'] ?? 'unknown')));
 
+        } catch (\App\Exceptions\FhirException $e) {
+            Log::warning('FHIR service not available', ['error' => $e->getMessage()]);
+            return $this->fhirError('not-supported', 'FHIR service is currently unavailable: ' . $e->getMessage(), 503);
         } catch (\Exception $e) {
             Log::error('FHIR Patient creation failed', ['error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
             return $this->fhirError('processing', 'Internal server error: ' . $e->getMessage(), 500);

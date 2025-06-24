@@ -116,17 +116,6 @@ class ProductSize extends Model
             return $result;
         }
 
-        // Handle square sizes (e.g., "5x5cm")
-        if (preg_match('/(\d+(?:\.\d+)?)\s*x\s*\1\s*cm/i', $sizeLabel, $matches)) {
-            $side = floatval($matches[1]) * 10; // Convert cm to mm
-
-            $result['size_type'] = 'square';
-            $result['length_mm'] = $side;
-            $result['width_mm'] = $side;
-            $result['area_cm2'] = round(pow($side / 10, 2), 2); // Convert to cm²
-            return $result;
-        }
-
         return $result;
     }
 

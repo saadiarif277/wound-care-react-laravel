@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\Admin\ProviderManagementController;
+use App\Http\Controllers\Api\OrderReviewController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -141,6 +142,25 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->name('api.quickrequest.docuseal.generate-builder-token');
 });
 
+// Order Review API routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    Route::prefix('orders')->group(function () {
+        // Order review and submission
+        Route::get('{orderId}/review', [OrderReviewController::class, 'getOrderReview'])
+            ->name('api.orders.review');
+        Route::post('{orderId}/validate', [OrderReviewController::class, 'validateOrder'])
+            ->name('api.orders.validate');
+        Route::post('{orderId}/submit', [OrderReviewController::class, 'submitOrder'])
+            ->name('api.orders.submit');
+        Route::post('{orderId}/notes', [OrderReviewController::class, 'addNote'])
+            ->name('api.orders.notes');
+        
+        // Document viewing
+        Route::get('{orderId}/documents/{documentId}', [OrderReviewController::class, 'viewDocument'])
+            ->name('api.orders.documents.view');
+    });
+});
+
 // MAC Validation & Eligibility Routes (Public with Rate Limiting)
 Route::prefix('v1')->middleware(['throttle:public', 'api.rate.limit:public'])->group(function () {
     // MAC Validation Routes
@@ -206,9 +226,9 @@ Route::prefix('v1')->group(function () {
 Route::post('v1/eligibility/preauth/callback', [EligibilityController::class, 'handleCallback'])->name('eligibility.callback');
 
 // FHIR Server REST API Routes
-Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(function () {
+Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(function () {
     // CapabilityStatement (public)
-    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata')->withoutMiddleware(['auth']);
+    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata')->withoutMiddleware(['auth:sanctum']);
 
     // Patient Resource Routes
     Route::prefix('Patient')->name('patient.')->group(function () {
@@ -626,19 +646,19 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->middleware('permission:create-product-requests');
 });
 
-// QuickRequest Episode Creation Route
-Route::middleware(['web', 'auth'])->group(function () {
+// QuickRequest Episode Creation Route (Enhanced)
+Route::middleware(['api', 'auth:sanctum'])->group(function () {
     Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisode'])
         ->name('api.quick-request.create-episode')
-        ->middleware('permission:create-product-requests');
+        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
     
     Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisodeWithDocuments'])
         ->name('api.quick-request.create-episode-with-documents')
-        ->middleware('permission:create-product-requests');
+        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
     
     Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\QuickRequestController::class, 'extractIvrFields'])
         ->name('api.quick-request.extract-ivr-fields')
-        ->middleware('permission:create-product-requests');
+        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
 });
 
 // Episode MAC Validation Routes

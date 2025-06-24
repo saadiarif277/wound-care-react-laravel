@@ -75,6 +75,7 @@ class Kernel extends HttpKernel
         'organization.context' => \App\Http\Middleware\EnsureOrganizationContext::class,
         'validation.builder' => \App\Http\Middleware\ValidationBuilderSecurity::class,
         'role.redirect' => \App\Http\Middleware\RedirectBasedOnRole::class,
+        'handle.quick.request.errors' => \App\Http\Middleware\HandleQuickRequestErrors::class,
     ];
 
     /**

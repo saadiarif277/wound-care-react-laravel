@@ -58,6 +58,7 @@ use Illuminate\Support\Facades\Log;
 use App\Services\DocuSealService;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\OrderReviewPageController;
 
 Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
     $service = app(DocuSealService::class);
@@ -220,6 +221,11 @@ Route::get('/dashboard', [DashboardController::class, 'index'])
 Route::middleware(['permission:manage-orders'])->group(function () {
     Route::get('/orders/center', [OrderController::class, 'center'])->name('orders.center');
     Route::get('/orders/{id}/tracking', [OrderController::class, 'tracking'])->name('orders.tracking');
+});
+
+// Order Review Page
+Route::middleware(['auth'])->group(function () {
+    Route::get('/orders/{orderId}/review', [OrderReviewPageController::class, 'show'])->name('orders.review');
 });
 
 // Admin Order Center Routes (Episode-based workflow)

@@ -388,7 +388,7 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                       theme === 'dark' ? 'bg-green-500/20 text-green-300 border-green-500/30' : 'bg-green-100 text-green-800'
                     )}>
                       <CheckCircle2 className="w-3 h-3 mr-1" />
-                      Active
+                      Verified
                     </Badge>
                   ) : (
                     getStatusBadge(provider.profile.verification_status)

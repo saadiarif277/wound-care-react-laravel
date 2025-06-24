@@ -135,7 +135,7 @@ class ProviderManagementController extends Controller
                 'npi_number' => $provider->npi_number,
                 'phone' => $provider->phone,
                 'profile' => [
-                    'verification_status' => $providerProfile->verification_status ?? ($provider->npi_number ? 'verified' : 'pending'),
+                    'verification_status' => $providerProfile ? $providerProfile->verification_status : ($provider->npi_number ? 'verified' : 'pending'),
                     'profile_completion_percentage' => $this->calculateProfileCompletion($provider, $providerProfile),
                 ],
                 'current_organization' => $organization,
@@ -222,6 +222,14 @@ class ProviderManagementController extends Controller
         $providerProfile = null;
         if (Schema::hasTable('provider_profiles')) {
             $providerProfile = ProviderProfile::where('provider_id', $provider->id)->first();
+            
+            // Auto-verify if provider has valid credentials but profile is still pending
+            if ($providerProfile && $providerProfile->verification_status === 'pending') {
+                if ($provider->npi_number || $provider->license_number) {
+                    $providerProfile->verification_status = 'verified';
+                    $providerProfile->save();
+                }
+            }
         }
 
         // Get credentials if table exists
@@ -386,7 +394,7 @@ class ProviderManagementController extends Controller
             'npi_number' => $provider->npi_number,
             'address' => $provider->address,
             'profile' => [
-                'verification_status' => $providerProfile->verification_status ?? ($provider->npi_number ? 'verified' : 'pending'),
+                'verification_status' => $providerProfile ? $providerProfile->verification_status : ($provider->npi_number ? 'verified' : 'pending'),
                 'profile_completion_percentage' => $this->calculateProfileCompletion($provider, $providerProfile),
                 'professional_bio' => $providerProfile->professional_bio ?? null,
                 'specializations' => $providerProfile->specializations ?? [],

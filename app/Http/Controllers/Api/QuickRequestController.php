@@ -3,208 +3,377 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\FhirService;
-use App\Services\FhirToIvrFieldExtractor;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use App\Models\PatientManufacturerIVREpisode;
+use App\Models\Order\Product;
+use App\Services\FhirService;
+use App\Services\DocuSealService;
+use App\Services\Templates\DocuSealBuilder;
+use Illuminate\Support\Str;
 
 class QuickRequestController extends Controller
 {
-    protected $fhirService;
-    protected $fhirExtractor;
+    private FhirService $fhirService;
+    private DocuSealService $docuSealService;
 
-    public function __construct(FhirService $fhirService, FhirToIvrFieldExtractor $fhirExtractor)
+    public function __construct(FhirService $fhirService, DocuSealService $docuSealService)
     {
         $this->fhirService = $fhirService;
-        $this->fhirExtractor = $fhirExtractor;
+        $this->docuSealService = $docuSealService;
     }
 
     /**
-     * Extract IVR fields from FHIR resources
+     * Create episode for QuickRequest workflow
      */
-    public function extractIvrFields(Request $request)
+    public function createEpisode(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'patient_id' => 'required|string',
-            'practitioner_id' => 'nullable|string',
-            'organization_id' => 'nullable|string',
-            'questionnaire_response_id' => 'nullable|string',
-            'device_request_id' => 'nullable|string',
-            'episode_id' => 'nullable|string',
-            'episode_of_care_id' => 'nullable|string',
-            'manufacturer_key' => 'required|string',
-            'sales_rep' => 'nullable|array',
-            'sales_rep.name' => 'nullable|string',
-            'sales_rep.email' => 'nullable|email',
-            'selected_products' => 'nullable|array',
-            'selected_products.*.name' => 'nullable|string',
-            'selected_products.*.code' => 'nullable|string',
-            'selected_products.*.size' => 'nullable|string',
-        ]);
-
         try {
-            // Build context for extractor
-            $context = [
-                'patient_id' => $validated['patient_id'],
-                'practitioner_id' => $validated['practitioner_id'] ?? null,
-                'organization_id' => $validated['organization_id'] ?? null,
-                'questionnaire_response_id' => $validated['questionnaire_response_id'] ?? null,
-                'device_request_id' => $validated['device_request_id'] ?? null,
-                'episode_id' => $validated['episode_id'] ?? null,
-                'episode_of_care_id' => $validated['episode_of_care_id'] ?? null,
-                'sales_rep' => $validated['sales_rep'] ?? null,
-                'selected_products' => $validated['selected_products'] ?? [],
-            ];
+            $data = $request->validate([
+                'patient_id' => 'required|string',
+                'patient_fhir_id' => 'required|string',
+                'patient_display_id' => 'required|string',
+                'manufacturer_id' => 'nullable|exists:manufacturers,id',
+                'selected_product_id' => 'nullable|exists:products,id',
+                'form_data' => 'required|array',
+            ]);
 
-            // Extract IVR fields for the specified manufacturer
-            $ivrFields = $this->fhirExtractor->extractForManufacturer($context, $validated['manufacturer_key']);
+            // Determine manufacturer from product if not provided
+            if (!$data['manufacturer_id'] && $data['selected_product_id']) {
+                $product = Product::find($data['selected_product_id']);
+                if ($product && $product->manufacturer_id) {
+                    $data['manufacturer_id'] = $product->manufacturer_id;
+                }
+            }
 
-            // Calculate field coverage
-            $totalFields = count($ivrFields);
-            $filledFields = count(array_filter($ivrFields, fn($value) => !empty($value)));
-            $coveragePercentage = $totalFields > 0 ? round(($filledFields / $totalFields) * 100) : 0;
+            if (!$data['manufacturer_id']) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unable to determine manufacturer. Please ensure a product is selected.',
+                ], 422);
+            }
+
+            // Find or create episode
+            $episode = PatientManufacturerIVREpisode::firstOrCreate([
+                'patient_fhir_id' => $data['patient_fhir_id'],
+                'manufacturer_id' => $data['manufacturer_id'],
+            ], [
+                'patient_id' => $data['patient_id'],
+                'patient_display_id' => $data['patient_display_id'],
+                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                'metadata' => [
+                    'facility_id' => $data['form_data']['facility_id'] ?? null,
+                    'provider_id' => Auth::id(),
+                    'created_from' => 'quick_request',
+                    'form_data' => $data['form_data']
+                ]
+            ]);
 
             return response()->json([
                 'success' => true,
-                'ivr_fields' => $ivrFields,
-                'field_coverage' => [
-                    'total_fields' => $totalFields,
-                    'filled_fields' => $filledFields,
-                    'percentage' => $coveragePercentage,
-                    'missing_fields' => array_keys(array_filter($ivrFields, fn($value) => empty($value))),
-                ],
+                'episode_id' => $episode->id,
+                'manufacturer_id' => $data['manufacturer_id']
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create episode for QuickRequest', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create episode: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Create episode with documents (enhanced version)
+     */
+    public function createEpisodeWithDocuments(Request $request): JsonResponse
+    {
+        try {
+            $data = $request->validate([
+                'patient_fhir_id' => 'required|string',
+                'patient_display_id' => 'required|string',
+                'manufacturer_id' => 'required|exists:manufacturers,id',
+                'form_data' => 'required|array',
+                'clinical_data' => 'sometimes|array',
+                'insurance_data' => 'sometimes|array',
+            ]);
+
+            DB::beginTransaction();
+
+            // Create the episode
+            $episode = PatientManufacturerIVREpisode::create([
+                'patient_id' => $data['patient_fhir_id'], // Using FHIR ID as patient_id
+                'patient_fhir_id' => $data['patient_fhir_id'],
+                'patient_display_id' => $data['patient_display_id'],
+                'manufacturer_id' => $data['manufacturer_id'],
+                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                'metadata' => [
+                    'provider_id' => Auth::id(),
+                    'created_from' => 'quick_request_enhanced',
+                    'form_data' => $data['form_data'],
+                    'clinical_data' => $data['clinical_data'] ?? [],
+                    'insurance_data' => $data['insurance_data'] ?? [],
+                    'created_at' => now()->toISOString()
+                ]
+            ]);
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'episode_id' => $episode->id,
+                'manufacturer_id' => $data['manufacturer_id'],
+                'patient_display_id' => $data['patient_display_id']
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            
+            Log::error('Failed to create episode with documents', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create episode: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Extract IVR fields from form data and FHIR resources
+     */
+    public function extractIvrFields(Request $request): JsonResponse
+    {
+        try {
+            $data = $request->validate([
+                'patient_id' => 'sometimes|string',
+                'practitioner_id' => 'sometimes|string',
+                'organization_id' => 'sometimes|string',
+                'questionnaire_response_id' => 'sometimes|string',
+                'device_request_id' => 'sometimes|string',
+                'episode_id' => 'sometimes|string',
+                'episode_of_care_id' => 'sometimes|string',
+                'manufacturer_key' => 'required|string',
+                'sales_rep' => 'sometimes|array',
+                'selected_products' => 'sometimes|array',
+            ]);
+
+            $extractedFields = [];
+            $fieldCoverage = ['total' => 0, 'filled' => 0, 'percentage' => 0];
+
+            // Try to extract from FHIR resources if available and configured
+            if ($this->fhirService->isAzureConfigured()) {
+                try {
+                    // Extract from Patient resource
+                    if (!empty($data['patient_id'])) {
+                        $patient = $this->fhirService->getPatientById($data['patient_id']);
+                        if ($patient) {
+                            $extractedFields = array_merge($extractedFields, $this->extractPatientFields($patient));
+                        }
+                    }
+
+                    // Extract from QuestionnaireResponse
+                    if (!empty($data['questionnaire_response_id'])) {
+                        $questionnaireResponse = $this->fhirService->search('QuestionnaireResponse', [
+                            '_id' => $data['questionnaire_response_id']
+                        ]);
+                        if (!empty($questionnaireResponse['entry'])) {
+                            $qr = $questionnaireResponse['entry'][0]['resource'];
+                            $extractedFields = array_merge($extractedFields, $this->extractQuestionnaireFields($qr));
+                        }
+                    }
+
+                    // Extract from DeviceRequest
+                    if (!empty($data['device_request_id'])) {
+                        $deviceRequest = $this->fhirService->search('DeviceRequest', [
+                            '_id' => $data['device_request_id']
+                        ]);
+                        if (!empty($deviceRequest['entry'])) {
+                            $dr = $deviceRequest['entry'][0]['resource'];
+                            $extractedFields = array_merge($extractedFields, $this->extractDeviceRequestFields($dr));
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('FHIR extraction failed, using fallback', [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Add sales rep information if provided
+            if (!empty($data['sales_rep'])) {
+                $extractedFields['sales_rep_name'] = $data['sales_rep']['name'] ?? '';
+                $extractedFields['sales_rep_email'] = $data['sales_rep']['email'] ?? '';
+            }
+
+            // Add product information if provided
+            if (!empty($data['selected_products'])) {
+                $firstProduct = $data['selected_products'][0] ?? [];
+                $extractedFields['product_name'] = $firstProduct['name'] ?? '';
+                $extractedFields['product_code'] = $firstProduct['code'] ?? '';
+                $extractedFields['product_size'] = $firstProduct['size'] ?? '';
+            }
+
+            // Calculate field coverage
+            $totalFields = 50; // Approximate number of typical IVR fields
+            $filledFields = count(array_filter($extractedFields, function($value) {
+                return !empty($value);
+            }));
+            
+            $fieldCoverage = [
+                'total' => $totalFields,
+                'filled' => $filledFields,
+                'percentage' => $totalFields > 0 ? round(($filledFields / $totalFields) * 100, 1) : 0
+            ];
+
+            return response()->json([
+                'success' => true,
+                'ivr_fields' => $extractedFields,
+                'field_coverage' => $fieldCoverage,
+                'fhir_available' => $this->fhirService->isAzureConfigured()
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to extract IVR fields', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'context' => $context ?? [],
+                'user_id' => Auth::id()
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to extract IVR fields',
-                'error' => $e->getMessage(),
+                'message' => 'Failed to extract IVR fields: ' . $e->getMessage(),
             ], 500);
         }
     }
 
     /**
-     * Create an episode for the quick request
+     * Extract patient fields from FHIR Patient resource
      */
-    public function createEpisode(Request $request)
+    private function extractPatientFields(array $patient): array
     {
-        $validated = $request->validate([
-            'patient_id' => 'required|string',
-            'patient_fhir_id' => 'required|string',
-            'patient_display_id' => 'required|string',
-            'manufacturer_id' => 'nullable|integer',
-            'selected_product_id' => 'nullable|integer',
-            'form_data' => 'nullable|array',
-        ]);
+        $fields = [];
 
-        try {
-            // Create episode in your local database
-            // This is a placeholder - implement according to your episode model
-            $episode = \App\Models\PatientManufacturerIVREpisode::create([
-                'patient_id' => $validated['patient_id'],
-                'patient_fhir_id' => $validated['patient_fhir_id'],
-                'patient_display_id' => $validated['patient_display_id'],
-                'manufacturer_id' => $validated['manufacturer_id'],
-                'status' => 'draft',
-                'metadata' => $validated['form_data'] ?? [],
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'episode_id' => $episode->id,
-                'patient_fhir_id' => $validated['patient_fhir_id'],
-                'manufacturer_id' => $validated['manufacturer_id'],
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to create episode', [
-                'error' => $e->getMessage(),
-                'data' => $validated,
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create episode',
-                'error' => $e->getMessage(),
-            ], 500);
+        // Extract name
+        if (!empty($patient['name'][0])) {
+            $name = $patient['name'][0];
+            $fields['patient_first_name'] = implode(' ', $name['given'] ?? []);
+            $fields['patient_last_name'] = $name['family'] ?? '';
         }
-    }
 
-    /**
-     * Create episode with document processing
-     */
-    public function createEpisodeWithDocuments(Request $request)
-    {
-        $validated = $request->validate([
-            'provider_id' => 'required|integer',
-            'facility_id' => 'required|integer',
-            'patient_name' => 'required|string',
-            'request_type' => 'nullable|string',
-            'documents' => 'nullable|array',
-            'documents.*' => 'file|mimes:pdf,doc,docx,jpg,jpeg,png|max:10240',
-        ]);
+        // Extract gender
+        if (!empty($patient['gender'])) {
+            $fields['patient_gender'] = $patient['gender'];
+        }
 
-        try {
-            // Create temporary patient ID
-            $tempPatientId = 'TEMP_' . uniqid();
+        // Extract birth date
+        if (!empty($patient['birthDate'])) {
+            $fields['patient_dob'] = $patient['birthDate'];
+        }
 
-            // Process documents if provided
-            $extractedData = [];
-            $fieldCoverage = null;
-
-            if ($request->hasFile('documents')) {
-                // TODO: Implement document processing with Azure Document Intelligence
-                // For now, return placeholder data
-                $extractedData = [
-                    'patient_first_name' => 'John',
-                    'patient_last_name' => 'Doe',
-                    'patient_dob' => '1970-01-01',
-                    'patient_gender' => 'male',
-                    'insurance_card_auto_filled' => true,
-                ];
-
-                $fieldCoverage = [
-                    'total_fields' => 50,
-                    'filled_fields' => 15,
-                    'percentage' => 30,
-                ];
+        // Extract contact information
+        if (!empty($patient['telecom'])) {
+            foreach ($patient['telecom'] as $contact) {
+                if ($contact['system'] === 'phone') {
+                    $fields['patient_phone'] = $contact['value'] ?? '';
+                } elseif ($contact['system'] === 'email') {
+                    $fields['patient_email'] = $contact['value'] ?? '';
+                }
             }
-
-            // Create episode
-            $episode = \App\Models\PatientManufacturerIVREpisode::create([
-                'patient_id' => $tempPatientId,
-                'patient_fhir_id' => $tempPatientId,
-                'patient_display_id' => explode(' ', $validated['patient_name'])[0] ?? 'PATIENT',
-                'status' => 'draft',
-                'metadata' => array_merge($validated, ['extracted_data' => $extractedData]),
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'episode_id' => $episode->id,
-                'patient_fhir_id' => $tempPatientId,
-                'extracted_data' => $extractedData,
-                'field_coverage' => $fieldCoverage,
-            ]);
-
-        } catch (\Exception $e) {
-            Log::error('Failed to create episode with documents', [
-                'error' => $e->getMessage(),
-                'data' => $validated,
-            ]);
-
-            return response()->json([
-                'success' => false,
-                'message' => 'Failed to create episode with documents',
-                'error' => $e->getMessage(),
-            ], 500);
         }
+
+        // Extract address
+        if (!empty($patient['address'][0])) {
+            $address = $patient['address'][0];
+            $fields['patient_address_line1'] = $address['line'][0] ?? '';
+            $fields['patient_address_line2'] = $address['line'][1] ?? '';
+            $fields['patient_city'] = $address['city'] ?? '';
+            $fields['patient_state'] = $address['state'] ?? '';
+            $fields['patient_zip'] = $address['postalCode'] ?? '';
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Extract fields from QuestionnaireResponse
+     */
+    private function extractQuestionnaireFields(array $questionnaireResponse): array
+    {
+        $fields = [];
+
+        if (!empty($questionnaireResponse['item'])) {
+            foreach ($questionnaireResponse['item'] as $item) {
+                $linkId = $item['linkId'] ?? '';
+                $answer = $item['answer'][0] ?? null;
+
+                if ($answer) {
+                    switch ($linkId) {
+                        case 'wound-type':
+                            $fields['wound_type'] = $answer['valueCoding']['display'] ?? $answer['valueString'] ?? '';
+                            break;
+                        case 'wound-location':
+                            $fields['wound_location'] = $answer['valueString'] ?? '';
+                            break;
+                        case 'wound-size-length':
+                            $fields['wound_size_length'] = (string)($answer['valueDecimal'] ?? '');
+                            break;
+                        case 'wound-size-width':
+                            $fields['wound_size_width'] = (string)($answer['valueDecimal'] ?? '');
+                            break;
+                        case 'place-of-service':
+                            $fields['place_of_service'] = $answer['valueCoding']['code'] ?? '';
+                            break;
+                    }
+                }
+            }
+        }
+
+        return $fields;
+    }
+
+    /**
+     * Extract fields from DeviceRequest
+     */
+    private function extractDeviceRequestFields(array $deviceRequest): array
+    {
+        $fields = [];
+
+        // Extract product information
+        if (!empty($deviceRequest['code']['coding'][0])) {
+            $coding = $deviceRequest['code']['coding'][0];
+            $fields['product_code'] = $coding['code'] ?? '';
+            $fields['product_name'] = $coding['display'] ?? '';
+        }
+
+        // Extract parameters
+        if (!empty($deviceRequest['parameter'])) {
+            foreach ($deviceRequest['parameter'] as $param) {
+                $code = $param['code']['text'] ?? '';
+                if ($code === 'Quantity' && !empty($param['valueQuantity'])) {
+                    $fields['quantity'] = (string)($param['valueQuantity']['value'] ?? '');
+                } elseif ($code === 'Size' && !empty($param['valueCodeableConcept'])) {
+                    $fields['size'] = $param['valueCodeableConcept']['text'] ?? '';
+                }
+            }
+        }
+
+        // Extract service date
+        if (!empty($deviceRequest['occurrenceDateTime'])) {
+            $fields['expected_service_date'] = $deviceRequest['occurrenceDateTime'];
+        }
+
+        return $fields;
     }
 }

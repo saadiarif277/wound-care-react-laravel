@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Head, Link, router } from '@inertiajs/react';
+import { useState } from 'react';
+import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -12,22 +12,29 @@ import {
   FiTag,
   FiFileText,
   FiDownload,
-  FiExternalLink,
   FiCopy,
-  FiShare2,
   FiActivity,
   FiTrendingUp,
   FiBarChart,
   FiCalendar,
-  FiUser,
   FiCheck,
-  FiX,
   FiAlertTriangle,
   FiInfo,
   FiImage,
   FiEye,
   FiMoreVertical
 } from 'react-icons/fi';
+
+interface Size {
+  id: number;
+  display_label: string;
+  size_type: 'rectangular' | 'square' | 'circular' | 'custom';
+  length_mm?: number;
+  width_mm?: number;
+  diameter_mm?: number;
+  area_cm2?: number;
+  formatted_size: string;
+}
 
 interface Product {
   id: number;
@@ -40,8 +47,7 @@ interface Product {
   price_per_sq_cm: number;
   national_asp?: number;
   commission_rate: number;
-  available_sizes: number[];
-  size_options?: string[];
+  sizes: Size[];
   size_unit?: string;
   mue_limit?: number;
   graph_type?: string;
@@ -230,7 +236,7 @@ export default function ProductShow({ product }: Props) {
 
               <div className="text-center">
                 <div className={cn("text-2xl font-bold", t.text.primary)}>
-                  {product.available_sizes.length + (product.size_options?.length || 0)}
+                  {product.sizes.length}
                 </div>
                 <div className={cn("text-xs", t.text.secondary)}>Size Options</div>
               </div>
@@ -434,53 +440,36 @@ export default function ProductShow({ product }: Props) {
             {/* Sizes Tab */}
             {activeTab === 'sizes' && (
               <div className="space-y-6">
-                {product.available_sizes.length > 0 && (
+                {product.sizes.length > 0 ? (
                   <div>
                     <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
-                      Available Sizes ({product.size_unit === 'cm' ? 'cm²' : 'inches'})
+                      Available Sizes
                     </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                      {product.available_sizes.map((size, index) => (
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {product.sizes.map((size) => (
                         <div
-                          key={index}
-                          className={cn("p-3 rounded-lg text-center", t.glass.frost)}
+                          key={size.id}
+                          className={cn("p-4 rounded-xl text-center", t.glass.frost)}
                         >
                           <div className={cn("text-lg font-bold", t.text.primary)}>
-                            {size}
+                            {size.formatted_size}
                           </div>
-                          <div className={cn("text-xs", t.text.secondary)}>
-                            {product.size_unit === 'cm' ? 'cm²' : 'inches'}
+                          <div className={cn("text-xs mt-1", t.text.secondary)}>
+                            {size.size_type}
                           </div>
-                          <div className="text-xs text-green-500 mt-1">
-                            ${(product.price_per_sq_cm * size).toFixed(2)}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {product.size_options && product.size_options.length > 0 && (
-                  <div>
-                    <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
-                      Size Options (Text Format)
-                    </h3>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {product.size_options.map((option, index) => (
-                        <div
-                          key={index}
-                          className={cn("p-3 rounded-lg text-center", t.glass.frost)}
-                        >
-                          <div className={cn("text-sm font-medium", t.text.primary)}>
-                            {option}
+                          {size.area_cm2 && (
+                            <div className="text-xs text-gray-400 mt-1">
+                              {size.area_cm2} cm²
+                            </div>
+                          )}
+                          <div className="text-sm text-green-500 mt-2 font-semibold">
+                            ${(product.price_per_sq_cm * (size.area_cm2 || 0)).toFixed(2)}
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
-                )}
-
-                {product.available_sizes.length === 0 && (!product.size_options || product.size_options.length === 0) && (
+                ) : (
                   <div className={cn("text-center py-12", t.glass.frost, "rounded-xl")}>
                     <FiTag className={cn("w-16 h-16 mx-auto mb-4", t.text.muted)} />
                     <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>

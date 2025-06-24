@@ -18,10 +18,30 @@ class FhirService
     }
 
     /**
+     * Ensure Azure FHIR is properly configured
+     */
+    private function ensureAzureConfigured(): void
+    {
+        if (!$this->azureAccessToken || !$this->azureFhirEndpoint) {
+            throw new \App\Exceptions\FhirException('Azure FHIR service is not properly configured. Please check your Azure FHIR settings in your environment configuration.');
+        }
+    }
+
+    /**
+     * Check if Azure FHIR is available
+     */
+    public function isAzureConfigured(): bool
+    {
+        return !empty($this->azureAccessToken) && !empty($this->azureFhirEndpoint);
+    }
+
+    /**
      * Create a new Patient resource in Azure FHIR
      */
     public function createPatient(array $fhirData): array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             // Add MSC-specific extensions if not present
             $fhirData = $this->addMscExtensions($fhirData);
@@ -46,13 +66,14 @@ class FhirService
             throw $e;
         }
     }
-// ... existing code for AzureFhirClient class
 
     /**
      * Create a new FHIR resource
      */
     public function create(string $resourceType, array $fhirData): array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -88,41 +109,42 @@ class FhirService
      * @return array
      */
     public function search(string $resourceType, array $params = []): array
-{
-    // Example implementation using GET with query parameters
-    $query = http_build_query($params);
-    $url = "{$this->azureFhirEndpoint}/{$resourceType}";
-    try {
-        $response = Http::withHeaders([
-            'Authorization' => "Bearer {$this->azureAccessToken}",
-            'Accept' => 'application/fhir+json',
-        ])->get($url, $params);
+    {
+        $this->ensureAzureConfigured();
+        
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/{$resourceType}", $params);
 
-        if (!$response->successful()) {
-            throw new \Exception("Azure FHIR API error: " . $response->body());
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Optionally update URLs to point to your FHIR server
+            $bundle = $this->updateBundleUrls($bundle);
+
+            return $bundle;
+        } catch (\Exception $e) {
+            Log::error('Failed to search FHIR resource in Azure', [
+                'resourceType' => $resourceType,
+                'params' => $params,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
         }
-
-        $bundle = $response->json();
-
-        // Optionally update URLs to point to your FHIR server
-        $bundle = $this->updateBundleUrls($bundle);
-
-        return $bundle;
-    } catch (\Exception $e) {
-        Log::error('Failed to search FHIR resource in Azure', [
-            'resourceType' => $resourceType,
-            'params' => $params,
-            'error' => $e->getMessage()
-        ]);
-        throw $e;
     }
-}
 
     /**
      * Get Patient by ID from Azure FHIR
      */
     public function getPatientById(string $id): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -148,7 +170,7 @@ class FhirService
     /**
      * Get patient by FHIR ID (alias for getPatientById to match expected interface)
      */
-    public function getPatient(string $patientFhirId, $productRequest = null)
+    public function getPatient(string $patientFhirId, $productRequest = null): array
     {
         // Use the existing getPatientById method
         $fhirPatient = $this->getPatientById($patientFhirId);
@@ -157,18 +179,17 @@ class FhirService
             throw new \Exception("Patient not found with FHIR ID: {$patientFhirId}");
         }
 
-        // Convert array to object for consistent interface
-        return json_decode(json_encode($fhirPatient));
+        // Return the array directly for consistent interface
+        return $fhirPatient;
     }
 
     /**
      * Create a new practitioner
-     *
-     * @param array $practitionerData
-     * @return array|null
      */
     public function createPractitioner(array $practitionerData): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -193,12 +214,11 @@ class FhirService
 
     /**
      * Create a new organization
-     *
-     * @param array $organizationData
-     * @return array|null
      */
     public function createOrganization(array $organizationData): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -226,6 +246,8 @@ class FhirService
      */
     public function updatePatient(string $id, array $fhirData): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             // Add MSC-specific extensions if not present
             $fhirData = $this->addMscExtensions($fhirData);
@@ -256,10 +278,150 @@ class FhirService
     }
 
     /**
+     * Search Coverage resources in Azure FHIR
+     */
+    public function searchCoverage(array $searchParams): array
+    {
+        $this->ensureAzureConfigured();
+        
+        try {
+            $queryParams = [];
+
+            // Map search parameters to FHIR search format
+            if (!empty($searchParams['patient'])) {
+                $queryParams['patient'] = $searchParams['patient'];
+            }
+            if (!empty($searchParams['status'])) {
+                $queryParams['status'] = $searchParams['status'];
+            }
+            if (!empty($searchParams['beneficiary'])) {
+                $queryParams['beneficiary'] = $searchParams['beneficiary'];
+            }
+            if (!empty($searchParams['subscriber'])) {
+                $queryParams['subscriber'] = $searchParams['subscriber'];
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/Coverage", $queryParams);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error searching Coverage: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Update URLs to point to our FHIR server instead of Azure
+            $bundle = $this->updateBundleUrls($bundle);
+
+            return $bundle;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to search FHIR Coverage in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Search Condition resources in Azure FHIR
+     */
+    public function searchConditions(array $searchParams): array
+    {
+        $this->ensureAzureConfigured();
+        
+        try {
+            $queryParams = [];
+
+            // Map search parameters to FHIR search format
+            if (!empty($searchParams['patient'])) {
+                $queryParams['patient'] = $searchParams['patient'];
+            }
+            if (!empty($searchParams['subject'])) {
+                $queryParams['subject'] = $searchParams['subject'];
+            }
+            if (!empty($searchParams['clinical-status'])) {
+                $queryParams['clinical-status'] = $searchParams['clinical-status'];
+            }
+            if (!empty($searchParams['verification-status'])) {
+                $queryParams['verification-status'] = $searchParams['verification-status'];
+            }
+            if (!empty($searchParams['category'])) {
+                $queryParams['category'] = $searchParams['category'];
+            }
+            if (!empty($searchParams['code'])) {
+                $queryParams['code'] = $searchParams['code'];
+            }
+            if (!empty($searchParams['onset-date'])) {
+                $queryParams['onset-date'] = $searchParams['onset-date'];
+            }
+            if (!empty($searchParams['encounter'])) {
+                $queryParams['encounter'] = $searchParams['encounter'];
+            }
+
+            // Pagination
+            if (!empty($searchParams['_count'])) {
+                $queryParams['_count'] = min(100, max(1, (int)$searchParams['_count']));
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/Condition", $queryParams);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error searching Conditions: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Update URLs to point to our FHIR server instead of Azure
+            $bundle = $this->updateBundleUrls($bundle);
+
+            return $bundle;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to search FHIR Conditions in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get EpisodeOfCare by ID from Azure FHIR
+     */
+    public function getEpisodeOfCare(string $id): ?array
+    {
+        $this->ensureAzureConfigured();
+        
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/EpisodeOfCare/{$id}");
+
+            if ($response->status() === 404) {
+                return null;
+            }
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error: " . $response->body());
+            }
+
+            return $response->json();
+
+        } catch (\Exception $e) {
+            Log::error('Failed to read FHIR EpisodeOfCare from Azure', ['id' => $id, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
      * Patch Patient resource in Azure FHIR
      */
     public function patchPatient(string $id, array $patchData): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -291,6 +453,8 @@ class FhirService
      */
     public function deletePatient(string $id): bool
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -319,6 +483,8 @@ class FhirService
      */
     public function searchPatients(array $searchParams): array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $queryParams = [];
 
@@ -371,10 +537,72 @@ class FhirService
     }
 
     /**
+     * Search Observation resources in Azure FHIR
+     */
+    public function searchObservations(array $searchParams): array
+    {
+        $this->ensureAzureConfigured();
+        
+        try {
+            $queryParams = [];
+
+            // Map search parameters to FHIR search format
+            if (!empty($searchParams['patient'])) {
+                $queryParams['patient'] = $searchParams['patient'];
+            }
+            if (!empty($searchParams['subject'])) {
+                $queryParams['subject'] = $searchParams['subject'];
+            }
+            if (!empty($searchParams['category'])) {
+                $queryParams['category'] = $searchParams['category'];
+            }
+            if (!empty($searchParams['code'])) {
+                $queryParams['code'] = $searchParams['code'];
+            }
+            if (!empty($searchParams['date'])) {
+                $queryParams['date'] = $searchParams['date'];
+            }
+            if (!empty($searchParams['status'])) {
+                $queryParams['status'] = $searchParams['status'];
+            }
+            if (!empty($searchParams['encounter'])) {
+                $queryParams['encounter'] = $searchParams['encounter'];
+            }
+
+            // Pagination
+            if (!empty($searchParams['_count'])) {
+                $queryParams['_count'] = min(100, max(1, (int)$searchParams['_count']));
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/Observation", $queryParams);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error searching Observations: " . $response->body());
+            }
+
+            $bundle = $response->json();
+
+            // Update URLs to point to our FHIR server instead of Azure
+            $bundle = $this->updateBundleUrls($bundle);
+
+            return $bundle;
+
+        } catch (\Exception $e) {
+            Log::error('Failed to search FHIR Observations in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
+            throw $e;
+        }
+    }
+
+    /**
      * Get Patient history from Azure FHIR
      */
     public function getPatientHistory(string $id): ?array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -407,6 +635,8 @@ class FhirService
      */
     public function getPatientsHistory(): array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -435,6 +665,8 @@ class FhirService
      */
     public function processTransaction(array $bundle): array
     {
+        $this->ensureAzureConfigured();
+        
         try {
             // Add MSC extensions to any Patient resources in the bundle
             if (isset($bundle['entry'])) {
@@ -635,398 +867,5 @@ class FhirService
         }
 
         return $bundle;
-    }
-
-    /**
-     * Search Observation resources in Azure FHIR
-     */
-    public function searchObservations(array $searchParams): array
-    {
-        try {
-            $queryParams = [];
-
-            // Map search parameters to FHIR search format
-            // Add more parameters as needed based on FHIR Observation search capabilities
-            if (!empty($searchParams['patient'])) {
-                $queryParams['patient'] = $searchParams['patient']; // Or subject, depending on how you store patient reference
-            }
-            if (!empty($searchParams['subject'])) {
-                $queryParams['subject'] = $searchParams['subject'];
-            }
-            if (!empty($searchParams['category'])) {
-                $queryParams['category'] = $searchParams['category'];
-            }
-            if (!empty($searchParams['code'])) {
-                $queryParams['code'] = $searchParams['code'];
-            }
-            if (!empty($searchParams['date'])) {
-                $queryParams['date'] = $searchParams['date']; // Can be a date or a period
-            }
-            if (!empty($searchParams['status'])) {
-                $queryParams['status'] = $searchParams['status'];
-            }
-             if (!empty($searchParams['encounter'])) {
-                $queryParams['encounter'] = $searchParams['encounter'];
-            }
-
-            // Pagination
-            if (!empty($searchParams['_count'])) {
-                $queryParams['_count'] = min(100, max(1, (int)$searchParams['_count']));
-            }
-            // _page is not a standard FHIR search parameter for pagination directly.
-            // FHIR uses link relations in the bundle (next, previous) for pagination.
-            // However, if your service layer or Azure FHIR supports an offset or page-like param, handle it here.
-            // For simplicity, we're not implementing full cursor-based pagination here but relying on _count.
-
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/Observation", $queryParams);
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error searching Observations: " . $response->body());
-            }
-
-            $bundle = $response->json();
-
-            // Update URLs to point to our FHIR server instead of Azure
-            $bundle = $this->updateBundleUrls($bundle);
-
-            return $bundle;
-
-        } catch (\Exception $e) {
-            Log::error('Failed to search FHIR Observations in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Search Coverage resources in Azure FHIR
-     */
-    public function searchCoverage(array $searchParams): array
-    {
-        try {
-            $queryParams = [];
-
-            // Map search parameters to FHIR search format
-            if (!empty($searchParams['patient'])) {
-                $queryParams['patient'] = $searchParams['patient'];
-            }
-            if (!empty($searchParams['status'])) {
-                $queryParams['status'] = $searchParams['status'];
-            }
-            if (!empty($searchParams['beneficiary'])) {
-                $queryParams['beneficiary'] = $searchParams['beneficiary'];
-            }
-            if (!empty($searchParams['subscriber'])) {
-                $queryParams['subscriber'] = $searchParams['subscriber'];
-            }
-
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/Coverage", $queryParams);
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error searching Coverage: " . $response->body());
-            }
-
-            $bundle = $response->json();
-
-            // Extract entries from bundle
-            $coverages = [];
-            if (isset($bundle['entry'])) {
-                foreach ($bundle['entry'] as $entry) {
-                    if (isset($entry['resource'])) {
-                        $coverages[] = $entry['resource'];
-                    }
-                }
-            }
-
-            return $coverages;
-
-        } catch (\Exception $e) {
-            Log::error('Failed to search FHIR Coverage in Azure', ['params' => $searchParams, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get Practitioner by ID from Azure FHIR
-     */
-    public function getPractitioner(string $id): ?array
-    {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/Practitioner/{$id}");
-
-            if ($response->status() === 404) {
-                return null;
-            }
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error: " . $response->body());
-            }
-
-            return $response->json();
-
-        } catch (\Exception $e) {
-            Log::error('Failed to read FHIR Practitioner from Azure', ['id' => $id, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get Organization by ID from Azure FHIR
-     */
-    public function getOrganization(string $id): ?array
-    {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/Organization/{$id}");
-
-            if ($response->status() === 404) {
-                return null;
-            }
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error: " . $response->body());
-            }
-
-            return $response->json();
-
-        } catch (\Exception $e) {
-            Log::error('Failed to read FHIR Organization from Azure', ['id' => $id, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get QuestionnaireResponse by ID from Azure FHIR
-     */
-    public function getQuestionnaireResponse(string $id): ?array
-    {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/QuestionnaireResponse/{$id}");
-
-            if ($response->status() === 404) {
-                return null;
-            }
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error: " . $response->body());
-            }
-
-            return $response->json();
-
-        } catch (\Exception $e) {
-            Log::error('Failed to read FHIR QuestionnaireResponse from Azure', ['id' => $id, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get DeviceRequest by ID from Azure FHIR
-     */
-    public function getDeviceRequest(string $id): ?array
-    {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/DeviceRequest/{$id}");
-
-            if ($response->status() === 404) {
-                return null;
-            }
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error: " . $response->body());
-            }
-
-            return $response->json();
-
-        } catch (\Exception $e) {
-            Log::error('Failed to read FHIR DeviceRequest from Azure', ['id' => $id, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Get EpisodeOfCare by ID from Azure FHIR
-     */
-    public function getEpisodeOfCare(string $id): ?array
-    {
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Accept' => 'application/fhir+json',
-            ])->get("{$this->azureFhirEndpoint}/EpisodeOfCare/{$id}");
-
-            if ($response->status() === 404) {
-                return null;
-            }
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR API error: " . $response->body());
-            }
-
-            return $response->json();
-
-        } catch (\Exception $e) {
-            Log::error('Failed to read FHIR EpisodeOfCare from Azure', ['id' => $id, 'error' => $e->getMessage()]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Execute a FHIR Bundle transaction
-     * This method allows batching multiple FHIR operations in a single request
-     */
-    public function executeBundle(array $bundle): array
-    {
-        try {
-            // Validate bundle structure
-            if (!isset($bundle['resourceType']) || $bundle['resourceType'] !== 'Bundle') {
-                throw new \InvalidArgumentException('Invalid bundle structure');
-            }
-
-            if (!isset($bundle['type']) || !in_array($bundle['type'], ['batch', 'transaction'])) {
-                throw new \InvalidArgumentException('Bundle type must be "batch" or "transaction"');
-            }
-
-            // Check cache first for batch operations
-            if ($bundle['type'] === 'batch') {
-                $cachedBundle = $this->checkBundleCache($bundle);
-                if ($cachedBundle && $this->isBundleCacheFresh($cachedBundle)) {
-                    Log::info('Bundle retrieved from cache', [
-                        'entries_count' => count($bundle['entry'] ?? [])
-                    ]);
-                    return $cachedBundle;
-                }
-            }
-
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$this->azureAccessToken}",
-                'Content-Type' => 'application/fhir+json',
-                'Accept' => 'application/fhir+json',
-            ])->post($this->azureFhirEndpoint, $bundle);
-
-            if (!$response->successful()) {
-                throw new \Exception("Azure FHIR Bundle execution error: " . $response->body());
-            }
-
-            $responseBundle = $response->json();
-
-            // Cache successful batch responses
-            if ($bundle['type'] === 'batch' && $this->shouldCacheBundle($responseBundle)) {
-                $this->cacheBundle($bundle, $responseBundle);
-            }
-
-            Log::info('FHIR Bundle executed successfully', [
-                'type' => $bundle['type'],
-                'entries_count' => count($bundle['entry'] ?? []),
-                'response_entries' => count($responseBundle['entry'] ?? [])
-            ]);
-
-            return $responseBundle;
-
-        } catch (\Exception $e) {
-            Log::error('Failed to execute FHIR Bundle', [
-                'type' => $bundle['type'] ?? 'unknown',
-                'error' => $e->getMessage()
-            ]);
-            throw $e;
-        }
-    }
-
-    /**
-     * Check if bundle results are in cache
-     */
-    private function checkBundleCache(array $bundle): ?array
-    {
-        $cacheKey = $this->generateBundleCacheKey($bundle);
-        return Cache::get($cacheKey);
-    }
-
-    /**
-     * Cache bundle results
-     */
-    private function cacheBundle(array $bundle, array $response): void
-    {
-        $cacheKey = $this->generateBundleCacheKey($bundle);
-        $ttl = $this->determineBundleCacheTTL($bundle);
-
-        Cache::put($cacheKey, $response, $ttl);
-    }
-
-    /**
-     * Generate cache key for bundle
-     */
-    private function generateBundleCacheKey(array $bundle): string
-    {
-        $entries = $bundle['entry'] ?? [];
-        $requests = array_map(function ($entry) {
-            return $entry['request'] ?? [];
-        }, $entries);
-
-        return 'fhir:bundle:' . md5(json_encode($requests));
-    }
-
-    /**
-     * Determine appropriate TTL for bundle cache
-     */
-    private function determineBundleCacheTTL(array $bundle): int
-    {
-        // Check if bundle contains only read operations
-        $entries = $bundle['entry'] ?? [];
-        $hasOnlyReads = true;
-
-        foreach ($entries as $entry) {
-            $method = $entry['request']['method'] ?? '';
-            if (!in_array($method, ['GET', 'HEAD'])) {
-                $hasOnlyReads = false;
-                break;
-            }
-        }
-
-        // Read-only bundles can be cached longer
-        return $hasOnlyReads ? 3600 : 300; // 1 hour for reads, 5 minutes for mixed
-    }
-
-    /**
-     * Check if cached bundle is still fresh
-     */
-    private function isBundleCacheFresh(array $cachedBundle): bool
-    {
-        // Could implement additional freshness checks here
-        // For now, we rely on TTL expiration
-        return true;
-    }
-
-    /**
-     * Determine if bundle response should be cached
-     */
-    private function shouldCacheBundle(array $responseBundle): bool
-    {
-        // Only cache successful responses
-        $entries = $responseBundle['entry'] ?? [];
-
-        foreach ($entries as $entry) {
-            $status = $entry['response']['status'] ?? '';
-            // Don't cache if any entry failed
-            if (strpos($status, '2') !== 0 && strpos($status, '304') !== 0) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

@@ -105,7 +105,7 @@ class ProductController extends Controller
     {
         return Inertia::render('Products/Create', [
             'categories' => Product::getCategories(),
-            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
+            'manufacturers' => Manufacturer::active()->orderBy('name')->pluck('name')->values(),
         ]);
     }
 
@@ -151,7 +151,7 @@ class ProductController extends Controller
         return Inertia::render('Products/Edit', [
             'product' => $product,
             'categories' => Product::getCategories(),
-            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
+            'manufacturers' => Manufacturer::active()->orderBy('name')->pluck('name')->values(),
         ]);
     }
 
@@ -293,6 +293,9 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
+        // Eager load the active sizes relationship
+        $product->load('activeSizes');
+
         $data = [
             'id' => $product->id,
             'name' => $product->name,
@@ -302,9 +305,20 @@ class ProductController extends Controller
             'category' => $product->category,
             'description' => $product->description,
             'national_asp' => $product->price_per_sq_cm,
-            'available_sizes' => $product->available_sizes ?? [],
             'image_url' => $product->image_url,
             'document_urls' => $product->document_urls ?? [],
+            'sizes' => $product->activeSizes->map(function ($size) {
+                return [
+                    'id' => $size->id,
+                    'display_label' => $size->display_label,
+                    'size_type' => $size->size_type,
+                    'length_mm' => $size->length_mm,
+                    'width_mm' => $size->width_mm,
+                    'diameter_mm' => $size->diameter_mm,
+                    'area_cm2' => $size->area_cm2,
+                    'formatted_size' => $size->formatted_size,
+                ];
+            }),
         ];
 
         // Add financial data only if user has permission
@@ -322,14 +336,7 @@ class ProductController extends Controller
         }
 
         return response()->json([
-            'product' => array_merge($product->toArray(), [
-                'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
-                'size_options' => $product->size_options,
-                'size_pricing' => $product->size_pricing,
-                'size_unit' => $product->size_unit,
-                'msc_price' => $user->hasPermission('view-msc-pricing') ? $product->msc_price : null,
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-            ]),
+            'product' => $data,
             'categories' => Product::distinct()->pluck('category'),
             'manufacturers' => Product::distinct()->pluck('manufacturer'),
             'roleRestrictions' => [
@@ -419,7 +426,7 @@ class ProductController extends Controller
             });
 
         $categories = Product::getCategories();
-        $manufacturers = \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values();
+        $manufacturers = Manufacturer::active()->orderBy('name')->pluck('name')->values();
 
         return response()->json([
             'products' => $products,
@@ -701,7 +708,7 @@ class ProductController extends Controller
             'products' => $products,
             'filters' => $request->only(['search', 'category', 'manufacturer', 'status', 'sort', 'direction']),
             'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
-            'manufacturers' => \App\Models\Order\Manufacturer::active()->orderBy('name')->pluck('name')->values(),
+            'manufacturers' => Manufacturer::active()->orderBy('name')->pluck('name')->values(),
             'stats' => $stats,
             'permissions' => [
                 'can_create' => $user->hasPermission('manage-products'),
