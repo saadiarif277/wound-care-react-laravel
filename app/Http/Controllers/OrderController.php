@@ -1,9 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
 use App\Models\Order\ProductRequest;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -12,7 +15,7 @@ use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
 use App\Services\DocuSealService;
 
-class OrderController extends Controller
+final class OrderController extends Controller
 {
     public function __construct()
     {
@@ -42,9 +45,29 @@ class OrderController extends Controller
     public function center(Request $request): Response
     {
         $user = $request->user();
+        
+        $query = $this->buildOrderCenterQuery();
+        $this->applyOrderCenterFilters($query, $request);
+        
+        $requests = $this->processOrderCenterResults($query);
+        $statusCounts = $this->getOrderStatusCounts();
+        $facilities = $this->getActiveFacilities();
+        
+        return Inertia::render('Order/OrderCenter', [
+            'requests' => $requests,
+            'filters' => $request->only(['search', 'status', 'priority', 'facility', 'days_pending']),
+            'statusCounts' => $statusCounts,
+            'facilities' => $facilities,
+            'roleRestrictions' => $this->buildRoleRestrictions($user),
+        ]);
+    }
 
-        // Build base query for product requests using DB
-        $query = DB::table('product_requests')
+    /**
+     * Build base query for order center
+     */
+    private function buildOrderCenterQuery()
+    {
+        return DB::table('product_requests')
             ->select([
                 'product_requests.*',
                 'facilities.name as facility_name',
@@ -60,8 +83,13 @@ class OrderController extends Controller
             ->leftJoin('users', 'product_requests.provider_id', '=', 'users.id')
             ->whereIn('product_requests.order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
             ->orderBy('product_requests.submitted_at', 'desc');
+    }
 
-        // Apply filters
+    /**
+     * Apply filters to order center query
+     */
+    private function applyOrderCenterFilters($query, Request $request): void
+    {
         if ($request->filled('search')) {
             $search = $request->input('search');
             $query->where(function ($q) use ($search) {
@@ -99,21 +127,18 @@ class OrderController extends Controller
                 $query->whereRaw('DATEDIFF(NOW(), product_requests.submitted_at) > 7');
             }
         }
+    }
 
-        // Get paginated results
-        $requests = $query->paginate(20)
+    /**
+     * Process and paginate order center results
+     */
+    private function processOrderCenterResults($query)
+    {
+        return $query->paginate(20)
             ->withQueryString()
             ->through(function ($request) {
-                // Calculate priority score
-                $score = 0;
                 $daysSince = $request->submitted_at ? Carbon::parse($request->submitted_at)->diffInDays(now()) : 0;
-                if ($daysSince > 7) $score += 40;
-                elseif ($daysSince > 3) $score += 20;
-                elseif ($daysSince > 1) $score += 10;
-
-                if ($request->pre_auth_required_determination === 'required') $score += 30;
-                if ($request->mac_validation_status === 'failed') $score += 25;
-                if ($request->total_order_value > 1000) $score += 15;
+                $score = $this->calculateRequestPriorityScore($request, $daysSince);
 
                 return [
                     'id' => $request->id,
@@ -144,11 +169,34 @@ class OrderController extends Controller
                     'clinical_summary' => json_decode($request->clinical_summary, true),
                     'products_count' => $request->products_count,
                     'days_since_submission' => $daysSince,
-                    'priority_score' => min($score, 100),
+                    'priority_score' => $score,
                 ];
             });
+    }
 
-        // Get status counts using DB
+    /**
+     * Calculate priority score for order center requests
+     */
+    private function calculateRequestPriorityScore($request, int $daysSince): int
+    {
+        $score = 0;
+        
+        if ($daysSince > 7) $score += 40;
+        elseif ($daysSince > 3) $score += 20;
+        elseif ($daysSince > 1) $score += 10;
+
+        if ($request->pre_auth_required_determination === 'required') $score += 30;
+        if ($request->mac_validation_status === 'failed') $score += 25;
+        if ($request->total_order_value > 1000) $score += 15;
+
+        return min($score, 100);
+    }
+
+    /**
+     * Get order status counts for dashboard
+     */
+    private function getOrderStatusCounts(): array
+    {
         $statusCounts = DB::table('product_requests')
             ->whereIn('order_status', ['submitted', 'processing', 'pending_approval', 'approved', 'rejected'])
             ->selectRaw('order_status, count(*) as count')
@@ -156,36 +204,40 @@ class OrderController extends Controller
             ->pluck('count', 'order_status')
             ->toArray();
 
-        // Map status names for consistency
-        $mappedStatusCounts = [
+        return [
             'submitted' => $statusCounts['submitted'] ?? 0,
             'processing' => ($statusCounts['processing'] ?? 0) + ($statusCounts['pending_approval'] ?? 0),
             'approved' => $statusCounts['approved'] ?? 0,
             'rejected' => $statusCounts['rejected'] ?? 0,
         ];
+    }
 
-        // Get facilities for filter dropdown using DB
-        $facilities = DB::table('facilities')
+    /**
+     * Get active facilities for dropdown
+     */
+    private function getActiveFacilities()
+    {
+        return DB::table('facilities')
             ->where('active', true)
             ->orderBy('name')
             ->get(['id', 'name']);
+    }
 
-        return Inertia::render('Order/OrderCenter', [
-            'requests' => $requests,
-            'filters' => $request->only(['search', 'status', 'priority', 'facility', 'days_pending']),
-            'statusCounts' => $mappedStatusCounts,
-            'facilities' => $facilities,
-            'roleRestrictions' => [
-                'can_approve_requests' => $user->hasAnyPermission(['approve-product-requests', 'manage-product-requests']),
-                'can_reject_requests' => $user->hasAnyPermission(['reject-product-requests', 'manage-product-requests']),
-                'can_view_clinical_data' => $user->hasPermission('view-clinical-data'),
-                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
-                'can_see_discounts' => $user->hasPermission('view-discounts'),
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
-                'access_level' => $this->getUserAccessLevel($user),
-            ]
-        ]);
+    /**
+     * Build role restrictions array for user
+     */
+    private function buildRoleRestrictions(\App\Models\User $user): array
+    {
+        return [
+            'can_approve_requests' => $user->hasAnyPermission(['approve-product-requests', 'manage-product-requests']),
+            'can_reject_requests' => $user->hasAnyPermission(['reject-product-requests', 'manage-product-requests']),
+            'can_view_clinical_data' => $user->hasPermission('view-clinical-data'),
+            'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+            'can_see_discounts' => $user->hasPermission('view-discounts'),
+            'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+            'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+            'access_level' => $this->getUserAccessLevel($user),
+        ];
     }
 
     /**

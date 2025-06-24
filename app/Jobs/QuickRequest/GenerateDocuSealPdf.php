@@ -5,7 +5,8 @@ namespace App\Jobs\QuickRequest;
 use App\Models\Episode;
 use App\Models\Document;
 use App\Services\DocusealService;
-use App\Services\Fhir\FhirService;
+use App\Services\FhirService;
+use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -147,7 +148,7 @@ class GenerateDocuSealPdf implements ShouldQueue
         try {
             // Add patient demographics if not present
             if (!isset($data['patientAge']) && $this->episode->patient_fhir_id) {
-                $patient = $fhirService->read('Patient', $this->episode->patient_fhir_id);
+                $patient = $fhirService->getPatientById($this->episode->patient_fhir_id);
                 $birthDate = $patient['birthDate'] ?? null;
                 if ($birthDate) {
                     $data['patientAge'] = \Carbon\Carbon::parse($birthDate)->age;
@@ -156,7 +157,7 @@ class GenerateDocuSealPdf implements ShouldQueue
 
             // Add provider details if not present
             if (!isset($data['providerPhone']) && $this->episode->practitioner_fhir_id) {
-                $practitioner = $fhirService->read('Practitioner', $this->episode->practitioner_fhir_id);
+                $practitioner = $fhirService->getPractitioner($this->episode->practitioner_fhir_id);
                 $telecom = $practitioner['telecom'] ?? [];
                 foreach ($telecom as $contact) {
                     if ($contact['system'] === 'phone' && !isset($data['providerPhone'])) {

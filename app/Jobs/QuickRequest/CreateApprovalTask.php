@@ -3,9 +3,9 @@
 namespace App\Jobs\QuickRequest;
 
 use App\Models\Episode;
-use App\Models\Order;
+use App\Models\Order\Order;
 use App\Models\Task;
-use App\Services\Fhir\FhirService;
+use App\Services\FhirService;
 use App\Notifications\TaskAssignedNotification;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -45,7 +45,7 @@ class CreateApprovalTask implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(FhirService $fhirService): void
+    public function handle(\App\Services\FhirService $fhirService): void
     {
         Log::info('Creating approval task', [
             'episode_id' => $this->episode->id,

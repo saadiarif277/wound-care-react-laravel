@@ -48,13 +48,46 @@ class FhirService
     }
 // ... existing code for AzureFhirClient class
 
-/**
- * Search for FHIR resources.
- * @param string $resourceType
- * @param array $params
- * @return array
- */
-public function search(string $resourceType, array $params = []): array
+    /**
+     * Create a new FHIR resource
+     */
+    public function create(string $resourceType, array $fhirData): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Content-Type' => 'application/fhir+json',
+            ])->post("{$this->azureFhirEndpoint}/{$resourceType}", $fhirData);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error: " . $response->body());
+            }
+
+            $resource = $response->json();
+
+            Log::info("FHIR {$resourceType} created in Azure", [
+                'resource_id' => $resource['id'] ?? null,
+                'resource_type' => $resourceType
+            ]);
+
+            return $resource;
+
+        } catch (\Exception $e) {
+            Log::error("Failed to create FHIR {$resourceType} in Azure", [
+                'error' => $e->getMessage(), 
+                'data' => $fhirData
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Search for FHIR resources.
+     * @param string $resourceType
+     * @param array $params
+     * @return array
+     */
+    public function search(string $resourceType, array $params = []): array
 {
     // Example implementation using GET with query parameters
     $query = http_build_query($params);

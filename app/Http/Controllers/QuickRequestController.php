@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
@@ -22,7 +24,7 @@ use Inertia\Inertia;
 use App\Services\DocusealService;
 use App\Models\Docuseal\DocusealTemplate;
 
-class QuickRequestController extends Controller
+final class QuickRequestController extends Controller
 {
     use QuickRequestDocuSealIntegration;
 

@@ -16,7 +16,21 @@
         <include>
             <directory>app</directory>
         </include>
+        <exclude>
+            <directory>app/Console</directory>
+            <directory>app/Exceptions</directory>
+            <directory>app/Http/Middleware</directory>
+            <file>app/Http/Kernel.php</file>
+            <file>app/Providers/RouteServiceProvider.php</file>
+        </exclude>
     </source>
+    <coverage>
+        <report>
+            <html outputDirectory="tests/coverage/html"/>
+            <text outputFile="tests/coverage/coverage.txt"/>
+            <clover outputFile="tests/coverage/clover.xml"/>
+        </report>
+    </coverage>
     <php>
         <env name="APP_ENV" value="testing"/>
         <env name="BCRYPT_ROUNDS" value="4"/>

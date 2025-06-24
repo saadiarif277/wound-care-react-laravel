@@ -778,6 +778,120 @@ class DocuSealService
     }
 
     /**
+     * Generate PDF document from template with form data and signatures
+     */
+    public function generatePdf(string $templateId, array $formData, array $signatures = []): array
+    {
+        try {
+            Log::info('Generating PDF with DocuSeal', [
+                'template_id' => $templateId,
+                'form_fields_count' => count($formData),
+                'signatures_count' => count($signatures),
+            ]);
+
+            // Create submission data
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false, // Don't send email, we want to generate PDF directly
+                'completed' => true, // Mark as completed to generate PDF immediately
+                'submitters' => [[
+                    'role' => 'Signer',
+                    'name' => $formData['signer_name'] ?? 'System Generated',
+                    'email' => $formData['signer_email'] ?? 'system@example.com',
+                    'fields' => array_merge($formData, $signatures),
+                    'completed' => true,
+                ]]
+            ];
+
+            // Create the submission
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if (!$response->successful()) {
+                Log::error('Failed to create DocuSeal submission', [
+                    'status' => $response->status(),
+                    'error' => $response->body(),
+                    'template_id' => $templateId,
+                ]);
+
+                return [
+                    'success' => false,
+                    'error' => 'Failed to create submission: ' . $response->body(),
+                ];
+            }
+
+            $submissionResult = $response->json();
+            $submissionId = null;
+
+            // Extract submission ID from response
+            if (is_array($submissionResult) && !empty($submissionResult)) {
+                $submissionId = $submissionResult[0]['submission_id'] ?? $submissionResult[0]['id'] ?? null;
+            } else {
+                $submissionId = $submissionResult['id'] ?? null;
+            }
+
+            if (!$submissionId) {
+                return [
+                    'success' => false,
+                    'error' => 'Unable to extract submission ID from response',
+                ];
+            }
+
+            // Wait a moment for document generation
+            sleep(2);
+
+            // Get the completed document
+            $documentUrl = $this->downloadDocument($submissionId);
+
+            if (!$documentUrl) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to get document download URL',
+                ];
+            }
+
+            // Download the PDF content
+            $pdfResponse = Http::get($documentUrl);
+
+            if (!$pdfResponse->successful()) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to download PDF content',
+                ];
+            }
+
+            $pdfContent = $pdfResponse->body();
+
+            Log::info('PDF generated successfully', [
+                'template_id' => $templateId,
+                'submission_id' => $submissionId,
+                'pdf_size' => strlen($pdfContent),
+            ]);
+
+            return [
+                'success' => true,
+                'pdf_content' => $pdfContent,
+                'submission_id' => $submissionId,
+                'document_id' => $submissionId, // For compatibility
+                'document_url' => $documentUrl,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('DocuSeal PDF generation failed', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
      * Test DocuSeal API connectivity and authentication
      */
     public function testConnection(): array

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Order\ProductRequest;
@@ -21,7 +23,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Http\Response;
 use Inertia\Response as InertiaResponse;
 
-class ProductRequestController extends Controller
+final class ProductRequestController extends Controller
 {
     protected PatientService $patientService;
     private ValidationBuilderEngine $validationEngine;
