@@ -367,7 +367,7 @@ class RemoveHardcodedDataSeeder extends Seeder
             'Q4250' => 4000, // Amnio AMP
             'Q4290' => 4000, // Membrane Wrap Hydro
             'Q4205' => 4000, // Membrane Wrap
-            'Q4191' => 4000, // Restorigen
+            'Q4191' => 4000, // Restorigin
         ];
         
         foreach ($mueLimits as $qCode => $limit) {

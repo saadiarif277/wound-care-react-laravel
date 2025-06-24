@@ -263,7 +263,7 @@ class QuickRequestController extends Controller
 
     private function validateQuickRequest(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             // Context & Request Type
             'request_type' => 'required|in:new_request,reverification,additional_applications',
             'provider_id' => 'required|exists:users,id',

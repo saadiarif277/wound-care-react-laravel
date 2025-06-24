@@ -451,7 +451,17 @@ export default function Step7FinalSubmission({
       }
     };
     initializeSubmission();
-  }, [episodeId, isCreatingEpisode, error, submissionUrl, builderToken, isCreatingSubmission, createEpisodeMemo, createDocuSealSubmissionMemo]);
+    // Add all referenced variables to the dependency array
+  }, [
+    episodeId,
+    isCreatingEpisode,
+    error,
+    submissionUrl,
+    builderToken,
+    isCreatingSubmission,
+    createEpisodeMemo,
+    createDocuSealSubmissionMemo
+  ]);
 
   const handleDocuSealComplete = (data: any) => {
     console.log('Final DocuSeal submission completed:', data);
@@ -619,8 +629,7 @@ export default function Step7FinalSubmission({
           )}
 
           <DocuSealEmbed
-            embedUrl={submissionUrl}
-            submissionId={submissionId}
+            url={submissionUrl}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
             className="min-h-[800px]"

@@ -43,7 +43,9 @@ return new class extends Migration
         });
         
         // Optionally migrate existing address data to address_line1
-        DB::statement('UPDATE facilities SET address_line1 = address WHERE address_line1 IS NULL');
+        if (Schema::hasColumn('facilities', 'address_line1')) {
+            DB::statement('UPDATE facilities SET address_line1 = address WHERE address_line1 IS NULL');
+        }
     }
 
     /**

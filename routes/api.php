@@ -141,8 +141,8 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->name('api.quickrequest.docuseal.generate-builder-token');
 });
 
-// MAC Validation & Eligibility Routes (Public)
-Route::prefix('v1')->group(function () {
+// MAC Validation & Eligibility Routes (Public with Rate Limiting)
+Route::prefix('v1')->middleware(['throttle:public', 'api.rate.limit:public'])->group(function () {
     // MAC Validation Routes
     Route::post('mac-validation/quick-check', [MedicareMacValidationController::class, 'quickCheck'])->name('mac-validation.quick-check');
     Route::post('mac-validation/thorough-validate', [MedicareMacValidationController::class, 'thoroughValidate'])->name('mac-validation.thorough-validate');
@@ -275,9 +275,13 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
     Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])->name('manufacturer.fields');
 });
 
-// DocuSeal Webhook (no auth required for external webhooks)
-Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])->name('docuseal.webhook');
-Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])->name('docuseal.webhook.quickrequest');
+// DocuSeal Webhook with signature verification
+Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::class, 'handleWebhook'])
+    ->middleware('webhook.verify:docuseal')
+    ->name('docuseal.webhook');
+Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])
+    ->middleware('webhook.verify:docuseal')
+    ->name('docuseal.webhook.quickrequest');
 
 // Note: eClinicalWorks Integration Routes have been removed
 // The EcwController has been deprecated and removed from the codebase
