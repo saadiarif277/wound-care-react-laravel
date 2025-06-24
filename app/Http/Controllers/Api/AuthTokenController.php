@@ -26,7 +26,7 @@ class AuthTokenController extends Controller
         $user->tokens()->where('name', 'web')->delete();
 
         // Issue token with full abilities (adjust scopes if needed)
-        $token = $user->createToken('web', ['*'])->plainTextToken;
+        $token = $user->createToken('web', ['*'], now()->addHours(12))->plainTextToken;
 
         return response()->json([
             'token' => $token,

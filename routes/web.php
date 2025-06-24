@@ -93,7 +93,7 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
 // Removed debug CSRF routes - security vulnerability fixed
 
 // AI Support Escalation Route
-Route::post('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
+Route::get('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
 Route::post('/api/support/escalate', function (Request $request) {
     // Validate the request
     $validated = $request->validate([
