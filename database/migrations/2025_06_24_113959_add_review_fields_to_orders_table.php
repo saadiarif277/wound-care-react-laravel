@@ -13,19 +13,31 @@ return new class extends Migration
     {
         Schema::table('orders', function (Blueprint $table) {
             // Add JSON columns for structured data
-            $table->json('details')->nullable()->after('type');
-            $table->json('pricing')->nullable()->after('details');
-            
+            if (!Schema::hasColumn('orders', 'details')) {
+                $table->json('details')->nullable();
+            }
+            if (!Schema::hasColumn('orders', 'pricing')) {
+                $table->json('pricing')->nullable();
+            }
             // Add submission tracking
-            $table->foreignId('submitted_by')->nullable()->after('submitted_at')->constrained('users');
-            
+            if (!Schema::hasColumn('orders', 'submitted_by')) {
+                $table->foreignId('submitted_by')->nullable();
+                $table->foreign('submitted_by')->references('id')->on('users')->nullOnDelete();
+            }
             // Add delivery tracking
-            $table->date('expected_delivery_date')->nullable()->after('submitted_to_manufacturer_at');
-            $table->string('tracking_number')->nullable()->after('expected_delivery_date');
-            
+            if (!Schema::hasColumn('orders', 'expected_delivery_date')) {
+                $table->date('expected_delivery_date')->nullable();
+            }
+            if (!Schema::hasColumn('orders', 'tracking_number')) {
+                $table->string('tracking_number')->nullable();
+            }
             // Add indexes for performance
-            $table->index('submitted_at');
-            $table->index('expected_delivery_date');
+            if (Schema::hasColumn('orders', 'submitted_at')) {
+                $table->index('submitted_at');
+            }
+            if (Schema::hasColumn('orders', 'expected_delivery_date')) {
+                $table->index('expected_delivery_date');
+            }
         });
     }
 

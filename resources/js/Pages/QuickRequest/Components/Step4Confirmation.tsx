@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { getManufacturerConfig } from '../manufacturerFields';
+import { getManufacturerConfig } from './manufacturerFields';
 import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
 
 interface Step4Props {

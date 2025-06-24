@@ -37,31 +37,67 @@ class QuickRequestController extends Controller
                 'patient_fhir_id' => 'required|string',
                 'patient_display_id' => 'required|string',
                 'manufacturer_id' => 'nullable|exists:manufacturers,id',
-                'selected_product_id' => 'nullable|exists:products,id',
+                'selected_product_id' => 'nullable|exists:msc_products,id',
                 'form_data' => 'required|array',
+            ]);
+
+            // Log the incoming data for debugging
+            Log::info('QuickRequest createEpisode - incoming data', [
+                'manufacturer_id' => $data['manufacturer_id'],
+                'selected_product_id' => $data['selected_product_id'],
+                'user_id' => Auth::id()
             ]);
 
             // Determine manufacturer from product if not provided
             if (!$data['manufacturer_id'] && $data['selected_product_id']) {
                 $product = Product::find($data['selected_product_id']);
+
+                Log::info('QuickRequest createEpisode - product lookup', [
+                    'selected_product_id' => $data['selected_product_id'],
+                    'product_found' => $product ? true : false,
+                    'product_manufacturer_id' => $product?->manufacturer_id,
+                    'product_name' => $product?->name
+                ]);
+
                 if ($product && $product->manufacturer_id) {
                     $data['manufacturer_id'] = $product->manufacturer_id;
+                    Log::info('QuickRequest createEpisode - manufacturer determined from product', [
+                        'manufacturer_id' => $data['manufacturer_id']
+                    ]);
+                } else {
+                    Log::warning('QuickRequest createEpisode - product found but no manufacturer_id', [
+                        'product_id' => $data['selected_product_id'],
+                        'product' => $product ? $product->toArray() : null
+                    ]);
                 }
             }
 
             if (!$data['manufacturer_id']) {
+                Log::error('QuickRequest createEpisode - no manufacturer_id determined', [
+                    'request_data' => $request->all(),
+                    'user_id' => Auth::id()
+                ]);
+
                 return response()->json([
                     'success' => false,
                     'message' => 'Unable to determine manufacturer. Please ensure a product is selected.',
+                    'debug_info' => [
+                        'selected_product_id' => $data['selected_product_id'],
+                        'manufacturer_id_provided' => $request->input('manufacturer_id'),
+                        'product_has_manufacturer' => $data['selected_product_id'] ? (Product::find($data['selected_product_id'])?->manufacturer_id ? true : false) : false
+                    ]
                 ], 422);
             }
+
+            // Use patient_fhir_id as patient_id since the frontend sends non-UUID strings
+            $patientId = $data['patient_fhir_id'];
 
             // Find or create episode
             $episode = PatientManufacturerIVREpisode::firstOrCreate([
                 'patient_fhir_id' => $data['patient_fhir_id'],
                 'manufacturer_id' => $data['manufacturer_id'],
             ], [
-                'patient_id' => $data['patient_id'],
+                'patient_id' => $patientId,
                 'patient_display_id' => $data['patient_display_id'],
                 'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
                 'metadata' => [
@@ -137,7 +173,7 @@ class QuickRequestController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Failed to create episode with documents', [
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id(),
@@ -231,7 +267,7 @@ class QuickRequestController extends Controller
             $filledFields = count(array_filter($extractedFields, function($value) {
                 return !empty($value);
             }));
-            
+
             $fieldCoverage = [
                 'total' => $totalFields,
                 'filled' => $filledFields,

@@ -46,6 +46,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'role' => \App\Http\Middleware\CheckRole::class,
             'role.redirect' => \App\Http\Middleware\RedirectBasedOnRole::class,
             'guest' => \App\Http\Middleware\RedirectIfAuthenticated::class,
+            'handle.quick.request.errors' => \App\Http\Middleware\HandleQuickRequestErrors::class,
         ]);
 
         $middleware->throttleApi();
