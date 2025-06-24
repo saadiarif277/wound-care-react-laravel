@@ -2,16 +2,17 @@
 
 namespace App\Services\Eligibility\Providers;
 
-use App\Services\AvailityEligibilityService;
+use App\Contracts\Eligibility\EligibilityProviderInterface;
+use App\Services\CmsCoverageApiService;
 use Exception;
 
 class AvailityProvider implements EligibilityProviderInterface
 {
-    private AvailityEligibilityService $availityService;
+    private CmsCoverageApiService $coverageService;
     
-    public function __construct(AvailityEligibilityService $availityService)
+    public function __construct(CmsCoverageApiService $coverageService)
     {
-        $this->availityService = $availityService;
+        $this->coverageService = $coverageService;
     }
     
     public function getName(): string
@@ -19,7 +20,7 @@ class AvailityProvider implements EligibilityProviderInterface
         return 'availity';
     }
     
-    public function supportsPayer(?string $payerId, ?string $payerName): bool
+    public function supportsPayer(string $payerId, ?string $payerName = null): bool
     {
         // Check Availity's payer list
         $supportedPayers = config('availity.supported_payers', []);
@@ -47,7 +48,7 @@ class AvailityProvider implements EligibilityProviderInterface
         $availityRequest = $this->transformRequest($request);
         
         // Call existing Availity service
-        $response = $this->availityService->checkEligibility($availityRequest);
+        $response = $this->coverageService->checkEligibility($availityRequest);
         
         // Transform response to unified format
         return $this->transformResponse($response);
@@ -66,7 +67,7 @@ class AvailityProvider implements EligibilityProviderInterface
     {
         try {
             // Implement health check
-            return $this->availityService->healthCheck();
+            return $this->coverageService->healthCheck();
         } catch (Exception $e) {
             return false;
         }

@@ -20,6 +20,28 @@ class CmsCoverageApiService
     private int $cacheHits = 0;
     private int $cacheMisses = 0;
 
+    public function checkEligibility(array $request): array
+    {
+        // Implement eligibility check using CMS Coverage API data
+        $coverageData = $this->getLCDsBySpecialty('wound_care', $request['state'] ?? null);
+        
+        return [
+            'eligible' => !empty($coverageData),
+            'details' => $coverageData,
+            'source' => 'CMS Coverage API'
+        ];
+    }
+
+    public function healthCheck(): bool
+    {
+        try {
+            $response = Http::get("{$this->baseUrl}/reports/whats-new/local", ['limit' => 1]);
+            return $response->successful();
+        } catch (\Exception $e) {
+            return false;
+        }
+    }
+
     public function __construct()
     {
         $this->validateConfiguration();

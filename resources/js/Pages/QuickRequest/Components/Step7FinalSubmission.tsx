@@ -607,7 +607,7 @@ export default function Step7FinalSubmission({
           )}
 
           <DocuSealEmbed
-            jwtToken={builderToken}
+            token={builderToken}
             templateId={builderProps.templateId}
             userEmail={builderProps.userEmail}
             integrationEmail={builderProps.integrationEmail}
@@ -629,7 +629,7 @@ export default function Step7FinalSubmission({
           )}
 
           <DocuSealEmbed
-            url={submissionUrl}
+            Url={submissionUrl}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
             className="min-h-[800px]"
