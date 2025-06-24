@@ -50,10 +50,43 @@ use Illuminate\Support\Facades\Log;
 |--------------------------------------------------------------------------
 |
 | Here is where you can register web routes for your application. These
-| routes are loaded by the RouteServiceProvider within a group which
-| contains the "web" middleware group. Now create something great!
+| routes are loaded by the RouteServiceProvider and all of them will
+| be assigned to the "web" middleware group. Make something great!
 |
 */
+
+use App\Services\DocuSealService;
+use App\Services\FhirService;
+use Illuminate\Support\Facades\DB;
+
+Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
+    $service = app(DocuSealService::class);
+    
+    // Test the FHIR data fetch
+    $episode = DB::table('patient_manufacturer_ivr_episodes')->find($episodeId);
+    
+    if ($episode->azure_order_checklist_fhir_id) {
+        $fhirService = app(FhirService::class);
+        // Use search method to find the DocumentReference by ID
+        $bundle = $fhirService->search('DocumentReference', ['_id' => $episode->azure_order_checklist_fhir_id]);
+        
+        // Extract the first entry from the bundle
+        if (!isset($bundle['entry'][0]['resource'])) {
+            return 'DocumentReference not found';
+        }
+        
+        $doc = $bundle['entry'][0]['resource'];
+        $checklistData = json_decode(base64_decode($doc['content'][0]['attachment']['data']), true);
+        
+        dd([
+            'episode' => $episode,
+            'fhir_data' => $checklistData,
+            'would_map_to' => $service->mapFHIRToDocuSeal($checklistData)
+        ]);
+    }
+    
+    return 'No FHIR data found';
+});
 
 // Removed debug CSRF routes - security vulnerability fixed
 

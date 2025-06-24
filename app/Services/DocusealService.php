@@ -8,6 +8,8 @@ use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use App\Services\FhirService;
 
 class DocuSealService
 {
@@ -949,5 +951,229 @@ class DocuSealService
             Log::error('DocuSeal connection test exception', $result);
             return $result;
         }
+    }
+
+    protected function getTemplateForManufacturer($manufacturerId, $templateType)
+    {
+        $template = DocusealTemplate::where('manufacturer_id', $manufacturerId)
+            ->where('document_type', $templateType)
+            ->where('is_active', true)
+            ->first();
+
+        if ($template) {
+            return $template;
+        }
+
+        // Fallback to API if not in DB
+        $manufacturer = Manufacturer::find($manufacturerId);
+        if ($manufacturer) {
+            return $this->fetchTemplateFromApi($manufacturer, $templateType);
+        }
+
+        return null;
+    }
+
+    protected function preparePrefillData($episode, $template)
+    {
+        // This method should extract data from the episode and format it
+        // for use with mapFieldsUsingTemplate.
+        $data = [];
+        if ($episode) {
+            $episodeData = is_object($episode) ? get_object_vars($episode) : $episode;
+            $data = array_merge($data, $episodeData);
+        }
+        
+        return is_object($episode) ? (array) $episode : $episode;
+    }
+
+    public function generateIVR($episodeId, $templateType = 'IVR'): array
+    {
+        try {
+            $episode = DB::table('patient_manufacturer_ivr_episodes as e')
+                ->leftJoin('manufacturers as m', 'e.manufacturer_id', '=', 'm.id')
+                ->select('e.*', 'm.name as manufacturer_name')
+                ->where('e.id', $episodeId)
+                ->first();
+
+            if (!$episode) {
+                throw new \Exception('Episode not found');
+            }
+
+            // Get the template
+            $template = $this->getTemplateForManufacturer($episode->manufacturer_id, $templateType);
+            
+            if (!$template) {
+                throw new \Exception('No DocuSeal template found for manufacturer');
+            }
+
+            // Prepare the prefill data
+            $prefillData = $this->preparePrefillData($episode, $template);
+            
+            // NEW: Enrich with FHIR data
+            $prefillData = $this->enrichWithFHIRData($prefillData, $episodeId);
+            
+            // Continue with existing DocuSeal submission...
+            $submissionData = [
+                'template_id' => $template->docuseal_template_id,
+                'send_email' => true,
+                'order_index' => 1,
+                'submitters' => [
+                    [
+                        'email' => $episode->patient_email ?? 'patient@example.com',
+                        'role' => 'Patient',
+                        'fields' => $this->mapFieldsUsingTemplate($prefillData, $template)
+                    ]
+                ]
+            ];
+            
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json'
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $submissionId = $data['id'] ?? ($data[0]['id'] ?? null);
+
+                if ($submissionId) {
+                    return ['submission_id' => $submissionId];
+                }
+            }
+            
+            throw new \Exception('DocuSeal API error: ' . $response->body());
+
+        } catch (\Exception $e) {
+            Log::error('IVR generation failed', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+    }
+
+    private function enrichWithFHIRData(array $prefillData, string $episodeId): array 
+    {
+        try {
+            $episode = DB::table('patient_manufacturer_ivr_episodes')
+                ->where('id', $episodeId)
+                ->first();
+                
+            if (!$episode || !$episode->azure_order_checklist_fhir_id) {
+                Log::info('No FHIR data for episode', ['episode_id' => $episodeId]);
+                return $prefillData;
+            }
+            
+            // Fetch the DocumentReference which contains our checklist data
+            $fhirService = app(FhirService::class);
+            $bundle = $fhirService->search('DocumentReference', ['_id' => $episode->azure_order_checklist_fhir_id]);
+
+            if (!isset($bundle['entry'][0]['resource'])) {
+                Log::warning('DocumentReference not found in FHIR for episode', ['episode_id' => $episodeId]);
+                return $prefillData;
+            }
+            $documentRef = $bundle['entry'][0]['resource'];
+            
+            // The checklist data is base64 encoded in the attachment
+            if (isset($documentRef['content'][0]['attachment']['data'])) {
+                $checklistJson = base64_decode($documentRef['content'][0]['attachment']['data']);
+                $checklistData = json_decode($checklistJson, true);
+                
+                // Map FHIR checklist data to DocuSeal fields
+                $fhirMappings = $this->mapFHIRToDocuSeal($checklistData);
+                
+                // Merge with existing data (FHIR data takes precedence)
+                return array_merge($prefillData, $fhirMappings);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to enrich with FHIR data', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+        }
+        
+        return $prefillData;
+    }
+
+    public function mapFHIRToDocuSeal(array $checklistData): array 
+    {
+        $mappings = [];
+        
+        // Patient Information
+        if (isset($checklistData['patientName'])) {
+            $mappings['PATIENT NAME'] = $checklistData['patientName'];
+            $mappings['Patient Name'] = $checklistData['patientName'];
+            $mappings['PATIENT_NAME'] = $checklistData['patientName'];
+        }
+        
+        if (isset($checklistData['dateOfBirth'])) {
+            $mappings['DATE OF BIRTH'] = date('m/d/Y', strtotime($checklistData['dateOfBirth']));
+            $mappings['DOB'] = date('m/d/Y', strtotime($checklistData['dateOfBirth']));
+        }
+        
+        // Diagnosis mappings
+        if (isset($checklistData['hasDiabetes']) && $checklistData['hasDiabetes']) {
+            $mappings['DIABETES'] = 'X';
+            $mappings['Has Diabetes'] = 'Yes';
+            
+            if (isset($checklistData['diabetesType'])) {
+                $mappings['DIABETES TYPE ' . $checklistData['diabetesType']] = 'X';
+                $mappings['Diabetes Type'] = 'Type ' . $checklistData['diabetesType'];
+            }
+        }
+        
+        // Wound measurements
+        if (isset($checklistData['length'])) {
+            $mappings['WOUND LENGTH'] = $checklistData['length'];
+            $mappings['Length (cm)'] = $checklistData['length'];
+            $mappings['WOUND_LENGTH_CM'] = $checklistData['length'];
+        }
+        
+        if (isset($checklistData['width'])) {
+            $mappings['WOUND WIDTH'] = $checklistData['width'];
+            $mappings['Width (cm)'] = $checklistData['width'];
+            $mappings['WOUND_WIDTH_CM'] = $checklistData['width'];
+        }
+        
+        if (isset($checklistData['woundDepth'])) {
+            $mappings['WOUND DEPTH'] = $checklistData['woundDepth'];
+            $mappings['Depth (cm)'] = $checklistData['woundDepth'];
+        }
+        
+        // Location and laterality
+        if (isset($checklistData['location'])) {
+            $mappings['LOCATION ' . strtoupper($checklistData['location'])] = 'X';
+            $mappings['Location'] = ucfirst($checklistData['location']);
+        }
+        
+        if (isset($checklistData['ulcerLocation'])) {
+            $mappings['ULCER LOCATION'] = $checklistData['ulcerLocation'];
+            $mappings['Wound Location'] = $checklistData['ulcerLocation'];
+        }
+        
+        // Lab values
+        if (isset($checklistData['hba1cResult'])) {
+            $mappings['HBA1C'] = $checklistData['hba1cResult'];
+            $mappings['HbA1c Result'] = $checklistData['hba1cResult'] . '%';
+            $mappings['A1C_VALUE'] = $checklistData['hba1cResult'];
+        }
+        
+        // Conservative treatment
+        if (isset($checklistData['debridementPerformed']) && $checklistData['debridementPerformed']) {
+            $mappings['DEBRIDEMENT'] = 'X';
+            $mappings['Debridement Performed'] = 'Yes';
+        }
+        
+        if (isset($checklistData['moistDressingsApplied']) && $checklistData['moistDressingsApplied']) {
+            $mappings['MOIST DRESSINGS'] = 'X';
+            $mappings['Moist Dressings Applied'] = 'Yes';
+        }
+        
+        // Add procedure date if available
+        if (isset($checklistData['dateOfProcedure'])) {
+            $mappings['PROCEDURE DATE'] = date('m/d/Y', strtotime($checklistData['dateOfProcedure']));
+            $mappings['Date of Service'] = date('m/d/Y', strtotime($checklistData['dateOfProcedure']));
+        }
+        
+        return $mappings;
     }
 }

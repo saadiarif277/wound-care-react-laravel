@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react';
-import { FiCamera, FiRefreshCw, FiFile, FiCheck, FiInfo } from 'react-icons/fi';
+import { FiCreditCard, FiRefreshCw, FiFile, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
@@ -50,9 +50,9 @@ export default function Step2PatientInsurance({
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
   const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
+  const [saveToPatientResource, setSaveToPatientResource] = useState(false);
 
-  const fileInputFrontRef = useRef<HTMLInputElement>(null);
-  const fileInputBackRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const states = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -268,80 +268,77 @@ export default function Step2PatientInsurance({
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
-          {/* Front of card */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Front of Insurance Card
-            </label>
-            <div
-              onClick={() => fileInputFrontRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              {cardFrontPreview ? (
-                cardFrontPreview === 'pdf' ? (
-                  <div className="flex flex-col items-center">
-                    <FiFile className="h-12 w-12 text-blue-500 mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">PDF uploaded</p>
+        {/* Single upload area for both front and back */}
+        <div className="mt-4">
+          <div
+            onClick={() => fileInputRef.current?.click()}
+            className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+          >
+            <FiCreditCard className="mx-auto h-16 w-16 mb-3 text-gray-400" />
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Upload Insurance Card
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+              You can upload front and back images or a single PDF
+            </p>
+            
+            {/* Show uploaded files */}
+            {(cardFrontPreview || cardBackPreview) && (
+              <div className="mt-4 space-y-2">
+                {cardFrontPreview && (
+                  <div className="flex items-center justify-center space-x-2 text-sm">
+                    <FiCheck className="h-4 w-4 text-green-500" />
+                    <span className="text-gray-600 dark:text-gray-400">Front uploaded</span>
                   </div>
-                ) : (
-                  <img src={cardFrontPreview} alt="Insurance card front" className="mx-auto max-h-32" />
-                )
-              ) : (
-                <>
-                  <FiCamera className="mx-auto h-12 w-12 mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload front</p>
-                </>
-              )}
-            </div>
-            <input
-              ref={fileInputFrontRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleInsuranceCardUpload(file, 'front');
-              }}
-            />
+                )}
+                {cardBackPreview && (
+                  <div className="flex items-center justify-center space-x-2 text-sm">
+                    <FiCheck className="h-4 w-4 text-green-500" />
+                    <span className="text-gray-600 dark:text-gray-400">Back uploaded</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            <button
+              type="button"
+              className="mt-3 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            >
+              <FiUpload className="h-4 w-4 mr-2" />
+              Choose Files
+            </button>
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*,application/pdf"
+            className="hidden"
+            multiple
+            onChange={(e) => {
+              const files = Array.from(e.target.files || []);
+              files.forEach((file, index) => {
+                // First file is front, second is back
+                handleInsuranceCardUpload(file, index === 0 ? 'front' : 'back');
+              });
+            }}
+          />
+        </div>
 
-          {/* Back of card */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Back of Insurance Card
-            </label>
-            <div
-              onClick={() => fileInputBackRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-            >
-              {cardBackPreview ? (
-                cardBackPreview === 'pdf' ? (
-                  <div className="flex flex-col items-center">
-                    <FiFile className="h-12 w-12 text-blue-500 mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-400">PDF uploaded</p>
-                  </div>
-                ) : (
-                  <img src={cardBackPreview} alt="Insurance card back" className="mx-auto max-h-32" />
-                )
-              ) : (
-                <>
-                  <FiCamera className="mx-auto h-12 w-12 mb-2 text-gray-400" />
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Click to upload back</p>
-                </>
-              )}
-            </div>
-            <input
-              ref={fileInputBackRef}
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) handleInsuranceCardUpload(file, 'back');
-              }}
-            />
-          </div>
+        {/* Save to patient resource checkbox */}
+        <div className="mt-4 flex items-center">
+          <input
+            type="checkbox"
+            id="saveToPatientResource"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            checked={saveToPatientResource}
+            onChange={(e) => {
+              setSaveToPatientResource(e.target.checked);
+              updateFormData({ save_card_to_patient_resource: e.target.checked });
+            }}
+          />
+          <label htmlFor="saveToPatientResource" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
+            Save insurance card to patient resource for future use
+          </label>
         </div>
 
         {/* Processing status */}
@@ -488,7 +485,7 @@ export default function Step2PatientInsurance({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Phone Number
+                Phone Number <span className="text-gray-500">(Optional)</span>
               </label>
               <input
                 type="tel"
@@ -501,7 +498,7 @@ export default function Step2PatientInsurance({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Email Address (Optional)
+                Email Address <span className="text-gray-500">(Optional)</span>
               </label>
               <input
                 type="email"
@@ -665,7 +662,8 @@ export default function Step2PatientInsurance({
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Primary insurance fields on one line */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                 Insurance Name <span className="text-red-500">*</span>
@@ -706,7 +704,7 @@ export default function Step2PatientInsurance({
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Payer Phone {formData.primary_payer_phone && '(Auto-filled)'}
+                Payer Phone <span className="text-gray-500">(Optional)</span> {formData.primary_payer_phone && '(Auto-filled)'}
               </label>
               <input
                 type="tel"
@@ -722,24 +720,25 @@ export default function Step2PatientInsurance({
                 placeholder="1-800-555-0100"
               />
             </div>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Plan Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.primary_plan_type || ''}
-                onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
-              >
-                {planTypes.map(type => (
-                  <option key={type.value} value={type.value}>{type.label}</option>
-                ))}
-              </select>
-              {errors.primary_plan_type && (
-                <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
-              )}
-            </div>
+          {/* Plan Type on separate row */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Plan Type <span className="text-red-500">*</span>
+            </label>
+            <select
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              value={formData.primary_plan_type || ''}
+              onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
+            >
+              {planTypes.map(type => (
+                <option key={type.value} value={type.value}>{type.label}</option>
+              ))}
+            </select>
+            {errors.primary_plan_type && (
+              <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
+            )}
           </div>
         </div>
       </div>

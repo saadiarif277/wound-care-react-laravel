@@ -76,6 +76,8 @@ interface Episode {
   ivr_status: string;
   verification_date?: string;
   expiration_date?: string;
+  azure_order_checklist_fhir_id?: string;
+  docuseal_submission_id?: string;
   manufacturer: {
     id: number;
     name: string;
@@ -174,6 +176,36 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { post, delete: destroy } = useForm();
+
+  const generateIVR = async () => {
+    try {
+      // Check if we have FHIR data
+      if (!episode.azure_order_checklist_fhir_id) {
+        console.warn('No FHIR checklist data for episode');
+        alert('No FHIR checklist data for this episode. Please complete the clinical assessment first.');
+        return;
+      }
+      
+      const response = await fetch(`/admin/episodes/${episode.id}/generate-ivr`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+        },
+      });
+      
+      if (response.ok) {
+        alert('IVR generated successfully. The page will now reload.');
+        router.reload({ only: ['episode'] });
+      } else {
+          const errorText = await response.text();
+          alert(`Failed to generate IVR: ${errorText}`);
+      }
+    } catch (error) {
+      console.error('Failed to generate IVR', error);
+      alert('Failed to generate IVR. See console for details.');
+    }
+  };
 
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat('en-US', {
@@ -750,6 +782,15 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
                     Send to Manufacturer
                   </button>
                 )}
+
+                <button
+                  onClick={generateIVR}
+                  className={cn(t.button.secondary, "w-full justify-center mt-2")}
+                  title="Generate a new IVR document using the latest FHIR clinical data."
+                >
+                  <FileCheck className="w-4 h-4 mr-2" />
+                  Generate IVR from FHIR
+                </button>
 
                 {episode.status === 'sent_to_manufacturer' && (
                   <div className={cn("p-3 rounded-lg border", "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-700")}>
