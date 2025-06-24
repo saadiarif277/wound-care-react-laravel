@@ -25,6 +25,7 @@ class ProductRequest extends Model
         'provider_id',
         'patient_fhir_id',
         'patient_display_id',
+        'ivr_episode_id',
         'facility_id',
         'place_of_service',
         'medicare_part_b_authorized',
@@ -210,6 +211,14 @@ class ProductRequest extends Model
     public function docusealSubmissions(): HasMany
     {
         return $this->hasMany(DocusealSubmission::class, 'order_id');
+    }
+
+    /**
+     * Get the IVR episode associated with this product request.
+     */
+    public function ivrEpisode(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\PatientManufacturerIVREpisode::class, 'ivr_episode_id');
     }
 
     /**

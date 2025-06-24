@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('manufacturer_contacts', function (Blueprint $table) {
             $table->uuid('id')->primary();
-            $table->foreignUuid('manufacturer_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('manufacturer_id')->constrained()->cascadeOnDelete();
             $table->string('name', 255);
             $table->string('email', 255);
             $table->string('phone', 50)->nullable();

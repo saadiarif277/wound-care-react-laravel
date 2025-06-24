@@ -947,12 +947,14 @@ final class ProductRequestController extends Controller
 
             // Extract the DocumentReference ID from the bundle response
             $documentReferenceId = null;
-            if (isset($bundleResponse['entry']) && is_array($bundleResponse['entry'])) {
-                foreach ($bundleResponse['entry'] as $entry) {
-                    if (isset($entry['response']['location'])) {
-                        // Location header contains the resource type and ID
-                        if (str_contains($entry['response']['location'], 'DocumentReference/')) {
-                            $parts = explode('/', $entry['response']['location']);
+            $entries = method_exists($bundleResponse, 'getEntry') ? $bundleResponse->getEntry() : [];
+            if (!empty($entries) && is_array($entries)) {
+                foreach ($entries as $entry) {
+                    // Try to get response location if available
+                    if (method_exists($entry, 'getResponse') && $entry->getResponse() && method_exists($entry->getResponse(), 'getLocation')) {
+                        $location = $entry->getResponse()->getLocation();
+                        if ($location && str_contains((string)$location, 'DocumentReference/')) {
+                            $parts = explode('/', (string)$location);
                             $documentReferenceId = 'DocumentReference/' . end($parts);
                             break;
                         }
@@ -960,13 +962,18 @@ final class ProductRequestController extends Controller
                 }
             }
 
-            if (!$documentReferenceId) {
+            if (!$documentReferenceId && !empty($entries) && is_array($entries)) {
                 // Fallback: try to find DocumentReference in the bundle
-                foreach ($bundleResponse['entry'] as $entry) {
-                    if (isset($entry['resource']['resourceType']) &&
-                        $entry['resource']['resourceType'] === 'DocumentReference') {
-                        $documentReferenceId = 'DocumentReference/' . $entry['resource']['id'];
-                        break;
+                foreach ($entries as $entry) {
+                    if (method_exists($entry, 'getResource') && $entry->getResource()) {
+                        $resource = $entry->getResource();
+                        if (
+                            (property_exists($resource, 'resourceType') && $resource->resourceType === 'DocumentReference') ||
+                            (method_exists($resource, 'getResourceType') && $resource->getResourceType() === 'DocumentReference')
+                        ) {
+                            $documentReferenceId = 'DocumentReference/' . (method_exists($resource, 'getId') ? $resource->getId() : ($resource->id ?? uniqid('docref-')));
+                            break;
+                        }
                     }
                 }
             }

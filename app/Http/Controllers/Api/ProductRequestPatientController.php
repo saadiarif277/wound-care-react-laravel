@@ -235,8 +235,14 @@ class ProductRequestPatientController extends Controller
 
         foreach ($bundle->getEntry() as $entry) {
             $resource = $entry->getResource();
-            if ($resource && $resource->getResourceType() === 'DocumentReference') {
-                return 'DocumentReference/' . $resource->getId()->getValue();
+            if ($resource && 
+                method_exists($resource, 'getResourceType') && 
+                method_exists($resource, 'getId') &&
+                $resource->getResourceType() === 'DocumentReference') {
+                $resourceId = $resource->getId();
+                if ($resourceId && method_exists($resourceId, 'getValue')) {
+                    return 'DocumentReference/' . $resourceId->getValue();
+                }
             }
         }
 

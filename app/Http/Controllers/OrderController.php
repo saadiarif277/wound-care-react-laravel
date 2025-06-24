@@ -501,7 +501,9 @@ final class OrderController extends Controller
             'order_number' => $order->request_number,
             'patient_display_id' => $order->patient_display_id,
             'order_status' => $order->order_status,
-            'expected_service_date' => $order->expected_service_date?->format('Y-m-d') ?? $order->date_of_service,
+            'expected_service_date' => $order->expected_service_date 
+                ? Carbon::parse($order->expected_service_date)->format('Y-m-d') 
+                : $order->date_of_service,
             'submitted_at' => $order->created_at->format('Y-m-d H:i:s'),
             'tracking_number' => $order->tracking_number,
             'tracking_carrier' => $order->tracking_carrier,
