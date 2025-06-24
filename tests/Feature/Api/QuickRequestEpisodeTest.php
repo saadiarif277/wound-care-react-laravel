@@ -6,9 +6,9 @@ namespace Tests\Feature\Api;
 
 use App\Models\User;
 use App\Models\Episode;
-use App\Models\Organization;
-use App\Models\Facility;
-use App\Models\Manufacturer;
+use App\Models\Users\Organization\Organization;
+use App\Models\Fhir\Facility;
+use App\Models\Order\Manufacturer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
@@ -266,7 +266,8 @@ class QuickRequestEpisodeTest extends TestCase
 
     public function test_unauthorized_user_cannot_access_episodes(): void
     {
-        $otherUser = User::factory()->create();
+        /** @var User $otherUser */
+        $otherUser = User::factory()->createOne();
         $episode = Episode::factory()->create([
             'created_by' => $this->user->id,
             'organization_id' => $this->organization->id,

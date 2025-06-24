@@ -94,6 +94,9 @@ class AppServiceProvider extends ServiceProvider
 
         // Register Azure Document Intelligence Service
         $this->app->singleton(\App\Services\AzureDocumentIntelligenceService::class, function ($app) {
+            if ($app->environment('testing')) {
+                return \Mockery::mock(\App\Services\AzureDocumentIntelligenceService::class);
+            }
             return new \App\Services\AzureDocumentIntelligenceService();
         });
     }

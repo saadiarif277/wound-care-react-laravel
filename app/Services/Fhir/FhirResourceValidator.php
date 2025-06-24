@@ -53,6 +53,20 @@ class FhirResourceValidator
     }
 
     /**
+     * Validate a FHIR resource or throw a ValidationException
+     *
+     * @throws \Illuminate\Validation\ValidationException
+     */
+    public function validateOrThrow(array $resource, ?string $resourceType = null): void
+    {
+        $errors = $this->validate($resource, $resourceType);
+
+        if (!empty($errors)) {
+            throw ValidationException::withMessages($errors);
+        }
+    }
+
+    /**
      * Validate basic resource structure
      */
     private function validateResourceStructure(array $resource, string $type): array

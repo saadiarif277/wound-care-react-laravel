@@ -104,7 +104,7 @@ final class QuickRequestController extends Controller
             $productRequest = $this->createProductRequest($validated, $episode);
 
             // Handle file uploads
-            $this->handleFileUploads($request, $productRequest);
+            $this->handleFileUploads($request, $productRequest, $episode);
 
             // Save product request
             $productRequest->save();
@@ -679,7 +679,7 @@ final class QuickRequestController extends Controller
     /**
      * Create product request for backward compatibility
      */
-    private function createProductRequest(array $validated, $episode): ProductRequest
+    private function createProductRequest(array $validated, PatientManufacturerIVREpisode $episode): ProductRequest
     {
         $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
 
@@ -746,7 +746,7 @@ final class QuickRequestController extends Controller
     /**
      * Handle file uploads
      */
-    private function handleFileUploads(Request $request, ProductRequest $productRequest): void
+    private function handleFileUploads(StoreRequest $request, ProductRequest $productRequest, PatientManufacturerIVREpisode $episode): void
     {
         $documentMetadata = [];
         $documentTypes = [
@@ -769,7 +769,7 @@ final class QuickRequestController extends Controller
 
                 PhiAuditService::logCreation('Document', $path, [
                     'document_type' => $fieldName,
-                    'patient_fhir_id' => $productRequest->patient_fhir_id,
+                    'patient_fhir_id' => $episode->patient_fhir_id,
                     'product_request_id' => $productRequest->id
                 ]);
             }
@@ -785,7 +785,7 @@ final class QuickRequestController extends Controller
     /**
      * Dispatch background jobs
      */
-    private function dispatchQuickRequestJobs($episode, ProductRequest $productRequest, array $validated): void
+    private function dispatchQuickRequestJobs(PatientManufacturerIVREpisode $episode, ProductRequest $productRequest, array $validated): void
     {
         // Insurance eligibility verification
         VerifyInsuranceEligibility::dispatch($episode, [

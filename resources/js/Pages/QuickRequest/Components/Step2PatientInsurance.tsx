@@ -1,10 +1,11 @@
 import { useState, useRef } from 'react';
-import { FiCreditCard, FiRefreshCw, FiFile, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
+import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
+import Select from '@/Components/ui/Select';
 
 interface Step2Props {
   formData: any;
@@ -50,6 +51,7 @@ export default function Step2PatientInsurance({
   const [isProcessingCard, setIsProcessingCard] = useState(false);
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
   const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
+  const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
   const [saveToPatientResource, setSaveToPatientResource] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -210,43 +212,41 @@ export default function Step2PatientInsurance({
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Provider <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            <Select
+              label="Provider"
               value={formData.provider_id || ''}
               onChange={(e) => updateFormData({ provider_id: parseInt(e.target.value) })}
               disabled={currentUser?.role === 'provider'}
-            >
-              <option value="">Select a provider...</option>
-              {providers.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name}{p.credentials ? `, ${p.credentials}` : ''} {p.npi ? `(NPI: ${p.npi})` : ''}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select a provider...' },
+                ...providers.map(p => ({
+                  value: p.id,
+                  label: `${p.name}${p.credentials ? `, ${p.credentials}` : ''} ${p.npi ? `(NPI: ${p.npi})` : ''}`
+                }))
+              ]}
+              error={errors.provider_id}
+              required
+            />
             {errors.provider_id && (
               <p className="mt-1 text-sm text-red-500">{errors.provider_id}</p>
             )}
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Facility <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            <Select
+              label="Facility"
               value={formData.facility_id || ''}
               onChange={(e) => updateFormData({ facility_id: parseInt(e.target.value) })}
-            >
-              <option value="">Select a facility...</option>
-              {facilities.map(f => (
-                <option key={f.id} value={f.id}>
-                  {f.name} {f.address ? `(${f.address})` : ''}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select a facility...' },
+                ...facilities.map(f => ({
+                  value: f.id,
+                  label: `${f.name} ${f.address ? `(${f.address})` : ''}`
+                }))
+              ]}
+              error={errors.facility_id}
+              required
+            />
             {errors.facility_id && (
               <p className="mt-1 text-sm text-red-500">{errors.facility_id}</p>
             )}
@@ -395,19 +395,17 @@ export default function Step2PatientInsurance({
           />
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Gender
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            <Select
+              label="Gender"
               value={formData.patient_gender || ''}
               onChange={(e) => updateFormData({ patient_gender: e.target.value })}
-            >
-              <option value="male">Male</option>
-              <option value="female">Female</option>
-              <option value="other">Other</option>
-              <option value="unknown">Prefer not to say</option>
-            </select>
+              options={[
+                { value: 'male', label: 'Male' },
+                { value: 'female', label: 'Female' },
+                { value: 'other', label: 'Other' },
+                { value: 'unknown', label: 'Prefer not to say' }
+              ]}
+            />
           </div>
         </div>
 
@@ -452,19 +450,15 @@ export default function Step2PatientInsurance({
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                State
-              </label>
-              <select
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+              <Select
+                label="State"
                 value={formData.patient_state || ''}
                 onChange={(e) => updateFormData({ patient_state: e.target.value })}
-              >
-                <option value="">Select...</option>
-                {states.map(state => (
-                  <option key={state} value={state}>{state}</option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: 'Select...' },
+                  ...states.map(state => ({ value: state, label: state }))
+                ]}
+              />
             </div>
 
             <div>
@@ -533,20 +527,14 @@ export default function Step2PatientInsurance({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Shipping Speed <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            <Select
+              label="Shipping Speed"
               value={formData.shipping_speed || ''}
               onChange={(e) => updateFormData({ shipping_speed: e.target.value })}
-            >
-              {shippingOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={shippingOptions}
+              error={errors.shipping_speed}
+              required
+            />
             {errors.shipping_speed && (
               <p className="mt-1 text-sm text-red-500">{errors.shipping_speed}</p>
             )}
@@ -724,18 +712,14 @@ export default function Step2PatientInsurance({
 
           {/* Plan Type on separate row */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Plan Type <span className="text-red-500">*</span>
-            </label>
-            <select
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+            <Select
+              label="Plan Type"
               value={formData.primary_plan_type || ''}
               onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
-            >
-              {planTypes.map(type => (
-                <option key={type.value} value={type.value}>{type.label}</option>
-              ))}
-            </select>
+              options={planTypes}
+              error={errors.primary_plan_type}
+              required
+            />
             {errors.primary_plan_type && (
               <p className="mt-1 text-sm text-red-500">{errors.primary_plan_type}</p>
             )}
@@ -765,7 +749,80 @@ export default function Step2PatientInsurance({
             <h3 className="font-medium text-indigo-900 dark:text-indigo-300 mb-3">Secondary Insurance</h3>
 
             <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Secondary subscriber question */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Is the patient the secondary insurance subscriber?
+                </label>
+                <div className="space-x-4">
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio text-blue-600"
+                      name="secondary_subscriber"
+                      value="yes"
+                      checked={formData.secondary_patient_is_subscriber === true}
+                      onChange={() => {
+                        updateFormData({ secondary_patient_is_subscriber: true });
+                        setShowSecondaryCaregiver(false);
+                      }}
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">Yes</span>
+                  </label>
+                  <label className="inline-flex items-center">
+                    <input
+                      type="radio"
+                      className="form-radio text-blue-600"
+                      name="secondary_subscriber"
+                      value="no"
+                      checked={formData.secondary_patient_is_subscriber === false}
+                      onChange={() => {
+                        updateFormData({ secondary_patient_is_subscriber: false });
+                        setShowSecondaryCaregiver(true);
+                      }}
+                    />
+                    <span className="ml-2 text-gray-700 dark:text-gray-300">No</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Secondary Subscriber Information - Only show if patient is not subscriber */}
+              {showSecondaryCaregiver && (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
+                  <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2">
+                    Secondary Insurance Subscriber Information
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Subscriber Name <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        value={formData.secondary_subscriber_name || ''}
+                        onChange={(e) => updateFormData({ secondary_subscriber_name: e.target.value })}
+                        placeholder="Subscriber's full name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                        Relationship to Patient <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                        value={formData.secondary_subscriber_relationship || ''}
+                        onChange={(e) => updateFormData({ secondary_subscriber_relationship: e.target.value })}
+                        placeholder="Spouse, Parent, etc."
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Insurance details on one line */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Insurance Name <span className="text-red-500">*</span>
@@ -777,7 +834,8 @@ export default function Step2PatientInsurance({
                     }}
                     onChange={(payer) => updateFormData({
                       secondary_insurance_name: payer.name,
-                      secondary_payer_id: payer.id
+                      secondary_payer_id: payer.id,
+                      secondary_payer_phone: getPayerPhone(payer.name)
                     })}
                     error={errors.secondary_insurance}
                     placeholder="Search for insurance..."
@@ -799,32 +857,7 @@ export default function Step2PatientInsurance({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Subscriber Name
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    value={formData.secondary_subscriber_name || ''}
-                    onChange={(e) => updateFormData({ secondary_subscriber_name: e.target.value })}
-                    placeholder="If different from patient"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Subscriber DOB
-                  </label>
-                  <input
-                    type="date"
-                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    value={formData.secondary_subscriber_dob || ''}
-                    onChange={(e) => updateFormData({ secondary_subscriber_dob: e.target.value })}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Payer Phone
+                    Payer Phone <span className="text-gray-500">(Optional)</span>
                   </label>
                   <input
                     type="tel"
@@ -834,23 +867,19 @@ export default function Step2PatientInsurance({
                     placeholder="(800) 555-0100"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Plan Type
-                  </label>
-                  <select
-                    className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                    value={formData.secondary_plan_type || ''}
-                    onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
-                  >
-                    <option value="">Select plan type...</option>
-                    <option value="hmo">HMO</option>
-                    <option value="ppo">PPO</option>
-                    <option value="medicare_supplement">Medicare Supplement</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
+              {/* Plan Type on separate row */}
+              <div>
+                <Select
+                  label="Plan Type"
+                  value={formData.secondary_plan_type || ''}
+                  onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
+                  options={[
+                    { value: '', label: 'Select plan type...' },
+                    ...planTypes
+                  ]}
+                />
               </div>
             </div>
           </div>

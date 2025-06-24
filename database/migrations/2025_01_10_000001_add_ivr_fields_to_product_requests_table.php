@@ -143,21 +143,23 @@ return new class extends Migration
         });
 
         // Update the order_status enum to include new statuses
-        DB::statement("ALTER TABLE product_requests MODIFY COLUMN order_status ENUM(
-            'draft',
-            'submitted',
-            'processing',
-            'pending_ivr',
-            'ivr_sent',
-            'ivr_confirmed',
-            'approved',
-            'sent_back',
-            'denied',
-            'submitted_to_manufacturer',
-            'shipped',
-            'delivered',
-            'cancelled'
-        ) DEFAULT 'draft'");
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            DB::statement("ALTER TABLE product_requests MODIFY COLUMN order_status ENUM(
+                'draft',
+                'submitted',
+                'processing',
+                'pending_ivr',
+                'ivr_sent',
+                'ivr_confirmed',
+                'approved',
+                'sent_back',
+                'denied',
+                'submitted_to_manufacturer',
+                'shipped',
+                'delivered',
+                'cancelled'
+            ) DEFAULT 'draft'");
+        }
     }
 
     /**
@@ -165,17 +167,19 @@ return new class extends Migration
      */
     public function down(): void
     {
-        // Revert the enum back to original values
-        DB::statement("ALTER TABLE product_requests MODIFY COLUMN order_status ENUM(
-            'draft',
-            'submitted',
-            'processing',
-            'approved',
-            'rejected',
-            'shipped',
-            'delivered',
-            'cancelled'
-        ) DEFAULT 'draft'");
+        if (DB::connection()->getDriverName() !== 'sqlite') {
+            // Revert the enum back to original values
+            DB::statement("ALTER TABLE product_requests MODIFY COLUMN order_status ENUM(
+                'draft',
+                'submitted',
+                'processing',
+                'approved',
+                'rejected',
+                'shipped',
+                'delivered',
+                'cancelled'
+            ) DEFAULT 'draft'");
+        }
 
         Schema::table('product_requests', function (Blueprint $table) {
             // Drop foreign keys first

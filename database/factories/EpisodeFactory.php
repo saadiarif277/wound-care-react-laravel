@@ -3,7 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Episode;
-use App\Models\Organization;
+use App\Models\Users\Organization\Organization;
 use App\Models\Manufacturer;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -29,7 +29,7 @@ class EpisodeFactory extends Factory
             'episode_of_care_fhir_id' => 'EpisodeOfCare/' . fake()->uuid(),
             'patient_display' => strtoupper(fake()->lexify('??') . fake()->lexify('??') . fake()->numerify('###')),
             'status' => fake()->randomElement($statuses),
-            'manufacturer_id' => Manufacturer::factory(),
+            'manufacturer_id' => \App\Models\Order\Manufacturer::factory(),
             'organization_id' => Organization::factory(),
             'facility_id' => null, // Set in seeder or test
             'created_by' => User::factory(),

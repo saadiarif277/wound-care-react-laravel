@@ -1,9 +1,8 @@
-import { useState } from 'react';
-import { FiCalendar, FiHome, FiActivity, FiFileText, FiAlertCircle } from 'react-icons/fi';
+import { FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import PlaceOfServiceSelector from '@/Components/PlaceOfService/PlaceOfServiceSelector';
 import DiagnosisCodeSelector from '@/Components/DiagnosisCode/DiagnosisCodeSelector';
+import Select from '@/Components/ui/Select';
 
 interface FormData {
   // Clinical Information
@@ -208,32 +207,17 @@ export default function Step4ClinicalBilling({
 
           {/* Wound Location with CPT Codes */}
           <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Wound Location & CPT Code <span className="text-red-500">*</span>
-            </label>
-            <select
-              className={cn(
-                "w-full p-2 rounded border transition-all",
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500 [&>option]:bg-gray-800 [&>option]:text-white'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
-                errors.wound_location && 'border-red-500'
-              )}
+            <Select
+              label="Wound Location & CPT Code"
               value={formData.wound_location || ''}
               onChange={(e) => updateFormData({ wound_location: e.target.value })}
-            >
-              <option value="">
-                Select location...
-              </option>
-              {woundLocations.map(loc => (
-                <option
-                  key={loc.value}
-                  value={loc.value}
-                >
-                  {loc.label}
-                </option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select location...' },
+                ...woundLocations
+              ]}
+              error={errors.wound_location}
+              required
+            />
             {errors.wound_location && (
               <p className="mt-1 text-sm text-red-500">{errors.wound_location}</p>
             )}
@@ -571,29 +555,14 @@ export default function Step4ClinicalBilling({
         <div className="space-y-4">
           {/* Place of Service */}
           <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Place of Service <span className="text-red-500">*</span>
-            </label>
-            <select
-              className={cn(
-                "w-full p-2 rounded border transition-all",
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500 [&>option]:bg-gray-800 [&>option]:text-white'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500 [&>option]:bg-white [&>option]:text-gray-900',
-                errors.place_of_service && 'border-red-500'
-              )}
+            <Select
+              label="Place of Service"
               value={formData.place_of_service || '11'}
               onChange={(e) => updateFormData({ place_of_service: e.target.value })}
-            >
-              {placeOfServiceOptions.map(option => (
-                <option
-                  key={option.value}
-                  value={option.value}
-                >
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={placeOfServiceOptions}
+              error={errors.place_of_service}
+              required
+            />
             {errors.place_of_service && (
               <p className="mt-1 text-sm text-red-500">{errors.place_of_service}</p>
             )}

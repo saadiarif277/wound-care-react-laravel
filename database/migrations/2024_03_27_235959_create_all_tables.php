@@ -731,7 +731,9 @@ return new class extends Migration
             $table->index('is_billable');
             $table->index('is_active');
             $table->index(['category', 'is_active']);
-            $table->fullText(['code', 'description']);
+            if (Schema::connection($this->getConnection())->getConnection()->getDriverName() !== 'sqlite') {
+                $table->fullText(['code', 'description']);
+            }
         });
 
         Schema::create('cpt_codes', function (Blueprint $table) {
@@ -749,7 +751,9 @@ return new class extends Migration
             $table->index('is_billable');
             $table->index('is_active');
             $table->index(['category', 'is_active']);
-            $table->fullText(['code', 'description']);
+            if (Schema::connection($this->getConnection())->getConnection()->getDriverName() !== 'sqlite') {
+                $table->fullText(['code', 'description']);
+            }
         });
 
         // 15. Pre-authorization related tables

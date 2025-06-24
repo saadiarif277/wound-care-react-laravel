@@ -60,11 +60,12 @@ class QuickRequestServiceProvider extends ServiceProvider
      */
     protected function registerEventListeners(): void
     {
+        // TODO: Implement observers when needed
         // Episode status changes
-        \App\Models\Episode::observe(\App\Observers\EpisodeObserver::class);
+        // \App\Models\Episode::observe(\App\Observers\EpisodeObserver::class);
         
         // Order status changes
-        \App\Models\Order::observe(\App\Observers\OrderObserver::class);
+        // \App\Models\Order::observe(\App\Observers\OrderObserver::class);
     }
 
     /**

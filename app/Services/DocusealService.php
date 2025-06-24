@@ -46,7 +46,7 @@ class DocuSealService
     public function createIVRSubmission(array $quickRequestData, PatientManufacturerIVREpisode $episode)
     {
         // Get manufacturer and find the IVR template
-        $manufacturer = Manufacturer::find($episode->manufacturer_id);
+        $manufacturer = $episode->manufacturer()->first();
 
         if (!$manufacturer) {
             throw new \Exception('Manufacturer not found');
