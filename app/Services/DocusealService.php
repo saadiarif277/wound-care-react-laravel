@@ -128,7 +128,7 @@ class DocuSealService
     /**
      * Map fields using template's stored field mappings
      */
-    protected function mapFieldsUsingTemplate(array $data, \App\Models\Docuseal\DocusealTemplate $template): array
+    public function mapFieldsUsingTemplate(array $data, \App\Models\Docuseal\DocusealTemplate $template): array
     {
         $fieldMappings = $template->field_mappings ?? [];
         $mappedFields = [];

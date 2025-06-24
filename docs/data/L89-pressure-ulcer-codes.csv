@@ -1,0 +1,176 @@
+Code,Description
+L89.000,Pressure ulcer of unspecified elbow, unstageable
+L89.001,Pressure ulcer of unspecified elbow, stage 1
+L89.002,Pressure ulcer of unspecified elbow, stage 2
+L89.003,Pressure ulcer of unspecified elbow, stage 3
+L89.004,Pressure ulcer of unspecified elbow, stage 4
+L89.006,Pressure ulcer of unspecified elbow, deep tissue damage
+L89.009,Pressure ulcer of unspecified elbow, unspecified stage
+L89.010,Pressure ulcer of right elbow, unstageable
+L89.011,Pressure ulcer of right elbow, stage 1
+L89.012,Pressure ulcer of right elbow, stage 2
+L89.013,Pressure ulcer of right elbow, stage 3
+L89.014,Pressure ulcer of right elbow, stage 4
+L89.016,Pressure ulcer of right elbow, deep tissue damage
+L89.019,Pressure ulcer of right elbow, unspecified stage
+L89.020,Pressure ulcer of left elbow, unstageable
+L89.021,Pressure ulcer of left elbow, stage 1
+L89.022,Pressure ulcer of left elbow, stage 2
+L89.023,Pressure ulcer of left elbow, stage 3
+L89.024,Pressure ulcer of left elbow, stage 4
+L89.026,Pressure ulcer of left elbow, deep tissue damage
+L89.029,Pressure ulcer of left elbow, unspecified stage
+L89.100,Pressure ulcer of unspecified part of back, unstageable
+L89.101,Pressure ulcer of unspecified part of back, stage 1
+L89.102,Pressure ulcer of unspecified part of back, stage 2
+L89.103,Pressure ulcer of unspecified part of back, stage 3
+L89.104,Pressure ulcer of unspecified part of back, stage 4
+L89.106,Pressure ulcer of unspecified part of back, deep tissue damage
+L89.109,Pressure ulcer of unspecified part of back, unspecified stage
+L89.110,Pressure ulcer of right upper back, unstageable
+L89.111,Pressure ulcer of right upper back, stage 1
+L89.112,Pressure ulcer of right upper back, stage 2
+L89.113,Pressure ulcer of right upper back, stage 3
+L89.114,Pressure ulcer of right upper back, stage 4
+L89.116,Pressure ulcer of right upper back, deep tissue damage
+L89.119,Pressure ulcer of right upper back, unspecified stage
+L89.120,Pressure ulcer of left upper back, unstageable
+L89.121,Pressure ulcer of left upper back, stage 1
+L89.122,Pressure ulcer of left upper back, stage 2
+L89.123,Pressure ulcer of left upper back, stage 3
+L89.124,Pressure ulcer of left upper back, stage 4
+L89.126,Pressure ulcer of left upper back, deep tissue damage
+L89.129,Pressure ulcer of left upper back, unspecified stage
+L89.130,Pressure ulcer of right lower back, unstageable
+L89.131,Pressure ulcer of right lower back, stage 1
+L89.132,Pressure ulcer of right lower back, stage 2
+L89.133,Pressure ulcer of right lower back, stage 3
+L89.134,Pressure ulcer of right lower back, stage 4
+L89.136,Pressure ulcer of right lower back, deep tissue damage
+L89.139,Pressure ulcer of right lower back, unspecified stage
+L89.140,Pressure ulcer of left lower back, unstageable
+L89.141,Pressure ulcer of left lower back, stage 1
+L89.142,Pressure ulcer of left lower back, stage 2
+L89.143,Pressure ulcer of left lower back, stage 3
+L89.144,Pressure ulcer of left lower back, stage 4
+L89.146,Pressure ulcer of left lower back, deep tissue damage
+L89.149,Pressure ulcer of left lower back, unspecified stage
+L89.150,Pressure ulcer of sacral region, unstageable
+L89.151,Pressure ulcer of sacral region, stage 1
+L89.152,Pressure ulcer of sacral region, stage 2
+L89.153,Pressure ulcer of sacral region, stage 3
+L89.154,Pressure ulcer of sacral region, stage 4
+L89.156,Pressure ulcer of sacral region, deep tissue damage
+L89.159,Pressure ulcer of sacral region, unspecified stage
+L89.200,Pressure ulcer of unspecified hip, unstageable
+L89.201,Pressure ulcer of unspecified hip, stage 1
+L89.202,Pressure ulcer of unspecified hip, stage 2
+L89.203,Pressure ulcer of unspecified hip, stage 3
+L89.204,Pressure ulcer of unspecified hip, stage 4
+L89.206,Pressure ulcer of unspecified hip, deep tissue damage
+L89.209,Pressure ulcer of unspecified hip, unspecified stage
+L89.210,Pressure ulcer of right hip, unstageable
+L89.211,Pressure ulcer of right hip, stage 1
+L89.212,Pressure ulcer of right hip, stage 2
+L89.213,Pressure ulcer of right hip, stage 3
+L89.214,Pressure ulcer of right hip, stage 4
+L89.216,Pressure ulcer of right hip, deep tissue damage
+L89.219,Pressure ulcer of right hip, unspecified stage
+L89.220,Pressure ulcer of left hip, unstageable
+L89.221,Pressure ulcer of left hip, stage 1
+L89.222,Pressure ulcer of left hip, stage 2
+L89.223,Pressure ulcer of left hip, stage 3
+L89.224,Pressure ulcer of left hip, stage 4
+L89.226,Pressure ulcer of left hip, deep tissue damage
+L89.229,Pressure ulcer of left hip, unspecified stage
+L89.300,Pressure ulcer of unspecified buttock, unstageable
+L89.301,Pressure ulcer of unspecified buttock, stage 1
+L89.302,Pressure ulcer of unspecified buttock, stage 2
+L89.303,Pressure ulcer of unspecified buttock, stage 3
+L89.304,Pressure ulcer of unspecified buttock, stage 4
+L89.306,Pressure ulcer of unspecified buttock, deep tissue damage
+L89.309,Pressure ulcer of unspecified buttock, unspecified stage
+L89.310,Pressure ulcer of right buttock, unstageable
+L89.311,Pressure ulcer of right buttock, stage 1
+L89.312,Pressure ulcer of right buttock, stage 2
+L89.313,Pressure ulcer of right buttock, stage 3
+L89.314,Pressure ulcer of right buttock, stage 4
+L89.316,Pressure ulcer of right buttock, deep tissue damage
+L89.319,Pressure ulcer of right buttock, unspecified stage
+L89.320,Pressure ulcer of left buttock, unstageable
+L89.321,Pressure ulcer of left buttock, stage 1
+L89.322,Pressure ulcer of left buttock, stage 2
+L89.323,Pressure ulcer of left buttock, stage 3
+L89.324,Pressure ulcer of left buttock, stage 4
+L89.326,Pressure ulcer of left buttock, deep tissue damage
+L89.329,Pressure ulcer of left buttock, unspecified stage
+L89.40,Pressure ulcer of contiguous site of back, buttock and hip, unspecified stage
+L89.41,Pressure ulcer of contiguous site of back, buttock and hip, stage 1
+L89.42,Pressure ulcer of contiguous site of back, buttock and hip, stage 2
+L89.43,Pressure ulcer of contiguous site of back, buttock and hip, stage 3
+L89.44,Pressure ulcer of contiguous site of back, buttock and hip, stage 4
+L89.45,Pressure ulcer of contiguous site of back, buttock and hip, unstageable
+L89.46,Pressure ulcer of contiguous site of back, buttock and hip, deep tissue damage
+L89.500,Pressure ulcer of unspecified ankle, unstageable
+L89.501,Pressure ulcer of unspecified ankle, stage 1
+L89.502,Pressure ulcer of unspecified ankle, stage 2
+L89.503,Pressure ulcer of unspecified ankle, stage 3
+L89.504,Pressure ulcer of unspecified ankle, stage 4
+L89.506,Pressure ulcer of unspecified ankle, deep tissue damage
+L89.509,Pressure ulcer of unspecified ankle, unspecified stage
+L89.510,Pressure ulcer of right ankle, unstageable
+L89.511,Pressure ulcer of right ankle, stage 1
+L89.512,Pressure ulcer of right ankle, stage 2
+L89.513,Pressure ulcer of right ankle, stage 3
+L89.514,Pressure ulcer of right ankle, stage 4
+L89.516,Pressure ulcer of right ankle, deep tissue damage
+L89.519,Pressure ulcer of right ankle, unspecified stage
+L89.520,Pressure ulcer of left ankle, unstageable
+L89.521,Pressure ulcer of left ankle, stage 1
+L89.522,Pressure ulcer of left ankle, stage 2
+L89.523,Pressure ulcer of left ankle, stage 3
+L89.524,Pressure ulcer of left ankle, stage 4
+L89.526,Pressure ulcer of left ankle, deep tissue damage
+L89.529,Pressure ulcer of left ankle, unspecified stage
+L89.600,Pressure ulcer of unspecified heel, unstageable
+L89.601,Pressure ulcer of unspecified heel, stage 1
+L89.602,Pressure ulcer of unspecified heel, stage 2
+L89.603,Pressure ulcer of unspecified heel, stage 3
+L89.604,Pressure ulcer of unspecified heel, stage 4
+L89.606,Pressure ulcer of unspecified heel, deep tissue damage
+L89.609,Pressure ulcer of unspecified heel, unspecified stage
+L89.610,Pressure ulcer of right heel, unstageable
+L89.611,Pressure ulcer of right heel, stage 1
+L89.612,Pressure ulcer of right heel, stage 2
+L89.613,Pressure ulcer of right heel, stage 3
+L89.614,Pressure ulcer of right heel, stage 4
+L89.616,Pressure ulcer of right heel, deep tissue damage
+L89.619,Pressure ulcer of right heel, unspecified stage
+L89.620,Pressure ulcer of left heel, unstageable
+L89.621,Pressure ulcer of left heel, stage 1
+L89.622,Pressure ulcer of left heel, stage 2
+L89.623,Pressure ulcer of left heel, stage 3
+L89.624,Pressure ulcer of left heel, stage 4
+L89.626,Pressure ulcer of left heel, deep tissue damage
+L89.629,Pressure ulcer of left heel, unspecified stage
+L89.810,Pressure ulcer of head, unstageable
+L89.811,Pressure ulcer of head, stage 1
+L89.812,Pressure ulcer of head, stage 2
+L89.813,Pressure ulcer of head, stage 3
+L89.814,Pressure ulcer of head, stage 4
+L89.816,Pressure ulcer of head, deep tissue damage
+L89.819,Pressure ulcer of head, unspecified stage
+L89.890,Pressure ulcer of other site, unstageable
+L89.891,Pressure ulcer of other site, stage 1
+L89.892,Pressure ulcer of other site, stage 2
+L89.893,Pressure ulcer of other site, stage 3
+L89.894,Pressure ulcer of other site, stage 4
+L89.896,Pressure ulcer of other site, deep tissue damage
+L89.899,Pressure ulcer of other site, unspecified stage
+L89.90,Pressure ulcer of unspecified site, unspecified stage
+L89.91,Pressure ulcer of unspecified site, stage 1
+L89.92,Pressure ulcer of unspecified site, stage 2
+L89.93,Pressure ulcer of unspecified site, stage 3
+L89.94,Pressure ulcer of unspecified site, stage 4
+L89.95,Pressure ulcer of unspecified site, unstageable
+L89.96,Pressure ulcer of unspecified site, deep tissue damage

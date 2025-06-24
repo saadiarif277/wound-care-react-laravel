@@ -5,6 +5,7 @@ import axios from 'axios';
 interface DocuSealEmbedProps {
   manufacturerId: string;
   productCode: string;
+  formData?: any; // Pre-filled form data from quick request
   onComplete?: (submissionId: string) => void;
   onError?: (error: string) => void;
   className?: string;
@@ -14,6 +15,7 @@ interface DocuSealEmbedProps {
 export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   manufacturerId,
   productCode,
+  formData = {}, // Default to empty object
   onComplete,
   onError,
   className = '',
@@ -29,7 +31,8 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         // Use the web route which uses standard session auth instead of Sanctum
         const response = await axios.post('/quick-requests/docuseal/generate-builder-token', {
           manufacturerId,
-          productCode
+          productCode,
+          formData // Pass the prepared form data
         });
         
         // API should respond with JWT generated on backend

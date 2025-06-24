@@ -61,6 +61,7 @@ export default function DocuSealIVRForm({
     <DocuSealEmbed
       manufacturerId={manufacturerId}
       productCode={productCode}
+      formData={formData} // Pass the entire prepared form data
       onComplete={onComplete}
       onError={onError}
       className="w-full h-full min-h-[600px]"

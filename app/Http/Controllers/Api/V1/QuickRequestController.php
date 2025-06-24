@@ -3,75 +3,77 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Services\QuickRequestService;
-use App\Services\Templates\DocuSealBuilder;
+use App\Models\Manufacturer;
 use App\Services\DocuSealService;
-use App\Models\Episode;
+use App\Services\DocuSeal\DocuSealBuilder;
+use App\Services\QuickRequestService;
+use App\Services\ProcessQuickRequestService;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 
 class QuickRequestController extends Controller
 {
-    private QuickRequestService $service;
+    protected $service;
+    protected $processService;
 
-    public function __construct(QuickRequestService $service)
-    {
+    public function __construct(
+        QuickRequestService $service,
+        ProcessQuickRequestService $processService
+    ) {
         $this->service = $service;
+        $this->processService = $processService;
     }
 
-    /**
-     * Start a new quick request episode and create initial order.
-     */
-    public function startEpisode(Request $request)
+    public function submit(Request $request)
     {
-        $data = $request->validate([
-            'patient_id'           => 'required|string',
-            'patient_fhir_id'      => 'required|string',
-            'patient_display_id'   => 'required|string',
-            'manufacturer_id'      => 'required|uuid',
-            'order_details'        => 'required|array',
-        ]);
+        try {
+            // Validate the request (the service will handle detailed validation)
+            $data = $request->all();
+            
+            // Process the quick request
+            $result = $this->processService->processQuickRequest($data);
+            
+            return response()->json([
+                'success' => true,
+                'message' => 'Product request submitted successfully',
+                'data' => $result
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $e->errors()
+            ], 422);
+        } catch (\Exception $e) {
+            Log::error('Quick request submission failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your request',
+                'error' => config('app.debug') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
 
-        $episode = $this->service->startEpisode($data);
+    public function validateStep(Request $request)
+    {
+        $step = $request->input('step');
+        $data = $request->input('data', []);
+
+        $errors = $this->service->validateStep($step, $data);
 
         return response()->json([
-            'success'    => true,
-            'episode_id' => $episode->id,
-            'order_id'   => $episode->orders()->first()->id,
-        ], 201);
-    }
-
-    /**
-     * Add a follow-up order to an existing episode.
-     */
-    public function addFollowUp(Request $request, Episode $episode)
-    {
-        $data = $request->validate([
-            'parent_order_id' => 'required|uuid',
-            'order_details'   => 'required|array',
+            'valid' => empty($errors),
+            'errors' => $errors
         ]);
-
-        $order = $this->service->addFollowUp($episode, $data);
-
-        return response()->json([
-            'success'  => true,
-            'order_id' => $order->id,
-        ], 201);
     }
 
     /**
-     * Approve an episode and send notification.
-     */
-    public function approve(Request $request, Episode $episode)
-    {
-        $this->service->approve($episode);
-
-        return response()->json(['success' => true]);
-    }
-
-    /**
-     * Generate DocuSeal builder token for IVR forms.
+     * Generate DocuSeal builder token for IVR forms with pre-filled data.
      */
     public function generateBuilderToken(Request $request)
     {
@@ -90,12 +92,15 @@ class QuickRequestController extends Controller
             'productCode'     => 'nullable|string',
             'template_id'     => 'nullable|string',
             'patient_display_id' => 'nullable|string',
-            'episode_id'      => 'nullable|string'
+            'episode_id'      => 'nullable|string',
+            'form_data'       => 'nullable|array',
+            'formData'        => 'nullable|array'
         ]);
         
         // Normalize to snake_case
         $manufacturerId = $data['manufacturer_id'] ?? $data['manufacturerId'] ?? null;
         $productCode = $data['product_code'] ?? $data['productCode'] ?? null;
+        $formData = $data['form_data'] ?? $data['formData'] ?? [];
         
         if (!$manufacturerId) {
             return response()->json(['error' => 'Manufacturer ID is required'], 422);
@@ -111,16 +116,29 @@ class QuickRequestController extends Controller
                 'template_id' => $template->id,
                 'docuseal_template_id' => $template->docuseal_template_id,
                 'manufacturer_id' => $manufacturerId,
-                'product_code' => $productCode
+                'product_code' => $productCode,
+                'has_form_data' => !empty($formData)
             ]);
             
+            // Map the quick request data to DocuSeal fields if form data is provided
+            $mappedFields = [];
+            if (!empty($formData)) {
+                $mappedFields = $docuSealService->mapFieldsUsingTemplate($formData, $template);
+                
+                Log::info('Mapped fields for DocuSeal', [
+                    'original_field_count' => count($formData),
+                    'mapped_field_count' => count($mappedFields),
+                    'mapped_fields' => array_keys($mappedFields)
+                ]);
+            }
+            
             // Generate a builder token using the DocuSeal builder approach
-                        $user = Auth::user();
-                        $submitterData = [
+            $user = Auth::user();
+            $submitterData = [
                 'email' => $user->email,
                 'name' => $user->name,
                 'external_id' => 'quickrequest_' . uniqid(),
-                'fields' => [] // Pre-fill fields will be added later when we have form data
+                'fields' => $mappedFields // Pre-filled fields from form data
             ];
 
             // Generate the builder token
@@ -128,24 +146,58 @@ class QuickRequestController extends Controller
                 $template->docuseal_template_id,
                 $submitterData
             );
-
-            // Return the builder token (frontend expects builderToken and builderUrl)
-            return response()->json([
-                'builderToken' => $builderToken,
-                'builderUrl' => config('docuseal.api_url', 'https://api.docuseal.com')
-            ], 200, ['Content-Type' => 'application/json']);
             
+            Log::info('DocuSeal builder token generated', [
+                'template_id' => $template->docuseal_template_id,
+                'field_count' => count($mappedFields),
+                'has_token' => !empty($builderToken)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'builderToken' => $builderToken,
+                'token' => $builderToken, // Alias for compatibility
+                'jwt' => $builderToken, // Another alias
+                'template_id' => $template->docuseal_template_id,
+                'mapped_fields_count' => count($mappedFields)
+            ]);
+
         } catch (\Exception $e) {
             Log::error('DocuSeal builder token generation failed', [
                 'error' => $e->getMessage(),
                 'manufacturer_id' => $manufacturerId,
-                'product_code' => $productCode,
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
-                'error' => 'Failed to generate DocuSeal form: ' . $e->getMessage()
-            ], 500, ['Content-Type' => 'application/json']);
+                'error' => 'Failed to generate DocuSeal token',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Get DocuSeal submission result
+     */
+    public function getDocuSealSubmission(Request $request, $submissionId)
+    {
+        try {
+            $result = $this->service->getDocuSealSubmission($submissionId);
+            
+            return response()->json([
+                'success' => true,
+                'data' => $result
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Failed to get DocuSeal submission', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
         }
     }
 }

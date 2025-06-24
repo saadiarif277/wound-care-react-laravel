@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { FiSearch, FiAlertCircle, FiCheck, FiX, FiChevronDown } from 'react-icons/fi';
+import { FiSearch, FiAlertCircle, FiCheck, FiChevronDown } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 
@@ -20,12 +20,6 @@ interface WoundType {
   secondaryLabel?: string;
 }
 
-interface DiagnosisSelection {
-  woundType: string;
-  primaryCode?: DiagnosisCode;
-  secondaryCode?: DiagnosisCode;
-}
-
 interface DiagnosisCodeSelectorProps {
   value: {
     wound_type?: string;
@@ -34,7 +28,7 @@ interface DiagnosisCodeSelectorProps {
     diagnosis_code?: string;
   };
   onChange: (selection: {
-    wound_type: string;
+    wound_type?: string;
     primary_diagnosis_code?: string;
     secondary_diagnosis_code?: string;
     diagnosis_code?: string;
@@ -439,7 +433,8 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         ...value,
         diagnosis_code: code,
         primary_diagnosis_code: '', // Clear dual code fields when using single code
-        secondary_diagnosis_code: ''
+        secondary_diagnosis_code: '',
+        wound_type: value.wound_type ?? ''
       });
     }
   };
@@ -579,19 +574,19 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
           {/* Selection Summary */}
           {isSelectionComplete() && (
             <div className={cn(
-              "mt-4 p-4 rounded-lg",
+              "mt-4 p-2 rounded-lg",
               theme === 'dark' 
                 ? 'bg-green-900/20 border border-green-800' 
                 : 'bg-green-50 border border-green-200'
             )}>
               <h4 className={cn(
-                "font-medium mb-2 flex items-center gap-2",
+                "font-medium mb-1 flex items-center gap-2 text-sm",
                 theme === 'dark' ? 'text-green-300' : 'text-green-800'
               )}>
                 <FiCheck className="h-4 w-4" />
                 Selection Complete
               </h4>
-              <div className="space-y-2 text-sm">
+              <div className="space-y-1 text-xs">
                 <div>
                   <span className="font-medium">Wound Type:</span>{' '}
                   {currentWoundType.name}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FiArrowRight, FiCheck, FiAlertCircle, FiClock, FiUser, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
@@ -152,8 +152,10 @@ interface QuickRequestFormData {
   patient_fhir_id?: string;
   fhir_practitioner_id?: string;
   fhir_organization_id?: string;
+  fhir_condition_id?: string; // Added for FHIR Condition
   fhir_episode_of_care_id?: string;
   fhir_coverage_ids?: string[];
+  fhir_encounter_id?: string; // Added for FHIR Encounter
   fhir_questionnaire_response_id?: string;
   fhir_device_request_id?: string;
   docuseal_submission_id?: string;
@@ -219,7 +221,6 @@ function QuickRequestCreateNew({
   products = [],
   diagnosisCodes,
   currentUser,
-  providerProducts = {}
 }: Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -405,8 +406,7 @@ useEffect(() => {
         }
 
         switch (resourceType) {
-          case 'Coverage':
-            // Create primary insurance coverage with enhanced error handling
+          case 'Coverage': {
             if (formData.primary_insurance_name && formData.primary_member_id && formData.patient_fhir_id) {
               const coverageResource = {
                 resourceType: 'Coverage',
@@ -424,7 +424,6 @@ useEffect(() => {
                 }],
                 order: 1,
                 network: formData.primary_plan_type,
-                // Link to EpisodeOfCare
                 extension: formData.fhir_episode_of_care_id ? [{
                   url: 'https://mscwoundcare.com/fhir/StructureDefinition/episode-context',
                   valueReference: {
@@ -450,9 +449,8 @@ useEffect(() => {
               }
             }
             break;
-
-          case 'QuestionnaireResponse':
-            // Create clinical assessment questionnaire response with enhanced logging
+          }
+          case 'QuestionnaireResponse': {
             if (formData.patient_fhir_id && formData.wound_types.length > 0) {
               const questionnaireResponse = {
                 resourceType: 'QuestionnaireResponse',
@@ -461,7 +459,6 @@ useEffect(() => {
                   reference: `Patient/${formData.patient_fhir_id}`
                 },
                 authored: new Date().toISOString(),
-                // Link to EpisodeOfCare
                 encounter: formData.fhir_episode_of_care_id ? {
                   reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
                 } : undefined,
@@ -520,9 +517,8 @@ useEffect(() => {
               }
             }
             break;
-
-          case 'DeviceRequest':
-            // Create device request after product selection with improved error handling
+          }
+          case 'DeviceRequest': {
             if (formData.patient_fhir_id && formData.selected_products && formData.selected_products.length > 0) {
               const firstSelectedProduct = formData.selected_products[0];
               if (firstSelectedProduct) {
@@ -546,7 +542,6 @@ useEffect(() => {
                     requester: formData.fhir_practitioner_id ? {
                       reference: `Practitioner/${formData.fhir_practitioner_id}`
                     } : undefined,
-                    // Link to EpisodeOfCare
                     encounter: formData.fhir_episode_of_care_id ? {
                       reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
                     } : undefined
@@ -570,27 +565,22 @@ useEffect(() => {
               }
             }
             break;
+          }
+          // Add other resource cases here as needed, following the same pattern
         }
-
         // Success - break out of retry loop
         break;
-
       } catch (error: any) {
         attempt++;
         console.error(`❌ Error creating FHIR ${resourceType} (attempt ${attempt}/${maxAttempts}):`, error);
-
-        // Handle specific error types
         if (error.response?.status === 401) {
           console.warn('🔑 Authentication failed, will retry with fresh token');
-          // Token refresh will happen on next attempt
         } else if (error.response?.status === 429) {
           console.warn('⏰ Rate limit exceeded, implementing exponential backoff');
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
         } else if (error.code === 'ECONNABORTED') {
           console.warn('⏱️ Request timeout, will retry');
         }
-
-        // If this was the last attempt, log final error
         if (attempt >= maxAttempts) {
           console.error(`💥 Final error creating FHIR ${resourceType} after ${maxAttempts} attempts:`, {
             status: error.response?.status,
@@ -598,9 +588,6 @@ useEffect(() => {
             data: error.response?.data,
             message: error.message
           });
-          
-          // Don't throw error to prevent blocking user flow
-          // Instead, log for monitoring and continue
           if (resourceType === 'Coverage') {
             console.warn('⚠️ Failed to create FHIR Coverage - continuing without it');
           } else if (resourceType === 'QuestionnaireResponse') {
@@ -609,12 +596,12 @@ useEffect(() => {
             console.warn('⚠️ Failed to create FHIR DeviceRequest - continuing without it');
           }
         } else {
-          // Wait before retrying (exponential backoff)
           await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
         }
       }
     }
   };
+
 
   // Extract IVR fields when moving to Step 6 (after product selection)
   const extractIvrFields = async () => {
@@ -636,7 +623,6 @@ useEffect(() => {
 
       // Get FHIR IDs from form data and providers/facilities
       const selectedProvider = providers.find(p => p.id === formData.provider_id);
-      const selectedFacility = facilities.find(f => f.id === formData.facility_id);
 
       const response = await axios.post('/api/quick-request/extract-ivr-fields', {
         patient_id: formData.patient_fhir_id,
@@ -976,7 +962,6 @@ useEffect(() => {
   // Calculate delivery date based on shipping speed
   useEffect(() => {
     if (formData.expected_service_date && formData.shipping_speed) {
-      const serviceDate = new Date(formData.expected_service_date);
       const today = new Date();
       const daysToAdd = formData.shipping_speed === 'standard_2_day' ? 2 : 1;
 
@@ -997,12 +982,7 @@ useEffect(() => {
     }
   }, [formData.patient_first_name, formData.patient_last_name]);
 
-  // Handle episode creation callback
-  const handleEpisodeCreated = (episodeData: any) => {
-    console.log('Episode created successfully:', episodeData);
-    // The form data is already updated in Step1CreateEpisode
-    // We can add additional logic here if needed
-  };
+
 
   // Calculate wound area
   const woundArea = formData.wound_size_length && formData.wound_size_width
@@ -1064,9 +1044,9 @@ useEffect(() => {
 
           {/* Validation Error Summary */}
           {Object.keys(errors).length > 0 && (
-            <div className={cn("mb-6 p-4 rounded-lg border", t.status.error, t.shadows.danger)}>
+            <div className="mb-6 p-4 rounded-lg border border-amber-500/30 bg-amber-500/10">
               <div className="flex items-start">
-                <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-red-400" />
+                <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5 text-amber-400" />
                 <div>
                   <h4 className={cn("text-sm font-medium mb-1", t.text.primary)}>
                     Please fix the following errors:

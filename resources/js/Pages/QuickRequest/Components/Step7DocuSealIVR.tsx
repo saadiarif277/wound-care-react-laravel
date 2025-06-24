@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { prepareDocuSealData } from './docusealUtils';
 import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -39,16 +40,11 @@ interface FormData {
   manufacturer_fields?: Record<string, any>;
 
   // Clinical Information
-  wound_type?: string; // Changed from array to single string
-  wound_types?: string[]; // Keep for backward compatibility
+  wound_type?: string;
   wound_location?: string;
   wound_size_length?: string;
   wound_size_width?: string;
   wound_size_depth?: string;
-  yellow_diagnosis_code?: string;
-  orange_diagnosis_code?: string;
-  
-  // New diagnosis code fields
   primary_diagnosis_code?: string;
   secondary_diagnosis_code?: string;
   diagnosis_code?: string;
@@ -150,14 +146,12 @@ export default function Step7DocuSealIVR({
   const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
   const facility = formData.facility_id ? facilities.find(f => f.id === formData.facility_id) : null;
 
-  // Prepare form data for DocuSeal
-  const prepareDocuSealData = () => {
-    if (!selectedProduct) return formData;
-
-    // Get the product with full details
-    const product = products.find(p => p.id === formData.selected_products?.[0]?.product_id);
+  // Build DocuSeal payload using shared utility
+  const preparedDocuSealData = prepareDocuSealData({ formData, products, providers, facilities });
     
-    // Format selected products for display
+    
+    
+
     const productDetails = formData.selected_products?.map((item: any) => {
       const prod = products.find(p => p.id === item.product_id);
       return {
@@ -175,9 +169,6 @@ export default function Step7DocuSealIVR({
     const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
     const totalWoundSize = woundSizeLength * woundSizeWidth;
 
-    // Format wound types - handle both single wound_type and array wound_types
-    const woundTypesDisplay = formData.wound_type || formData.wound_types?.join(', ') || 'Not specified';
-    
     // Format wound duration
     const durationParts = [];
     if (formData.wound_duration_years) durationParts.push(`${formData.wound_duration_years} years`);
@@ -192,9 +183,6 @@ export default function Step7DocuSealIVR({
       diagnosisCodeDisplay = `Primary: ${formData.primary_diagnosis_code}, Secondary: ${formData.secondary_diagnosis_code}`;
     } else if (formData.diagnosis_code) {
       diagnosisCodeDisplay = formData.diagnosis_code;
-    } else if (formData.yellow_diagnosis_code || formData.orange_diagnosis_code) {
-      // Backward compatibility
-      diagnosisCodeDisplay = formData.yellow_diagnosis_code || formData.orange_diagnosis_code || '';
     }
 
     return {
@@ -221,8 +209,6 @@ export default function Step7DocuSealIVR({
       ).join('\n'),
 
       // Clinical Information
-      wound_types_display: woundTypesDisplay,
-      wound_type: formData.wound_type || woundTypesDisplay,
       total_wound_size: `${totalWoundSize} sq cm`,
       wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
       wound_duration: woundDuration,
@@ -255,14 +241,14 @@ export default function Step7DocuSealIVR({
 
       // Date fields
       service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
-      submission_date: new Date().toISOString().split('T')[0],
 
       // Signature fields (for DocuSeal template)
       provider_signature_required: true,
       provider_signature_date: new Date().toISOString().split('T')[0]
     };
-  };
 
+
+  // Local handlers
   const handleDocuSealComplete = (submissionId: string) => {
     setIsCompleted(true);
     updateFormData({ docuseal_submission_id: submissionId });
@@ -419,7 +405,7 @@ export default function Step7DocuSealIVR({
           </div>
         ) : (
           <DocuSealIVRForm
-            formData={prepareDocuSealData()}
+            formData={preparedDocuSealData}
             templateId={templateId}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}

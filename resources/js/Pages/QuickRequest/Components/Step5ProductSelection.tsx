@@ -1,20 +1,21 @@
 import { useState, useEffect } from 'react';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
+import { cn } from '@/theme/glass-theme';
 
 interface Product {
   id: number;
   name: string;
-  sku: string;
-  q_code: string;
   manufacturer: string;
+  code?: string;
   manufacturer_id?: number;
-  category: string;
-  description: string;
-  price_per_sq_cm: number;
-  msc_price?: number;
+  price_per_sq_cm?: number;
   available_sizes?: number[] | string[];
+  sku?: string;
+  q_code?: string;
+  category?: string;
+  description?: string;
+  msc_price?: number;
   image_url?: string;
   commission_rate?: number;
   docuseal_template_id?: string;
@@ -64,18 +65,19 @@ export default function Step5ProductSelection({
   
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
 
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
 
   // Fetch provider's onboarded products when provider_id changes
   useEffect(() => {
+    // Only show products for selected provider
+    // providerOnboardedProducts is an array of product codes or IDs
+
     const fetchProviderProducts = async () => {
       if (formData.provider_id) {
         setLoading(true);
@@ -96,63 +98,16 @@ export default function Step5ProductSelection({
     fetchProviderProducts();
   }, [formData.provider_id]);
 
-  // Determine insurance type for product filtering
-  const getInsuranceType = () => {
-    const insuranceName = formData.primary_insurance_name?.toLowerCase() || '';
-    const planType = formData.primary_plan_type?.toLowerCase() || '';
-
-    if (insuranceName.includes('medicare')) {
-      return 'medicare';
-    } else if (insuranceName.includes('medicaid')) {
-      return 'medicaid';
-    } else if (planType === 'ppo' || planType === 'commercial') {
-      return 'ppo';
-    }
-    return 'commercial'; // Default to commercial
-  };
-
-  // Calculate wound size in sq cm
-  const calculateWoundSize = () => {
-    const length = parseFloat(formData.wound_size_length || '0');
-    const width = parseFloat(formData.wound_size_width || '0');
-    return length * width;
-  };
-
-  // Get provider onboarded products
-  const getProviderOnboardedProducts = () => {
-    // Use the fetched provider onboarded products from the API
-    return providerOnboardedProducts;
-  };
-
-  // Get role restrictions based on user role
-  const getRoleRestrictions = () => {
-    const userRole = currentUser?.role || 'provider';
-
-    switch (userRole) {
-      case 'office-manager':
-        return {
-          can_view_financials: false,
-          can_see_discounts: false,
-          can_see_msc_pricing: false,
-          can_see_order_totals: false,
-          pricing_access_level: 'national_asp_only',
-          commission_access_level: 'none'
-        };
-      case 'provider':
-      default:
-        return {
-          can_view_financials: true,
-          can_see_discounts: true,
-          can_see_msc_pricing: true,
-          can_see_order_totals: true,
-          pricing_access_level: 'full',
-          commission_access_level: 'full'
-        };
-    }
-  };
-
   const handleProductsChange = (selectedProducts: SelectedProduct[]) => {
-    updateFormData({ selected_products: selectedProducts });
+    // Store provider-product mapping in formData, format size as '2 x 2'
+    updateFormData({
+      selected_products: selectedProducts.map((item) => ({
+        ...item,
+        provider_id: formData.provider_id,
+        // Ensure product size is formatted as '2 x 2'
+        size: item.size ? String(item.size).replace(/\s*([xX×^])\s*/g, ' x ') : undefined,
+      }))
+    });
   };
 
   return (
@@ -171,14 +126,21 @@ export default function Step5ProductSelection({
         </div>
       ) : (
         <ProductSelectorQuickRequest
-          insuranceType={getInsuranceType()}
+          providerOnboardedProducts={providerOnboardedProducts}
+          insuranceType={(formData.primary_insurance_name?.toLowerCase().includes('medicare')) ? 'medicare' : (formData.primary_insurance_name?.toLowerCase().includes('medicaid')) ? 'medicaid' : (formData.primary_plan_type?.toLowerCase() === 'ppo' || formData.primary_plan_type?.toLowerCase() === 'commercial') ? 'ppo' : 'commercial'}
+          woundSize={parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')}
           patientState={formData.patient_state}
-          woundSize={calculateWoundSize()}
-          providerOnboardedProducts={getProviderOnboardedProducts()}
+          roleRestrictions={{
+            can_view_financials: true,
+            can_see_discounts: true,
+            can_see_msc_pricing: true,
+            can_see_order_totals: true,
+            pricing_access_level: 'full',
+            commission_access_level: 'full'
+          }}
+          last24HourOrders={formData.last_24_hour_orders || []}
+          selectedProducts={formData.selected_products as any || []}
           onProductsChange={handleProductsChange}
-          roleRestrictions={getRoleRestrictions()}
-          last24HourOrders={formData.last_24_hour_orders}
-          selectedProducts={formData.selected_products || []}
           className=""
         />
       )}

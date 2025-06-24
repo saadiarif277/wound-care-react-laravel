@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { prepareDocuSealData } from './docusealUtils';
 import { FiCheck, FiAlertCircle, FiUser, FiShoppingCart, FiShield } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -268,7 +269,6 @@ export default function Step7FinalSubmission({
     setIsCreatingSubmission(true);
 
     try {
-      // Get selected product for manufacturer information
       const selectedProduct = getSelectedProduct();
       if (!selectedProduct) {
         throw new Error('No product selected for DocuSeal submission');
@@ -287,70 +287,14 @@ export default function Step7FinalSubmission({
       const builderData = {
         template_type: 'final_submission',
         use_builder: true, // Force builder mode for better UX
-        prefill_data: {
-          // Patient Information
-          patient_first_name: formData.patient_first_name,
-          patient_last_name: formData.patient_last_name,
-          patient_dob: formData.patient_dob,
-          patient_gender: formData.patient_gender,
-          patient_member_id: formData.patient_member_id,
-          patient_address_line1: formData.patient_address_line1,
-          patient_address_line2: formData.patient_address_line2,
-          patient_city: formData.patient_city,
-          patient_state: formData.patient_state,
-          patient_zip: formData.patient_zip,
-          patient_phone: formData.patient_phone,
-          patient_email: formData.patient_email,
-
-          // Provider Information
-          provider_id: formData.provider_id,
-          provider_name: providers.find(p => p.id === formData.provider_id)?.name,
-          provider_npi: providers.find(p => p.id === formData.provider_id)?.npi,
-          facility_id: formData.facility_id,
-          facility_name: facilities.find(f => f.id === formData.facility_id)?.name,
-
-          // Clinical Information
-          wound_type: formData.wound_type,
-          wound_location: formData.wound_location,
-          wound_size_length: formData.wound_size_length,
-          wound_size_width: formData.wound_size_width,
-          wound_size_depth: formData.wound_size_depth,
-          wound_onset_date: formData.wound_onset_date,
-          failed_conservative_treatment: formData.failed_conservative_treatment,
-          treatment_tried: formData.treatment_tried,
-          current_dressing: formData.current_dressing,
-          expected_service_date: formData.expected_service_date,
-
-          // Insurance Information
-          primary_insurance_name: formData.primary_insurance_name,
-          primary_member_id: formData.primary_member_id,
-          primary_plan_type: formData.primary_plan_type,
-          primary_payer_phone: formData.primary_payer_phone,
-          has_secondary_insurance: formData.has_secondary_insurance,
-          secondary_insurance_name: formData.secondary_insurance_name,
-          secondary_member_id: formData.secondary_member_id,
-
-          // Product Information
-          selected_products: formData.selected_products,
-          manufacturer_id: manufacturerId,
-          manufacturer_name: selectedProduct.manufacturer,
-
-          // Shipping Information
-          shipping_same_as_patient: formData.shipping_same_as_patient,
-          shipping_address_line1: formData.shipping_address_line1,
-          shipping_address_line2: formData.shipping_address_line2,
-          shipping_city: formData.shipping_city,
-          shipping_state: formData.shipping_state,
-          shipping_zip: formData.shipping_zip,
-          delivery_notes: formData.delivery_notes,
-
-          // Episode Information
-          episode_id: episodeId,
-
-          // Complete form data for debugging
-          ...formData
-        }
+        prefill_data: prepareDocuSealData({
+          formData,
+          products,
+          providers,
+          facilities
+        })
       };
+
 
       console.log('Sending DocuSeal builder request with data:', {
         template_type: builderData.template_type,
@@ -629,7 +573,7 @@ export default function Step7FinalSubmission({
           )}
 
           <DocuSealEmbed
-            Url={submissionUrl}
+            url={submissionUrl}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
             className="min-h-[800px]"
