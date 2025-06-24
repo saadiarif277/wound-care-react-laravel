@@ -11,16 +11,6 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Episodes table indexes
-        Schema::table('episodes', function (Blueprint $table) {
-            $table->index('patient_fhir_id', 'idx_episodes_patient_fhir_id');
-            $table->index('practitioner_fhir_id', 'idx_episodes_practitioner_fhir_id');
-            $table->index('organization_fhir_id', 'idx_episodes_organization_fhir_id');
-            $table->index('manufacturer_id', 'idx_episodes_manufacturer_id');
-            $table->index('status', 'idx_episodes_status');
-            $table->index(['status', 'created_at'], 'idx_episodes_status_created');
-            $table->index(['patient_fhir_id', 'manufacturer_id'], 'idx_episodes_patient_manufacturer');
-        });
 
         // Orders table indexes
         Schema::table('orders', function (Blueprint $table) {
