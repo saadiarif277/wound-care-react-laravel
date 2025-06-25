@@ -22,10 +22,9 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 }) => {
   const [token, setToken] = useState<string | null>(null);
   const [templateId, setTemplateId] = useState<string | null>(null);
-  const formRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [useDirectUrl, setUseDirectUrl] = useState(false); // Try embedded first, fallback to direct URL
+  const [useDirectUrl, setUseDirectUrl] = useState(true); // Default to direct URL, but allow embedded option
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -33,46 +32,76 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         setIsLoading(true);
         setError(null);
 
-        // Use the web route which uses standard session auth instead of Sanctum
-        const response = await axios.post('/quick-requests/docuseal/generate-form-token', {
+        // Use the new submission slug endpoint to get a proper DocuSeal slug
+        console.log('Sending DocuSeal request with data:', {
+          manufacturerId,
+          productCode,
+          formDataKeys: Object.keys(formData || {}),
+          hasFormData: !!formData,
+          sampleData: Object.keys(formData || {}).slice(0, 5)
+        });
+
+        const response = await axios.post('/quick-requests/docuseal/generate-submission-slug', {
           user_email: 'limitless@mscwoundcare.com',
           integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
           prefill_data: formData, // Pass the form data as prefill_data
           manufacturerId,
           productCode
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 30000 // 30 second timeout
         });
 
-        // API should respond with JWT generated on backend
-        const jwt = response.data.jwt_token || response.data.token || response.data.jwt;
+        // API should respond with a proper DocuSeal submission slug
+        const slug = response.data.slug;
 
-        if (!jwt) {
-          throw new Error('No token received from server');
+        if (!slug) {
+          throw new Error('No slug received from server');
         }
 
-        console.log('DocuSeal JWT token received for form:', {
+        console.log('DocuSeal submission slug received:', {
+          slug: slug,
           hasFormData: !!formData,
           fieldCount: Object.keys(formData || {}).length,
-          sampleFields: Object.keys(formData || {}).slice(0, 5)
+          sampleFields: Object.keys(formData || {}).slice(0, 5),
+          submission_id: response.data.submission_id,
+          template_id: response.data.template_id
         });
 
-        // Decode JWT to see payload (for debugging only)
-        try {
-          const [header, payload, signature] = jwt.split('.');
-          const decodedPayload = JSON.parse(atob(payload));
-          console.log('DocuSeal Form JWT payload:', {
-            template_id: decodedPayload.template_id,
-            submitter: decodedPayload.submitter,
-            external_id: decodedPayload.external_id
-          });
-          setTemplateId(decodedPayload.template_id);
-        } catch (e) {
-          console.error('Could not decode JWT:', e);
+        setTemplateId(response.data.template_id);
+        setToken(slug); // Store the slug as the token
+      } catch (err: any) {
+        console.error('DocuSeal token fetch error:', {
+          error: err,
+          response: err.response?.data,
+          status: err.response?.status,
+          config: err.config,
+          url: err.config?.url,
+          method: err.config?.method
+        });
+
+        let msg = 'Failed to load document form';
+
+        // Handle different error types
+        if (err.response?.status === 401) {
+          msg = 'Authentication failed. Please check API configuration.';
+        } else if (err.response?.status === 403) {
+          msg = 'Permission denied. You may not have access to this feature.';
+        } else if (err.response?.status === 422) {
+          msg = err.response?.data?.message || 'Invalid request data';
+        } else if (err.response?.status === 500) {
+          msg = 'Server error occurred. Please try again or contact support.';
+        } else if (err.response?.data?.error) {
+          msg = err.response.data.error;
+        } else if (err.response?.data?.message) {
+          msg = err.response.data.message;
+        } else if (err.message) {
+          msg = err.message;
         }
 
-        setToken(jwt);
-      } catch (err: any) {
-        const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Failed to load document form';
-        console.error('DocuSeal token fetch error:', err);
         setError(msg);
         if (onError) {
           onError(msg);
@@ -85,197 +114,29 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
     fetchToken();
   }, [manufacturerId, productCode, formData, onError]);
 
-    useEffect(() => {
-    if (!token || !formRef.current) return;
+  // Add embedded form logic using proper DocuSeal slug (not JWT)
+  useEffect(() => {
+    if (!token || useDirectUrl) return;
 
-    let formElement: HTMLElement | null = null;
-    let scriptElement: HTMLScriptElement | null = null;
-    let messageHandler: ((event: MessageEvent) => void) | null = null;
+    // Only try embedded form if user explicitly chooses it
+    const script = document.createElement('script');
+    script.src = 'https://cdn.docuseal.com/js/form.js';
+    script.async = true;
+    document.body.appendChild(script);
 
-    // Add a delay to ensure the container is fully rendered with proper dimensions
-    const timeoutId = setTimeout(() => {
-      if (!formRef.current) return;
-
-      // Add minimal custom styling for the form
-      const style = document.createElement('style');
-      style.id = 'docuseal-form-style';
-      style.textContent = `
-        /* Make form take full width */
-        docuseal-form {
-          width: 100% !important;
-          display: block !important;
-          min-height: 600px !important;
-          height: 80vh !important;
-          background: white !important;
-        }
-
-        /* Style adjustments for the embedded form */
-        docuseal-form iframe {
-          width: 100% !important;
-          min-height: 600px !important;
-          height: 100% !important;
-          border: none !important;
-          background: white !important;
-        }
-
-        /* Ensure parent container has proper styling */
-        .docuseal-form-container {
-          width: 100% !important;
-          min-height: 600px !important;
-          height: 80vh !important;
-          background: white !important;
-          border: 1px solid #e5e7eb;
-          border-radius: 8px;
-          position: relative;
-        }
-      `;
-
-      if (!document.getElementById('docuseal-form-style')) {
-        document.head.appendChild(style);
-      }
-
-      // Check if script already exists
-      scriptElement = document.querySelector('script[src="https://cdn.docuseal.com/js/form.js"]') as HTMLScriptElement;
-
-      if (!scriptElement) {
-        scriptElement = document.createElement('script');
-        scriptElement.src = 'https://cdn.docuseal.com/js/form.js';
-        scriptElement.async = true;
-        document.body.appendChild(scriptElement);
-      }
-
-      // Function to create form element
-      const createForm = () => {
-        if (!formRef.current) return;
-
-        // Clear any existing content
-        formRef.current.innerHTML = '';
-
-        // Create the form element
-        formElement = document.createElement('docuseal-form');
-        formElement.setAttribute('data-token', token);
-
-        // Add explicit styling to ensure proper dimensions
-        formElement.style.width = '100%';
-        formElement.style.height = '100%';
-        formElement.style.minHeight = '600px';
-        formElement.style.display = 'block';
-
-        // Set up event listeners for form events
-        messageHandler = (event: MessageEvent) => {
-          if (!event.data || typeof event.data !== 'object') return;
-
-          console.log('DocuSeal form event received:', event.data.type, event.data);
-
-          if (event.data.type === 'docuseal:submit' && onComplete) {
-            console.log('DocuSeal form submitted:', event.data);
-            onComplete(event.data);
-          }
-
-          if (event.data.type === 'docuseal:save' && onSave) {
-            console.log('DocuSeal form saved:', event.data);
-            onSave(event.data);
-          }
-
-          // Handle any error events
-          if (event.data.type === 'docuseal:error') {
-            console.error('DocuSeal form error:', event.data);
-            setError(event.data.message || 'Form error occurred');
-          }
-        };
-
-        window.addEventListener('message', messageHandler);
-
-        formRef.current.appendChild(formElement);
-
-        // Debug: Log when form element is created
-        console.log('DocuSeal form element created and appended:', {
-          token: token.substring(0, 20) + '...',
-          formElement,
-          tagName: formElement.tagName,
-          attributes: Array.from(formElement.attributes).map(attr => ({ name: attr.name, value: attr.value })),
-          customElementDefined: !!customElements.get('docuseal-form'),
-          parentElement: formRef.current,
-          containerDimensions: {
-            width: formRef.current.offsetWidth,
-            height: formRef.current.offsetHeight
-          }
-        });
-
-        // Additional debugging: Check if iframe gets created
-        const checkIframe = () => {
-          const iframe = formElement?.querySelector('iframe');
-          console.log('DocuSeal iframe check:', {
-            iframeFound: !!iframe,
-            iframeSrc: iframe?.src,
-            formElementChildren: formElement?.children.length,
-            formElementHTML: formElement?.innerHTML.substring(0, 200)
-          });
-        };
-
-        // Check immediately and after a delay
-        setTimeout(checkIframe, 1000);
-        setTimeout(checkIframe, 3000);
-
-        // If no iframe appears after 2 seconds, try fallback approach
-        setTimeout(() => {
-          const iframe = formElement?.querySelector('iframe');
-          if (!iframe && formElement?.children.length === 0) {
-            console.warn('DocuSeal custom element not working, trying direct URL approach...');
-            setUseDirectUrl(true);
-          }
-        }, 2000);
-      };
-
-      // Create form once script is loaded
-      const checkScriptLoaded = () => {
-        console.log('Checking DocuSeal script status:', {
-          docusealGlobal: !!(window as any).Docuseal,
-          scriptLoaded: !!(scriptElement as any)?.loaded,
-          customElementsDefined: !!customElements.get('docuseal-form'),
-          scriptElement: scriptElement
-        });
-
-        // Check if DocuSeal global is available or custom element is defined
-        if ((window as any).Docuseal || customElements.get('docuseal-form') || (scriptElement as any)?.loaded) {
-          createForm();
-        } else if (scriptElement) {
-          scriptElement.onload = () => {
-            (scriptElement as any).loaded = true;
-            console.log('DocuSeal script loaded, creating form...');
-            createForm();
-          };
-
-          scriptElement.onerror = () => {
-            console.error('Failed to load DocuSeal script');
-            setError('Failed to load DocuSeal script');
-          };
-        }
-      };
-
-      checkScriptLoaded();
-    }, 300); // 300ms delay to ensure container is ready
-
-    return () => {
-      clearTimeout(timeoutId);
-
-      // Clean up event listener
-      if (messageHandler) {
-        window.removeEventListener('message', messageHandler);
-      }
-
-      // Clean up form element
-      if (formElement && formRef.current?.contains(formElement)) {
-        formRef.current.removeChild(formElement);
-      }
-
-      // Clean up custom styles when component unmounts
-      const customStyle = document.getElementById('docuseal-form-style');
-      if (customStyle) {
-        customStyle.remove();
+    script.onload = () => {
+      const container = document.getElementById('docuseal-embed-container');
+      if (container) {
+        container.innerHTML = `<docuseal-form data-src="https://docuseal.com/s/${token}"></docuseal-form>`;
       }
     };
-  }, [token, onComplete, onSave]);
+
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, [token, useDirectUrl]);
 
   if (error) {
     return (
@@ -309,10 +170,28 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">DocuSeal Form Ready</h3>
-            <p className="text-gray-600 mb-6">Click the button below to open the IVR form in a new window</p>
+            <p className="text-gray-600 mb-4">Choose how you'd like to access the IVR form:</p>
+
+            <div className="mb-6 flex gap-2">
+              <button
+                onClick={() => setUseDirectUrl(false)}
+                className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
+              >
+                Try Embedded
+              </button>
+              <button
+                onClick={() => setUseDirectUrl(true)}
+                className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
+              >
+                Use New Window
+              </button>
+            </div>
             <button
               onClick={() => {
                 const url = `https://docuseal.com/s/${token}`;
+                console.log('Opening DocuSeal URL:', url);
+                console.log('Slug length:', token.length);
+                console.log('Slug preview:', token.substring(0, 20) + '...');
                 window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
@@ -328,28 +207,33 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
     );
   }
 
-  return (
-    <div className={`w-full ${className}`}>
-      <div
-        ref={formRef}
-        className="docuseal-form-container w-full bg-white border border-gray-200 rounded-lg"
-        style={{
-          minHeight: '600px',
-          height: '80vh',
-          width: '100%',
-          display: isLoading ? 'none' : 'block' // Hide until token is loaded
-        }}
-      >
-        {/* Loading placeholder - will be replaced by DocuSeal form */}
-      </div>
-      {isLoading && (
-        <div className="w-full min-h-[600px] bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto" />
-            <p className="mt-3 text-sm text-gray-600">Loading DocuSeal form...</p>
-          </div>
+  // If not using direct URL, show embedded form
+  if (!useDirectUrl && token) {
+    return (
+      <div className={`w-full ${className}`}>
+        <div className="mb-4 flex justify-between items-center">
+          <h3 className="text-lg font-medium text-gray-900">Embedded DocuSeal Form</h3>
+          <button
+            onClick={() => setUseDirectUrl(true)}
+            className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
+          >
+            Switch to New Window
+          </button>
         </div>
-      )}
-    </div>
-  );
+        <div
+          id="docuseal-embed-container"
+          className="w-full bg-white border border-gray-200 rounded-lg"
+          style={{
+            minHeight: '600px',
+            height: '80vh',
+            width: '100%'
+          }}
+        >
+          {/* DocuSeal form will be inserted here */}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 };

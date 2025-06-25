@@ -4,7 +4,7 @@ import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { getManufacturerConfig } from './manufacturerFields';
-import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
+import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
 
 interface Step4Props {
   formData: any;
@@ -330,16 +330,18 @@ export default function Step4Confirmation({
                 </button>
               </div>
               <div className="h-[calc(100%-4rem)] overflow-auto">
-                <DocuSealIVRForm
+                <DocuSealEmbed
+                  manufacturerId={formData.manufacturer_id?.toString() || '1'}
+                  productCode={formData.product_code || ''}
                   formData={{
                     ...formData,
                     provider_email: formData.provider_email || 'provider@example.com',
                     provider_name: formData.provider_name || formData.provider_name,
                     docuseal_submission_id: docusealSubmissionId
                   }}
-                  templateId={getTemplateId()}
                   onComplete={handleIVRComplete}
                   onError={handleIVRError}
+                  className="w-full h-full min-h-[600px]"
                 />
               </div>
             </div>

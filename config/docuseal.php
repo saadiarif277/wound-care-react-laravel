@@ -16,72 +16,107 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal Template IDs
+    | DocuSeal Request Configuration
     |--------------------------------------------------------------------------
     |
-    | Map of manufacturer names to their DocuSeal template IDs
-    | Replace these with your actual template IDs from DocuSeal
+    | Settings for API requests and timeouts
+    |
+    */
+    'timeout' => (int) env('DOCUSEAL_TIMEOUT', 30),
+    'max_retries' => (int) env('DOCUSEAL_MAX_RETRIES', 3),
+    'retry_delay' => (int) env('DOCUSEAL_RETRY_DELAY', 1000),
+
+    /*
+    |--------------------------------------------------------------------------
+    | DocuSeal Template IDs by Manufacturer
+    |--------------------------------------------------------------------------
+    |
+    | Map of manufacturer names/IDs to their DocuSeal template IDs
+    | These should match the template IDs in your DocuSeal account
     |
     */
     'templates' => [
-        'ACZ' => [
-            'default' => env('DOCUSEAL_TEMPLATE_ACZ', 1000001),
-            'Membrane Wrap' => env('DOCUSEAL_TEMPLATE_ACZ_MEMBRANE', 1000002),
-            'Revoshield' => env('DOCUSEAL_TEMPLATE_ACZ_REVOSHIELD', 1000003),
-        ],
-        'Advanced Health' => [
-            'default' => env('DOCUSEAL_TEMPLATE_ADVANCED', 1000004),
-            'CompleteAA' => env('DOCUSEAL_TEMPLATE_ADVANCED_AA', 1000005),
-            'CompleteFT' => env('DOCUSEAL_TEMPLATE_ADVANCED_FT', 1000006),
-            'WoundPlus' => env('DOCUSEAL_TEMPLATE_ADVANCED_WOUNDPLUS', 1000007),
-        ],
-        'MedLife' => [
-            'default' => env('DOCUSEAL_TEMPLATE_MEDLIFE', 1233913),
-            'Amnio AMP' => env('DOCUSEAL_TEMPLATE_MEDLIFE_AMNIO', 1233913),
-        ],
-        'BioWound' => [
-            'default' => env('DOCUSEAL_TEMPLATE_BIOWOUND', 1000010),
-            'Membrane Wrap' => env('DOCUSEAL_TEMPLATE_BIOWOUND_MEMBRANE', 1000011),
-            'Derm-Maxx' => env('DOCUSEAL_TEMPLATE_BIOWOUND_DERMMAXX', 1000012),
-            'Bio-Connekt' => env('DOCUSEAL_TEMPLATE_BIOWOUND_BIOCONNEKT', 1000013),
-            'NeoStim' => env('DOCUSEAL_TEMPLATE_BIOWOUND_NEOSTIM', 1000014),
-            'Amnio-Maxx' => env('DOCUSEAL_TEMPLATE_BIOWOUND_AMNIOMAXX', 1000015),
-        ],
-        'Centurion' => [
-            'default' => env('DOCUSEAL_TEMPLATE_CENTURION', 1233918),
-            'AmnioBand' => env('DOCUSEAL_TEMPLATE_CENTURION_AMNIOBAND', 1233918),
-            'Allopatch' => env('DOCUSEAL_TEMPLATE_CENTURION_ALLOPATCH', 1233918),
-        ],
-        'BioWerX' => [
-            'default' => env('DOCUSEAL_TEMPLATE_BIOWERX', 1000019),
-        ],
-        'Extremity Care' => [
-            'default' => env('DOCUSEAL_TEMPLATE_EXTREMITY', 1000020),
-            'Coll-e-Derm' => env('DOCUSEAL_TEMPLATE_EXTREMITY_COLLEDERM', 1000021),
-            'CompleteFT' => env('DOCUSEAL_TEMPLATE_EXTREMITY_COMPLETEFT', 1000022),
-            'Restorigin' => env('DOCUSEAL_TEMPLATE_EXTREMITY_RESTORIGIN', 1000023),
-        ],
-        'Skye Biologics' => [
-            'default' => env('DOCUSEAL_TEMPLATE_SKYE', 1000024),
-            'WoundPlus' => env('DOCUSEAL_TEMPLATE_SKYE_WOUNDPLUS', 1000025),
-        ],
+        'acz' => env('DOCUSEAL_ACZ_TEMPLATE_ID', '852440'),
+        'advanced_health' => env('DOCUSEAL_ADVANCED_HEALTH_TEMPLATE_ID', '113461'),
+        'medlife' => env('DOCUSEAL_MEDLIFE_TEMPLATE_ID', '113461'),
+        'centurion' => env('DOCUSEAL_CENTURION_TEMPLATE_ID', '113461'),
+        'biowerx' => env('DOCUSEAL_BIOWERX_TEMPLATE_ID', '113461'),
+        'biowound' => env('DOCUSEAL_BIOWOUND_TEMPLATE_ID', '113461'),
+        'extremity_care' => env('DOCUSEAL_EXTREMITY_CARE_TEMPLATE_ID', '113461'),
+        'skye_biologics' => env('DOCUSEAL_SKYE_BIOLOGICS_TEMPLATE_ID', '113461'),
+        'total_ancillary' => env('DOCUSEAL_TOTAL_ANCILLARY_TEMPLATE_ID', '113461'),
+        'biovance' => env('DOCUSEAL_BIOVANCE_TEMPLATE_ID', '113461'),
+        'biovance_advanced' => env('DOCUSEAL_BIOVANCE_ADVANCED_TEMPLATE_ID', '113461'),
     ],
 
     /*
     |--------------------------------------------------------------------------
-    | Webhook Configuration
+    | DocuSeal Field Mapping Configuration
     |--------------------------------------------------------------------------
+    |
+    | Configuration for mapping form fields to DocuSeal template fields
+    | This enables the 91% field pre-filling mentioned in documentation
+    |
     */
-    'webhook_secret' => env('DOCUSEAL_WEBHOOK_SECRET'),
+    'field_mapping' => [
+        // Common mappings that work across most manufacturers
+        'patient_name' => ['patient_name', 'patient_full_name', 'full_name'],
+        'patient_first_name' => ['first_name', 'patient_first_name', 'fname'],
+        'patient_last_name' => ['last_name', 'patient_last_name', 'lname'],
+        'patient_dob' => ['date_of_birth', 'dob', 'patient_dob'],
+        'patient_address' => ['address', 'patient_address', 'street_address'],
+        'patient_city' => ['city', 'patient_city'],
+        'patient_state' => ['state', 'patient_state'],
+        'patient_zip' => ['zip', 'zip_code', 'postal_code'],
+        'patient_phone' => ['phone', 'patient_phone', 'phone_number'],
+        'patient_email' => ['email', 'patient_email'],
 
-    // Template ID for final order submissions to MSC
-    'final_submission_template_id' => env('DOCUSEAL_FINAL_SUBMISSION_TEMPLATE_ID', 'template_final_submission'),
+        // Provider information
+        'provider_name' => ['provider_name', 'physician_name', 'doctor_name'],
+        'provider_npi' => ['npi', 'provider_npi', 'physician_npi'],
+        'provider_phone' => ['provider_phone', 'physician_phone'],
+        'provider_address' => ['provider_address', 'physician_address'],
 
-    // Default templates for common manufacturers
-    'default_templates' => [
-        'ACZ' => env('DOCUSEAL_ACZ_TEMPLATE_ID', ''),
-        'MedLife' => env('DOCUSEAL_MEDLIFE_TEMPLATE_ID', ''),
-        'BioWound' => env('DOCUSEAL_BIOWOUND_TEMPLATE_ID', ''),
-        'Advanced Health' => env('DOCUSEAL_ADVANCED_HEALTH_TEMPLATE_ID', ''),
+        // Facility information
+        'facility_name' => ['facility_name', 'clinic_name'],
+        'facility_address' => ['facility_address', 'clinic_address'],
+        'facility_phone' => ['facility_phone', 'clinic_phone'],
+
+        // Insurance information
+        'insurance_carrier' => ['insurance_carrier', 'insurance_company', 'payer'],
+        'insurance_member_id' => ['member_id', 'insurance_id', 'subscriber_id'],
+        'insurance_group' => ['group_number', 'insurance_group'],
+
+        // Clinical information
+        'diagnosis_codes' => ['diagnosis_codes', 'icd10_codes', 'primary_diagnosis'],
+        'wound_type' => ['wound_type', 'wound_classification'],
+        'wound_location' => ['wound_location', 'anatomical_location'],
+        'wound_size' => ['wound_size', 'wound_dimensions'],
+        'onset_date' => ['onset_date', 'date_of_onset', 'injury_date'],
+
+        // Product information
+        'product_name' => ['product_name', 'requested_product'],
+        'product_code' => ['product_code', 'hcpcs_code'],
+        'quantity' => ['quantity', 'units_requested'],
+
+        // Service information
+        'service_date' => ['service_date', 'date_of_service'],
+        'treatment_frequency' => ['frequency', 'treatment_frequency'],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Episode Integration Settings
+    |--------------------------------------------------------------------------
+    |
+    | Settings specific to episode-centric workflow integration
+    |
+    */
+    'episode_integration' => [
+        'auto_populate_fields' => true,
+        'require_manufacturer_match' => true,
+        'validate_template_fields' => true,
+        'field_coverage_threshold' => 0.8, // 80% field coverage minimum
+        'enable_smart_mapping' => true,
     ],
 ];

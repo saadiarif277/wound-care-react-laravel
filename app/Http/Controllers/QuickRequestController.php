@@ -37,6 +37,7 @@ use Illuminate\Validation\ValidationException;
 use Carbon\Carbon;
 use Inertia\Inertia;
 use Inertia\Response;
+use Illuminate\Support\Facades\Http;
 
 /**
  * QuickRequestController
@@ -496,6 +497,142 @@ final class QuickRequestController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to generate form token: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate DocuSeal submission slug (not JWT token)
+     */
+    public function generateSubmissionSlug(Request $request): JsonResponse
+    {
+        try {
+            $data = $request->validate([
+                'user_email' => 'required|email',
+                'integration_email' => 'nullable|email',
+                'prefill_data' => 'nullable|array',
+                'manufacturerId' => 'nullable|integer',
+                'productCode' => 'nullable|string',
+            ]);
+
+            $apiKey = config('docuseal.api_key');
+            if (!$apiKey) {
+                throw new \Exception('DocuSeal API key not configured');
+            }
+
+            // Get manufacturer ID from request
+            $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
+
+            // Cast to integer if it's a string
+            if (is_string($manufacturerId) && is_numeric($manufacturerId)) {
+                $manufacturerId = (int) $manufacturerId;
+            }
+
+            if (!$manufacturerId) {
+                throw new \Exception('Manufacturer ID is required');
+            }
+
+            // Get the template
+            $template = $this->getTemplateForManufacturer($manufacturerId);
+            if (!$template) {
+                throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
+            }
+
+            // Map fields if we have prefill data
+            $mappedFields = [];
+            if (!empty($data['prefill_data'])) {
+                try {
+                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                        $data['prefill_data'],
+                        $template
+                    );
+
+                    Log::info('DocuSeal fields mapped for submission', [
+                        'manufacturer_id' => $manufacturerId,
+                        'template_id' => $template->docuseal_template_id,
+                        'original_fields' => count($data['prefill_data']),
+                        'mapped_fields' => count($mappedFields),
+                        'sample_fields' => array_slice($mappedFields, 0, 3)
+                    ]);
+                } catch (\Exception $e) {
+                    Log::warning('Could not map fields for DocuSeal submission', [
+                        'error' => $e->getMessage(),
+                        'manufacturer_id' => $manufacturerId
+                    ]);
+                    // Continue without mapped fields
+                }
+            }
+
+            // Create submission using DocuSeal API
+            $submissionData = [
+                'template_id' => (int) $template->docuseal_template_id,
+                'send_email' => false, // Don't send email, we're embedding
+                'submitters' => [
+                    [
+                        'email' => $data['integration_email'] ?? $data['user_email'],
+                        'role' => 'Signer', // Default role
+                        'fields' => $mappedFields // Pre-filled fields
+                    ]
+                ]
+            ];
+
+            // Make API call to DocuSeal (using correct authentication header)
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $apiKey,  // DocuSeal uses X-Auth-Token, not X-API-Key
+                'Content-Type' => 'application/json'
+            ])->timeout(config('docuseal.timeout', 30))
+            ->post('https://api.docuseal.com/submissions', $submissionData);
+
+            if (!$response->successful()) {
+                Log::error('DocuSeal API error', [
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                    'submission_data' => $submissionData
+                ]);
+                throw new \Exception('DocuSeal API error: ' . $response->body());
+            }
+
+            $submissionResponse = $response->json();
+
+            // Get the first submitter's slug
+            $submitters = $submissionResponse['submitters'] ?? [];
+            if (empty($submitters)) {
+                throw new \Exception('No submitters returned from DocuSeal API');
+            }
+
+            $slug = $submitters[0]['slug'] ?? null;
+            if (!$slug) {
+                throw new \Exception('No slug returned from DocuSeal API');
+            }
+
+            Log::info('DocuSeal submission created successfully', [
+                'template_id' => $template->docuseal_template_id,
+                'submission_id' => $submissionResponse['id'] ?? null,
+                'slug' => $slug,
+                'submitter_email' => $submitters[0]['email'] ?? null,
+                'mapped_fields_count' => count($mappedFields)
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'slug' => $slug,
+                'submission_id' => $submissionResponse['id'] ?? null,
+                'template_id' => $template->docuseal_template_id,
+                'template_name' => $template->template_name,
+                'manufacturer' => $template->manufacturer->name,
+                'mapped_fields_count' => count($mappedFields),
+                'embed_url' => "https://docuseal.com/s/{$slug}"
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error generating DocuSeal submission slug', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate submission slug: ' . $e->getMessage()
             ], 500);
         }
     }

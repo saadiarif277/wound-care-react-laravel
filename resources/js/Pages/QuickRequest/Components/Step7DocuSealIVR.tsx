@@ -3,7 +3,7 @@ import { prepareDocuSealData } from './docusealUtils';
 import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
+import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
 import { getManufacturerByProduct, getManufacturerConfig } from '../manufacturerFields';
 
 
@@ -419,11 +419,13 @@ export default function Step7DocuSealIVR({
             </div>
           </div>
         ) : (
-          <DocuSealIVRForm
+          <DocuSealEmbed
+            manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
+            productCode={selectedProduct?.code || ''}
             formData={preparedDocuSealData}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
-            episodeId={formData.episode_id}
+            className="w-full h-full min-h-[600px]"
           />
         )}
       </div>

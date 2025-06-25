@@ -519,6 +519,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-form-token');
 
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequestController::class, 'generateSubmissionSlug'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.generate-submission-slug');
+
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
