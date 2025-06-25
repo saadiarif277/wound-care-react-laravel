@@ -12,6 +12,7 @@ $kernel->bootstrap();
 use App\Models\User;
 use App\Models\Order\ProductRequest;
 use App\Services\CurrentOrganization;
+use Illuminate\Support\Facades\Auth;
 
 // Find admin user
 $admin = User::whereHas('roles', function($q) {

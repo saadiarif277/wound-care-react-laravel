@@ -265,7 +265,7 @@ export const roleApi = {
             const response: AxiosResponse<{ roles: Role[] }> = await axios.get('/api/roles');
             return response.data.roles;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -275,7 +275,7 @@ export const roleApi = {
             const response: AxiosResponse<{ role: Role }> = await axios.get(`/api/roles/${id}`);
             return response.data.role;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -290,7 +290,7 @@ export const roleApi = {
             const response: AxiosResponse<{ role: Role; message: string }> = await axios.post('/api/roles', data);
             return response.data.role;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -306,7 +306,7 @@ export const roleApi = {
             const response: AxiosResponse<{ role: Role; message: string }> = await axios.put(`/api/roles/${id}`, data);
             return response.data.role;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -315,7 +315,7 @@ export const roleApi = {
         try {
             await axios.delete(`/api/roles/${id}`, { data: { reason } });
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -325,7 +325,7 @@ export const roleApi = {
             const response: AxiosResponse<ValidationRules> = await axios.get('/api/roles/validation/rules');
             return response.data;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 };
@@ -343,7 +343,7 @@ export const accessControlApi = {
             const response: AxiosResponse<PaginatedResponse<User>> = await axios.get('/api/access-control/users', { params });
             return response.data;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -357,7 +357,7 @@ export const accessControlApi = {
             const response: AxiosResponse<{ user: User; message: string }> = await axios.post('/api/access-control/assign-role', data);
             return response.data.user;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -371,7 +371,7 @@ export const accessControlApi = {
             const response: AxiosResponse<{ user: User; message: string }> = await axios.post('/api/access-control/remove-role', data);
             return response.data.user;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -385,7 +385,7 @@ export const accessControlApi = {
             const response: AxiosResponse<{ user: User; message: string }> = await axios.post('/api/access-control/toggle-status', data);
             return response.data.user;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -409,7 +409,7 @@ export const accessControlApi = {
             const response = await axios.get('/api/access-control/stats');
             return response.data.stats;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -433,7 +433,7 @@ export const accessControlApi = {
             const response = await axios.get('/api/access-control/security-monitoring');
             return response.data.security_monitoring;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -445,7 +445,7 @@ export const accessControlApi = {
         try {
             await axios.post('/api/access-control/mark-reviewed', data);
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 };
@@ -471,7 +471,7 @@ export const rbacApi = {
             const response = await axios.get('/api/rbac/overview');
             return response.data;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -490,7 +490,7 @@ export const rbacApi = {
             const response = await axios.get('/api/rbac/role-hierarchy');
             return response.data.hierarchy;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -506,7 +506,7 @@ export const rbacApi = {
             const response = await axios.get('/api/rbac/permission-usage');
             return response.data.permissions;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -516,7 +516,7 @@ export const rbacApi = {
             const response: AxiosResponse<{ audit_logs: AuditLog[] }> = await axios.get('/api/rbac/security-audit');
             return response.data.audit_logs;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 
@@ -531,7 +531,7 @@ export const rbacApi = {
             const response = await axios.get('/api/rbac/metrics');
             return response.data;
         } catch (error) {
-            handleApiError(error);
+            return handleApiError(error);
         }
     },
 };

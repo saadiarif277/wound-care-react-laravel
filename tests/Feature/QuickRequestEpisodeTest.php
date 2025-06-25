@@ -305,7 +305,7 @@ class QuickRequestEpisodeTest extends TestCase
         $this->actingAs($this->provider);
 
         // Mock Medicare validation service
-        $this->mock(\App\Services\MedicareMacValidationService::class)
+        $this->mock(\App\Services\MacValidationService::class)
             ->shouldReceive('validateProductCoverage')
             ->andReturn([
                 'is_covered' => false,

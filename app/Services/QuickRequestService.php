@@ -1,26 +1,23 @@
 <?php
+declare(strict_types=1);
 
 namespace App\Services;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Episode;
 use App\Models\Order\Order;
-use App\Services\HealthData\Clients\AzureFhirClient;
+use App\Services\FhirService;
 use App\Services\DocuSealService;
 use App\Mail\ManufacturerOrderEmail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
-use App\Services\Templates\DocuSealBuilder;
 
-class QuickRequestService
+final class QuickRequestService
 {
-    private AzureFhirClient $fhirClient;
-    private DocuSealService $docuSealService;
-
-    public function __construct(AzureFhirClient $fhirClient, DocuSealService $docuSealService)
-    {
-        $this->fhirClient = $fhirClient;
-        $this->docuSealService = $docuSealService;
-    }
+    public function __construct(
+        private FhirService $fhirClient,
+        private DocuSealService $docuSealService,
+        private Templates\DocuSealBuilder $builder,
+    ) {}
 
     /**
      * Get the DocuSeal service instance.
@@ -42,51 +39,51 @@ class QuickRequestService
         $clinicalData = $data['clinical'] ?? [];
         $insuranceData = $data['insurance'] ?? [];
         $productData = $data['product'] ?? [];
-        
+
         $fhirIds = [];
-        
+
         // Orchestrate FHIR resource creation as per workflow
         try {
             // 1. Create or get Patient
             $patientResource = $this->createFhirPatient($patientData);
             $fhirIds['patient_id'] = $patientResource['id'] ?? null;
-            
+
             // 2. Create or get Practitioner
             $practitionerResource = $this->createFhirPractitioner($providerData);
             $fhirIds['practitioner_id'] = $practitionerResource['id'] ?? null;
-            
+
             // 3. Create Organization
             $organizationResource = $this->createFhirOrganization($facilityData);
             $fhirIds['organization_id'] = $organizationResource['id'] ?? null;
-            
+
             // 4. Create Condition (diagnosis)
             $conditionResource = $this->createFhirCondition($clinicalData, $fhirIds['patient_id']);
             $fhirIds['condition_id'] = $conditionResource['id'] ?? null;
-            
+
             // 5. Create EpisodeOfCare
             $episodeOfCareResource = $this->createFhirEpisodeOfCare($fhirIds);
             $fhirIds['episode_of_care_id'] = $episodeOfCareResource['id'] ?? null;
-            
+
             // 6. Create Coverage (insurance)
             $coverageResource = $this->createFhirCoverage($insuranceData, $fhirIds);
             $fhirIds['coverage_id'] = $coverageResource['id'] ?? null;
-            
+
             // 7. Create Encounter
             $encounterResource = $this->createFhirEncounter($fhirIds, $clinicalData);
             $fhirIds['encounter_id'] = $encounterResource['id'] ?? null;
-            
+
             // 8. Create QuestionnaireResponse (assessment)
             $questionnaireResource = $this->createFhirQuestionnaireResponse($clinicalData, $fhirIds);
             $fhirIds['questionnaire_response_id'] = $questionnaireResource['id'] ?? null;
-            
+
             // 9. Create DeviceRequest (product order)
             $deviceRequestResource = $this->createFhirDeviceRequest($productData, $fhirIds);
             $fhirIds['device_request_id'] = $deviceRequestResource['id'] ?? null;
-            
+
             // 10. Create Task for internal review
             $taskResource = $this->createFhirTask($fhirIds, 'internal_review');
             $fhirIds['task_id'] = $taskResource['id'] ?? null;
-            
+
         } catch (\Exception $e) {
             Log::error('FHIR orchestration failed', [
                 'error' => $e->getMessage(),
@@ -120,9 +117,9 @@ class QuickRequestService
         try {
             $manufacturerId = $data['manufacturer_id'];
             $productCode = $data['order_details']['product'] ?? null;
-            $builder = new DocuSealBuilder();
+
             try {
-                $template = $builder->getTemplate($manufacturerId, $productCode);
+                $template = $this->builder->getTemplate($manufacturerId, $productCode);
                 $dataWithTemplate = $data;
                 $dataWithTemplate['template_id'] = $template->docuseal_template_id;
             } catch (\Exception $lookupException) {
@@ -197,7 +194,7 @@ class QuickRequestService
                 'episode_id' => $episode->id
             ]);
         }
-        
+
         // Transition episode status
         $episode->update(['status' => 'manufacturer_review']);
 
@@ -257,7 +254,7 @@ class QuickRequestService
                     'value' => $patientData['member_id'] ?? uniqid('PAT')
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Patient', $patient);
         }, 1000);
     }
@@ -273,12 +270,12 @@ class QuickRequestService
                 $search = $this->fhirClient->search('Practitioner', [
                     'identifier' => $providerData['npi']
                 ]);
-                
+
                 if (!empty($search['entry'])) {
                     return $search['entry'][0]['resource'];
                 }
             }
-            
+
             // Create new practitioner
             $practitioner = [
                 'resourceType' => 'Practitioner',
@@ -303,7 +300,7 @@ class QuickRequestService
                     ]
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Practitioner', $practitioner);
         }, 1000);
     }
@@ -341,7 +338,7 @@ class QuickRequestService
                     'value' => $facilityData['npi'] ?? ''
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Organization', $organization);
         }, 1000);
     }
@@ -381,7 +378,7 @@ class QuickRequestService
                     'text' => $clinicalData['clinical_notes'] ?? ''
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Condition', $condition);
         }, 1000);
     }
@@ -416,7 +413,7 @@ class QuickRequestService
                     'display' => 'Wound Care Team'
                 ]]
             ];
-            
+
             return $this->fhirClient->create('EpisodeOfCare', $episodeOfCare);
         }, 1000);
     }
@@ -451,7 +448,7 @@ class QuickRequestService
                     'value' => $insuranceData['member_id'] ?? ''
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Coverage', $coverage);
         }, 1000);
     }
@@ -499,7 +496,7 @@ class QuickRequestService
                     'reference' => "Organization/{$fhirIds['organization_id']}"
                 ]
             ];
-            
+
             return $this->fhirClient->create('Encounter', $encounter);
         }, 1000);
     }
@@ -557,7 +554,7 @@ class QuickRequestService
                     ]
                 ]
             ];
-            
+
             return $this->fhirClient->create('QuestionnaireResponse', $questionnaireResponse);
         }, 1000);
     }
@@ -609,7 +606,7 @@ class QuickRequestService
                     ]
                 ]
             ];
-            
+
             return $this->fhirClient->create('DeviceRequest', $deviceRequest);
         }, 1000);
     }
@@ -636,9 +633,9 @@ class QuickRequestService
                     'performerType' => 'manufacturer'
                 ]
             ];
-            
+
             $config = $taskConfigs[$type] ?? $taskConfigs['internal_review'];
-            
+
             $task = [
                 'resourceType' => 'Task',
                 'status' => 'requested',
@@ -666,7 +663,7 @@ class QuickRequestService
                     'text' => $config['performerType']
                 ]]
             ];
-            
+
             return $this->fhirClient->create('Task', $task);
         }, 1000);
     }
@@ -678,8 +675,8 @@ class QuickRequestService
     {
         $firstName = strtoupper(substr($patientData['first_name'] ?? 'XX', 0, 2));
         $lastName = strtoupper(substr($patientData['last_name'] ?? 'XX', 0, 2));
-        $randomNum = str_pad(rand(0, 999), 3, '0', STR_PAD_LEFT);
-        
+        $randomNum = str_pad((string) rand(0, 999), 3, '0', STR_PAD_LEFT);
+
         return $firstName . $lastName . $randomNum;
     }
 }

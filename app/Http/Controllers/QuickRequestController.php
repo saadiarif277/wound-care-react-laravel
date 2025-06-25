@@ -40,7 +40,7 @@ use Inertia\Response;
 
 /**
  * QuickRequestController
- * 
+ *
  * Handles the complete Quick Request workflow for wound care product orders.
  * Integrates with FHIR services, DocuSeal, and manufacturer notifications.
  */
@@ -104,6 +104,7 @@ final class QuickRequestController extends Controller
             $productRequest = $this->createProductRequest($validated, $episode);
 
             // Handle file uploads
+            // Handle file uploads (using base Request instance to satisfy static analysis)
             $this->handleFileUploads($request, $productRequest, $episode);
 
             // Save product request
@@ -218,11 +219,44 @@ final class QuickRequestController extends Controller
                 'template_name' => 'nullable|string',
                 'document_urls' => 'nullable|array',
                 'prefill_data' => 'nullable|array',
+                'manufacturerId' => 'nullable|integer',
+                'productCode' => 'nullable|string',
             ]);
 
             $apiKey = config('docuseal.api_key');
             if (!$apiKey) {
                 throw new \Exception('DocuSeal API key not configured');
+            }
+
+            // Get manufacturer ID from request
+            $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
+
+            // Map fields if we have prefill data and manufacturer
+            $mappedFields = [];
+            if (!empty($data['prefill_data']) && $manufacturerId) {
+                try {
+                    $template = $this->getTemplateForManufacturer($manufacturerId);
+                    if ($template) {
+                        $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                            $data['prefill_data'],
+                            $template
+                        );
+
+                        Log::info('DocuSeal fields mapped for JWT', [
+                            'manufacturer_id' => $manufacturerId,
+                            'template_id' => $template->docuseal_template_id,
+                            'original_fields' => count($data['prefill_data']),
+                            'mapped_fields' => count($mappedFields),
+                            'sample_fields' => array_slice($mappedFields, 0, 3)
+                        ]);
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('Could not map fields for DocuSeal', [
+                        'error' => $e->getMessage(),
+                        'manufacturer_id' => $manufacturerId
+                    ]);
+                    // Continue without mapped fields
+                }
             }
 
             $payload = [
@@ -244,17 +278,28 @@ final class QuickRequestController extends Controller
                 $payload['document_urls'] = $data['document_urls'];
             }
 
+            // Add mapped fields if available, otherwise use raw data
+            if (!empty($mappedFields)) {
+                $payload['fields'] = $mappedFields;
+            } elseif (!empty($data['prefill_data'])) {
+                // Fallback to raw data if mapping failed
+                $payload['fields'] = $data['prefill_data'];
+            }
+
             // Generate JWT token
             $jwtToken = $this->generateJwtToken($payload, $apiKey);
 
             return response()->json([
                 'success' => true,
                 'jwt_token' => $jwtToken,
+                'token' => $jwtToken, // Alias for compatibility
+                'jwt' => $jwtToken, // Another alias
                 'user_email' => $data['user_email'],
                 'integration_email' => $data['integration_email'] ?? $data['user_email'],
                 'template_id' => $data['template_id'] ?? null,
                 'template_name' => $data['template_name'] ?? 'MSC Wound Care IVR Form',
-                'expires_at' => date('Y-m-d H:i:s', time() + (60 * 60))
+                'expires_at' => date('Y-m-d H:i:s', time() + (60 * 60)),
+                'mapped_fields_count' => count($mappedFields)
             ]);
 
         } catch (\Exception $e) {
@@ -283,7 +328,7 @@ final class QuickRequestController extends Controller
             ]);
 
             $prefillData = $data['prefill_data'];
-            
+
             // Determine manufacturer and template
             $manufacturerId = $this->getManufacturerIdFromPrefillData($prefillData);
             $template = $this->getTemplateForManufacturer($manufacturerId);
@@ -341,6 +386,116 @@ final class QuickRequestController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => 'Failed to create submission: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Generate DocuSeal form token for filling existing templates.
+     */
+    public function generateFormToken(Request $request): JsonResponse
+    {
+        try {
+            $data = $request->validate([
+                'user_email' => 'required|email',
+                'integration_email' => 'nullable|email',
+                'prefill_data' => 'nullable|array',
+                'manufacturerId' => 'nullable|integer',
+                'productCode' => 'nullable|string',
+            ]);
+
+            $apiKey = config('docuseal.api_key');
+            if (!$apiKey) {
+                throw new \Exception('DocuSeal API key not configured');
+            }
+
+            // Get manufacturer ID from request
+            $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
+
+            // Cast to integer if it's a string
+            if (is_string($manufacturerId) && is_numeric($manufacturerId)) {
+                $manufacturerId = (int) $manufacturerId;
+            }
+
+            if (!$manufacturerId) {
+                throw new \Exception('Manufacturer ID is required');
+            }
+
+            // Get the template
+            $template = $this->getTemplateForManufacturer($manufacturerId);
+            if (!$template) {
+                throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
+            }
+
+            // Map fields if we have prefill data
+            $mappedFields = [];
+            if (!empty($data['prefill_data'])) {
+                try {
+                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                        $data['prefill_data'],
+                        $template
+                    );
+
+                    Log::info('DocuSeal fields mapped for form', [
+                        'manufacturer_id' => $manufacturerId,
+                        'template_id' => $template->docuseal_template_id,
+                        'original_fields' => count($data['prefill_data']),
+                        'mapped_fields' => count($mappedFields),
+                        'sample_fields' => array_slice($mappedFields, 0, 3)
+                    ]);
+                } catch (\Exception $e) {
+                    Log::warning('Could not map fields for DocuSeal form', [
+                        'error' => $e->getMessage(),
+                        'manufacturer_id' => $manufacturerId
+                    ]);
+                    // Continue without mapped fields
+                }
+            }
+
+            // Build JWT payload for form component
+            $payload = [
+                'user_email' => $data['user_email'],
+                'template_id' => $template->docuseal_template_id,
+                'submitter' => [
+                    'email' => $data['integration_email'] ?? $data['user_email'],
+                    'fields' => $mappedFields // Pre-filled fields
+                ],
+                'external_id' => 'form_' . uniqid(),
+                'iat' => time(),
+                'exp' => time() + (60 * 60), // 1 hour expiration
+            ];
+
+            Log::info('Generating DocuSeal form token', [
+                'template_id' => $template->docuseal_template_id,
+                'has_fields' => !empty($mappedFields),
+                'field_count' => count($mappedFields),
+                'submitter_email' => $payload['submitter']['email']
+            ]);
+
+            // Generate JWT token
+            $jwtToken = $this->generateJwtToken($payload, $apiKey);
+
+            return response()->json([
+                'success' => true,
+                'jwt_token' => $jwtToken,
+                'token' => $jwtToken, // Alias for compatibility
+                'jwt' => $jwtToken, // Another alias
+                'template_id' => $template->docuseal_template_id,
+                'template_name' => $template->template_name,
+                'manufacturer' => $template->manufacturer->name,
+                'expires_at' => date('Y-m-d H:i:s', time() + (60 * 60)),
+                'mapped_fields_count' => count($mappedFields)
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error generating DocuSeal form token', [
+                'error' => $e->getMessage(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate form token: ' . $e->getMessage()
             ], 500);
         }
     }
@@ -554,7 +709,7 @@ final class QuickRequestController extends Controller
     private function extractProviderData(array $validated): array
     {
         $provider = User::find($validated['provider_id']);
-        
+
         return [
             'id' => $provider->id,
             'first_name' => $provider->first_name,
@@ -572,7 +727,7 @@ final class QuickRequestController extends Controller
     private function extractFacilityData(array $validated): array
     {
         $facility = Facility::find($validated['facility_id']);
-        
+
         return [
             'id' => $facility->id,
             'name' => $facility->name,
@@ -650,7 +805,12 @@ final class QuickRequestController extends Controller
     private function getManufacturerIdFromPrefillData(array $prefillData): ?int
     {
         if (!empty($prefillData['manufacturer_id'])) {
-            return $prefillData['manufacturer_id'];
+            $manufacturerId = $prefillData['manufacturer_id'];
+            // Cast to integer if it's a string
+            if (is_string($manufacturerId) && is_numeric($manufacturerId)) {
+                return (int) $manufacturerId;
+            }
+            return is_int($manufacturerId) ? $manufacturerId : null;
         }
 
         if (!empty($prefillData['selected_products'])) {
@@ -746,7 +906,7 @@ final class QuickRequestController extends Controller
     /**
      * Handle file uploads
      */
-    private function handleFileUploads(StoreRequest $request, ProductRequest $productRequest, PatientManufacturerIVREpisode $episode): void
+    private function handleFileUploads(\Illuminate\Http\Request $request, ProductRequest $productRequest, PatientManufacturerIVREpisode $episode): void
     {
         $documentMetadata = [];
         $documentTypes = [

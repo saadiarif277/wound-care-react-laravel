@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
+import type { SubmitHandler } from 'react-hook-form';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -53,7 +54,7 @@ const clinicalBillingSchema = z.object({
       code: z.string().regex(ICD10_REGEX, 'Invalid ICD-10 code'),
       system: z.enum(['icd10', 'icd9', 'snomed']),
       display: z.string().min(1, 'Diagnosis description is required'),
-      isPrimary: z.literal(true).optional(),
+      isPrimary: z.boolean().optional(),
       dateRecorded: z.string().optional(),
     }),
     secondary: z.array(
@@ -61,7 +62,7 @@ const clinicalBillingSchema = z.object({
         code: z.string().regex(ICD10_REGEX, 'Invalid ICD-10 code'),
         system: z.enum(['icd10', 'icd9', 'snomed']),
         display: z.string().min(1),
-        isPrimary: z.literal(false).optional(),
+        isPrimary: z.boolean().optional(),
         dateRecorded: z.string().optional(),
       })
     ),
@@ -314,7 +315,14 @@ export function useClinicalBilling({
   }, [watch('woundDetails.woundSize')]);
 
   // Handle form submission
-  const onSubmit = handleSubmit(async (data) => {
+  const toClinicalBillingData = (form: ClinicalBillingFormData): ClinicalBillingData => ({
+    ...form,
+  });
+
+
+  
+
+  const onSubmitHandler: SubmitHandler<ClinicalBillingFormData> = async (data) => {
     // Validate wound care necessity
     const necessityCheck = await validateWoundCareNecessity();
     if (!necessityCheck.valid) {
@@ -326,21 +334,21 @@ export function useClinicalBilling({
 
     // Save progress
     if (onSave) {
-      await onSave(data as ClinicalBillingData);
+      await onSave(toClinicalBillingData(data));
     }
 
     // Proceed to next step
     if (onNext) {
-      await onNext(data as ClinicalBillingData);
+      await onNext(toClinicalBillingData(data));
     }
-  });
+  };
 
   // Auto-save functionality
   useEffect(() => {
     if (isDirty && onSave) {
       const saveTimer = setTimeout(() => {
         const formData = watch();
-        onSave(formData as ClinicalBillingData);
+        onSave(toClinicalBillingData(formData as ClinicalBillingFormData));
       }, 3000);
 
       return () => clearTimeout(saveTimer);
@@ -357,7 +365,11 @@ export function useClinicalBilling({
     if (selectedFacility) {
       setValue('facility.name', selectedFacility.name);
       setValue('facility.npi', selectedFacility.npi || '');
-      setValue('facility.address', selectedFacility.address);
+      setValue('facility.address', {
+        ...selectedFacility.address,
+        // Ensure country is always defined to satisfy form schema
+        country: selectedFacility.address.country ?? 'USA',
+      });
       setValue('facility.phone', selectedFacility.phone);
       setValue('facility.fax', selectedFacility.fax || '');
       setValue('facility.taxId', selectedFacility.taxId || '');
@@ -367,7 +379,7 @@ export function useClinicalBilling({
   return {
     // Form methods
     register,
-    handleSubmit: onSubmit,
+    handleSubmit: onsubmit,
     control,
     errors,
     isSubmitting,

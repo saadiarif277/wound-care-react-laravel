@@ -13,6 +13,27 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
      */
     public function run(): void
     {
+        // Recreate diagnosis_codes table with updated schema
+        DB::statement('DROP TABLE IF EXISTS `diagnosis_codes`');
+        DB::statement(<<<SQL
+CREATE TABLE `diagnosis_codes` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `specialty` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `wound_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Associated wound type: diabetic_foot_ulcer, venous_leg_ulcer, pressure_ulcer, chronic_skin_subs',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `diagnosis_codes_code_unique` (`code`),
+  KEY `diagnosis_codes_category_index` (`category`),
+  KEY `diagnosis_codes_is_active_index` (`is_active`),
+  KEY `diagnosis_codes_wound_type_index` (`wound_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL);
+
         // First ensure wound types exist
         $this->ensureWoundTypesExist();
         

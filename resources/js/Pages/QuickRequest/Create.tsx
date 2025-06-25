@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle } from 'react-icons/fi';
@@ -345,6 +345,8 @@ function QuickRequestCreate({
                 woundTypes={woundTypes}
                 errors={errors}
                 prefillData={prefillData}
+                providers={providers}
+                currentUser={currentUser}
               />
             )}
 
@@ -352,11 +354,7 @@ function QuickRequestCreate({
               <Step2ProductSelection
                 formData={formData}
                 updateFormData={updateFormData}
-                products={products}
                 errors={errors}
-                facilities={facilitiesArray}
-                woundTypes={woundTypes}
-                userRole={'provider'}
               />
             )}
 
@@ -392,7 +390,7 @@ function QuickRequestCreate({
                 currentStep === 1
                   ? "opacity-50 cursor-not-allowed"
                   : "hover:shadow-lg",
-                t.button.secondary
+                t.button.secondary.base
               )}
             >
               <FiArrowLeft className="mr-2" />

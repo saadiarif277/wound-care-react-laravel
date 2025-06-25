@@ -2,14 +2,8 @@ import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import OrderReviewSummary from './OrderReviewSummary';
 
-interface QuickRequestFormData {
-  // This interface matches the form data structure
-  [key: string]: any;
-}
-
 interface Step6Props {
-  formData: QuickRequestFormData;
-  updateFormData: (data: Partial<QuickRequestFormData>) => void;
+  // Removed unused formData to eliminate lint warning
   products: Array<any>;
   providers: Array<any>;
   facilities: Array<any>;
@@ -20,7 +14,6 @@ interface Step6Props {
 }
 
 export default function Step6ReviewSubmit({
-  formData,
   products,
   errors,
   onSubmit,
@@ -45,16 +38,13 @@ export default function Step6ReviewSubmit({
     }
   };
 
-  const handleSubmit = async () => {
-    // Call the parent's onSubmit which should handle the actual submission
-    return new Promise((resolve, reject) => {
-      try {
-        onSubmit();
-        resolve(true);
-      } catch (error) {
-        reject(error);
-      }
-    });
+  const handleSubmit = async (): Promise<void> => {
+    try {
+      await Promise.resolve(onSubmit());
+    } catch (error) {
+      // You might want to surface error handling here
+      throw error;
+    }
   };
 
   return (

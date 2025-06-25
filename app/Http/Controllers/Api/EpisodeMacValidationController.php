@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\PatientManufacturerIVREpisode;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\Cache;
 
 class EpisodeMacValidationController extends Controller
 {
-    private MedicareMacValidationService $macValidationService;
+    private MacValidationService $macValidationService;
     private CmsCoverageApiService $cmsApiService;
 
     public function __construct(
-        MedicareMacValidationService $macValidationService,
+        MacValidationService $macValidationService,
         CmsCoverageApiService $cmsApiService
     ) {
         $this->macValidationService = $macValidationService;

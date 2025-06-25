@@ -223,6 +223,58 @@ class UsersController extends Controller
     /**
      * Get user statistics for dashboard
      */
+    /**
+     * Assign roles to a user (API)
+     */
+    public function assignRoles(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        $user->roles()->attach($validated['role_ids']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Roles assigned successfully',
+            'roles' => $user->roles()->pluck('slug'),
+        ]);
+    }
+
+    /**
+     * Remove a specific role from a user (API)
+     */
+    public function removeRole(User $user, Role $role): JsonResponse
+    {
+        $user->roles()->detach($role->id);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Role removed successfully',
+            'roles' => $user->roles()->pluck('slug'),
+        ]);
+    }
+
+    /**
+     * Synchronize roles for a user (API) – replace all
+     */
+    public function syncRoles(Request $request, User $user): JsonResponse
+    {
+        $validated = $request->validate([
+            'role_ids' => 'required|array',
+            'role_ids.*' => 'exists:roles,id',
+        ]);
+
+        $user->roles()->sync($validated['role_ids']);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Roles synchronized successfully',
+            'roles' => $user->roles()->pluck('slug'),
+        ]);
+    }
+
     private function getUserStats(): array
     {
         $totalUsers = User::count();

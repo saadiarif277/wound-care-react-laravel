@@ -135,7 +135,7 @@ echo "\n";
 echo "=== Testing Integration with Medicare MAC Validation ===\n\n";
 
 try {
-    $macService = app(\App\Services\MedicareMacValidationService::class);
+            $macService = app(\App\Services\MacValidationService::class);
 
     echo "Medicare MAC Validation Service loaded successfully\n";
     echo "The service now integrates with:\n";

@@ -702,6 +702,15 @@ class FhirService
     }
 
     /**
+     * Backward-compatibility wrapper expected by legacy services
+     * @deprecated use processTransaction()
+     */
+    public function createBundle(array $bundle): array
+    {
+        return $this->processTransaction($bundle);
+    }
+
+    /**
      * Get server capability statement
      */
     public function getCapabilityStatement(): array

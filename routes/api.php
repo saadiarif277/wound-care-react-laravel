@@ -374,9 +374,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     ]);
 
     // User Role Management with unique names
-    Route::post('users/{user}/roles', [UsersController::class, 'assignRoles'])->name('api.users.roles.assign');
-    Route::delete('users/{user}/roles/{role}', [UsersController::class, 'removeRole'])->name('api.users.roles.remove');
-    Route::put('users/{user}/roles', [UsersController::class, 'syncRoles'])->name('api.users.roles.sync');
+    Route::post('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'assignRoles'])->name('api.users.roles.assign');
+    Route::delete('users/{user}/roles/{role}', [\App\Http\Controllers\Admin\UsersController::class, 'removeRole'])->name('api.users.roles.remove');
+    Route::put('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'syncRoles'])->name('api.users.roles.sync');
 
     // RBAC Management Routes with unique names
     Route::middleware(['auth:sanctum', 'role:msc-admin'])->group(function () {
@@ -648,17 +648,17 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
 
 // QuickRequest Episode Creation Route (Enhanced)
 Route::middleware(['api', 'auth:sanctum'])->group(function () {
-    Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisode'])
+    Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisode'])
         ->name('api.quick-request.create-episode')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
     
-    Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisodeWithDocuments'])
+    Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
         ->name('api.quick-request.create-episode-with-documents')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
     
-    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\QuickRequestController::class, 'extractIvrFields'])
+    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'extractIvrFields'])
         ->name('api.quick-request.extract-ivr-fields')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
 });
 
 // Episode MAC Validation Routes

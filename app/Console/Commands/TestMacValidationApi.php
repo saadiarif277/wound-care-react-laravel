@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Support\Facades\Log;
 
@@ -12,11 +12,11 @@ class TestMacValidationApi extends Command
     protected $signature = 'test:mac-validation-api {--quick : Run only quick check test} {--thorough : Run only thorough validation test}';
     protected $description = 'Test MAC validation API integration with CMS Coverage API';
 
-    protected MedicareMacValidationService $validationService;
+    protected MacValidationService $validationService;
     protected CmsCoverageApiService $cmsService;
 
     public function __construct(
-        MedicareMacValidationService $validationService,
+        MacValidationService $validationService,
         CmsCoverageApiService $cmsService
     ) {
         parent::__construct();
@@ -61,7 +61,7 @@ class TestMacValidationApi extends Command
             // Test CMS API directly
             $this->line('   Testing CMS API connection...');
             $macInfo = $this->cmsService->getMACJurisdiction($state, '90210');
-            
+
             if ($macInfo) {
                 $this->info('   ✓ CMS API Connected');
                 $this->line('   MAC Contractor: ' . ($macInfo['contractor'] ?? 'Unknown'));
@@ -85,7 +85,7 @@ class TestMacValidationApi extends Command
                 $this->line('   Response Time: ' . ($cmsData['summary']['total_response_time_ms'] ?? 'N/A') . 'ms');
                 $this->line('   Local Policies Found: ' . ($cmsData['summary']['local_policies_found'] ?? 0));
                 $this->line('   National Policies Found: ' . ($cmsData['summary']['national_policies_found'] ?? 0));
-                
+
                 // Check service coverage
                 if (isset($cmsData['coverage_insights']['service_coverage'])) {
                     $this->newLine();
@@ -97,7 +97,7 @@ class TestMacValidationApi extends Command
                             'not_covered' => '<fg=red>✗ Not Covered</>',
                             default => '<fg=gray>? Unknown</>'
                         };
-                        $this->line(sprintf('     %s: %s - %s', 
+                        $this->line(sprintf('     %s: %s - %s',
                             $coverage['code'],
                             $status,
                             $coverage['description'] ?? 'No description'
@@ -139,11 +139,11 @@ class TestMacValidationApi extends Command
             ];
 
             $this->line('   Testing comprehensive validation...');
-            
+
             // Test ValidationBuilderEngine
             $validationEngine = app(\App\Services\ValidationBuilderEngine::class);
             $rules = $validationEngine->buildValidationRulesForSpecialty('wound_care_specialty', 'CA');
-            
+
             if (!empty($rules)) {
                 $this->info('   ✓ Validation Rules Built');
                 $this->line('   Rule Categories: ' . count($rules));
@@ -159,10 +159,10 @@ class TestMacValidationApi extends Command
             $this->line('   Testing CMS compliance data...');
             $lcds = $this->cmsService->getLCDsBySpecialty('wound_care_specialty', 'CA');
             $ncds = $this->cmsService->getNCDsBySpecialty('wound_care_specialty');
-            
+
             $this->line('   LCDs Found: ' . count($lcds));
             $this->line('   NCDs Found: ' . count($ncds));
-            
+
             if (count($lcds) > 0 || count($ncds) > 0) {
                 $this->info('   ✓ CMS Compliance Data Available');
             } else {

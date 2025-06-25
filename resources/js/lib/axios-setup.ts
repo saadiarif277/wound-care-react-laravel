@@ -58,6 +58,34 @@ async function fetchAuthToken(): Promise<string | null> {
     return null;
 }
 
+// --- DocuSeal JWT Token Helpers ---
+function getDocuSealToken(): string | null {
+    return sessionStorage.getItem('docuseal_jwt');
+}
+
+async function fetchDocuSealToken(): Promise<string | null> {
+    try {
+        const resp = await fetch('/api/v1/docuseal/token', {
+            method: 'GET',
+            credentials: 'same-origin',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        if (resp.ok) {
+            const data = await resp.json();
+            const token = data.token as string;
+            if (token) {
+                sessionStorage.setItem('docuseal_jwt', token);
+                return token;
+            }
+        }
+    } catch (e) {
+        console.error('Failed to fetch DocuSeal token', e);
+    }
+    return null;
+}
+
 // Configure axios defaults for the application
 export function setupAxios() {
     // Set base URL
@@ -104,13 +132,36 @@ export function setupAxios() {
                 config.headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
             }
 
-                        // Attach Authorization header if we have a Sanctum token
-            let authToken = getAuthToken();
-            if (!authToken) {
-                authToken = await fetchAuthToken();
-            }
-            if (authToken) {
-                config.headers['Authorization'] = `Bearer ${authToken}`;
+                        // Detect if the request is going to DocuSeal API
+            const docuSealRegex = /(?:^https?:\/\/)?(?:[^\/]*\.)?docuseal\.com/i;
+            const isDocuSealRequest = docuSealRegex.test((config.url ?? '').toString());
+
+            if (isDocuSealRequest) {
+                // Remove Laravel-specific headers that DocuSeal does not expect
+                delete config.headers['X-Requested-With'];
+                delete config.headers['X-CSRF-TOKEN'];
+                delete config.headers['X-XSRF-TOKEN'];
+
+                // Ensure JSON accept header
+                config.headers['Accept'] = 'application/json';
+
+                // Attach DocuSeal JWT token
+                let dsToken = getDocuSealToken();
+                if (!dsToken) {
+                    dsToken = await fetchDocuSealToken();
+                }
+                if (dsToken) {
+                    config.headers['Authorization'] = `Bearer ${dsToken}`;
+                }
+            } else {
+                // Attach Authorization header if we have a Sanctum token (our own API)
+                let authToken = getAuthToken();
+                if (!authToken) {
+                    authToken = await fetchAuthToken();
+                }
+                if (authToken) {
+                    config.headers['Authorization'] = `Bearer ${authToken}`;
+                }
             }
             return config;
         },

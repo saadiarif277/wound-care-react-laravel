@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
-import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText } from 'react-icons/fi';
+import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText, FiZap } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
@@ -293,12 +293,121 @@ function QuickRequestCreateNew({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-{
-useEffect(() => {
-(window as any).getFormData = () => formData;
-(window as any).updateFormData = updateFormData;
-}, [formData, updateFormData])
-}
+  // Pre-fill function for testing
+  const prefillTestData = () => {
+    const testData: Partial<QuickRequestFormData> = {
+      // Provider & Facility (pick first available)
+      provider_id: providers[0]?.id || null,
+      facility_id: facilities[0]?.id || null,
+
+      // Patient Information
+      patient_first_name: 'John',
+      patient_last_name: 'Doe',
+      patient_dob: '1965-03-15',
+      patient_gender: 'male',
+      patient_member_id: 'MED123456789',
+      patient_address_line1: '123 Main Street',
+      patient_address_line2: 'Apt 4B',
+      patient_city: 'New York',
+      patient_state: 'NY',
+      patient_zip: '10001',
+      patient_phone: '(555) 123-4567',
+      patient_email: 'john.doe@email.com',
+      patient_is_subscriber: true,
+
+      // Insurance
+      primary_insurance_name: 'Medicare',
+      primary_member_id: 'MED123456789',
+      primary_payer_phone: '(800) 633-4227',
+      primary_plan_type: 'ffs',
+      has_secondary_insurance: false,
+
+      // Clinical Information
+      wound_type: 'diabetic_foot_ulcer',
+      wound_types: ['diabetic_foot_ulcer'],
+      wound_location: 'right_foot',
+      wound_location_details: 'Plantar surface, first metatarsal head',
+      primary_diagnosis_code: 'E11.621',
+      secondary_diagnosis_code: 'L97.519',
+      wound_size_length: '2.5',
+      wound_size_width: '1.8',
+      wound_size_depth: '0.3',
+      wound_duration_weeks: '6',
+      wound_duration_days: '2',
+
+      // Procedure Information
+      application_cpt_codes: ['97597'],
+      prior_applications: '2',
+      prior_application_product: 'Standard dressing',
+      prior_application_within_12_months: false,
+      anticipated_applications: '4',
+
+      // Billing Status
+      place_of_service: '11',
+      medicare_part_b_authorized: true,
+      hospice_status: false,
+      part_a_status: false,
+      global_period_status: false,
+
+      // Selected Products (pick first product if available)
+      selected_products: products.length > 0 ? [{
+        product_id: products[0].id,
+        quantity: 1,
+        size: products[0].available_sizes?.[0]?.toString() || '4',
+        product: products[0]
+      }] : [],
+
+      // Authorization
+      failed_conservative_treatment: true,
+      information_accurate: true,
+      medical_necessity_established: true,
+      maintain_documentation: true,
+      authorize_prior_auth: true,
+
+      // Manufacturer Fields (example)
+      manufacturer_fields: {
+        patient_ambulatory: true,
+        patient_weight_bearing: false,
+        wound_infected: false,
+        wound_drainage: 'minimal',
+        wound_odor: false,
+        tunnel_present: false,
+        undermining_present: false,
+        exposed_bone: false,
+        exposed_tendon: false,
+        patient_diabetic: true,
+        hba1c_level: '7.2',
+        ankle_brachial_index: '0.9',
+        transcutaneous_oxygen: '45',
+        patient_compliant: true,
+        offloading_used: true,
+        compression_therapy: false,
+        hyperbaric_oxygen: false,
+        negative_pressure: false,
+        debridement_frequency: 'weekly',
+        dressing_change_frequency: 'twice_weekly',
+        nutritional_support: true,
+        patient_smoker: false,
+        allergies_collagen: false,
+        allergies_silver: false,
+        allergies_honey: false,
+        contraindications: false
+      }
+    };
+
+    updateFormData(testData);
+
+    // Show success message
+    const successDiv = document.createElement('div');
+    successDiv.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    successDiv.textContent = '✅ Test data pre-filled successfully!';
+    document.body.appendChild(successDiv);
+
+    setTimeout(() => {
+      successDiv.remove();
+    }, 3000);
+  };
+
   // State for IVR fields
   const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
   const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
@@ -367,9 +476,9 @@ useEffect(() => {
         } else if (formData.wound_type) {
           if (!formData.diagnosis_code) errors.diagnosis_code = 'Diagnosis code is required';
         }
-        
+
         // Validate at least one duration field is filled
-        if (!formData.wound_duration_days && !formData.wound_duration_weeks && 
+        if (!formData.wound_duration_days && !formData.wound_duration_weeks &&
             !formData.wound_duration_months && !formData.wound_duration_years) {
           errors.wound_duration = 'At least one duration field is required';
         }
@@ -793,53 +902,8 @@ useEffect(() => {
     // Create DeviceRequest when moving from section 2 to 3 (after product selection)
     if (currentSection === 2) {
       await createFhirResources('DeviceRequest');
-      
-      // Create local episode record for IVR tracking after product selection
-      if (!formData.episode_id && formData.patient_fhir_id) {
-        try {
-          const csrfToken = await ensureValidCSRFToken();
-          if (!csrfToken) {
-            setErrors({ episode: 'Unable to obtain security token. Please refresh the page.' });
-            return;
-          }
-          
-          const selectedProduct = formData.selected_products?.[0];
-          const product = selectedProduct ? products.find(p => p.id === selectedProduct.product_id) : null;
-          
-          const episodeCreationResponse = await axios.post('/api/quick-request/create-episode', {
-            patient_id: formData.patient_fhir_id, // Using FHIR ID as patient_id
-            patient_fhir_id: formData.patient_fhir_id,
-            patient_display_id: formData.patient_display_id || 'PATIENT',
-            manufacturer_id: product?.manufacturer_id || null,
-            selected_product_id: selectedProduct?.product_id || null,
-            form_data: {
-              provider_id: formData.provider_id,
-              facility_id: formData.facility_id,
-              fhir_episode_of_care_id: formData.fhir_episode_of_care_id
-            }
-          }, {
-            headers: {
-              'X-CSRF-TOKEN': csrfToken,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (episodeCreationResponse.data && episodeCreationResponse.data.episode_id) {
-            updateFormData({
-              episode_id: episodeCreationResponse.data.episode_id,
-              manufacturer_id: product?.manufacturer_id || undefined
-            });
-          } else {
-            setErrors({ episode: 'Failed to create local episode. Please try again.' });
-            return;
-          }
-        } catch (error: any) {
-          console.error('Error creating episode:', error);
-          const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create episode';
-          setErrors({ episode: errorMessage });
-          return;
-        }
-      }
+
+      // Episode will be created during final submission (Step 7). Early creation removed to avoid duplicate calls and 500 errors.
     }
 
     // Extract IVR fields when moving from section 3 to 4
@@ -1004,6 +1068,19 @@ useEffect(() => {
               Complete your wound care order in 5 simple steps
             </p>
 
+            {/* Pre-fill Test Data Button */}
+            <button
+              onClick={prefillTestData}
+              className={cn(
+                "mt-4 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all duration-200",
+                "bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30",
+                "text-purple-300 hover:text-purple-200"
+              )}
+            >
+              <FiZap className="h-4 w-4" />
+              Pre-fill Test Data
+            </button>
+
             {/* CSRF Test Component removed as requested */}
           </div>
 
@@ -1022,8 +1099,8 @@ useEffect(() => {
                     <div className={cn("flex flex-col items-center", isActive ? "text-blue-500" : t.text.muted)}>
                       <div className={cn(
                         "rounded-full p-3",
-                        isActive 
-                          ? "bg-blue-500/20 border-2 border-blue-500/40" 
+                        isActive
+                          ? "bg-blue-500/20 border-2 border-blue-500/40"
                           : cn("border-2", t.glass.border, t.glass.base)
                       )}>
                         {isCompleted ? <FiCheck className="h-6 w-6 text-emerald-400" /> : <Icon className="h-6 w-6" />}
@@ -1111,8 +1188,6 @@ useEffect(() => {
 
             {currentSection === 4 && (
               <Step6ReviewSubmit
-                formData={formData as any}
-                updateFormData={updateFormData as any}
                 products={products}
                 providers={providers}
                 facilities={facilities}

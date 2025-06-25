@@ -5,7 +5,7 @@ namespace App\Services\ProductRecommendationEngine;
 use App\Models\Order\Product;
 use App\Models\Order\ProductRequest;
 use App\Models\Order\MscProductRecommendationRule;
-use App\Services\SupabaseService;
+use App\Services\AIEnhancementService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
@@ -14,16 +14,16 @@ class MSCProductRecommendationService
 {
     protected $contextBuilder;
     protected $ruleEvaluator;
-    protected $supabaseService;
+    protected $aiEnhancementService;
 
     public function __construct(
         MSCProductContextBuilderService $contextBuilder,
         MSCProductRuleEvaluatorService $ruleEvaluator,
-        SupabaseService $supabaseService
+        AIEnhancementService $aiEnhancementService
     ) {
         $this->contextBuilder = $contextBuilder;
         $this->ruleEvaluator = $ruleEvaluator;
-        $this->supabaseService = $supabaseService;
+        $this->aiEnhancementService = $aiEnhancementService;
     }
 
     /**
@@ -79,16 +79,13 @@ class MSCProductRecommendationService
     }
 
     /**
-     * Enhance recommendations using Azure OpenAI
+     * Enhance recommendations using AI
      */
     protected function enhanceWithAI(array $context, array $ruleBasedRecommendations): array
     {
         try {
-            // Call Supabase Edge Function for AI enhancement
-            $enhancedRecommendations = $this->callSupabaseEdgeFunction('product-recommendations-ai', [
-                'context' => $context,
-                'rule_based_recommendations' => $ruleBasedRecommendations
-            ]);
+            // Use AI enhancement service
+            $enhancedRecommendations = $this->aiEnhancementService->enhanceProductRecommendations($context, $ruleBasedRecommendations);
 
             return $enhancedRecommendations;
         } catch (\Exception $e) {
@@ -100,62 +97,6 @@ class MSCProductRecommendationService
             // Return rule-based recommendations as fallback
             return $ruleBasedRecommendations;
         }
-    }
-
-    /**
-     * Call Supabase Edge Function
-     */
-    protected function callSupabaseEdgeFunction(string $functionName, array $payload): array
-    {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.supabase.anon_key'),
-            'Content-Type' => 'application/json'
-        ])->timeout(30)
-        ->post(
-            config('services.supabase.url') . "/functions/v1/{$functionName}",
-            $payload
-        );
-
-        if ($response->successful()) {
-            $result = $response->json();
-
-            // Handle new response format with metadata
-            if (isset($result['success']) && $result['success'] === true && isset($result['recommendations'])) {
-                Log::info('AI recommendations received successfully', [
-                    'function' => $functionName,
-                    'recommendations_count' => count($result['recommendations']),
-                    'ai_enhanced' => $result['metadata']['ai_enhanced'] ?? false,
-                    'processing_time' => $result['metadata']['processing_time_ms'] ?? 0,
-                    'request_id' => $result['metadata']['request_id'] ?? 'unknown'
-                ]);
-
-                return $result['recommendations'];
-            }
-
-            // Handle legacy format (direct array)
-            if (is_array($result) && !empty($result)) {
-                Log::info('AI recommendations received (legacy format)', [
-                    'function' => $functionName,
-                    'recommendations_count' => count($result)
-                ]);
-                return $result;
-            }
-
-            // If response format is unexpected, log and fallback
-            Log::warning('Unexpected Supabase Edge Function response format', [
-                'function' => $functionName,
-                'response' => $result
-            ]);
-        } else {
-            Log::error('Supabase Edge Function call failed', [
-                'function' => $functionName,
-                'status' => $response->status(),
-                'body' => $response->body()
-            ]);
-        }
-
-        // Fallback to rule-based only if AI fails
-        throw new \Exception('Supabase Edge Function call failed');
     }
 
     /**
