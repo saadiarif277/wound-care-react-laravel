@@ -15,6 +15,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read #This is required for actions/checkout
+    env:
+     AZURE_FHIR_BASE_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+     AZURE_FHIR_URL: "https://medexchangefhir-fhirserver.fhir.azurehealthcareapis.com"
+
 
     steps:
       - uses: actions/checkout@v4
