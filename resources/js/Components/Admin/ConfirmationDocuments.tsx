@@ -5,7 +5,6 @@ import {
   DocumentCheckIcon,
   DocumentTextIcon,
   ArrowDownTrayIcon,
-  ArrowUpTrayIcon,
   EyeIcon,
   TrashIcon,
   CloudArrowUpIcon,

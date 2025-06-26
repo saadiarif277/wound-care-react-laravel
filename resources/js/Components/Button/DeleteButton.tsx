@@ -9,12 +9,10 @@ interface Props extends ComponentProps<'button'> {
 export default function DeleteButton({ onDelete, children, className, ...props }: Props) {
   // Theme setup with fallback
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
 
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // If not in ThemeProvider, use dark theme
   }

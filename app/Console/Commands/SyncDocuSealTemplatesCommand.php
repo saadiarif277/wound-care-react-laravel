@@ -18,7 +18,7 @@ class SyncDocuSealTemplatesCommand extends Command
     /**
      * The name and signature of the console command.
      */
-    protected $signature = 'docuseal:sync-templates 
+    protected $signature = 'docuseal:sync-templates
                             {--force : Force sync even if templates exist}
                             {--manufacturer= : Sync templates for specific manufacturer only}
                             {--queue : Process templates via queue (recommended for large numbers)}';
@@ -45,7 +45,7 @@ class SyncDocuSealTemplatesCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('🔄 Starting DocuSeal Template Sync...');
+        $this->info('🔄 Starting Enhanced DocuSeal Template Sync...');
 
         // Test connection first
         $connectionTest = $this->docusealService->testConnection();
@@ -55,71 +55,192 @@ class SyncDocuSealTemplatesCommand extends Command
         }
 
         $this->info('✅ DocuSeal API connection successful');
-        $this->info('📊 Found ' . $connectionTest['templates_count'] . ' templates in DocuSeal');
 
-        try {
-            // Fetch all templates from DocuSeal API
-            $templates = $this->fetchAllTemplates();
-            
-            if (empty($templates)) {
-                $this->error('❌ No templates found in DocuSeal');
-                return self::FAILURE;
-            }
+        // First, discover all templates to get a comprehensive view
+        $this->info('🔍 Discovering all available templates...');
+        $discovery = $this->docusealService->discoverAllTemplates();
 
-            $this->info("📋 Processing " . count($templates) . " templates...");
-
-            $processedCount = 0;
-            $skippedCount = 0;
-            $errorCount = 0;
-
-            foreach ($templates as $template) {
-                try {
-                    $result = $this->processTemplate($template);
-                    
-                    if ($result['action'] === 'processed') {
-                        $processedCount++;
-                        $this->line("✅ {$result['name']} - {$result['message']}");
-                    } elseif ($result['action'] === 'skipped') {
-                        $skippedCount++;
-                        $this->line("⏭️  {$result['name']} - {$result['message']}");
-                    }
-                } catch (\Exception $e) {
-                    $errorCount++;
-                    $templateName = $template['name'] ?? 'Unknown';
-                    $this->error("❌ Error processing template {$templateName}: {$e->getMessage()}");
-                    Log::error('DocuSeal template sync error', [
-                        'template' => $template,
-                        'error' => $e->getMessage()
-                    ]);
-                }
-            }
-
-            // Display summary
-            $this->newLine();
-            $this->info('📈 Sync Summary:');
-            $this->table(['Status', 'Count'], [
-                ['Processed', $processedCount],
-                ['Skipped', $skippedCount],
-                ['Errors', $errorCount],
-                ['Total', count($templates)]
-            ]);
-
-            if ($errorCount > 0) {
-                $this->warn('⚠️  Some templates had errors. Check logs for details.');
-                return self::FAILURE;
-            }
-
-            $this->info('🎉 DocuSeal template sync completed successfully!');
-            return self::SUCCESS;
-
-        } catch (\Exception $e) {
-            $this->error('❌ Template sync failed: ' . $e->getMessage());
-            Log::error('DocuSeal template sync failed', [
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
+        if (!$discovery['success']) {
+            $this->error('❌ Template discovery failed: ' . $discovery['error']);
             return self::FAILURE;
         }
+
+        $analytics = $discovery['analytics'];
+        $this->info("📊 Discovery complete: {$analytics['total_templates']} templates found");
+
+        // Display discovery summary
+        $this->displayDiscoverySummary($analytics);
+
+        // Get manufacturers to sync
+        $manufacturerFilter = $this->option('manufacturer');
+        if ($manufacturerFilter) {
+            $manufacturers = Manufacturer::where('name', 'like', "%{$manufacturerFilter}%")->get();
+        } else {
+            // Use manufacturers found in discovery plus any active ones in DB
+            $discoveredManufacturers = array_keys($analytics['by_manufacturer']);
+            $manufacturers = Manufacturer::whereIn('name', $discoveredManufacturers)
+                ->orWhere('is_active', true)
+                ->get();
+        }
+
+        if ($manufacturers->isEmpty()) {
+            $this->warn('No manufacturers found to sync');
+            return self::SUCCESS;
+        }
+
+        $this->info("📋 Processing {$manufacturers->count()} manufacturers");
+
+        $stats = [
+            'total_manufacturers' => $manufacturers->count(),
+            'templates_found' => 0,
+            'templates_created' => 0,
+            'templates_updated' => 0,
+            'errors' => 0
+        ];
+
+        // Process each manufacturer
+        foreach ($manufacturers as $manufacturer) {
+            $this->info("🏭 Processing manufacturer: {$manufacturer->name}");
+
+            try {
+                // Use the enhanced template fetching
+                $template = $this->docusealService->fetchTemplateFromApi($manufacturer, 'IVR');
+
+                if ($template) {
+                    $stats['templates_found']++;
+                    $this->line("  ✅ Found template: {$template->template_name}");
+                    $this->line("     📁 Folder: " . ($template->extraction_metadata['folder_name'] ?? 'None'));
+                    $this->line("     🔢 DocuSeal ID: {$template->docuseal_template_id}");
+                    $this->line("     📊 Fields: " . count($template->field_mappings ?? []));
+
+                    if ($template->wasRecentlyCreated) {
+                        $stats['templates_created']++;
+                    } else {
+                        $stats['templates_updated']++;
+                    }
+                } else {
+                    $this->warn("  ⚠️ No template found for {$manufacturer->name}");
+
+                    // Check if there are unmapped templates that might belong to this manufacturer
+                    $this->suggestUnmappedTemplates($manufacturer, $analytics['unmapped_templates']);
+                }
+
+            } catch (\Exception $e) {
+                $stats['errors']++;
+                $this->error("  ❌ Error processing {$manufacturer->name}: " . $e->getMessage());
+            }
+        }
+
+        // Display final stats
+        $this->newLine();
+        $this->info('📊 Sync Complete - Final Statistics:');
+        $this->table(
+            ['Metric', 'Count'],
+            [
+                ['Manufacturers Processed', $stats['total_manufacturers']],
+                ['Templates Found', $stats['templates_found']],
+                ['Templates Created', $stats['templates_created']],
+                ['Templates Updated', $stats['templates_updated']],
+                ['Errors', $stats['errors']]
+            ]
+        );
+
+        // Show recommendations
+        $this->showRecommendations($analytics, $stats);
+
+        if ($stats['errors'] > 0) {
+            $this->warn("⚠️ Completed with {$stats['errors']} errors. Check logs for details.");
+            return self::FAILURE;
+        }
+
+        $this->info('🎉 All templates synced successfully!');
+        return self::SUCCESS;
+    }
+
+    /**
+     * Display discovery summary
+     */
+    private function displayDiscoverySummary(array $analytics): void
+    {
+        $this->newLine();
+        $this->info('📂 Templates by Folder:');
+        foreach ($analytics['by_folder'] as $folder => $data) {
+            $this->line("  📁 {$folder}: {$data['count']} templates");
+        }
+
+        $this->newLine();
+        $this->info('🏭 Templates by Manufacturer:');
+        foreach ($analytics['by_manufacturer'] as $manufacturer => $data) {
+            $folders = implode(', ', $data['folders']);
+            $this->line("  🏭 {$manufacturer}: {$data['count']} templates in folders: {$folders}");
+        }
+
+        if (!empty($analytics['unmapped_templates'])) {
+            $this->newLine();
+            $unmappedCount = count($analytics['unmapped_templates']);
+            $this->warn("⚠️ Unmapped Templates ({$unmappedCount} found):");
+            foreach (array_slice($analytics['unmapped_templates'], 0, 5) as $template) {
+                $this->line("  📄 {$template['name']} (Folder: {$template['folder']})");
+            }
+            if (count($analytics['unmapped_templates']) > 5) {
+                $remaining = count($analytics['unmapped_templates']) - 5;
+                $this->line("  ... and {$remaining} more");
+            }
+        }
+    }
+
+    /**
+     * Suggest unmapped templates that might belong to a manufacturer
+     */
+    private function suggestUnmappedTemplates(Manufacturer $manufacturer, array $unmappedTemplates): void
+    {
+        $suggestions = [];
+        $manufacturerName = strtolower($manufacturer->name);
+
+        foreach ($unmappedTemplates as $template) {
+            $templateName = strtolower($template['name']);
+            $folderName = strtolower($template['folder']);
+
+            // Simple fuzzy matching
+            if (str_contains($templateName, $manufacturerName) ||
+                str_contains($folderName, $manufacturerName) ||
+                similar_text($manufacturerName, $templateName) > 5 ||
+                similar_text($manufacturerName, $folderName) > 5) {
+                $suggestions[] = $template;
+            }
+        }
+
+        if (!empty($suggestions)) {
+            $this->line("     💡 Potential matches found:");
+            foreach (array_slice($suggestions, 0, 3) as $suggestion) {
+                $this->line("        📄 {$suggestion['name']} (Folder: {$suggestion['folder']})");
+            }
+        }
+    }
+
+    /**
+     * Show recommendations based on sync results
+     */
+    private function showRecommendations(array $analytics, array $stats): void
+    {
+        $this->newLine();
+        $this->info('💡 Recommendations:');
+
+        if (!empty($analytics['unmapped_templates'])) {
+            $this->line('  • Review unmapped templates and update folder mappings if needed');
+        }
+
+        if ($stats['templates_found'] < $stats['total_manufacturers']) {
+            $this->line('  • Some manufacturers don\'t have templates - consider creating them');
+        }
+
+        if ($analytics['total_templates'] > $stats['templates_found']) {
+            $unmatched = $analytics['total_templates'] - $stats['templates_found'];
+            $this->line("  • {$unmatched} templates remain unmatched - review manufacturer patterns");
+        }
+
+        $this->line('  • Run with --manufacturer=<name> to sync specific manufacturers');
+        $this->line('  • Use the debug endpoint to test individual manufacturer templates');
     }
 
     /**
@@ -139,16 +260,16 @@ class SyncDocuSealTemplatesCommand extends Command
             }
 
             $responseData = $response->json();
-            
+
             // Handle both wrapped and unwrapped responses
             $templates = isset($responseData['data']) ? $responseData['data'] : $responseData;
-            
+
             if (!is_array($templates)) {
                 throw new \Exception('Invalid response format for templates');
             }
 
             $this->info("✅ Found " . count($templates) . " templates");
-            
+
             // Group templates by folder for better reporting
             $folderGroups = [];
             foreach ($templates as $template) {
@@ -158,22 +279,18 @@ class SyncDocuSealTemplatesCommand extends Command
                 }
                 $folderGroups[$folderName][] = $template;
             }
-            
+
             $this->info("📂 Templates organized in " . count($folderGroups) . " folders:");
             foreach ($folderGroups as $folderName => $folderTemplates) {
                 $this->line("  📁 {$folderName}: " . count($folderTemplates) . " templates");
             }
-            
+
             return $templates;
 
         } catch (\Exception $e) {
             throw new \Exception('Failed to fetch templates: ' . $e->getMessage());
         }
     }
-
-
-
-
 
     /**
      * Process individual template
@@ -189,7 +306,7 @@ class SyncDocuSealTemplatesCommand extends Command
 
         // Check if template already exists (unless force option is used)
         $existingTemplate = DocusealTemplate::where('docuseal_template_id', $templateId)->first();
-        
+
         if ($existingTemplate && !$this->option('force')) {
             return [
                 'action' => 'skipped',
@@ -204,12 +321,12 @@ class SyncDocuSealTemplatesCommand extends Command
         // Use intelligent analysis to determine manufacturer, document type, and field mappings
         $this->line("  🧠 Analyzing template with AI...");
         $analysis = $this->templateIntelligence->analyzeTemplate($templateData, $detailedTemplate);
-        
+
         $manufacturer = $analysis['manufacturer'];
         $documentType = $analysis['document_type'];
         $confidenceScore = $analysis['confidence_score'];
         $analysisMethod = implode(', ', $analysis['analysis_methods']);
-        
+
         $this->line("    📊 Analysis: {$confidenceScore}% confidence via {$analysisMethod}");
         $this->line("    🏭 Manufacturer: " . ($manufacturer?->name ?? 'Unknown'));
         $this->line("    📋 Document Type: {$documentType}");
@@ -217,7 +334,7 @@ class SyncDocuSealTemplatesCommand extends Command
         if ($this->option('queue')) {
             // Dispatch to queue for processing
             SyncDocuSealTemplateJob::dispatch($templateData, $detailedTemplate, $manufacturer, $documentType);
-            
+
             return [
                 'action' => 'processed',
                 'name' => $templateName,
@@ -226,7 +343,7 @@ class SyncDocuSealTemplatesCommand extends Command
         } else {
             // Process immediately
             $this->syncTemplateToDatabase($templateData, $detailedTemplate, $manufacturer, $documentType);
-            
+
             return [
                 'action' => 'processed',
                 'name' => $templateName,
@@ -256,7 +373,7 @@ class SyncDocuSealTemplatesCommand extends Command
                 'template_id' => $templateId,
                 'error' => $e->getMessage()
             ]);
-            
+
             // Return basic structure if detailed fetch fails
             return [
                 'fields' => [],
@@ -416,7 +533,7 @@ class SyncDocuSealTemplatesCommand extends Command
         $templateNameLower = strtolower($templateName);
 
         // Document type patterns
-        if (strpos($templateNameLower, 'ivr') !== false || 
+        if (strpos($templateNameLower, 'ivr') !== false ||
             strpos($templateNameLower, 'prior auth') !== false ||
             strpos($templateNameLower, 'authorization') !== false) {
             return 'IVR';
@@ -539,7 +656,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'PATIENT CITY' => 'patientInfo.city',
             'PATIENT STATE' => 'patientInfo.state',
             'PATIENT ZIP' => 'patientInfo.zip',
-            
+
             // Insurance fields
             'PRIMARY INSURANCE' => 'insuranceInfo.primaryInsurance.name',
             'INSURANCE NAME' => 'insuranceInfo.primaryInsurance.name',
@@ -547,7 +664,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'PAYER PHONE' => 'insuranceInfo.primaryInsurance.payerPhone',
             'INSURANCE MEMBER ID' => 'insuranceInfo.primaryInsurance.memberId',
             'PLAN TYPE' => 'insuranceInfo.primaryInsurance.planType',
-            
+
             // Clinical fields
             'WOUND TYPE' => 'clinicalInfo.woundType',
             'WOUND LOCATION' => 'clinicalInfo.woundLocation',
@@ -558,7 +675,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'DIAGNOSIS CODE' => 'clinicalInfo.diagnosisCode',
             'PRIMARY DIAGNOSIS' => 'clinicalInfo.primaryDiagnosis',
             'SECONDARY DIAGNOSIS' => 'clinicalInfo.secondaryDiagnosis',
-            
+
             // Provider fields
             'PHYSICIAN NAME' => 'providerInfo.providerName',
             'PROVIDER NAME' => 'providerInfo.providerName',
@@ -566,17 +683,17 @@ class SyncDocuSealTemplatesCommand extends Command
             'NPI NUMBER' => 'providerInfo.providerNPI',
             'TAX ID' => 'providerInfo.taxId',
             'PROVIDER EMAIL' => 'providerInfo.email',
-            
+
             // Facility fields
             'FACILITY NAME' => 'facilityInfo.facilityName',
             'FACILITY ADDRESS' => 'facilityInfo.facilityAddress',
             'SERVICE LOCATION' => 'facilityInfo.facilityName',
-            
+
             // Product fields
             'PRODUCT NAME' => 'productInfo.productName',
             'PRODUCT CODE' => 'productInfo.productCode',
             'MANUFACTURER' => 'productInfo.manufacturer',
-            
+
             // Sales rep fields
             'REPRESENTATIVE NAME' => 'requestInfo.salesRepName',
             'SALES REP' => 'requestInfo.salesRepName',
@@ -611,7 +728,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'PATIENT STATE' => 'patient_state',
             'PATIENT ZIP' => 'patient_zip',
             'PATIENT GENDER' => 'patient_gender',
-            
+
             // Insurance Information
             'PRIMARY INSURANCE' => 'primary_insurance_name',
             'INSURANCE NAME' => 'primary_insurance_name',
@@ -624,7 +741,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'INSURANCE PHONE' => 'payer_phone',
             'PLAN TYPE' => 'primary_plan_type',
             'INSURANCE TYPE' => 'primary_plan_type',
-            
+
             // Clinical Information
             'WOUND TYPE' => 'wound_type',
             'WOUND TYPES' => 'wound_types_display',
@@ -646,19 +763,19 @@ class SyncDocuSealTemplatesCommand extends Command
             'PRIMARY DIAGNOSIS CODE' => 'primary_diagnosis_code',
             'SECONDARY DIAGNOSIS' => 'secondary_diagnosis_code',
             'SECONDARY DIAGNOSIS CODE' => 'secondary_diagnosis_code',
-            
+
             // Prior Application Information
             'PRIOR APPLICATIONS' => 'prior_applications',
             'NUMBER OF PRIOR APPLICATIONS' => 'prior_applications',
             'PRIOR APPLICATION PRODUCT' => 'prior_application_product',
             'PRIOR APPLICATION WITHIN 12 MONTHS' => 'prior_application_within_12_months',
-            
+
             // Hospice Information
             'HOSPICE STATUS' => 'hospice_status',
             'PATIENT IN HOSPICE' => 'hospice_status',
             'HOSPICE FAMILY CONSENT' => 'hospice_family_consent',
             'HOSPICE CLINICALLY NECESSARY' => 'hospice_clinically_necessary',
-            
+
             // Provider Information
             'PROVIDER NAME' => 'provider_name',
             'PHYSICIAN NAME' => 'provider_name',
@@ -671,13 +788,13 @@ class SyncDocuSealTemplatesCommand extends Command
             'PHYSICIAN EMAIL' => 'provider_email',
             'TAX ID' => 'provider_tax_id',
             'PROVIDER TAX ID' => 'provider_tax_id',
-            
+
             // Facility Information
             'FACILITY NAME' => 'facility_name',
             'FACILITY ADDRESS' => 'facility_address',
             'LOCATION' => 'facility_name',
             'SERVICE LOCATION' => 'facility_name',
-            
+
             // Product Information
             'PRODUCT NAME' => 'product_name',
             'PRODUCT' => 'product_name',
@@ -687,13 +804,13 @@ class SyncDocuSealTemplatesCommand extends Command
             'PRODUCT MANUFACTURER' => 'product_manufacturer',
             'PRODUCT DETAILS' => 'product_details_text',
             'PRODUCTS ORDERED' => 'product_details_text',
-            
+
             // Sales Rep Information
             'REPRESENTATIVE NAME' => 'sales_rep_name',
             'SALES REP' => 'sales_rep_name',
             'SALES REP NAME' => 'sales_rep_name',
             'SALES REPRESENTATIVE' => 'sales_rep_name',
-            
+
             // Date Information
             'SERVICE DATE' => 'service_date',
             'DATE OF SERVICE' => 'service_date',
@@ -701,7 +818,7 @@ class SyncDocuSealTemplatesCommand extends Command
             'SIGNATURE DATE' => 'signature_date',
             'TODAY\'S DATE' => 'signature_date',
             'CURRENT DATE' => 'signature_date',
-            
+
             // Manufacturer-specific fields
             'PHYSICIAN ATTESTATION' => 'physician_attestation',
             'NOT USED PREVIOUSLY' => 'not_used_previously',
@@ -728,7 +845,7 @@ class SyncDocuSealTemplatesCommand extends Command
     private function determineDataType(array $field): string
     {
         $fieldType = $field['type'] ?? 'text';
-        
+
         $typeMapping = [
             'date' => 'date',
             'number' => 'number',

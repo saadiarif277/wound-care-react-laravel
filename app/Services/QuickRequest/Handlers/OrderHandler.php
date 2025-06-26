@@ -2,11 +2,12 @@
 
 namespace App\Services\QuickRequest\Handlers;
 
-use App\Models\Order;
-use App\Models\Episodes\Episode;
+use App\Models\Order\Order;
+use App\Models\Episode;
 use App\Services\FhirService;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Auth;
 
 class OrderHandler
 {
@@ -20,36 +21,44 @@ class OrderHandler
      */
     public function createInitialOrder(Episode $episode, array $orderDetails): Order
     {
-        $this->logger->info('Creating initial order for episode', [
-            'episode_id' => $episode->id
-        ]);
+        try {
+            $this->logger->info('Creating initial order for episode', [
+                'episode_id' => $episode->id
+            ]);
 
-        // Create FHIR DeviceRequest
-        $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails);
+            // Create FHIR DeviceRequest
+            $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails);
 
-        // Create local order record
-        $order = Order::create([
-            'id' => Str::uuid(),
-            'episode_id' => $episode->id,
-            'type' => 'initial',
-            'details' => $orderDetails,
-            'status' => 'pending',
-            'fhir_device_request_id' => $deviceRequestId,
-            'metadata' => [
-                'created_by' => auth()->id(),
-                'created_at' => now()->toIso8601String()
-            ]
-        ]);
+            // Create local order record
+            $order = Order::create([
+                'id' => Str::uuid(),
+                'episode_id' => $episode->id,
+                'type' => 'initial',
+                'details' => $orderDetails,
+                'status' => 'pending',
+                'fhir_device_request_id' => $deviceRequestId,
+                'metadata' => [
+                    'created_by' => Auth::id(),
+                    'created_at' => now()->toIso8601String()
+                ]
+            ]);
 
-        $this->logger->info('Initial order created', [
-            'order_id' => $order->id,
-            'episode_id' => $episode->id
-        ]);
+            $this->logger->info('Initial order created successfully', [
+                'order_id' => $order->id,
+                'episode_id' => $episode->id,
+                'fhir_device_request_id' => $deviceRequestId
+            ]);
 
-        return $order;
+            return $order;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create initial order', [
+                'error' => $e->getMessage(),
+                'episode_id' => $episode->id
+            ]);
+            throw new \Exception('Failed to create initial order: ' . $e->getMessage());
+        }
     }
 
-    /**
     /**
      * Create a follow-up order for the given episode.
      *
@@ -59,41 +68,51 @@ class OrderHandler
      */
     public function createFollowUpOrder(Episode $episode, array $orderDetails): Order
     {
-        $this->logger->info('Creating follow-up order for episode', [
-            'episode_id' => $episode->id
-        ]);
+        try {
+            $this->logger->info('Creating follow-up order for episode', [
+                'episode_id' => $episode->id
+            ]);
 
-        // Get the most recent order to link as parent
-        $parentOrder = $episode->orders()
-            ->latest()
-            ->first();
+            // Get the most recent order to link as parent
+            $parentOrder = $episode->orders()
+                ->latest()
+                ->first();
 
-        // Create FHIR DeviceRequest
-        $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails, $parentOrder);
+            // Create FHIR DeviceRequest
+            $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails, $parentOrder);
 
-        // Create local order record
-        $order = Order::create([
-            'id' => Str::uuid(),
-            'episode_id' => $episode->id,
-            'based_on' => $parentOrder?->id,
-            'type' => 'follow_up',
-            'details' => $orderDetails,
-            'status' => 'pending',
-            'fhir_device_request_id' => $deviceRequestId,
-            'metadata' => [
-                'created_by' => auth()->id(),
-                'created_at' => now()->toIso8601String(),
-                'follow_up_reason' => $orderDetails['reason'] ?? 'routine'
-            ]
-        ]);
+            // Create local order record
+            $order = Order::create([
+                'id' => Str::uuid(),
+                'episode_id' => $episode->id,
+                'based_on' => $parentOrder?->id,
+                'type' => 'follow_up',
+                'details' => $orderDetails,
+                'status' => 'pending',
+                'fhir_device_request_id' => $deviceRequestId,
+                'metadata' => [
+                    'created_by' => Auth::id(),
+                    'created_at' => now()->toIso8601String(),
+                    'follow_up_reason' => $orderDetails['reason'] ?? 'routine'
+                ]
+            ]);
 
-        $this->logger->info('Follow-up order created', [
-            'order_id' => $order->id,
-            'episode_id' => $episode->id,
-            'based_on' => $parentOrder?->id
-        ]);
+            $this->logger->info('Follow-up order created successfully', [
+                'order_id' => $order->id,
+                'episode_id' => $episode->id,
+                'based_on' => $parentOrder?->id,
+                'fhir_device_request_id' => $deviceRequestId
+            ]);
 
-        return $order;
+            return $order;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create follow-up order', [
+                'error' => $e->getMessage(),
+                'episode_id' => $episode->id,
+                'parent_order_id' => $parentOrder?->id ?? null
+            ]);
+            throw new \Exception('Failed to create follow-up order: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -213,27 +232,38 @@ class OrderHandler
      */
     public function updateOrderStatus(Order $order, string $status, array $metadata = []): void
     {
-        $order->update([
-            'status' => $status,
-            'metadata' => array_merge($order->metadata ?? [], $metadata, [
-                'status_updated_at' => now()->toIso8601String(),
-                'status_updated_by' => auth()->id()
-            ])
-        ]);
-
-        // Update FHIR DeviceRequest status
-        if ($order->fhir_device_request_id) {
-            $fhirStatus = $this->mapOrderStatusToFhir($status);
-
-            $this->fhirService->update('DeviceRequest', $order->fhir_device_request_id, [
-                'status' => $fhirStatus
+        try {
+            $order->update([
+                'status' => $status,
+                'metadata' => array_merge($order->metadata ?? [], $metadata, [
+                    'status_updated_at' => now()->toIso8601String(),
+                    'status_updated_by' => Auth::id()
+                ])
             ]);
-        }
 
-        $this->logger->info('Order status updated', [
-            'order_id' => $order->id,
-            'new_status' => $status
-        ]);
+            // Update FHIR DeviceRequest status
+            if ($order->fhir_device_request_id) {
+                $fhirStatus = $this->mapOrderStatusToFhir($status);
+
+                $this->fhirService->update('DeviceRequest', $order->fhir_device_request_id, [
+                    'status' => $fhirStatus
+                ]);
+            }
+
+            $this->logger->info('Order status updated successfully', [
+                'order_id' => $order->id,
+                'old_status' => $order->getOriginal('status'),
+                'new_status' => $status,
+                'fhir_updated' => !empty($order->fhir_device_request_id)
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to update order status', [
+                'error' => $e->getMessage(),
+                'order_id' => $order->id,
+                'attempted_status' => $status
+            ]);
+            throw new \Exception('Failed to update order status: ' . $e->getMessage());
+        }
     }
 
     /**

@@ -10,10 +10,7 @@ import {
   Building2,
   CheckCircle,
   AlertCircle,
-  Package,
-  FileText,
-  Phone,
-  Globe
+  Phone
 } from 'lucide-react';
 import { themes } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';

@@ -188,15 +188,16 @@ export default function AddressAutocomplete({
     const city = addr.city || addr.town || addr.village || '';
     
     // Update the form with parsed address
+    const newLine1 = streetAddress || suggestion.display_name.split(',')[0];
     onChange({
-      line1: streetAddress || suggestion.display_name.split(',')[0],
+      line1: newLine1,
       line2: value.line2 || '',
       city: city,
       state: addr.state || '',
       zip: addr.postcode || ''
     });
     
-    setSearchQuery(streetAddress || suggestion.display_name.split(',')[0]);
+    setSearchQuery(newLine1);
     setShowSuggestions(false);
   };
 

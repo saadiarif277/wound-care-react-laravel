@@ -19,19 +19,32 @@ class InsuranceHandler
      */
     public function createCoverage(array $data): string
     {
-        $this->logger->info('Creating insurance coverage in FHIR');
+        try {
+            $this->logger->info('Creating insurance coverage in FHIR');
 
-        $coverageData = $this->mapToFhirCoverage($data);
-        $response = $this->fhirService->createCoverage($coverageData);
+            $coverageData = $this->mapToFhirCoverage($data);
+            $response = $this->fhirService->create('Coverage', $coverageData);
 
-        $this->auditService->logAccess(
-            'coverage.created',
-            'Coverage',
-            $response['id'],
-            ['payer' => $data['insurance']['payer_name']]
-        );
+            $this->auditService->logAccess(
+                'coverage.created',
+                'Coverage',
+                $response['id'],
+                ['payer' => $data['insurance']['payer_name']]
+            );
 
-        return $response['id'];
+            $this->logger->info('Coverage created successfully in FHIR', [
+                'coverage_id' => $response['id'],
+                'payer' => $data['insurance']['payer_name']
+            ]);
+
+            return $response['id'];
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create FHIR coverage', [
+                'error' => $e->getMessage(),
+                'payer' => $data['insurance']['payer_name'] ?? 'unknown'
+            ]);
+            throw new \Exception('Failed to create coverage: ' . $e->getMessage());
+        }
     }
 
     /**
@@ -46,7 +59,7 @@ class InsuranceHandler
                 'patient_id' => $patientId,
                 'insurance' => $insurance
             ]);
-            
+
             $coverageIds[$insurance['policy_type']] = $coverage;
         }
 
@@ -82,7 +95,7 @@ class InsuranceHandler
     private function mapToFhirCoverage(array $data): array
     {
         $insurance = $data['insurance'];
-        
+
         $coverageData = [
             'resourceType' => 'Coverage',
             'status' => 'active',
@@ -209,7 +222,7 @@ class InsuranceHandler
         ];
 
         $lowerPayerName = strtolower($payerName);
-        
+
         foreach ($medicareKeywords as $keyword) {
             if (str_contains($lowerPayerName, $keyword)) {
                 return true;

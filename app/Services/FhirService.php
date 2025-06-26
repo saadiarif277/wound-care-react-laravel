@@ -41,7 +41,7 @@ class FhirService
     public function createPatient(array $fhirData): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             // Add MSC-specific extensions if not present
             $fhirData = $this->addMscExtensions($fhirData);
@@ -73,7 +73,7 @@ class FhirService
     public function create(string $resourceType, array $fhirData): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -95,7 +95,44 @@ class FhirService
 
         } catch (\Exception $e) {
             Log::error("Failed to create FHIR {$resourceType} in Azure", [
-                'error' => $e->getMessage(), 
+                'error' => $e->getMessage(),
+                'data' => $fhirData
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Update an existing FHIR resource
+     */
+    public function update(string $resourceType, string $id, array $fhirData): array
+    {
+        $this->ensureAzureConfigured();
+
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Content-Type' => 'application/fhir+json',
+            ])->put("{$this->azureFhirEndpoint}/{$resourceType}/{$id}", $fhirData);
+
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error: " . $response->body());
+            }
+
+            $resource = $response->json();
+
+            Log::info("FHIR {$resourceType} updated in Azure", [
+                'resource_id' => $id,
+                'resource_type' => $resourceType
+            ]);
+
+            return $resource;
+
+        } catch (\Exception $e) {
+            Log::error("Failed to update FHIR {$resourceType} in Azure", [
+                'error' => $e->getMessage(),
+                'resource_type' => $resourceType,
+                'resource_id' => $id,
                 'data' => $fhirData
             ]);
             throw $e;
@@ -111,7 +148,7 @@ class FhirService
     public function search(string $resourceType, array $params = []): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -144,7 +181,7 @@ class FhirService
     public function getPatientById(string $id): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -189,7 +226,7 @@ class FhirService
     public function createPractitioner(array $practitionerData): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -218,7 +255,7 @@ class FhirService
     public function createOrganization(array $organizationData): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -247,7 +284,7 @@ class FhirService
     public function updatePatient(string $id, array $fhirData): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             // Add MSC-specific extensions if not present
             $fhirData = $this->addMscExtensions($fhirData);
@@ -283,7 +320,7 @@ class FhirService
     public function searchCoverage(array $searchParams): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $queryParams = [];
 
@@ -329,7 +366,7 @@ class FhirService
     public function searchConditions(array $searchParams): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $queryParams = [];
 
@@ -392,7 +429,7 @@ class FhirService
     public function getEpisodeOfCare(string $id): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -421,7 +458,7 @@ class FhirService
     public function patchPatient(string $id, array $patchData): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -454,7 +491,7 @@ class FhirService
     public function deletePatient(string $id): bool
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -484,7 +521,7 @@ class FhirService
     public function searchPatients(array $searchParams): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $queryParams = [];
 
@@ -542,7 +579,7 @@ class FhirService
     public function searchObservations(array $searchParams): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $queryParams = [];
 
@@ -602,7 +639,7 @@ class FhirService
     public function getPatientHistory(string $id): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -636,7 +673,7 @@ class FhirService
     public function getPatientsHistory(): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -666,7 +703,7 @@ class FhirService
     public function processTransaction(array $bundle): array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             // Add MSC extensions to any Patient resources in the bundle
             if (isset($bundle['entry'])) {

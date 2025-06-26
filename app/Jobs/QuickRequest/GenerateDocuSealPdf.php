@@ -190,7 +190,7 @@ class GenerateDocuSealPdf implements ShouldQueue
         $timestamp = now()->format('Ymd_His');
         $patientDisplay = Str::slug($this->episode->patient_display);
         $type = Str::slug($this->documentType);
-        
+
         return "{$patientDisplay}_{$type}_{$timestamp}.pdf";
     }
 
@@ -201,10 +201,10 @@ class GenerateDocuSealPdf implements ShouldQueue
     {
         $directory = "insurance-verifications/{$this->episode->id}";
         $path = "{$directory}/{$fileName}";
-        
+
         // Store in S3 or local storage based on config
         Storage::disk('documents')->put($path, $content);
-        
+
         return $path;
     }
 
@@ -275,7 +275,7 @@ class GenerateDocuSealPdf implements ShouldQueue
             ];
 
             $fhirResponse = $fhirService->create('DocumentReference', $documentReference);
-            
+
             // Update document with FHIR ID
             $document->update([
                 'fhir_id' => $fhirResponse['id'] ?? null,

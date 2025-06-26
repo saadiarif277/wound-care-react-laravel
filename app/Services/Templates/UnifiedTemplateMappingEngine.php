@@ -9,13 +9,13 @@ class UnifiedTemplateMappingEngine
 {
     private array $mappingRules;
     private array $fieldTransformers;
-    
+
     public function __construct()
     {
         $this->loadMappingRules();
         $this->registerFieldTransformers();
     }
-    
+
     /**
      * Map insurance data from any source to any template format
      */
@@ -23,21 +23,21 @@ class UnifiedTemplateMappingEngine
     {
         $mappingRules = $this->getMappingRulesForTemplate($targetTemplate);
         $mappedData = [];
-        
+
         foreach ($mappingRules as $targetField => $mappingRule) {
             $value = $this->extractValueByRule($sourceData, $mappingRule);
-            
+
             if ($value !== null) {
                 $mappedData[$targetField] = $this->formatValue($value, $mappingRule);
             }
         }
-        
+
         // Apply post-processing rules
         $mappedData = $this->applyPostProcessing($mappedData, $targetTemplate);
-        
+
         return $mappedData;
     }
-    
+
     /**
      * Load all mapping rules from config/database
      */
@@ -61,7 +61,7 @@ class UnifiedTemplateMappingEngine
                     'source' => 'patient_member_id',
                     'fallbacks' => ['member_id', 'subscriber_id', 'insurance_id']
                 ],
-                
+
                 // Insurance Information Mappings
                 'insuranceInfo.primaryInsurance.primaryInsuranceName' => [
                     'source' => 'payer_name',
@@ -81,7 +81,7 @@ class UnifiedTemplateMappingEngine
                     'fallbacks' => ['insurance_phone'],
                     'transform' => 'phone'
                 ],
-                
+
                 // Provider Information Mappings
                 'providerInfo.providerName' => [
                     'source' => 'provider_name',
@@ -91,8 +91,8 @@ class UnifiedTemplateMappingEngine
                     'source' => 'provider_npi',
                     'fallbacks' => ['provider.npi', 'npi']
                 ],
-                
-                // Facility Information Mappings  
+
+                // Facility Information Mappings
                 'facilityInfo.facilityName' => [
                     'source' => 'facility_name',
                     'fallbacks' => ['facility.name', 'location_name']
@@ -103,7 +103,7 @@ class UnifiedTemplateMappingEngine
                     'transform' => 'address'
                 ]
             ],
-            
+
             'fhir_coverage' => [
                 'subscriber.reference' => [
                     'source' => 'patient_fhir_id',
@@ -126,14 +126,14 @@ class UnifiedTemplateMappingEngine
                     'fallbacks' => ['plan_code']
                 ]
             ],
-            
+
             'quick_request' => [
                 'patient_first_name' => [
                     'source' => 'patientInfo.firstName',
                     'fallbacks' => ['patient.first_name', 'firstName']
                 ],
                 'patient_last_name' => [
-                    'source' => 'patientInfo.lastName', 
+                    'source' => 'patientInfo.lastName',
                     'fallbacks' => ['patient.last_name', 'lastName']
                 ],
                 'payer_name' => [
@@ -147,7 +147,7 @@ class UnifiedTemplateMappingEngine
             ]
         ];
     }
-    
+
     /**
      * Register field transformation functions
      */
@@ -159,7 +159,7 @@ class UnifiedTemplateMappingEngine
                 $lastName = data_get($sourceData, str_replace('first_name', 'last_name', $rule['source']));
                 return trim("$firstName $lastName");
             },
-            
+
             'date' => function($value) {
                 if (empty($value)) return null;
                 try {
@@ -168,12 +168,12 @@ class UnifiedTemplateMappingEngine
                     return $value;
                 }
             },
-            
+
             'phone' => function($value) {
                 // Clean and format phone number
                 $cleaned = preg_replace('/[^0-9]/', '', $value);
                 if (strlen($cleaned) === 10) {
-                    return sprintf('(%s) %s-%s', 
+                    return sprintf('(%s) %s-%s',
                         substr($cleaned, 0, 3),
                         substr($cleaned, 3, 3),
                         substr($cleaned, 6, 4)
@@ -181,7 +181,7 @@ class UnifiedTemplateMappingEngine
                 }
                 return $value;
             },
-            
+
             'insuranceName' => function($value) {
                 // Standardize insurance names
                 $standardNames = [
@@ -189,7 +189,7 @@ class UnifiedTemplateMappingEngine
                     'UHC' => 'United Healthcare',
                     'Medicare Part B' => 'Medicare',
                 ];
-                
+
                 foreach ($standardNames as $short => $full) {
                     if (stripos($value, $short) !== false) {
                         return $full;
@@ -197,10 +197,10 @@ class UnifiedTemplateMappingEngine
                 }
                 return $value;
             },
-            
+
             'address' => function($value, $rule, $sourceData) {
                 if (is_string($value)) return $value;
-                
+
                 // Build address from components
                 $components = [
                     data_get($sourceData, 'facility_address_line1'),
@@ -209,12 +209,12 @@ class UnifiedTemplateMappingEngine
                     data_get($sourceData, 'facility_state'),
                     data_get($sourceData, 'facility_zip')
                 ];
-                
+
                 return implode(', ', array_filter($components));
             }
         ];
     }
-    
+
     /**
      * Extract value using dot notation or complex rules
      */
@@ -224,12 +224,12 @@ class UnifiedTemplateMappingEngine
         if (is_string($rule)) {
             return data_get($data, $rule);
         }
-        
+
         // Complex rule with fallbacks and transformations
         if (is_array($rule)) {
             // Try primary source
             $value = data_get($data, $rule['source']);
-            
+
             // Try fallback sources
             if ($value === null && isset($rule['fallbacks'])) {
                 foreach ($rule['fallbacks'] as $fallback) {
@@ -237,23 +237,23 @@ class UnifiedTemplateMappingEngine
                     if ($value !== null) break;
                 }
             }
-            
+
             // Apply prefix if set
             if ($value !== null && isset($rule['prefix'])) {
                 $value = $rule['prefix'] . $value;
             }
-            
+
             // Apply transformation
             if ($value !== null && isset($rule['transform'])) {
                 $value = $this->applyTransformation($value, $rule['transform'], $rule, $data);
             }
-            
+
             return $value;
         }
-        
+
         return null;
     }
-    
+
     /**
      * Apply transformation to value
      */
@@ -262,10 +262,10 @@ class UnifiedTemplateMappingEngine
         if (isset($this->fieldTransformers[$transformer])) {
             return call_user_func($this->fieldTransformers[$transformer], $value, $rule, $sourceData);
         }
-        
+
         return $value;
     }
-    
+
     /**
      * Format value based on rule specifications
      */
@@ -274,7 +274,7 @@ class UnifiedTemplateMappingEngine
         if (!is_array($rule)) {
             return $value;
         }
-        
+
         // Apply formatting rules
         if (isset($rule['format'])) {
             switch ($rule['format']) {
@@ -286,10 +286,10 @@ class UnifiedTemplateMappingEngine
                     return Str::title($value);
             }
         }
-        
+
         return $value;
     }
-    
+
     /**
      * Get mapping rules for specific template
      */
@@ -297,7 +297,7 @@ class UnifiedTemplateMappingEngine
     {
         return $this->mappingRules[$template] ?? [];
     }
-    
+
     /**
      * Apply post-processing rules to mapped data
      */
@@ -310,17 +310,17 @@ class UnifiedTemplateMappingEngine
                 $mappedData['patientInfo']['consentToTreat'] = $mappedData['patientInfo']['consentToTreat'] ?? true;
                 $mappedData['submissionDate'] = $mappedData['submissionDate'] ?? date('Y-m-d');
                 break;
-                
+
             case 'fhir_coverage':
                 // Add FHIR metadata
                 $mappedData['resourceType'] = 'Coverage';
                 $mappedData['status'] = $mappedData['status'] ?? 'active';
                 break;
         }
-        
+
         return $mappedData;
     }
-    
+
     /**
      * Calculate mapping completeness percentage
      */
@@ -330,7 +330,7 @@ class UnifiedTemplateMappingEngine
         $totalFields = count($mappingRules);
         $mappedFields = 0;
         $missingFields = [];
-        
+
         foreach ($mappingRules as $targetField => $rule) {
             $value = $this->extractValueByRule($sourceData, $rule);
             if ($value !== null) {
@@ -339,12 +339,86 @@ class UnifiedTemplateMappingEngine
                 $missingFields[] = $targetField;
             }
         }
-        
+
         return [
             'percentage' => $totalFields > 0 ? round(($mappedFields / $totalFields) * 100, 2) : 0,
             'mapped' => $mappedFields,
             'total' => $totalFields,
             'missing' => $missingFields
         ];
+    }
+
+    /**
+     * Validate that all required template fields can be filled
+     */
+    public function validateTemplateCompleteness(array $sourceData, string $manufacturerName): array
+    {
+        $requiredFields = $this->getRequiredFieldsForManufacturer($manufacturerName);
+        $mappingRules = $this->getMappingRulesForTemplate('docuseal_ivr');
+
+        $missing = [];
+        $available = [];
+
+        foreach ($requiredFields as $field) {
+            $rule = $mappingRules[$field] ?? null;
+            if (!$rule) {
+                $missing[] = $field;
+                continue;
+            }
+
+            $value = $this->extractValueByRule($sourceData, $rule);
+            if ($value !== null && $value !== '') {
+                $available[] = $field;
+            } else {
+                $missing[] = $field;
+            }
+        }
+
+        return [
+            'completeness_percentage' => count($available) / (count($requiredFields) ?: 1) * 100,
+            'available_fields' => $available,
+            'missing_fields' => $missing,
+            'can_proceed' => count($missing) === 0,
+            'critical_missing' => $this->getCriticalMissingFields($missing)
+        ];
+    }
+
+    /**
+     * Get required fields for specific manufacturer
+     */
+    private function getRequiredFieldsForManufacturer(string $manufacturerName): array
+    {
+        $commonRequired = [
+            'patientInfo.patientName',
+            'patientInfo.dateOfBirth',
+            'insuranceInfo.primaryInsurance.primaryInsuranceName',
+            'insuranceInfo.primaryInsurance.primaryMemberId',
+            'providerInfo.providerName',
+            'providerInfo.providerNPI'
+        ];
+
+        $manufacturerSpecific = [
+            'ACZ' => ['facilityInfo.facilityName', 'clinicalInfo.diagnosisCodes'],
+            'Advanced Health' => ['facilityInfo.facilityNPI', 'clinicalInfo.woundType'],
+            'MiMedx' => ['clinicalInfo.woundLocation', 'clinicalInfo.woundSize'],
+            // Add other manufacturer-specific requirements
+        ];
+
+        return array_merge($commonRequired, $manufacturerSpecific[$manufacturerName] ?? []);
+    }
+
+    /**
+     * Identify critical missing fields that block template completion
+     */
+    private function getCriticalMissingFields(array $missingFields): array
+    {
+        $critical = [
+            'patientInfo.patientName',
+            'patientInfo.dateOfBirth',
+            'insuranceInfo.primaryInsurance.primaryInsuranceName',
+            'providerInfo.providerNPI'
+        ];
+
+        return array_intersect($missingFields, $critical);
     }
 }

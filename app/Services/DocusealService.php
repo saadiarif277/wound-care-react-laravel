@@ -740,128 +740,290 @@ class DocuSealService
     /**
      * Fetch template from DocuSeal API and save to database
      */
-    protected function fetchTemplateFromApi(Manufacturer $manufacturer, string $documentType = 'IVR'): ?\App\Models\Docuseal\DocusealTemplate
+    public function fetchTemplateFromApi(Manufacturer $manufacturer, string $documentType = 'IVR'): ?\App\Models\Docuseal\DocusealTemplate
     {
         try {
-            Log::info('Fetching templates from DocuSeal API for manufacturer', [
+            Log::info('🔍 Fetching templates from DocuSeal API for manufacturer', [
                 'manufacturer' => $manufacturer->name,
                 'document_type' => $documentType
             ]);
 
-            // Fetch all templates from API
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $this->apiKey,
-            ])->get("{$this->apiUrl}/templates");
-
-            if (!$response->successful()) {
-                Log::error('Failed to fetch templates from DocuSeal API', [
-                    'error' => $response->body(),
-                    'status' => $response->status()
-                ]);
-                return null;
+            // Step 1: Try folder-specific search first (most efficient)
+            $template = $this->fetchTemplateFromFolder($manufacturer, $documentType);
+            if ($template) {
+                return $template;
             }
 
-            $templates = $response->json();
-
-            if (!is_array($templates)) {
-                Log::error('Invalid response format from DocuSeal API');
-                return null;
-            }
-
-            // Search for matching template
-            $manufacturerNameLower = strtolower($manufacturer->name);
-            $manufacturerPatterns = [
-                'acz distribution' => ['acz'],
-                'biowound' => ['biowound'],
-                'integra' => ['integra'],
-                'kerecis' => ['kerecis'],
-                'mimedx' => ['mimedx'],
-                'organogenesis' => ['organogenesis'],
-                'mtf biologics' => ['mtf'],
-                'stimlabs' => ['stimlabs'],
-                'sanara medtech' => ['sanara'],
-                'skye biologics' => ['skye']
-            ];
-
-            $patterns = $manufacturerPatterns[$manufacturerNameLower] ?? [str_replace(' ', '', $manufacturerNameLower)];
-
-            foreach ($templates as $template) {
-                $templateName = strtolower($template['name'] ?? '');
-
-                // Check if template matches manufacturer and document type
-                $matchesManufacturer = false;
-                foreach ($patterns as $pattern) {
-                    if (str_contains($templateName, $pattern)) {
-                        $matchesManufacturer = true;
-                        break;
-                    }
-                }
-
-                $matchesType = false;
-                if ($documentType === 'IVR' && (str_contains($templateName, 'ivr') || str_contains($templateName, 'authorization'))) {
-                    $matchesType = true;
-                } elseif ($documentType === 'OrderForm' && str_contains($templateName, 'order')) {
-                    $matchesType = true;
-                } elseif ($documentType === 'OnboardingForm' && str_contains($templateName, 'onboard')) {
-                    $matchesType = true;
-                }
-
-                if ($matchesManufacturer && $matchesType) {
-                    // Fetch detailed template info
-                    $detailResponse = Http::withHeaders([
-                        'X-Auth-Token' => $this->apiKey,
-                    ])->get("{$this->apiUrl}/templates/{$template['id']}");
-
-                    if ($detailResponse->successful()) {
-                        $detailedTemplate = $detailResponse->json();
-
-                        // Extract field mappings
-                        $fieldMappings = $this->extractFieldMappingsFromApi($detailedTemplate);
-
-                        // Create template in database
-                        $dbTemplate = \App\Models\Docuseal\DocusealTemplate::create([
-                            'template_name' => $template['name'],
-                            'docuseal_template_id' => $template['id'],
-                            'manufacturer_id' => $manufacturer->id,
-                            'document_type' => $documentType,
-                            'is_default' => false,
-                            'field_mappings' => $fieldMappings,
-                            'is_active' => true,
-                            'extraction_metadata' => [
-                                'fetched_from_api' => true,
-                                'fetched_at' => now()->toISOString(),
-                                'total_fields' => count($fieldMappings)
-                            ],
-                            'field_discovery_status' => 'completed',
-                            'last_extracted_at' => now()
-                        ]);
-
-                        Log::info('Successfully fetched and saved template from API', [
-                            'template_id' => $dbTemplate->id,
-                            'docuseal_id' => $template['id'],
-                            'manufacturer' => $manufacturer->name
-                        ]);
-
-                        return $dbTemplate;
-                    }
-                }
-            }
-
-            Log::warning('No matching template found in DocuSeal API', [
-                'manufacturer' => $manufacturer->name,
-                'document_type' => $documentType,
-                'total_templates_checked' => count($templates)
-            ]);
-
-            return null;
+            // Step 2: Fall back to comprehensive pagination search
+            return $this->fetchTemplateWithPagination($manufacturer, $documentType);
 
         } catch (\Exception $e) {
-            Log::error('Error fetching template from DocuSeal API', [
+            Log::error('❌ Error fetching template from DocuSeal API', [
                 'error' => $e->getMessage(),
-                'manufacturer' => $manufacturer->name
+                'manufacturer' => $manufacturer->name,
+                'trace' => $e->getTraceAsString()
             ]);
             return null;
         }
+    }
+
+    /**
+     * Fetch template from specific manufacturer folder
+     */
+    protected function fetchTemplateFromFolder(Manufacturer $manufacturer, string $documentType): ?\App\Models\Docuseal\DocusealTemplate
+    {
+        // Map manufacturer names to their DocuSeal folder names
+        $folderMappings = [
+            'ACZ Distribution' => ['ACZ', 'ACZ Distribution'],
+            'Advanced Health' => ['Advanced Health', 'Advanced Health (Complete AA)'],
+            'MiMedx' => ['MiMedx', 'Amnio Amp-MSC BAA', 'AmnioBand'],
+            'BioWound' => ['BioWound', 'BioWound Onboarding', 'Biowound'],
+            'BioWerX' => ['BioWerX'],
+            'Extremity Care' => ['Extremity Care', 'Extremity Care Onboarding'],
+            'MSC' => ['MSC Forms', 'MSC'],
+            'Skye Biologics' => ['SKYE', 'SKYE Onboarding', 'Skye Biologics'],
+            'Total Ancillary' => ['Total Ancillary Forms', 'Total Ancillary'],
+            'Integra' => ['Integra'],
+            'Kerecis' => ['Kerecis'],
+            'Organogenesis' => ['Organogenesis'],
+            'Smith & Nephew' => ['Smith & Nephew'],
+            'StimLabs' => ['StimLabs'],
+            'Tissue Tech' => ['Tissue Tech'],
+            'MTF Biologics' => ['MTF Biologics', 'MTF'],
+            'Sanara MedTech' => ['Sanara MedTech', 'Sanara'],
+            'MedLife' => ['MedLife', 'Medlife'],
+            'AmnioBand' => ['AmnioBand']
+        ];
+
+        $possibleFolders = $folderMappings[$manufacturer->name] ?? [$manufacturer->name];
+
+        foreach ($possibleFolders as $folderName) {
+            try {
+                Log::info("🔍 Searching in folder: {$folderName}");
+
+                // Query templates in specific folder
+                $response = Http::withHeaders([
+                    'X-Auth-Token' => $this->apiKey,
+                ])->timeout(30)->get("{$this->apiUrl}/templates", [
+                    'folder_name' => $folderName,
+                    'per_page' => 100  // Get more templates per request
+                ]);
+
+                if ($response->successful()) {
+                    $responseData = $response->json();
+                    $templates = $responseData['data'] ?? $responseData;
+
+                    $templateCount = count($templates);
+                    Log::info("📄 Found {$templateCount} templates in folder: {$folderName}");
+
+                    foreach ($templates as $template) {
+                        if ($this->templateMatchesDocumentType($template, $documentType)) {
+                            return $this->createTemplateFromApiData($template, $manufacturer, $documentType);
+                        }
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning("⚠️ Error searching folder {$folderName}: " . $e->getMessage());
+                continue;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Fetch template using comprehensive pagination search
+     */
+    protected function fetchTemplateWithPagination(Manufacturer $manufacturer, string $documentType): ?\App\Models\Docuseal\DocusealTemplate
+    {
+        $allTemplates = [];
+        $page = 1;
+        $perPage = 100;
+        $maxPages = 20; // Safety limit
+        $hasMore = true;
+
+        Log::info("🔄 Starting paginated template search for {$manufacturer->name}");
+
+        while ($hasMore && $page <= $maxPages) {
+            try {
+                $response = Http::withHeaders([
+                    'X-Auth-Token' => $this->apiKey,
+                ])->timeout(30)->get("{$this->apiUrl}/templates", [
+                    'page' => $page,
+                    'per_page' => $perPage
+                ]);
+
+                if (!$response->successful()) {
+                    Log::error("❌ API request failed on page {$page}: " . $response->body());
+                    break;
+                }
+
+                $responseData = $response->json();
+                $templates = $responseData['data'] ?? $responseData;
+
+                if (empty($templates)) {
+                    Log::info("📄 No more templates found on page {$page}");
+                    break;
+                }
+
+                Log::info("📄 Page {$page}: Found " . count($templates) . " templates");
+                $allTemplates = array_merge($allTemplates, $templates);
+
+                // Check if there are more pages
+                $hasMore = count($templates) == $perPage;
+
+                // Also check pagination metadata if available
+                if (isset($responseData['pagination'])) {
+                    $pagination = $responseData['pagination'];
+                    $hasMore = !empty($pagination['next']) || $hasMore;
+                }
+
+                $page++;
+
+            } catch (\Exception $e) {
+                Log::error("❌ Error on page {$page}: " . $e->getMessage());
+                break;
+            }
+        }
+
+        Log::info("📊 Total templates fetched: " . count($allTemplates));
+
+        // Search through all templates for manufacturer match
+        return $this->findMatchingTemplate($allTemplates, $manufacturer, $documentType);
+    }
+
+    /**
+     * Find matching template from array of templates
+     */
+    protected function findMatchingTemplate(array $templates, Manufacturer $manufacturer, string $documentType): ?\App\Models\Docuseal\DocusealTemplate
+    {
+        $manufacturerNameLower = strtolower($manufacturer->name);
+
+        // Enhanced manufacturer patterns
+        $manufacturerPatterns = [
+            'acz distribution' => ['acz'],
+            'advanced health' => ['advanced health', 'advanced', 'complete aa'],
+            'biowound' => ['biowound', 'bio wound'],
+            'biowerx' => ['biowerx', 'bio werx'],
+            'integra' => ['integra'],
+            'kerecis' => ['kerecis'],
+            'mimedx' => ['mimedx', 'mimx', 'amnio amp', 'amnioband'],
+            'organogenesis' => ['organogenesis', 'organo'],
+            'mtf biologics' => ['mtf', 'mtf biologics'],
+            'stimlabs' => ['stimlabs', 'stim labs'],
+            'sanara medtech' => ['sanara', 'sanara medtech'],
+            'skye biologics' => ['skye', 'skye biologics'],
+            'extremity care' => ['extremity', 'extremity care'],
+            'msc' => ['msc', 'msc forms'],
+            'total ancillary' => ['total ancillary', 'total'],
+            'smith & nephew' => ['smith', 'nephew', 'smith & nephew'],
+            'tissue tech' => ['tissue tech', 'tissue'],
+            'medlife' => ['medlife', 'med life'],
+            'amnioband' => ['amnioband', 'amnio band']
+        ];
+
+        $patterns = $manufacturerPatterns[$manufacturerNameLower] ?? [
+            str_replace(' ', '', $manufacturerNameLower),
+            str_replace(' ', ' ', $manufacturerNameLower)
+        ];
+
+        foreach ($templates as $template) {
+            $templateName = strtolower($template['name'] ?? '');
+            $folderName = strtolower($template['folder_name'] ?? '');
+
+            // Check manufacturer match (name or folder)
+            $matchesManufacturer = false;
+            foreach ($patterns as $pattern) {
+                if (str_contains($templateName, $pattern) || str_contains($folderName, $pattern)) {
+                    $matchesManufacturer = true;
+                    break;
+                }
+            }
+
+            // Check document type match
+            if ($matchesManufacturer && $this->templateMatchesDocumentType($template, $documentType)) {
+                $folderDisplay = $template['folder_name'] ?? 'None';
+                Log::info("✅ Found matching template: {$template['name']} in folder: {$folderDisplay}");
+                return $this->createTemplateFromApiData($template, $manufacturer, $documentType);
+            }
+        }
+
+        Log::warning("❌ No matching template found for {$manufacturer->name} - {$documentType}");
+        return null;
+    }
+
+    /**
+     * Check if template matches document type
+     */
+    protected function templateMatchesDocumentType(array $template, string $documentType): bool
+    {
+        $templateName = strtolower($template['name'] ?? '');
+
+        switch ($documentType) {
+            case 'IVR':
+                return str_contains($templateName, 'ivr') ||
+                       str_contains($templateName, 'authorization') ||
+                       str_contains($templateName, 'auth') ||
+                       str_contains($templateName, 'prior auth');
+
+            case 'OrderForm':
+                return str_contains($templateName, 'order') ||
+                       str_contains($templateName, 'request');
+
+            case 'OnboardingForm':
+                return str_contains($templateName, 'onboard') ||
+                       str_contains($templateName, 'enrollment');
+
+            default:
+                return true; // If no specific type, accept any
+        }
+    }
+
+    /**
+     * Create template database record from API data
+     */
+    protected function createTemplateFromApiData(array $templateData, Manufacturer $manufacturer, string $documentType): \App\Models\Docuseal\DocusealTemplate
+    {
+        // Fetch detailed template info
+        $detailResponse = Http::withHeaders([
+            'X-Auth-Token' => $this->apiKey,
+        ])->timeout(30)->get("{$this->apiUrl}/templates/{$templateData['id']}");
+
+        $detailedTemplate = $detailResponse->successful() ? $detailResponse->json() : $templateData;
+
+        // Extract field mappings
+        $fieldMappings = $this->extractFieldMappingsFromApi($detailedTemplate);
+
+        // Create template in database
+        $dbTemplate = \App\Models\Docuseal\DocusealTemplate::create([
+            'template_name' => $templateData['name'],
+            'docuseal_template_id' => $templateData['id'],
+            'manufacturer_id' => $manufacturer->id,
+            'document_type' => $documentType,
+            'is_default' => false,
+            'field_mappings' => $fieldMappings,
+            'is_active' => true,
+            'extraction_metadata' => [
+                'fetched_from_api' => true,
+                'fetched_at' => now()->toISOString(),
+                'total_fields' => count($fieldMappings),
+                'folder_name' => $templateData['folder_name'] ?? null,
+                'api_created_at' => $templateData['created_at'] ?? null,
+                'api_updated_at' => $templateData['updated_at'] ?? null
+            ],
+            'field_discovery_status' => 'completed',
+            'last_extracted_at' => now()
+        ]);
+
+        Log::info('✅ Successfully created template from API', [
+            'template_id' => $dbTemplate->id,
+            'docuseal_id' => $templateData['id'],
+            'manufacturer' => $manufacturer->name,
+            'folder' => $templateData['folder_name'] ?? 'None',
+            'fields_count' => count($fieldMappings)
+        ]);
+
+        return $dbTemplate;
     }
 
     /**
@@ -1411,5 +1573,233 @@ class DocuSealService
             ]);
             throw $e;
         }
+    }
+
+    /**
+     * Comprehensive template discovery with analytics
+     * Returns detailed information about all templates organized by folders and manufacturers
+     */
+    public function discoverAllTemplates(): array
+    {
+        try {
+            Log::info('🔍 Starting comprehensive template discovery...');
+
+            $allTemplates = [];
+            $seenTemplateIds = []; // Track duplicates
+            $page = 1;
+            $perPage = 50; // Reduced from 100 to be more conservative
+            $maxPages = 10; // Reduced from 50 to be more realistic
+            $hasMore = true;
+
+                        // Fetch all templates with cursor-based pagination
+            $cursor = null;
+            $requestCount = 0;
+
+            while ($hasMore && $requestCount < $maxPages) {
+                $requestCount++;
+                Log::info("📄 Fetching batch {$requestCount}" . ($cursor ? " (cursor: {$cursor})" : " (first page)") . "...");
+
+                $params = ['per_page' => $perPage];
+                if ($cursor) {
+                    $params['cursor'] = $cursor;
+                }
+
+                $response = Http::withHeaders([
+                    'X-Auth-Token' => $this->apiKey,
+                ])->timeout(30)->get("{$this->apiUrl}/templates", $params);
+
+                if (!$response->successful()) {
+                    Log::error("❌ Template discovery failed on batch {$requestCount}: " . $response->body());
+                    break;
+                }
+
+                $responseData = $response->json();
+                $templates = $responseData['data'] ?? $responseData;
+
+                if (empty($templates) || !is_array($templates)) {
+                    Log::info("📄 No more templates found on batch {$requestCount}");
+                    break;
+                }
+
+                Log::info("📄 Batch {$requestCount}: Found " . count($templates) . " templates");
+
+                // Filter out duplicates and add to collection
+                $newTemplatesCount = 0;
+                foreach ($templates as $template) {
+                    $templateId = $template['id'] ?? null;
+                    if ($templateId && !in_array($templateId, $seenTemplateIds)) {
+                        $seenTemplateIds[] = $templateId;
+                        $allTemplates[] = $template;
+                        $newTemplatesCount++;
+                    }
+                }
+
+                Log::info("📄 Batch {$requestCount}: Added {$newTemplatesCount} new templates (skipped " . (count($templates) - $newTemplatesCount) . " duplicates)");
+
+                // Check pagination metadata for next cursor
+                $hasMore = false;
+                if (isset($responseData['pagination'])) {
+                    $pagination = $responseData['pagination'];
+                    $cursor = $pagination['next'] ?? null;
+                    $hasMore = !empty($cursor);
+                    Log::info("📄 Pagination info - Next cursor: " . ($cursor ?? 'none'));
+                } else {
+                    // Fallback: if we got a full page, there might be more
+                    $hasMore = count($templates) == $perPage;
+                    Log::info("📄 No pagination metadata, using count heuristic");
+                }
+
+                // Safety check - if we're getting no new templates, stop
+                if ($newTemplatesCount === 0) {
+                    Log::info("📄 No new templates found on batch {$requestCount}, stopping pagination");
+                    break;
+                }
+            }
+
+            Log::info("📊 Template discovery complete: " . count($allTemplates) . " unique templates found across {$requestCount} batches");
+
+            // Analyze templates
+            return $this->analyzeDiscoveredTemplates($allTemplates);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Template discovery failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'templates' => [],
+                'analytics' => []
+            ];
+        }
+    }
+
+    /**
+     * Analyze discovered templates and provide detailed analytics
+     */
+    protected function analyzeDiscoveredTemplates(array $templates): array
+    {
+        $analytics = [
+            'total_templates' => count($templates),
+            'by_folder' => [],
+            'by_manufacturer' => [],
+            'by_document_type' => [],
+            'unmapped_templates' => [],
+            'potential_matches' => []
+        ];
+
+        // Folder mappings for manufacturer identification
+        $folderMappings = [
+            'ACZ Distribution' => ['ACZ', 'ACZ Distribution'],
+            'Advanced Health' => ['Advanced Health', 'Advanced Health (Complete AA)'],
+            'MiMedx' => ['MiMedx', 'Amnio Amp-MSC BAA', 'AmnioBand'],
+            'BioWound' => ['BioWound', 'BioWound Onboarding', 'Biowound'],
+            'BioWerX' => ['BioWerX'],
+            'Extremity Care' => ['Extremity Care', 'Extremity Care Onboarding'],
+            'MSC' => ['MSC Forms', 'MSC'],
+            'Skye Biologics' => ['SKYE', 'SKYE Onboarding', 'Skye Biologics'],
+            'Total Ancillary' => ['Total Ancillary Forms', 'Total Ancillary'],
+            'Integra' => ['Integra'],
+            'Kerecis' => ['Kerecis'],
+            'Organogenesis' => ['Organogenesis'],
+            'Smith & Nephew' => ['Smith & Nephew'],
+            'StimLabs' => ['StimLabs'],
+            'Tissue Tech' => ['Tissue Tech'],
+            'MTF Biologics' => ['MTF Biologics', 'MTF'],
+            'Sanara MedTech' => ['Sanara MedTech', 'Sanara'],
+            'MedLife' => ['MedLife', 'Medlife'],
+            'AmnioBand' => ['AmnioBand']
+        ];
+
+        foreach ($templates as $template) {
+            $folderName = $template['folder_name'] ?? 'No Folder';
+            $templateName = $template['name'] ?? 'Unknown';
+            $templateId = $template['id'] ?? 'unknown';
+
+            // Analyze by folder
+            if (!isset($analytics['by_folder'][$folderName])) {
+                $analytics['by_folder'][$folderName] = [
+                    'count' => 0,
+                    'templates' => []
+                ];
+            }
+            $analytics['by_folder'][$folderName]['count']++;
+            $analytics['by_folder'][$folderName]['templates'][] = [
+                'id' => $templateId,
+                'name' => $templateName,
+                'created_at' => $template['created_at'] ?? null
+            ];
+
+            // Determine manufacturer
+            $detectedManufacturer = null;
+            foreach ($folderMappings as $manufacturerName => $folderPatterns) {
+                foreach ($folderPatterns as $pattern) {
+                    if (stripos($folderName, $pattern) !== false || stripos($templateName, $pattern) !== false) {
+                        $detectedManufacturer = $manufacturerName;
+                        break 2;
+                    }
+                }
+            }
+
+            // Analyze by manufacturer
+            if ($detectedManufacturer) {
+                if (!isset($analytics['by_manufacturer'][$detectedManufacturer])) {
+                    $analytics['by_manufacturer'][$detectedManufacturer] = [
+                        'count' => 0,
+                        'templates' => [],
+                        'folders' => []
+                    ];
+                }
+                $analytics['by_manufacturer'][$detectedManufacturer]['count']++;
+                $analytics['by_manufacturer'][$detectedManufacturer]['templates'][] = [
+                    'id' => $templateId,
+                    'name' => $templateName,
+                    'folder' => $folderName
+                ];
+                if (!in_array($folderName, $analytics['by_manufacturer'][$detectedManufacturer]['folders'])) {
+                    $analytics['by_manufacturer'][$detectedManufacturer]['folders'][] = $folderName;
+                }
+            } else {
+                $analytics['unmapped_templates'][] = [
+                    'id' => $templateId,
+                    'name' => $templateName,
+                    'folder' => $folderName
+                ];
+            }
+
+            // Determine document type
+            $documentType = 'Unknown';
+            $templateNameLower = strtolower($templateName);
+            if (str_contains($templateNameLower, 'ivr') || str_contains($templateNameLower, 'authorization')) {
+                $documentType = 'IVR';
+            } elseif (str_contains($templateNameLower, 'onboard')) {
+                $documentType = 'OnboardingForm';
+            } elseif (str_contains($templateNameLower, 'order')) {
+                $documentType = 'OrderForm';
+            }
+
+            // Analyze by document type
+            if (!isset($analytics['by_document_type'][$documentType])) {
+                $analytics['by_document_type'][$documentType] = [
+                    'count' => 0,
+                    'templates' => []
+                ];
+            }
+            $analytics['by_document_type'][$documentType]['count']++;
+            $analytics['by_document_type'][$documentType]['templates'][] = [
+                'id' => $templateId,
+                'name' => $templateName,
+                'manufacturer' => $detectedManufacturer,
+                'folder' => $folderName
+            ];
+        }
+
+        return [
+            'success' => true,
+            'templates' => $templates,
+            'analytics' => $analytics
+        ];
     }
 }

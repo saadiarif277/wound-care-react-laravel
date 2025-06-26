@@ -1,11 +1,39 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
+
+// Better TypeScript interfaces
+interface FormData {
+  patient_email?: string;
+  provider_email?: string;
+  patient_name?: string;
+  provider_name?: string;
+  [key: string]: any;
+}
+
+interface IntegrationInfo {
+  type: 'fhir_enhanced' | 'standard';
+  fhirDataUsed: number;
+  fieldsMapped: number;
+  templateName?: string;
+  manufacturer?: string;
+}
+
+interface DocuSealResponse {
+  slug: string;
+  submission_id: string;
+  template_id: string;
+  integration_type: 'fhir_enhanced' | 'standard';
+  fhir_data_used?: number;
+  fields_mapped?: number;
+  template_name?: string;
+  manufacturer?: string;
+}
 
 interface DocuSealEmbedProps {
   manufacturerId: string;
   productCode: string;
-  formData?: any; // Pre-filled form data from quick request
-  episodeId?: number; // Episode ID for FHIR integration
+  formData?: FormData;
+  episodeId?: number;
   onComplete?: (data: any) => void;
   onSave?: (data: any) => void;
   onError?: (error: string) => void;
@@ -17,6 +45,8 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   productCode,
   formData = {}, // Default to empty object
   episodeId, // Episode ID for enhanced FHIR integration
+  onComplete,
+  onSave,
   onError,
   className = '',
 }) => {
@@ -25,140 +55,127 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [useDirectUrl, setUseDirectUrl] = useState(true); // Default to direct URL, but allow embedded option
-  const [integrationInfo, setIntegrationInfo] = useState<any>(null); // Store integration details
+  const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
+  const isMountedRef = useRef(true);
+  const requestInProgressRef = useRef(false);
 
-  useEffect(() => {
-    // Add ref to track if component is mounted to prevent race conditions
-    let isMounted = true;
-    let requestInProgress = false;
+  // Memoized token fetch function
+  const fetchToken = useCallback(async () => {
+    // Prevent duplicate requests and race conditions
+    if (requestInProgressRef.current || !isMountedRef.current) {
+      console.warn('DocuSeal request already in progress or component unmounted, skipping duplicate call');
+      return;
+    }
 
-    const fetchToken = async () => {
-      // Prevent duplicate requests and race conditions
-      if (requestInProgress || !isMounted) {
-        console.warn('DocuSeal request already in progress or component unmounted, skipping duplicate call');
-        return;
-      }
+    requestInProgressRef.current = true;
 
-      requestInProgress = true;
+    try {
+      if (!isMountedRef.current) return;
 
-      try {
-        if (!isMounted) return; // Double-check mounting status
+      setIsLoading(true);
+      setError(null);
 
-        setIsLoading(true);
-        setError(null);
+      // Enhanced request with FHIR integration support
+      const requestData = {
+        user_email: 'limitless@mscwoundcare.com',
+        integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
+        prefill_data: formData,
+        manufacturerId,
+        productCode,
+        ...(episodeId && { episode_id: episodeId })
+      };
 
-        // Enhanced request with FHIR integration support
-        const requestData = {
-          user_email: 'limitless@mscwoundcare.com',
-          integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
-          prefill_data: formData, // Pass the form data as prefill_data
-          manufacturerId,
-          productCode,
-          ...(episodeId && { episode_id: episodeId }) // Include episode ID if available for FHIR integration
-        };
+      console.log('Sending enhanced DocuSeal request with FHIR support:', {
+        manufacturerId,
+        productCode,
+        episodeId,
+        formDataKeys: Object.keys(formData || {}),
+        hasFormData: !!formData,
+        hasEpisode: !!episodeId,
+        sampleData: Object.keys(formData || {}).slice(0, 5)
+      });
 
-        console.log('Sending enhanced DocuSeal request with FHIR support:', {
-          manufacturerId,
-          productCode,
-          episodeId,
-          formDataKeys: Object.keys(formData || {}),
-          hasFormData: !!formData,
-          hasEpisode: !!episodeId,
-          sampleData: Object.keys(formData || {}).slice(0, 5)
-        });
-
-        const response = await axios.post('/quick-requests/docuseal/generate-submission-slug', requestData, {
+      const response = await axios.post<DocuSealResponse>(
+        '/quick-requests/docuseal/generate-submission-slug',
+        requestData,
+        {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
           },
-          timeout: 30000 // 30 second timeout
-        });
-
-        // API should respond with a proper DocuSeal submission slug
-        const slug = response.data.slug;
-
-        if (!slug) {
-          throw new Error('No slug received from server');
+          timeout: 30000
         }
+      );
 
-        console.log('DocuSeal submission created successfully:', {
-          slug: slug,
-          hasFormData: !!formData,
-          fieldCount: Object.keys(formData || {}).length,
-          sampleFields: Object.keys(formData || {}).slice(0, 5),
-          submission_id: response.data.submission_id,
-          template_id: response.data.template_id,
-          integration_type: response.data.integration_type,
-          fhir_data_used: response.data.fhir_data_used,
-          fields_mapped: response.data.fields_mapped
-        });
+      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer } = response.data;
 
-        // Store integration info for display
-        setIntegrationInfo({
-          type: response.data.integration_type,
-          fhirDataUsed: response.data.fhir_data_used || 0,
-          fieldsMapped: response.data.fields_mapped || 0,
-          templateName: response.data.template_name,
-          manufacturer: response.data.manufacturer
-        });
-
-        setTemplateId(response.data.template_id);
-        setToken(slug); // Store the slug as the token
-      } catch (err: any) {
-        console.error('DocuSeal token fetch error:', {
-          error: err,
-          response: err.response?.data,
-          status: err.response?.status,
-          config: err.config,
-          url: err.config?.url,
-          method: err.config?.method
-        });
-
-        let msg = 'Failed to load document form';
-
-        // Handle different error types
-        if (err.response?.status === 401) {
-          msg = 'Authentication failed. Please check API configuration.';
-        } else if (err.response?.status === 403) {
-          msg = 'Permission denied. You may not have access to this feature.';
-        } else if (err.response?.status === 422) {
-          msg = err.response?.data?.message || 'Invalid request data';
-        } else if (err.response?.status === 500) {
-          msg = 'Server error occurred. Please try again or contact support.';
-        } else if (err.response?.data?.error) {
-          msg = err.response.data.error;
-        } else if (err.response?.data?.message) {
-          msg = err.response.data.message;
-        } else if (err.message) {
-          msg = err.message;
-        }
-
-        setError(msg);
-        if (onError && isMounted) {
-          onError(msg);
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-        requestInProgress = false;
+      if (!slug) {
+        throw new Error('No slug received from server');
       }
-    };
 
-    fetchToken();
+      console.log('DocuSeal submission created successfully:', response.data);
 
-    // Cleanup function to prevent memory leaks and race conditions
-    return () => {
-      isMounted = false;
-    };
+      // Store integration info for display
+      setIntegrationInfo({
+        type: integration_type,
+        fhirDataUsed: fhir_data_used || 0,
+        fieldsMapped: fields_mapped || 0,
+        templateName: template_name,
+        manufacturer: manufacturer
+      });
+
+      setTemplateId(template_id);
+      setToken(slug);
+    } catch (err: any) {
+      console.error('DocuSeal token fetch error:', {
+        error: err,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+
+      let msg = 'Failed to load document form';
+
+      if (err.response?.status === 401) {
+        msg = 'Authentication failed. Please check API configuration.';
+      } else if (err.response?.status === 403) {
+        msg = 'Permission denied. You may not have access to this feature.';
+      } else if (err.response?.status === 422) {
+        msg = err.response?.data?.message || 'Invalid request data';
+      } else if (err.response?.status === 500) {
+        msg = 'Server error occurred. Please try again or contact support.';
+      } else if (err.response?.data?.error) {
+        msg = err.response.data.error;
+      } else if (err.response?.data?.message) {
+        msg = err.response.data.message;
+      } else if (err.message) {
+        msg = err.message;
+      }
+
+      setError(msg);
+      if (onError && isMountedRef.current) {
+        onError(msg);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
+      requestInProgressRef.current = false;
+    }
   }, [manufacturerId, productCode, formData, episodeId, onError]);
 
-  // Add embedded form logic using proper DocuSeal slug (not JWT)
+  useEffect(() => {
+    isMountedRef.current = true;
+    fetchToken();
+
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, [fetchToken]);
+
+  // Enhanced embedded form logic with completion handling
   useEffect(() => {
     if (!token || useDirectUrl) return;
 
-    // Only try embedded form if user explicitly chooses it
     const script = document.createElement('script');
     script.src = 'https://cdn.docuseal.com/js/form.js';
     script.async = true;
@@ -168,6 +185,24 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       const container = document.getElementById('docuseal-embed-container');
       if (container) {
         container.innerHTML = `<docuseal-form data-src="https://docuseal.com/s/${token}"></docuseal-form>`;
+
+        // Add event listeners for form completion
+        const docusealForm = container.querySelector('docuseal-form');
+        if (docusealForm) {
+          docusealForm.addEventListener('completed', (event: any) => {
+            console.log('DocuSeal form completed:', event.detail);
+            if (onComplete) {
+              onComplete(event.detail);
+            }
+          });
+
+          docusealForm.addEventListener('save', (event: any) => {
+            console.log('DocuSeal form saved:', event.detail);
+            if (onSave) {
+              onSave(event.detail);
+            }
+          });
+        }
       }
     };
 
@@ -176,7 +211,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         document.body.removeChild(script);
       }
     };
-  }, [token, useDirectUrl]);
+  }, [token, useDirectUrl, onComplete, onSave]);
 
   if (error) {
     return (

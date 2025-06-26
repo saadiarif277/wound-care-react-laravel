@@ -4,13 +4,10 @@ import { motion } from 'framer-motion';
 import {
   Truck,
   Package,
-  MapPin,
-  Calendar,
   Clock,
   CheckCircle,
   AlertCircle,
   QrCode,
-  Send,
   Globe
 } from 'lucide-react';
 import { themes } from '@/theme/glass-theme';
@@ -122,7 +119,7 @@ const TrackingManager: React.FC<TrackingManagerProps> = ({
       {hasTracking ? (
         // Display existing tracking info
         <div className="space-y-4">
-          <div className={`${t.glass.subtle} rounded-lg p-4`}>
+          <div className={`${t.glass.base} rounded-lg p-4`}>
             <div className="flex items-start justify-between">
               <div className="space-y-3 flex-1">
                 <div>
@@ -159,7 +156,7 @@ const TrackingManager: React.FC<TrackingManagerProps> = ({
               </div>
 
               {/* QR Code placeholder */}
-              <div className={`${t.glass.subtle} rounded-lg p-3 ml-4`}>
+              <div className={`${t.glass.base} rounded-lg p-3 ml-4`}>
                 <QrCode className="w-16 h-16 text-gray-400" />
           </div>
         </div>
@@ -168,10 +165,10 @@ const TrackingManager: React.FC<TrackingManagerProps> = ({
           {/* Track Package Button */}
           {getTrackingUrl() && (
             <a
-              href={getTrackingUrl()}
+              href={getTrackingUrl() || '#'}
               target="_blank"
               rel="noopener noreferrer"
-              className={`w-full flex items-center justify-center gap-2 px-4 py-2 ${t.button.ghost} rounded-lg`}
+              className={`w-full flex items-center justify-center gap-2 px-4 py-2 ${t.button.ghost.base} rounded-lg`}
             >
               <Globe className="w-4 h-4" />
               Track Package
@@ -255,7 +252,7 @@ const TrackingManager: React.FC<TrackingManagerProps> = ({
           )}
 
           {/* Status Messages */}
-          <div className={`${t.glass.subtle} rounded-lg p-4`}>
+          <div className={`${t.glass.base} rounded-lg p-4`}>
             <div className="flex items-center gap-2 mb-2">
               <CheckCircle className="w-4 h-4 text-green-500" />
               <span className={`text-sm ${t.text.secondary}`}>

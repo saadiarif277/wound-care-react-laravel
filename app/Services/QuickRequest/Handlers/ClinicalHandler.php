@@ -17,29 +17,41 @@ class ClinicalHandler
      */
     public function createClinicalResources(array $data): array
     {
-        $this->logger->info('Creating clinical FHIR resources');
+        try {
+            $this->logger->info('Creating clinical FHIR resources');
 
-        $resources = [];
+            $resources = [];
 
-        // Create Condition
-        $condition = $this->createCondition($data);
-        $resources['condition_id'] = $condition['id'];
+            // Create Condition
+            $condition = $this->createCondition($data);
+            $resources['condition_id'] = $condition['id'];
 
-        // Create EpisodeOfCare
-        $episodeOfCare = $this->createEpisodeOfCare($data, $condition['id']);
-        $resources['episode_of_care_id'] = $episodeOfCare['id'];
+            // Create EpisodeOfCare
+            $episodeOfCare = $this->createEpisodeOfCare($data, $condition['id']);
+            $resources['episode_of_care_id'] = $episodeOfCare['id'];
 
-        // Create Encounter if needed
-        if ($data['create_encounter'] ?? true) {
-            $encounter = $this->createEncounter($data, $episodeOfCare['id']);
-            $resources['encounter_id'] = $encounter['id'];
+            // Create Encounter if needed
+            if ($data['create_encounter'] ?? true) {
+                $encounter = $this->createEncounter($data, $episodeOfCare['id']);
+                $resources['encounter_id'] = $encounter['id'];
+            }
+
+            // Create Task for approval workflow
+            $task = $this->createApprovalTask($data, $episodeOfCare['id']);
+            $resources['task_id'] = $task['id'];
+
+            $this->logger->info('Clinical FHIR resources created successfully', [
+                'condition_id' => $condition['id'],
+                'episode_id' => $episodeOfCare['id']
+            ]);
+
+            return $resources;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create clinical FHIR resources', [
+                'error' => $e->getMessage()
+            ]);
+            throw new \Exception('Failed to create clinical FHIR resources: ' . $e->getMessage());
         }
-
-        // Create Task for approval workflow
-        $task = $this->createApprovalTask($data, $episodeOfCare['id']);
-        $resources['task_id'] = $task['id'];
-
-        return $resources;
     }
 
     /**
@@ -114,7 +126,7 @@ class ClinicalHandler
             ];
         }
 
-        return $this->fhirService->createCondition($conditionData);
+        return $this->fhirService->create('Condition', $conditionData);
     }
 
     /**
@@ -170,7 +182,7 @@ class ClinicalHandler
             ]
         ];
 
-        return $this->fhirService->createEpisodeOfCare($episodeData);
+        return $this->fhirService->create('EpisodeOfCare', $episodeData);
     }
 
     /**
@@ -232,7 +244,7 @@ class ClinicalHandler
             ]
         ];
 
-        return $this->fhirService->createEncounter($encounterData);
+        return $this->fhirService->create('Encounter', $encounterData);
     }
 
     /**
@@ -278,7 +290,7 @@ class ClinicalHandler
             ]
         ];
 
-        return $this->fhirService->createTask($taskData);
+        return $this->fhirService->create('Task', $taskData);
     }
 
     /**
@@ -286,7 +298,7 @@ class ClinicalHandler
      */
     public function updateTaskStatus(string $taskId, string $status, string $businessStatus): void
     {
-        $this->fhirService->updateTask($taskId, [
+        $this->fhirService->update('Task', $taskId, [
             'status' => $status,
             'businessStatus' => [
                 'text' => $businessStatus
@@ -300,7 +312,7 @@ class ClinicalHandler
      */
     public function completeEpisodeOfCare(string $episodeOfCareId): void
     {
-        $this->fhirService->updateEpisodeOfCare($episodeOfCareId, [
+        $this->fhirService->update('EpisodeOfCare', $episodeOfCareId, [
             'status' => 'finished',
             'period' => [
                 'end' => now()->toIso8601String()

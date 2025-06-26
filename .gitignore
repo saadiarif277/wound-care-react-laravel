@@ -78,9 +78,16 @@ test-*.log
   debug-*.php
   /storage/app/scripts/temp/
   /storage/app/debug/
-  
+
   # Product documentation (should be in wiki/docs repo)
   product-*.md
-  
+
   # Migration test files
   test-migration-*.sh
+
+  # Add these to .gitignore
+.vs/
+*.vsidx
+.idea/
+*.swp
+*.swo

@@ -19,23 +19,35 @@ class PatientHandler
      */
     public function createOrUpdatePatient(array $patientData): string
     {
-        $this->logger->info('Creating or updating patient in FHIR');
+        try {
+            $this->logger->info('Creating or updating patient in FHIR');
 
-        // Search for existing patient
-        $existingPatient = $this->findExistingPatient($patientData);
-        
-        if ($existingPatient) {
-            $this->auditService->logAccess('patient.accessed', 'Patient', $existingPatient['id']);
-            return $existingPatient['id'];
+            // Search for existing patient
+            $existingPatient = $this->findExistingPatient($patientData);
+
+            if ($existingPatient) {
+                $this->auditService->logAccess('patient.accessed', 'Patient', $existingPatient['id']);
+                return $existingPatient['id'];
+            }
+
+            // Create new patient
+            $fhirPatient = $this->mapToFhirPatient($patientData);
+            $response = $this->fhirService->createPatient($fhirPatient);
+
+            $this->auditService->logAccess('patient.created', 'Patient', $response['id']);
+
+            $this->logger->info('Patient created successfully in FHIR', [
+                'patient_id' => $response['id']
+            ]);
+
+            return $response['id'];
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create/update patient in FHIR', [
+                'error' => $e->getMessage(),
+                'patient_name' => $patientData['first_name'] . ' ' . $patientData['last_name']
+            ]);
+            throw new \Exception('Failed to create/update patient: ' . $e->getMessage());
         }
-
-        // Create new patient
-        $fhirPatient = $this->mapToFhirPatient($patientData);
-        $response = $this->fhirService->createPatient($fhirPatient);
-        
-        $this->auditService->logAccess('patient.created', 'Patient', $response['id']);
-        
-        return $response['id'];
     }
 
     /**
@@ -49,9 +61,9 @@ class PatientHandler
             'given' => $patientData['first_name'],
             'birthdate' => $patientData['dob']
         ];
-        
+
         $results = $this->fhirService->searchPatients($searchParams);
-        
+
         if (!empty($results['entry'])) {
             // Additional validation to ensure it's the same patient
             foreach ($results['entry'] as $entry) {
@@ -61,7 +73,7 @@ class PatientHandler
                 }
             }
         }
-        
+
         return null;
     }
 
@@ -73,12 +85,12 @@ class PatientHandler
         // Match on name and birthdate
         $nameMatch = false;
         $dobMatch = false;
-        
+
         if (!empty($fhirPatient['name'])) {
             foreach ($fhirPatient['name'] as $name) {
                 $family = $name['family'] ?? '';
                 $given = $name['given'][0] ?? '';
-                
+
                 if (strcasecmp($family, $patientData['last_name']) === 0 &&
                     strcasecmp($given, $patientData['first_name']) === 0) {
                     $nameMatch = true;
@@ -86,11 +98,11 @@ class PatientHandler
                 }
             }
         }
-        
+
         if (!empty($fhirPatient['birthDate'])) {
             $dobMatch = $fhirPatient['birthDate'] === $patientData['dob'];
         }
-        
+
         return $nameMatch && $dobMatch;
     }
 
@@ -179,7 +191,7 @@ class PatientHandler
         $first = substr(strtoupper($patientData['first_name']), 0, 2);
         $last = substr(strtoupper($patientData['last_name']), 0, 2);
         $random = str_pad(rand(0, 999), 3, '0', STR_PAD_LEFT);
-        
+
         return $first . $last . $random;
     }
 

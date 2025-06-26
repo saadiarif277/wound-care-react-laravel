@@ -38,10 +38,11 @@ export default function GoogleAddressAutocompleteSimple({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  const [isLoaded, setIsLoaded] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [apiType, setApiType] = useState<'new' | 'legacy' | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const autocompleteElementRef = useRef<any>(null);
-  const [isLoaded, setIsLoaded] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     if (disabled) return;
@@ -147,26 +148,51 @@ export default function GoogleAddressAutocompleteSimple({
         // Try to use the new PlaceAutocompleteElement (recommended) first
         if (window.google.maps.places.PlaceAutocompleteElement) {
           try {
-            // Create the new PlaceAutocompleteElement
+            // Create the new PlaceAutocompleteElement without the invalid 'fields' property
             const placeAutocomplete = new window.google.maps.places.PlaceAutocompleteElement({
               componentRestrictions: { country: 'us' },
-              fields: ['address_components', 'formatted_address', 'geometry', 'name', 'place_id'],
               types: ['address']
             });
 
+            // Configure the element after creation
+            if (placeAutocomplete.requestedFields) {
+              placeAutocomplete.requestedFields = ['address_components', 'formatted_address', 'geometry', 'name', 'place_id'];
+            }
+
             // Replace the input with the new element
-            if (inputRef.current.parentNode) {
+            if (inputRef.current && inputRef.current.parentNode) {
+              // Copy input styling and attributes to the new element
+              const inputClasses = inputRef.current.className;
+              const inputPlaceholder = inputRef.current.placeholder;
+              const inputRequired = inputRef.current.required;
+              const inputDisabled = inputRef.current.disabled;
+
               inputRef.current.parentNode.replaceChild(placeAutocomplete, inputRef.current);
+
+              // Apply styling to the new element
+              if (placeAutocomplete.style) {
+                placeAutocomplete.className = inputClasses;
+                placeAutocomplete.placeholder = inputPlaceholder;
+                placeAutocomplete.required = inputRequired;
+                placeAutocomplete.disabled = inputDisabled;
+              }
+
               autocompleteElementRef.current = placeAutocomplete;
 
-              // Set up event listener
+              // Set up event listener for place selection
               placeAutocomplete.addEventListener('gmp-placeselect', (event: any) => {
                 const place = event.place;
                 if (place && onPlaceSelect) {
                   onPlaceSelect(place);
                 }
               });
+
+              // Update the ref to point to the new element
+              inputRef.current = placeAutocomplete as any;
             }
+
+            console.log('Successfully initialized new PlaceAutocompleteElement API');
+            setApiType('new');
             return;
           } catch (error) {
             console.warn('Failed to use new PlaceAutocompleteElement, falling back to legacy Autocomplete:', error);
@@ -174,6 +200,7 @@ export default function GoogleAddressAutocompleteSimple({
         }
 
         // Fallback to legacy Autocomplete API
+        console.log('Using legacy Google Places Autocomplete API');
         if (!window.google.maps.places.Autocomplete) {
           console.error('Neither PlaceAutocompleteElement nor legacy Autocomplete available');
           return;
@@ -198,6 +225,7 @@ export default function GoogleAddressAutocompleteSimple({
         });
 
         autocompleteElementRef.current = autocomplete;
+        setApiType('legacy');
 
         // Set bounds to US for better results
         if (window.google.maps.LatLngBounds) {
@@ -251,6 +279,12 @@ export default function GoogleAddressAutocompleteSimple({
       {isLoading && (
         <div className="absolute right-3 top-3">
           <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+        </div>
+      )}
+      {/* Development debug info - remove in production */}
+      {process.env.NODE_ENV === 'development' && isLoaded && apiType && (
+        <div className="absolute -bottom-5 left-0 text-xs text-gray-500">
+          Google Maps API: {apiType === 'new' ? 'PlaceAutocompleteElement (new)' : 'Autocomplete (legacy)'}
         </div>
       )}
     </div>

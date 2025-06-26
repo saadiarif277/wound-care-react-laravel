@@ -528,6 +528,10 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.debug');
 
+        Route::get('/docuseal/test-count', [\App\Http\Controllers\QuickRequestController::class, 'testTemplateCount'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.test-count');
+
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')

@@ -88,15 +88,15 @@ class CategoriesAndManufacturersSeeder extends Seeder
         $manufacturers = [
             // From CMS Data - Current Distributors
             [
-                'name' => 'ACZ & Associates',
+                'name' => 'ACZ & ASSOCIATES',
                 'notes' => 'Distributor of Ensano ACA, Revoshield+ Amnio, and Dermabind FM products',
             ],
             [
-                'name' => 'Advanced Solution',
+                'name' => 'ADVANCED SOLUTION',
                 'notes' => 'Distributor of Complete FT, Membrane Wrap, and Complete AA products',
             ],
             [
-                'name' => 'BioWound Solutions',
+                'name' => 'BIOWOUND SOLUTIONS',
                 'notes' => 'Distributor of Membrane Wrap Hydro, NeoStim product line (TL, DL, SL), Amnio-Maxx, and Derm-maxx products',
             ],
             [
@@ -104,10 +104,13 @@ class CategoriesAndManufacturersSeeder extends Seeder
                 'notes' => 'Distributor of Restorigin and Coll-e-derm products',
             ],
             [
-                'name' => 'MedLife Solutions',
+                'name' => 'MEDLIFE SOLUTIONS',
                 'notes' => 'Distributor of Amnio AMP products',
             ],
-
+            [
+                'name' => 'IMBED',
+                'notes' => 'Distributor of Microlyte products',
+            ],
             // Legacy Manufacturers for backward compatibility
             [
                 'name' => 'CELULARITY',
@@ -124,102 +127,17 @@ class CategoriesAndManufacturersSeeder extends Seeder
                 'notes' => 'Manufacturer of Helicoll collagen-based products',
             ],
             [
-                'name' => 'EXTREMITY CARE',
-                'notes' => 'Manufacturer of Complete FT, Barrera DL, carePatch, Restorigin, Procenta, and Coll-e-Derm',
-            ],
-            [
-                'name' => 'BLS SALES AND MARKETING LLC',
-                'notes' => 'Manufacturer of Membrane Wrap and Membrane Wrap - Hydro products',
-            ],
-            [
-                'name' => 'DYNAMIC MEDICAL SERVICES, LLC',
-                'notes' => 'Manufacturer of NeoStim product line (TL, DL, SL)',
-            ],
-            [
-                'name' => 'HUMAN REGENERATIVE TECHNOLOGIES, LLC',
-                'notes' => 'Manufacturer of WoundFix biologic products',
-            ],
-            [
-                'name' => 'REVOGEN BIOLOGICS / MINDSIGHT MEDICAL',
-                'notes' => 'Manufacturer of RevoShield + products',
-            ],
-            [
-                'name' => 'STRATUS BIOSYSTEMS LLC',
-                'notes' => 'Manufacturer of AmnioAMP-MP biologic products',
-            ],
-            [
-                'name' => 'SAMARITAN BIOLOGICS, LLC',
-                'notes' => 'Manufacturer of Complete AA and Complete SL products',
-            ],
-            [
-                'name' => 'PRECISE BIOSCIENCE',
-                'notes' => 'Manufacturer of Xcellerate and Xcell Amnio Matrix products',
-            ],
-            [
                 'name' => 'MIMEDX GROUP, INC.',
                 'website' => 'https://www.mimedx.com',
                 'notes' => 'Leading manufacturer of EpiFix and EpiCord amniotic membrane products',
             ],
             [
-                'name' => 'ROYAL BIOLOGICS',
-                'notes' => 'Manufacturer of Amnio-Maxx and Derm-Maxx products',
+                'name' => 'CENTURION THERAPEUTICS',
+                'notes' => 'Distributor of Amnio AMP products',
             ],
             [
                 'name' => 'STABILITY BIOLOGICS, LLC',
                 'notes' => 'Manufacturer of AmnioCore product line (Pro, Pro+, Quad-Core, Tri-Core, AmnioCore)',
-            ],
-            [
-                'name' => 'SURGENEX, LLC',
-                'notes' => 'Manufacturer of SurGraft TL biologic products',
-            ],
-            [
-                'name' => 'HEALTHTECH WOUND CARE, INC.',
-                'notes' => 'Manufacturer of DermaBind FM products',
-            ],
-            [
-                'name' => 'MUSCULOSKELETAL TRANSPLANT FOUNDATION',
-                'website' => 'https://www.mtf.org',
-                'notes' => 'Non-profit manufacturer of AmnioBand products',
-            ],
-            // Additional manufacturers for comprehensive coverage
-            [
-                'name' => 'ORGANOGENESIS',
-                'website' => 'https://www.organogenesis.com',
-                'notes' => 'Leading regenerative medicine company',
-            ],
-            [
-                'name' => 'INTEGRA LIFESCIENCES',
-                'website' => 'https://www.integralife.com',
-                'notes' => 'Global medical device company specializing in wound care',
-            ],
-            [
-                'name' => 'SMITH & NEPHEW',
-                'website' => 'https://www.smith-nephew.com',
-                'notes' => 'Global medical technology company with advanced wound care division',
-            ],
-            [
-                'name' => 'ACELITY / KCI',
-                'notes' => 'Manufacturer of negative pressure wound therapy and advanced wound care products',
-            ],
-            [
-                'name' => 'MOLNLYCKE HEALTH CARE',
-                'website' => 'https://www.molnlycke.com',
-                'notes' => 'Global manufacturer of wound care and surgical products',
-            ],
-            [
-                'name' => 'CONVATEC',
-                'website' => 'https://www.convatec.com',
-                'notes' => 'Global medical products and technologies company',
-            ],
-            [
-                'name' => 'COLOPLAST',
-                'website' => 'https://www.coloplast.com',
-                'notes' => 'Danish multinational medical device company',
-            ],
-            [
-                'name' => 'HOLLISTER',
-                'website' => 'https://www.hollister.com',
-                'notes' => 'Healthcare products company specializing in advanced wound care',
             ],
         ];
 

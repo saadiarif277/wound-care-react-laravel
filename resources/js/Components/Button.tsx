@@ -46,11 +46,11 @@ export function Button({
     );
 
     const variantStyles = {
-        primary: cn(t.button.primary, 'focus:ring-[#1925c3]/50'),
-        secondary: cn(t.button.secondary, 'focus:ring-white/20'),
-        ghost: cn(t.button.ghost, 'focus:ring-white/20'),
-        danger: cn(t.button.danger, 'focus:ring-red-500/50'),
-        success: cn(t.button.approve, 'focus:ring-emerald-500/50')
+        primary: cn(t.button.primary.base, 'focus:ring-[#1925c3]/50'),
+        secondary: cn(t.button.secondary.base, 'focus:ring-white/20'),
+        ghost: cn(t.button.ghost.base, 'focus:ring-white/20'),
+        danger: cn(t.button.danger.base, 'focus:ring-red-500/50'),
+        success: cn(t.button.approve.base, 'focus:ring-emerald-500/50')
     };
 
     const finalDisabled = disabled || isLoading;

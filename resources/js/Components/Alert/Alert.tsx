@@ -39,22 +39,19 @@ export default function Alert({
 
   const glassStyles = {
     success: cn(
-      t.status.success.bg,
-      t.status.success.border,
-      t.status.success.text,
-      'border'
+      t.status.success,
+      'border border-green-500/20 text-green-400',
+      'bg-green-500/10'
     ),
     error: cn(
-      t.status.error.bg,
-      t.status.error.border,
-      t.status.error.text,
-      'border'
+      t.status.error,
+      'border border-red-500/20 text-red-400',
+      'bg-red-500/10'
     ),
     warning: cn(
-      t.status.warning.bg,
-      t.status.warning.border,
-      t.status.warning.text,
-      'border'
+      t.status.warning,
+      'border border-yellow-500/20 text-yellow-400',
+      'bg-yellow-500/10'
     )
   }[variant || 'success'];
 

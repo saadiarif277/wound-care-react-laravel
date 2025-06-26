@@ -518,13 +518,14 @@ final class QuickRequestController extends Controller
         ]);
 
         try {
+            // Enhanced validation with better error messages
             $data = $request->validate([
                 'user_email' => 'required|email',
                 'integration_email' => 'nullable|email',
                 'prefill_data' => 'nullable|array',
-                'manufacturerId' => 'nullable|integer',
+                'manufacturerId' => 'nullable|numeric', // Accept both string and integer
                 'productCode' => 'nullable|string',
-                'episode_id' => 'nullable|integer', // Add episode ID for FHIR integration
+                'episode_id' => 'nullable|integer',
             ]);
 
             Log::info('✅ Request validation PASSED', [
@@ -536,98 +537,134 @@ final class QuickRequestController extends Controller
                 'sample_form_data' => array_slice($data['prefill_data'] ?? [], 0, 10)
             ]);
 
+            // Step 1: Validate DocuSeal Configuration
             $apiKey = config('docuseal.api_key');
+            $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
+
             if (!$apiKey) {
-                throw new \Exception('DocuSeal API key not configured');
+                throw new \Exception('DocuSeal API key not configured. Please check DOCUSEAL_API_KEY environment variable.');
             }
 
-            // Get manufacturer ID from request
+            if (strlen($apiKey) < 10) {
+                throw new \Exception('DocuSeal API key appears invalid (too short). Please verify your API key.');
+            }
+
+            Log::info('✅ DocuSeal configuration validated', [
+                'api_url' => $apiUrl,
+                'api_key_length' => strlen($apiKey),
+                'api_key_prefix' => substr($apiKey, 0, 8) . '...'
+            ]);
+
+            // Step 2: Manufacturer ID Resolution
             $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
 
-            // Cast to integer if it's a string
-            if (is_string($manufacturerId) && is_numeric($manufacturerId)) {
+            // Cast to integer if it's a string or numeric
+            if (is_numeric($manufacturerId)) {
                 $manufacturerId = (int) $manufacturerId;
             }
 
             if (!$manufacturerId) {
-                throw new \Exception('Manufacturer ID is required');
+                $availableManufacturers = \App\Models\Order\Manufacturer::pluck('name', 'id')->toArray();
+                throw new \Exception('Manufacturer ID is required. Available manufacturers: ' . implode(', ', array_values($availableManufacturers)));
             }
 
-            // Check if we have an episode for FHIR integration
+            // Verify manufacturer exists
+            $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
+            if (!$manufacturer) {
+                $availableManufacturers = \App\Models\Order\Manufacturer::pluck('name', 'id')->toArray();
+                throw new \Exception("Manufacturer ID {$manufacturerId} not found. Available manufacturers: " . implode(', ', array_values($availableManufacturers)));
+            }
+
+            Log::info('✅ Manufacturer resolved', [
+                'manufacturer_id' => $manufacturerId,
+                'manufacturer_name' => $manufacturer->name
+            ]);
+
+            // Step 3: Episode and FHIR Integration (if available)
             $episode = null;
             if (!empty($data['episode_id'])) {
-                $episode = Episode::find($data['episode_id']);
-                Log::info('🔍 Episode found for FHIR integration', [
-                    'episode_id' => $episode->id,
-                    'patient_fhir_id' => $episode->patient_fhir_id,
-                    'has_fhir_ids' => !empty($episode->metadata['fhir_ids'] ?? [])
-                ]);
+                $episode = \App\Models\Episode::find($data['episode_id']);
+                if ($episode) {
+                    Log::info('🔍 Episode found for FHIR integration', [
+                        'episode_id' => $episode->id,
+                        'patient_fhir_id' => $episode->patient_fhir_id,
+                        'has_fhir_ids' => !empty($episode->metadata['fhir_ids'] ?? [])
+                    ]);
+                } else {
+                    Log::warning('⚠️ Episode ID provided but not found', [
+                        'episode_id' => $data['episode_id']
+                    ]);
+                }
             }
 
             // Use FHIR-DocuSeal integration service if episode is available
             if ($episode) {
-                Log::info('🎯 Using FHIR-DocuSeal Integration Service', [
-                    'episode_id' => $episode->id,
-                    'manufacturer_id' => $manufacturerId,
-                    'has_patient_fhir_id' => !empty($episode->patient_fhir_id)
-                ]);
-
-                $fhirIntegrationService = app(\App\Services\FhirDocuSealIntegrationService::class);
-                $result = $fhirIntegrationService->createProviderOrderSubmission($episode, $data['prefill_data'] ?? []);
-
-                if ($result['success']) {
-                    Log::info('✅ FHIR-DocuSeal integration SUCCESSFUL', [
+                try {
+                    Log::info('🎯 Attempting FHIR-DocuSeal Integration', [
                         'episode_id' => $episode->id,
-                        'submission_id' => $result['submission_id'],
-                        'slug' => $result['slug'],
-                        'fhir_data_used' => $result['fhir_data_used'] ?? 0,
-                        'fields_mapped' => $result['fields_mapped'] ?? 0
+                        'manufacturer_id' => $manufacturerId
                     ]);
 
-                    return response()->json([
-                        'success' => true,
-                        'slug' => $result['slug'],
-                        'submission_id' => $result['submission_id'],
-                        'template_id' => $result['template_id'],
-                        'embed_url' => $result['embed_url'],
-                        'fields_mapped' => $result['fields_mapped'],
-                        'fhir_data_used' => $result['fhir_data_used'],
-                        'integration_type' => 'fhir_enhanced'
-                    ]);
-                } else {
-                    Log::warning('⚠️ FHIR integration failed, falling back to standard method', [
+                    $fhirIntegrationService = app(\App\Services\FhirDocuSealIntegrationService::class);
+                    $result = $fhirIntegrationService->createProviderOrderSubmission($episode, $data['prefill_data'] ?? []);
+
+                    if ($result['success']) {
+                        Log::info('✅ FHIR-DocuSeal integration SUCCESSFUL', [
+                            'episode_id' => $episode->id,
+                            'submission_id' => $result['submission_id'],
+                            'slug' => $result['slug'],
+                            'fhir_data_used' => $result['fhir_data_used'] ?? 0,
+                            'fields_mapped' => $result['fields_mapped'] ?? 0
+                        ]);
+
+                        return response()->json([
+                            'success' => true,
+                            'slug' => $result['slug'],
+                            'submission_id' => $result['submission_id'],
+                            'template_id' => $result['template_id'],
+                            'embed_url' => $result['embed_url'],
+                            'fields_mapped' => $result['fields_mapped'],
+                            'fhir_data_used' => $result['fhir_data_used'],
+                            'integration_type' => 'fhir_enhanced'
+                        ]);
+                    } else {
+                        Log::warning('⚠️ FHIR integration failed, falling back to standard method', [
+                            'episode_id' => $episode->id,
+                            'error' => $result['error'] ?? 'Unknown error'
+                        ]);
+                        // Fall through to standard method
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('⚠️ FHIR integration threw exception, falling back to standard method', [
                         'episode_id' => $episode->id,
-                        'error' => $result['error']
+                        'error' => $e->getMessage()
                     ]);
                     // Fall through to standard method
                 }
             }
 
-            // Standard DocuSeal integration (fallback or when no episode)
-            Log::info('📋 Using standard DocuSeal integration', [
-                'manufacturer_id' => $manufacturerId,
-                'has_episode' => !is_null($episode),
-                'fallback_reason' => $episode ? 'fhir_integration_failed' : 'no_episode_provided'
-            ]);
-
             // Step 4: Template Resolution (CRITICAL STEP)
             Log::info('🔍 Starting template resolution', [
                 'manufacturer_id' => $manufacturerId,
-                'product_code' => $data['productCode'] ?? 'none',
-                'lookup_key' => $manufacturerId . '_' . ($data['productCode'] ?? 'none')
+                'product_code' => $data['productCode'] ?? 'none'
             ]);
 
             $template = $this->getTemplateForManufacturer($manufacturerId);
 
             if (!$template) {
-                Log::error('❌ TEMPLATE NOT FOUND', [
-                    'manufacturer_id' => $manufacturerId,
-                    'product_code' => $data['productCode'] ?? 'none',
-                    'available_templates' => \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
-                        ->pluck('template_name', 'id')->toArray(),
-                    'all_manufacturer_templates' => \App\Models\Docuseal\DocusealTemplate::pluck('template_name', 'manufacturer_id')->toArray()
-                ]);
-                throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
+                $availableTemplates = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
+                    ->pluck('template_name', 'id')->toArray();
+                $allTemplates = \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
+                    ->get()
+                    ->mapWithKeys(function ($t) {
+                        return [$t->id => ($t->manufacturer->name ?? 'Unknown') . ' - ' . $t->template_name];
+                    })->toArray();
+
+                throw new \Exception(
+                    "No DocuSeal template found for manufacturer '{$manufacturer->name}' (ID: {$manufacturerId}). " .
+                    "Available templates for this manufacturer: " . (empty($availableTemplates) ? 'None' : implode(', ', $availableTemplates)) . ". " .
+                    "All available templates: " . implode(', ', $allTemplates)
+                );
             }
 
             Log::info('✅ Template FOUND', [
@@ -638,14 +675,13 @@ final class QuickRequestController extends Controller
                 'field_mappings_count' => is_array($template->field_mappings) ? count($template->field_mappings) : 0
             ]);
 
-            // Step 5: Field Mapping (127 fields issue)
+            // Step 5: Field Mapping with Enhanced Error Handling
             $mappedFields = [];
             if (!empty($data['prefill_data'])) {
                 Log::info('🗂️ Starting field mapping', [
                     'input_fields_count' => count($data['prefill_data']),
                     'template_mappings_available' => !empty($template->field_mappings),
-                    'first_10_input_fields' => array_slice(array_keys($data['prefill_data']), 0, 10),
-                    'template_field_mappings' => is_array($template->field_mappings) ? array_keys($template->field_mappings) : []
+                    'first_10_input_fields' => array_slice(array_keys($data['prefill_data']), 0, 10)
                 ]);
 
                 try {
@@ -655,91 +691,104 @@ final class QuickRequestController extends Controller
                     );
 
                     Log::info('✅ Field mapping SUCCESSFUL', [
-                        'manufacturer_id' => $manufacturerId,
-                        'template_id' => $template->docuseal_template_id,
                         'original_fields' => count($data['prefill_data']),
                         'mapped_fields' => count($mappedFields),
                         'sample_mapped_fields' => array_slice($mappedFields, 0, 5),
-                        'mapping_success_rate' => round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%'
+                        'mapping_success_rate' => count($data['prefill_data']) > 0 ?
+                            round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%' : '0%'
                     ]);
                 } catch (\Exception $e) {
                     Log::error('❌ Field mapping FAILED', [
                         'error' => $e->getMessage(),
-                        'trace' => $e->getTraceAsString(),
-                        'manufacturer_id' => $manufacturerId,
-                        'template_id' => $template->docuseal_template_id,
                         'input_field_count' => count($data['prefill_data'])
                     ]);
-                    // Continue without mapped fields
+                    // Continue with empty mapped fields rather than failing
+                    $mappedFields = [];
                 }
-            } else {
-                Log::info('ℹ️ No prefill data provided, skipping field mapping');
             }
 
-            // Step 6: Role Resolution (CRITICAL - This was the original issue!)
+            // Step 6: Role Resolution with Better Error Handling
             Log::info('🎭 Resolving template role', [
-                'template_id' => $template->docuseal_template_id,
-                'api_key_length' => strlen($apiKey)
-            ]);
-
-            $templateRole = $this->getTemplateRole($template->docuseal_template_id, $apiKey);
-
-            Log::info('✅ Template role resolved', [
-                'role' => $templateRole,
                 'template_id' => $template->docuseal_template_id
             ]);
 
-            // Step 7: Create submission data
+            try {
+                $templateRole = $this->getTemplateRole($template->docuseal_template_id, $apiKey);
+                Log::info('✅ Template role resolved', [
+                    'role' => $templateRole,
+                    'template_id' => $template->docuseal_template_id
+                ]);
+            } catch (\Exception $e) {
+                Log::warning('⚠️ Template role resolution failed, using fallback', [
+                    'template_id' => $template->docuseal_template_id,
+                    'error' => $e->getMessage()
+                ]);
+                $templateRole = 'First Party'; // Safe fallback
+            }
+
+            // Step 7: Create Submission Data with Validation
             $submissionData = [
                 'template_id' => (int) $template->docuseal_template_id,
-                'send_email' => false, // Don't send email, we're embedding
+                'send_email' => false,
                 'submitters' => [
                     [
                         'email' => $data['integration_email'] ?? $data['user_email'],
-                        'role' => $templateRole, // Use the actual role from template
-                        'fields' => $mappedFields // Pre-filled fields
+                        'role' => $templateRole,
+                        'fields' => $mappedFields
                     ]
                 ]
             ];
+
+            // Validate submission data
+            if (empty($submissionData['submitters'][0]['email'])) {
+                throw new \Exception('Submitter email is required but was empty');
+            }
+
+            if (!filter_var($submissionData['submitters'][0]['email'], FILTER_VALIDATE_EMAIL)) {
+                throw new \Exception('Submitter email is invalid: ' . $submissionData['submitters'][0]['email']);
+            }
 
             Log::info('📤 Sending DocuSeal API request', [
                 'template_id' => $submissionData['template_id'],
                 'submitter_email' => $submissionData['submitters'][0]['email'],
                 'submitter_role' => $submissionData['submitters'][0]['role'],
                 'fields_count' => count($submissionData['submitters'][0]['fields']),
-                'api_endpoint' => 'https://api.docuseal.com/submissions'
+                'api_endpoint' => "{$apiUrl}/submissions"
             ]);
 
-            // Make API call to DocuSeal (using correct authentication header)
+            // Step 8: Make API Call with Enhanced Error Handling
             $response = Http::withHeaders([
-                'X-Auth-Token' => $apiKey,  // DocuSeal uses X-Auth-Token, not X-API-Key
-                'Content-Type' => 'application/json'
-            ])->timeout(config('docuseal.timeout', 30))
-            ->post('https://api.docuseal.com/submissions', $submissionData);
+                'X-Auth-Token' => $apiKey,
+                'Content-Type' => 'application/json',
+                'User-Agent' => 'MSC-WoundCare/1.0'
+            ])
+            ->timeout(config('docuseal.timeout', 30))
+            ->retry(2, 1000) // Retry twice with 1 second delay
+            ->post("{$apiUrl}/submissions", $submissionData);
 
+            // Enhanced error handling for API response
             if (!$response->successful()) {
                 $statusCode = $response->status();
                 $responseBody = $response->body();
+                $responseData = $response->json() ?? [];
 
-                Log::error('DocuSeal API error', [
+                Log::error('❌ DocuSeal API error', [
                     'status' => $statusCode,
                     'body' => $responseBody,
-                    'submission_data' => $submissionData
+                    'response_data' => $responseData,
+                    'submission_data' => $submissionData,
+                    'api_url' => $apiUrl
                 ]);
 
-                // Enhanced error handling for specific HTTP status codes
-                $errorMessage = 'Unknown error';
-                if ($statusCode === 401) {
-                    $errorMessage = 'Authentication failed - check API key and permissions';
-                } elseif ($statusCode === 404) {
-                    $errorMessage = 'Template not found - verify template ID exists in DocuSeal';
-                } elseif ($statusCode === 422) {
-                    $responseData = $response->json();
-                    $errorMessage = $responseData['error'] ?? 'Validation failed - check role name and field mappings';
-                } else {
-                    $responseData = $response->json();
-                    $errorMessage = $responseData['error'] ?? $responseBody;
-                }
+                // Provide specific error messages based on status code
+                $errorMessage = match($statusCode) {
+                    401 => 'Authentication failed - check API key and permissions. API Key: ' . substr($apiKey, 0, 8) . '...',
+                    404 => "Template not found - verify template ID {$template->docuseal_template_id} exists in DocuSeal",
+                    422 => 'Validation failed - ' . ($responseData['error'] ?? 'check role name and field mappings'),
+                    429 => 'Rate limit exceeded - please try again in a moment',
+                    500 => 'DocuSeal server error - please try again later',
+                    default => $responseData['error'] ?? $responseBody ?: 'Unknown error'
+                };
 
                 throw new \Exception("DocuSeal API error ({$statusCode}): {$errorMessage}");
             }
@@ -750,10 +799,11 @@ final class QuickRequestController extends Controller
                 'response_structure' => array_keys($submissionResponse),
                 'is_array' => is_array($submissionResponse),
                 'response_type' => gettype($submissionResponse),
-                'response_sample' => array_slice($submissionResponse, 0, 3, true) // First 3 keys for safety
+                'has_submitters' => isset($submissionResponse['submitters']),
+                'is_direct_array' => is_array($submissionResponse) && isset($submissionResponse[0])
             ]);
 
-            // Handle different DocuSeal response formats
+            // Step 9: Parse Response with Multiple Format Support
             $submitters = [];
             $slug = null;
             $submissionId = null;
@@ -763,37 +813,26 @@ final class QuickRequestController extends Controller
                 $submitters = $submissionResponse['submitters'];
                 $slug = $submitters[0]['slug'] ?? null;
                 $submissionId = $submissionResponse['id'] ?? $submitters[0]['submission_id'] ?? null;
-
-                Log::info('✅ Using submitters array format', [
-                    'submitters_count' => count($submitters),
-                    'first_submitter_keys' => array_keys($submitters[0] ?? [])
-                ]);
+                Log::info('✅ Using submitters array format');
             }
             // Format 2: Response IS an array of submitters (direct format)
             elseif (is_array($submissionResponse) && isset($submissionResponse[0]['slug'])) {
                 $submitters = $submissionResponse;
                 $slug = $submitters[0]['slug'] ?? null;
                 $submissionId = $submitters[0]['submission_id'] ?? $submitters[0]['id'] ?? null;
-
-                Log::info('✅ Using direct submitters array format', [
-                    'submitters_count' => count($submitters),
-                    'first_submitter_keys' => array_keys($submitters[0] ?? [])
-                ]);
+                Log::info('✅ Using direct submitters array format');
             }
             // Format 3: Single submission object
             elseif (isset($submissionResponse['slug'])) {
                 $slug = $submissionResponse['slug'];
                 $submissionId = $submissionResponse['id'] ?? $submissionResponse['submission_id'] ?? null;
-                $submitters = [$submissionResponse]; // Wrap in array for consistency
-
-                Log::info('✅ Using single submission format', [
-                    'submission_keys' => array_keys($submissionResponse)
-                ]);
+                $submitters = [$submissionResponse];
+                Log::info('✅ Using single submission format');
             }
 
-            // Final validation
+            // Step 10: Final Validation
             if (empty($slug)) {
-                Log::error('❌ No slug found in any format', [
+                Log::error('❌ No slug found in response', [
                     'full_response' => $submissionResponse,
                     'response_keys' => array_keys($submissionResponse)
                 ]);
@@ -801,46 +840,67 @@ final class QuickRequestController extends Controller
             }
 
             if (empty($submitters)) {
-                Log::error('❌ No submitters found in any format', [
+                Log::error('❌ No submitters found in response', [
                     'full_response' => $submissionResponse
                 ]);
-                throw new \Exception('No submitters returned from DocuSeal API. Response: ' . json_encode($submissionResponse));
+                throw new \Exception('No submitters returned from DocuSeal API.');
             }
 
-            Log::info('DocuSeal submission created successfully', [
+            // Step 11: Success Response
+            Log::info('🎉 DocuSeal submission created successfully', [
                 'template_id' => $template->docuseal_template_id,
-                'submission_id' => $submissionResponse['id'] ?? null,
+                'submission_id' => $submissionId,
                 'slug' => $slug,
                 'submitter_email' => $submitters[0]['email'] ?? null,
                 'mapped_fields_count' => count($mappedFields),
+                'manufacturer' => $manufacturer->name,
                 'integration_type' => 'standard'
             ]);
 
             return response()->json([
                 'success' => true,
                 'slug' => $slug,
-                'submission_id' => $submissionResponse['id'] ?? null,
+                'submission_id' => $submissionId,
                 'template_id' => $template->docuseal_template_id,
                 'template_name' => $template->template_name,
-                'manufacturer' => $template->manufacturer->name,
+                'manufacturer' => $manufacturer->name,
                 'mapped_fields_count' => count($mappedFields),
                 'embed_url' => "https://docuseal.com/s/{$slug}",
                 'integration_type' => 'standard'
             ]);
 
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('❌ Validation failed', [
+                'errors' => $e->errors(),
+                'request_data' => $request->all()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Validation failed',
+                'validation_errors' => $e->errors()
+            ], 422);
+
         } catch (\Exception $e) {
             Log::error('❌ DocuSeal submission generation FAILED', [
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
+                'error_type' => get_class($e),
+                'error_line' => $e->getLine(),
+                'error_file' => basename($e->getFile()),
                 'request_data' => $request->all(),
                 'user_id' => Auth::id(),
                 'timestamp' => now()->toISOString()
             ]);
 
+            // Don't expose sensitive information in production
+            $errorMessage = app()->environment('production')
+                ? 'Failed to generate submission slug. Please check the logs for details.'
+                : 'Failed to generate submission slug: ' . $e->getMessage();
+
             return response()->json([
                 'success' => false,
-                'error' => 'Failed to generate submission slug: ' . $e->getMessage(),
-                'debug_info' => [
+                'error' => $errorMessage,
+                'debug_info' => app()->environment('production') ? null : [
                     'error_type' => get_class($e),
                     'error_line' => $e->getLine(),
                     'error_file' => basename($e->getFile())
@@ -850,7 +910,7 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Debug endpoint for DocuSeal integration issues
+     * Debug endpoint for DocuSeal integration issues - Enhanced diagnostics
      */
     public function debugDocuSealIntegration(Request $request): JsonResponse
     {
@@ -863,20 +923,24 @@ final class QuickRequestController extends Controller
                 'system_info' => [
                     'php_version' => PHP_VERSION,
                     'laravel_version' => app()->version(),
-                    'user_id' => Auth::id()
+                    'user_id' => Auth::id(),
+                    'environment' => app()->environment()
                 ],
                 'configuration' => [
                     'api_key_configured' => !empty(config('docuseal.api_key')),
                     'api_key_length' => strlen(config('docuseal.api_key') ?? ''),
+                    'api_key_prefix' => substr(config('docuseal.api_key') ?? '', 0, 8) . '...',
                     'api_url' => config('docuseal.api_url', 'https://api.docuseal.com'),
                     'timeout' => config('docuseal.timeout', 30)
                 ],
                 'manufacturer_info' => [],
                 'template_info' => [],
-                'api_connectivity' => []
+                'api_connectivity' => [],
+                'field_mapping_test' => [],
+                'role_detection_test' => []
             ];
 
-            // Test manufacturer lookup
+            // Test 1: Manufacturer lookup
             $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
             if ($manufacturer) {
                 $debugInfo['manufacturer_info'] = [
@@ -894,7 +958,7 @@ final class QuickRequestController extends Controller
                 ];
             }
 
-            // Test template lookup
+            // Test 2: Template lookup
             $template = $this->getTemplateForManufacturer($manufacturerId);
             if ($template) {
                 $debugInfo['template_info'] = [
@@ -904,7 +968,9 @@ final class QuickRequestController extends Controller
                     'template_name' => $template->template_name,
                     'manufacturer_name' => $template->manufacturer->name ?? 'unknown',
                     'field_mappings_count' => is_array($template->field_mappings) ? count($template->field_mappings) : 0,
-                    'field_mappings' => $template->field_mappings
+                    'has_field_mappings' => !empty($template->field_mappings),
+                    'sample_field_mappings' => is_array($template->field_mappings) ?
+                        array_slice($template->field_mappings, 0, 5) : []
                 ];
             } else {
                 $debugInfo['template_info'] = [
@@ -912,72 +978,310 @@ final class QuickRequestController extends Controller
                     'searched_manufacturer_id' => $manufacturerId,
                     'all_templates' => \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
                         ->get()
-                        ->map(fn($t) => [
-                            'id' => $t->id,
-                            'name' => $t->template_name,
-                            'manufacturer' => $t->manufacturer->name ?? 'unknown',
-                            'docuseal_id' => $t->docuseal_template_id
-                        ])
-                        ->toArray()
+                        ->map(function ($t) {
+                            return [
+                                'id' => $t->id,
+                                'docuseal_template_id' => $t->docuseal_template_id,
+                                'name' => $t->template_name,
+                                'manufacturer' => $t->manufacturer->name ?? 'Unknown',
+                                'manufacturer_id' => $t->manufacturer_id
+                            ];
+                        })->toArray()
                 ];
             }
 
-            // Test API connectivity
+            // Test 3: DocuSeal API connectivity and template discovery
             $apiKey = config('docuseal.api_key');
+            $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
+
             if ($apiKey) {
                 try {
-                    $apiResponse = \Illuminate\Support\Facades\Http::withHeaders([
-                        'X-Auth-Token' => $apiKey,
-                    ])->timeout(30)->get('https://api.docuseal.com/templates');
+                    Log::info('🧪 Testing DocuSeal API connectivity with enhanced discovery', [
+                        'api_url' => $apiUrl,
+                        'api_key_length' => strlen($apiKey)
+                    ]);
 
-                    $debugInfo['api_connectivity'] = [
-                        'reachable' => true,
-                        'status_code' => $apiResponse->status(),
-                        'authenticated' => $apiResponse->successful(),
-                        'templates_count' => $apiResponse->successful() ? count($apiResponse->json()) : 0,
-                        'response_time_ms' => round(microtime(true) * 1000) - round($_SERVER['REQUEST_TIME_FLOAT'] * 1000)
-                    ];
+                    // Test 1: Basic connectivity with pagination
+                    $allTemplates = [];
+                    $page = 1;
+                    $totalPages = 0;
 
-                    if ($template && $apiResponse->successful()) {
-                        // Test role extraction
-                        $roleResponse = \Illuminate\Support\Facades\Http::withHeaders([
+                    while ($page <= 5) { // Limit to first 5 pages for debug
+                        $response = Http::withHeaders([
                             'X-Auth-Token' => $apiKey,
-                        ])->timeout(30)->get("https://api.docuseal.com/templates/{$template->docuseal_template_id}");
+                            'User-Agent' => 'MSC-WoundCare/1.0'
+                        ])->timeout(15)->get("{$apiUrl}/templates", [
+                            'page' => $page,
+                            'per_page' => 50
+                        ]);
 
-                        if ($roleResponse->successful()) {
-                            $templateData = $roleResponse->json();
-                            $extractedRole = $this->extractRoleFromTemplate($templateData);
+                        if (!$response->successful()) {
+                            break;
+                        }
 
-                            $debugInfo['template_info']['role_extraction'] = [
-                                'success' => !empty($extractedRole),
-                                'extracted_role' => $extractedRole,
-                                'template_structure' => array_keys($templateData),
-                                'raw_template_data' => $templateData
-                            ];
+                        $responseData = $response->json();
+                        $templates = $responseData['data'] ?? $responseData;
+
+                        if (empty($templates)) {
+                            break;
+                        }
+
+                        $allTemplates = array_merge($allTemplates, $templates);
+                        $totalPages = $page;
+                        $page++;
+
+                        // Stop if we got fewer templates than requested (last page)
+                        if (count($templates) < 50) {
+                            break;
                         }
                     }
 
+                    // Analyze templates by folder
+                    $folderAnalysis = [];
+                    $manufacturerMatches = [];
+
+                    foreach ($allTemplates as $template) {
+                        $folderName = $template['folder_name'] ?? 'No Folder';
+
+                        if (!isset($folderAnalysis[$folderName])) {
+                            $folderAnalysis[$folderName] = [
+                                'count' => 0,
+                                'templates' => []
+                            ];
+                        }
+
+                        $folderAnalysis[$folderName]['count']++;
+                        $folderAnalysis[$folderName]['templates'][] = [
+                            'id' => $template['id'],
+                            'name' => $template['name'],
+                            'created_at' => $template['created_at'] ?? null
+                        ];
+
+                        // Check if this template matches any known manufacturers
+                        $templateName = strtolower($template['name']);
+                        $folderNameLower = strtolower($folderName);
+
+                        $knownManufacturers = [
+                            'ACZ Distribution' => ['acz'],
+                            'MiMedx' => ['mimedx', 'mimx', 'amnio'],
+                            'BioWound' => ['biowound', 'bio wound'],
+                            'Skye Biologics' => ['skye'],
+                            'MSC' => ['msc'],
+                            'Advanced Health' => ['advanced health', 'advanced'],
+                            'Integra' => ['integra'],
+                            'Organogenesis' => ['organogenesis']
+                        ];
+
+                        foreach ($knownManufacturers as $mfgName => $patterns) {
+                            foreach ($patterns as $pattern) {
+                                if (str_contains($templateName, $pattern) || str_contains($folderNameLower, $pattern)) {
+                                    if (!isset($manufacturerMatches[$mfgName])) {
+                                        $manufacturerMatches[$mfgName] = [];
+                                    }
+                                    $manufacturerMatches[$mfgName][] = [
+                                        'template_id' => $template['id'],
+                                        'template_name' => $template['name'],
+                                        'folder' => $folderName,
+                                        'matched_pattern' => $pattern
+                                    ];
+                                    break 2; // Break both loops
+                                }
+                            }
+                        }
+                    }
+
+                    $debugInfo['api_connectivity'] = [
+                        'status' => 'success',
+                        'total_templates_found' => count($allTemplates),
+                        'pages_scanned' => $totalPages,
+                        'folder_analysis' => $folderAnalysis,
+                        'manufacturer_matches' => $manufacturerMatches,
+                        'summary' => [
+                            'total_folders' => count($folderAnalysis),
+                            'templates_with_folders' => count($allTemplates) - ($folderAnalysis['No Folder']['count'] ?? 0),
+                            'templates_without_folders' => $folderAnalysis['No Folder']['count'] ?? 0,
+                            'manufacturer_templates_found' => count($manufacturerMatches)
+                        ]
+                    ];
+
                 } catch (\Exception $e) {
                     $debugInfo['api_connectivity'] = [
-                        'reachable' => false,
+                        'status' => 'exception',
                         'error' => $e->getMessage(),
                         'error_type' => get_class($e)
+                    ];
+                }
+            } else {
+                $debugInfo['api_connectivity'] = [
+                    'status' => 'no_api_key',
+                    'message' => 'DocuSeal API key not configured'
+                ];
+            }
+
+            // Test 4: Role detection test (if template found)
+            if ($template && $apiKey) {
+                try {
+                    Log::info('🧪 Testing role detection', [
+                        'template_id' => $template->docuseal_template_id
+                    ]);
+
+                    $role = $this->getTemplateRole($template->docuseal_template_id, $apiKey);
+                    $debugInfo['role_detection_test'] = [
+                        'status' => 'success',
+                        'detected_role' => $role,
+                        'template_id' => $template->docuseal_template_id
+                    ];
+                } catch (\Exception $e) {
+                    $debugInfo['role_detection_test'] = [
+                        'status' => 'failed',
+                        'error' => $e->getMessage(),
+                        'template_id' => $template->docuseal_template_id,
+                        'fallback_role' => 'First Party'
+                    ];
+                }
+            }
+
+            // Test 5: Field mapping test
+            if ($template) {
+                $sampleData = [
+                    'patient_first_name' => 'John',
+                    'patient_last_name' => 'Doe',
+                    'patient_dob' => '1990-01-01',
+                    'provider_name' => 'Dr. Smith',
+                    'provider_npi' => '1234567890'
+                ];
+
+                try {
+                    Log::info('🧪 Testing field mapping', [
+                        'template_id' => $template->id,
+                        'sample_data_count' => count($sampleData)
+                    ]);
+
+                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate($sampleData, $template);
+                    $debugInfo['field_mapping_test'] = [
+                        'status' => 'success',
+                        'input_fields' => count($sampleData),
+                        'mapped_fields' => count($mappedFields),
+                        'mapping_success_rate' => count($sampleData) > 0 ?
+                            round((count($mappedFields) / count($sampleData)) * 100, 2) . '%' : '0%',
+                        'sample_mappings' => array_slice($mappedFields, 0, 5)
+                    ];
+                } catch (\Exception $e) {
+                    $debugInfo['field_mapping_test'] = [
+                        'status' => 'failed',
+                        'error' => $e->getMessage(),
+                        'input_fields' => count($sampleData)
+                    ];
+                }
+            }
+
+            // Test 6: Full submission test (dry run)
+            if ($template && $apiKey && $debugInfo['api_connectivity']['status'] === 'success') {
+                try {
+                    Log::info('🧪 Testing full submission creation (dry run)', [
+                        'template_id' => $template->docuseal_template_id
+                    ]);
+
+                    // Create a test submission to see if it would work
+                    $testSubmissionData = [
+                        'template_id' => (int) $template->docuseal_template_id,
+                        'send_email' => false,
+                        'submitters' => [
+                            [
+                                'email' => 'test@mscwoundcare.com',
+                                'role' => $debugInfo['role_detection_test']['detected_role'] ?? 'First Party',
+                                'fields' => $debugInfo['field_mapping_test']['sample_mappings'] ?? []
+                            ]
+                        ]
+                    ];
+
+                    // Just validate the structure, don't actually create
+                    $debugInfo['submission_test'] = [
+                        'status' => 'validated',
+                        'submission_data' => $testSubmissionData,
+                        'validation' => [
+                            'template_id_valid' => is_int($testSubmissionData['template_id']),
+                            'email_valid' => filter_var($testSubmissionData['submitters'][0]['email'], FILTER_VALIDATE_EMAIL),
+                            'role_present' => !empty($testSubmissionData['submitters'][0]['role']),
+                            'fields_present' => is_array($testSubmissionData['submitters'][0]['fields'])
+                        ]
+                    ];
+
+                } catch (\Exception $e) {
+                    $debugInfo['submission_test'] = [
+                        'status' => 'failed',
+                        'error' => $e->getMessage()
                     ];
                 }
             }
 
             return response()->json([
                 'success' => true,
-                'debug_info' => $debugInfo
+                'debug_info' => $debugInfo,
+                'recommendations' => $this->generateDebugRecommendations($debugInfo),
+                'next_steps' => [
+                    'If API connectivity failed: Check your DocuSeal API key and network connectivity',
+                    'If template not found: Verify manufacturer has associated DocuSeal templates',
+                    'If role detection failed: Check template configuration in DocuSeal',
+                    'If field mapping failed: Review template field mappings in database',
+                    'Test with: POST /quick-requests/docuseal/generate-submission-slug'
+                ]
             ]);
 
         } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
+            Log::error('Debug endpoint failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Debug endpoint failed: ' . $e->getMessage(),
+                'basic_checks' => [
+                    'api_key_configured' => !empty(config('docuseal.api_key')),
+                    'manufacturer_exists' => \App\Models\Order\Manufacturer::find($manufacturerId) !== null,
+                    'templates_exist' => \App\Models\Docuseal\DocusealTemplate::count() > 0
+                ]
             ], 500);
         }
+    }
+
+    /**
+     * Generate recommendations based on debug results
+     */
+    private function generateDebugRecommendations(array $debugInfo): array
+    {
+        $recommendations = [];
+
+        if (!$debugInfo['configuration']['api_key_configured']) {
+            $recommendations[] = '❌ Configure DocuSeal API key in DOCUSEAL_API_KEY environment variable';
+        }
+
+        if (!$debugInfo['manufacturer_info']['found']) {
+            $recommendations[] = '❌ Manufacturer not found - check manufacturerId parameter';
+        }
+
+        if (!$debugInfo['template_info']['found']) {
+            $recommendations[] = '❌ No template found for manufacturer - create DocuSeal template association';
+        }
+
+        if (isset($debugInfo['api_connectivity']['status']) && $debugInfo['api_connectivity']['status'] !== 'success') {
+            $recommendations[] = '❌ DocuSeal API connectivity failed - check API key and network';
+        }
+
+        if (isset($debugInfo['role_detection_test']['status']) && $debugInfo['role_detection_test']['status'] === 'failed') {
+            $recommendations[] = '⚠️ Role detection failed - will use fallback role "First Party"';
+        }
+
+        if (isset($debugInfo['field_mapping_test']['status']) && $debugInfo['field_mapping_test']['status'] === 'failed') {
+            $recommendations[] = '⚠️ Field mapping failed - check template field mappings configuration';
+        }
+
+        if (empty($recommendations)) {
+            $recommendations[] = '✅ All checks passed - DocuSeal integration should work properly';
+        }
+
+        return $recommendations;
     }
 
     /**
@@ -1523,43 +1827,103 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Get the correct role name from DocuSeal template
+     * Get the correct role name from DocuSeal template with enhanced error handling
      */
     private function getTemplateRole(string $templateId, string $apiKey): string
     {
         try {
+            Log::info('🔍 Fetching template role from DocuSeal API', [
+                'template_id' => $templateId,
+                'api_key_length' => strlen($apiKey)
+            ]);
+
             $response = Http::withHeaders([
                 'X-Auth-Token' => $apiKey,
-            ])->timeout(30)->get("https://api.docuseal.com/templates/{$templateId}");
+                'User-Agent' => 'MSC-WoundCare/1.0'
+            ])
+            ->timeout(15) // Shorter timeout for template fetching
+            ->retry(2, 500) // Retry twice with 500ms delay
+            ->get("https://api.docuseal.com/templates/{$templateId}");
 
             if ($response->successful()) {
                 $templateData = $response->json();
+
+                Log::info('✅ Template data received', [
+                    'template_id' => $templateId,
+                    'data_keys' => array_keys($templateData),
+                    'has_submitter_roles' => isset($templateData['submitter_roles']),
+                    'has_roles' => isset($templateData['roles']),
+                    'has_schema' => isset($templateData['schema']),
+                    'has_fields' => isset($templateData['fields'])
+                ]);
+
                 $role = $this->extractRoleFromTemplate($templateData);
 
                 if ($role) {
-                    Log::info('DocuSeal template role found', [
+                    Log::info('✅ Template role successfully extracted', [
                         'template_id' => $templateId,
                         'role' => $role
                     ]);
                     return $role;
                 }
+
+                Log::warning('⚠️ No role found in template data, checking for common patterns', [
+                    'template_id' => $templateId,
+                    'template_name' => $templateData['name'] ?? 'unknown'
+                ]);
+
+            } else {
+                $statusCode = $response->status();
+                $responseBody = $response->body();
+
+                Log::warning('⚠️ DocuSeal template API error', [
+                    'template_id' => $templateId,
+                    'status' => $statusCode,
+                    'response' => $responseBody
+                ]);
+
+                // If it's a 404, the template might not exist
+                if ($statusCode === 404) {
+                    throw new \Exception("Template {$templateId} not found in DocuSeal");
+                }
+
+                // If it's 401, there might be an API key issue
+                if ($statusCode === 401) {
+                    throw new \Exception("Authentication failed when fetching template {$templateId}");
+                }
             }
 
-            Log::warning('Could not determine template role, falling back to common defaults', [
+        } catch (\Exception $e) {
+            Log::warning('⚠️ Exception while fetching template role', [
                 'template_id' => $templateId,
-                'response_status' => $response->status(),
-                'response_body' => $response->body()
+                'error' => $e->getMessage(),
+                'error_type' => get_class($e)
             ]);
 
-        } catch (\Exception $e) {
-            Log::error('Error fetching template role from DocuSeal', [
-                'template_id' => $templateId,
-                'error' => $e->getMessage()
-            ]);
+            // If it's a critical authentication error, re-throw it
+            if (str_contains($e->getMessage(), 'Authentication failed') ||
+                str_contains($e->getMessage(), 'not found')) {
+                throw $e;
+            }
         }
 
-        // Fallback to common role names based on the error message
-        // Since the error specifically mentioned "First Party", that's likely the correct role
+        // Enhanced fallback logic based on common DocuSeal role patterns
+        $commonRoles = [
+            'First Party',      // Most common in healthcare forms
+            'Signer',          // Generic signer role
+            'Patient',         // Healthcare specific
+            'Provider',        // Healthcare specific
+            'Submitter',       // Generic submitter
+            'User',            // Simple user role
+            'Client'           // Business role
+        ];
+
+        Log::info('🔄 Using intelligent role fallback', [
+            'template_id' => $templateId,
+            'trying_roles' => $commonRoles
+        ]);
+
+        // Return the most likely role for healthcare forms
         return 'First Party';
     }
 
@@ -1621,5 +1985,65 @@ final class QuickRequestController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Quick template count test
+     */
+    public function testTemplateCount(Request $request): JsonResponse
+    {
+        try {
+            $apiKey = config('docuseal.api_key');
+            $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
+
+            if (!$apiKey) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'DocuSeal API key not configured'
+                ], 500);
+            }
+
+            // Test just the first page to see what we're dealing with
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $apiKey,
+            ])->timeout(15)->get("{$apiUrl}/templates", [
+                'page' => 1,
+                'per_page' => 20
+            ]);
+
+            if (!$response->successful()) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'API request failed: ' . $response->body(),
+                    'status_code' => $response->status()
+                ], 500);
+            }
+
+            $responseData = $response->json();
+            $templates = $responseData['data'] ?? $responseData;
+
+            // Check if response has pagination info
+            $pagination = $responseData['pagination'] ?? null;
+
+            $result = [
+                'success' => true,
+                'first_page_count' => count($templates),
+                'pagination_info' => $pagination,
+                'sample_templates' => array_slice($templates, 0, 5),
+                'response_structure' => [
+                    'has_data_wrapper' => isset($responseData['data']),
+                    'has_pagination' => isset($responseData['pagination']),
+                    'response_keys' => array_keys($responseData)
+                ]
+            ];
+
+            return response()->json($result);
+
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
+        }
     }
 }

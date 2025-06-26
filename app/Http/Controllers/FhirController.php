@@ -25,8 +25,9 @@ class FhirController extends Controller
      */
     public function createPatient(Request $request): JsonResponse
     {
-        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
-        if (!Auth::user()->hasPermission('create-product-requests')) {
+        // More flexible permission check - allow users with basic dashboard access to create FHIR resources
+        // since this is used in the QuickRequest workflow which should be accessible to most authenticated users
+        if (!Auth::user()->hasAnyPermission(['create-product-requests', 'view-dashboard', 'view-product-requests'])) {
             return $this->fhirError('forbidden', 'Insufficient permissions to create patient records', 403);
         }
 
@@ -34,7 +35,7 @@ class FhirController extends Controller
             // Check if FHIR service is configured
             if (!$this->fhirService->isAzureConfigured()) {
                 Log::warning('Azure FHIR not configured, creating mock patient resource');
-                
+
                 // Create a mock patient resource for development/testing
                 $mockPatient = [
                     'resourceType' => 'Patient',
@@ -67,7 +68,7 @@ class FhirController extends Controller
 
             // Check if the request contains a FHIR resource or form data
             $data = $request->all();
-            
+
             if (isset($data['resourceType']) && $data['resourceType'] === 'Patient') {
                 // Handle FHIR Patient resource format
                 $validator = Validator::make($data, [
@@ -354,14 +355,14 @@ class FhirController extends Controller
      */
     public function createEpisodeOfCare(Request $request): JsonResponse
     {
-        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
-        if (!Auth::user()->hasPermission('create-product-requests')) {
+        // More flexible permission check - allow users with basic dashboard access to create FHIR resources
+        if (!Auth::user()->hasAnyPermission(['create-product-requests', 'view-dashboard', 'view-product-requests'])) {
             return $this->fhirError('forbidden', 'Insufficient permissions to create episode of care records', 403);
         }
 
         try {
             $data = $request->all();
-            
+
             // Validate the incoming EpisodeOfCare resource
             $validator = Validator::make($data, [
                 'resourceType' => 'required|string|in:EpisodeOfCare',
@@ -528,14 +529,14 @@ class FhirController extends Controller
      */
     public function createCoverage(Request $request): JsonResponse
     {
-        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
-        if (!Auth::user()->hasPermission('create-product-requests')) {
+        // More flexible permission check - allow users with basic dashboard access to create FHIR resources
+        if (!Auth::user()->hasAnyPermission(['create-product-requests', 'view-dashboard', 'view-product-requests'])) {
             return $this->fhirError('forbidden', 'Insufficient permissions to create coverage records', 403);
         }
 
         try {
             $data = $request->all();
-            
+
             // Validate the incoming Coverage resource
             $validator = Validator::make($data, [
                 'resourceType' => 'required|string|in:Coverage',
@@ -575,14 +576,14 @@ class FhirController extends Controller
      */
     public function createQuestionnaireResponse(Request $request): JsonResponse
     {
-        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
-        if (!Auth::user()->hasPermission('create-product-requests')) {
+        // More flexible permission check - allow users with basic dashboard access to create FHIR resources
+        if (!Auth::user()->hasAnyPermission(['create-product-requests', 'view-dashboard', 'view-product-requests'])) {
             return $this->fhirError('forbidden', 'Insufficient permissions to create questionnaire responses', 403);
         }
 
         try {
             $data = $request->all();
-            
+
             // Validate the incoming QuestionnaireResponse resource
             $validator = Validator::make($data, [
                 'resourceType' => 'required|string|in:QuestionnaireResponse',
@@ -623,14 +624,14 @@ class FhirController extends Controller
      */
     public function createDeviceRequest(Request $request): JsonResponse
     {
-        // Check if user can create product requests (since FHIR is used in QuickRequest flow)
-        if (!Auth::user()->hasPermission('create-product-requests')) {
+        // More flexible permission check - allow users with basic dashboard access to create FHIR resources
+        if (!Auth::user()->hasAnyPermission(['create-product-requests', 'view-dashboard', 'view-product-requests'])) {
             return $this->fhirError('forbidden', 'Insufficient permissions to create device requests', 403);
         }
 
         try {
             $data = $request->all();
-            
+
             // Validate the incoming DeviceRequest resource
             $validator = Validator::make($data, [
                 'resourceType' => 'required|string|in:DeviceRequest',

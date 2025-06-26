@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePage } from '@inertiajs/react';
 
 export default function AuthStatus() {

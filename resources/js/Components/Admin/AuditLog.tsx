@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ClockIcon,
@@ -31,7 +31,6 @@ interface AuditEntry {
 
 interface AuditLogProps {
   entries?: AuditEntry[];
-  readOnly?: boolean;
   autoRefresh?: boolean;
 }
 
@@ -66,7 +65,7 @@ const severityConfig = {
   }
 };
 
-const AuditLog = ({ entries = [], readOnly = true, autoRefresh = false }: AuditLogProps) => {
+const AuditLog = ({ entries = [], autoRefresh = false }: AuditLogProps) => {
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
 
@@ -114,15 +113,18 @@ const AuditLog = ({ entries = [], readOnly = true, autoRefresh = false }: AuditL
       }, 10000);
       return () => clearTimeout(timer);
     }
+    return undefined;
   }, [entries.length, autoRefresh]);
 
   const handleVoiceUpdate = () => {
     if ('speechSynthesis' in window && entries.length > 0) {
       const recentEntry = entries[0];
-      const utterance = new SpeechSynthesisUtterance(
-        `Latest audit entry: ${recentEntry.action} by ${recentEntry.user} at ${new Date(recentEntry.timestamp).toLocaleTimeString()}`
-      );
-      speechSynthesis.speak(utterance);
+      if (recentEntry) {
+        const utterance = new SpeechSynthesisUtterance(
+          `Latest audit entry: ${recentEntry.action} by ${recentEntry.user} at ${new Date(recentEntry.timestamp).toLocaleTimeString()}`
+        );
+        speechSynthesis.speak(utterance);
+      }
     }
   };
 
@@ -167,7 +169,7 @@ const AuditLog = ({ entries = [], readOnly = true, autoRefresh = false }: AuditL
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <ClockIcon className="w-5 h-5 text-purple-500" />
-          <h3 className={`${t.text.heading} text-lg font-semibold`}>Activity Audit Log</h3>
+          <h3 className={`${t.text.primary} text-lg font-semibold`}>Activity Audit Log</h3>
           {autoRefresh && (
             <motion.div
               animate={{ opacity: [0.5, 1, 0.5] }}
@@ -327,7 +329,6 @@ const AuditLog = ({ entries = [], readOnly = true, autoRefresh = false }: AuditL
             {filteredEntries.map((entry, idx) => {
               const severity = entry.severity || 'info';
               const config = severityConfig[severity];
-              const Icon = config.icon;
               
               return (
                 <motion.div

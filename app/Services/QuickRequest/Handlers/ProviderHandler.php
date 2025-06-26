@@ -14,49 +14,78 @@ class ProviderHandler
         private PhiAuditService $auditService
     ) {}
 
-    /**
+        /**
      * Create or update provider in FHIR
      */
     public function createOrUpdateProvider(array $providerData): string
     {
-        $this->logger->info('Creating or updating provider in FHIR');
+        try {
+            $this->logger->info('Creating or updating provider in FHIR');
 
-        // Search for existing provider by NPI
-        $existingProvider = $this->findProviderByNpi($providerData['npi']);
-        
-        if ($existingProvider) {
-            $this->auditService->logAccess('provider.accessed', 'Practitioner', $existingProvider['id']);
-            return $existingProvider['id'];
+            // Search for existing provider by NPI
+            $existingProvider = $this->findProviderByNpi($providerData['npi']);
+
+            if ($existingProvider) {
+                $this->auditService->logAccess('provider.accessed', 'Practitioner', $existingProvider['id']);
+                return $existingProvider['id'];
+            }
+
+            // Create new provider
+            $fhirPractitioner = $this->mapToFhirPractitioner($providerData);
+            $response = $this->fhirService->createPractitioner($fhirPractitioner);
+
+            $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
+
+            $this->logger->info('Provider created successfully in FHIR', [
+                'practitioner_id' => $response['id'],
+                'npi' => $providerData['npi']
+            ]);
+
+            return $response['id'];
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create/update provider in FHIR', [
+                'error' => $e->getMessage(),
+                'npi' => $providerData['npi'] ?? 'unknown'
+            ]);
+            throw new \Exception('Failed to create/update provider: ' . $e->getMessage());
         }
-
-        // Create new provider
-        $fhirPractitioner = $this->mapToFhirPractitioner($providerData);
-        $response = $this->fhirService->createPractitioner($fhirPractitioner);
-        
-        $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
-        
-        return $response['id'];
     }
 
-    /**
+        /**
      * Create or update organization/facility in FHIR
      */
     public function createOrUpdateOrganization(array $facilityData): string
     {
-        $this->logger->info('Creating or updating organization in FHIR');
+        try {
+            $this->logger->info('Creating or updating organization in FHIR');
 
-        // Search for existing organization
-        $existingOrg = $this->findOrganizationByNpi($facilityData['npi'] ?? null);
-        
-        if ($existingOrg) {
-            return $existingOrg['id'];
+            // Search for existing organization
+            $existingOrg = $this->findOrganizationByNpi($facilityData['npi'] ?? null);
+
+            if ($existingOrg) {
+                $this->logger->info('Existing organization found in FHIR', [
+                    'organization_id' => $existingOrg['id']
+                ]);
+                return $existingOrg['id'];
+            }
+
+            // Create new organization
+            $fhirOrganization = $this->mapToFhirOrganization($facilityData);
+            $response = $this->fhirService->createOrganization($fhirOrganization);
+
+            $this->logger->info('Organization created successfully in FHIR', [
+                'organization_id' => $response['id'],
+                'name' => $facilityData['name']
+            ]);
+
+            return $response['id'];
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create/update organization in FHIR', [
+                'error' => $e->getMessage(),
+                'organization_name' => $facilityData['name'] ?? 'unknown'
+            ]);
+            throw new \Exception('Failed to create/update organization: ' . $e->getMessage());
         }
-
-        // Create new organization
-        $fhirOrganization = $this->mapToFhirOrganization($facilityData);
-        $response = $this->fhirService->createOrganization($fhirOrganization);
-        
-        return $response['id'];
     }
 
     /**
@@ -67,13 +96,13 @@ class ProviderHandler
         $searchParams = [
             'identifier' => "http://hl7.org/fhir/sid/us-npi|{$npi}"
         ];
-        
-        $results = $this->fhirService->searchPractitioners($searchParams);
-        
+
+        $results = $this->fhirService->search('Practitioner', $searchParams);
+
         if (!empty($results['entry'])) {
             return $results['entry'][0]['resource'];
         }
-        
+
         return null;
     }
 
@@ -89,13 +118,13 @@ class ProviderHandler
         $searchParams = [
             'identifier' => "http://hl7.org/fhir/sid/us-npi|{$npi}"
         ];
-        
-        $results = $this->fhirService->searchOrganizations($searchParams);
-        
+
+        $results = $this->fhirService->search('Organization', $searchParams);
+
         if (!empty($results['entry'])) {
             return $results['entry'][0]['resource'];
         }
-        
+
         return null;
     }
 
