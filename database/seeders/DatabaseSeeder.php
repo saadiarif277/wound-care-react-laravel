@@ -26,6 +26,7 @@ class DatabaseSeeder extends Seeder
             'facility_user',
             'product_request_products',
             'provider_products',
+            'wound_type_diagnosis_codes',  // Diagnosis code relationships
 
             // Dependent tables
             'docuseal_submissions',
@@ -41,6 +42,10 @@ class DatabaseSeeder extends Seeder
             'patient_manufacturer_ivr_episodes',  // Episode data
 
             // Core entity tables
+            'diagnosis_codes',
+            'wound_types',
+            'insurance_product_rules',
+            'msc_contacts',
             'msc_products',
             'categories',
             'manufacturers',
@@ -689,6 +694,9 @@ class DatabaseSeeder extends Seeder
             ProductSeeder::class,                     // Creates comprehensive product catalog with CMS data
             DocusealFolderSeeder::class,               // Creates folders before templates
             DocusealTemplateSeeder::class,             // Creates templates that reference folders
+            IVRFieldMappingSeeder::class,              // Creates IVR field mappings for manufacturers
+            DiagnosisCodesFromCsvSeeder::class,        // Creates diagnosis codes from CSV files
+            RemoveHardcodedDataSeeder::class,          // Creates diagnosis codes, wound types, and other reference data
             PatientManufacturerIVREpisodeSeeder::class, // Creates sample episode data
         ]);
 

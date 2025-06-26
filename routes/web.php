@@ -1080,47 +1080,7 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
     Route::put('/role/{role}/permissions', [RBACController::class, 'updateRolePermissions'])->name('rbac.roles.update-permissions');
 });
 
-// FHIR Server REST API Routes
-Route::prefix('fhir')->middleware(['web', 'auth'])->name('fhir.')->group(function () {
-    // CapabilityStatement (public)
-    Route::get('metadata', [FhirController::class, 'metadata'])->name('metadata')->withoutMiddleware(['auth']);
-
-    // Patient Resource Routes
-    Route::prefix('Patient')->name('patient.')->group(function () {
-        Route::post('/', [FhirController::class, 'createPatient'])->name('create');
-        Route::get('/', [FhirController::class, 'searchPatients'])->name('search');
-        Route::get('_history', [FhirController::class, 'patientsHistory'])->name('history_all');
-        Route::get('{id}', [FhirController::class, 'readPatient'])->name('read');
-        Route::put('{id}', [FhirController::class, 'updatePatient'])->name('update');
-        Route::patch('{id}', [FhirController::class, 'patchPatient'])->name('patch');
-        Route::delete('{id}', [FhirController::class, 'deletePatient'])->name('delete');
-        Route::get('{id}/_history', [FhirController::class, 'patientHistory'])->name('history');
-    });
-
-    // Coverage Resource Routes
-    Route::prefix('Coverage')->name('coverage.')->group(function () {
-        Route::post('/', [FhirController::class, 'createCoverage'])->name('create');
-    });
-
-    // QuestionnaireResponse Resource Routes
-    Route::prefix('QuestionnaireResponse')->name('questionnaire_response.')->group(function () {
-        Route::post('/', [FhirController::class, 'createQuestionnaireResponse'])->name('create');
-    });
-
-    // DeviceRequest Resource Routes
-    Route::prefix('DeviceRequest')->name('device_request.')->group(function () {
-        Route::post('/', [FhirController::class, 'createDeviceRequest'])->name('create');
-    });
-
-    // Observation Resource Routes
-    Route::prefix('Observation')->name('observation.')->group(function () {
-        Route::get('/', [FhirController::class, 'searchObservations'])->name('search');
-        // Add other Observation specific routes here if needed (e.g., create, read, update)
-    });
-
-    // Transaction/Batch endpoint
-    Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
-});
+// FHIR routes moved to api.php to avoid duplicate route names
 
 // DocuSeal debug routes (remove in production)
 Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {

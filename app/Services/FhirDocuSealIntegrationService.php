@@ -636,13 +636,35 @@ class FhirDocuSealIntegrationService
     }
 
     /**
-     * Get manufacturer's DocuSeal template
+     * Get manufacturer's DocuSeal template (prioritize IVR templates)
      */
     private function getManufacturerTemplate(int $manufacturerId): ?\App\Models\Docuseal\DocusealTemplate
     {
-        return \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
+        // First try to find an IVR template
+        $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
+            ->where('document_type', 'IVR')
             ->where('is_active', true)
+            ->orderBy('is_default', 'desc')
             ->first();
+
+        // If no IVR template found, look for InsuranceVerification templates (legacy)
+        if (!$template) {
+            $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
+                ->where('document_type', 'InsuranceVerification')
+                ->where('is_active', true)
+                ->orderBy('is_default', 'desc')
+                ->first();
+        }
+
+        // If still no template, get any active template for this manufacturer
+        if (!$template) {
+            $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
+                ->where('is_active', true)
+                ->orderBy('is_default', 'desc')
+                ->first();
+        }
+
+        return $template;
     }
 
     /**

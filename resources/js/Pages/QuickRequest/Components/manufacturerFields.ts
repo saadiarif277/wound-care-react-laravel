@@ -26,7 +26,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ & Associates',
     products: ['Ensano ACA', 'Revoshield+ Amnio', 'Dermabind FM'],
     signatureRequired: true,
-    docusealTemplateId: import.meta.env.VITE_DOCUSEAL_TEMPLATE_ACZ || '852440', // TODO: Move to env config
+    docusealTemplateId: '852440', // Production ACZ & Associates IVR template ID
     fields: [
       {
         name: 'physician_attestation',
@@ -46,7 +46,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Advanced Solution',
     products: ['Complete FT', 'Membrane Wrap', 'Complete AA'],
     signatureRequired: true,
-    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_ADVANCED || 'template_order_form_001', // TODO: Get actual template ID
+    docusealTemplateId: '1199885', // Production Advanced Solution IVR template ID
     fields: [
       {
         name: 'multiple_products',
@@ -78,7 +78,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife Solutions',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_MEDLIFE || 'template_order_form_001', // TODO: Get actual template ID
+    docusealTemplateId: '1233913', // Production MedLife IVR template ID
     fields: [
       {
         name: 'amnio_amp_size',
@@ -98,7 +98,8 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   {
     name: 'Centurion',
     products: ['AmnioBand', 'Allopatch'],
-    signatureRequired: false,
+    signatureRequired: true,
+    docusealTemplateId: '1233918', // Production Centurion Therapeutics IVR template ID
     fields: [
       {
         name: 'previous_amnion_use',
@@ -153,7 +154,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'BioWound Solutions',
     products: ['Membrane Wrap Hydro', 'Neostim TL', 'Neostim DL', 'Neostim SL', 'Amnio-Maxx', 'Derm-maxx'],
     signatureRequired: true,
-    docusealTemplateId: process.env.DOCUSEAL_TEMPLATE_BIOWOUND || 'template_order_form_001', // TODO: Get actual template ID
+    docusealTemplateId: '1254774', // Production BioWound IVR template ID
     fields: [
       {
         name: 'california_facility',
@@ -189,7 +190,8 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   {
     name: 'Extremity Care',
     products: ['Coll-e-Derm', 'CompleteFT', 'Restorigin'],
-    signatureRequired: false,
+    signatureRequired: true,
+    docusealTemplateId: '1234284', // Production Extremity Care Restorigin IVR template ID
     fields: [
       {
         name: 'quarter',

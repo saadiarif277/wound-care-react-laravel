@@ -8,37 +8,29 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class IVRFieldMapping extends Model
 {
-    use HasUuids;
-
     protected $table = 'ivr_field_mappings';
 
     protected $fillable = [
         'manufacturer_id',
-        'template_name',
-        'template_version',
-        'fhir_path',
-        'ivr_field_name',
-        'mapping_type',
-        'confidence_score',
-        'transformation_rules',
-        'validation_rules',
-        'default_value',
-        'is_required',
-        'is_active',
-        'is_learned',
+        'template_id',
+        'source_field',
+        'target_field',
+        'confidence',
+        'match_type',
         'usage_count',
-        'success_count',
+        'success_rate',
+        'last_used_at',
+        'created_by',
+        'approved_by',
+        'metadata',
     ];
 
     protected $casts = [
-        'transformation_rules' => 'array',
-        'validation_rules' => 'array',
-        'confidence_score' => 'float',
-        'is_required' => 'boolean',
-        'is_active' => 'boolean',
-        'is_learned' => 'boolean',
+        'metadata' => 'array',
+        'confidence' => 'float',
         'usage_count' => 'integer',
-        'success_count' => 'integer',
+        'success_rate' => 'float',
+        'last_used_at' => 'datetime',
     ];
 
     public function manufacturer(): BelongsTo
@@ -49,32 +41,35 @@ class IVRFieldMapping extends Model
     public function incrementUsage(bool $wasSuccessful = true): void
     {
         $this->increment('usage_count');
+        $this->last_used_at = now();
         
-        if ($wasSuccessful) {
-            $this->increment('success_count');
+        // Update success rate
+        if ($this->usage_count > 0) {
+            $currentSuccesses = ($this->success_rate ?? 0) * ($this->usage_count - 1);
+            if ($wasSuccessful) {
+                $currentSuccesses++;
+            }
+            $this->success_rate = round($currentSuccesses / $this->usage_count, 2);
         }
         
-        // Update confidence score based on success rate
-        if ($this->usage_count >= 10) {
-            $this->confidence_score = round($this->success_count / $this->usage_count, 2);
-            $this->save();
-        }
+        $this->save();
     }
 
     public function scopeActive($query)
     {
-        return $query->where('is_active', true);
+        // All mappings are considered active unless confidence is very low
+        return $query->where('confidence', '>=', 0.3);
     }
 
-    public function scopeForManufacturerTemplate($query, int $manufacturerId, string $templateName)
+    public function scopeForManufacturerTemplate($query, int $manufacturerId, string $templateId)
     {
         return $query->where('manufacturer_id', $manufacturerId)
-                     ->where('template_name', $templateName)
+                     ->where('template_id', $templateId)
                      ->active();
     }
 
     public function scopeHighConfidence($query, float $minConfidence = 0.8)
     {
-        return $query->where('confidence_score', '>=', $minConfidence);
+        return $query->where('confidence', '>=', $minConfidence);
     }
 }

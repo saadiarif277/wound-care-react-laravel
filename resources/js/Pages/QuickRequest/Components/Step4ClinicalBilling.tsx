@@ -149,8 +149,8 @@ export default function Step4ClinicalBilling({
 
   return (
     <div className="space-y-6">
-      {/* Wound Information */}
-      <div className={cn("p-4 rounded-lg", theme === 'dark' ? 'bg-red-900/20' : 'bg-red-50')}>
+      {/* Wound Information - Full Width */}
+      <div className={cn("p-4 rounded-lg w-full", theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50')}>
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Wound Information
         </h3>
@@ -284,6 +284,62 @@ export default function Step4ClinicalBilling({
             </p>
           </div>
 
+          {/* CPT Codes Multi-Select - Moved here for better flow */}
+          <div>
+            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+              Procedure (CPT) Codes <span className="text-red-500">*</span>
+            </label>
+            {/* Suggested CPT Chips */}
+            <div className="flex flex-wrap gap-2 mb-2">
+              {getSuggestedCPTCodes().map(code => {
+                const option = cptOptions.find(opt => opt.value === code);
+                const selected = (formData.application_cpt_codes || []).includes(code);
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    className={cn(
+                      "px-2 py-1 rounded-full border text-xs font-semibold transition-all",
+                      selected
+                        ? 'bg-blue-600 text-white border-blue-600 shadow'
+                        : theme === 'dark'
+                          ? 'bg-gray-800 text-blue-300 border-blue-500 hover:bg-blue-800 hover:text-white'
+                          : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100',
+                      "focus:outline-none"
+                    )}
+                    onClick={() => {
+                      const current = formData.application_cpt_codes || [];
+                      if (selected) {
+                        updateFormData({ application_cpt_codes: current.filter((c: string) => c !== code) });
+                      } else {
+                        updateFormData({ application_cpt_codes: [...current, code] });
+                      }
+                    }}
+                  >
+                    {option ? option.label : code}
+                  </button>
+                );
+              })}
+            </div>
+            <Select
+              multiple
+              options={cptOptions}
+              value={formData.application_cpt_codes || []}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                const selected = Array.from(e.target.selectedOptions).map(o => o.value);
+                updateFormData({ application_cpt_codes: selected });
+              }}
+              error={errors.application_cpt_codes}
+              required
+            />
+            <p className={cn("text-xs mt-1", t.text.secondary)}>
+              Select all CPT codes that apply for this wound application. Suggested codes are shown above.
+            </p>
+            {errors.application_cpt_codes && (
+              <p className="mt-1 text-sm text-red-500">{errors.application_cpt_codes}</p>
+            )}
+          </div>
+
           {/* Wound Duration - NEW FIELDS */}
           <div>
             <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
@@ -391,68 +447,13 @@ export default function Step4ClinicalBilling({
         </div>
       </div>
 
-      {/* Procedure Information */}
-      <div className={cn("p-4 rounded-lg", theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50')}>
+      {/* Application History - Full Width */}
+      <div className={cn("p-4 rounded-lg w-full", theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50')}>
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
-          Procedure Information
+          Application History
         </h3>
 
-        <div className="space-y-4">
-          {/* CPT Codes Multi-Select */}
-          <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Procedure (CPT) Codes <span className="text-red-500">*</span>
-            </label>
-            {/* Suggested CPT Chips */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {getSuggestedCPTCodes().map(code => {
-                const option = cptOptions.find(opt => opt.value === code);
-                const selected = (formData.application_cpt_codes || []).includes(code);
-                return (
-                  <button
-                    key={code}
-                    type="button"
-                    className={cn(
-                      "px-2 py-1 rounded-full border text-xs font-semibold transition-all",
-                      selected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow'
-                        : theme === 'dark'
-                          ? 'bg-gray-800 text-blue-300 border-blue-500 hover:bg-blue-800 hover:text-white'
-                          : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100',
-                      "focus:outline-none"
-                    )}
-                    onClick={() => {
-                      const current = formData.application_cpt_codes || [];
-                      if (selected) {
-                        updateFormData({ application_cpt_codes: current.filter((c: string) => c !== code) });
-                      } else {
-                        updateFormData({ application_cpt_codes: [...current, code] });
-                      }
-                    }}
-                  >
-                    {option ? option.label : code}
-                  </button>
-                );
-              })}
-            </div>
-            <Select
-              multiple
-              options={cptOptions}
-              value={formData.application_cpt_codes || []}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                const selected = Array.from(e.target.selectedOptions).map(o => o.value);
-                updateFormData({ application_cpt_codes: selected });
-              }}
-              error={errors.application_cpt_codes}
-              required
-            />
-            <p className={cn("text-xs mt-1", t.text.secondary)}>
-              Select all CPT codes that apply for this wound application. Suggested codes are shown above.
-            </p>
-            {errors.application_cpt_codes && (
-              <p className="mt-1 text-sm text-red-500">{errors.application_cpt_codes}</p>
-            )}
-          </div>
+        <div className="space-y-4">{/* CPT Codes moved to Wound Information section */}
 
           {/* Prior Applications */}
           <div>
@@ -482,8 +483,8 @@ export default function Step4ClinicalBilling({
           {parseInt(formData.prior_applications || '0') > 0 && (
             <div className={cn(
               "ml-4 p-3 rounded-lg border-l-4 space-y-3",
-              theme === 'dark' 
-                ? 'bg-gray-800 border-blue-500' 
+              theme === 'dark'
+                ? 'bg-gray-800 border-blue-500'
                 : 'bg-gray-50 border-blue-500'
             )}>
               <div>
@@ -543,8 +544,8 @@ export default function Step4ClinicalBilling({
         </div>
       </div>
 
-      {/* Facility Information (renamed from Billing Status) */}
-      <div className={cn("p-4 rounded-lg", theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50')}>
+      {/* Facility Information - Full Width */}
+      <div className={cn("p-4 rounded-lg w-full", theme === 'dark' ? 'bg-yellow-900/20' : 'bg-yellow-50')}>
         <h3 className={cn("text-lg font-medium mb-3", t.text.primary)}>
           Facility Information
         </h3>

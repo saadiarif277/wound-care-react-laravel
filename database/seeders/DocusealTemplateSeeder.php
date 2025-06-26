@@ -5,6 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\Docuseal\DocusealTemplate;
+use App\Models\Docuseal\DocusealFolder;
+use App\Models\Order\Manufacturer;
 use Illuminate\Support\Str;
 
 class DocusealTemplateSeeder extends Seeder
@@ -14,22 +16,180 @@ class DocusealTemplateSeeder extends Seeder
      */
     public function run(): void
     {
-        $templates = [
+        // Manufacturer to DocuSeal mapping based on actual production data
+        $manufacturerTemplates = [
+            // MedLife Solutions
+            [
+                'manufacturer_name' => 'MEDLIFE SOLUTIONS',
+                'folder_id' => '111417',
+                'templates' => [
+                    [
+                        'name' => 'MedLife IVR Form',
+                        'docuseal_template_id' => '1233913',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ],
+                    [
+                        'name' => 'MedLife Order Form',
+                        'docuseal_template_id' => '1234279',
+                        'document_type' => 'OrderForm',
+                        'is_default' => false,
+                    ]
+                ]
+            ],
+
+            // Advanced Solution
+            [
+                'manufacturer_name' => 'ADVANCED SOLUTION',
+                'folder_id' => '108291',
+                'templates' => [
+                    [
+                        'name' => 'Advanced Solution IVR',
+                        'docuseal_template_id' => '1199885',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ]
+                ]
+            ],
+
+            // Centurion Therapeutics
+            [
+                'manufacturer_name' => 'CENTURION THERAPEUTICS',
+                'folder_id' => '111419',
+                'templates' => [
+                    [
+                        'name' => 'Centurion Therapeutics IVR',
+                        'docuseal_template_id' => '1233918',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ]
+                ]
+            ],
+
+            // ACZ & Associates
+            [
+                'manufacturer_name' => 'ACZ & ASSOCIATES',
+                'folder_id' => '75423',
+                'templates' => [
+                    [
+                        'name' => 'ACZ & Associates IVR',
+                        'docuseal_template_id' => '852440',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ],
+                    [
+                        'name' => 'ACZ & Associates Order Form',
+                        'docuseal_template_id' => '852554',
+                        'document_type' => 'OrderForm',
+                        'is_default' => false,
+                    ]
+                ]
+            ],
+
+            // BioWound Solutions
+            [
+                'manufacturer_name' => 'BIOWOUND SOLUTIONS',
+                'folder_id' => '113461',
+                'templates' => [
+                    [
+                        'name' => 'BioWound IVR',
+                        'docuseal_template_id' => '1254774',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ]
+                ]
+            ],
+
+            // Extremity Care LLC
+            [
+                'manufacturer_name' => 'Extremity Care LLC',
+                'folder_id' => '111449',
+                'templates' => [
+                    [
+                        'name' => 'Extremity Care Restorigin IVR',
+                        'docuseal_template_id' => '1234284',
+                        'document_type' => 'IVR',
+                        'is_default' => true,
+                    ]
+                ]
+            ],
+        ];
+
+        // Create folders and templates for each manufacturer
+        foreach ($manufacturerTemplates as $manufacturerData) {
+            $manufacturer = Manufacturer::where('name', $manufacturerData['manufacturer_name'])->first();
+
+            if (!$manufacturer) {
+                $this->command->warn("Manufacturer '{$manufacturerData['manufacturer_name']}' not found, skipping...");
+                continue;
+            }
+
+            $this->command->info("Processing manufacturer: {$manufacturer->name}");
+
+            // Create or update DocuSeal folder
+            DocusealFolder::updateOrCreate(
+                [
+                    'manufacturer_id' => $manufacturer->id,
+                ],
+                [
+                    'folder_name' => "{$manufacturer->name} DocuSeal Forms",
+                    'docuseal_folder_id' => $manufacturerData['folder_id'],
+                    'is_active' => true,
+                ]
+            );
+
+            // Create or update templates
+            foreach ($manufacturerData['templates'] as $templateData) {
+                $existingTemplate = DocusealTemplate::where('docuseal_template_id', $templateData['docuseal_template_id'])->first();
+
+                if ($existingTemplate) {
+                    // Update existing template
+                    $existingTemplate->update([
+                        'template_name' => $templateData['name'],
+                        'manufacturer_id' => $manufacturer->id,
+                        'document_type' => $templateData['document_type'],
+                        'is_default' => $templateData['is_default'],
+                        'is_active' => true,
+                        'field_mappings' => $this->getDefaultFieldMappings($templateData['document_type']),
+                    ]);
+
+                    $this->command->info("  Updated template: {$templateData['name']}");
+                } else {
+                    // Create new template
+                    DocusealTemplate::create([
+                        'template_name' => $templateData['name'],
+                        'docuseal_template_id' => $templateData['docuseal_template_id'],
+                        'manufacturer_id' => $manufacturer->id,
+                        'document_type' => $templateData['document_type'],
+                        'is_default' => $templateData['is_default'],
+                        'field_mappings' => $this->getDefaultFieldMappings($templateData['document_type']),
+                        'is_active' => true,
+                    ]);
+
+                    $this->command->info("  Created template: {$templateData['name']}");
+                }
+            }
+        }
+
+        // Create default generic templates if they don't exist
+        $this->createGenericTemplates();
+
+        $this->command->info('DocuSeal templates and folders seeded successfully!');
+    }
+
+    /**
+     * Create generic templates for general use
+     */
+    private function createGenericTemplates(): void
+    {
+        $genericTemplates = [
             [
                 'template_name' => 'Insurance Verification Form',
                 'docuseal_template_id' => 'template_insurance_verification_001',
                 'manufacturer_id' => null,
                 'document_type' => 'InsuranceVerification',
                 'is_default' => true,
-                'field_mappings' => [
-                    'patient_name' => 'Patient Full Name',
-                    'patient_dob' => 'Date of Birth',
-                    'member_id' => 'Insurance Member ID',
-                    'insurance_plan' => 'Insurance Plan Name',
-                    'provider_name' => 'Provider Name',
-                    'provider_npi' => 'Provider NPI',
-                    'order_date' => 'Date of Service',
-                ],
+                'field_mappings' => $this->getDefaultFieldMappings('InsuranceVerification'),
                 'is_active' => true,
             ],
             [
@@ -38,14 +198,7 @@ class DocusealTemplateSeeder extends Seeder
                 'manufacturer_id' => null,
                 'document_type' => 'OrderForm',
                 'is_default' => true,
-                'field_mappings' => [
-                    'order_number' => 'Order Number',
-                    'patient_name' => 'Patient Name',
-                    'provider_name' => 'Ordering Provider',
-                    'facility_name' => 'Facility Name',
-                    'total_amount' => 'Total Order Amount',
-                    'date_of_service' => 'Date of Service',
-                ],
+                'field_mappings' => $this->getDefaultFieldMappings('OrderForm'),
                 'is_active' => true,
             ],
             [
@@ -54,97 +207,82 @@ class DocusealTemplateSeeder extends Seeder
                 'manufacturer_id' => null,
                 'document_type' => 'OnboardingForm',
                 'is_default' => true,
-                'field_mappings' => [
-                    'provider_name' => 'Provider Name',
-                    'provider_npi' => 'NPI Number',
-                    'facility_name' => 'Facility Name',
-                    'facility_address' => 'Facility Address',
-                ],
-                'is_active' => true,
-            ],
-            [
-                'template_name' => 'ACZ Distribution IVR Form',
-                'docuseal_template_id' => '852440',
-                'manufacturer_id' => null, // Will be linked to ACZ Distribution manufacturer
-                'document_type' => 'IVR',
-                'is_default' => false,
-                'field_mappings' => [
-                    // Treating Physician/Facility Information
-                    'treatingPhysicianFacility.npi' => 'provider_npi',
-                    'treatingPhysicianFacility.taxId' => 'facility_tax_id',
-                    'treatingPhysicianFacility.ptan' => 'facility_ptan',
-                    'treatingPhysicianFacility.medicaidNumber' => 'provider_medicaid_number',
-                    'treatingPhysicianFacility.phone' => 'facility_phone',
-                    'treatingPhysicianFacility.fax' => 'facility_fax',
-                    'treatingPhysicianFacility.managementCompany' => 'management_company',
-                    'treatingPhysicianFacility.physicianName' => 'provider_name',
-                    'treatingPhysicianFacility.facilityName' => 'facility_name',
-                    
-                    // Patient Demographics & Insurance
-                    'patientDemographicInsurance.placeOfService' => 'place_of_service',
-                    'patientDemographicInsurance.insurancePrimary.name' => 'primary_insurance_name',
-                    'patientDemographicInsurance.insurancePrimary.policyNumber' => 'primary_policy_number',
-                    'patientDemographicInsurance.insurancePrimary.payerPhone' => 'primary_payer_phone',
-                    'patientDemographicInsurance.insurancePrimary.providerStatus' => 'primary_provider_status',
-                    'patientDemographicInsurance.insuranceSecondary.name' => 'secondary_insurance_name',
-                    'patientDemographicInsurance.insuranceSecondary.policyNumber' => 'secondary_policy_number',
-                    'patientDemographicInsurance.insuranceSecondary.payerPhone' => 'secondary_payer_phone',
-                    'patientDemographicInsurance.insuranceSecondary.providerStatus' => 'secondary_provider_status',
-                    'patientDemographicInsurance.permissionForPriorAuth' => 'permission_for_prior_auth',
-                    'patientDemographicInsurance.inHospice' => 'in_hospice',
-                    'patientDemographicInsurance.underPartAStay' => 'under_part_a_stay',
-                    'patientDemographicInsurance.underGlobalSurgicalPeriod' => 'under_global_surgical_period',
-                    'patientDemographicInsurance.previousSurgeryCptCodes' => 'previous_surgery_cpt_codes',
-                    'patientDemographicInsurance.previousSurgeryDate' => 'previous_surgery_date',
-                    
-                    // Wound Information
-                    'woundInformation.locationOfWound' => 'wound_location',
-                    'woundInformation.icd10Codes' => 'icd10_codes',
-                    'woundInformation.totalWoundSizeOrMedicalHistory' => 'wound_size_or_history',
-                    
-                    // Product Information
-                    'productInformation.productName' => 'product_name',
-                    'productInformation.productCode' => 'product_code',
-                    
-                    // Representative Information
-                    'representative.name' => 'sales_rep_name',
-                    'representative.isoIfApplicable' => 'iso_if_applicable',
-                    'representative.additionalNotificationEmails' => 'additional_notification_emails',
-                    
-                    // Physician Information
-                    'physician.name' => 'physician_name',
-                    'physician.specialty' => 'physician_specialty',
-                    
-                    // Facility Information
-                    'facility.name' => 'facility_name',
-                    'facility.address' => 'facility_address',
-                    'facility.cityStateZip' => 'facility_city_state_zip',
-                    'facility.contactName' => 'facility_contact_name',
-                    'facility.contactPhoneEmail' => 'facility_contact_phone_email',
-                    
-                    // Patient Information
-                    'patient.name' => 'patient_name',
-                    'patient.dob' => 'patient_dob',
-                    'patient.address' => 'patient_address',
-                    'patient.cityStateZip' => 'patient_city_state_zip',
-                    'patient.phone' => 'patient_phone',
-                    'patient.faxEmail' => 'patient_fax_email',
-                    'patient.caregiverInfo' => 'patient_caregiver_info',
-                    
-                    // Service Information
-                    'servicedBy' => 'serviced_by',
-                ],
+                'field_mappings' => $this->getDefaultFieldMappings('OnboardingForm'),
                 'is_active' => true,
             ],
         ];
 
-        foreach ($templates as $templateData) {
-            DocusealTemplate::create([
-                'id' => Str::uuid(),
-                ...$templateData,
-            ]);
+        foreach ($genericTemplates as $templateData) {
+            DocusealTemplate::updateOrCreate(
+                ['docuseal_template_id' => $templateData['docuseal_template_id']],
+                $templateData
+            );
         }
+    }
 
-        $this->command->info('DocuSeal templates seeded successfully!');
+    /**
+     * Get default field mappings based on document type
+     */
+    private function getDefaultFieldMappings(string $documentType): array
+    {
+        switch ($documentType) {
+            case 'IVR':
+                return [
+                    'patient_name' => 'Patient Full Name',
+                    'patient_dob' => 'Date of Birth',
+                    'patient_gender' => 'Gender',
+                    'patient_phone' => 'Patient Phone',
+                    'patient_address' => 'Patient Address',
+                    'provider_name' => 'Provider Name',
+                    'provider_npi' => 'Provider NPI',
+                    'provider_phone' => 'Provider Phone',
+                    'facility_name' => 'Facility Name',
+                    'facility_address' => 'Facility Address',
+                    'primary_insurance_name' => 'Primary Insurance',
+                    'primary_policy_number' => 'Policy Number',
+                    'primary_diagnosis_code' => 'Diagnosis Code',
+                    'wound_type' => 'Wound Type',
+                    'wound_location' => 'Wound Location',
+                    'wound_size_length' => 'Wound Length',
+                    'wound_size_width' => 'Wound Width',
+                    'service_date' => 'Date of Service',
+                    'provider_signature' => 'Provider Signature',
+                    'provider_signature_date' => 'Signature Date',
+                ];
+
+            case 'OrderForm':
+                return [
+                    'order_number' => 'Order Number',
+                    'patient_name' => 'Patient Name',
+                    'provider_name' => 'Ordering Provider',
+                    'facility_name' => 'Facility Name',
+                    'product_name' => 'Product Ordered',
+                    'quantity' => 'Quantity',
+                    'service_date' => 'Date of Service',
+                    'total_amount' => 'Total Order Amount',
+                ];
+
+            case 'InsuranceVerification':
+                return [
+                    'patient_name' => 'Patient Full Name',
+                    'patient_dob' => 'Date of Birth',
+                    'member_id' => 'Insurance Member ID',
+                    'insurance_plan' => 'Insurance Plan Name',
+                    'provider_name' => 'Provider Name',
+                    'provider_npi' => 'Provider NPI',
+                    'order_date' => 'Date of Service',
+                ];
+
+            case 'OnboardingForm':
+                return [
+                    'provider_name' => 'Provider Name',
+                    'provider_npi' => 'NPI Number',
+                    'facility_name' => 'Facility Name',
+                    'facility_address' => 'Facility Address',
+                ];
+
+            default:
+                return [];
+        }
     }
 }

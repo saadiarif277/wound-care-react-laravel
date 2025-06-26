@@ -234,37 +234,159 @@ class AnalyzeIVRTemplate extends Command
     {
         $this->info('Testing mapping with sample data...');
         
-        // Sample FHIR data
+        // Sample FHIR data - properly formatted for the fuzzy mapper
         $sampleFhirData = [
             'patient' => [
                 'name' => 'John Doe',
                 'birthDate' => '1970-01-01',
                 'gender' => 'male',
-                'telecom' => [['value' => '555-123-4567']],
+                'address' => '123 Main St, Anytown, CA 12345',
+                'telecom' => [
+                    'phone' => '(555) 123-4567',
+                    'fax' => '(555) 123-4568',
+                ],
             ],
             'practitioner' => [
                 'name' => 'Dr. Jane Smith',
-                'identifier' => [['value' => '1234567890']],
+                'identifier' => [
+                    'npi' => '1234567890',
+                    'tin' => '12-3456789',
+                    'ptan' => 'ABC123',
+                ],
+                'telecom' => [
+                    'phone' => '(555) 987-6543',
+                    'fax' => '(555) 987-6544',
+                ],
+                'address' => '456 Medical Plaza, Suite 100, Anytown, CA 12345',
+            ],
+            'organization' => [
+                'name' => 'Sample Medical Center',
+                'identifier' => [
+                    'npi' => '9876543210',
+                    'tin' => '98-7654321',
+                    'ptan' => 'XYZ789',
+                ],
+                'address' => '789 Hospital Blvd, Anytown, CA 12345',
+                'contact' => [
+                    'name' => 'Office Manager',
+                    'phone' => '(555) 555-5555',
+                    'fax' => '(555) 555-5556',
+                    'email' => 'office@samplemedical.com',
+                ],
+                'medicareAdminContractor' => 'Noridian Healthcare Solutions',
             ],
             'coverage' => [
-                'payor' => [['display' => 'Medicare']],
-                'identifier' => [['value' => 'ABC123456']],
+                'payor' => [
+                    'display' => 'Medicare',
+                    'phone' => '1-800-MEDICARE',
+                ],
+                'identifier' => [
+                    'value' => 'ABC123456789',
+                ],
+                'subscriber' => [
+                    'display' => 'John Doe',
+                    'birthDate' => '1970-01-01',
+                ],
+                'class' => [
+                    'type' => 'PPO',
+                ],
+                'network' => 'In-Network',
+                'preAuthRef' => 'PA123456',
+                'secondary' => [
+                    'payor' => [
+                        'display' => 'Blue Cross Blue Shield',
+                        'phone' => '1-800-123-4567',
+                    ],
+                    'identifier' => [
+                        'value' => 'XYZ987654321',
+                    ],
+                    'subscriber' => [
+                        'display' => 'John Doe',
+                        'birthDate' => '1970-01-01',
+                    ],
+                    'class' => [
+                        'type' => 'HMO',
+                    ],
+                    'network' => 'In-Network',
+                ],
             ],
             'condition' => [
-                'code' => ['text' => 'Diabetic foot ulcer'],
-                'bodySite' => [['text' => 'Left foot']],
+                'code' => [
+                    'coding' => [
+                        'code' => 'E11.621',
+                    ],
+                    'text' => 'Diabetic foot ulcer',
+                ],
+                'bodySite' => 'Left foot, plantar aspect',
+                'onsetPeriod' => '3 months',
+                'woundType' => [
+                    'diabeticFootUlcer' => true,
+                ],
+            ],
+            'procedure' => [
+                'code' => [
+                    'cpt' => '15275',
+                ],
+                'performedDateTime' => '2024-01-15',
+                'followUp' => 'No',
+            ],
+            'observation' => [
+                'woundSize' => '3.5cm x 2.0cm x 0.5cm',
+            ],
+            'deviceRequest' => [
+                'product' => [
+                    'info' => 'Advanced Wound Care Product',
+                    'size' => '5cm x 5cm',
+                ],
+                'quantity' => '4',
+            ],
+            'encounter' => [
+                'hospitalization' => [
+                    'admitSource' => 'Home',
+                ],
+                'length' => '0',
+            ],
+            'consent' => [
+                'provision' => [
+                    'actor' => 'Dr. Jane Smith',
+                ],
+                'dateTime' => '2024-01-15',
+            ],
+            'documentReference' => [
+                'clinicalNotes' => 'Yes',
+                'insuranceCard' => 'Yes',
+            ],
+            'history' => [
+                'previousSurgery' => [
+                    'cpt' => '15272',
+                    'date' => '2023-10-01',
+                ],
             ],
         ];
         
         $additionalData = [
-            'wound_length' => '3.5',
-            'wound_width' => '2.0',
-            'wound_depth' => '0.5',
-            'facility_name' => 'Sample Medical Center',
-            'facility_npi' => '9876543210',
-            'provider_phone' => '555-123-4567',
-            'provider_email' => 'doctor@example.com',
-            'primary_diagnosis' => 'Diabetic foot ulcer',
+            'metadata' => [
+                'salesRep' => 'John Sales Rep',
+                'iso' => 'ISO123',
+                'distributor' => 'Sample Distributor',
+                'notificationEmails' => 'notifications@example.com',
+            ],
+            'patient' => [
+                'communication' => [
+                    'okToContact' => 'Yes',
+                ],
+            ],
+            'episodeOfCare' => [
+                'type' => 'New Application',
+            ],
+            'researchStudy' => [
+                'enrollment' => 'No',
+            ],
+            'timing' => [
+                'repeat' => [
+                    'frequency' => 'Weekly',
+                ],
+            ],
         ];
         
         $result = $this->orchestrator->mapDataForIVR(

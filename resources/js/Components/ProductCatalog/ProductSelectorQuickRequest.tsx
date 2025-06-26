@@ -122,6 +122,47 @@ const MUE_LIMITS: Record<string, number> = {
   'Q4191': 4000  // Restorigin - TODO: Get from product.mue_limit field
 };
 
+// Helper function to parse size string to get dimensions and area
+const parseSizeString = (sizeStr: string): { dimensions: string; area: number } => {
+  // Handle size strings like "2x3", "2 x 3", "2X3", etc.
+  const dimensionMatch = sizeStr.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
+
+  if (dimensionMatch) {
+    const width = parseFloat(dimensionMatch[1]);
+    const height = parseFloat(dimensionMatch[2]);
+    const area = width * height;
+    return {
+      dimensions: `${width} x ${height} cm`,
+      area: area
+    };
+  }
+
+  // Handle single number (assume square or just area)
+  const numberMatch = sizeStr.match(/(\d+\.?\d*)/);
+  if (numberMatch) {
+    const value = parseFloat(numberMatch[1]);
+    // If it's a reasonable square root, treat as square dimensions
+    const sqrtValue = Math.sqrt(value);
+    if (Number.isInteger(sqrtValue) && sqrtValue >= 1 && sqrtValue <= 20) {
+      return {
+        dimensions: `${sqrtValue} x ${sqrtValue} cm`,
+        area: value
+      };
+    }
+    // Otherwise, treat as area only
+    return {
+      dimensions: `${value} cm²`,
+      area: value
+    };
+  }
+
+  // Fallback - return as is
+  return {
+    dimensions: sizeStr,
+    area: parseFloat(sizeStr) || 0
+  };
+};
+
 const ProductSelectorQuickRequest: React.FC<Props> = ({
   insuranceType,
   patientState,
@@ -155,10 +196,10 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Memoize selectedProducts to prevent infinite loops
   const selectedProductsMemo = useMemo(() => selectedProducts, [JSON.stringify(selectedProducts)]);
 
-  // Fetch products on mount
+  // Fetch products on mount and when dependencies change
   useEffect(() => {
     fetchProducts();
-  }, []);
+  }, [JSON.stringify(providerOnboardedProducts), insuranceType, patientState, woundSize]);
 
   // Update selected product when selectedProducts changes
   useEffect(() => {
@@ -177,11 +218,36 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
   const fetchProducts = async () => {
     try {
-      console.log('ProductSelectorQuickRequest: Fetching products from /api/products/search');
-      const response = await fetch('/api/products/search');
+      // Build query parameters for server-side filtering
+      const params = new URLSearchParams();
+
+      // Add provider onboarded products for primary filtering
+      if (providerOnboardedProducts.length > 0) {
+        params.append('onboarded_q_codes', providerOnboardedProducts.join(','));
+      } else if (allowedQCodes.length > 0) {
+        // If no onboarded products but we have insurance-allowed products, fetch those
+        params.append('onboarded_q_codes', allowedQCodes.join(','));
+      }
+
+      // Add insurance context for additional filtering
+      if (insuranceType) {
+        params.append('insurance_type', insuranceType);
+      }
+      if (patientState) {
+        params.append('patient_state', patientState);
+      }
+      if (woundSize > 0) {
+        params.append('wound_size', woundSize.toString());
+      }
+
+      const url = `/api/products/search?${params.toString()}`;
+      console.log('ProductSelectorQuickRequest: Fetching filtered products from', url);
+
+      const response = await fetch(url);
       const data = await response.json();
       console.log('ProductSelectorQuickRequest: Response received:', data);
       console.log('ProductSelectorQuickRequest: Products count:', data.products?.length || 0);
+
       if (data.products && data.products.length > 0) {
         console.log('ProductSelectorQuickRequest: First product example:', data.products[0]);
         // Debug size data specifically
@@ -201,10 +267,13 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
         if (!hasNewSizes && !hasLegacySizes) {
           console.log(`Adding sample sizes to ${product.name} (${product.q_code})`);
-          // Add common wound care product sizes
+          // Add actual dimensional sizes for each product based on their typical offerings
+          const sampleSizes = [
+            '2x2', '2x3', '3x3', '3x4', '4x4', '4x5', '5x5', '5x6', '6x6'
+          ];
           return {
             ...product,
-            available_sizes: [4, 9, 16, 25, 36], // Common sizes in cm²
+            size_options: sampleSizes,
             size_unit: 'cm'
           };
         }
@@ -269,87 +338,30 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Memoize last24HourOrders to prevent infinite loops
   const last24HourOrdersMemo = useMemo(() => last24HourOrders, [JSON.stringify(last24HourOrders)]);
 
-  // Filter products based on insurance rules and provider onboarding
+  // Since we're doing server-side filtering, we can use products directly
+  // But we still need to handle the case where insurance restricts certain products
   const filteredProducts = useMemo(() => {
-    // If no provider onboarded products, show products allowed by insurance
-    if (providerOnboardedProductsMemo.length === 0) {
-      console.log('No provider onboarded products, showing insurance-allowed products:', allowedQCodes);
-      console.log('Available products:', products.map(p => ({ name: p.name, q_code: p.q_code })));
+    // If we have provider onboarded products, server already filtered by those
+    // Now we just need to apply insurance-based filtering if needed
+    if (allowedQCodes.length > 0) {
+      const insuranceAllowedProducts = products.filter(product => allowedQCodes.includes(product.q_code));
 
-      // If insurance allows specific products, show only those
-      if (allowedQCodes.length > 0) {
-        const insuranceAllowedProducts = products.filter(product => allowedQCodes.includes(product.q_code));
-
-        // If no products match insurance Q-codes, show all products as fallback
-        if (insuranceAllowedProducts.length === 0) {
-          console.log('No products found matching insurance Q-codes, showing all products as fallback');
-          return products;
-        }
-
-        return insuranceAllowedProducts;
+      // If we have insurance restrictions but no matching products, show all products
+      // This handles cases where insurance Q-codes don't match our product catalog
+      if (insuranceAllowedProducts.length === 0) {
+        console.log('No products found matching insurance Q-codes, showing server-filtered products as fallback');
+        return products;
       }
 
-      // If no specific insurance restrictions, show all products
-      return products;
+      return insuranceAllowedProducts;
     }
 
-    return products.filter(product => {
-      // Show product if it's either:
-      // 1. In the provider's onboarded list OR
-      // 2. Allowed by insurance rules
-      const isOnboarded = providerOnboardedProductsMemo.includes(product.q_code);
-      const isAllowedByInsurance = allowedQCodes.includes(product.q_code);
+    // No insurance restrictions, return server-filtered products
+    return products;
+  }, [products, allowedQCodes]);
 
-      return isOnboarded || isAllowedByInsurance;
-    });
-  }, [products, allowedQCodes, providerOnboardedProductsMemo]);
-
-  // Separate products into categories for display
-  const categorizedProducts = useMemo(() => {
-    console.log('=== ProductSelectorQuickRequest: Categorizing Products ===');
-    console.log('filteredProducts count:', filteredProducts.length);
-    console.log('providerOnboardedProductsMemo:', providerOnboardedProductsMemo);
-    console.log('allowedQCodes:', allowedQCodes);
-
-    filteredProducts.forEach(p => {
-      console.log(`Product ${p.name} (${p.q_code}):`, {
-        isOnboarded: providerOnboardedProductsMemo.includes(p.q_code),
-        isInsuranceAllowed: allowedQCodes.includes(p.q_code)
-      });
-    });
-
-    const onboardedAndRecommended = filteredProducts.filter(p =>
-      providerOnboardedProductsMemo.includes(p.q_code) && allowedQCodes.includes(p.q_code)
-    );
-
-    const onboardedOnly = filteredProducts.filter(p =>
-      providerOnboardedProductsMemo.includes(p.q_code) && !allowedQCodes.includes(p.q_code)
-    );
-
-    const recommendedOnly = filteredProducts.filter(p =>
-      !providerOnboardedProductsMemo.includes(p.q_code) && allowedQCodes.includes(p.q_code)
-    );
-
-    // If we're in fallback mode (no provider products and no matching insurance Q-codes),
-    // treat all filtered products as "available" products
-    const fallbackProducts = filteredProducts.filter(p =>
-      !providerOnboardedProductsMemo.includes(p.q_code) && !allowedQCodes.includes(p.q_code)
-    );
-
-    console.log('Category counts:', {
-      onboardedAndRecommended: onboardedAndRecommended.length,
-      onboardedOnly: onboardedOnly.length,
-      recommendedOnly: recommendedOnly.length,
-      fallbackProducts: fallbackProducts.length
-    });
-
-    return {
-      onboardedAndRecommended,
-      onboardedOnly,
-      recommendedOnly,
-      fallbackProducts
-    };
-  }, [filteredProducts, allowedQCodes, providerOnboardedProductsMemo]);
+    // Since we're simplifying the display, just use filtered products directly
+  const availableProducts = filteredProducts;
 
   // Check for warnings (24-hour rule, MUE limits)
   useEffect(() => {
@@ -456,6 +468,18 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       }
 
       return total + (unitPrice * item.quantity);
+    }, 0);
+  };
+
+  const calculateTotalCm2 = () => {
+    return selectedProductsMemo.reduce((totalCm2, item) => {
+      if (item.size) {
+        const sizeValue = parseFloat(item.size);
+        if (!isNaN(sizeValue)) {
+          return totalCm2 + (sizeValue * item.quantity);
+        }
+      }
+      return totalCm2;
     }, 0);
   };
 
@@ -576,79 +600,15 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
             )}
 
             <div className="space-y-6">
-
-              {/* Recommended Only Products */}
-              {categorizedProducts.recommendedOnly.length > 0 && (
-                <div>
-                  <h3 className={`text-sm font-semibold ${t.text.primary} mb-3 flex items-center`}>
-                    <Info className="w-4 h-4 mr-2 text-blue-500" />
-                    Suggested Products (Not Yet Onboarded)
-                  </h3>
-                  <div className={`p-3 mb-3 ${t.status.warning} rounded-md`}>
-                    <p className="text-sm">
-                      These products are recommended for this patient's insurance but you are not yet onboarded.
-                      Contact your MSC representative to get onboarded.
-                    </p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categorizedProducts.recommendedOnly.map(product => (
-                      <QuickRequestProductCard
-                        key={product.id}
-                        product={product}
-                        onAdd={addProductToSelection}
-                        roleRestrictions={roleRestrictions}
-                        isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
-                        canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
-                        isSelected={selectedProduct?.id === product.id}
-                        isRecommended={true}
-                        isOnboarded={false}
-                        theme={t}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Onboarded Only Products */}
-              {categorizedProducts.onboardedOnly.length > 0 && (
-                <div>
-                  <h3 className={`text-sm font-semibold ${t.text.primary} mb-3 flex items-center`}>
-                    <Package className="w-4 h-4 mr-2 text-gray-500" />
-                    Other Available Products (Provider Onboarded)
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categorizedProducts.onboardedOnly.map(product => (
-                      <QuickRequestProductCard
-                        key={product.id}
-                        product={product}
-                        onAdd={addProductToSelection}
-                        roleRestrictions={roleRestrictions}
-                        isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
-                        canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
-                        isSelected={selectedProduct?.id === product.id}
-                        isRecommended={false}
-                        isOnboarded={true}
-                        theme={t}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Fallback Products (when no Q-code matches) */}
-              {categorizedProducts.fallbackProducts.length > 0 && (
+              {/* Available Products */}
+              {availableProducts.length > 0 ? (
                 <div>
                   <h3 className={`text-sm font-semibold ${t.text.primary} mb-3 flex items-center`}>
                     <Package className="w-4 h-4 mr-2 text-blue-500" />
                     Available Products
                   </h3>
-                  <div className={`p-3 mb-3 ${t.status.info} rounded-md`}>
-                    <p className="text-sm">
-                      Showing all available products. Note: Some products may have different insurance coverage requirements.
-                    </p>
-                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {categorizedProducts.fallbackProducts.map(product => (
+                    {availableProducts.map(product => (
                       <QuickRequestProductCard
                         key={product.id}
                         product={product}
@@ -657,37 +617,17 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                         isDisabled={selectedProduct !== null && selectedProduct.id !== product.id}
                         canAddMoreSizes={selectedProduct !== null && selectedProduct.id === product.id}
                         isSelected={selectedProduct?.id === product.id}
-                        isRecommended={false}
-                        isOnboarded={false}
                         theme={t}
                       />
                     ))}
                   </div>
                 </div>
-              )}
-
-              {/* No products available */}
-              {filteredProducts.length === 0 && (
+              ) : (
                 <div className={`text-center py-12 ${t.glass.frost} rounded-lg`}>
                   <Package className={`w-12 h-12 mx-auto mb-3 ${t.text.muted}`} />
                   <p className={`${t.text.secondary} mb-2`}>No products available</p>
                   <p className={`text-sm ${t.text.muted}`}>
                     No products match your insurance coverage or provider onboarding status.
-                  </p>
-                </div>
-              )}
-
-              {/* Debug section to show when no categorized products exist */}
-              {filteredProducts.length > 0 &&
-               categorizedProducts.onboardedAndRecommended.length === 0 &&
-               categorizedProducts.recommendedOnly.length === 0 &&
-               categorizedProducts.onboardedOnly.length === 0 &&
-               categorizedProducts.fallbackProducts.length === 0 && (
-                <div className={`text-center py-12 ${t.glass.frost} rounded-lg`}>
-                  <Package className={`w-12 h-12 mx-auto mb-3 ${t.text.muted}`} />
-                  <p className={`${t.text.secondary} mb-2`}>Products loaded but not categorized</p>
-                  <p className={`text-sm ${t.text.muted}`}>
-                    Found {filteredProducts.length} products but they don't match any category. Check console for debug info.
                   </p>
                 </div>
               )}
@@ -749,17 +689,25 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     const totalPrice = unitPrice * item.quantity;
 
                     return (
-                      <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
+                                              <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             {item.size ? (
                               <div>
-                                <h5 className={`text-sm font-medium ${t.text.primary}`}>
-                                  Size: {getProductSizeLabel(item.size, product.size_unit)}
-                                </h5>
-                                <p className={`text-xs ${t.text.secondary}`}>
-                                  {formatPrice(unitPrice)} per unit
-                                </p>
+                                {(() => {
+                                  const sizeNum = parseFloat(item.size);
+                                  const sizeInfo = parseSizeString(item.size);
+                                  return (
+                                    <>
+                                      <h5 className={`text-sm font-medium ${t.text.primary}`}>
+                                        Size: {sizeInfo.dimensions}
+                                      </h5>
+                                      <p className={`text-xs ${t.text.secondary}`}>
+                                        {sizeInfo.area} cm² • {formatPrice(unitPrice)} per unit
+                                      </p>
+                                    </>
+                                  );
+                                })()}
                               </div>
                             ) : (
                               <div>
@@ -816,9 +764,20 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     );
                   })}
 
-                  <div className={`border-t ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} pt-3`}>
+                  <div className={`border-t ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} pt-3 space-y-2`}>
+                    {/* Total Coverage Area */}
+                    {calculateTotalCm2() > 0 && (
+                      <div className="flex items-center justify-between">
+                        <span className={`text-sm font-medium ${t.text.primary}`}>Total Coverage:</span>
+                        <span className={`text-sm font-semibold ${t.text.primary}`}>
+                          {calculateTotalCm2()} cm²
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Total Price */}
                     <div className="flex items-center justify-between">
-                      <span className={`text-base font-semibold ${t.text.primary}`}>Total:</span>
+                      <span className={`text-base font-semibold ${t.text.primary}`}>Total Price:</span>
                       <span className="text-lg font-bold text-blue-600">
                         {formatPrice(calculateTotal())}
                       </span>
@@ -847,10 +806,8 @@ const QuickRequestProductCard: React.FC<{
   isDisabled?: boolean;
   canAddMoreSizes?: boolean;
   isSelected?: boolean;
-  isRecommended?: boolean;
-  isOnboarded?: boolean;
   theme: any;
-}> = ({ product, onAdd, roleRestrictions, isDisabled = false, isSelected = false, isRecommended = false, isOnboarded = false, theme: t }) => {
+}> = ({ product, onAdd, roleRestrictions, isDisabled = false, isSelected = false, theme: t }) => {
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
@@ -893,28 +850,13 @@ const QuickRequestProductCard: React.FC<{
     <div className={`${t.glass.card} rounded-lg p-4 transition-all duration-200 ${
       isSelected ? 'ring-2 ring-blue-500' : ''
     } ${isDisabled ? 'opacity-50' : ''}`}>
-      <div className="flex flex-wrap gap-2 mb-2">
-        {isSelected && (
+      {isSelected && (
+        <div className="flex flex-wrap gap-2 mb-2">
           <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
             Currently Selected
           </span>
-        )}
-        {isRecommended && (
-          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
-            Suggested
-          </span>
-        )}
-        {isOnboarded && (
-          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">
-            Provider Onboarded
-          </span>
-        )}
-        {!isOnboarded && isRecommended && (
-          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">
-            Onboarding Required
-          </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex items-start justify-between mb-3">
         <div className="flex-1">
@@ -963,7 +905,7 @@ const QuickRequestProductCard: React.FC<{
       {(product.size_options && product.size_options.length > 0) ? (
         <div className="mb-3">
           <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
-            Size ({product.size_unit === 'cm' ? 'cm' : 'inches'})
+            Size
           </label>
           <select
             value={selectedSize}
@@ -973,11 +915,12 @@ const QuickRequestProductCard: React.FC<{
           >
             <option value="">Select size...</option>
             {product.size_options.map(size => {
-              const price = product.size_pricing?.[size] || 0;
+              const sizeInfo = parseSizeString(size);
+              const price = product.size_pricing?.[size] || (product.price_per_sq_cm * sizeInfo.area);
               const displayPrice = roleRestrictions.can_see_msc_pricing ? (product.msc_price || price) : price;
               return (
-                <option key={size} value={size}>
-                  {size}{product.size_unit === 'cm' ? ' cm' : '"'} - {formatPrice(displayPrice)}
+                <option key={size} value={sizeInfo.area.toString()}>
+                  {sizeInfo.dimensions} ({sizeInfo.area} cm²) - {formatPrice(displayPrice)}
                 </option>
               );
             })}
@@ -986,7 +929,7 @@ const QuickRequestProductCard: React.FC<{
       ) : (product.available_sizes && product.available_sizes.length > 0) ? (
         <div className="mb-3">
           <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
-            Size (cm²)
+            Size
           </label>
           <select
             value={selectedSize}
@@ -997,11 +940,11 @@ const QuickRequestProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => {
               const sizeStr = size.toString();
-              const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
+              const sizeInfo = parseSizeString(sizeStr);
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
               return (
-                <option key={sizeStr} value={sizeStr}>
-                  {getProductSizeLabel(sizeStr, product.size_unit)} - {formatPrice(pricePerUnit * sizeNum)}
+                <option key={sizeStr} value={sizeInfo.area.toString()}>
+                  {sizeInfo.dimensions} ({sizeInfo.area} cm²) - {formatPrice(pricePerUnit * sizeInfo.area)}
                 </option>
               );
             })}

@@ -119,7 +119,7 @@ const SearchableSelect: React.FC<{
 }> = ({ options, value, onChange, placeholder, searchPlaceholder, className = '', error }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -151,8 +151,8 @@ const SearchableSelect: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
           "w-full px-3 py-2 text-left rounded-md border transition-all duration-200 flex items-center justify-between",
-          theme === 'dark' 
-            ? 'bg-gray-800 border-gray-700 text-white hover:border-gray-600' 
+          theme === 'dark'
+            ? 'bg-gray-800 border-gray-700 text-white hover:border-gray-600'
             : 'bg-white border-gray-300 text-gray-900 hover:border-gray-400',
           error && 'border-red-500',
           "focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2",
@@ -171,8 +171,8 @@ const SearchableSelect: React.FC<{
 
       {isOpen && (
         <>
-          <div 
-            className="fixed inset-0 z-40" 
+          <div
+            className="fixed inset-0 z-40"
             onClick={() => {
               setIsOpen(false);
               setSearchTerm('');
@@ -217,8 +217,8 @@ const SearchableSelect: React.FC<{
                     }}
                     className={cn(
                       "p-3 cursor-pointer transition-colors",
-                      theme === 'dark' 
-                        ? 'hover:bg-gray-700 border-b border-gray-700' 
+                      theme === 'dark'
+                        ? 'hover:bg-gray-700 border-b border-gray-700'
                         : 'hover:bg-gray-50 border-b border-gray-100',
                       "last:border-b-0"
                     )}
@@ -227,8 +227,8 @@ const SearchableSelect: React.FC<{
                       <FiCheck
                         className={cn(
                           "mt-0.5 h-4 w-4",
-                          value === option.code 
-                            ? 'text-blue-500' 
+                          value === option.code
+                            ? 'text-blue-500'
                             : 'text-transparent'
                         )}
                       />
@@ -274,7 +274,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
     primary: [],
     secondary: []
   });
-  
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -387,14 +387,14 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
       // For 'other' wound types or if no specific codes were added, show all available diagnosis codes
       // Combine all available codes from the provided data
       const allCodes: DiagnosisCode[] = [];
-      
+
       if (diagnosisCodes?.yellow) {
         allCodes.push(...diagnosisCodes.yellow.map(c => ({ ...c, category: 'general' })));
       }
       if (diagnosisCodes?.orange) {
         allCodes.push(...diagnosisCodes.orange.map(c => ({ ...c, category: 'general' })));
       }
-      
+
       // Add some common wound-related codes as fallback
       if (allCodes.length === 0) {
         allCodes.push(
@@ -405,7 +405,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
           { code: 'L98.499', description: 'Non-pressure chronic ulcer of skin of other sites with unspecified severity', category: 'other' }
         );
       }
-      
+
       mockPrimaryCodes.push(...allCodes);
     }
 
@@ -463,16 +463,16 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
         </label>
         <div className="grid grid-cols-2 gap-3">
           {WOUND_TYPES.map((woundType) => (
-            <div 
-              key={woundType.id} 
+            <div
+              key={woundType.id}
               className={cn(
                 "flex items-center space-x-3 p-3 rounded-lg cursor-pointer transition-all",
-                theme === 'dark' 
-                  ? 'border border-gray-700 hover:bg-gray-800' 
+                theme === 'dark'
+                  ? 'border border-gray-700 hover:bg-gray-800'
                   : 'border border-gray-200 hover:bg-gray-50',
                 value.wound_type === woundType.id && (
-                  theme === 'dark' 
-                    ? 'bg-gray-800 border-blue-500' 
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-blue-500'
                     : 'bg-blue-50 border-blue-500'
                 )
               )}
@@ -491,8 +491,8 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
                 {woundType.requiresDualCoding && (
                   <span className={cn(
                     "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                    theme === 'dark' 
-                      ? 'bg-blue-900 text-blue-300 border border-blue-700' 
+                    theme === 'dark'
+                      ? 'bg-blue-900 text-blue-300 border border-blue-700'
                       : 'bg-blue-100 text-blue-800 border border-blue-200'
                   )}>
                     Dual Code
@@ -548,8 +548,8 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
           {currentWoundType.requiresDualCoding && (
             <div className={cn(
               "p-4 rounded-lg flex items-start gap-2",
-              theme === 'dark' 
-                ? 'bg-blue-900/20 border border-blue-800' 
+              theme === 'dark'
+                ? 'bg-blue-900/20 border border-blue-800'
                 : 'bg-blue-50 border border-blue-200'
             )}>
               <FiAlertCircle className={cn(
@@ -571,41 +571,53 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
             <p className="text-sm text-red-500">{errors.diagnosis}</p>
           )}
 
-          {/* Selection Summary */}
+                    {/* Selection Summary */}
           {isSelectionComplete() && (
             <div className={cn(
-              "mt-4 p-2 rounded-lg",
-              theme === 'dark' 
-                ? 'bg-green-900/20 border border-green-800' 
+              "mt-4 px-4 py-2 rounded-lg w-full",
+              theme === 'dark'
+                ? 'bg-green-900/20 border border-green-800'
                 : 'bg-green-50 border border-green-200'
             )}>
               <h4 className={cn(
-                "font-medium mb-1 flex items-center gap-2 text-sm",
+                "font-medium mb-2 flex items-center gap-2 text-sm",
                 theme === 'dark' ? 'text-green-300' : 'text-green-800'
               )}>
                 <FiCheck className="h-4 w-4" />
                 Selection Complete
               </h4>
-              <div className="space-y-1 text-xs">
-                <div>
-                  <span className="font-medium">Wound Type:</span>{' '}
-                  {currentWoundType.name}
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium">Wound Type:</span>
+                  <span className={cn(
+                    "font-normal",
+                    theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                  )}>{currentWoundType.name}</span>
                 </div>
                 {currentWoundType.requiresDualCoding ? (
                   <>
-                    <div>
-                      <span className="font-medium">Primary Code:</span>{' '}
-                      <span className="font-mono">{value.primary_diagnosis_code}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Primary Code:</span>
+                      <span className={cn(
+                        "font-mono",
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                      )}>{value.primary_diagnosis_code}</span>
                     </div>
-                    <div>
-                      <span className="font-medium">Secondary Code:</span>{' '}
-                      <span className="font-mono">{value.secondary_diagnosis_code}</span>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Secondary Code:</span>
+                      <span className={cn(
+                        "font-mono",
+                        theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                      )}>{value.secondary_diagnosis_code}</span>
                     </div>
                   </>
                 ) : (
-                  <div>
-                    <span className="font-medium">Diagnosis Code:</span>{' '}
-                    <span className="font-mono">{value.diagnosis_code}</span>
+                  <div className="flex justify-between items-center">
+                    <span className="font-medium">Diagnosis Code:</span>
+                    <span className={cn(
+                      "font-mono",
+                      theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+                    )}>{value.diagnosis_code}</span>
                   </div>
                 )}
               </div>

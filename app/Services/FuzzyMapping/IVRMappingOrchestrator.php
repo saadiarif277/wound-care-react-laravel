@@ -314,7 +314,7 @@ class IVRMappingOrchestrator
         // Get existing mappings
         $existingMappings = IVRFieldMapping::forManufacturerTemplate($manufacturerId, $templateName)
             ->get()
-            ->keyBy('ivr_field_name');
+            ->keyBy('source_field');
         
         $analysis = [
             'manufacturer' => $manufacturer->name,
@@ -338,16 +338,14 @@ class IVRMappingOrchestrator
             if (isset($existingMappings[$field['field_name']])) {
                 $mapping = $existingMappings[$field['field_name']];
                 $fieldAnalysis['mapped'] = true;
-                $fieldAnalysis['confidence'] = $mapping->confidence_score;
-                $fieldAnalysis['mapping_type'] = $mapping->mapping_type;
+                $fieldAnalysis['confidence'] = $mapping->confidence;
+                $fieldAnalysis['mapping_type'] = $mapping->match_type;
                 $fieldAnalysis['usage_count'] = $mapping->usage_count;
-                $fieldAnalysis['success_rate'] = $mapping->usage_count > 0 
-                    ? round($mapping->success_count / $mapping->usage_count * 100, 2) 
-                    : 0;
+                $fieldAnalysis['success_rate'] = $mapping->success_rate ? $mapping->success_rate * 100 : 0;
                 
                 $analysis['mapped_fields']++;
                 
-                if ($mapping->confidence_score >= 0.8) {
+                if ($mapping->confidence >= 0.8) {
                     $analysis['high_confidence_fields']++;
                 } else {
                     $analysis['low_confidence_fields']++;

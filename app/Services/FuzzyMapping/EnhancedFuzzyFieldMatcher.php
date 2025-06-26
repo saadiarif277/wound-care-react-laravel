@@ -56,7 +56,7 @@ class EnhancedFuzzyFieldMatcher
 
         // Check database for existing high-confidence mapping
         $existingMapping = IVRFieldMapping::forManufacturerTemplate($manufacturerId, $templateName)
-            ->where('ivr_field_name', $ivrFieldName)
+            ->where('source_field', $ivrFieldName)
             ->highConfidence()
             ->first();
 
@@ -113,7 +113,7 @@ class EnhancedFuzzyFieldMatcher
         foreach ($availableFhirData as $fhirPath => $value) {
             if ($this->normalizeFieldName($fhirPath) === $normalizedIvr) {
                 return [
-                    'fhir_path' => $fhirPath,
+                    'target_field' => $fhirPath,
                     'value' => $value,
                     'confidence' => 1.0,
                 ];
@@ -132,7 +132,7 @@ class EnhancedFuzzyFieldMatcher
                 if ($this->normalizeFieldName($variation) === $normalizedIvr) {
                     if (isset($availableFhirData[$fhirPath])) {
                         return [
-                            'fhir_path' => $fhirPath,
+                            'target_field' => $fhirPath,
                             'value' => $availableFhirData[$fhirPath],
                             'confidence' => 0.95,
                         ];
@@ -155,7 +155,7 @@ class EnhancedFuzzyFieldMatcher
 
             if ($similarity >= $this->fuzzyThreshold) {
                 $matches[] = [
-                    'fhir_path' => $fhirPath,
+                    'target_field' => $fhirPath,
                     'value' => $value,
                     'confidence' => $similarity,
                 ];
@@ -171,7 +171,7 @@ class EnhancedFuzzyFieldMatcher
             if (preg_match($pattern, $ivrFieldName)) {
                 if (isset($availableFhirData[$fhirPath])) {
                     return [
-                        'fhir_path' => $fhirPath,
+                        'target_field' => $fhirPath,
                         'value' => $availableFhirData[$fhirPath],
                         'confidence' => 0.85,
                     ];
@@ -294,7 +294,7 @@ class EnhancedFuzzyFieldMatcher
         // Only return if score is above threshold
         if ($finalScore >= $this->fuzzyThreshold) {
             return [
-                'fhir_path' => $best['fhir_path'],
+                'target_field' => $best['target_field'],
                 'value' => $best['value'],
                 'confidence' => min($finalScore, 1.0),
                 'strategy' => $best['strategy'],
@@ -306,11 +306,11 @@ class EnhancedFuzzyFieldMatcher
 
     protected function applyMapping(IVRFieldMapping $mapping, array $availableFhirData): ?array
     {
-        if (!isset($availableFhirData[$mapping->fhir_path])) {
+        if (!isset($availableFhirData[$mapping->target_field])) {
             return null;
         }
 
-        $value = $availableFhirData[$mapping->fhir_path];
+        $value = $availableFhirData[$mapping->target_field];
 
         // Apply transformation rules if any
         if ($mapping->transformation_rules) {
@@ -318,10 +318,10 @@ class EnhancedFuzzyFieldMatcher
         }
 
         return [
-            'fhir_path' => $mapping->fhir_path,
+            'target_field' => $mapping->target_field,
             'value' => $value,
-            'confidence' => $mapping->confidence_score,
-            'strategy' => $mapping->mapping_type,
+            'confidence' => $mapping->confidence,
+            'strategy' => $mapping->match_type,
         ];
     }
 
@@ -361,19 +361,19 @@ class EnhancedFuzzyFieldMatcher
         try {
             IVRFieldMapping::create([
                 'manufacturer_id' => $manufacturerId,
-                'template_name' => $templateName,
-                'fhir_path' => $match['fhir_path'],
-                'ivr_field_name' => $ivrFieldName,
-                'mapping_type' => $match['strategy'],
-                'confidence_score' => $match['confidence'],
+                'template_id' => $templateName,
+                'target_field' => $match['target_field'],
+                'source_field' => $ivrFieldName,
+                'match_type' => $match['strategy'],
+                'confidence' => $match['confidence'],
                 'is_learned' => true,
             ]);
         } catch (\Exception $e) {
             Log::warning('Failed to save learned mapping', [
                 'error' => $e->getMessage(),
                 'manufacturer_id' => $manufacturerId,
-                'template_name' => $templateName,
-                'ivr_field_name' => $ivrFieldName,
+                'template_id' => $templateName,
+                'source_field' => $ivrFieldName,
             ]);
         }
     }
@@ -390,12 +390,12 @@ class EnhancedFuzzyFieldMatcher
             IVRMappingAudit::create([
                 'mapping_id' => $mapping?->id,
                 'manufacturer_id' => $mapping?->manufacturer_id ?? 0,
-                'template_name' => $mapping?->template_name ?? '',
-                'fhir_path' => $result['fhir_path'] ?? '',
-                'ivr_field_name' => $mapping?->ivr_field_name ?? '',
+                'template_id' => $mapping?->template_id ?? '',
+                'target_field' => $result['target_field'] ?? '',
+                'source_field' => $mapping?->source_field ?? '',
                 'mapped_value' => $result['value'] ?? null,
                 'mapping_strategy' => $strategy,
-                'confidence_score' => $confidence,
+                'confidence' => $confidence,
                 'was_successful' => $wasSuccessful,
                 'error_details' => $error,
                 'user_id' => auth()->id(),

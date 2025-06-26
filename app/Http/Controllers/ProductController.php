@@ -222,8 +222,18 @@ class ProductController extends Controller
 
         $query = Product::active();
 
-        // Filter by provider's onboarded products if user has provider viewing permission
-        if ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
+        // Filter by specific onboarded Q-codes if provided (for performance optimization)
+        if ($request->filled('onboarded_q_codes')) {
+            $qCodes = explode(',', $request->get('onboarded_q_codes'));
+            $qCodes = array_map('trim', $qCodes);
+            $qCodes = array_filter($qCodes); // Remove empty values
+
+            if (!empty($qCodes)) {
+                $query->whereIn('q_code', $qCodes);
+            }
+        }
+        // Fallback to original provider filtering if no specific Q-codes provided
+        elseif ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
             // Only show products the provider is onboarded with
             $query->whereHas('activeProviders', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
