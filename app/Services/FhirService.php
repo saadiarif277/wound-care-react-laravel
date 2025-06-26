@@ -223,6 +223,45 @@ class FhirService
     /**
      * Create a new practitioner
      */
+
+    /**
+     * Get Practitioner by ID from Azure FHIR
+     */
+    public function getPractitionerById(string $id): ?array
+    {
+        $this->ensureAzureConfigured();
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => "Bearer {$this->azureAccessToken}",
+                'Accept' => 'application/fhir+json',
+            ])->get("{$this->azureFhirEndpoint}/Practitioner/{$id}");
+            if ($response->status() === 404) {
+                return null;
+            }
+            if (!$response->successful()) {
+                throw new \Exception("Azure FHIR API error: " . $response->body());
+            }
+            return $response->json();
+        } catch (\Exception $e) {
+            Log::error('Failed to fetch practitioner from FHIR', [
+                'fhir_id' => $id,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get practitioner by FHIR ID (alias for getPractitionerById)
+     */
+    public function getPractitioner(string $practitionerFhirId, $productRequest = null): array
+    {
+        $fhirPractitioner = $this->getPractitionerById($practitionerFhirId);
+        if (!$fhirPractitioner) {
+            throw new \Exception("Practitioner not found with FHIR ID: {$practitionerFhirId}");
+        }
+        return $fhirPractitioner;
+    }
     public function createPractitioner(array $practitionerData): ?array
     {
         $this->ensureAzureConfigured();

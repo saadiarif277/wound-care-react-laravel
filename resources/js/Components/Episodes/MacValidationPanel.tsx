@@ -1,11 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { 
   CheckCircle, 
   AlertTriangle, 
   XCircle, 
   FileText, 
-  DollarSign, 
-  Clock,
   Info,
   Shield,
   TrendingUp
@@ -64,8 +62,6 @@ interface MacValidationPanelProps {
 
 export default function MacValidationPanel({ 
   episodeId, 
-  orders, 
-  facilityState,
   className 
 }: MacValidationPanelProps) {
   const [validationData, setValidationData] = useState<MacValidationData | null>(null);

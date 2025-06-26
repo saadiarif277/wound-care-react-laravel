@@ -234,6 +234,14 @@ final class QuickRequestController extends Controller
             // Get manufacturer ID from request
             $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
 
+            // Load authenticated user's profile data
+            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            
+            // Merge user profile data with prefill data
+            if (!empty($userProfileData)) {
+                $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
+            }
+            
             // Map fields if we have prefill data and manufacturer
             $mappedFields = [];
             if (!empty($data['prefill_data']) && $manufacturerId) {
@@ -250,7 +258,8 @@ final class QuickRequestController extends Controller
                             'template_id' => $template->docuseal_template_id,
                             'original_fields' => count($data['prefill_data']),
                             'mapped_fields' => count($mappedFields),
-                            'sample_fields' => array_slice($mappedFields, 0, 3)
+                            'sample_fields' => array_slice($mappedFields, 0, 3),
+                            'user_profile_fields_included' => count($userProfileData)
                         ]);
                     }
                 } catch (\Exception $e) {
@@ -331,6 +340,14 @@ final class QuickRequestController extends Controller
             ]);
 
             $prefillData = $data['prefill_data'];
+            
+            // Load authenticated user's profile data
+            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            
+            // Merge user profile data with prefill data
+            if (!empty($userProfileData)) {
+                $prefillData = array_merge($userProfileData, $prefillData);
+            }
 
             // Determine manufacturer and template
             $manufacturerId = $this->getManufacturerIdFromPrefillData($prefillData);
@@ -429,6 +446,14 @@ final class QuickRequestController extends Controller
             if (!$template) {
                 throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
             }
+            
+            // Load authenticated user's profile data
+            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            
+            // Merge user profile data with prefill data
+            if (!empty($userProfileData)) {
+                $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
+            }
 
             // Map fields if we have prefill data
             $mappedFields = [];
@@ -444,7 +469,8 @@ final class QuickRequestController extends Controller
                         'template_id' => $template->docuseal_template_id,
                         'original_fields' => count($data['prefill_data']),
                         'mapped_fields' => count($mappedFields),
-                        'sample_fields' => array_slice($mappedFields, 0, 3)
+                        'sample_fields' => array_slice($mappedFields, 0, 3),
+                        'user_profile_fields_included' => count($userProfileData)
                     ]);
                 } catch (\Exception $e) {
                     Log::warning('Could not map fields for DocuSeal form', [
@@ -595,6 +621,22 @@ final class QuickRequestController extends Controller
                         'episode_id' => $data['episode_id']
                     ]);
                 }
+            }
+            
+            // Step 3a: Load authenticated user's profile data
+            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            
+            // Merge user profile data with prefill data
+            if (!empty($userProfileData)) {
+                $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
+                
+                Log::info('✅ User profile data loaded for DocuSeal', [
+                    'user_id' => Auth::id(),
+                    'profile_fields_added' => array_keys($userProfileData),
+                    'has_provider_data' => !empty($userProfileData['provider_name']),
+                    'has_facility_data' => !empty($userProfileData['facility_name']),
+                    'has_organization_data' => !empty($userProfileData['organization_name'])
+                ]);
             }
 
             // Use FHIR-DocuSeal integration service if episode is available
@@ -2044,6 +2086,131 @@ final class QuickRequestController extends Controller
                 'success' => false,
                 'error' => $e->getMessage()
             ], 500);
+        }
+    }
+    
+    /**
+     * Load authenticated user's profile data for DocuSeal forms
+     */
+    private function loadUserProfileDataForDocuSeal(): array
+    {
+        try {
+            $user = Auth::user();
+            if (!$user) {
+                return [];
+            }
+            
+            // Load user with relationships
+            $user->load([
+                'providerProfile',
+                'providerCredentials',
+                'facilities',
+                'organizations',
+                'currentOrganization'
+            ]);
+            
+            $profileData = [];
+            
+            // Provider Information
+            $profileData['provider_name'] = $user->first_name . ' ' . $user->last_name;
+            $profileData['provider_first_name'] = $user->first_name;
+            $profileData['provider_last_name'] = $user->last_name;
+            $profileData['provider_email'] = $user->email;
+            $profileData['provider_phone'] = $user->phone ?? '';
+            
+            // Provider NPI and credentials
+            if ($user->npi_number) {
+                $profileData['provider_npi'] = $user->npi_number;
+            } elseif ($npiCredential = $user->providerCredentials->where('credential_type', 'npi_number')->first()) {
+                $profileData['provider_npi'] = $npiCredential->credential_number;
+            }
+            
+            // Provider profile details
+            if ($providerProfile = $user->providerProfile) {
+                $profileData['provider_specialty'] = $providerProfile->primary_specialty ?? '';
+                $profileData['provider_license'] = $providerProfile->state_license_number ?? '';
+                $profileData['provider_dea'] = $providerProfile->dea_number ?? '';
+                $profileData['provider_practice_name'] = $providerProfile->practice_name ?? '';
+                $profileData['provider_tax_id'] = $providerProfile->tax_id ?? '';
+                
+                if ($providerProfile->credentials) {
+                    $profileData['provider_credentials'] = $providerProfile->credentials;
+                }
+            }
+            
+            // Primary Facility Information
+            $primaryFacility = $user->facilities()->wherePivot('is_primary', true)->first();
+            if (!$primaryFacility && $user->facilities->count() > 0) {
+                $primaryFacility = $user->facilities->first();
+            }
+            
+            if ($primaryFacility) {
+                $profileData['facility_name'] = $primaryFacility->name;
+                $profileData['facility_npi'] = $primaryFacility->npi ?? '';
+                $profileData['facility_phone'] = $primaryFacility->phone ?? '';
+                $profileData['facility_fax'] = $primaryFacility->fax ?? '';
+                $profileData['facility_address'] = $primaryFacility->address_line1 ?? '';
+                $profileData['facility_address_line2'] = $primaryFacility->address_line2 ?? '';
+                $profileData['facility_city'] = $primaryFacility->city ?? '';
+                $profileData['facility_state'] = $primaryFacility->state ?? '';
+                $profileData['facility_zip'] = $primaryFacility->zip ?? '';
+                
+                // Full facility address
+                if ($primaryFacility->full_address) {
+                    $profileData['facility_full_address'] = $primaryFacility->full_address;
+                }
+            }
+            
+            // Organization Information
+            $currentOrg = $user->currentOrganization ?? $user->primaryOrganization();
+            if (!$currentOrg && $user->organizations->count() > 0) {
+                $currentOrg = $user->organizations->first();
+            }
+            
+            if ($currentOrg) {
+                $profileData['organization_name'] = $currentOrg->name;
+                $profileData['organization_phone'] = $currentOrg->phone ?? '';
+                $profileData['organization_fax'] = $currentOrg->fax ?? '';
+                $profileData['organization_address'] = $currentOrg->billing_address ?? '';
+                $profileData['organization_city'] = $currentOrg->billing_city ?? '';
+                $profileData['organization_state'] = $currentOrg->billing_state ?? '';
+                $profileData['organization_zip'] = $currentOrg->billing_zip ?? '';
+                $profileData['organization_tax_id'] = $currentOrg->tax_id ?? '';
+                
+                // Sales rep information
+                if ($currentOrg->salesRep) {
+                    $profileData['sales_rep_name'] = $currentOrg->salesRep->first_name . ' ' . $currentOrg->salesRep->last_name;
+                    $profileData['sales_rep_email'] = $currentOrg->salesRep->email;
+                    $profileData['sales_rep_phone'] = $currentOrg->salesRep->phone ?? '';
+                }
+            }
+            
+            // Add current date/time for form
+            $profileData['request_date'] = date('m/d/Y');
+            $profileData['request_time'] = date('h:i A');
+            
+            // Remove any null values
+            $profileData = array_filter($profileData, function($value) {
+                return $value !== null && $value !== '';
+            });
+            
+            Log::info('User profile data loaded for DocuSeal', [
+                'user_id' => $user->id,
+                'fields_loaded' => count($profileData),
+                'has_provider_profile' => isset($providerProfile),
+                'has_facility' => isset($primaryFacility),
+                'has_organization' => isset($currentOrg)
+            ]);
+            
+            return $profileData;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to load user profile data for DocuSeal', [
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+            
+            return [];
         }
     }
 }

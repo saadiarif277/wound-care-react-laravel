@@ -3,14 +3,11 @@ import {
   Eye, 
   Send, 
   Phone, 
-  RefreshCw,
   FileText,
-  CheckCircle,
-  AlertTriangle
+  CheckCircle
 } from 'lucide-react';
 import { cn } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes } from '@/theme/glass-theme';
 import { router } from '@inertiajs/react';
 
 interface EpisodeQuickActionsProps {
@@ -27,12 +24,10 @@ const EpisodeQuickActions: React.FC<EpisodeQuickActionsProps> = ({
   onRefresh
 }) => {
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
 
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // Fallback to dark theme
   }

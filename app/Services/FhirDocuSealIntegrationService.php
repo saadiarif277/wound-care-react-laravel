@@ -256,6 +256,68 @@ class FhirDocuSealIntegrationService
      */
     private function mapProviderFields(array $fhirData, array &$mappings): void
     {
+        // First try to load from authenticated user if available
+        if (auth()->check()) {
+            $user = auth()->user();
+            $user->load(['providerProfile', 'providerCredentials']);
+            
+            // Provider name
+            $providerName = $user->first_name . ' ' . $user->last_name;
+            $mappings['PROVIDER NAME'] = $providerName;
+            $mappings['Provider Name'] = $providerName;
+            $mappings['PHYSICIAN NAME'] = $providerName;
+            $mappings['Physician Name'] = $providerName;
+            $mappings['DOCTOR NAME'] = $providerName;
+            $mappings['Doctor Name'] = $providerName;
+            $mappings['provider_name'] = $providerName;
+            
+            // Provider NPI
+            $npi = $user->npi_number;
+            if (!$npi) {
+                $npiCredential = $user->providerCredentials->where('credential_type', 'npi_number')->first();
+                if ($npiCredential) {
+                    $npi = $npiCredential->credential_number;
+                }
+            }
+            if ($npi) {
+                $mappings['PROVIDER NPI'] = $npi;
+                $mappings['Provider NPI'] = $npi;
+                $mappings['NPI'] = $npi;
+                $mappings['PHYSICIAN NPI'] = $npi;
+                $mappings['provider_npi'] = $npi;
+            }
+            
+            // Provider phone
+            if ($user->phone) {
+                $formattedPhone = $this->formatPhoneNumber($user->phone);
+                $mappings['PROVIDER PHONE'] = $formattedPhone;
+                $mappings['Provider Phone'] = $formattedPhone;
+                $mappings['PHYSICIAN PHONE'] = $formattedPhone;
+                $mappings['provider_phone'] = $formattedPhone;
+            }
+            
+            // Provider specialty from profile
+            if ($user->providerProfile && $user->providerProfile->primary_specialty) {
+                $mappings['SPECIALTY'] = $user->providerProfile->primary_specialty;
+                $mappings['Provider Specialty'] = $user->providerProfile->primary_specialty;
+                $mappings['PHYSICIAN SPECIALTY'] = $user->providerProfile->primary_specialty;
+                $mappings['provider_specialty'] = $user->providerProfile->primary_specialty;
+            }
+            
+            // Additional provider details
+            if ($user->providerProfile) {
+                if ($user->providerProfile->credentials) {
+                    $mappings['PROVIDER CREDENTIALS'] = $user->providerProfile->credentials;
+                    $mappings['Provider Credentials'] = $user->providerProfile->credentials;
+                }
+                if ($user->providerProfile->dea_number) {
+                    $mappings['DEA NUMBER'] = $user->providerProfile->dea_number;
+                    $mappings['Provider DEA'] = $user->providerProfile->dea_number;
+                }
+            }
+        }
+        
+        // Override with FHIR data if available
         if (isset($fhirData['provider_name'])) {
             $mappings['PROVIDER NAME'] = $fhirData['provider_name'];
             $mappings['Provider Name'] = $fhirData['provider_name'];
@@ -295,6 +357,73 @@ class FhirDocuSealIntegrationService
      */
     private function mapFacilityFields(array $fhirData, array &$mappings): void
     {
+        // First try to load from authenticated user's facilities if available
+        if (auth()->check()) {
+            $user = auth()->user();
+            $user->load(['facilities', 'currentOrganization', 'organizations']);
+            
+            // Get primary facility or first available facility
+            $facility = $user->facilities()->wherePivot('is_primary', true)->first();
+            if (!$facility && $user->facilities->count() > 0) {
+                $facility = $user->facilities->first();
+            }
+            
+            if ($facility) {
+                $mappings['FACILITY NAME'] = $facility->name;
+                $mappings['Facility Name'] = $facility->name;
+                $mappings['CLINIC NAME'] = $facility->name;
+                $mappings['Clinic Name'] = $facility->name;
+                $mappings['facility_name'] = $facility->name;
+                
+                // Facility address
+                $facilityAddress = $facility->full_address ?? $facility->address_line1;
+                if ($facilityAddress) {
+                    $mappings['FACILITY ADDRESS'] = $facilityAddress;
+                    $mappings['Facility Address'] = $facilityAddress;
+                    $mappings['CLINIC ADDRESS'] = $facilityAddress;
+                    $mappings['facility_address'] = $facilityAddress;
+                }
+                
+                // Facility NPI
+                if ($facility->npi) {
+                    $mappings['FACILITY NPI'] = $facility->npi;
+                    $mappings['Facility NPI'] = $facility->npi;
+                    $mappings['CLINIC NPI'] = $facility->npi;
+                    $mappings['facility_npi'] = $facility->npi;
+                }
+                
+                // Additional facility details
+                if ($facility->phone) {
+                    $mappings['FACILITY PHONE'] = $this->formatPhoneNumber($facility->phone);
+                    $mappings['Facility Phone'] = $this->formatPhoneNumber($facility->phone);
+                }
+                
+                if ($facility->fax) {
+                    $mappings['FACILITY FAX'] = $this->formatPhoneNumber($facility->fax);
+                    $mappings['Facility Fax'] = $this->formatPhoneNumber($facility->fax);
+                }
+            }
+            
+            // Organization information
+            $organization = $user->currentOrganization ?? $user->primaryOrganization();
+            if (!$organization && $user->organizations->count() > 0) {
+                $organization = $user->organizations->first();
+            }
+            
+            if ($organization) {
+                $mappings['ORGANIZATION NAME'] = $organization->name;
+                $mappings['Organization Name'] = $organization->name;
+                $mappings['PRACTICE NAME'] = $organization->name;
+                $mappings['Practice Name'] = $organization->name;
+                
+                if ($organization->phone) {
+                    $mappings['ORGANIZATION PHONE'] = $this->formatPhoneNumber($organization->phone);
+                    $mappings['Organization Phone'] = $this->formatPhoneNumber($organization->phone);
+                }
+            }
+        }
+        
+        // Override with FHIR data if available
         if (isset($fhirData['facility_name'])) {
             $mappings['FACILITY NAME'] = $fhirData['facility_name'];
             $mappings['Facility Name'] = $fhirData['facility_name'];

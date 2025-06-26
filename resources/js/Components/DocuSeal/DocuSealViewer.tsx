@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { DocusealForm } from '@docuseal/react';
-import { Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 interface DocuSealViewerProps {
@@ -21,14 +21,12 @@ interface DocuSealViewerProps {
 
 export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
   templateId,
-  folderId,
   submissionId,
   email = 'noreply@mscwound.com',
   fields = {},
   onComplete,
   onLoad,
   onError,
-  mode = 'fill',
   className = '',
   name = 'Document Form',
   orderId,
@@ -65,7 +63,7 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
         });
 
 
-        const { signing_url, submission_id, submitter_slug, data } = response.data;
+        const { signing_url, submitter_slug } = response.data;
 
         if (signing_url) {
           setEmbedUrl(signing_url);
@@ -115,13 +113,6 @@ export const DocuSealViewer: React.FC<DocuSealViewerProps> = ({
     }
   };
 
-  const handleError = (err: any) => {
-    setIsLoading(false);
-    setError('Failed to load DocuSeal form');
-    if (onError) {
-      onError(err);
-    }
-  };
 
   const handleComplete = (data: any) => {
     if (onComplete) {

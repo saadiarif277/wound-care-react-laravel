@@ -1,5 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { DocusealForm } from '@docuseal/react';
+import React, { useState } from 'react';
 import { Loader2, FileText, AlertCircle, X } from 'lucide-react';
 
 interface DocuSealTemplateViewerProps {
@@ -11,7 +10,6 @@ interface DocuSealTemplateViewerProps {
 }
 
 export const DocuSealTemplateViewer: React.FC<DocuSealTemplateViewerProps> = ({
-  templateId,
   docusealTemplateId,
   templateName,
   onClose,

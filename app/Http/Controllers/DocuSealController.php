@@ -60,7 +60,7 @@ class DocusealController extends Controller
                 'docuseal_submission_id' => $submission->docuseal_submission_id,
                 'status' => $submission->status,
                 'document_url' => $submission->signing_url,
-                'expires_at' => now()->addDays(30)->toISOString(),
+                'expires_at' => now()->addDays(30)->toIso8601String(),
             ]);
 
         } catch (Exception $e) {
@@ -108,7 +108,7 @@ class DocusealController extends Controller
                 'submission_id' => $submission->id,
                 'docuseal_submission_id' => $submission->docuseal_submission_id,
                 'status' => $submission->status,
-                'completed_at' => $submission->completed_at?->toISOString(),
+                'completed_at' => $submission->completed_at?->toIso8601String(),
                 'download_url' => $submission->isCompleted()
                     ? route('docuseal.download', $submission->id)
                     : null,

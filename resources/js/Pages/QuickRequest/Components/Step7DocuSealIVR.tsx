@@ -423,6 +423,7 @@ export default function Step7DocuSealIVR({
             manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
             productCode={selectedProduct?.code || ''}
             formData={preparedDocuSealData}
+            episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
             className="w-full h-full min-h-[600px]"

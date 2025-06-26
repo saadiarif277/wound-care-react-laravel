@@ -13,7 +13,7 @@ import {
 import { cn } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
-import { formatDate, formatDateTime } from '@/utils/formatters';
+import { formatDate } from '@/utils/formatters';
 
 interface IVREpisode {
   id: string;

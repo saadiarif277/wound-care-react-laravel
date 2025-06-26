@@ -1,6 +1,6 @@
 import { ComponentProps } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
+import { cn } from '@/theme/glass-theme';
 
 interface Props extends ComponentProps<'button'> {
   onDelete: () => void;

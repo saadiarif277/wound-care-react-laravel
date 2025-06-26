@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { cn } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
-import { themes } from '@/theme/glass-theme';
 import EpisodeCard from './EpisodeCard';
 
 interface EpisodeCardMobileProps {
@@ -32,23 +31,23 @@ const EpisodeCardMobile: React.FC<EpisodeCardMobileProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
 
   let theme: 'dark' | 'light' = 'dark';
-  let t = themes.dark;
 
   try {
     const themeContext = useTheme();
     theme = themeContext.theme;
-    t = themes[theme];
   } catch (e) {
     // Fallback to dark theme
   }
 
   const handleTouchStart = (e: TouchEvent) => {
-    startX.current = e.touches[0].clientX;
-    setIsSwipping(true);
+    if (e.touches.length > 0) {
+      startX.current = e.touches[0].clientX;
+      setIsSwipping(true);
+    }
   };
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (!isSwipping) return;
+    if (!isSwipping || e.touches.length === 0) return;
     
     const currentX = e.touches[0].clientX;
     const diff = startX.current - currentX;

@@ -85,6 +85,14 @@ return [
             'visibility' => 'private', // Ensure all files are private
         ],
 
+        // Storage disk for generated documents
+        'documents' => [
+            'driver' => 'local',
+            'root' => storage_path('app/documents'),
+            'visibility' => 'private',
+            'throw' => false,
+        ],
+
     ],
 
     /*

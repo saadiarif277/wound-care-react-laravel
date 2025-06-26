@@ -37,7 +37,6 @@ const IVRPreviewModal: React.FC<IVRPreviewModalProps> = ({
   const getManufacturerFields = () => {
     // This would ideally fetch from the manufacturer configuration
     // For now, showing a comprehensive preview of common IVR fields
-    const manufacturerKey = formData.manufacturer_key || 'universal';
 
     return [
       { section: 'Patient Information', fields: [

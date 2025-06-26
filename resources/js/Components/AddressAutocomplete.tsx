@@ -192,12 +192,12 @@ export default function AddressAutocomplete({
     onChange({
       line1: newLine1,
       line2: value.line2 || '',
-      city: city,
+      city: city || '',
       state: addr.state || '',
       zip: addr.postcode || ''
     });
     
-    setSearchQuery(newLine1);
+    setSearchQuery(newLine1 || '');
     setShowSuggestions(false);
   };
 
