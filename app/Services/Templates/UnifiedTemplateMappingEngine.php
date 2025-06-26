@@ -4,16 +4,26 @@ namespace App\Services\Templates;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
+use App\Services\FuzzyMapping\IVRMappingOrchestrator;
+use Illuminate\Support\Facades\Log;
 
 class UnifiedTemplateMappingEngine
 {
     private array $mappingRules;
     private array $fieldTransformers;
+    private ?IVRMappingOrchestrator $fuzzyMapper = null;
 
     public function __construct()
     {
         $this->loadMappingRules();
         $this->registerFieldTransformers();
+        
+        // Inject fuzzy mapper if available
+        try {
+            $this->fuzzyMapper = app(IVRMappingOrchestrator::class);
+        } catch (\Exception $e) {
+            Log::warning('Fuzzy mapping service not available', ['error' => $e->getMessage()]);
+        }
     }
 
     /**
@@ -39,6 +49,46 @@ class UnifiedTemplateMappingEngine
     }
 
     /**
+     * Map data using the fuzzy matching system for manufacturer IVR templates
+     */
+    public function mapWithFuzzyMatching(
+        array $fhirData, 
+        array $additionalData, 
+        int $manufacturerId, 
+        string $templateName = 'insurance-verification'
+    ): array {
+        if (!$this->fuzzyMapper) {
+            Log::warning('Fuzzy mapper not available, falling back to standard mapping');
+            return $this->mapInsuranceData(array_merge($fhirData, $additionalData), 'docuseal_ivr');
+        }
+
+        try {
+            $result = $this->fuzzyMapper->mapDataForIVR($fhirData, $additionalData, $manufacturerId, $templateName);
+            
+            if ($result['success']) {
+                return $result['mapped_fields'];
+            } else {
+                Log::warning('Fuzzy mapping failed', [
+                    'manufacturer_id' => $manufacturerId,
+                    'template' => $templateName,
+                    'validation' => $result['validation'] ?? []
+                ]);
+                
+                // Fall back to standard mapping if fuzzy matching fails
+                return $this->mapInsuranceData(array_merge($fhirData, $additionalData), 'docuseal_ivr');
+            }
+        } catch (\Exception $e) {
+            Log::error('Error in fuzzy mapping', [
+                'error' => $e->getMessage(),
+                'manufacturer_id' => $manufacturerId
+            ]);
+            
+            // Fall back to standard mapping on error
+            return $this->mapInsuranceData(array_merge($fhirData, $additionalData), 'docuseal_ivr');
+        }
+    }
+
+    /**
      * Load all mapping rules from config/database
      */
     private function loadMappingRules(): void
@@ -48,18 +98,48 @@ class UnifiedTemplateMappingEngine
                 // Patient Information Mappings
                 'patientInfo.patientName' => [
                     'source' => 'patient_first_name',
-                    'fallbacks' => ['patient.first_name', 'patientFirstName'],
+                    'fallbacks' => ['patient.first_name', 'patientFirstName', 'patient_name'],
                     'transform' => 'fullName',
                     'combine_with' => 'patient_last_name'
                 ],
                 'patientInfo.dateOfBirth' => [
                     'source' => 'patient_dob',
-                    'fallbacks' => ['patient.dob', 'patientDateOfBirth'],
+                    'fallbacks' => ['patient.dob', 'patientDateOfBirth', 'dob'],
                     'transform' => 'date'
                 ],
                 'patientInfo.patientId' => [
                     'source' => 'patient_member_id',
                     'fallbacks' => ['member_id', 'subscriber_id', 'insurance_id']
+                ],
+                'patientInfo.gender' => [
+                    'source' => 'patient_gender',
+                    'fallbacks' => ['patient.gender', 'gender']
+                ],
+                'patientInfo.address' => [
+                    'source' => 'patient_address',
+                    'fallbacks' => ['patient.address', 'address']
+                ],
+                'patientInfo.city' => [
+                    'source' => 'patient_city',
+                    'fallbacks' => ['patient.city', 'city']
+                ],
+                'patientInfo.state' => [
+                    'source' => 'patient_state',
+                    'fallbacks' => ['patient.state', 'state']
+                ],
+                'patientInfo.zip' => [
+                    'source' => 'patient_zip',
+                    'fallbacks' => ['patient.zip', 'zip']
+                ],
+                'patientInfo.homePhone' => [
+                    'source' => 'patient_home_phone',
+                    'fallbacks' => ['patient.home_phone', 'home_phone'],
+                    'transform' => 'phone'
+                ],
+                'patientInfo.mobile' => [
+                    'source' => 'patient_mobile',
+                    'fallbacks' => ['patient.mobile', 'mobile'],
+                    'transform' => 'phone'
                 ],
 
                 // Insurance Information Mappings
@@ -101,6 +181,98 @@ class UnifiedTemplateMappingEngine
                     'source' => 'facility_address',
                     'fallbacks' => ['facility.address'],
                     'transform' => 'address'
+                ],
+                'facilityInfo.facilityCity' => [
+                    'source' => 'facility_city',
+                    'fallbacks' => ['facility.city']
+                ],
+                'facilityInfo.facilityState' => [
+                    'source' => 'facility_state',
+                    'fallbacks' => ['facility.state']
+                ],
+                'facilityInfo.facilityZip' => [
+                    'source' => 'facility_zip',
+                    'fallbacks' => ['facility.zip']
+                ],
+                'facilityInfo.facilityNpi' => [
+                    'source' => 'facility_npi',
+                    'fallbacks' => ['facility.npi']
+                ],
+                
+                // Wound Information Mappings
+                'woundInfo.woundType' => [
+                    'source' => 'wound_type',
+                    'fallbacks' => ['woundType', 'diagnosis_type']
+                ],
+                'woundInfo.woundLocation' => [
+                    'source' => 'wound_location',
+                    'fallbacks' => ['woundLocation', 'anatomical_location']
+                ],
+                'woundInfo.woundSize' => [
+                    'source' => 'wound_size',
+                    'fallbacks' => ['woundSize', 'size']
+                ],
+                'woundInfo.primaryDiagnosis' => [
+                    'source' => 'primary_diagnosis',
+                    'fallbacks' => ['primaryDiagnosis', 'diagnosis1']
+                ],
+                'woundInfo.secondaryDiagnosis' => [
+                    'source' => 'secondary_diagnosis',
+                    'fallbacks' => ['secondaryDiagnosis', 'diagnosis2']
+                ],
+                'woundInfo.tertiaryDiagnosis' => [
+                    'source' => 'tertiary_diagnosis',
+                    'fallbacks' => ['tertiaryDiagnosis', 'diagnosis3']
+                ],
+                'woundInfo.knownConditions' => [
+                    'source' => 'known_conditions',
+                    'fallbacks' => ['knownConditions', 'comorbidities']
+                ],
+                
+                // Provider Information Extended
+                'providerInfo.ptan' => [
+                    'source' => 'provider_ptan',
+                    'fallbacks' => ['provider.ptan', 'ptan']
+                ],
+                'providerInfo.taxId' => [
+                    'source' => 'provider_tax_id',
+                    'fallbacks' => ['provider.tax_id', 'tax_id']
+                ],
+                'providerInfo.specialty' => [
+                    'source' => 'provider_specialty',
+                    'fallbacks' => ['provider.specialty', 'specialty']
+                ],
+                
+                // Place of Service
+                'placeOfService.pos11' => [
+                    'source' => 'place_of_service_11',
+                    'fallbacks' => ['pos_11', 'office']
+                ],
+                'placeOfService.pos12' => [
+                    'source' => 'place_of_service_12',
+                    'fallbacks' => ['pos_12', 'home']
+                ],
+                'placeOfService.pos22' => [
+                    'source' => 'place_of_service_22',
+                    'fallbacks' => ['pos_22', 'outpatient_hospital']
+                ],
+                'placeOfService.pos31' => [
+                    'source' => 'place_of_service_31',
+                    'fallbacks' => ['pos_31', 'skilled_nursing']
+                ],
+                'placeOfService.pos32' => [
+                    'source' => 'place_of_service_32',
+                    'fallbacks' => ['pos_32', 'nursing_facility']
+                ],
+                
+                // Product Information
+                'productInfo.amnioBandQ4151' => [
+                    'source' => 'product_amnioband',
+                    'fallbacks' => ['amnioband_q4151', 'product_q4151']
+                ],
+                'productInfo.allopatchQ4128' => [
+                    'source' => 'product_allopatch',
+                    'fallbacks' => ['allopatch_q4128', 'product_q4128']
                 ]
             ],
 

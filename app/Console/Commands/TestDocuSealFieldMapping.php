@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Services\DocuSealService;
 use App\Models\Docuseal\DocusealTemplate;
-use App\Models\Manufacturer;
+use App\Models\Order\Manufacturer;
 
 class TestDocuSealFieldMapping extends Command
 {
@@ -97,6 +97,9 @@ class TestDocuSealFieldMapping extends Command
             $this->table(
                 ['DocuSeal Field', 'Mapped Value'],
                 collect($mappedFields)->map(function ($value, $field) {
+                    if (is_array($value)) {
+                        $value = json_encode($value);
+                    }
                     return [$field, is_bool($value) ? ($value ? 'Yes' : 'No') : substr((string)$value, 0, 50)];
                 })->toArray()
             );

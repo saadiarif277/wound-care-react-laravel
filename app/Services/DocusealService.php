@@ -137,9 +137,14 @@ class DocuSealService
         $transformedData = $this->transformToNestedStructure($data);
 
         foreach ($fieldMappings as $docusealFieldName => $mapping) {
-            // Handle both formats: simple string or array with system_field/local_field
+            // Handle multiple formats:
+            // 1. New simplified format: 'CSV Field Name' => 'our.field.path'
+            // 2. Legacy string format: 'docuseal_field' => 'system_field'
+            // 3. Legacy complex format: 'docuseal_field' => ['system_field' => 'path', 'local_field' => 'path', 'data_type' => 'string']
+            
             if (is_string($mapping)) {
-                // Simple format: 'docuseal_field' => 'system_field'
+                // For new format, the mapping value is our internal field path
+                // We'll use it to find data in the transformed structure
                 $systemFieldPath = $mapping;
                 $mappingArray = ['system_field' => $systemFieldPath];
             } else {
@@ -284,6 +289,8 @@ class DocuSealService
             'state' => $data['patient_state'] ?? '',
             'zip' => $data['patient_zip'] ?? '',
             'phone' => $data['patient_phone'] ?? '',
+            'homePhone' => $data['patient_home_phone'] ?? $data['home_phone'] ?? '',
+            'mobile' => $data['patient_mobile'] ?? $data['mobile'] ?? '',
             'email' => $data['patient_email'] ?? '',
         ];
 
@@ -292,16 +299,28 @@ class DocuSealService
             'providerName' => $data['provider_name'] ?? '',
             'providerEmail' => $data['provider_email'] ?? '',
             'providerNpi' => $data['provider_npi'] ?? '',
+            'npi' => $data['provider_npi'] ?? '', // Alternative field name
             'credentials' => $data['provider_credentials'] ?? '',
+            'specialty' => $data['provider_specialty'] ?? '',
+            'ptan' => $data['provider_ptan'] ?? '',
+            'taxId' => $data['provider_tax_id'] ?? '',
+            'medicareProvider' => $data['medicare_provider'] ?? '',
         ];
 
         // Facility Information
         $nested['facilityInfo'] = [
             'facilityName' => $data['facility_name'] ?? '',
             'facilityAddress' => $data['facility_address'] ?? '',
+            'facilityCity' => $data['facility_city'] ?? '',
+            'facilityState' => $data['facility_state'] ?? '',
+            'facilityZip' => $data['facility_zip'] ?? '',
             'facilityNpi' => $data['facility_npi'] ?? '',
             'facilityTin' => $data['facility_tin'] ?? '',
             'facilityPtan' => $data['facility_ptan'] ?? '',
+            'facilityContact' => $data['facility_contact'] ?? '',
+            'facilityContactPhone' => $data['facility_contact_phone'] ?? '',
+            'facilityContactFax' => $data['facility_contact_fax'] ?? '',
+            'facilityContactEmail' => $data['facility_contact_email'] ?? '',
         ];
 
         // Request Information
@@ -316,17 +335,44 @@ class DocuSealService
         $nested['clinicalInfo'] = [
             'woundType' => $data['wound_type'] ?? '',
             'woundLocation' => $data['wound_location'] ?? '',
-            'woundSize' => $data['total_wound_size'] ?? '',
+            'woundSize' => $data['total_wound_size'] ?? $data['wound_size'] ?? '',
             'woundDimensions' => $data['wound_dimensions'] ?? '',
             'diagnosisCode' => $data['diagnosis_code'] ?? '',
             'primaryDiagnosisCode' => $data['primary_diagnosis_code'] ?? '',
             'secondaryDiagnosisCode' => $data['secondary_diagnosis_code'] ?? '',
         ];
+        
+        // Wound Information (for more specific mapping)
+        $nested['woundInfo'] = [
+            'woundType' => $data['wound_type'] ?? '',
+            'woundLocation' => $data['wound_location'] ?? '',
+            'woundSize' => $data['wound_size'] ?? $data['total_wound_size'] ?? '',
+            'primaryDiagnosis' => $data['primary_diagnosis'] ?? $data['primary_diagnosis_code'] ?? '',
+            'secondaryDiagnosis' => $data['secondary_diagnosis'] ?? $data['secondary_diagnosis_code'] ?? '',
+            'tertiaryDiagnosis' => $data['tertiary_diagnosis'] ?? '',
+            'knownConditions' => $data['known_conditions'] ?? '',
+        ];
 
         // Insurance Information
         $nested['insuranceInfo'] = [
-            'primaryInsuranceName' => $data['primary_insurance_name'] ?? '',
-            'primaryMemberId' => $data['primary_member_id'] ?? '',
+            'primaryInsurance' => [
+                'primaryInsuranceName' => $data['primary_insurance_name'] ?? $data['payer_name'] ?? '',
+                'primaryMemberId' => $data['primary_member_id'] ?? $data['patient_member_id'] ?? '',
+                'primaryPolicyNumber' => $data['primary_policy_number'] ?? $data['policy_number'] ?? '',
+                'primaryPayerPhone' => $data['primary_payer_phone'] ?? $data['payer_phone'] ?? '',
+                'primarySubscriberName' => $data['primary_subscriber_name'] ?? $data['subscriber_name'] ?? '',
+                'primaryPlanType' => $data['primary_plan_type'] ?? '',
+                'primaryGroupNumber' => $data['primary_group_number'] ?? $data['group_number'] ?? '',
+            ],
+            'secondaryInsurance' => [
+                'secondaryInsuranceName' => $data['secondary_insurance_name'] ?? '',
+                'secondaryPolicyNumber' => $data['secondary_policy_number'] ?? '',
+                'secondaryPayerPhone' => $data['secondary_payer_phone'] ?? '',
+                'secondarySubscriberName' => $data['secondary_subscriber_name'] ?? '',
+            ],
+            // Keep flat structure for backward compatibility
+            'primaryInsuranceName' => $data['primary_insurance_name'] ?? $data['payer_name'] ?? '',
+            'primaryMemberId' => $data['primary_member_id'] ?? $data['patient_member_id'] ?? '',
             'primaryPlanType' => $data['primary_plan_type'] ?? '',
         ];
 

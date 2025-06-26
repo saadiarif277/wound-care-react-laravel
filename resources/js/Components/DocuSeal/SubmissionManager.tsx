@@ -130,7 +130,7 @@ export default function SubmissionManager({
                             <p>{error}</p>
                         </div>
                         <div className="mt-3">
-                            <Button variant="outline" size="sm" onClick={fetchSubmissions}>
+                            <Button variant="secondary" size="sm" onClick={fetchSubmissions}>
                                 Try Again
                             </Button>
                         </div>
@@ -145,7 +145,7 @@ export default function SubmissionManager({
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Document Submissions</h3>
                 <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={refreshSubmissions}
                     disabled={refreshing}

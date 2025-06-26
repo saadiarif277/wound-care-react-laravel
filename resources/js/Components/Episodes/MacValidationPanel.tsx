@@ -97,7 +97,7 @@ export default function MacValidationPanel({
   };
 
   const getRiskColor = (level: string) => {
-    const colors = {
+    const colors: Record<string, string> = {
       low: theme === 'dark' ? 'text-green-400' : 'text-green-600',
       medium: theme === 'dark' ? 'text-yellow-400' : 'text-yellow-600',
       high: theme === 'dark' ? 'text-orange-400' : 'text-orange-600',
@@ -107,7 +107,7 @@ export default function MacValidationPanel({
   };
 
   const getRiskBg = (level: string) => {
-    const backgrounds = {
+    const backgrounds: Record<string, string> = {
       low: theme === 'dark' ? 'bg-green-500/20' : 'bg-green-100',
       medium: theme === 'dark' ? 'bg-yellow-500/20' : 'bg-yellow-100',
       high: theme === 'dark' ? 'bg-orange-500/20' : 'bg-orange-100',

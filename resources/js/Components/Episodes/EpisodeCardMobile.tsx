@@ -40,16 +40,19 @@ const EpisodeCardMobile: React.FC<EpisodeCardMobileProps> = ({
   }
 
   const handleTouchStart = (e: TouchEvent) => {
-    if (e.touches.length > 0) {
-      startX.current = e.touches[0].clientX;
+    const touch = e.touches[0];
+    if (touch) {
+      startX.current = touch.clientX;
       setIsSwipping(true);
     }
   };
 
   const handleTouchMove = (e: TouchEvent) => {
-    if (!isSwipping || e.touches.length === 0) return;
+    if (!isSwipping) return;
+    const touch = e.touches[0];
+    if (!touch) return;
     
-    const currentX = e.touches[0].clientX;
+    const currentX = touch.clientX;
     const diff = startX.current - currentX;
     
     // Limit swipe distance

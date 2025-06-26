@@ -17,7 +17,8 @@
       "WebFetch(domain:docs.anthropic.com)",
       "Bash(composer:*)",
       "Bash(npm run:*)",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }

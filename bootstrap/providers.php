@@ -6,4 +6,5 @@ return [
     App\Providers\FHIRServiceProvider::class,
     App\Providers\OrganizationServiceProvider::class,
     App\Providers\QuickRequestServiceProvider::class,
+    App\Providers\FuzzyMappingServiceProvider::class,
 ];

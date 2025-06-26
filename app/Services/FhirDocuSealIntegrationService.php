@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Services\FhirService;
 use App\Services\FhirToIvrFieldExtractor;
 use App\Services\DocuSealService;
+use App\Services\FuzzyMapping\IVRMappingOrchestrator;
 use App\Models\Episode;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Manufacturer;
@@ -16,8 +17,15 @@ class FhirDocuSealIntegrationService
     public function __construct(
         private FhirService $fhirService,
         private FhirToIvrFieldExtractor $fhirExtractor,
-        private DocuSealService $docuSealService
-    ) {}
+        private DocuSealService $docuSealService,
+        private ?IVRMappingOrchestrator $fuzzyMapper = null
+    ) {
+        try {
+            $this->fuzzyMapper = app(IVRMappingOrchestrator::class);
+        } catch (\Exception $e) {
+            Log::warning('Fuzzy mapping service not available in FhirDocuSealIntegrationService');
+        }
+    }
 
     /**
      * Create DocuSeal submission with FHIR data for provider wound care orders
@@ -178,6 +186,43 @@ class FhirDocuSealIntegrationService
      */
     private function mapFhirToDocuSealFields(array $fhirData, $template): array
     {
+        // Try fuzzy mapping first if available
+        if ($this->fuzzyMapper && isset($template->manufacturer_id)) {
+            try {
+                // Extract additional context data
+                $additionalData = [
+                    'template_id' => $template->id,
+                    'user_email' => auth()->user()->email ?? '',
+                    'user_name' => auth()->user()->name ?? '',
+                    'submission_date' => now()->format('Y-m-d'),
+                ];
+                
+                // Use fuzzy mapping
+                $result = $this->fuzzyMapper->mapDataForIVR(
+                    $fhirData,
+                    $additionalData,
+                    $template->manufacturer_id,
+                    'insurance-verification'
+                );
+                
+                if ($result['success']) {
+                    Log::info('Using fuzzy mapping for DocuSeal fields', [
+                        'template_id' => $template->id,
+                        'mapped_fields' => count($result['mapped_fields']),
+                        'statistics' => $result['statistics']
+                    ]);
+                    
+                    return $result['mapped_fields'];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Fuzzy mapping failed, falling back to standard mapping', [
+                    'error' => $e->getMessage(),
+                    'template_id' => $template->id
+                ]);
+            }
+        }
+        
+        // Fall back to standard mapping
         $mappings = [];
 
         // Patient Demographics - Multiple field name variations
@@ -198,7 +243,7 @@ class FhirDocuSealIntegrationService
         // Order Information
         $this->mapOrderFields($fhirData, $mappings);
 
-        Log::info('FHIR to DocuSeal mapping completed', [
+        Log::info('FHIR to DocuSeal mapping completed (standard)', [
             'template_id' => $template->id,
             'input_fields' => count($fhirData),
             'mapped_fields' => count($mappings),

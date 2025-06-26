@@ -188,7 +188,7 @@ export default function AddressAutocomplete({
     const city = addr.city || addr.town || addr.village || '';
     
     // Update the form with parsed address
-    const newLine1 = streetAddress || suggestion.display_name.split(',')[0];
+    const newLine1 = streetAddress || suggestion.display_name.split(',')[0] || '';
     onChange({
       line1: newLine1,
       line2: value.line2 || '',

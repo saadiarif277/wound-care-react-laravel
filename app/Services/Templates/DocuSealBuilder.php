@@ -94,9 +94,33 @@ class DocuSealBuilder
     {
         $template = $this->getTemplate($manufacturerId);
 
-        // Map FHIR data to DocuSeal fields using the mapping engine
+        // Map FHIR data to DocuSeal fields using the mapping engine with fuzzy matching
         $mappingEngine = app(\App\Services\Templates\UnifiedTemplateMappingEngine::class);
-        $mappedFields = $mappingEngine->mapInsuranceData($fhirData, 'docuseal_ivr');
+        
+        // Extract additional data from current context
+        $additionalData = [
+            'user_email' => Auth::user()->email ?? '',
+            'user_name' => Auth::user()->name ?? '',
+            'submission_date' => now()->format('Y-m-d'),
+            'facility_data' => Auth::user()->primaryFacility ? Auth::user()->primaryFacility->toArray() : [],
+            'organization_data' => Auth::user()->currentOrganization ? Auth::user()->currentOrganization->toArray() : [],
+        ];
+        
+        // Use fuzzy matching if manufacturer ID is numeric
+        if (is_numeric($manufacturerId)) {
+            $mappedFields = $mappingEngine->mapWithFuzzyMatching(
+                $fhirData, 
+                $additionalData, 
+                (int)$manufacturerId, 
+                'insurance-verification'
+            );
+        } else {
+            // Fall back to standard mapping for non-numeric IDs
+            $mappedFields = $mappingEngine->mapInsuranceData(
+                array_merge($fhirData, $additionalData), 
+                'docuseal_ivr'
+            );
+        }
 
         // Prepare submission data
         $submissionData = [
@@ -146,20 +170,53 @@ class DocuSealBuilder
      */
     private function convertToDocuSealFieldName(string $fieldName, array $fieldMappings): ?string
     {
-        // Direct mapping
-        if (isset($fieldMappings[$fieldName])) {
-            return $fieldMappings[$fieldName]['docuseal_field'] ?? null;
+        // Handle new simplified format where CSV field names are keys
+        // and our internal field paths are values
+        foreach ($fieldMappings as $csvFieldName => $ourFieldPath) {
+            // Check if this is the new format (string values) or old format (array values)
+            if (is_string($ourFieldPath) && $ourFieldPath === $fieldName) {
+                return $csvFieldName;
+            }
         }
 
-        // Pattern-based mapping for nested fields
+        // Handle legacy format where field mappings contain metadata
+        if (isset($fieldMappings[$fieldName])) {
+            if (is_array($fieldMappings[$fieldName])) {
+                return $fieldMappings[$fieldName]['docuseal_field'] ?? 
+                       $fieldMappings[$fieldName]['docuseal_field_name'] ?? null;
+            }
+            return $fieldMappings[$fieldName];
+        }
+
+        // Pattern-based mapping for nested fields (using exact CSV field names)
         $patterns = [
-            'patientInfo.patientName' => 'patient_name',
-            'patientInfo.dateOfBirth' => 'patient_dob',
-            'insuranceInfo.primaryInsurance.primaryInsuranceName' => 'primary_insurance',
-            'insuranceInfo.primaryInsurance.primaryMemberId' => 'member_id',
-            'providerInfo.providerName' => 'provider_name',
-            'providerInfo.providerNPI' => 'provider_npi',
-            'facilityInfo.facilityName' => 'facility_name'
+            'patientInfo.patientName' => 'Patient Name',
+            'patientInfo.dateOfBirth' => 'DOB',
+            'patientInfo.gender' => 'Gender',
+            'patientInfo.address' => 'Address',
+            'patientInfo.city' => 'City',
+            'patientInfo.state' => 'State',
+            'patientInfo.zip' => 'Zip',
+            'patientInfo.homePhone' => 'Home Phone',
+            'patientInfo.mobile' => 'Mobile',
+            'insuranceInfo.primaryInsurance.primaryInsuranceName' => 'Primary Insurance',
+            'insuranceInfo.primaryInsurance.primaryPolicyNumber' => 'Policy Number',
+            'insuranceInfo.primaryInsurance.primaryPayerPhone' => 'Payer Phone',
+            'insuranceInfo.primaryInsurance.primarySubscriberName' => 'Suscriber Name',
+            'providerInfo.providerName' => 'Provider Name',
+            'providerInfo.npi' => 'NPI',
+            'providerInfo.ptan' => 'PTAN',
+            'providerInfo.taxId' => 'Tax ID',
+            'providerInfo.specialty' => 'Specialty',
+            'facilityInfo.facilityName' => 'Facility Name',
+            'facilityInfo.facilityAddress' => 'Facility Address',
+            'facilityInfo.facilityCity' => 'Facility City',
+            'facilityInfo.facilityState' => 'Facility State',
+            'facilityInfo.facilityZip' => 'Facility Zip',
+            'facilityInfo.facilityNpi' => 'Facility NPI',
+            'woundInfo.woundType' => 'Known Conditions',
+            'woundInfo.woundLocation' => 'Primary',
+            'woundInfo.woundSize' => 'Wound Size',
         ];
 
         return $patterns[$fieldName] ?? null;
