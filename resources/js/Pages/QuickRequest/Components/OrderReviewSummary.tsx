@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { 
-  FiAlertCircle, FiFileText, FiShoppingCart, 
-  FiDollarSign, FiUser, FiTruck, 
+import {
+  FiAlertCircle, FiFileText, FiShoppingCart,
+  FiDollarSign, FiUser, FiTruck,
   FiActivity, FiEdit2, FiEye, FiDownload, FiMessageSquare,
   FiShield, FiClock, FiChevronDown, FiChevronRight,
   FiCheckCircle, FiXCircle, FiAlertTriangle
@@ -28,16 +28,16 @@ interface OrderReviewData {
   notes?: InternalNote[];
 }
 
-type OrderStatus = 
-  | 'draft' 
-  | 'ready_for_review' 
-  | 'submitted' 
-  | 'under_admin_review' 
-  | 'sent_to_manufacturer' 
-  | 'in_production' 
-  | 'shipped' 
-  | 'delivered' 
-  | 'cancelled' 
+type OrderStatus =
+  | 'draft'
+  | 'ready_for_review'
+  | 'submitted'
+  | 'under_admin_review'
+  | 'sent_to_manufacturer'
+  | 'in_production'
+  | 'shipped'
+  | 'delivered'
+  | 'cancelled'
   | 'on_hold';
 
 interface PatientSection {
@@ -221,16 +221,16 @@ const getSectionStatus = (section: any, required: string[]): SectionStatus => {
   if (missingFields.length === 0) {
     return { icon: 'complete', color: 'green', message: 'Complete' };
   } else if (missingFields.length <= 2) {
-    return { 
-      icon: 'warning', 
-      color: 'yellow', 
-      message: `Missing: ${missingFields.join(', ')}` 
+    return {
+      icon: 'warning',
+      color: 'yellow',
+      message: `Missing: ${missingFields.join(', ')}`
     };
   } else {
-    return { 
-      icon: 'error', 
-      color: 'red', 
-      message: `${missingFields.length} fields missing` 
+    return {
+      icon: 'error',
+      color: 'red',
+      message: `${missingFields.length} fields missing`
     };
   }
 };
@@ -269,7 +269,7 @@ export default function OrderReviewSummary({
   const loadOrderData = async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/orders/${orderId}/review`);
+      const response = await fetch(`/api/v1/orders/${orderId}/review`);
       const data = await response.json();
       setOrderData(data);
     } catch (error) {
@@ -292,7 +292,7 @@ export default function OrderReviewSummary({
 
   const handleSubmit = async () => {
     if (!confirmChecked) return;
-    
+
     setSubmitting(true);
     try {
       await onSubmit?.();
@@ -309,14 +309,14 @@ export default function OrderReviewSummary({
 
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    
+
     try {
-      await fetch(`/api/orders/${orderId}/notes`, {
+      await fetch(`/api/v1/orders/${orderId}/notes`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ note: newNote })
       });
-      
+
       toast.success('Note added successfully');
       setNewNote('');
       setShowNoteModal(false);
@@ -329,7 +329,7 @@ export default function OrderReviewSummary({
   // Determine if all sections are complete
   const isOrderComplete = () => {
     if (!orderData) return false;
-    
+
     // Check required fields per section
     const patientComplete = !!(
       orderData.patient.demographics.firstName &&
@@ -337,17 +337,17 @@ export default function OrderReviewSummary({
       orderData.patient.demographics.dateOfBirth &&
       orderData.patient.insurance.primary.policyNumber
     );
-    
+
     const clinicalComplete = !!(
       orderData.clinical.wound.type &&
       orderData.clinical.wound.size &&
       orderData.clinical.diagnoses.primary.code
     );
-    
+
     const productsComplete = orderData.products.length > 0;
-    
+
     const formsComplete = orderData.forms.ivr.status === 'complete';
-    
+
     return patientComplete && clinicalComplete && productsComplete && formsComplete;
   };
 
@@ -380,7 +380,7 @@ export default function OrderReviewSummary({
             Status: <span className="font-medium capitalize">{orderData.status.replace('_', ' ')}</span>
           </p>
         </div>
-        
+
         <div className="flex items-center space-x-3">
           {isPreSubmission && (
             <>
@@ -395,7 +395,7 @@ export default function OrderReviewSummary({
                 <FiMessageSquare className="w-4 h-4" />
                 <span>Add Note</span>
               </button>
-              
+
               <button
                 onClick={() => setShowConfirmModal(true)}
                 disabled={!isOrderComplete()}
@@ -474,7 +474,7 @@ export default function OrderReviewSummary({
           {/* Insurance Information */}
           <div>
             <h4 className={cn("font-medium mb-3", t.text.primary)}>Insurance Coverage</h4>
-            
+
             {/* Primary Insurance */}
             <div className="mb-4">
               <h5 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Primary Insurance</h5>
@@ -625,7 +625,7 @@ export default function OrderReviewSummary({
                   <dd className={t.text.primary}>{orderData.clinical.wound.duration}</dd>
                 </div>
               </dl>
-              
+
               <div>
                 <h5 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Treatment History</h5>
                 <dl className="space-y-2 text-sm">
@@ -735,7 +735,7 @@ export default function OrderReviewSummary({
                   <p className={cn("text-sm mt-1", t.text.secondary)}>
                     {product.manufacturer} • SKU: {product.sku}
                   </p>
-                  
+
                   {/* Sizes and Quantities */}
                   <div className="mt-3 space-y-1">
                     {product.sizes.map((size, sizeIdx) => (
@@ -748,7 +748,7 @@ export default function OrderReviewSummary({
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Coverage Alerts */}
                 {product.coverageAlerts && product.coverageAlerts.length > 0 && (
                   <div className="ml-4 space-y-2">
@@ -799,7 +799,7 @@ export default function OrderReviewSummary({
                 <dd className={cn("font-bold text-lg", t.text.primary)}>${orderData.pricing.netPrice.toFixed(2)}</dd>
               </div>
             </dl>
-            
+
             {orderData.pricing.patientResponsibility !== undefined && (
               <div className={cn("p-4 rounded-lg", t.glass.frost)}>
                 <h5 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Patient Responsibility</h5>
@@ -830,7 +830,7 @@ export default function OrderReviewSummary({
               <h4 className={cn("font-medium", t.text.primary)}>IVR Form</h4>
               <StatusBadge status={orderData.forms.ivr.status} />
             </div>
-            
+
             <dl className="space-y-2 text-sm">
               {orderData.forms.ivr.completionDate && (
                 <div className="flex">
@@ -849,7 +849,7 @@ export default function OrderReviewSummary({
                 </div>
               )}
             </dl>
-            
+
             <div className="mt-4 flex space-x-2">
               {orderData.forms.ivr.status === 'not_started' && isPreSubmission && (
                 <button
@@ -882,7 +882,7 @@ export default function OrderReviewSummary({
               <h4 className={cn("font-medium", t.text.primary)}>Order Form</h4>
               <StatusBadge status={orderData.forms.order.status} />
             </div>
-            
+
             <dl className="space-y-2 text-sm">
               {orderData.forms.order.completionDate && (
                 <div className="flex">
@@ -893,7 +893,7 @@ export default function OrderReviewSummary({
                 </div>
               )}
             </dl>
-            
+
             <div className="mt-4 flex space-x-2">
               {orderData.forms.order.status === 'not_started' && isPreSubmission && (
                 <button
@@ -937,7 +937,7 @@ export default function OrderReviewSummary({
               </address>
             ) : null}
           </div>
-          
+
           <dl className="space-y-2 text-sm">
             <div className="flex">
               <dt className={cn("font-medium w-32", t.text.secondary)}>Expected Date:</dt>
@@ -958,7 +958,7 @@ export default function OrderReviewSummary({
               </div>
             )}
           </dl>
-          
+
           {orderData.shipping.specialInstructions && (
             <div className="md:col-span-2">
               <h4 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Special Instructions</h4>
@@ -1041,11 +1041,11 @@ export default function OrderReviewSummary({
       >
         <div className="space-y-4">
           <p className={t.text.secondary}>
-            By submitting this order, I confirm that the information provided is accurate and complete. 
-            I understand that this order will be sent to the manufacturer for processing and that any 
+            By submitting this order, I confirm that the information provided is accurate and complete.
+            I understand that this order will be sent to the manufacturer for processing and that any
             changes after submission may require administrative approval.
           </p>
-          
+
           <label className="flex items-start space-x-3 cursor-pointer">
             <input
               type="checkbox"
@@ -1124,7 +1124,7 @@ function SectionCard({
           <h3 className={cn("text-lg font-semibold", t.text.primary)}>{title}</h3>
           {status && <SectionStatusIndicator status={status} />}
         </div>
-        
+
         <div className="flex items-center space-x-3">
           {onEdit && expanded && (
             <button
@@ -1149,7 +1149,7 @@ function SectionCard({
           )}
         </div>
       </div>
-      
+
       {expanded && (
         <div className={cn("px-6 pb-6 border-t", `border-${t.glass.border}`)}>
           <div className="mt-4">{children}</div>
