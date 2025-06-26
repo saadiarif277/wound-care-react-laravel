@@ -11,6 +11,7 @@ use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class FhirDocuSealIntegrationService
 {
@@ -192,11 +193,11 @@ class FhirDocuSealIntegrationService
                 // Extract additional context data
                 $additionalData = [
                     'template_id' => $template->id,
-                    'user_email' => auth()->user()->email ?? '',
-                    'user_name' => auth()->user()->name ?? '',
+                    'user_email' => Auth::user()->email ?? '',
+                    'user_name' => Auth::user()->name ?? '',
                     'submission_date' => now()->format('Y-m-d'),
                 ];
-                
+
                 // Use fuzzy mapping
                 $result = $this->fuzzyMapper->mapDataForIVR(
                     $fhirData,
@@ -204,14 +205,14 @@ class FhirDocuSealIntegrationService
                     $template->manufacturer_id,
                     'insurance-verification'
                 );
-                
+
                 if ($result['success']) {
                     Log::info('Using fuzzy mapping for DocuSeal fields', [
                         'template_id' => $template->id,
                         'mapped_fields' => count($result['mapped_fields']),
                         'statistics' => $result['statistics']
                     ]);
-                    
+
                     return $result['mapped_fields'];
                 }
             } catch (\Exception $e) {
@@ -221,7 +222,7 @@ class FhirDocuSealIntegrationService
                 ]);
             }
         }
-        
+
         // Fall back to standard mapping
         $mappings = [];
 
@@ -302,10 +303,10 @@ class FhirDocuSealIntegrationService
     private function mapProviderFields(array $fhirData, array &$mappings): void
     {
         // First try to load from authenticated user if available
-        if (auth()->check()) {
-            $user = auth()->user();
+        if (Auth::check()) {
+            $user = Auth::user();
             $user->load(['providerProfile', 'providerCredentials']);
-            
+
             // Provider name
             $providerName = $user->first_name . ' ' . $user->last_name;
             $mappings['PROVIDER NAME'] = $providerName;
@@ -315,7 +316,7 @@ class FhirDocuSealIntegrationService
             $mappings['DOCTOR NAME'] = $providerName;
             $mappings['Doctor Name'] = $providerName;
             $mappings['provider_name'] = $providerName;
-            
+
             // Provider NPI
             $npi = $user->npi_number;
             if (!$npi) {
@@ -331,7 +332,7 @@ class FhirDocuSealIntegrationService
                 $mappings['PHYSICIAN NPI'] = $npi;
                 $mappings['provider_npi'] = $npi;
             }
-            
+
             // Provider phone
             if ($user->phone) {
                 $formattedPhone = $this->formatPhoneNumber($user->phone);
@@ -340,7 +341,7 @@ class FhirDocuSealIntegrationService
                 $mappings['PHYSICIAN PHONE'] = $formattedPhone;
                 $mappings['provider_phone'] = $formattedPhone;
             }
-            
+
             // Provider specialty from profile
             if ($user->providerProfile && $user->providerProfile->primary_specialty) {
                 $mappings['SPECIALTY'] = $user->providerProfile->primary_specialty;
@@ -348,7 +349,7 @@ class FhirDocuSealIntegrationService
                 $mappings['PHYSICIAN SPECIALTY'] = $user->providerProfile->primary_specialty;
                 $mappings['provider_specialty'] = $user->providerProfile->primary_specialty;
             }
-            
+
             // Additional provider details
             if ($user->providerProfile) {
                 if ($user->providerProfile->credentials) {
@@ -361,7 +362,7 @@ class FhirDocuSealIntegrationService
                 }
             }
         }
-        
+
         // Override with FHIR data if available
         if (isset($fhirData['provider_name'])) {
             $mappings['PROVIDER NAME'] = $fhirData['provider_name'];
@@ -403,23 +404,23 @@ class FhirDocuSealIntegrationService
     private function mapFacilityFields(array $fhirData, array &$mappings): void
     {
         // First try to load from authenticated user's facilities if available
-        if (auth()->check()) {
-            $user = auth()->user();
+        if (Auth::check()) {
+            $user = Auth::user();
             $user->load(['facilities', 'currentOrganization', 'organizations']);
-            
+
             // Get primary facility or first available facility
             $facility = $user->facilities()->wherePivot('is_primary', true)->first();
             if (!$facility && $user->facilities->count() > 0) {
                 $facility = $user->facilities->first();
             }
-            
+
             if ($facility) {
                 $mappings['FACILITY NAME'] = $facility->name;
                 $mappings['Facility Name'] = $facility->name;
                 $mappings['CLINIC NAME'] = $facility->name;
                 $mappings['Clinic Name'] = $facility->name;
                 $mappings['facility_name'] = $facility->name;
-                
+
                 // Facility address
                 $facilityAddress = $facility->full_address ?? $facility->address_line1;
                 if ($facilityAddress) {
@@ -428,7 +429,7 @@ class FhirDocuSealIntegrationService
                     $mappings['CLINIC ADDRESS'] = $facilityAddress;
                     $mappings['facility_address'] = $facilityAddress;
                 }
-                
+
                 // Facility NPI
                 if ($facility->npi) {
                     $mappings['FACILITY NPI'] = $facility->npi;
@@ -436,38 +437,38 @@ class FhirDocuSealIntegrationService
                     $mappings['CLINIC NPI'] = $facility->npi;
                     $mappings['facility_npi'] = $facility->npi;
                 }
-                
+
                 // Additional facility details
                 if ($facility->phone) {
                     $mappings['FACILITY PHONE'] = $this->formatPhoneNumber($facility->phone);
                     $mappings['Facility Phone'] = $this->formatPhoneNumber($facility->phone);
                 }
-                
+
                 if ($facility->fax) {
                     $mappings['FACILITY FAX'] = $this->formatPhoneNumber($facility->fax);
                     $mappings['Facility Fax'] = $this->formatPhoneNumber($facility->fax);
                 }
             }
-            
+
             // Organization information
             $organization = $user->currentOrganization ?? $user->primaryOrganization();
             if (!$organization && $user->organizations->count() > 0) {
                 $organization = $user->organizations->first();
             }
-            
+
             if ($organization) {
                 $mappings['ORGANIZATION NAME'] = $organization->name;
                 $mappings['Organization Name'] = $organization->name;
                 $mappings['PRACTICE NAME'] = $organization->name;
                 $mappings['Practice Name'] = $organization->name;
-                
+
                 if ($organization->phone) {
                     $mappings['ORGANIZATION PHONE'] = $this->formatPhoneNumber($organization->phone);
                     $mappings['Organization Phone'] = $this->formatPhoneNumber($organization->phone);
                 }
             }
         }
-        
+
         // Override with FHIR data if available
         if (isset($fhirData['facility_name'])) {
             $mappings['FACILITY NAME'] = $fhirData['facility_name'];
@@ -650,8 +651,8 @@ class FhirDocuSealIntegrationService
     private function getProviderEmail(Episode $episode, array $fhirData): string
     {
         // Try to get from authenticated user
-        if (auth()->check() && auth()->user()->email) {
-            return auth()->user()->email;
+        if (Auth::check() && Auth::user()->email) {
+            return Auth::user()->email;
         }
 
         // Try to get from FHIR data
