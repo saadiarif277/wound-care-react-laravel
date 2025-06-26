@@ -661,7 +661,7 @@ class FhirDocuSealIntegrationService
         }
 
         // Fallback to a default
-        return config('app.default_provider_email', 'provider@mscwoundcare.com');
+        return 'limitless@mscwoundcare.com';
     }
 
     /**
