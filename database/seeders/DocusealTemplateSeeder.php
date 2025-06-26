@@ -126,17 +126,28 @@ class DocusealTemplateSeeder extends Seeder
 
             $this->command->info("Processing manufacturer: {$manufacturer->name}");
 
-            // Create or update DocuSeal folder
-            DocusealFolder::updateOrCreate(
-                [
+            // Create or update DocuSeal folder (check both manufacturer_id AND docuseal_folder_id)
+            $folder = DocusealFolder::where('manufacturer_id', $manufacturer->id)
+                ->orWhere('docuseal_folder_id', $manufacturerData['folder_id'])
+                ->first();
+
+            if ($folder) {
+                // Update existing folder to ensure correct association
+                $folder->update([
                     'manufacturer_id' => $manufacturer->id,
-                ],
-                [
                     'folder_name' => "{$manufacturer->name} DocuSeal Forms",
                     'docuseal_folder_id' => $manufacturerData['folder_id'],
                     'is_active' => true,
-                ]
-            );
+                ]);
+            } else {
+                // Create new folder
+                DocusealFolder::create([
+                    'manufacturer_id' => $manufacturer->id,
+                    'folder_name' => "{$manufacturer->name} DocuSeal Forms",
+                    'docuseal_folder_id' => $manufacturerData['folder_id'],
+                    'is_active' => true,
+                ]);
+            }
 
             // Create or update templates
             foreach ($manufacturerData['templates'] as $templateData) {

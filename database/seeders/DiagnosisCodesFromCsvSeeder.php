@@ -13,7 +13,11 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
      */
     public function run(): void
     {
-        // Recreate diagnosis_codes table with updated schema
+        // Disable foreign key checks temporarily
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        // Drop dependent table first, then main table
+        DB::statement('DROP TABLE IF EXISTS `wound_type_diagnosis_codes`');
         DB::statement('DROP TABLE IF EXISTS `diagnosis_codes`');
         DB::statement(<<<SQL
 CREATE TABLE `diagnosis_codes` (
@@ -34,22 +38,44 @@ CREATE TABLE `diagnosis_codes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL);
 
+        // Recreate wound_type_diagnosis_codes table
+        DB::statement(<<<SQL
+CREATE TABLE `wound_type_diagnosis_codes` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `wound_type_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `diagnosis_code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `is_required` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `wound_type_diagnosis_codes_unique` (`wound_type_code`,`diagnosis_code`),
+  KEY `wound_type_diagnosis_codes_wound_type_code_foreign` (`wound_type_code`),
+  KEY `wound_type_diagnosis_codes_diagnosis_code_foreign` (`diagnosis_code`),
+  CONSTRAINT `wound_type_diagnosis_codes_diagnosis_code_foreign` FOREIGN KEY (`diagnosis_code`) REFERENCES `diagnosis_codes` (`code`) ON DELETE CASCADE,
+  CONSTRAINT `wound_type_diagnosis_codes_wound_type_code_foreign` FOREIGN KEY (`wound_type_code`) REFERENCES `wound_types` (`code`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL);
+
+        // Re-enable foreign key checks
+        DB::statement('SET FOREIGN_KEY_CHECKS=1');
+
         // First ensure wound types exist
         $this->ensureWoundTypesExist();
-        
+
         // Clear existing diagnosis codes and relationships
         DB::table('wound_type_diagnosis_codes')->delete();
         DB::table('diagnosis_codes')->delete();
 
         // Import Diabetic Foot Ulcer codes
         $this->importDiabeticFootUlcerCodes();
-        
+
         // Import Venous Leg Ulcer codes
         $this->importVenousLegUlcerCodes();
-        
+
         // Import Pressure Ulcer codes
         $this->importPressureUlcerCodes();
-        
+
         // Import generic L97 chronic ulcer codes first
         $this->importGenericChronicUlcerCodes();
 
@@ -78,7 +104,7 @@ SQL);
             if (!empty($row[0]) && strlen($row[0]) > 3) {
                 $code = trim($row[0]);
                 $description = trim($row[1] ?? '');
-                
+
                 if (preg_match('/^[A-Z]\d{2}/', $code)) {
                     $diagnosisCodes[$code] = [
                         'id' => Str::uuid(),
@@ -236,12 +262,12 @@ SQL);
             if (!empty($row[0])) {
                 $code = trim($row[0]);
                 $description = trim($row[1] ?? '');
-            
+
                 $diagnosisCodes[$code] = [
                     'id' => Str::uuid(),
                     'code' => $code,
                     'description' => $description,
-                    'category' => null, // No color category for pressure ulcers
+                    'category' => 'orange', // Pressure ulcers are orange category
                     'specialty' => 'pressure',
                     'wound_type' => 'pressure_ulcer',
                     'is_active' => true,
@@ -253,7 +279,7 @@ SQL);
                     'id' => Str::uuid(),
                     'wound_type_code' => 'pressure_ulcer',
                     'diagnosis_code' => $code,
-                    'category' => null,
+                    'category' => 'orange',
                     'is_required' => true,
                     'created_at' => now(),
                     'updated_at' => now(),
@@ -300,7 +326,7 @@ SQL);
             if (!empty($row[0]) && strlen($row[0]) > 3) {
                 $code = trim($row[0]);
                 $description = trim($row[1] ?? '');
-                
+
                 if (preg_match('/^L9[78]\./', $code)) {
                     $diagnosisCodes[$code] = [
                         'id' => Str::uuid(),
@@ -363,7 +389,7 @@ SQL);
             if (!empty($row[0]) && strlen($row[0]) > 3) {
                 $code = trim($row[0]);
                 $description = trim($row[1] ?? '');
-                
+
                 if (preg_match('/^[A-Z]\d{2}/', $code)) {
                     $diagnosisCodes[$code] = [
                         'id' => Str::uuid(),

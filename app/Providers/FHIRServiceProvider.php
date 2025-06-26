@@ -25,12 +25,12 @@ class FhirServiceProvider extends ServiceProvider
     {
         // Register Azure FHIR client with proper error handling
         $this->app->singleton(AzureFhirClient::class, function ($app) {
-            $baseUrl = config('services.azure.fhir.url') ?? config('services.azure.fhir.base_url');
-            
+            $baseUrl = config('services.azure.fhir.base_url');
+
             if (!$baseUrl) {
                 throw new \RuntimeException('Azure FHIR base URL is not configured. Please set AZURE_FHIR_URL in your .env file.');
             }
-            
+
             return new AzureFhirClient($baseUrl, $this->getAzureFhirAccessToken());
         });
 
@@ -72,21 +72,21 @@ class FhirServiceProvider extends ServiceProvider
         $this->app->singleton(FhirService::class, function ($app) {
             $client = $app->make(AzureFhirClient::class);
             $circuitBreaker = $app->make(FhirCircuitBreaker::class);
-            
+
             // Create FhirService with circuit breaker protection
             $fhirService = new FhirService($client);
-            
+
             // Wrap service methods with circuit breaker
             return new class($fhirService, $circuitBreaker) extends FhirService {
                 private FhirService $service;
                 private FhirCircuitBreaker $circuitBreaker;
-                
+
                 public function __construct(FhirService $service, FhirCircuitBreaker $circuitBreaker)
                 {
                     $this->service = $service;
                     $this->circuitBreaker = $circuitBreaker;
                 }
-                
+
                 public function __call($method, $arguments)
                 {
                     return $this->circuitBreaker->call(
@@ -171,19 +171,19 @@ class FhirServiceProvider extends ServiceProvider
             }
 
             $token = $response->json('access_token');
-            
+
             if (!$token) {
                 throw new \RuntimeException('No access token in Azure AD response');
             }
 
             return $token;
-            
+
         } catch (\Exception $e) {
             logger()->error('Failed to request Azure FHIR token', [
                 'error' => $e->getMessage(),
                 'tenant_id' => $tenantId
             ]);
-            
+
             throw new \RuntimeException(
                 'Unable to authenticate with Azure FHIR: ' . $e->getMessage(),
                 $e->getCode(),
@@ -250,10 +250,10 @@ class FhirServiceProvider extends ServiceProvider
             if (!is_array($value)) {
                 return false;
             }
-            
-            return isset($value['system']) && 
-                   isset($value['value']) && 
-                   is_string($value['system']) && 
+
+            return isset($value['system']) &&
+                   isset($value['value']) &&
+                   is_string($value['system']) &&
                    is_string($value['value']);
         }, 'The :attribute must be a valid FHIR identifier with system and value.');
     }
