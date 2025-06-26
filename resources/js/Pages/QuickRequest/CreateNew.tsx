@@ -1188,6 +1188,7 @@ function QuickRequestCreateNew({
 
             {currentSection === 4 && (
               <Step6ReviewSubmit
+                formData={formData}
                 products={products}
                 providers={providers}
                 facilities={facilities}
