@@ -1,10 +1,11 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 interface DocuSealEmbedProps {
   manufacturerId: string;
   productCode: string;
   formData?: any; // Pre-filled form data from quick request
+  episodeId?: number; // Episode ID for FHIR integration
   onComplete?: (data: any) => void;
   onSave?: (data: any) => void;
   onError?: (error: string) => void;
@@ -15,39 +16,58 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   manufacturerId,
   productCode,
   formData = {}, // Default to empty object
-  onComplete,
-  onSave,
+  episodeId, // Episode ID for enhanced FHIR integration
   onError,
   className = '',
 }) => {
   const [token, setToken] = useState<string | null>(null);
-  const [templateId, setTemplateId] = useState<string | null>(null);
+  const [, setTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [useDirectUrl, setUseDirectUrl] = useState(true); // Default to direct URL, but allow embedded option
+  const [integrationInfo, setIntegrationInfo] = useState<any>(null); // Store integration details
 
   useEffect(() => {
+    // Add ref to track if component is mounted to prevent race conditions
+    let isMounted = true;
+    let requestInProgress = false;
+
     const fetchToken = async () => {
+      // Prevent duplicate requests and race conditions
+      if (requestInProgress || !isMounted) {
+        console.warn('DocuSeal request already in progress or component unmounted, skipping duplicate call');
+        return;
+      }
+
+      requestInProgress = true;
+
       try {
+        if (!isMounted) return; // Double-check mounting status
+
         setIsLoading(true);
         setError(null);
 
-        // Use the new submission slug endpoint to get a proper DocuSeal slug
-        console.log('Sending DocuSeal request with data:', {
-          manufacturerId,
-          productCode,
-          formDataKeys: Object.keys(formData || {}),
-          hasFormData: !!formData,
-          sampleData: Object.keys(formData || {}).slice(0, 5)
-        });
-
-        const response = await axios.post('/quick-requests/docuseal/generate-submission-slug', {
+        // Enhanced request with FHIR integration support
+        const requestData = {
           user_email: 'limitless@mscwoundcare.com',
           integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
           prefill_data: formData, // Pass the form data as prefill_data
           manufacturerId,
-          productCode
-        }, {
+          productCode,
+          ...(episodeId && { episode_id: episodeId }) // Include episode ID if available for FHIR integration
+        };
+
+        console.log('Sending enhanced DocuSeal request with FHIR support:', {
+          manufacturerId,
+          productCode,
+          episodeId,
+          formDataKeys: Object.keys(formData || {}),
+          hasFormData: !!formData,
+          hasEpisode: !!episodeId,
+          sampleData: Object.keys(formData || {}).slice(0, 5)
+        });
+
+        const response = await axios.post('/quick-requests/docuseal/generate-submission-slug', requestData, {
           headers: {
             'Content-Type': 'application/json',
             'Accept': 'application/json'
@@ -62,13 +82,25 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
           throw new Error('No slug received from server');
         }
 
-        console.log('DocuSeal submission slug received:', {
+        console.log('DocuSeal submission created successfully:', {
           slug: slug,
           hasFormData: !!formData,
           fieldCount: Object.keys(formData || {}).length,
           sampleFields: Object.keys(formData || {}).slice(0, 5),
           submission_id: response.data.submission_id,
-          template_id: response.data.template_id
+          template_id: response.data.template_id,
+          integration_type: response.data.integration_type,
+          fhir_data_used: response.data.fhir_data_used,
+          fields_mapped: response.data.fields_mapped
+        });
+
+        // Store integration info for display
+        setIntegrationInfo({
+          type: response.data.integration_type,
+          fhirDataUsed: response.data.fhir_data_used || 0,
+          fieldsMapped: response.data.fields_mapped || 0,
+          templateName: response.data.template_name,
+          manufacturer: response.data.manufacturer
         });
 
         setTemplateId(response.data.template_id);
@@ -103,16 +135,24 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         }
 
         setError(msg);
-        if (onError) {
+        if (onError && isMounted) {
           onError(msg);
         }
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
+        requestInProgress = false;
       }
     };
 
     fetchToken();
-  }, [manufacturerId, productCode, formData, onError]);
+
+    // Cleanup function to prevent memory leaks and race conditions
+    return () => {
+      isMounted = false;
+    };
+  }, [manufacturerId, productCode, formData, episodeId, onError]);
 
   // Add embedded form logic using proper DocuSeal slug (not JWT)
   useEffect(() => {
@@ -152,16 +192,62 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       <div className={`flex items-center justify-center ${className}`} style={{ minHeight: '600px' }}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto" />
-          <p className="mt-3 text-sm text-gray-600">Loading form...</p>
+          <p className="mt-3 text-sm text-gray-600">
+            {episodeId ? 'Loading form with FHIR data...' : 'Loading form...'}
+          </p>
         </div>
       </div>
     );
   }
 
-      // If using direct URL, show a button to open DocuSeal in new window
+  // If using direct URL, show a button to open DocuSeal in new window
   if (useDirectUrl && token) {
     return (
       <div className={`w-full ${className}`}>
+        {/* Integration Info Banner */}
+        {integrationInfo && (
+          <div className={`mb-4 p-3 rounded-lg text-sm ${
+            integrationInfo.type === 'fhir_enhanced'
+              ? 'bg-green-50 border border-green-200 text-green-800'
+              : 'bg-blue-50 border border-blue-200 text-blue-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              {integrationInfo.type === 'fhir_enhanced' ? (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+              )}
+              <span className="font-medium">
+                {integrationInfo.type === 'fhir_enhanced'
+                  ? 'FHIR-Enhanced Integration'
+                  : 'Standard Integration'
+                }
+              </span>
+            </div>
+            <div className="mt-1 text-xs">
+              {integrationInfo.type === 'fhir_enhanced' ? (
+                <>
+                  Using FHIR patient data • {integrationInfo.fhirDataUsed} fields from healthcare records •
+                  {integrationInfo.fieldsMapped} total fields mapped
+                </>
+              ) : (
+                <>
+                  Using form data only • {integrationInfo.fieldsMapped} fields mapped
+                </>
+              )}
+            </div>
+            {integrationInfo.templateName && (
+              <div className="mt-1 text-xs opacity-75">
+                Template: {integrationInfo.templateName} ({integrationInfo.manufacturer})
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="w-full min-h-[600px] bg-white border border-gray-200 rounded-lg flex items-center justify-center">
           <div className="text-center p-8">
             <div className="mb-4">
@@ -170,7 +256,12 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               </svg>
             </div>
             <h3 className="text-lg font-medium text-gray-900 mb-2">DocuSeal Form Ready</h3>
-            <p className="text-gray-600 mb-4">Choose how you'd like to access the IVR form:</p>
+            <p className="text-gray-600 mb-4">
+              {integrationInfo?.type === 'fhir_enhanced'
+                ? 'Your form has been pre-populated with FHIR patient data'
+                : 'Choose how you\'d like to access the IVR form'
+              }
+            </p>
 
             <div className="mb-6 flex gap-2">
               <button

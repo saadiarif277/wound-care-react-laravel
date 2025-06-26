@@ -3,7 +3,7 @@
 namespace App\Services\QuickRequest\Handlers;
 
 use App\Models\Order;
-use App\Models\Episode;
+use App\Models\Episodes\Episode;
 use App\Services\FhirService;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Str;
@@ -50,7 +50,12 @@ class OrderHandler
     }
 
     /**
-     * Create follow-up order
+    /**
+     * Create a follow-up order for the given episode.
+     *
+     * @param Episode $episode
+     * @param array $orderDetails
+     * @return Order
      */
     public function createFollowUpOrder(Episode $episode, array $orderDetails): Order
     {
@@ -142,7 +147,7 @@ class OrderHandler
         // Add quantity and duration
         if (!empty($orderDetails['products'])) {
             $firstProduct = $orderDetails['products'][0];
-            
+
             if (!empty($firstProduct['quantity'])) {
                 $deviceRequestData['quantity'] = [
                     'value' => $firstProduct['quantity'],
@@ -195,7 +200,7 @@ class OrderHandler
         ];
 
         $display = $productMap[$product['id']] ?? "Product {$product['id']}";
-        
+
         if (!empty($product['size'])) {
             $display .= " - {$product['size']}";
         }
@@ -219,7 +224,7 @@ class OrderHandler
         // Update FHIR DeviceRequest status
         if ($order->fhir_device_request_id) {
             $fhirStatus = $this->mapOrderStatusToFhir($status);
-            
+
             $this->fhirService->update('DeviceRequest', $order->fhir_device_request_id, [
                 'status' => $fhirStatus
             ]);
@@ -261,7 +266,7 @@ class OrderHandler
             // This would normally fetch pricing from database
             $unitPrice = $this->getProductPrice($product['id'], $product['size'] ?? 'medium');
             $quantity = $product['quantity'] ?? 1;
-            
+
             $subtotal += $unitPrice * $quantity;
             $totalQuantity += $quantity;
         }

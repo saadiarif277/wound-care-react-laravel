@@ -523,6 +523,11 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-submission-slug');
 
+        // Debug endpoint for DocuSeal integration troubleshooting
+        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugDocuSealIntegration'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.debug');
+
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
@@ -977,25 +982,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('docuseal.demo.create-submission');
 });
 
-// QuickRequest DocuSeal Routes
+// QuickRequest DocuSeal Routes (Consolidated)
 Route::middleware(['auth'])->group(function () {
-    // Create QuickRequest DocuSeal submission for IVR forms
-    Route::post('/quickrequest/docuseal/create-submission', [\App\Http\Controllers\DocuSealSubmissionController::class, 'createSubmission'])
-        ->name('quickrequest.docuseal.create-submission');
-
-    // Generate JWT token for DocuSeal builder
-    Route::post('/quickrequest/docuseal/generate-builder-token', [\App\Http\Controllers\DocuSealSubmissionController::class, 'generateBuilderToken'])
-        ->name('quickrequest.docuseal.generate-builder-token');
-
     // Create final submission form with all QuickRequest data
     Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
         ->name('quickrequest.docuseal.create-final-submission');
-
-    // Check DocuSeal submission status
-    Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])
-        ->name('quickrequest.docuseal.status');
-
-    // Create episode for DocuSeal integration (NEW ROUTE) - moved to api.php
 });
 
 // ================================================================

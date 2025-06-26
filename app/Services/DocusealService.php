@@ -373,7 +373,7 @@ class DocuSealService
                 'template_id' => $templateId,
                 'send_email' => $submitterData['send_email'] ?? false,
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'email' => $submitterData['email'],
                     'name' => $submitterData['name'],
                     'fields' => $submitterData['fields'] ?? []
@@ -555,7 +555,7 @@ class DocuSealService
                 'template_id' => $templateId,
                 'send_email' => false,
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'email' => $order->provider->email ?? 'provider@example.com',
                     'name' => $order->provider->name ?? 'Provider',
                     'fields' => [
@@ -957,7 +957,7 @@ class DocuSealService
                 'send_email' => false, // Don't send email, we want to generate PDF directly
                 'completed' => true, // Mark as completed to generate PDF immediately
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'name' => $formData['signer_name'] ?? 'System Generated',
                     'email' => $formData['signer_email'] ?? 'system@example.com',
                     'fields' => array_merge($formData, $signatures),
