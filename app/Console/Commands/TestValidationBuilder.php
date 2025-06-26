@@ -5,7 +5,7 @@ namespace App\Console\Commands;
 use Illuminate\Console\Command;
 use App\Services\CmsCoverageApiService;
 use App\Services\ValidationBuilderEngine;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 
 class TestValidationBuilder extends Command
 {
@@ -151,11 +151,11 @@ class TestValidationBuilder extends Command
             // Test that services are properly registered and can be resolved
             $cmsService = app(CmsCoverageApiService::class);
             $validationEngine = app(ValidationBuilderEngine::class);
-            $macService = app(MedicareMacValidationService::class);
+            $macService = app(MacValidationService::class);
 
             $this->line("  ✓ CmsCoverageApiService registered and resolved");
             $this->line("  ✓ ValidationBuilderEngine registered and resolved");
-            $this->line("  ✓ MedicareMacValidationService registered and resolved");
+            $this->line("  ✓ MacValidationService registered and resolved");
 
             // Test service functionality instead of reflection
             $this->testServiceFunctionality($cmsService, $validationEngine);

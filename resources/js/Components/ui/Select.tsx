@@ -3,10 +3,17 @@ import { FiChevronDown } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn, themes } from '@/theme/glass-theme';
 
+interface SelectOption {
+  value: string | number;
+  label: string;
+  disabled?: boolean;
+  hidden?: boolean;
+}
+
 interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
-  options: Array<{ value: string | number; label: string }>;
+  options: SelectOption[];
 }
 
 const Select: React.FC<SelectProps> = ({ label, error, options, ...props }) => {
@@ -31,7 +38,12 @@ const Select: React.FC<SelectProps> = ({ label, error, options, ...props }) => {
           )}
         >
           {options.map(option => (
-            <option key={option.value} value={option.value}>
+            <option
+              key={option.value}
+              value={option.value}
+              disabled={option.disabled}
+              hidden={option.hidden}
+            >
               {option.label}
             </option>
           ))}

@@ -5,11 +5,17 @@ namespace App\Services\Fhir;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use App\Logging\PhiSafeLogger;
-
+use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 class FhirErrorHandler
 {
-    private PhiSafeLogger $logger;
-    private bool $includeDiagnostics;
+    /**
+     * @var PhiSafeLogger
+     */
+    private $logger;
+    /**
+     * @var bool
+     */
+    private $includeDiagnostics;
     
     public function __construct(PhiSafeLogger $logger)
     {
@@ -110,14 +116,23 @@ class FhirErrorHandler
      */
     private function determineSeverity(\Exception $exception): string
     {
-        return match(true) {
-            $exception instanceof \Illuminate\Validation\ValidationException => 'error',
-            $exception instanceof \Illuminate\Auth\AuthenticationException => 'error',
-            $exception instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException => 'error',
-            $exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException => 
-                $exception->getStatusCode() >= 500 ? 'fatal' : 'error',
-            default => 'error'
-        };
+        if ($exception instanceof \Illuminate\Validation\ValidationException) {
+            return 'error';
+        }
+
+        if ($exception instanceof \Illuminate\Auth\AuthenticationException) {
+            return 'error';
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+            return 'error';
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\HttpException) {
+            return $exception->getStatusCode() >= 500 ? 'fatal' : 'error';
+        }
+
+        return 'error';
     }
 
     /**
@@ -125,15 +140,31 @@ class FhirErrorHandler
      */
     private function determineIssueCode(\Exception $exception): string
     {
-        return match(true) {
-            $exception instanceof \Illuminate\Validation\ValidationException => 'invalid',
-            $exception instanceof \Illuminate\Auth\AuthenticationException => 'security',
-            $exception instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException => 'not-found',
-            $exception instanceof \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException => 'not-supported',
-            $exception instanceof \App\Exceptions\FhirException => $exception->getIssueCode(),
-            $exception instanceof \App\Exceptions\CircuitBreakerOpenException => 'transient',
-            default => 'exception'
-        };
+        if ($exception instanceof \Illuminate\Validation\ValidationException) {
+            return 'invalid';
+        }
+
+        if ($exception instanceof \Illuminate\Auth\AuthenticationException) {
+            return 'security';
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\NotFoundHttpException) {
+            return 'not-found';
+        }
+
+        if ($exception instanceof \Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException) {
+            return 'not-supported';
+        }
+
+        if ($exception instanceof \App\Exceptions\FhirException) {
+            return $exception->getIssueCode();
+        }
+
+        if ($exception instanceof \App\Services\Fhir\FhirCircuitBreaker) {
+            return 'transient';
+        }
+
+        return 'exception';
     }
 
     /**
@@ -187,22 +218,36 @@ class FhirErrorHandler
      */
     private function mapStatusCodeToIssueCode(int $statusCode): string
     {
-        return match($statusCode) {
-            400 => 'invalid',
-            401 => 'security',
-            403 => 'forbidden',
-            404 => 'not-found',
-            405 => 'not-supported',
-            409 => 'conflict',
-            410 => 'deleted',
-            422 => 'invalid',
-            429 => 'throttled',
-            500 => 'exception',
-            502 => 'transient',
-            503 => 'transient',
-            504 => 'timeout',
-            default => 'unknown'
-        };
+        switch ($statusCode) {
+            case 400:
+                return 'invalid';
+            case 401:
+                return 'security';
+            case 403:
+                return 'forbidden';
+            case 404:
+                return 'not-found';
+            case 405:
+                return 'not-supported';
+            case 409:
+                return 'conflict';
+            case 410:
+                return 'deleted';
+            case 422:
+                return 'invalid';
+            case 429:
+                return 'throttled';
+            case 500:
+                return 'exception';
+            case 502:
+                return 'transient';
+            case 503:
+                return 'transient';
+            case 504:
+                return 'timeout';
+            default:
+                return 'unknown';
+        }
     }
 
     /**
@@ -213,7 +258,7 @@ class FhirErrorHandler
         $context = [
             'exception_class' => get_class($exception),
             'resource_type' => $resourceType,
-            'status_code' => method_exists($exception, 'getStatusCode') ? $exception->getStatusCode() : 500
+            'status_code' => $exception instanceof HttpExceptionInterface ? $exception->getStatusCode() : 500
         ];
         
         // Add request context
@@ -221,7 +266,7 @@ class FhirErrorHandler
             $context['request'] = [
                 'method' => request()->method(),
                 'path' => request()->path(),
-                'user_id' => auth()->id()
+                'user_id' => auth()->userid
             ];
         }
         

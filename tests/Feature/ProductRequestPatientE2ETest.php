@@ -19,7 +19,7 @@ use App\Models\Insurance\PreAuthorization;
 use App\Models\Insurance\MedicareMacValidation;
 use App\Services\FhirService;
 use App\Services\EligibilityEngine\EligibilityService;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;

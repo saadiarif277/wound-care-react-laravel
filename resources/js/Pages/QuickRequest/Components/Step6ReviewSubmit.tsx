@@ -1,59 +1,9 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
-import { FiUser, FiActivity, FiShoppingCart, FiFileText, FiCheck, FiEdit3, FiAlertCircle } from 'react-icons/fi';
-import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
-
-interface QuickRequestFormData {
-  // Patient Information
-  patient_first_name?: string;
-  patient_last_name?: string;
-  patient_dob?: string;
-  patient_gender?: string;
-  patient_phone?: string;
-  patient_email?: string;
-  patient_address_line1?: string;
-  patient_city?: string;
-  patient_state?: string;
-  patient_zip?: string;
-
-  // Insurance Information
-  primary_insurance_name?: string;
-  primary_member_id?: string;
-  primary_plan_type?: string;
-  has_secondary_insurance?: boolean;
-  secondary_insurance_name?: string;
-  secondary_member_id?: string;
-
-  // Clinical Information
-  wound_type?: string;
-  wound_location?: string;
-  wound_size_length?: string;
-  wound_size_width?: string;
-  wound_size_depth?: string;
-  primary_diagnosis_code?: string;
-  secondary_diagnosis_code?: string;
-  diagnosis_code?: string;
-
-  // Product Selection
-  selected_products?: Array<{
-    product_id: number;
-    quantity: number;
-    size?: string;
-    product?: any;
-  }>;
-
-  // Episode tracking
-  episode_id?: string;
-  patient_display_id?: string;
-  patient_fhir_id?: string;
-
-  [key: string]: any;
-}
+import OrderReviewSummary from './OrderReviewSummary';
 
 interface Step6Props {
-  formData: QuickRequestFormData;
-  updateFormData: (data: Partial<QuickRequestFormData>) => void;
+  // Removed unused formData to eliminate lint warning
   products: Array<any>;
   providers: Array<any>;
   facilities: Array<any>;
@@ -64,7 +14,6 @@ interface Step6Props {
 }
 
 export default function Step6ReviewSubmit({
-  formData,
   products,
   errors,
   onSubmit,
@@ -101,40 +50,13 @@ export default function Step6ReviewSubmit({
     }
   };
 
-  const handleSubmit = async () => {
-    if (!confirmChecked) return;
-
+  const handleSubmit = async (): Promise<void> => {
     try {
-      await onSubmit();
+      await Promise.resolve(onSubmit());
     } catch (error) {
-      console.error('Submission error:', error);
+      // You might want to surface error handling here
+      throw error;
     }
-  };
-
-  const isOrderComplete = () => {
-    // Check required fields per section
-    const patientComplete = !!(
-      formData.patient_first_name &&
-      formData.patient_last_name &&
-      formData.patient_dob &&
-      formData.primary_insurance_name &&
-      formData.primary_member_id
-    );
-
-    const clinicalComplete = !!(
-      formData.wound_type &&
-      formData.wound_location &&
-      formData.wound_size_length &&
-      formData.wound_size_width
-    );
-
-    const productsComplete = formData.selected_products && formData.selected_products.length > 0;
-
-    return patientComplete && clinicalComplete && productsComplete;
-  };
-
-  const getSelectedProductDetails = (productId: number) => {
-    return products.find(p => p.id === productId);
   };
 
   return (

@@ -11,7 +11,7 @@ Contains all API-related documentation including:
 - Service specifications and schemas
 - Coverage and eligibility APIs
 
-### [`backup-archive/`](backup-archive/)
+
 Contains archived documentation and reference materials including:
 - Legacy implementation guides
 - Reference templates

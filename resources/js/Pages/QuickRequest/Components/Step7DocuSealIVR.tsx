@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { prepareDocuSealData } from './docusealUtils';
 import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import DocuSealIVRForm from '@/Components/DocuSeal/DocuSealIVRForm';
-import { getManufacturerByProduct } from '../manufacturerFields';
+import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
+import { getManufacturerByProduct, getManufacturerConfig } from '../manufacturerFields';
+
 
 interface SelectedProduct {
   product_id: number;
@@ -39,31 +41,26 @@ interface FormData {
   manufacturer_fields?: Record<string, any>;
 
   // Clinical Information
-  wound_type?: string; // Changed from array to single string
-  wound_types?: string[]; // Keep for backward compatibility
+  wound_type?: string;
   wound_location?: string;
   wound_size_length?: string;
   wound_size_width?: string;
   wound_size_depth?: string;
-  yellow_diagnosis_code?: string;
-  orange_diagnosis_code?: string;
-  
-  // New diagnosis code fields
   primary_diagnosis_code?: string;
   secondary_diagnosis_code?: string;
   diagnosis_code?: string;
-  
+
   // New duration fields
   wound_duration_days?: string;
   wound_duration_weeks?: string;
   wound_duration_months?: string;
   wound_duration_years?: string;
-  
+
   // Prior application fields
   prior_applications?: string;
   prior_application_product?: string;
   prior_application_within_12_months?: boolean;
-  
+
   // Hospice fields
   hospice_status?: boolean;
   hospice_family_consent?: boolean;
@@ -89,6 +86,7 @@ interface Step7Props {
     code: string;
     name: string;
     manufacturer: string;
+    manufacturer_id?: number;
     available_sizes?: any;
     price_per_sq_cm?: number;
   }>;
@@ -144,125 +142,131 @@ export default function Step7DocuSealIVR({
   };
 
   const selectedProduct = getSelectedProduct();
-  const manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
+  let manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
+
+  // If no config found by product name, try by manufacturer name
+  if (!manufacturerConfig && selectedProduct?.manufacturer) {
+    manufacturerConfig = getManufacturerConfig(selectedProduct.manufacturer);
+  }
+
+  // Debug logging
+  console.log('Selected Product:', {
+    name: selectedProduct?.name,
+    manufacturer: selectedProduct?.manufacturer,
+    manufacturer_id: selectedProduct?.manufacturer_id,
+    code: selectedProduct?.code
+  });
+  console.log('Manufacturer Config found:', manufacturerConfig);
+  console.log('Signature Required:', manufacturerConfig?.signatureRequired);
 
   // Get provider and facility details
   const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
   const facility = formData.facility_id ? facilities.find(f => f.id === formData.facility_id) : null;
 
-  // Prepare form data for DocuSeal
-  const prepareDocuSealData = () => {
-    if (!selectedProduct) return formData;
+  // Build DocuSeal payload using shared utility. This data will be passed to DocuSeal.
+  const preparedDocuSealData = prepareDocuSealData({ formData, products, providers, facilities });
 
-    // Get the product with full details
-    const product = products.find(p => p.id === formData.selected_products?.[0]?.product_id);
-    
-    // Format selected products for display
-    const productDetails = formData.selected_products?.map((item: any) => {
-      const prod = products.find(p => p.id === item.product_id);
-      return {
-        name: prod?.name || '',
-        code: prod?.code || '',
-        size: item.size || 'Standard',
-        quantity: item.quantity,
-        manufacturer: prod?.manufacturer || '',
-        manufacturer_id: prod?.manufacturer_id || prod?.id // Include manufacturer_id
-      };
-    }) || [];
-
-    // Calculate total wound size
-    const woundSizeLength = parseFloat(formData.wound_size_length || '0');
-    const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
-    const totalWoundSize = woundSizeLength * woundSizeWidth;
-
-    // Format wound types - handle both single wound_type and array wound_types
-    const woundTypesDisplay = formData.wound_type || formData.wound_types?.join(', ') || 'Not specified';
-    
-    // Format wound duration
-    const durationParts = [];
-    if (formData.wound_duration_years) durationParts.push(`${formData.wound_duration_years} years`);
-    if (formData.wound_duration_months) durationParts.push(`${formData.wound_duration_months} months`);
-    if (formData.wound_duration_weeks) durationParts.push(`${formData.wound_duration_weeks} weeks`);
-    if (formData.wound_duration_days) durationParts.push(`${formData.wound_duration_days} days`);
-    const woundDuration = durationParts.length > 0 ? durationParts.join(', ') : 'Not specified';
-    
-    // Format diagnosis codes
-    let diagnosisCodeDisplay = '';
-    if (formData.primary_diagnosis_code && formData.secondary_diagnosis_code) {
-      diagnosisCodeDisplay = `Primary: ${formData.primary_diagnosis_code}, Secondary: ${formData.secondary_diagnosis_code}`;
-    } else if (formData.diagnosis_code) {
-      diagnosisCodeDisplay = formData.diagnosis_code;
-    } else if (formData.yellow_diagnosis_code || formData.orange_diagnosis_code) {
-      // Backward compatibility
-      diagnosisCodeDisplay = formData.yellow_diagnosis_code || formData.orange_diagnosis_code || '';
-    }
-
+  // Build extended payload for DocuSeal
+  const productDetails = formData.selected_products?.map((item: any) => {
+    const prod = products.find(p => p.id === item.product_id);
     return {
-      ...formData,
-
-      // Provider Information
-      provider_name: provider?.name || formData.provider_name || '',
-      provider_credentials: provider?.credentials || '',
-      provider_npi: provider?.npi || formData.provider_npi || '',
-      provider_email: formData.provider_email || 'provider@example.com',
-
-      // Facility Information
-      facility_name: facility?.name || formData.facility_name || '',
-      facility_address: facility?.address || '',
-
-      // Product Information
-      product_name: selectedProduct.name,
-      product_code: selectedProduct.code,
-      product_manufacturer: selectedProduct.manufacturer,
-      manufacturer_id: product?.manufacturer_id || selectedProduct.manufacturer_id, // Add manufacturer_id
-      product_details: productDetails,
-      product_details_text: productDetails.map((p: any) =>
-        `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
-      ).join('\n'),
-
-      // Clinical Information
-      wound_types_display: woundTypesDisplay,
-      wound_type: formData.wound_type || woundTypesDisplay,
-      total_wound_size: `${totalWoundSize} sq cm`,
-      wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
-      wound_duration: woundDuration,
-      wound_duration_days: formData.wound_duration_days || '',
-      wound_duration_weeks: formData.wound_duration_weeks || '',
-      wound_duration_months: formData.wound_duration_months || '',
-      wound_duration_years: formData.wound_duration_years || '',
-      
-      // Diagnosis codes
-      diagnosis_codes_display: diagnosisCodeDisplay,
-      primary_diagnosis_code: formData.primary_diagnosis_code || '',
-      secondary_diagnosis_code: formData.secondary_diagnosis_code || '',
-      diagnosis_code: formData.diagnosis_code || '',
-      
-      // Prior applications
-      prior_applications: formData.prior_applications || '0',
-      prior_application_product: formData.prior_application_product || '',
-      prior_application_within_12_months: formData.prior_application_within_12_months ? 'Yes' : 'No',
-      
-      // Hospice information
-      hospice_status: formData.hospice_status ? 'Yes' : 'No',
-      hospice_family_consent: formData.hospice_family_consent ? 'Yes' : 'No',
-      hospice_clinically_necessary: formData.hospice_clinically_necessary ? 'Yes' : 'No',
-
-      // Manufacturer Fields (convert booleans to Yes/No for display)
-      ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
-        acc[key] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
-        return acc;
-      }, {} as Record<string, any>),
-
-      // Date fields
-      service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
-      submission_date: new Date().toISOString().split('T')[0],
-
-      // Signature fields (for DocuSeal template)
-      provider_signature_required: true,
-      provider_signature_date: new Date().toISOString().split('T')[0]
+      name: prod?.name || '',
+      code: prod?.code || '',
+      size: item.size || 'Standard',
+      quantity: item.quantity,
+      manufacturer: prod?.manufacturer || '',
+      manufacturer_id: prod?.manufacturer_id || prod?.id // Include manufacturer_id
     };
+  }) || [];
+
+  // Calculate total wound size
+  const woundSizeLength = parseFloat(formData.wound_size_length || '0');
+  const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
+  const totalWoundSize = woundSizeLength * woundSizeWidth;
+
+  // Format wound duration
+  const durationParts: string[] = [];
+  if (formData.wound_duration_years) durationParts.push(`${formData.wound_duration_years} years`);
+  if (formData.wound_duration_months) durationParts.push(`${formData.wound_duration_months} months`);
+  if (formData.wound_duration_weeks) durationParts.push(`${formData.wound_duration_weeks} weeks`);
+  if (formData.wound_duration_days) durationParts.push(`${formData.wound_duration_days} days`);
+  const woundDuration = durationParts.length > 0 ? durationParts.join(', ') : 'Not specified';
+
+  // Format diagnosis codes
+  let diagnosisCodeDisplay = '';
+  if (formData.primary_diagnosis_code && formData.secondary_diagnosis_code) {
+    diagnosisCodeDisplay = `Primary: ${formData.primary_diagnosis_code}, Secondary: ${formData.secondary_diagnosis_code}`;
+  } else if (formData.diagnosis_code) {
+    diagnosisCodeDisplay = formData.diagnosis_code;
+  }
+
+  // Merge everything into a single payload object to send to DocuSeal
+  const extendedDocuSealData = {
+    ...formData,
+
+    // Provider Information
+    provider_name: provider?.name || formData.provider_name || '',
+    provider_credentials: provider?.credentials || '',
+    provider_npi: provider?.npi || formData.provider_npi || '',
+    provider_email: formData.provider_email || 'provider@example.com',
+
+    // Facility Information
+    facility_name: facility?.name || formData.facility_name || '',
+    facility_address: facility?.address || '',
+
+    // Product Information
+    product_name: selectedProduct?.name,
+    product_code: selectedProduct?.code,
+    product_manufacturer: selectedProduct?.manufacturer,
+    manufacturer_id: selectedProduct?.manufacturer_id,
+    product_details: productDetails,
+    product_details_text: productDetails.map((p: any) =>
+      `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
+    ).join('\n'),
+
+    // Clinical Information
+    total_wound_size: `${totalWoundSize} sq cm`,
+    wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
+    wound_duration: woundDuration,
+    wound_duration_days: formData.wound_duration_days || '',
+    wound_duration_weeks: formData.wound_duration_weeks || '',
+    wound_duration_months: formData.wound_duration_months || '',
+    wound_duration_years: formData.wound_duration_years || '',
+
+    // Diagnosis codes
+    diagnosis_codes_display: diagnosisCodeDisplay,
+    primary_diagnosis_code: formData.primary_diagnosis_code || '',
+    secondary_diagnosis_code: formData.secondary_diagnosis_code || '',
+    diagnosis_code: formData.diagnosis_code || '',
+
+    // Prior applications
+    prior_applications: formData.prior_applications || '0',
+    prior_application_product: formData.prior_application_product || '',
+    prior_application_within_12_months: formData.prior_application_within_12_months ? 'Yes' : 'No',
+
+    // Hospice information
+    hospice_status: formData.hospice_status ? 'Yes' : 'No',
+    hospice_family_consent: formData.hospice_family_consent ? 'Yes' : 'No',
+    hospice_clinically_necessary: formData.hospice_clinically_necessary ? 'Yes' : 'No',
+
+    // Manufacturer Fields (convert booleans to Yes/No for display)
+    ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
+      acc[key] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
+      return acc;
+    }, {} as Record<string, any>),
+
+    // Date fields
+    service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
+
+    // Signature fields (for DocuSeal template)
+    provider_signature_required: true,
+    provider_signature_date: new Date().toISOString().split('T')[0]
   };
 
+  // Override preparedDocuSealData with the extended version
+  Object.assign(preparedDocuSealData, extendedDocuSealData);
+
+  // Local handlers
   const handleDocuSealComplete = (submissionId: string) => {
     setIsCompleted(true);
     updateFormData({ docuseal_submission_id: submissionId });
@@ -282,14 +286,14 @@ export default function Step7DocuSealIVR({
   }
 
   // No IVR required for this manufacturer
-  if (!manufacturerConfig || !manufacturerConfig.signatureRequired) {
+  if (!manufacturerConfig || !manufacturerConfig?.signatureRequired) {
     // Set a placeholder submission ID when IVR is not required
     React.useEffect(() => {
       if (!formData.docuseal_submission_id) {
         updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
       }
     }, []);
-    
+
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
@@ -297,7 +301,7 @@ export default function Step7DocuSealIVR({
           No IVR Required
         </h3>
         <p className={cn("text-sm", t.text.secondary)}>
-          {selectedProduct.name} does not require an IVR form submission.
+          {selectedProduct?.name} does not require an IVR form submission.
         </p>
         <p className={cn("text-sm mt-2", t.text.secondary)}>
           You can proceed to submit your order.
@@ -305,9 +309,6 @@ export default function Step7DocuSealIVR({
       </div>
     );
   }
-
-  // Get the appropriate template ID
-  const templateId = manufacturerConfig.docusealTemplateId || '123456'; // Replace with your default DocuSeal template ID
 
   return (
     <div className="space-y-6">
@@ -320,7 +321,7 @@ export default function Step7DocuSealIVR({
               Independent Verification Request (IVR)
             </h3>
             <p className={cn("text-sm mt-1", t.text.secondary)}>
-              {manufacturerConfig.name} requires an electronic signature on their IVR form
+              {manufacturerConfig?.name} requires an electronic signature on their IVR form
             </p>
           </div>
         </div>
@@ -418,12 +419,13 @@ export default function Step7DocuSealIVR({
             </div>
           </div>
         ) : (
-          <DocuSealIVRForm
-            formData={prepareDocuSealData()}
-            templateId={templateId}
+          <DocuSealEmbed
+            manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
+            productCode={selectedProduct?.code || ''}
+            formData={preparedDocuSealData}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
-            episodeId={formData.episode_id}
+            className="w-full h-full min-h-[600px]"
           />
         )}
       </div>
@@ -465,7 +467,7 @@ export default function Step7DocuSealIVR({
           <div className="flex justify-between">
             <span className={t.text.secondary}>Product:</span>
             <span className={t.text.primary}>
-              {selectedProduct.name} ({selectedProduct.code})
+              {selectedProduct?.name} ({selectedProduct?.code})
             </span>
           </div>
           <div className="flex justify-between">

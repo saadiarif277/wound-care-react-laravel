@@ -126,7 +126,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->name('api.quickrequest.episodes.show');
     Route::post('/episodes/{episode}/approve', [App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'approve'])
         ->name('api.quickrequest.episodes.approve');
-    
+
     // Order endpoints
     Route::get('/episodes/{episode}/orders', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'index'])
         ->name('api.quickrequest.orders.index');
@@ -136,10 +136,8 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->name('api.quickrequest.orders.show');
     Route::patch('/orders/{order}/status', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'updateStatus'])
         ->name('api.quickrequest.orders.updateStatus');
-    
-    // DocuSeal endpoints
-    Route::post('/docuseal/generate-builder-token', [App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
-        ->name('api.quickrequest.docuseal.generate-builder-token');
+
+    // DocuSeal endpoints moved to Quick Request group below
 });
 
 // Order Review API routes
@@ -154,7 +152,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
             ->name('api.orders.submit');
         Route::post('{orderId}/notes', [OrderReviewController::class, 'addNote'])
             ->name('api.orders.notes');
-        
+
         // Document viewing
         Route::get('{orderId}/documents/{documentId}', [OrderReviewController::class, 'viewDocument'])
             ->name('api.orders.documents.view');
@@ -374,9 +372,9 @@ Route::middleware(['auth:sanctum'])->group(function () {
     ]);
 
     // User Role Management with unique names
-    Route::post('users/{user}/roles', [UsersController::class, 'assignRoles'])->name('api.users.roles.assign');
-    Route::delete('users/{user}/roles/{role}', [UsersController::class, 'removeRole'])->name('api.users.roles.remove');
-    Route::put('users/{user}/roles', [UsersController::class, 'syncRoles'])->name('api.users.roles.sync');
+    Route::post('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'assignRoles'])->name('api.users.roles.assign');
+    Route::delete('users/{user}/roles/{role}', [\App\Http\Controllers\Admin\UsersController::class, 'removeRole'])->name('api.users.roles.remove');
+    Route::put('users/{user}/roles', [\App\Http\Controllers\Admin\UsersController::class, 'syncRoles'])->name('api.users.roles.sync');
 
     // RBAC Management Routes with unique names
     Route::middleware(['auth:sanctum', 'role:msc-admin'])->group(function () {
@@ -446,7 +444,7 @@ Route::prefix('v1')->group(function () {
     // Provider product endpoints
     Route::get('providers/{providerId}/onboarded-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getOnboardedProducts']);
     Route::get('providers/all-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getAllProvidersProducts']);
-    
+
     // IVR field mapping endpoints - Using modern DocuSealTemplateController
     Route::get('ivr/manufacturers/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
 });
@@ -640,7 +638,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
     Route::post('episodes', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'startEpisode'])->middleware('permission:create-product-requests');
     Route::post('episodes/{episode}/follow-up', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'addFollowUp'])->middleware('permission:create-product-requests');
     Route::post('episodes/{episode}/approve', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'approve'])->middleware('permission:manage-episodes');
-    
+
     // DocuSeal Builder Token
     Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
         ->middleware('permission:create-product-requests');
@@ -648,17 +646,17 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
 
 // QuickRequest Episode Creation Route (Enhanced)
 Route::middleware(['api', 'auth:sanctum'])->group(function () {
-    Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisode'])
+    Route::post('/quick-request/create-episode', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisode'])
         ->name('api.quick-request.create-episode')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
-    
-    Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\QuickRequestController::class, 'createEpisodeWithDocuments'])
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
+
+    Route::post('/quick-request/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
         ->name('api.quick-request.create-episode-with-documents')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
-    
-    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\QuickRequestController::class, 'extractIvrFields'])
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
+
+    Route::post('/quick-request/extract-ivr-fields', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'extractIvrFields'])
         ->name('api.quick-request.extract-ivr-fields')
-        ->middleware(['permission:create-product-requests', 'handle.quick.request.errors']);
+        ->middleware(['permission:create-product-requests', 'handle_quick_request_errors']);
 });
 
 // Episode MAC Validation Routes

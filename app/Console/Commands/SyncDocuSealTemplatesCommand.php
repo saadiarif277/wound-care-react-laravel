@@ -527,29 +527,60 @@ class SyncDocuSealTemplatesCommand extends Command
         $fieldMappings = [
             // Patient fields
             'PATIENT NAME' => 'patientInfo.patientName',
+            'PATIENT FIRST NAME' => 'patientInfo.firstName',
+            'PATIENT LAST NAME' => 'patientInfo.lastName',
             'PATIENT DOB' => 'patientInfo.dateOfBirth',
+            'DATE OF BIRTH' => 'patientInfo.dateOfBirth',
             'PATIENT ID' => 'patientInfo.patientId',
             'MEMBER ID' => 'patientInfo.memberId',
+            'PATIENT PHONE' => 'patientInfo.phone',
+            'PATIENT EMAIL' => 'patientInfo.email',
+            'PATIENT ADDRESS' => 'patientInfo.address',
+            'PATIENT CITY' => 'patientInfo.city',
+            'PATIENT STATE' => 'patientInfo.state',
+            'PATIENT ZIP' => 'patientInfo.zip',
             
             // Insurance fields
             'PRIMARY INSURANCE' => 'insuranceInfo.primaryInsurance.name',
             'INSURANCE NAME' => 'insuranceInfo.primaryInsurance.name',
             'GROUP NUMBER' => 'insuranceInfo.primaryInsurance.groupNumber',
             'PAYER PHONE' => 'insuranceInfo.primaryInsurance.payerPhone',
+            'INSURANCE MEMBER ID' => 'insuranceInfo.primaryInsurance.memberId',
+            'PLAN TYPE' => 'insuranceInfo.primaryInsurance.planType',
+            
+            // Clinical fields
+            'WOUND TYPE' => 'clinicalInfo.woundType',
+            'WOUND LOCATION' => 'clinicalInfo.woundLocation',
+            'WOUND SIZE' => 'clinicalInfo.woundSize',
+            'WOUND LENGTH' => 'clinicalInfo.woundLength',
+            'WOUND WIDTH' => 'clinicalInfo.woundWidth',
+            'WOUND DEPTH' => 'clinicalInfo.woundDepth',
+            'DIAGNOSIS CODE' => 'clinicalInfo.diagnosisCode',
+            'PRIMARY DIAGNOSIS' => 'clinicalInfo.primaryDiagnosis',
+            'SECONDARY DIAGNOSIS' => 'clinicalInfo.secondaryDiagnosis',
             
             // Provider fields
             'PHYSICIAN NAME' => 'providerInfo.providerName',
             'PROVIDER NAME' => 'providerInfo.providerName',
             'NPI' => 'providerInfo.providerNPI',
+            'NPI NUMBER' => 'providerInfo.providerNPI',
             'TAX ID' => 'providerInfo.taxId',
+            'PROVIDER EMAIL' => 'providerInfo.email',
             
             // Facility fields
             'FACILITY NAME' => 'facilityInfo.facilityName',
             'FACILITY ADDRESS' => 'facilityInfo.facilityAddress',
+            'SERVICE LOCATION' => 'facilityInfo.facilityName',
+            
+            // Product fields
+            'PRODUCT NAME' => 'productInfo.productName',
+            'PRODUCT CODE' => 'productInfo.productCode',
+            'MANUFACTURER' => 'productInfo.manufacturer',
             
             // Sales rep fields
             'REPRESENTATIVE NAME' => 'requestInfo.salesRepName',
             'SALES REP' => 'requestInfo.salesRepName',
+            'SALES REP NAME' => 'requestInfo.salesRepName',
         ];
 
         $upperFieldName = strtoupper($docusealFieldName);
@@ -563,15 +594,128 @@ class SyncDocuSealTemplatesCommand extends Command
     {
         // This maps to the actual data structure from QuickRequest
         $systemMappings = [
+            // Patient Information
             'PATIENT NAME' => 'patient_name',
+            'PATIENT FIRST NAME' => 'patient_first_name',
+            'PATIENT LAST NAME' => 'patient_last_name',
             'PATIENT DOB' => 'patient_dob',
+            'DATE OF BIRTH' => 'patient_dob',
+            'PATIENT ID' => 'patient_display_id',
             'MEMBER ID' => 'patient_member_id',
-            'PRIMARY INSURANCE' => 'payer_name',
+            'PATIENT PHONE' => 'patient_phone',
+            'PATIENT EMAIL' => 'patient_email',
+            'PATIENT ADDRESS' => 'patient_address_line1',
+            'PATIENT ADDRESS LINE 1' => 'patient_address_line1',
+            'PATIENT ADDRESS LINE 2' => 'patient_address_line2',
+            'PATIENT CITY' => 'patient_city',
+            'PATIENT STATE' => 'patient_state',
+            'PATIENT ZIP' => 'patient_zip',
+            'PATIENT GENDER' => 'patient_gender',
+            
+            // Insurance Information
+            'PRIMARY INSURANCE' => 'primary_insurance_name',
+            'INSURANCE NAME' => 'primary_insurance_name',
+            'PRIMARY INSURANCE NAME' => 'primary_insurance_name',
+            'INSURANCE MEMBER ID' => 'primary_member_id',
+            'PRIMARY MEMBER ID' => 'primary_member_id',
             'GROUP NUMBER' => 'group_number',
+            'INSURANCE GROUP NUMBER' => 'group_number',
+            'PAYER PHONE' => 'payer_phone',
+            'INSURANCE PHONE' => 'payer_phone',
+            'PLAN TYPE' => 'primary_plan_type',
+            'INSURANCE TYPE' => 'primary_plan_type',
+            
+            // Clinical Information
+            'WOUND TYPE' => 'wound_type',
+            'WOUND TYPES' => 'wound_types_display',
+            'WOUND LOCATION' => 'wound_location',
+            'WOUND SIZE' => 'total_wound_size',
+            'TOTAL WOUND SIZE' => 'total_wound_size',
+            'WOUND SIZE LENGTH' => 'wound_size_length',
+            'WOUND LENGTH' => 'wound_size_length',
+            'WOUND SIZE WIDTH' => 'wound_size_width',
+            'WOUND WIDTH' => 'wound_size_width',
+            'WOUND SIZE DEPTH' => 'wound_size_depth',
+            'WOUND DEPTH' => 'wound_size_depth',
+            'WOUND DIMENSIONS' => 'wound_dimensions',
+            'WOUND DURATION' => 'wound_duration',
+            'WOUND AGE' => 'wound_duration',
+            'DIAGNOSIS CODE' => 'diagnosis_code_display',
+            'DIAGNOSIS CODES' => 'diagnosis_codes_display',
+            'PRIMARY DIAGNOSIS' => 'primary_diagnosis_code',
+            'PRIMARY DIAGNOSIS CODE' => 'primary_diagnosis_code',
+            'SECONDARY DIAGNOSIS' => 'secondary_diagnosis_code',
+            'SECONDARY DIAGNOSIS CODE' => 'secondary_diagnosis_code',
+            
+            // Prior Application Information
+            'PRIOR APPLICATIONS' => 'prior_applications',
+            'NUMBER OF PRIOR APPLICATIONS' => 'prior_applications',
+            'PRIOR APPLICATION PRODUCT' => 'prior_application_product',
+            'PRIOR APPLICATION WITHIN 12 MONTHS' => 'prior_application_within_12_months',
+            
+            // Hospice Information
+            'HOSPICE STATUS' => 'hospice_status',
+            'PATIENT IN HOSPICE' => 'hospice_status',
+            'HOSPICE FAMILY CONSENT' => 'hospice_family_consent',
+            'HOSPICE CLINICALLY NECESSARY' => 'hospice_clinically_necessary',
+            
+            // Provider Information
+            'PROVIDER NAME' => 'provider_name',
             'PHYSICIAN NAME' => 'provider_name',
+            'DOCTOR NAME' => 'provider_name',
+            'PROVIDER CREDENTIALS' => 'provider_credentials',
+            'PROVIDER NPI' => 'provider_npi',
             'NPI' => 'provider_npi',
+            'NPI NUMBER' => 'provider_npi',
+            'PROVIDER EMAIL' => 'provider_email',
+            'PHYSICIAN EMAIL' => 'provider_email',
+            'TAX ID' => 'provider_tax_id',
+            'PROVIDER TAX ID' => 'provider_tax_id',
+            
+            // Facility Information
             'FACILITY NAME' => 'facility_name',
+            'FACILITY ADDRESS' => 'facility_address',
+            'LOCATION' => 'facility_name',
+            'SERVICE LOCATION' => 'facility_name',
+            
+            // Product Information
+            'PRODUCT NAME' => 'product_name',
+            'PRODUCT' => 'product_name',
+            'PRODUCT CODE' => 'product_code',
+            'PRODUCT NUMBER' => 'product_code',
+            'MANUFACTURER' => 'product_manufacturer',
+            'PRODUCT MANUFACTURER' => 'product_manufacturer',
+            'PRODUCT DETAILS' => 'product_details_text',
+            'PRODUCTS ORDERED' => 'product_details_text',
+            
+            // Sales Rep Information
             'REPRESENTATIVE NAME' => 'sales_rep_name',
+            'SALES REP' => 'sales_rep_name',
+            'SALES REP NAME' => 'sales_rep_name',
+            'SALES REPRESENTATIVE' => 'sales_rep_name',
+            
+            // Date Information
+            'SERVICE DATE' => 'service_date',
+            'DATE OF SERVICE' => 'service_date',
+            'EXPECTED SERVICE DATE' => 'expected_service_date',
+            'SIGNATURE DATE' => 'signature_date',
+            'TODAY\'S DATE' => 'signature_date',
+            'CURRENT DATE' => 'signature_date',
+            
+            // Manufacturer-specific fields
+            'PHYSICIAN ATTESTATION' => 'physician_attestation',
+            'NOT USED PREVIOUSLY' => 'not_used_previously',
+            'MULTIPLE PRODUCTS' => 'multiple_products',
+            'ADDITIONAL PRODUCTS' => 'additional_products',
+            'PREVIOUS USE' => 'previous_use',
+            'PREVIOUS PRODUCT INFO' => 'previous_product_info',
+            'AMNIO AMP SIZE' => 'amnio_amp_size',
+            'STAT ORDER' => 'stat_order',
+            'SHIPPING SPEED REQUIRED' => 'shipping_speed_required',
+            'TEMPERATURE CONTROLLED' => 'temperature_controlled',
+            'MESH CONFIGURATION' => 'mesh_configuration',
+            'PREVIOUS BIOLOGICS FAILED' => 'previous_biologics_failed',
+            'FAILED BIOLOGICS LIST' => 'failed_biologics_list',
         ];
 
         $upperFieldName = strtoupper($docusealFieldName);

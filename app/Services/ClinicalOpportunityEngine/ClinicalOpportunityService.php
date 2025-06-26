@@ -3,7 +3,7 @@
 namespace App\Services\ClinicalOpportunityEngine;
 
 use App\Models\ClinicalOpportunity;
-use App\Services\SupabaseService;
+use App\Services\AIEnhancementService;
 use App\Services\ProductRecommendationEngine\MSCProductRecommendationService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -15,18 +15,18 @@ class ClinicalOpportunityService
 {
     protected $contextBuilder;
     protected $ruleEvaluator;
-    protected $supabaseService;
+    protected $aiEnhancementService;
     protected $productRecommendationService;
 
     public function __construct(
         ClinicalContextBuilderService $contextBuilder,
         ClinicalRuleEvaluatorService $ruleEvaluator,
-        SupabaseService $supabaseService,
+        AIEnhancementService $aiEnhancementService,
         MSCProductRecommendationService $productRecommendationService
     ) {
         $this->contextBuilder = $contextBuilder;
         $this->ruleEvaluator = $ruleEvaluator;
-        $this->supabaseService = $supabaseService;
+        $this->aiEnhancementService = $aiEnhancementService;
         $this->productRecommendationService = $productRecommendationService;
     }
 
@@ -187,7 +187,7 @@ class ClinicalOpportunityService
 
         } catch (\Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Failed to take action on opportunity', [
                 'opportunity_id' => $opportunityId,
                 'action' => $actionData,
@@ -207,11 +207,8 @@ class ClinicalOpportunityService
     protected function enhanceWithAI(array $context, array $opportunities): array
     {
         try {
-            // Call Supabase Edge Function for AI enhancement
-            $enhanced = $this->callSupabaseEdgeFunction('clinical-opportunities-ai', [
-                'context' => $context,
-                'rule_based_opportunities' => $opportunities
-            ]);
+            // Use AI enhancement service
+            $enhanced = $this->aiEnhancementService->enhanceClinicalOpportunities($context, $opportunities);
 
             return $this->mergeAIEnhancements($opportunities, $enhanced);
 
@@ -225,36 +222,15 @@ class ClinicalOpportunityService
     }
 
     /**
-     * Call Supabase Edge Function
-     */
-    protected function callSupabaseEdgeFunction(string $functionName, array $payload): array
-    {
-        $response = Http::withHeaders([
-            'Authorization' => 'Bearer ' . config('services.supabase.anon_key'),
-            'Content-Type' => 'application/json'
-        ])->timeout(30)
-        ->post(
-            config('services.supabase.url') . "/functions/v1/{$functionName}",
-            $payload
-        );
-
-        if ($response->successful()) {
-            return $response->json();
-        }
-
-        throw new \Exception('Supabase Edge Function call failed');
-    }
-
-    /**
      * Enrich opportunities with additional data
      */
     protected function enrichOpportunities(array $opportunities, array $context): array
     {
         return array_map(function($opportunity) use ($context) {
             // Add product recommendations if relevant
-            if ($opportunity['type'] === 'non_healing_wound' || 
+            if ($opportunity['type'] === 'non_healing_wound' ||
                 in_array('order_product', array_column($opportunity['actions'], 'type'))) {
-                
+
                 $opportunity['product_recommendations'] = $this->getProductRecommendations($context);
             }
 
@@ -325,21 +301,21 @@ class ClinicalOpportunityService
         ];
 
         $score = 0;
-        
+
         // Priority score (normalized to 0-1)
         $score += ($opportunity['priority'] / 10) * $weights['priority'];
-        
+
         // Confidence score
         $score += $opportunity['confidence_score'] * $weights['confidence'];
-        
+
         // Cost impact score
         $costScore = $this->normalizeCostImpact($opportunity['cost_impact'] ?? []);
         $score += $costScore * $weights['cost_impact'];
-        
+
         // Clinical impact score
         $clinicalScore = $this->calculateClinicalImpactScore($opportunity['potential_impact'] ?? []);
         $score += $clinicalScore * $weights['clinical_impact'];
-        
+
         // Ease of implementation
         $easeScore = $this->calculateEaseOfImplementation($opportunity['actions']);
         $score += $easeScore * $weights['ease_of_implementation'];
@@ -454,7 +430,7 @@ class ClinicalOpportunityService
     {
         // Merge AI enhancements with original opportunities
         $merged = $original;
-        
+
         foreach ($enhanced as $enhancement) {
             $found = false;
             foreach ($merged as &$opportunity) {
@@ -469,14 +445,14 @@ class ClinicalOpportunityService
                     break;
                 }
             }
-            
+
             if (!$found && isset($enhancement['type'])) {
                 // Add new AI-discovered opportunity
                 $enhancement['source'] = 'ai';
                 $merged[] = $enhancement;
             }
         }
-        
+
         return $merged;
     }
 
@@ -492,10 +468,10 @@ class ClinicalOpportunityService
                     'conditions' => array_column($context['clinical_data']['conditions'], 'category')
                 ]
             ];
-            
+
             // This would call the product recommendation service
             return ['status' => 'pending_integration'];
-            
+
         } catch (\Exception $e) {
             return ['status' => 'error', 'message' => 'Unable to generate recommendations'];
         }
@@ -516,7 +492,7 @@ class ClinicalOpportunityService
                 $impact['intervention_cost'] = 800; // Advanced dressing costs
                 $impact['roi_timeframe'] = '3-6 months';
                 break;
-                
+
             case 'readmission_prevention':
                 $impact['potential_savings'] = 12000; // Average readmission cost
                 $impact['intervention_cost'] = 2000; // Intensive monitoring
@@ -569,13 +545,13 @@ class ClinicalOpportunityService
     protected function normalizeCostImpact(array $costImpact): float
     {
         if (empty($costImpact)) return 0;
-        
+
         $savings = $costImpact['potential_savings'] ?? 0;
         $cost = $costImpact['intervention_cost'] ?? 1;
-        
+
         // ROI-based score
         $roi = ($savings - $cost) / $cost;
-        
+
         // Normalize to 0-1 scale
         return min(1, max(0, $roi / 10));
     }
@@ -583,9 +559,9 @@ class ClinicalOpportunityService
     protected function calculateClinicalImpactScore(array $impact): float
     {
         if (empty($impact)) return 0.5;
-        
+
         $score = 0;
-        
+
         // Parse impact metrics
         if (isset($impact['healing_acceleration'])) {
             // Extract percentage
@@ -593,26 +569,26 @@ class ClinicalOpportunityService
             $avgPercent = isset($matches[1]) ? ($matches[1] + $matches[2]) / 2 : 50;
             $score += $avgPercent / 100;
         }
-        
+
         return min(1, $score);
     }
 
     protected function calculateEaseOfImplementation(array $actions): float
     {
         if (empty($actions)) return 0;
-        
+
         $easeScores = [
             'order_product' => 0.9,
             'schedule_assessment' => 0.8,
             'update_care_plan' => 0.7,
             'refer_specialist' => 0.6
         ];
-        
+
         $totalScore = 0;
         foreach ($actions as $action) {
             $totalScore += $easeScores[$action['type']] ?? 0.5;
         }
-        
+
         return $totalScore / count($actions);
     }
 
@@ -629,11 +605,11 @@ class ClinicalOpportunityService
         // Validate the action is appropriate for the opportunity
         $validActions = json_decode($opportunity->data, true)['actions'] ?? [];
         $actionTypes = array_column($validActions, 'type');
-        
+
         if (!in_array($actionData['type'], $actionTypes)) {
             return ['valid' => false, 'message' => 'Invalid action type for this opportunity'];
         }
-        
+
         return ['valid' => true];
     }
 
@@ -643,16 +619,16 @@ class ClinicalOpportunityService
         switch ($actionData['type']) {
             case 'order_product':
                 return $this->executeProductOrder($opportunity, $actionData);
-                
+
             case 'schedule_assessment':
                 return $this->scheduleAssessment($opportunity, $actionData);
-                
+
             case 'refer_specialist':
                 return $this->createReferral($opportunity, $actionData);
-                
+
             case 'update_care_plan':
                 return $this->updateCarePlan($opportunity, $actionData);
-                
+
             default:
                 return ['status' => 'completed', 'message' => 'Action recorded'];
         }

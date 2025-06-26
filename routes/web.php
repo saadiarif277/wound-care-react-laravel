@@ -63,30 +63,30 @@ use App\Http\Controllers\OrderReviewPageController;
 
 Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
     $service = app(DocuSealService::class);
-    
+
     // Test the FHIR data fetch
     $episode = DB::table('patient_manufacturer_ivr_episodes')->find($episodeId);
-    
+
     if ($episode->azure_order_checklist_fhir_id) {
         $fhirService = app(FhirService::class);
         // Use search method to find the DocumentReference by ID
         $bundle = $fhirService->search('DocumentReference', ['_id' => $episode->azure_order_checklist_fhir_id]);
-        
+
         // Extract the first entry from the bundle
         if (!isset($bundle['entry'][0]['resource'])) {
             return 'DocumentReference not found';
         }
-        
+
         $doc = $bundle['entry'][0]['resource'];
         $checklistData = json_decode(base64_decode($doc['content'][0]['attachment']['data']), true);
-        
+
         dd([
             'episode' => $episode,
             'fhir_data' => $checklistData,
             'would_map_to' => $service->mapFHIRToDocuSeal($checklistData)
         ]);
     }
-    
+
     return 'No FHIR data found';
 });
 
@@ -422,35 +422,7 @@ Route::middleware(['permission:view-products'])->group(function () {
     Route::get('api/products/{product}', [ProductController::class, 'apiShow'])->name('api.products.show');
 });
 
-// Users
 
-Route::get('/users', [UsersController::class, 'index'])
-    ->middleware('role:msc_admin')
-    ->name('users.index');
-
-Route::get('users/create', [UsersController::class, 'create'])
-    ->name('users.create')
-    ->middleware('auth');
-
-Route::post('users', [UsersController::class, 'store'])
-    ->name('users.store')
-    ->middleware('auth');
-
-Route::get('users/{user}/edit', [UsersController::class, 'edit'])
-    ->name('users.edit')
-    ->middleware('auth');
-
-Route::put('users/{user}', [UsersController::class, 'update'])
-    ->name('users.update')
-    ->middleware('auth');
-
-Route::delete('users/{user}', [UsersController::class, 'destroy'])
-    ->name('users.destroy')
-    ->middleware('auth');
-
-Route::put('users/{user}/restore', [UsersController::class, 'restore'])
-    ->name('users.restore')
-    ->middleware('auth');
 
 // Reports
 
@@ -466,20 +438,9 @@ Route::get('/img/{path}', [ImagesController::class, 'show'])
 
 Route::middleware(['web', 'auth'])->group(function () {
     // Eligibility Verification Routes
-    Route::prefix('eligibility')->group(function () {
-        Route::get('/', [EligibilityController::class, 'index'])
-            ->middleware('permission:view-eligibility')
-            ->name('eligibility.index');
-        Route::post('/verify', [EligibilityController::class, 'verify'])
-            ->middleware('permission:manage-eligibility')
-            ->name('eligibility.verify');
-        Route::post('/prior-auth/submit', [EligibilityController::class, 'submitPriorAuth'])
-            ->middleware('permission:manage-pre-authorization')
-            ->name('eligibility.prior-auth.submit');
-        Route::post('/prior-auth/status', [EligibilityController::class, 'checkPriorAuthStatus'])
-            ->middleware('permission:manage-pre-authorization')
-            ->name('eligibility.prior-auth.status');
-    });
+    Route::get('eligibility', [\App\Http\Controllers\EligibilityPageController::class, 'index'])
+    ->middleware(['auth', 'permission:view-eligibility'])
+    ->name('eligibility.index');
 
     // MAC Validation Routes - accessible to office managers and admins
     Route::middleware(['permission:view-mac-validation'])->prefix('mac-validation')->group(function () {
@@ -532,6 +493,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::get('/create-new', [\App\Http\Controllers\QuickRequestController::class, 'create'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-new');
+
+        Route::post('/submit-order', [\App\Http\Controllers\QuickRequestController::class, 'submitOrder'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.submit-order');
         Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.debug-facilities');
@@ -543,14 +508,28 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocuSealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
-            
+
         // DocuSeal Builder Token Generation (web auth)
         Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-builder-token');
 
+        // DocuSeal Form Token Generation (web auth)
+        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\QuickRequestController::class, 'generateFormToken'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.generate-form-token');
+
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequestController::class, 'generateSubmissionSlug'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.generate-submission-slug');
+
+        // Debug endpoint for DocuSeal integration troubleshooting
+        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugDocuSealIntegration'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.debug');
+
         // Episode-centric workflow with document processing
-        Route::post('/create-episode-with-documents', [\App\Http\Controllers\QuickRequestEpisodeWithDocumentsController::class, 'createEpisodeWithDocuments'])
+        Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-episode-with-documents');
 
@@ -1003,25 +982,11 @@ Route::middleware(['auth'])->group(function () {
         ->name('docuseal.demo.create-submission');
 });
 
-// QuickRequest DocuSeal Routes
+// QuickRequest DocuSeal Routes (Consolidated)
 Route::middleware(['auth'])->group(function () {
-    // Create QuickRequest DocuSeal submission for IVR forms
-    Route::post('/quickrequest/docuseal/create-submission', [\App\Http\Controllers\DocuSealSubmissionController::class, 'createSubmission'])
-        ->name('quickrequest.docuseal.create-submission');
-
-    // Generate JWT token for DocuSeal builder
-    Route::post('/quickrequest/docuseal/generate-builder-token', [\App\Http\Controllers\DocuSealSubmissionController::class, 'generateBuilderToken'])
-        ->name('quickrequest.docuseal.generate-builder-token');
-
     // Create final submission form with all QuickRequest data
     Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
         ->name('quickrequest.docuseal.create-final-submission');
-
-    // Check DocuSeal submission status
-    Route::get('/quickrequest/docuseal/submission/{submissionId}/status', [\App\Http\Controllers\DocuSealSubmissionController::class, 'checkStatus'])
-        ->name('quickrequest.docuseal.status');
-
-    // Create episode for DocuSeal integration (NEW ROUTE) - moved to api.php
 });
 
 // ================================================================
@@ -1079,12 +1044,9 @@ Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
 });
 
 // DocuSeal Webhook (outside auth middleware)
-Route::post('/webhooks/docuseal', [DocuSealWebhookController::class, 'handle'])
-    ->name('webhooks.docuseal')
-    ->withoutMiddleware(['web', 'auth']);
 
 // QuickRequest Episode ID generation for IVR linking
-Route::post('/api/quickrequest/episode', [App\Http\Controllers\QuickRequestEpisodeController::class, 'getEpisodeId'])
+Route::post('/api/quickrequest/episode', [\App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'store'])
     ->name('api.quickrequest.episode')
     ->middleware(['auth', 'web']);
 
@@ -1173,7 +1135,7 @@ Route::get('/test-docuseal-connection', function () {
     try {
         $docuSealService = app(\App\Services\DocuSealService::class);
         $result = $docuSealService->testConnection();
-        
+
         return response()->json($result);
     } catch (\Exception $e) {
         return response()->json([
@@ -1218,3 +1180,7 @@ Route::get('/docuseal-templates', function () {
         return 'Error: ' . $e->getMessage();
     }
 })->middleware('auth');
+
+
+
+

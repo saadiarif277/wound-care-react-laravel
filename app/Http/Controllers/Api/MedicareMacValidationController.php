@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Order\Order;
 use App\Models\Insurance\MedicareMacValidation;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 use App\Services\CmsCoverageApiService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -18,11 +18,11 @@ use Illuminate\Support\Str;
 
 class MedicareMacValidationController extends Controller
 {
-    protected MedicareMacValidationService $validationService;
+    protected MacValidationService $validationService;
     protected CmsCoverageApiService $cmsService;
 
     public function __construct(
-        MedicareMacValidationService $validationService,
+        MacValidationService $validationService,
         CmsCoverageApiService $cmsService
     ) {
         $this->validationService = $validationService;
@@ -528,7 +528,7 @@ class MedicareMacValidationController extends Controller
                     'mac_jurisdiction' => $validation->mac_jurisdiction,
                     'basic_coverage' => $validation->basic_coverage,
                     'issues' => $validation->issues ?? [],
-                    'validated_at' => $validation->validated_at?->toISOString(),
+                    'validated_at' => $validation->validated_at?->format('c'),
                     'validated_by' => $validation->validatedBy?->name ?? 'System'
                 ]
             ]);

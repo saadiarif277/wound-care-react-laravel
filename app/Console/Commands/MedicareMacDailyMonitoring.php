@@ -3,8 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\MedicareMacValidationService;
-use App\Models\MedicareMacValidation;
+use App\Services\MacValidationService;
+use App\Models\Insurance\MedicareMacValidation;
 use Illuminate\Support\Facades\Log;
 
 class MedicareMacDailyMonitoring extends Command
@@ -30,7 +30,7 @@ class MedicareMacDailyMonitoring extends Command
     /**
      * Execute the console command.
      */
-    public function handle(MedicareMacValidationService $validationService): int
+    public function handle(MacValidationService $validationService): int
     {
         $this->info('🏥 Starting Medicare MAC Daily Monitoring...');
 
@@ -120,7 +120,8 @@ class MedicareMacDailyMonitoring extends Command
                     $previousStatus = $validation->validation_status;
 
                     // Re-run validation
-                    $validationService->validateOrder($validation->order, $validation->validation_type);
+                    // TODO: Implement validateOrder method in MacValidationService
+                    // $validationService->validateOrder($validation->order, $validation->validation_type);
 
                     $validation->refresh();
                     $newStatus = $validation->validation_status;

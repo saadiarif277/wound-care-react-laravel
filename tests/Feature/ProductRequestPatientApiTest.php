@@ -12,7 +12,7 @@ use App\Models\Role;
 use App\Models\Fhir\Facility;
 use App\Services\FhirService;
 use App\Services\EligibilityEngine\AvailityEligibilityService;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
 use Carbon\Carbon;

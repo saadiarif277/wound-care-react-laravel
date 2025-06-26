@@ -20,7 +20,7 @@ class DocuSealService
     {
         $this->apiKey = config('docuseal.api_key');
         $this->apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
-        
+
         // Debug logging for configuration validation
         Log::info('DocuSeal Configuration Loaded', [
             'api_key_present' => !empty($this->apiKey),
@@ -29,7 +29,7 @@ class DocuSealService
             'config_api_key' => config('docuseal.api_key') ? 'SET' : 'MISSING',
             'config_api_url' => config('docuseal.api_url') ?? 'MISSING',
         ]);
-        
+
         if (empty($this->apiKey)) {
             Log::error('DocuSeal API Key not configured', [
                 'config_check' => [
@@ -61,10 +61,10 @@ class DocuSealService
                 'manufacturer_name' => $manufacturer->name,
                 'episode_id' => $episode->id,
             ]);
-            
+
             // Try to fetch from API as fallback
             $template = $this->fetchTemplateFromApi($manufacturer, 'IVR');
-            
+
             if (!$template) {
                 throw new \Exception("No active IVR template found for manufacturer: {$manufacturer->name}");
             }
@@ -128,19 +128,63 @@ class DocuSealService
     /**
      * Map fields using template's stored field mappings
      */
-    protected function mapFieldsUsingTemplate(array $data, \App\Models\Docuseal\DocusealTemplate $template): array
+    public function mapFieldsUsingTemplate(array $data, \App\Models\Docuseal\DocusealTemplate $template): array
     {
         $fieldMappings = $template->field_mappings ?? [];
         $mappedFields = [];
 
+        // Transform flat data into nested structure
+        $transformedData = $this->transformToNestedStructure($data);
+
         foreach ($fieldMappings as $docusealFieldName => $mapping) {
-            // Get the system field path (this maps to QuickRequest data structure)
-            $systemFieldPath = $mapping['system_field'] ?? null;
-            
+            // Handle both formats: simple string or array with system_field/local_field
+            if (is_string($mapping)) {
+                // Simple format: 'docuseal_field' => 'system_field'
+                $systemFieldPath = $mapping;
+                $mappingArray = ['system_field' => $systemFieldPath];
+            } else {
+                // Complex format: 'docuseal_field' => ['system_field' => 'path', 'local_field' => 'path', 'data_type' => 'string']
+                // Try both system_field and local_field
+                $systemFieldPath = $mapping['system_field'] ?? $mapping['local_field'] ?? null;
+                $mappingArray = $mapping;
+            }
+
             if ($systemFieldPath) {
-                $value = $this->getNestedValue($data, $systemFieldPath);
+                // First try transformed nested data
+                $value = $this->getNestedValue($transformedData, $systemFieldPath);
+
+                // If not found, try original flat data
+                if ($value === null) {
+                    $value = $this->getNestedValue($data, $systemFieldPath);
+                }
+
+                // If still not found and it's a dotted path, try without the prefix
+                if ($value === null && strpos($systemFieldPath, '.') !== false) {
+                    // Remove prefixes like 'patientInfo.', 'providerInfo.', etc.
+                    $parts = explode('.', $systemFieldPath);
+                    $fieldName = end($parts);
+
+                    // Try common variations
+                    $variations = [
+                        $fieldName,
+                        lcfirst($fieldName),
+                        strtolower(preg_replace('/([a-z])([A-Z])/', '$1_$2', $fieldName)),
+                    ];
+
+                    foreach ($variations as $variant) {
+                        $value = $data[$variant] ?? null;
+                        if ($value !== null) {
+                            break;
+                        }
+                    }
+                }
+
                 if ($value !== null) {
-                    $mappedFields[$docusealFieldName] = $this->transformValue($value, $mapping);
+                    // Format fields as array of objects with name and value
+                    $mappedFields[] = [
+                        'name' => $docusealFieldName,
+                        'value' => $this->transformValue($value, $mappingArray)
+                    ];
                 }
             }
         }
@@ -150,8 +194,9 @@ class DocuSealService
             'docuseal_template_id' => $template->docuseal_template_id,
             'total_mappings' => count($fieldMappings),
             'fields_mapped' => count($mappedFields),
-            'field_names' => array_keys($mappedFields),
-            'manufacturer' => $template->manufacturer?->name
+            'field_names' => array_map(fn($f) => $f['name'], $mappedFields),
+            'manufacturer' => $template->manufacturer?->name,
+            'sample_mappings' => array_slice($mappedFields, 0, 5) // Log first 5 mapped fields for debugging
         ]);
 
         return $mappedFields;
@@ -163,7 +208,7 @@ class DocuSealService
     protected function transformValue($value, array $mapping)
     {
         $dataType = $mapping['data_type'] ?? 'string';
-        
+
         switch ($dataType) {
             case 'date':
                 if ($value && !empty($value)) {
@@ -174,13 +219,13 @@ class DocuSealService
                     }
                 }
                 break;
-                
+
             case 'phone':
                 if ($value) {
                     // Clean and format phone number
                     $cleaned = preg_replace('/[^0-9]/', '', $value);
                     if (strlen($cleaned) === 10) {
-                        return sprintf('(%s) %s-%s', 
+                        return sprintf('(%s) %s-%s',
                             substr($cleaned, 0, 3),
                             substr($cleaned, 3, 3),
                             substr($cleaned, 6, 4)
@@ -188,14 +233,14 @@ class DocuSealService
                     }
                 }
                 break;
-                
+
             case 'boolean':
                 return (bool) $value;
-                
+
             case 'number':
                 return is_numeric($value) ? (float) $value : $value;
         }
-        
+
         return $value;
     }
 
@@ -215,6 +260,86 @@ class DocuSealService
         }
 
         return $value;
+    }
+
+    /**
+     * Transform flat data structure into nested structure expected by field mappings
+     */
+    protected function transformToNestedStructure(array $data): array
+    {
+        $nested = [];
+
+        // Patient Information
+        $nested['patientInfo'] = [
+            'patientName' => trim(($data['patient_first_name'] ?? '') . ' ' . ($data['patient_last_name'] ?? '')),
+            'firstName' => $data['patient_first_name'] ?? '',
+            'lastName' => $data['patient_last_name'] ?? '',
+            'dateOfBirth' => $data['patient_dob'] ?? '',
+            'gender' => $data['patient_gender'] ?? '',
+            'memberId' => $data['patient_member_id'] ?? '',
+            'address' => trim(($data['patient_address_line1'] ?? '') . ' ' . ($data['patient_address_line2'] ?? '')),
+            'addressLine1' => $data['patient_address_line1'] ?? '',
+            'addressLine2' => $data['patient_address_line2'] ?? '',
+            'city' => $data['patient_city'] ?? '',
+            'state' => $data['patient_state'] ?? '',
+            'zip' => $data['patient_zip'] ?? '',
+            'phone' => $data['patient_phone'] ?? '',
+            'email' => $data['patient_email'] ?? '',
+        ];
+
+        // Provider Information
+        $nested['providerInfo'] = [
+            'providerName' => $data['provider_name'] ?? '',
+            'providerEmail' => $data['provider_email'] ?? '',
+            'providerNpi' => $data['provider_npi'] ?? '',
+            'credentials' => $data['provider_credentials'] ?? '',
+        ];
+
+        // Facility Information
+        $nested['facilityInfo'] = [
+            'facilityName' => $data['facility_name'] ?? '',
+            'facilityAddress' => $data['facility_address'] ?? '',
+            'facilityNpi' => $data['facility_npi'] ?? '',
+            'facilityTin' => $data['facility_tin'] ?? '',
+            'facilityPtan' => $data['facility_ptan'] ?? '',
+        ];
+
+        // Request Information
+        $nested['requestInfo'] = [
+            'salesRepName' => $data['sales_rep'] ?? $data['sales_rep_name'] ?? '',
+            'episodeId' => $data['episode_id'] ?? '',
+            'orderId' => $data['order_id'] ?? '',
+            'serviceDate' => $data['service_date'] ?? $data['expected_service_date'] ?? '',
+        ];
+
+        // Clinical Information
+        $nested['clinicalInfo'] = [
+            'woundType' => $data['wound_type'] ?? '',
+            'woundLocation' => $data['wound_location'] ?? '',
+            'woundSize' => $data['total_wound_size'] ?? '',
+            'woundDimensions' => $data['wound_dimensions'] ?? '',
+            'diagnosisCode' => $data['diagnosis_code'] ?? '',
+            'primaryDiagnosisCode' => $data['primary_diagnosis_code'] ?? '',
+            'secondaryDiagnosisCode' => $data['secondary_diagnosis_code'] ?? '',
+        ];
+
+        // Insurance Information
+        $nested['insuranceInfo'] = [
+            'primaryInsuranceName' => $data['primary_insurance_name'] ?? '',
+            'primaryMemberId' => $data['primary_member_id'] ?? '',
+            'primaryPlanType' => $data['primary_plan_type'] ?? '',
+        ];
+
+        // Product Information
+        $nested['productInfo'] = [
+            'productName' => $data['product_name'] ?? '',
+            'productCode' => $data['product_code'] ?? '',
+            'productManufacturer' => $data['product_manufacturer'] ?? '',
+            'productDetails' => $data['product_details_text'] ?? '',
+        ];
+
+        // Merge nested structure with original data to preserve unmapped fields
+        return array_merge($data, $nested);
     }
 
     /**
@@ -248,7 +373,7 @@ class DocuSealService
                 'template_id' => $templateId,
                 'send_email' => $submitterData['send_email'] ?? false,
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'email' => $submitterData['email'],
                     'name' => $submitterData['name'],
                     'fields' => $submitterData['fields'] ?? []
@@ -430,7 +555,7 @@ class DocuSealService
                 'template_id' => $templateId,
                 'send_email' => false,
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'email' => $order->provider->email ?? 'provider@example.com',
                     'name' => $order->provider->name ?? 'Provider',
                     'fields' => [
@@ -536,44 +661,79 @@ class DocuSealService
     }
 
     /**
-     * Generate JWT token for DocuSeal builder
+     * Generate a builder token for DocuSeal forms
      */
     public function generateBuilderToken(string $templateId, array $submitterData): string
     {
         try {
-            // Generate JWT token locally using the API key as the secret
-            // Following DocuSeal's React SaaS guide exactly
-            $payload = [
-                'user_email' => config('docuseal.account_email', 'limitless@mscwoundcare.com'), // Admin email that owns the API key
-                'integration_email' => $submitterData['email'], // SaaS user's email
-                'external_id' => $submitterData['external_id'] ?? null,
-                'name' => $submitterData['name'] ?? 'IVR Form',
-                'template_id' => $templateId,
-                // 'document_urls' => [], // Empty array if using template_id
-            ];
+            // Get template from database to access field mappings
+            $template = \App\Models\Docuseal\DocusealTemplate::where('docuseal_template_id', $templateId)
+                ->orWhere('id', $templateId)
+                ->first();
 
-            // Add pre-filled fields if provided
-            if (!empty($submitterData['fields'])) {
-                $payload['fields'] = $submitterData['fields'];
+            // Map the prefill data if template has field mappings
+            $prefillData = $submitterData['fields'] ?? [];
+            if ($template && !empty($template->field_mappings) && !empty($prefillData)) {
+                $mappedFields = $this->mapFieldsUsingTemplate($prefillData, $template);
+                $submitterData['fields'] = $mappedFields;
             }
 
-            // Generate JWT token using Firebase JWT library
-            $jwt = \Firebase\JWT\JWT::encode($payload, $this->apiKey, 'HS256');
-            
-            Log::info('DocuSeal builder JWT token generated successfully', [
+            // Generate a descriptive name for the form
+            $formName = 'IVR Form';
+            if ($template && $template->manufacturer) {
+                $formName = $template->manufacturer->name . ' IVR Form';
+            } elseif ($template) {
+                $formName = $template->template_name;
+            }
+
+            $payload = [
                 'template_id' => $templateId,
+                'user_email' => config('docuseal.account_email', 'limitless@mscwoundcare.com'),
                 'integration_email' => $submitterData['email'],
-                'external_id' => $submitterData['external_id'] ?? null
+                'name' => $formName,
+                'external_id' => $submitterData['external_id'] ?? 'quickrequest_' . uniqid(),
+                'fields' => $submitterData['fields'] ?? [],
+                'brand_name' => config('app.name', 'MSC Wound Care'),
+                // Disable UI elements we don't want
+                'with_fields_list' => false,
+                'with_replace_document' => false,
+                'with_add_document' => false,
+                'with_recipients_button' => false,
+                'with_sign_yourself_button' => false,
+                'with_send_button' => false,
+                'with_title' => false,
+                'iat' => time(),
+                'exp' => time() + (60 * 60) // 1 hour expiration
+            ];
+
+            Log::info('Generating DocuSeal builder token', [
+                'template_id' => $templateId,
+                'has_fields' => !empty($payload['fields']),
+                'field_count' => count($payload['fields'] ?? []),
+                'integration_email' => $payload['integration_email'],
+                'sample_fields' => array_slice($payload['fields'] ?? [], 0, 5)
+            ]);
+
+            // Generate JWT token
+            $key = config('docuseal.api_key');
+            if (!$key) {
+                throw new \Exception('DocuSeal API key not configured');
+            }
+
+            // Use Firebase JWT library with HS256
+            $jwt = \Firebase\JWT\JWT::encode($payload, $key, 'HS256');
+
+            Log::info('DocuSeal builder token generated successfully', [
+                'token_length' => strlen($jwt)
             ]);
 
             return $jwt;
         } catch (\Exception $e) {
-            Log::error('DocuSeal Builder JWT Generation Failed', [
+            Log::error('Failed to generate DocuSeal builder token', [
                 'error' => $e->getMessage(),
                 'template_id' => $templateId
             ]);
-            
-            throw new \Exception('Failed to generate DocuSeal builder token: ' . $e->getMessage());
+            throw $e;
         }
     }
 
@@ -602,7 +762,7 @@ class DocuSealService
             }
 
             $templates = $response->json();
-            
+
             if (!is_array($templates)) {
                 Log::error('Invalid response format from DocuSeal API');
                 return null;
@@ -624,10 +784,10 @@ class DocuSealService
             ];
 
             $patterns = $manufacturerPatterns[$manufacturerNameLower] ?? [str_replace(' ', '', $manufacturerNameLower)];
-            
+
             foreach ($templates as $template) {
                 $templateName = strtolower($template['name'] ?? '');
-                
+
                 // Check if template matches manufacturer and document type
                 $matchesManufacturer = false;
                 foreach ($patterns as $pattern) {
@@ -636,7 +796,7 @@ class DocuSealService
                         break;
                     }
                 }
-                
+
                 $matchesType = false;
                 if ($documentType === 'IVR' && (str_contains($templateName, 'ivr') || str_contains($templateName, 'authorization'))) {
                     $matchesType = true;
@@ -645,19 +805,19 @@ class DocuSealService
                 } elseif ($documentType === 'OnboardingForm' && str_contains($templateName, 'onboard')) {
                     $matchesType = true;
                 }
-                
+
                 if ($matchesManufacturer && $matchesType) {
                     // Fetch detailed template info
                     $detailResponse = Http::withHeaders([
                         'X-Auth-Token' => $this->apiKey,
                     ])->get("{$this->apiUrl}/templates/{$template['id']}");
-                    
+
                     if ($detailResponse->successful()) {
                         $detailedTemplate = $detailResponse->json();
-                        
+
                         // Extract field mappings
                         $fieldMappings = $this->extractFieldMappingsFromApi($detailedTemplate);
-                        
+
                         // Create template in database
                         $dbTemplate = \App\Models\Docuseal\DocusealTemplate::create([
                             'template_name' => $template['name'],
@@ -675,26 +835,26 @@ class DocuSealService
                             'field_discovery_status' => 'completed',
                             'last_extracted_at' => now()
                         ]);
-                        
+
                         Log::info('Successfully fetched and saved template from API', [
                             'template_id' => $dbTemplate->id,
                             'docuseal_id' => $template['id'],
                             'manufacturer' => $manufacturer->name
                         ]);
-                        
+
                         return $dbTemplate;
                     }
                 }
             }
-            
+
             Log::warning('No matching template found in DocuSeal API', [
                 'manufacturer' => $manufacturer->name,
                 'document_type' => $documentType,
                 'total_templates_checked' => count($templates)
             ]);
-            
+
             return null;
-            
+
         } catch (\Exception $e) {
             Log::error('Error fetching template from DocuSeal API', [
                 'error' => $e->getMessage(),
@@ -710,17 +870,17 @@ class DocuSealService
     protected function extractFieldMappingsFromApi(array $template): array
     {
         $fieldMappings = [];
-        
+
         // Check various possible field structures in the API response
         $fields = $template['fields'] ?? $template['schema'] ?? $template['submitters'][0]['fields'] ?? [];
-        
+
         foreach ($fields as $field) {
             $fieldName = $field['name'] ?? $field['field_name'] ?? '';
             if (empty($fieldName)) continue;
-            
+
             // Map common DocuSeal fields to system fields
             $systemField = $this->mapDocuSealFieldToSystem($fieldName);
-            
+
             $fieldMappings[$fieldName] = [
                 'docuseal_field_name' => $fieldName,
                 'field_type' => $field['type'] ?? 'text',
@@ -733,7 +893,7 @@ class DocuSealService
                 'extracted_at' => now()->toISOString()
             ];
         }
-        
+
         return $fieldMappings;
     }
 
@@ -743,7 +903,7 @@ class DocuSealService
     protected function mapDocuSealFieldToSystem(string $fieldName): array
     {
         $fieldNameLower = strtolower(str_replace([' ', '_', '-'], '', $fieldName));
-        
+
         // Common field mappings
         $mappings = [
             'patientname' => ['local_field' => 'patientInfo.patientName', 'system_field' => 'patient_name', 'data_type' => 'string'],
@@ -758,19 +918,19 @@ class DocuSealService
             'repname' => ['local_field' => 'requestInfo.salesRepName', 'system_field' => 'sales_rep_name', 'data_type' => 'string'],
             'requestdate' => ['local_field' => 'requestInfo.requestDate', 'system_field' => 'request_date', 'data_type' => 'date'],
         ];
-        
+
         // Check for exact match
         if (isset($mappings[$fieldNameLower])) {
             return $mappings[$fieldNameLower];
         }
-        
+
         // Check for partial matches
         foreach ($mappings as $key => $mapping) {
             if (str_contains($fieldNameLower, $key)) {
                 return $mapping;
             }
         }
-        
+
         // Default mapping
         return [
             'local_field' => 'customFields.' . $fieldName,
@@ -797,7 +957,7 @@ class DocuSealService
                 'send_email' => false, // Don't send email, we want to generate PDF directly
                 'completed' => true, // Mark as completed to generate PDF immediately
                 'submitters' => [[
-                    'role' => 'Signer',
+                    'role' => 'First Party', // Fixed: Use correct role name for templates
                     'name' => $formData['signer_name'] ?? 'System Generated',
                     'email' => $formData['signer_email'] ?? 'system@example.com',
                     'fields' => array_merge($formData, $signatures),
@@ -929,7 +1089,7 @@ class DocuSealService
             } else {
                 $result['message'] = 'Connection failed';
                 $result['error'] = $response->body();
-                
+
                 if ($response->status() === 401) {
                     $result['error_type'] = 'authentication';
                     $result['recommendation'] = 'Check API key validity and permissions';
@@ -982,7 +1142,7 @@ class DocuSealService
             $episodeData = is_object($episode) ? get_object_vars($episode) : $episode;
             $data = array_merge($data, $episodeData);
         }
-        
+
         return is_object($episode) ? (array) $episode : $episode;
     }
 
@@ -1001,17 +1161,17 @@ class DocuSealService
 
             // Get the template
             $template = $this->getTemplateForManufacturer($episode->manufacturer_id, $templateType);
-            
+
             if (!$template) {
                 throw new \Exception('No DocuSeal template found for manufacturer');
             }
 
             // Prepare the prefill data
             $prefillData = $this->preparePrefillData($episode, $template);
-            
+
             // NEW: Enrich with FHIR data
             $prefillData = $this->enrichWithFHIRData($prefillData, $episodeId);
-            
+
             // Continue with existing DocuSeal submission...
             $submissionData = [
                 'template_id' => $template->docuseal_template_id,
@@ -1025,7 +1185,7 @@ class DocuSealService
                     ]
                 ]
             ];
-            
+
             $response = Http::withHeaders([
                 'X-Auth-Token' => $this->apiKey,
                 'Content-Type' => 'application/json'
@@ -1039,7 +1199,7 @@ class DocuSealService
                     return ['submission_id' => $submissionId];
                 }
             }
-            
+
             throw new \Exception('DocuSeal API error: ' . $response->body());
 
         } catch (\Exception $e) {
@@ -1051,18 +1211,18 @@ class DocuSealService
         }
     }
 
-    private function enrichWithFHIRData(array $prefillData, string $episodeId): array 
+    private function enrichWithFHIRData(array $prefillData, string $episodeId): array
     {
         try {
             $episode = DB::table('patient_manufacturer_ivr_episodes')
                 ->where('id', $episodeId)
                 ->first();
-                
+
             if (!$episode || !$episode->azure_order_checklist_fhir_id) {
                 Log::info('No FHIR data for episode', ['episode_id' => $episodeId]);
                 return $prefillData;
             }
-            
+
             // Fetch the DocumentReference which contains our checklist data
             $fhirService = app(FhirService::class);
             $bundle = $fhirService->search('DocumentReference', ['_id' => $episode->azure_order_checklist_fhir_id]);
@@ -1072,15 +1232,15 @@ class DocuSealService
                 return $prefillData;
             }
             $documentRef = $bundle['entry'][0]['resource'];
-            
+
             // The checklist data is base64 encoded in the attachment
             if (isset($documentRef['content'][0]['attachment']['data'])) {
                 $checklistJson = base64_decode($documentRef['content'][0]['attachment']['data']);
                 $checklistData = json_decode($checklistJson, true);
-                
+
                 // Map FHIR checklist data to DocuSeal fields
                 $fhirMappings = $this->mapFHIRToDocuSeal($checklistData);
-                
+
                 // Merge with existing data (FHIR data takes precedence)
                 return array_merge($prefillData, $fhirMappings);
             }
@@ -1090,90 +1250,166 @@ class DocuSealService
                 'error' => $e->getMessage()
             ]);
         }
-        
+
         return $prefillData;
     }
 
-    public function mapFHIRToDocuSeal(array $checklistData): array 
+    public function mapFHIRToDocuSeal(array $checklistData): array
     {
         $mappings = [];
-        
+
         // Patient Information
         if (isset($checklistData['patientName'])) {
             $mappings['PATIENT NAME'] = $checklistData['patientName'];
             $mappings['Patient Name'] = $checklistData['patientName'];
             $mappings['PATIENT_NAME'] = $checklistData['patientName'];
         }
-        
+
         if (isset($checklistData['dateOfBirth'])) {
             $mappings['DATE OF BIRTH'] = date('m/d/Y', strtotime($checklistData['dateOfBirth']));
             $mappings['DOB'] = date('m/d/Y', strtotime($checklistData['dateOfBirth']));
         }
-        
+
         // Diagnosis mappings
         if (isset($checklistData['hasDiabetes']) && $checklistData['hasDiabetes']) {
             $mappings['DIABETES'] = 'X';
             $mappings['Has Diabetes'] = 'Yes';
-            
+
             if (isset($checklistData['diabetesType'])) {
                 $mappings['DIABETES TYPE ' . $checklistData['diabetesType']] = 'X';
                 $mappings['Diabetes Type'] = 'Type ' . $checklistData['diabetesType'];
             }
         }
-        
+
         // Wound measurements
         if (isset($checklistData['length'])) {
             $mappings['WOUND LENGTH'] = $checklistData['length'];
             $mappings['Length (cm)'] = $checklistData['length'];
             $mappings['WOUND_LENGTH_CM'] = $checklistData['length'];
         }
-        
+
         if (isset($checklistData['width'])) {
             $mappings['WOUND WIDTH'] = $checklistData['width'];
             $mappings['Width (cm)'] = $checklistData['width'];
             $mappings['WOUND_WIDTH_CM'] = $checklistData['width'];
         }
-        
+
         if (isset($checklistData['woundDepth'])) {
             $mappings['WOUND DEPTH'] = $checklistData['woundDepth'];
             $mappings['Depth (cm)'] = $checklistData['woundDepth'];
         }
-        
+
         // Location and laterality
         if (isset($checklistData['location'])) {
             $mappings['LOCATION ' . strtoupper($checklistData['location'])] = 'X';
             $mappings['Location'] = ucfirst($checklistData['location']);
         }
-        
+
         if (isset($checklistData['ulcerLocation'])) {
             $mappings['ULCER LOCATION'] = $checklistData['ulcerLocation'];
             $mappings['Wound Location'] = $checklistData['ulcerLocation'];
         }
-        
+
         // Lab values
         if (isset($checklistData['hba1cResult'])) {
             $mappings['HBA1C'] = $checklistData['hba1cResult'];
             $mappings['HbA1c Result'] = $checklistData['hba1cResult'] . '%';
             $mappings['A1C_VALUE'] = $checklistData['hba1cResult'];
         }
-        
+
         // Conservative treatment
         if (isset($checklistData['debridementPerformed']) && $checklistData['debridementPerformed']) {
             $mappings['DEBRIDEMENT'] = 'X';
             $mappings['Debridement Performed'] = 'Yes';
         }
-        
+
         if (isset($checklistData['moistDressingsApplied']) && $checklistData['moistDressingsApplied']) {
             $mappings['MOIST DRESSINGS'] = 'X';
             $mappings['Moist Dressings Applied'] = 'Yes';
         }
-        
+
         // Add procedure date if available
         if (isset($checklistData['dateOfProcedure'])) {
             $mappings['PROCEDURE DATE'] = date('m/d/Y', strtotime($checklistData['dateOfProcedure']));
             $mappings['Date of Service'] = date('m/d/Y', strtotime($checklistData['dateOfProcedure']));
         }
-        
+
         return $mappings;
+    }
+
+    /**
+     * Process a completed DocuSeal submission
+     */
+    public function processCompletedSubmission(string $submissionId, string $manufacturerId, ?string $productCode = null): array
+    {
+        try {
+            Log::info('Processing completed DocuSeal submission', [
+                'submission_id' => $submissionId,
+                'manufacturer_id' => $manufacturerId,
+                'product_code' => $productCode
+            ]);
+
+            // Get submission details from DocuSeal
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+            ])->get("{$this->apiUrl}/submissions/{$submissionId}");
+
+            if (!$response->successful()) {
+                throw new \Exception('Failed to fetch submission details: ' . $response->body());
+            }
+
+            $submission = $response->json();
+
+            // Extract submitter data
+            $submitter = $submission['submitters'][0] ?? null;
+            if (!$submitter) {
+                throw new \Exception('No submitter data found in submission');
+            }
+
+            // Get the completed document URL
+            $documentUrl = $this->downloadDocument($submissionId);
+
+            // Store submission in database
+            $docusealSubmission = \App\Models\DocuSeal\DocuSealSubmission::create([
+                'submission_id' => $submissionId,
+                'template_id' => $submission['template_id'] ?? null,
+                'status' => 'completed',
+                'submitter_email' => $submitter['email'] ?? null,
+                'submitter_name' => $submitter['name'] ?? null,
+                'completed_at' => now(),
+                'document_url' => $documentUrl,
+                'submission_data' => $submission,
+                'manufacturer_id' => $manufacturerId,
+                'product_code' => $productCode
+            ]);
+
+            // Process the form data for the quick request
+            $formData = [];
+            if (isset($submitter['values'])) {
+                foreach ($submitter['values'] as $field) {
+                    $formData[$field['field_name']] = $field['value'];
+                }
+            }
+
+            Log::info('DocuSeal submission processed successfully', [
+                'submission_id' => $submissionId,
+                'document_url' => $documentUrl,
+                'field_count' => count($formData)
+            ]);
+
+            return [
+                'submission_id' => $submissionId,
+                'document_url' => $documentUrl,
+                'form_data' => $formData,
+                'submission_record_id' => $docusealSubmission->id
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to process DocuSeal submission', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 }

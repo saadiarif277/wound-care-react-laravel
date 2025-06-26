@@ -3,14 +3,14 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\MedicareMacValidationService;
+use App\Services\MacValidationService;
 
 class TestMacZipValidation extends Command
 {
     protected $signature = 'test:mac-zip-validation {zip?} {state?}';
     protected $description = 'Test MAC validation using patient ZIP code instead of facility address';
 
-    public function handle(MedicareMacValidationService $macValidationService)
+    public function handle(MacValidationService $macValidationService)
     {
         $this->info('Testing MAC Validation with Patient ZIP Code');
         $this->line('===============================================');

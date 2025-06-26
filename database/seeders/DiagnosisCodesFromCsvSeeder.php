@@ -13,6 +13,27 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
      */
     public function run(): void
     {
+        // Recreate diagnosis_codes table with updated schema
+        DB::statement('DROP TABLE IF EXISTS `diagnosis_codes`');
+        DB::statement(<<<SQL
+CREATE TABLE `diagnosis_codes` (
+  `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `description` text COLLATE utf8mb4_unicode_ci NOT NULL,
+  `category` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
+  `specialty` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `wound_type` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL COMMENT 'Associated wound type: diabetic_foot_ulcer, venous_leg_ulcer, pressure_ulcer, chronic_skin_subs',
+  `is_active` tinyint(1) NOT NULL DEFAULT '1',
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `diagnosis_codes_code_unique` (`code`),
+  KEY `diagnosis_codes_category_index` (`category`),
+  KEY `diagnosis_codes_is_active_index` (`is_active`),
+  KEY `diagnosis_codes_wound_type_index` (`wound_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQL);
+
         // First ensure wound types exist
         $this->ensureWoundTypesExist();
         
@@ -29,6 +50,9 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         // Import Pressure Ulcer codes
         $this->importPressureUlcerCodes();
         
+        // Import generic L97 chronic ulcer codes first
+        $this->importGenericChronicUlcerCodes();
+
         // Import Chronic Skin Subs codes
         $this->importChronicSkinSubsCodes();
     }
@@ -80,35 +104,7 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
                 }
             }
 
-            // Orange codes (Chronic Ulcer) - columns 3 and 4
-            if (!empty($row[3]) && strlen($row[3]) > 3) {
-                $code = trim($row[3]);
-                $description = trim($row[4] ?? '');
-                
-                if (preg_match('/^[A-Z]\d{2}/', $code)) {
-                    $diagnosisCodes[$code] = [
-                        'id' => Str::uuid(),
-                        'code' => $code,
-                        'description' => $description,
-                        'category' => 'orange',
-                        'specialty' => 'chronic_ulcer',
-                        'wound_type' => 'diabetic_foot_ulcer',
-                        'is_active' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
 
-                    $relationships[] = [
-                        'id' => Str::uuid(),
-                        'wound_type_code' => 'diabetic_foot_ulcer',
-                        'diagnosis_code' => $code,
-                        'category' => 'orange',
-                        'is_required' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
         }
 
         fclose($file);
@@ -124,107 +120,29 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         }
 
         $this->command->info('Imported ' . count($diagnosisCodes) . ' Diabetic Foot Ulcer diagnosis codes');
+
+        // Associate generic L97 codes
+        $l97Codes = DB::table('diagnosis_codes')->where('specialty', 'chronic_ulcer_generic')->pluck('code');
+        $dfuRelationships = [];
+        foreach ($l97Codes as $l97Code) {
+            $dfuRelationships[] = [
+                'id' => Str::uuid(),
+                'wound_type_code' => 'diabetic_foot_ulcer',
+                'diagnosis_code' => $l97Code,
+                'category' => 'orange',
+                'is_required' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        if (!empty($dfuRelationships)) {
+            DB::table('wound_type_diagnosis_codes')->insert($dfuRelationships);
+        }
     }
 
     private function importVenousLegUlcerCodes(): void
     {
-        $csvPath = base_path('docs/data/Venous Leg Ulcer-Skin Subs Diagnosis Codes.csv');
-        if (!file_exists($csvPath)) {
-            $this->command->warn("CSV file not found: $csvPath");
-            return;
-        }
-
-        $file = fopen($csvPath, 'r');
-        fgetcsv($file); // Skip header row
-        fgetcsv($file); // Skip instruction row
-
-        $diagnosisCodes = [];
-        $relationships = [];
-
-        while (($row = fgetcsv($file)) !== false) {
-            // Yellow codes (Venous insufficiency) - columns 0 and 1
-            if (!empty($row[0]) && strlen($row[0]) > 3) {
-                $code = trim($row[0]);
-                $description = trim($row[1] ?? '');
-                
-                if (preg_match('/^[A-Z]\d{2}/', $code)) {
-                    if (!isset($diagnosisCodes[$code])) {
-                        $diagnosisCodes[$code] = [
-                            'id' => Str::uuid(),
-                            'code' => $code,
-                            'description' => $description,
-                            'category' => 'yellow',
-                            'specialty' => 'venous',
-                            'wound_type' => 'venous_leg_ulcer',
-                            'is_active' => true,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-
-                    $relationships[] = [
-                        'id' => Str::uuid(),
-                        'wound_type_code' => 'venous_leg_ulcer',
-                        'diagnosis_code' => $code,
-                        'category' => 'yellow',
-                        'is_required' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-
-            // Orange codes (Chronic Ulcer) - columns 4 and 5
-            if (!empty($row[4]) && strlen($row[4]) > 3) {
-                $code = trim($row[4]);
-                $description = trim($row[5] ?? '');
-                
-                if (preg_match('/^[A-Z]\d{2}/', $code)) {
-                    if (!isset($diagnosisCodes[$code])) {
-                        $diagnosisCodes[$code] = [
-                            'id' => Str::uuid(),
-                            'code' => $code,
-                            'description' => $description,
-                            'category' => 'orange',
-                            'specialty' => 'chronic_ulcer',
-                            'wound_type' => 'venous_leg_ulcer',
-                            'is_active' => true,
-                            'created_at' => now(),
-                            'updated_at' => now(),
-                        ];
-                    }
-
-                    $relationships[] = [
-                        'id' => Str::uuid(),
-                        'wound_type_code' => 'venous_leg_ulcer',
-                        'diagnosis_code' => $code,
-                        'category' => 'orange',
-                        'is_required' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
-                }
-            }
-        }
-
-        fclose($file);
-
-        // Insert unique diagnosis codes
-        foreach (array_chunk($diagnosisCodes, 100) as $chunk) {
-            DB::table('diagnosis_codes')->insertOrIgnore(array_values($chunk));
-        }
-
-        // Insert relationships
-        foreach (array_chunk($relationships, 100) as $chunk) {
-            DB::table('wound_type_diagnosis_codes')->insert($chunk);
-        }
-
-        $this->command->info('Imported ' . count($diagnosisCodes) . ' Venous Leg Ulcer diagnosis codes');
-    }
-
-    private function importPressureUlcerCodes(): void
-    {
-        $csvPath = base_path('docs/data/Pressure Ulcer-Skin Subs Diagnosis Codes.csv');
+        $csvPath = base_path('docs/data/VLU-primary-codes.csv');
         if (!file_exists($csvPath)) {
             $this->command->warn("CSV file not found: $csvPath");
             return;
@@ -237,47 +155,126 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         $relationships = [];
 
         while (($row = fgetcsv($file)) !== false) {
-            // Pressure ulcer codes - columns 0 and 1
-            if (!empty($row[0]) && strlen($row[0]) > 3) {
+            if (!empty($row[0])) {
                 $code = trim($row[0]);
                 $description = trim($row[1] ?? '');
-                
-                if (preg_match('/^L89\./', $code)) {
+
+                if (!isset($diagnosisCodes[$code])) {
                     $diagnosisCodes[$code] = [
                         'id' => Str::uuid(),
                         'code' => $code,
                         'description' => $description,
-                        'category' => null, // No color category for pressure ulcers
-                        'specialty' => 'pressure',
-                        'wound_type' => 'pressure_ulcer',
+                        'category' => 'yellow',
+                        'specialty' => 'venous',
+                        'wound_type' => 'venous_leg_ulcer',
                         'is_active' => true,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ];
-
-                    $relationships[] = [
-                        'id' => Str::uuid(),
-                        'wound_type_code' => 'pressure_ulcer',
-                        'diagnosis_code' => $code,
-                        'category' => null,
-                        'is_required' => true,
-                        'created_at' => now(),
-                        'updated_at' => now(),
-                    ];
                 }
+
+                $relationships[] = [
+                    'id' => Str::uuid(),
+                    'wound_type_code' => 'venous_leg_ulcer',
+                    'diagnosis_code' => $code,
+                    'category' => 'yellow',
+                    'is_required' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
             }
         }
 
         fclose($file);
 
         // Insert unique diagnosis codes
-        foreach (array_chunk($diagnosisCodes, 100) as $chunk) {
-            DB::table('diagnosis_codes')->insertOrIgnore(array_values($chunk));
+        if (!empty($diagnosisCodes)) {
+            DB::table('diagnosis_codes')->insertOrIgnore(array_values($diagnosisCodes));
         }
 
         // Insert relationships
-        foreach (array_chunk($relationships, 100) as $chunk) {
-            DB::table('wound_type_diagnosis_codes')->insert($chunk);
+        if (!empty($relationships)) {
+            DB::table('wound_type_diagnosis_codes')->insert($relationships);
+        }
+
+        $this->command->info('Imported ' . count($diagnosisCodes) . ' Venous Leg Ulcer primary diagnosis codes');
+
+        // Associate generic L97 codes
+        $l97Codes = DB::table('diagnosis_codes')->where('specialty', 'chronic_ulcer_generic')->pluck('code');
+        $vluRelationships = [];
+        foreach ($l97Codes as $l97Code) {
+            $vluRelationships[] = [
+                'id' => Str::uuid(),
+                'wound_type_code' => 'venous_leg_ulcer',
+                'diagnosis_code' => $l97Code,
+                'category' => 'orange',
+                'is_required' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ];
+        }
+        if (!empty($vluRelationships)) {
+            DB::table('wound_type_diagnosis_codes')->insert($vluRelationships);
+        }
+    }
+
+    private function importPressureUlcerCodes(): void
+    {
+        $csvPath = base_path('docs/data/L89-pressure-ulcer-codes.csv');
+        if (!file_exists($csvPath)) {
+            $this->command->warn("CSV file not found: $csvPath");
+            return;
+        }
+
+        $file = fopen($csvPath, 'r');
+        fgetcsv($file); // Skip header row
+
+        $diagnosisCodes = [];
+        $relationships = [];
+
+        while (($row = fgetcsv($file)) !== false) {
+            if (!empty($row[0])) {
+                $code = trim($row[0]);
+                $description = trim($row[1] ?? '');
+            
+                $diagnosisCodes[$code] = [
+                    'id' => Str::uuid(),
+                    'code' => $code,
+                    'description' => $description,
+                    'category' => null, // No color category for pressure ulcers
+                    'specialty' => 'pressure',
+                    'wound_type' => 'pressure_ulcer',
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+
+                $relationships[] = [
+                    'id' => Str::uuid(),
+                    'wound_type_code' => 'pressure_ulcer',
+                    'diagnosis_code' => $code,
+                    'category' => null,
+                    'is_required' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ];
+            }
+        }
+
+        fclose($file);
+
+        // Insert unique diagnosis codes
+        if (!empty($diagnosisCodes)) {
+            foreach (array_chunk(array_values($diagnosisCodes), 100) as $chunk) {
+                DB::table('diagnosis_codes')->insertOrIgnore($chunk);
+            }
+        }
+
+        // Insert relationships
+        if (!empty($relationships)) {
+            foreach (array_chunk($relationships, 100) as $chunk) {
+                DB::table('wound_type_diagnosis_codes')->insert($chunk);
+            }
         }
 
         $this->command->info('Imported ' . count($diagnosisCodes) . ' Pressure Ulcer diagnosis codes');
@@ -347,6 +344,50 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         }
 
         $this->command->info('Imported ' . count($diagnosisCodes) . ' Chronic Skin Subs diagnosis codes');
+    }
+
+    private function importGenericChronicUlcerCodes(): void
+    {
+        $csvPath = base_path('docs/data/L97-chronic-ulcer-codes.csv');
+        if (!file_exists($csvPath)) {
+            $this->command->warn("CSV file not found: $csvPath");
+            return;
+        }
+
+        $file = fopen($csvPath, 'r');
+        fgetcsv($file); // Skip header row
+
+        $diagnosisCodes = [];
+
+        while (($row = fgetcsv($file)) !== false) {
+            if (!empty($row[0]) && strlen($row[0]) > 3) {
+                $code = trim($row[0]);
+                $description = trim($row[1] ?? '');
+                
+                if (preg_match('/^[A-Z]\d{2}/', $code)) {
+                    $diagnosisCodes[$code] = [
+                        'id' => Str::uuid(),
+                        'code' => $code,
+                        'description' => $description,
+                        'category' => 'orange', // Use 'orange' for consistency
+                        'specialty' => 'chronic_ulcer_generic',
+                        'wound_type' => null, // Not specific to one wound type
+                        'is_active' => true,
+                        'created_at' => now(),
+                        'updated_at' => now(),
+                    ];
+                }
+            }
+        }
+
+        fclose($file);
+
+        if (!empty($diagnosisCodes)) {
+            DB::table('diagnosis_codes')->insert(array_values($diagnosisCodes));
+            $this->command->info('Imported ' . count($diagnosisCodes) . ' generic chronic ulcer codes.');
+        }
+
+
     }
 
     private function ensureWoundTypesExist(): void

@@ -65,18 +65,7 @@ return [
             'throw' => false,
         ],
 
-        // Supabase S3-Compatible Storage
-        'supabase' => [
-            'driver' => 's3',
-            'key' => env('SUPABASE_S3_ACCESS_KEY_ID'),
-            'secret' => env('SUPABASE_S3_SECRET_ACCESS_KEY'),
-            'region' => env('SUPABASE_S3_REGION', 'us-east-2'),
-            'bucket' => env('SUPABASE_S3_BUCKET'),
-            'url' => env('SUPABASE_S3_URL'),
-            'endpoint' => env('SUPABASE_S3_ENDPOINT'),
-            'use_path_style_endpoint' => true, // Required for Supabase S3 compatibility
-            'throw' => false,
-        ],
+
 
         // S3 Encrypted storage for PHI documents
         's3-encrypted' => [

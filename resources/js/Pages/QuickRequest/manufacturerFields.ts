@@ -26,7 +26,6 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ',
     products: ['Membrane Wrap', 'Revoshield'],
     signatureRequired: true,
-    docusealTemplateId: '123456', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'physician_attestation',
@@ -44,9 +43,8 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   },
   {
     name: 'Advanced Health',
-    products: ['CompleteAA', 'CompleteFT', 'WoundPlus'],
+    products: ['Complete AA', 'Complete FT', 'WoundPlus'],
     signatureRequired: true,
-    docusealTemplateId: '123457', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'multiple_products',
@@ -78,7 +76,6 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
-    docusealTemplateId: '1234974', // Using AMNIO AMP MedLife IVR-fillable template
     fields: [
       {
         name: 'amnio_amp_size',
@@ -86,11 +83,11 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
         type: 'radio',
         required: true,
         options: [
-          { value: '2x2', label: '2�2 cm' },
-          { value: '2x4', label: '2�4 cm' },
-          { value: '4x4', label: '4�4 cm' },
-          { value: '4x6', label: '4�6 cm' },
-          { value: '4x8', label: '4�8 cm' },
+          { value: '2x2', label: '2×2 cm' },
+          { value: '2x4', label: '2×4 cm' },
+          { value: '4x4', label: '4×4 cm' },
+          { value: '4x6', label: '4×6 cm' },
+          { value: '4x8', label: '4×8 cm' },
         ],
       },
     ],
@@ -98,7 +95,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   {
     name: 'Centurion',
     products: ['AmnioBand', 'Allopatch'],
-    signatureRequired: false,
+    signatureRequired: true,
     fields: [
       {
         name: 'previous_amnion_use',
@@ -126,9 +123,9 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     ],
   },
   {
-    name: 'BioWerX',
+    name: 'BioWound',
     products: [],
-    signatureRequired: false,
+    signatureRequired: true,
     fields: [
       {
         name: 'first_application',
@@ -151,9 +148,8 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   },
   {
     name: 'BioWound',
-    products: ['Membrane Wrap', 'Derm-Maxx', 'Bio-Connekt', 'NeoStim', 'Amnio-Maxx'],
+    products: ['Membrane Wrap', 'Derm-maxx', 'Bio-Connekt', 'Neostim DL', 'Neostim SL', 'Neostim TL', 'Amnio-Maxx'],
     signatureRequired: true,
-    docusealTemplateId: '123459', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'california_facility',
@@ -188,8 +184,8 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   },
   {
     name: 'Extremity Care',
-    products: ['Coll-e-Derm', 'CompleteFT', 'Restorigin'],
-    signatureRequired: false,
+    products: ['Coll-e-derm', 'Complete FT', 'Restorigin'],
+    signatureRequired: true,
     fields: [
       {
         name: 'quarter',
@@ -219,7 +215,6 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Skye Biologics',
     products: ['WoundPlus'],
     signatureRequired: true,
-    docusealTemplateId: '123460', // Replace with your actual DocuSeal template ID (numeric)
     fields: [
       {
         name: 'shipping_speed_required',
@@ -243,7 +238,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
   {
     name: 'Total Ancillary Forms',
     products: [],
-    signatureRequired: false,
+    signatureRequired: true,
     fields: [
       {
         name: 'universal_benefits_verified',
@@ -267,9 +262,22 @@ export function getManufacturerConfig(manufacturer: string): ManufacturerConfig 
 }
 
 export function getManufacturerByProduct(productName: string): ManufacturerConfig | undefined {
-  return manufacturerConfigs.find(config =>
+  // First try exact match (case-insensitive)
+  const exactMatch = manufacturerConfigs.find(config =>
     config.products.some(p => p.toLowerCase() === productName.toLowerCase())
   );
+
+  if (exactMatch) return exactMatch;
+
+  // If no exact match, try partial match (for products like "Neostim DL" matching "Neostim")
+  const partialMatch = manufacturerConfigs.find(config =>
+    config.products.some(p =>
+      productName.toLowerCase().includes(p.toLowerCase()) ||
+      p.toLowerCase().includes(productName.toLowerCase())
+    )
+  );
+
+  return partialMatch;
 }
 
 // Helper function to validate manufacturer fields

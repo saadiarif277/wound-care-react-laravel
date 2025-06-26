@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
-import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
 import PayerSearchInput from '@/Components/PayerSearchInput';
@@ -28,7 +27,7 @@ interface Step2Props {
   };
 }
 
-export default function Step2PatientInsurance({
+function Step2PatientInsurance({
   formData,
   updateFormData,
   errors,
@@ -36,15 +35,7 @@ export default function Step2PatientInsurance({
   providers = [],
   currentUser
 }: Step2Props) {
-  // Theme context with fallback
-  let theme: 'dark' | 'light' = 'dark';
 
-  try {
-    const themeContext = useTheme();
-    theme = themeContext.theme;
-  } catch (e) {
-    // Fallback to dark theme if outside ThemeProvider
-  }
 
   const [cardFrontPreview, setCardFrontPreview] = useState<string | null>(null);
   const [cardBackPreview, setCardBackPreview] = useState<string | null>(null);
@@ -207,8 +198,8 @@ export default function Step2PatientInsurance({
   return (
     <div className="space-y-6">
       {/* Provider & Facility Selection */}
-      <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-lg">
-        <h3 className="font-medium text-orange-900 dark:text-orange-300 mb-3">Provider & Facility Information</h3>
+      <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
+        <h3 className="font-medium text-orange-900 dark:text-orange-300 mb-2">Provider & Facility Information</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
@@ -272,13 +263,13 @@ export default function Step2PatientInsurance({
         <div className="mt-4">
           <div
             onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-8 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+            className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
           >
-            <FiCreditCard className="mx-auto h-16 w-16 mb-3 text-gray-400" />
+            <FiCreditCard className="mx-auto h-10 w-10 mb-2 text-gray-400" />
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Upload Insurance Card
             </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
               You can upload front and back images or a single PDF
             </p>
             
@@ -360,8 +351,8 @@ export default function Step2PatientInsurance({
       </div>
 
       {/* Patient Information */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-        <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-3">Patient Information</h3>
+      <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
+        <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Patient Information</h3>
 
         <div className="grid grid-cols-2 gap-4">
           <FormInputWithIndicator
@@ -889,3 +880,5 @@ export default function Step2PatientInsurance({
     </div>
   );
 }
+
+export default Step2PatientInsurance;
