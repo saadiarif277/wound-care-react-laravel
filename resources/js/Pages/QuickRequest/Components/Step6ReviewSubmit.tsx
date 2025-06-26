@@ -1,9 +1,19 @@
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
+import { useTheme } from '@/contexts/ThemeContext';
+import { themes, cn } from '@/theme/glass-theme';
+import {
+  FiUser,
+  FiEdit3,
+  FiActivity,
+  FiShoppingCart,
+  FiAlertCircle,
+  FiCheck
+} from 'react-icons/fi';
 import OrderReviewSummary from './OrderReviewSummary';
 
 interface Step6Props {
-  // Removed unused formData to eliminate lint warning
+  formData: any;
   products: Array<any>;
   providers: Array<any>;
   facilities: Array<any>;
@@ -14,6 +24,7 @@ interface Step6Props {
 }
 
 export default function Step6ReviewSubmit({
+  formData,
   products,
   errors,
   onSubmit,
@@ -33,6 +44,24 @@ export default function Step6ReviewSubmit({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
+
+  // Helper function to check if order is complete
+  const isOrderComplete = (): boolean => {
+    return !!(
+      formData?.patient_first_name &&
+      formData?.patient_last_name &&
+      formData?.patient_dob &&
+      formData?.primary_insurance_name &&
+      formData?.wound_type &&
+      formData?.wound_location &&
+      formData?.selected_products?.length > 0
+    );
+  };
+
+  // Helper function to get selected product details
+  const getSelectedProductDetails = (productId: number) => {
+    return products.find(product => product.id === productId);
+  };
 
   const handleEdit = (section: string) => {
     // In the Quick Request flow, navigate to the appropriate step
@@ -58,6 +87,17 @@ export default function Step6ReviewSubmit({
       throw error;
     }
   };
+
+  // Early return if formData is not available
+  if (!formData) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <p className={cn("text-center", t.text.secondary)}>Loading form data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
@@ -113,20 +153,20 @@ export default function Step6ReviewSubmit({
               <div className="flex">
                 <dt className={cn("font-medium w-24", t.text.secondary)}>Name:</dt>
                 <dd className={t.text.primary}>
-                  {formData.patient_first_name} {formData.patient_last_name}
+                  {formData.patient_first_name || ''} {formData.patient_last_name || ''}
                 </dd>
               </div>
               <div className="flex">
                 <dt className={cn("font-medium w-24", t.text.secondary)}>DOB:</dt>
-                <dd className={t.text.primary}>{formData.patient_dob}</dd>
+                <dd className={t.text.primary}>{formData.patient_dob || ''}</dd>
               </div>
               <div className="flex">
                 <dt className={cn("font-medium w-24", t.text.secondary)}>Gender:</dt>
-                <dd className={t.text.primary}>{formData.patient_gender}</dd>
+                <dd className={t.text.primary}>{formData.patient_gender || ''}</dd>
               </div>
               <div className="flex">
                 <dt className={cn("font-medium w-24", t.text.secondary)}>Phone:</dt>
-                <dd className={t.text.primary}>{formData.patient_phone}</dd>
+                <dd className={t.text.primary}>{formData.patient_phone || ''}</dd>
               </div>
               {formData.patient_email && (
                 <div className="flex">
@@ -137,9 +177,9 @@ export default function Step6ReviewSubmit({
               <div className="flex">
                 <dt className={cn("font-medium w-24", t.text.secondary)}>Address:</dt>
                 <dd className={t.text.primary}>
-                  {formData.patient_address_line1}
+                  {formData.patient_address_line1 || ''}
                   <br />
-                  {formData.patient_city}, {formData.patient_state} {formData.patient_zip}
+                  {formData.patient_city || ''}, {formData.patient_state || ''} {formData.patient_zip || ''}
                 </dd>
               </div>
             </dl>
@@ -155,15 +195,15 @@ export default function Step6ReviewSubmit({
               <dl className="space-y-1 text-sm">
                 <div className="flex">
                   <dt className={cn("font-medium w-32", t.text.secondary)}>Payer:</dt>
-                  <dd className={t.text.primary}>{formData.primary_insurance_name}</dd>
+                  <dd className={t.text.primary}>{formData.primary_insurance_name || ''}</dd>
                 </div>
                 <div className="flex">
                   <dt className={cn("font-medium w-32", t.text.secondary)}>Plan:</dt>
-                  <dd className={t.text.primary}>{formData.primary_plan_type}</dd>
+                  <dd className={t.text.primary}>{formData.primary_plan_type || ''}</dd>
                 </div>
                 <div className="flex">
                   <dt className={cn("font-medium w-32", t.text.secondary)}>Policy #:</dt>
-                  <dd className={t.text.primary}>{formData.primary_member_id}</dd>
+                  <dd className={t.text.primary}>{formData.primary_member_id || ''}</dd>
                 </div>
               </dl>
             </div>
@@ -175,11 +215,11 @@ export default function Step6ReviewSubmit({
                 <dl className="space-y-1 text-sm">
                   <div className="flex">
                     <dt className={cn("font-medium w-32", t.text.secondary)}>Payer:</dt>
-                    <dd className={t.text.primary}>{formData.secondary_insurance_name}</dd>
+                    <dd className={t.text.primary}>{formData.secondary_insurance_name || ''}</dd>
                   </div>
                   <div className="flex">
                     <dt className={cn("font-medium w-32", t.text.secondary)}>Policy #:</dt>
-                    <dd className={t.text.primary}>{formData.secondary_member_id}</dd>
+                    <dd className={t.text.primary}>{formData.secondary_member_id || ''}</dd>
                   </div>
                 </dl>
               </div>
@@ -211,16 +251,16 @@ export default function Step6ReviewSubmit({
             <dl className="space-y-2 text-sm">
               <div className="flex">
                 <dt className={cn("font-medium w-32", t.text.secondary)}>Wound Type:</dt>
-                <dd className={t.text.primary}>{formData.wound_type}</dd>
+                <dd className={t.text.primary}>{formData.wound_type || ''}</dd>
               </div>
               <div className="flex">
                 <dt className={cn("font-medium w-32", t.text.secondary)}>Location:</dt>
-                <dd className={t.text.primary}>{formData.wound_location}</dd>
+                <dd className={t.text.primary}>{formData.wound_location || ''}</dd>
               </div>
               <div className="flex">
                 <dt className={cn("font-medium w-32", t.text.secondary)}>Size:</dt>
                 <dd className={t.text.primary}>
-                  {formData.wound_size_length} × {formData.wound_size_width} × {formData.wound_size_depth} cm
+                  {formData.wound_size_length || ''} × {formData.wound_size_width || ''} × {formData.wound_size_depth || ''} cm
                 </dd>
               </div>
             </dl>
@@ -271,18 +311,18 @@ export default function Step6ReviewSubmit({
 
         <div className="space-y-4">
           {formData.selected_products && formData.selected_products.length > 0 ? (
-            formData.selected_products.map((item, index) => {
+            formData.selected_products.map((item: any, index: number) => {
               const product = getSelectedProductDetails(item.product_id);
               return (
                 <div key={index} className={cn("p-4 rounded-lg", t.glass.frost)}>
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className={cn("font-medium", t.text.primary)}>{product?.name || 'Unknown Product'}</h4>
-                      <p className={cn("text-sm", t.text.secondary)}>Manufacturer: {product?.manufacturer}</p>
-                      <p className={cn("text-sm", t.text.secondary)}>SKU: {product?.sku}</p>
+                      <p className={cn("text-sm", t.text.secondary)}>Manufacturer: {product?.manufacturer || ''}</p>
+                      <p className={cn("text-sm", t.text.secondary)}>SKU: {product?.sku || ''}</p>
                     </div>
                     <div className="text-right">
-                      <p className={cn("font-medium", t.text.primary)}>Qty: {item.quantity}</p>
+                      <p className={cn("font-medium", t.text.primary)}>Qty: {item.quantity || 0}</p>
                       {item.size && <p className={cn("text-sm", t.text.secondary)}>Size: {item.size}</p>}
                     </div>
                   </div>
