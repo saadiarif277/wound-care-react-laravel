@@ -1,0 +1,5 @@
+{
+  "agentCanUpdateSnapshot": true,
+  "install": "npm install && composer install",
+  "start": "npm run dev"
+}

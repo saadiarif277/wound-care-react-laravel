@@ -1,0 +1,32 @@
+curl -X POST http://127.0.0.1:8000/api/quick-request/create-episode \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "request_type": "new_request",
+    "provider_id": 1,
+    "facility_id": 1,
+    "patient_first_name": "John",
+    "patient_last_name": "Doe",
+    "patient_dob": "1980-01-01",
+    "patient_is_subscriber": true,
+    "expected_service_date": "2025-07-01",
+    "shipping_speed": "standard",
+    "primary_insurance_name": "Aetna",
+    "primary_member_id": "ABC123",
+    "primary_plan_type": "PPO",
+    "has_secondary_insurance": false,
+    "wound_type": "pressure_ulcer",
+    "wound_location": "left heel",
+    "wound_size_length": 2,
+    "wound_size_width": 2,
+    "application_cpt_codes": ["15271"],
+    "place_of_service": "11",
+    "selected_products": [
+      { "product_id": 1, "quantity": 1 }
+    ],
+    "failed_conservative_treatment": true,
+    "information_accurate": true,
+    "medical_necessity_established": true,
+    "maintain_documentation": true
+  }'

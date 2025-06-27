@@ -1,0 +1,453 @@
+import { colors } from './colors.config';
+
+// Define the theme structure type
+type ThemeStructure = {
+  background: {
+    base: string;
+    noise: string;
+  };
+  glass: {
+    input: any;
+    base: string;
+    hover: string;
+    active: string;
+    frost: string;
+    card: string;
+    sidebar: string;
+    border: string;
+  };
+  text: {
+    primary: string;
+    secondary: string;
+    tertiary: string;
+    muted: string;
+    inverse: string;
+  };
+  status: {
+    success: string;
+    warning: string;
+    error: string;
+    info: string;
+  };
+  shadows: {
+    glass: string;
+    glow: string;
+    danger: string;
+    soft: string;
+    inner: string;
+  };
+  input: {
+    base: string;
+    focus: string;
+    error: string;
+    disabled: string;
+    select?: string;
+    border: string;
+  };
+  checkbox: {
+    base: string;
+    checked: string;
+  };
+  button: {
+    primary: { base: string; hover: string; };
+    secondary: { base: string; hover: string; };
+    ghost: { base: string; hover: string; };
+    danger: { base: string; hover: string; };
+    approve: { base: string; hover: string; };
+    warning: { base: string; hover: string; };
+  };
+  episode: {
+    card: {
+      base: string;
+      hover: string;
+      border: string;
+    };
+    status: {
+      active: string;
+      expired: string;
+      expiring: string;
+      pending: string;
+      action: string;
+    };
+    timeline: {
+      line: string;
+      dot: string;
+      content: string;
+    };
+  };
+  table: {
+    container: string;
+    header: string;
+    headerText: string;
+    row: string;
+    rowHover: string;
+    cell: string;
+    evenRow: string;
+    actionButton: string;
+  };
+  navigation: {
+    container: string;
+    item: string;
+    itemHover: string;
+    itemActive: string;
+    icon: string;
+  };
+  modal: {
+    backdrop: string;
+    container: string;
+    header: string;
+    body: string;
+    footer: string;
+  };
+  badge: {
+    default: string;
+    primary: string;
+    danger: string;
+    success: string;
+  };
+};
+
+export const themes: Record<'dark' | 'light', ThemeStructure> = {
+  dark: {
+    // Backgrounds
+    background: {
+      base: 'bg-gradient-to-br from-[#0a0f1c] via-[#121829] to-[#1a1f2e]',
+      noise: 'before:bg-[url("/noise.png")] before:opacity-[0.03]',
+    },
+
+    // Glass effects - Enhanced for better contrast
+    glass: {
+      base: 'bg-white/[0.07] backdrop-blur-xl border border-white/[0.12]',
+      hover: 'hover:bg-white/[0.11] hover:border-white/[0.18]',
+      active: 'bg-white/[0.13] border-white/[0.22]',
+      frost: 'bg-white/[0.08] backdrop-blur-3xl backdrop-saturate-150', // Increased opacity
+      card: 'bg-white/[0.06] backdrop-blur-2xl border border-white/[0.10] shadow-xl shadow-black/20',
+      sidebar: 'bg-black/[0.25] backdrop-blur-2xl border-r border-white/[0.08]',
+      border: 'border border-white/[0.12]',
+      input: undefined
+    },
+
+    // Text colors - Enhanced contrast
+    text: {
+      primary: 'text-white/95',
+      secondary: 'text-white/80', // Increased from 75
+      tertiary: 'text-white/65', // Increased from 55
+      muted: 'text-white/50', // Increased from 40
+      inverse: 'text-gray-900',
+    },
+
+    // Status colors - Better contrast
+    status: {
+      success: 'bg-emerald-500/25 text-emerald-400 border border-emerald-500/40',
+      warning: 'bg-amber-500/25 text-amber-400 border border-amber-500/40',
+      error: 'bg-red-500/25 text-red-400 border border-red-500/40',
+      info: 'bg-blue-500/25 text-blue-400 border border-blue-500/40',
+    },
+
+    // Shadows
+    shadows: {
+      glass: 'shadow-2xl shadow-black/30',
+      glow: 'shadow-[0_0_50px_rgba(25,37,195,0.3)]',
+      danger: 'shadow-[0_0_30px_rgba(199,23,25,0.4)]',
+      soft: 'shadow-lg shadow-black/20',
+      inner: 'shadow-[inset_0_1px_0_0_rgba(255,255,255,0.1)]',
+    },
+
+    // Input styles - Enhanced for dark theme
+    input: {
+      base: 'bg-white/[0.05] backdrop-blur-md border border-white/[0.1] text-white/90 placeholder:text-white/30 rounded-xl px-4 py-2.5',
+      focus: 'focus:bg-white/[0.08] focus:border-[#1925c3] focus:ring-2 focus:ring-[#1925c3]/30 focus:outline-none',
+      error: 'border-red-500/50 focus:border-red-500 focus:ring-red-500/30',
+      disabled: 'opacity-50 cursor-not-allowed bg-white/[0.02]',
+      select: 'bg-white/[0.05] backdrop-blur-md border border-white/[0.1] text-white/90 rounded-xl px-4 py-2.5 [&>option]:bg-gray-900 [&>option]:text-white',
+      border: 'border border-white/[0.12]',
+    },
+
+    // Checkbox styles - Dark theme
+    checkbox: {
+      base: 'bg-white/[0.05] border-2 border-white/[0.15] rounded transition-all duration-200 cursor-pointer',
+      checked: 'checked:bg-gradient-to-r checked:from-[#1925c3] checked:to-[#c71719] checked:border-transparent focus:ring-2 focus:ring-[#1925c3]/50',
+    },
+
+    // Button variants - Enhanced visibility and pop
+    button: {
+      primary: {
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-xl shadow-blue-500/30 border border-white/10',
+        hover: 'hover:shadow-2xl hover:shadow-blue-500/40 hover:scale-105 hover:border-white/20 transform transition-all duration-200'
+      },
+      secondary: {
+        base: 'bg-white/15 backdrop-blur-xl border-2 border-white/30 text-white font-medium shadow-lg shadow-black/20',
+        hover: 'hover:bg-white/25 hover:border-white/40 hover:shadow-xl hover:scale-102 transform transition-all duration-200'
+      },
+      ghost: {
+        base: 'bg-white/5 backdrop-blur-md border-2 border-white/25 text-white/90 font-medium shadow-md shadow-black/10',
+        hover: 'hover:bg-white/15 hover:border-white/40 hover:text-white hover:shadow-lg hover:scale-102 transform transition-all duration-200'
+      },
+      danger: {
+        base: 'bg-red-500/25 border-2 border-red-500/40 text-red-300 font-medium shadow-lg shadow-red-500/20',
+        hover: 'hover:bg-red-500/35 hover:border-red-500/50 hover:text-red-200 hover:shadow-xl hover:shadow-red-500/30 hover:scale-102 transform transition-all duration-200'
+      },
+      approve: {
+        base: 'bg-emerald-500/25 text-emerald-300 border-2 border-emerald-500/40 font-medium shadow-lg shadow-emerald-500/20',
+        hover: 'hover:bg-emerald-500/35 hover:border-emerald-500/50 hover:text-emerald-200 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-102 transform transition-all duration-200'
+      },
+      warning: {
+        base: 'bg-amber-500/25 text-amber-300 border-2 border-amber-500/40 font-medium shadow-lg shadow-amber-500/20',
+        hover: 'hover:bg-amber-500/35 hover:border-amber-500/50 hover:text-amber-200 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-102 transform transition-all duration-200'
+      },
+    },
+
+    // Table styles - Enhanced contrast
+    table: {
+      container: 'bg-white/[0.03] backdrop-blur-3xl backdrop-saturate-150 rounded-2xl overflow-hidden',
+      header: 'bg-white/[0.10] border-b border-white/[0.20]', // Increased opacity
+      headerText: 'text-white/95 font-semibold text-sm uppercase tracking-wider',
+      row: 'border-b border-white/[0.08]',
+      rowHover: 'hover:bg-white/[0.06] transition-colors duration-200',
+      cell: 'text-white/90', // Increased contrast
+      evenRow: 'bg-white/[0.02]',
+      actionButton: 'bg-white/[0.15] hover:bg-white/[0.25] border border-white/20 hover:border-white/30 shadow-md hover:shadow-lg transition-all duration-200 hover:scale-105', // Much better contrast and pop
+    },
+
+    // Navigation styles
+    navigation: {
+      container: 'bg-white/[0.08] backdrop-blur-xl border border-white/[0.12] shadow-2xl shadow-black/30 rounded-3xl',
+      item: 'text-white/80 py-3 px-4 rounded-xl transition-all duration-200',
+      itemHover: 'hover:bg-white/[0.11] hover:text-white/95',
+      itemActive: 'bg-gradient-to-r from-blue-600 to-red-600 text-white font-semibold shadow-lg',
+      icon: 'w-5 h-5 text-white/80',
+    },
+
+    // Modal styles - Enhanced glass effect
+    modal: {
+      backdrop: 'bg-black/80 backdrop-blur-md',
+      container: 'bg-white/[0.08] backdrop-blur-2xl backdrop-saturate-150 border border-white/[0.12] shadow-2xl shadow-black/40 rounded-3xl',
+      header: 'border-b border-white/[0.12] px-6 py-4',
+      body: 'px-6 py-4',
+      footer: 'border-t border-white/[0.12] px-6 py-4',
+    },
+
+    // Badge styles
+    badge: {
+      default: 'bg-white/[0.08] text-white/80 border border-white/[0.12]',
+      primary: 'bg-blue-500/20 text-blue-300 border border-blue-500/30',
+      danger: 'bg-red-500/20 text-red-300 border border-red-500/30',
+      success: 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30',
+    },
+
+    // Episode card styles
+    episode: {
+      card: {
+        base: 'bg-white/[0.05] backdrop-blur-xl backdrop-saturate-150 border rounded-xl transition-all duration-300',
+        hover: 'hover:bg-white/[0.08] hover:shadow-xl hover:scale-[1.01]',
+        border: 'border-white/[0.12]',
+      },
+      status: {
+        active: 'bg-green-500/20 text-green-300 border-green-500/30',
+        expired: 'bg-red-500/20 text-red-300 border-red-500/30',
+        expiring: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+        pending: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+        action: 'bg-red-500/20 text-red-300 border-red-500/30 animate-pulse',
+      },
+      timeline: {
+        line: 'bg-white/10',
+        dot: 'bg-white/20 border-2 border-white/30',
+        content: 'bg-white/[0.05] border border-white/[0.08]',
+      },
+    },
+  },
+
+  light: {
+    // Backgrounds
+    background: {
+      base: 'bg-gradient-to-br from-gray-50 via-white to-blue-50/30',
+      noise: 'before:bg-[url("/noise-light.png")] before:opacity-[0.02]',
+    },
+
+    // Glass effects (adjusted for light theme with better opacity)
+    glass: {
+      base: 'bg-white/70 backdrop-blur-xl border border-gray-200/60 backdrop-saturate-100 shadow-sm',
+      hover: 'hover:bg-white/80 hover:border-gray-300 hover:shadow-md',
+      active: 'bg-white/90 border-gray-400',
+      frost: 'bg-white/60 backdrop-blur-2xl backdrop-saturate-150 border border-gray-200/50',
+      card: 'bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm hover:shadow-md',
+      sidebar: 'bg-white/90 backdrop-blur-xl border-r border-gray-200/60 shadow-[2px_0_12px_rgba(0,0,0,0.08)]',
+      border: 'border border-gray-200/60',
+      input: undefined
+    },
+
+    // Text colors - MUCH darker for visibility
+    text: {
+      primary: 'text-gray-900',
+      secondary: 'text-gray-800',  // Darker from 700
+      tertiary: 'text-gray-700',   // Darker from 600
+      muted: 'text-gray-600',      // Darker from 500
+      inverse: 'text-white',
+    },
+
+    // Status colors (adjusted for light backgrounds)
+    status: {
+      success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+      warning: 'bg-amber-50 text-amber-700 border border-amber-200',
+      error: 'bg-red-50 text-red-700 border border-red-200',
+      info: 'bg-blue-50 text-blue-700 border border-blue-200',
+    },
+
+    // Shadows
+    shadows: {
+      glass: 'shadow-lg shadow-gray-200/50',
+      glow: 'shadow-[0_0_30px_rgba(25,37,195,0.15)]',
+      danger: 'shadow-[0_0_20px_rgba(199,23,25,0.2)]',
+      soft: 'shadow-md shadow-gray-200/40',
+      inner: 'shadow-[inset_0_1px_0_0_rgba(0,0,0,0.05)]',
+    },
+
+    // Input styles - Enhanced for visibility
+    input: {
+      base: 'bg-white border border-gray-400 text-gray-900 placeholder:text-gray-500 rounded-xl px-4 py-2.5',
+      focus: 'focus:bg-white focus:ring-2 focus:ring-[#1925c3]/60 focus:border-[#1925c3] focus:outline-none',
+      error: 'border-red-600 focus:ring-red-600/40 focus:border-red-600',
+      disabled: 'opacity-60 cursor-not-allowed bg-gray-100',
+      select: 'bg-white border border-gray-400 text-gray-900 rounded-xl px-4 py-2.5 [&>option]:bg-white [&>option]:text-gray-900',
+      border: 'border border-gray-200/60',
+    },
+
+    // Checkbox styles - Light theme
+    checkbox: {
+      base: 'bg-gray-50 border-2 border-gray-300 rounded transition-all duration-200 cursor-pointer',
+      checked: 'checked:bg-gradient-to-r checked:from-[#1925c3] checked:to-[#c71719] checked:border-transparent focus:ring-2 focus:ring-[#1925c3]/50',
+    },
+
+        // Button variants - Enhanced for light mode visibility and pop
+    button: {
+      primary: {
+        base: 'bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white font-semibold shadow-lg shadow-blue-500/25 border border-blue-200/50',
+        hover: 'hover:shadow-xl hover:shadow-blue-500/35 hover:scale-105 hover:border-blue-300/60 transform transition-all duration-200'
+      },
+      secondary: {
+        base: 'bg-white border-2 border-gray-400 text-gray-800 font-medium shadow-lg shadow-gray-300/50 backdrop-blur-sm',
+        hover: 'hover:bg-gray-50 hover:border-gray-500 hover:shadow-xl hover:shadow-gray-400/60 hover:scale-102 transform transition-all duration-200'
+      },
+      ghost: {
+        base: 'bg-white/60 backdrop-blur-sm border-2 border-gray-400 text-gray-700 font-medium shadow-md shadow-gray-300/40',
+        hover: 'hover:bg-white/80 hover:border-gray-500 hover:text-gray-900 hover:shadow-lg hover:shadow-gray-400/50 hover:scale-102 transform transition-all duration-200'
+      },
+      danger: {
+        base: 'bg-red-50 border-2 border-red-300 text-red-700 font-medium shadow-lg shadow-red-200/60',
+        hover: 'hover:bg-red-100 hover:border-red-400 hover:text-red-800 hover:shadow-xl hover:shadow-red-300/70 hover:scale-102 transform transition-all duration-200'
+      },
+      approve: {
+        base: 'bg-emerald-50 text-emerald-700 border-2 border-emerald-300 font-medium shadow-lg shadow-emerald-200/60',
+        hover: 'hover:bg-emerald-100 hover:border-emerald-400 hover:text-emerald-800 hover:shadow-xl hover:shadow-emerald-300/70 hover:scale-102 transform transition-all duration-200'
+      },
+      warning: {
+        base: 'bg-amber-50 text-amber-700 border-2 border-amber-300 font-medium shadow-lg shadow-amber-200/60',
+        hover: 'hover:bg-amber-100 hover:border-amber-400 hover:text-amber-800 hover:shadow-xl hover:shadow-amber-300/70 hover:scale-102 transform transition-all duration-200'
+      },
+    },
+
+    // Table styles
+    table: {
+      container: 'bg-white rounded-2xl overflow-hidden shadow-md border border-gray-300',
+      header: 'bg-gray-100 border-b-2 border-gray-300',
+      headerText: 'text-gray-900 font-semibold text-sm uppercase tracking-wider',
+      row: 'border-b border-gray-200',
+      rowHover: 'hover:bg-gray-100 transition-colors duration-200',
+      cell: 'text-gray-800',
+      evenRow: 'bg-gray-50',
+      actionButton: 'bg-white hover:bg-gray-100 text-gray-900 border-2 border-gray-300 hover:border-gray-400 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105',
+    },
+
+    // Navigation styles
+    navigation: {
+      container: 'bg-white/80 backdrop-blur-xl border border-gray-200/60 shadow-xl rounded-3xl',
+      item: 'text-gray-700 py-3 px-4 rounded-xl transition-all duration-200',
+      itemHover: 'hover:bg-gray-100 hover:text-gray-900',
+      itemActive: `${colors.gradients.primarySubtle} text-[${colors.msc.blue.DEFAULT}] font-semibold border-l-[3px] border-l-[${colors.msc.blue.DEFAULT}]`,
+      icon: 'w-5 h-5 text-gray-600',
+    },
+
+    // Modal styles
+    modal: {
+      backdrop: 'bg-gray-900/30 backdrop-blur-sm',
+      container: 'bg-white border border-gray-200 shadow-2xl rounded-3xl',
+      header: 'border-b border-gray-200 px-6 py-4',
+      body: 'px-6 py-4',
+      footer: 'border-t border-gray-200 px-6 py-4',
+    },
+
+    // Badge styles
+    badge: {
+      default: 'bg-gray-100 text-gray-700 border border-gray-200',
+      primary: 'bg-blue-50 text-blue-700 border border-blue-200',
+      danger: 'bg-red-50 text-red-700 border border-red-200',
+      success: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+    },
+
+    // Episode card styles
+    episode: {
+      card: {
+        base: 'bg-white/90 backdrop-blur-sm border rounded-xl shadow-sm transition-all duration-300',
+        hover: 'hover:bg-white hover:shadow-lg hover:scale-[1.01]',
+        border: 'border-gray-200',
+      },
+      status: {
+        active: 'bg-green-50 text-green-700 border-green-200',
+        expired: 'bg-red-50 text-red-700 border-red-200',
+        expiring: 'bg-yellow-50 text-yellow-700 border-yellow-200',
+        pending: 'bg-blue-50 text-blue-700 border-blue-200',
+        action: 'bg-red-50 text-red-700 border-red-200 animate-pulse',
+      },
+      timeline: {
+        line: 'bg-gray-200',
+        dot: 'bg-gray-100 border-2 border-gray-300',
+        content: 'bg-gray-50 border border-gray-200',
+      },
+    },
+  },
+};
+
+// Legacy support - map to dark theme
+export const glassTheme = themes.dark;
+
+// Utility function to combine classes
+export const cn = (...classes: (string | undefined | false)[]) => {
+  return classes.filter(Boolean).join(' ');
+};
+
+// Get theme-aware classes
+export const getThemeClass = (theme: 'dark' | 'light', path: string) => {
+  const keys = path.split('.');
+  let value: any = themes[theme];
+
+  for (const key of keys) {
+    value = value?.[key];
+  }
+
+  return value || '';
+};
+
+// Special frost card class for maximum readability
+export const frostCard = (theme: 'dark' | 'light' = 'dark') => cn(
+  theme === 'dark'
+    ? 'bg-white/[0.09] backdrop-blur-3xl backdrop-saturate-200'
+    : 'bg-white/60 backdrop-blur-2xl backdrop-saturate-150',
+  'before:absolute before:inset-0 before:bg-gradient-to-b',
+  theme === 'dark'
+    ? 'before:from-white/[0.06] before:to-transparent'
+    : 'before:from-white/20 before:to-transparent',
+  'before:rounded-2xl before:pointer-events-none',
+  'relative'
+);
+
+// Text with glass shadow for critical readability
+export const glassTextShadow = 'drop-shadow-[0_2px_4px_rgba(0,0,0,0.5)] [text-shadow:_0_0_20px_rgba(0,0,0,0.3)]';
+
+// Utility for buttons that need extra pop
+export const popButton = (theme: 'dark' | 'light' = 'dark', variant: 'primary' | 'secondary' | 'danger' | 'approve' | 'warning' | 'ghost' = 'primary') => cn(
+  themes[theme].button[variant].base,
+  themes[theme].button[variant].hover,
+  'rounded-xl px-4 py-2.5 font-medium',
+  'focus:outline-none focus:ring-2 focus:ring-offset-2',
+  theme === 'dark' ? 'focus:ring-offset-gray-900' : 'focus:ring-offset-white'
+);

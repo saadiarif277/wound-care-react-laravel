@@ -1,0 +1,363 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+@import './scrollbar.css';
+
+/* Color Rendering Optimizations */
+:root {
+  color-rendering: optimizeQuality;
+  image-rendering: -webkit-optimize-contrast;
+}
+
+@layer base {
+  /* Base body styles for glassmorphic theme */
+  body {
+    @apply min-h-screen overflow-x-hidden;
+    font-family: 'Cerebri Sans', 'Inter', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%; /* Safari/Chrome */
+    text-size-adjust: 100%; /* Standard property */
+  }
+}
+
+@layer components {
+  /* Glassmorphic utilities */
+  .glass-base {
+    @apply bg-white/[0.07] backdrop-blur-xl border border-white/[0.12];
+  }
+
+  .glass-frost {
+    @apply bg-white/[0.03] backdrop-blur-3xl backdrop-saturate-150;
+  }
+
+  .glass-hover {
+    @apply hover:bg-white/[0.11] hover:border-white/[0.18];
+  }
+
+  /* Text utilities for dark backgrounds */
+  .text-glass-primary {
+    @apply text-white/95;
+  }
+
+  .text-glass-secondary {
+    @apply text-white/75;
+  }
+
+  .text-glass-muted {
+    @apply text-white/40;
+  }
+
+  /* Gradient backgrounds with RGB values for accurate color rendering */
+  .gradient-main {
+    @apply bg-gradient-to-br from-[#0a0f1c] via-[#121829] to-[#1a1f2e];
+  }
+
+  .gradient-primary {
+    background: linear-gradient(135deg, rgb(25, 37, 195) 0%, rgb(199, 23, 25) 100%);
+    background-attachment: fixed; /* Prevents color banding */
+  }
+
+  /* Glass shadows */
+  .shadow-glass {
+    @apply shadow-2xl shadow-black/30;
+  }
+
+  .shadow-glass-glow {
+    @apply shadow-[0_0_50px_rgba(25,37,195,0.3)];
+  }
+
+  /* Frost card with enhanced readability */
+  .frost-card-readable {
+    @apply bg-white/[0.09] backdrop-blur-3xl backdrop-saturate-200 relative;
+    @apply before:absolute before:inset-0 before:bg-gradient-to-b before:from-white/[0.06] before:to-transparent before:rounded-2xl before:pointer-events-none;
+  }
+
+  /* Text shadow for critical readability */
+  .text-glass-shadow {
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
+  }
+
+  /* Noise texture overlay */
+  .noise-overlay {
+    @apply relative;
+  }
+
+  .noise-overlay::before {
+    content: '';
+    @apply absolute inset-0 opacity-[0.03] pointer-events-none;
+    background-image: url('data:image/svg+xml,%3Csvg width="100" height="100" xmlns="http://www.w3.org/2000/svg"%3E%3Cfilter id="noise"%3E%3CfeTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="4" /%3E%3C/filter%3E%3Crect width="100" height="100" filter="url(%23noise)" opacity="0.5"/%3E%3C/svg%3E');
+  }
+}
+
+@layer utilities {
+  /* MSC Brand colors - using RGB values to prevent color shifting */
+  .text-msc-blue {
+    color: rgb(25, 37, 195);
+  }
+
+  .text-msc-red {
+    color: rgb(199, 23, 25);
+  }
+
+  .bg-msc-blue {
+    background-color: rgb(25, 37, 195);
+  }
+
+  .bg-msc-red {
+    background-color: rgb(199, 23, 25);
+  }
+
+  .border-msc-blue {
+    border-color: rgb(25, 37, 195);
+  }
+
+  .border-msc-red {
+    border-color: rgb(199, 23, 25);
+  }
+
+  /* Performance optimization for reduced motion */
+  @media (prefers-reduced-motion: reduce) {
+    .backdrop-blur-xl {
+      backdrop-filter: blur(8px);
+    }
+    .backdrop-blur-3xl {
+      backdrop-filter: blur(16px);
+    }
+  }
+
+  /* Scrollbar styling for glassmorphic theme */
+  .custom-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(255, 255, 255, 0.3);
+  }
+}
+
+/* Keyframe animations */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(25, 37, 195, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 40px rgba(25, 37, 195, 0.5);
+  }
+}
+
+/* Animation utilities */
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Accessibility: Reduce motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .backdrop-blur-xl {
+    backdrop-filter: blur(4px) !important;
+  }
+
+  .backdrop-blur-3xl {
+    backdrop-filter: blur(8px) !important;
+  }
+}
+
+/* Light theme specific styles */
+.light {
+  background: linear-gradient(to bottom right, #f9fafb, #ffffff, rgba(219, 234, 254, 0.3));
+}
+
+.light .glass-base {
+  @apply bg-white/70 backdrop-blur-xl border border-gray-200/60 shadow-sm;
+}
+
+.light .card {
+  @apply bg-white/80 backdrop-blur-sm border border-gray-200/50 shadow-sm;
+}
+
+/* Clean light theme implementation */
+html:not(.dark) {
+  background: linear-gradient(to bottom right, #f9fafb, #ffffff, #dbeafe30);
+}
+
+html:not(.dark) body {
+  background: transparent;
+  color: #111827;
+}
+
+/* Text colors for light mode */
+html:not(.dark) h1,
+html:not(.dark) h2,
+html:not(.dark) h3,
+html:not(.dark) h4,
+html:not(.dark) h5,
+html:not(.dark) h6 {
+  color: #111827;
+}
+
+html:not(.dark) p,
+html:not(.dark) span:not([class*="text-"]),
+html:not(.dark) div:not([class*="text-"]) {
+  color: #374151;
+}
+
+/* Cards and containers */
+html:not(.dark) .card,
+html:not(.dark) [class*="Card"] {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(229, 231, 235, 0.6);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+html:not(.dark) [class*="glass"] {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(229, 231, 235, 0.6);
+}
+
+/* Form elements */
+html:not(.dark) input,
+html:not(.dark) select,
+html:not(.dark) textarea {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #d1d5db;
+  color: #111827;
+}
+
+html:not(.dark) input::placeholder {
+  color: #9ca3af;
+}
+
+html:not(.dark) input:focus,
+html:not(.dark) select:focus,
+html:not(.dark) textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+/* Labels */
+html:not(.dark) label {
+  color: #374151;
+}
+
+/* Tables */
+html:not(.dark) table,
+html:not(.dark) [class*="Table"] {
+  border: 1px solid rgba(229, 231, 235, 0.8);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+html:not(.dark) tr,
+html:not(.dark) [class*="Tr"] {
+  border-bottom: 1px solid rgba(229, 231, 235, 0.7);
+}
+
+html:not(.dark) th,
+html:not(.dark) [class*="Th"] {
+  background: rgba(249, 250, 251, 0.8);
+  border-bottom: 1px solid rgba(209, 213, 219, 0.8);
+}
+
+/* Status colors for light mode */
+html:not(.dark) .text-blue-400 {
+  color: #1d4ed8;
+}
+
+html:not(.dark) .text-green-400 {
+  color: #059669;
+}
+
+html:not(.dark) .text-red-400 {
+  color: #dc2626;
+}
+
+html:not(.dark) .text-yellow-400 {
+  color: #d97706;
+}
+
+html:not(.dark) .text-purple-400 {
+  color: #7c3aed;
+}
+
+html:not(.dark) .text-indigo-400 {
+  color: #4f46e5;
+}
+
+html:not(.dark) .text-gray-400 {
+  color: #6b7280;
+}
+
+/* Fix muted text */
+html:not(.dark) [class*="text-white/"] {
+  color: #6b7280;
+}
+
+/* Scrollbar for light mode */
+html:not(.dark) .custom-scrollbar {
+  scrollbar-color: rgba(107, 114, 128, 0.3) transparent;
+}
+
+html:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(107, 114, 128, 0.3);
+}
+
+html:not(.dark) .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(107, 114, 128, 0.5);
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+  .glass-base,
+  .glass-frost {
+    backdrop-filter: none !important;
+    background: rgba(0, 0, 0, 0.9) !important;
+    border-width: 2px !important;
+  }
+
+  .dark .glass-base,
+  .dark .glass-frost {
+    background: rgba(255, 255, 255, 0.9) !important;
+    color: black !important;
+  }
+}
+
+html, :host {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}

@@ -1,0 +1,68 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "env": {
+        "DEFAULT_MINIMUM_TOKENS": ""
+      },
+      "disabled": true,
+      "alwaysAllow": []
+    },
+    "sequentialthinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "cloudflare": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://bindings.mcp.cloudflare.com/sse"
+      ]
+    },
+    "browserbase": {
+      "command": "npx",
+      "args": [
+        "@browserbasehq/mcp"
+      ],
+      "env": {
+        "BROWSERBASE_API_KEY": "bb_live_n-rtmiqXWQERXYcenjC-IOqIv74",
+        "BROWSERBASE_PROJECT_ID": "4d568570-0a00-41fb-8ca3-d3adf76bd454"
+      }
+    },
+    "memory": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-memory"
+      ]
+    },
+    "sentry": {
+      "command": "docker",
+      "args": [
+        "run",
+        "-i",
+        "--rm",
+        "mcp/sentry",
+        "--auth-token",
+        "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"
+      ]
+    },
+    "qdrant": {
+      "command": "npx",
+      "args": [
+        "@smithery/cli",
+        "install",
+        "mcp-server-qdrant",
+        "--client",
+        "claude"
+      ]
+    }
+  }
+}

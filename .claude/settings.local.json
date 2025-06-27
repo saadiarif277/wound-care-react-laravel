@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php artisan test:mac-validation-api:*)",
+      "Bash(php:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "WebFetch(domain:msc-wound-portal.test)",
+      "Bash(npm run build:*)",
+      "Bash(npm run prod:*)",
+      "Bash(npm install)",
+      "Bash(mv:*)",
+      "Bash(rmdir:*)",
+      "Bash(ls:*)",
+      "Bash(npx tsc:*)",
+      "Bash(rg:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(composer:*)",
+      "Bash(npm run:*)",
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(mkdir:*)"
+    ],
+    "deny": []
+  }
+}
