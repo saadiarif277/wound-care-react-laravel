@@ -109,7 +109,7 @@ class Product extends Model
     /**
      * Get the manufacturer that owns this product
      */
-    public function manufacturer(): BelongsTo
+    public function manufacturer()
     {
         return $this->belongsTo(Manufacturer::class, 'manufacturer_id');
     }

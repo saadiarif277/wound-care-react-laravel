@@ -3,23 +3,9 @@
 use Illuminate\Support\Str;
 
 return [
-    'default' => env('DB_CONNECTION', 'supabase'),
+    'default' => env('DB_CONNECTION', 'mysql'),
 
     'connections' => [
-        'supabase' => [
-            'driver' => 'pgsql',
-            'host' => env('SUPABASE_DB_HOST'),
-            'port' => env('SUPABASE_DB_PORT', '5432'),
-            'database' => env('SUPABASE_DB_DATABASE', 'postgres'),
-            'username' => env('SUPABASE_DB_USERNAME'),
-            'password' => env('SUPABASE_DB_PASSWORD'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'schema' => 'public',
-            'sslmode' => env('SUPABASE_DB_SSL_MODE', 'require'),
-        ],
-
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
@@ -35,10 +21,26 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-            'options' => extension_loaded('pdo_mysql') ? array_filter([
-                #PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
-                PDO::MYSQL_ATTR_SSL_KEY => env('DB_SSL_KEY'),
-            ]) : [],
+            'sslmode' => 'require',
+            'options' => extension_loaded('pdo_mysql') ? [
+                // For Azure MySQL - skip certificate verification
+                PDO::MYSQL_ATTR_SSL_CIPHER => 'AES256-SHA',
+                1014 => false, // PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT
+            ] : [],
+        ],
+
+        'supabase' => [
+            'driver' => 'pgsql',
+            'host' => env('SUPABASE_DB_HOST'),
+            'port' => env('SUPABASE_DB_PORT', '5432'),
+            'database' => env('SUPABASE_DB_DATABASE', 'postgres'),
+            'username' => env('SUPABASE_DB_USERNAME'),
+            'password' => env('SUPABASE_DB_PASSWORD'),
+            'charset' => 'utf8',
+            'prefix' => '',
+            'prefix_indexes' => true,
+            'schema' => 'public',
+            'sslmode' => env('SUPABASE_DB_SSL_MODE', 'require'),
         ],
 
         'pgsql' => [
@@ -71,29 +73,7 @@ return [
 
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Migration Repository Table
-    |--------------------------------------------------------------------------
-    |
-    | This table keeps track of all the migrations that have already run for
-    | your application. Using this information, we can determine which of
-    | the migrations on disk haven't actually been run in the database.
-    |
-    */
-
     'migrations' => 'migrations',
-
-    /*
-    |--------------------------------------------------------------------------
-    | Redis Databases
-    |--------------------------------------------------------------------------
-    |
-    | Redis is an open source, fast, and advanced key-value store that also
-    | provides a richer body of commands than a typical key-value system
-    | such as APC or Memcached. Laravel makes it easy to dig right in.
-    |
-    */
 
     'redis' => [
 

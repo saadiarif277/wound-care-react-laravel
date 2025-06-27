@@ -1,0 +1,26 @@
+{
+  "name": "mcp-docuseal-mapper",
+  "version": "1.0.0",
+  "description": "MCP server for mapping QuickRequest form data to DocuSeal templates",
+  "type": "module",
+  "main": "src/index.js",
+  "bin": {
+    "mcp-docuseal-mapper": "./src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "keywords": [
+    "mcp",
+    "docuseal",
+    "wound-care",
+    "form-mapping"
+  ],
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
+import { AlertCircle, Bug, CheckCircle2, Info, ExternalLink } from 'lucide-react';
 
 // Better TypeScript interfaces
 interface FormData {
@@ -32,6 +33,7 @@ interface DocuSealResponse {
 interface DocuSealEmbedProps {
   manufacturerId: string;
   productCode: string;
+  documentType?: 'IVR' | 'OrderForm'; // NEW: Document type parameter
   formData?: FormData;
   episodeId?: number;
   onComplete?: (data: any) => void;
@@ -43,6 +45,7 @@ interface DocuSealEmbedProps {
 export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   manufacturerId,
   productCode,
+  documentType = 'IVR', // Default to IVR for backward compatibility
   formData = {}, // Default to empty object
   episodeId, // Episode ID for enhanced FHIR integration
   onComplete,
@@ -82,6 +85,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         prefill_data: formData,
         manufacturerId,
         productCode,
+        documentType, // NEW: Include document type in request
         ...(episodeId && { episode_id: episodeId })
       };
 
@@ -161,7 +165,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       }
       requestInProgressRef.current = false;
     }
-  }, [manufacturerId, productCode, formData, episodeId, onError]);
+  }, [manufacturerId, productCode, documentType, formData, episodeId, onError]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -322,7 +326,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
             >
-              Open IVR Form
+              Open {documentType === 'OrderForm' ? 'Order Form' : 'IVR Form'}
             </button>
             <p className="text-sm text-gray-500 mt-4">
               The form will open in a new window with all your information pre-filled

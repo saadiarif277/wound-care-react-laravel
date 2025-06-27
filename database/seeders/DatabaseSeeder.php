@@ -15,10 +15,34 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 0. Disable foreign key checks
-        Schema::disableForeignKeyConstraints();
-
-                // 1. Truncate all tables (in reverse dependency order)
+        // IMPORTANT: Disable query log to prevent memory issues
+        DB::disableQueryLog();
+        
+        // Handle foreign key constraints outside of transactions
+        $this->command->info('Preparing database for seeding...');
+        DB::unprepared('SET FOREIGN_KEY_CHECKS=0');
+        
+        try {
+            // Clear all tables first
+            $this->truncateTables();
+            
+            // Re-enable foreign key checks before inserting data
+            DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+            
+            // Now run the actual seeding
+            $this->seedData();
+            
+        } catch (\Exception $e) {
+            // Make sure to re-enable foreign key checks even if error occurs
+            DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+            throw $e;
+        }
+        
+        $this->command->info('Database seeded successfully!');
+    }
+    
+    private function truncateTables(): void
+    {
         $tables = [
             // Junction tables first
             'role_permission',
@@ -26,7 +50,7 @@ class DatabaseSeeder extends Seeder
             'facility_user',
             'product_request_products',
             'provider_products',
-            'wound_type_diagnosis_codes',  // Diagnosis code relationships
+            'wound_type_diagnosis_codes',
 
             // Dependent tables
             'docuseal_submissions',
@@ -39,7 +63,7 @@ class DatabaseSeeder extends Seeder
             'orders',
             'product_requests',
             'provider_profiles',
-            'patient_manufacturer_ivr_episodes',  // Episode data
+            'patient_manufacturer_ivr_episodes',
 
             // Core entity tables
             'diagnosis_codes',
@@ -61,28 +85,62 @@ class DatabaseSeeder extends Seeder
         foreach ($tables as $table) {
             try {
                 if (Schema::hasTable($table)) {
-                    DB::table($table)->truncate();
+                    DB::unprepared("TRUNCATE TABLE `{$table}`");
                 }
             } catch (\Exception $e) {
-                // Table might not exist yet, skip it
                 $this->command->warn("Could not truncate table '{$table}': " . $e->getMessage());
             }
         }
-
-        // 2. Re-enable foreign key checks
-        Schema::enableForeignKeyConstraints();
-
-        // 3. Create base account
+    }
+    
+    private function seedData(): void
+    {
+        // Create base account
         $accountId = DB::table('accounts')->insertGetId([
             'name'       => 'Default Account',
             'created_at' => now(),
             'updated_at' => now(),
         ]);
 
-        // 4. Call OrganizationSeeder to create multiple organizations
+        // Call OrganizationSeeder to create multiple organizations
         $this->call(OrganizationSeeder::class);
 
-        // 5. Create permissions
+        // Create permissions
+        $this->createPermissions();
+
+        // Create roles and assign permissions
+        $roleIds = $this->createRoles();
+
+        // Create users
+        $userIds = $this->createUsers($accountId);
+
+        // Assign roles to users
+        $this->assignRolesToUsers($roleIds, $userIds);
+
+        // Create organization (legacy - kept for facilities association)
+        $organizationId = $this->createLegacyOrganization($accountId);
+
+        // Create facilities
+        $facilityIds = $this->createFacilities($organizationId);
+
+        // Associate users with facilities
+        $this->associateUsersWithFacilities($userIds, $facilityIds);
+
+        // Create sales reps
+        $this->createSalesReps();
+
+        // Create product requests
+        $this->createProductRequests($userIds, $facilityIds);
+
+        // Create test orders for profit calculation
+        $this->createTestOrders();
+
+        // Call other seeders
+        $this->callOtherSeeders();
+    }
+
+    private function createPermissions(): array
+    {
         $permissions = [
             'view-dashboard'                        => 'View dashboard and analytics',
             'view-products'                         => 'View product catalog',
@@ -154,8 +212,12 @@ class DatabaseSeeder extends Seeder
                 'updated_at'  => now(),
             ]);
         }
+        
+        return $permissionIds;
+    }
 
-        // 6. Create roles and assign permissions
+    private function createRoles(): array
+    {
         $rolesWithPermissions = [
             'provider' => [
                 'name'        => 'Healthcare Provider',
@@ -175,7 +237,7 @@ class DatabaseSeeder extends Seeder
                     'view-national-asp',
                     'view-orders',
                     'create-orders',
-                    'view-facilities',  // Added to support QuickRequest
+                    'view-facilities',
                 ],
             ],
             'office-manager' => [
@@ -282,7 +344,7 @@ class DatabaseSeeder extends Seeder
             'super-admin' => [
                 'name'        => 'Super Admin',
                 'description' => 'Super administrator with complete system control',
-                'permissions' => array_keys($permissions),
+                'permissions' => 'all',
             ],
             'patient' => [
                 'name'        => 'Patient',
@@ -292,6 +354,8 @@ class DatabaseSeeder extends Seeder
         ];
 
         $roleIds = [];
+        $allPermissionIds = DB::table('permissions')->pluck('id', 'slug');
+        
         foreach ($rolesWithPermissions as $slug => $roleData) {
             $roleId = DB::table('roles')->insertGetId([
                 'slug'            => $slug,
@@ -314,19 +378,36 @@ class DatabaseSeeder extends Seeder
 
             $roleIds[$slug] = $roleId;
 
-            foreach ($roleData['permissions'] as $permissionSlug) {
-                if (isset($permissionIds[$permissionSlug])) {
+            // Assign permissions
+            if ($roleData['permissions'] === 'all') {
+                // Super admin gets all permissions
+                foreach ($allPermissionIds as $permissionId) {
                     DB::table('role_permission')->insert([
                         'role_id'       => $roleId,
-                        'permission_id' => $permissionIds[$permissionSlug],
+                        'permission_id' => $permissionId,
                         'created_at'    => now(),
                         'updated_at'    => now(),
                     ]);
                 }
+            } else {
+                foreach ($roleData['permissions'] as $permissionSlug) {
+                    if (isset($allPermissionIds[$permissionSlug])) {
+                        DB::table('role_permission')->insert([
+                            'role_id'       => $roleId,
+                            'permission_id' => $allPermissionIds[$permissionSlug],
+                            'created_at'    => now(),
+                            'updated_at'    => now(),
+                        ]);
+                    }
+                }
             }
         }
+        
+        return $roleIds;
+    }
 
-        // 7. Create users
+    private function createUsers($accountId): array
+    {
         $users = [
             [
                 'account_id' => $accountId,
@@ -444,8 +525,12 @@ class DatabaseSeeder extends Seeder
         foreach ($users as $user) {
             $userIds[$user['email']] = DB::table('users')->insertGetId($user);
         }
+        
+        return $userIds;
+    }
 
-        // 8. Assign roles to users
+    private function assignRolesToUsers($roleIds, $userIds): void
+    {
         $roleAssignments = [
             'super-admin'   => ['richard@mscwoundcare.com'],
             'msc-admin'     => ['admin@msc.com'],
@@ -474,9 +559,11 @@ class DatabaseSeeder extends Seeder
                 }
             }
         }
+    }
 
-        // 9. Create organization (legacy - kept for facilities association)
-        $organizationId = DB::table('organizations')->insertGetId([
+    private function createLegacyOrganization($accountId): int
+    {
+        return DB::table('organizations')->insertGetId([
             'account_id'  => $accountId,
             'name'        => 'Test Healthcare Network',
             'email'       => 'admin@testhealthcare.com',
@@ -489,8 +576,10 @@ class DatabaseSeeder extends Seeder
             'created_at'  => now(),
             'updated_at'  => now(),
         ]);
+    }
 
-        // 10. Create facilities
+    private function createFacilities($organizationId): array
+    {
         $facilities = [
             [
                 'organization_id' => $organizationId,
@@ -543,7 +632,12 @@ class DatabaseSeeder extends Seeder
         foreach ($facilities as $facility) {
             $facilityIds[] = DB::table('facilities')->insertGetId($facility);
         }
+        
+        return $facilityIds;
+    }
 
+    private function associateUsersWithFacilities($userIds, $facilityIds): void
+    {
         // Associate provider with facilities
         DB::table('facility_user')->insert([
             ['user_id' => $userIds['provider@example.com'], 'facility_id' => $facilityIds[0], 'created_at' => now(), 'updated_at' => now()],
@@ -556,8 +650,10 @@ class DatabaseSeeder extends Seeder
             ['user_id' => $userIds['manager@example.com'], 'facility_id' => $facilityIds[1], 'created_at' => now(), 'updated_at' => now()],
             ['user_id' => $userIds['manager@example.com'], 'facility_id' => $facilityIds[2], 'created_at' => now(), 'updated_at' => now()],
         ]);
+    }
 
-        // 10. Create sales reps
+    private function createSalesReps(): void
+    {
         $salesReps = [
             [
                 'name'                            => 'Bob Sales',
@@ -592,10 +688,10 @@ class DatabaseSeeder extends Seeder
         DB::table('msc_sales_reps')
             ->where('id', $salesRepIds[1])
             ->update(['parent_rep_id' => $salesRepIds[0]]);
+    }
 
-        // 11. Products will be created by ProductSeeder
-
-        // 12. Create product requests
+    private function createProductRequests($userIds, $facilityIds): void
+    {
         $productRequests = [
             [
                 'request_number'                  => 'PR-' . strtoupper(uniqid()),
@@ -638,68 +734,80 @@ class DatabaseSeeder extends Seeder
         foreach ($productRequests as $request) {
             DB::table('product_requests')->insert($request);
         }
+    }
 
-        // Add test orders for current month profit calculation
-        \App\Models\Order\ProductRequest::create([
-            'request_number' => 'TEST-' . uniqid(),
-            'patient_fhir_id' => 'test-patient-1',
-            'patient_display_id' => 'TP001',
-            'wound_type' => 'DFU',
-            'payer_name_submitted' => 'Medicare',
-            'expected_service_date' => now()->addDays(7)->toDateString(),
-            'facility_id' => 1,
-            'provider_id' => 1,
-            'order_status' => 'approved',
-            'total_order_value' => 2500.00,
-            'approved_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+    private function createTestOrders(): void
+    {
+        // Only use Eloquent models if they're available
+        if (!class_exists('\App\Models\Order\ProductRequest')) {
+            $this->command->warn('ProductRequest model not found, skipping test orders creation');
+            return;
+        }
 
-        \App\Models\Order\ProductRequest::create([
-            'request_number' => 'TEST-' . uniqid(),
-            'patient_fhir_id' => 'test-patient-2',
-            'patient_display_id' => 'TP002',
-            'wound_type' => 'VLU',
-            'payer_name_submitted' => 'Blue Cross',
-            'expected_service_date' => now()->addDays(5)->toDateString(),
-            'facility_id' => 1,
-            'provider_id' => 1,
-            'order_status' => 'approved',
-            'total_order_value' => 3500.00,
-            'approved_at' => now(),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        try {
+            \App\Models\Order\ProductRequest::create([
+                'request_number' => 'TEST-' . uniqid(),
+                'patient_fhir_id' => 'test-patient-1',
+                'patient_display_id' => 'TP001',
+                'wound_type' => 'DFU',
+                'payer_name_submitted' => 'Medicare',
+                'expected_service_date' => now()->addDays(7)->toDateString(),
+                'facility_id' => 1,
+                'provider_id' => 1,
+                'order_status' => 'approved',
+                'total_order_value' => 2500.00,
+                'approved_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-        \App\Models\Order\ProductRequest::create([
-            'request_number' => 'TEST-' . uniqid(),
-            'patient_fhir_id' => 'test-patient-3',
-            'patient_display_id' => 'TP003',
-            'wound_type' => 'PU',
-            'payer_name_submitted' => 'Aetna',
-            'expected_service_date' => now()->addDays(3)->toDateString(),
-            'facility_id' => 1,
-            'provider_id' => 1,
-            'order_status' => 'delivered',
-            'total_order_value' => 1800.00,
-            'approved_at' => now()->subDays(10),
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+            \App\Models\Order\ProductRequest::create([
+                'request_number' => 'TEST-' . uniqid(),
+                'patient_fhir_id' => 'test-patient-2',
+                'patient_display_id' => 'TP002',
+                'wound_type' => 'VLU',
+                'payer_name_submitted' => 'Blue Cross',
+                'expected_service_date' => now()->addDays(5)->toDateString(),
+                'facility_id' => 1,
+                'provider_id' => 1,
+                'order_status' => 'approved',
+                'total_order_value' => 3500.00,
+                'approved_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
 
-        // Call other seeders in correct order
+            \App\Models\Order\ProductRequest::create([
+                'request_number' => 'TEST-' . uniqid(),
+                'patient_fhir_id' => 'test-patient-3',
+                'patient_display_id' => 'TP003',
+                'wound_type' => 'PU',
+                'payer_name_submitted' => 'Aetna',
+                'expected_service_date' => now()->addDays(3)->toDateString(),
+                'facility_id' => 1,
+                'provider_id' => 1,
+                'order_status' => 'delivered',
+                'total_order_value' => 1800.00,
+                'approved_at' => now()->subDays(10),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        } catch (\Exception $e) {
+            $this->command->warn('Failed to create test orders: ' . $e->getMessage());
+        }
+    }
+
+    private function callOtherSeeders(): void
+    {
         $this->call([
-            CategoriesAndManufacturersSeeder::class,  // Creates categories and manufacturers first
-            ProductSeeder::class,                     // Creates comprehensive product catalog with CMS data
-            DocusealFolderSeeder::class,               // Creates folders before templates
-            DocusealTemplateSeeder::class,             // Creates templates that reference folders
-            IVRFieldMappingSeeder::class,              // Creates IVR field mappings for manufacturers
-            DiagnosisCodesFromCsvSeeder::class,        // Creates diagnosis codes from CSV files
-            RemoveHardcodedDataSeeder::class,          // Creates diagnosis codes, wound types, and other reference data
-            PatientManufacturerIVREpisodeSeeder::class, // Creates sample episode data
+            CategoriesAndManufacturersSeeder::class,
+            ProductSeeder::class,
+            DocusealFolderSeeder::class,
+            DocusealTemplateSeeder::class,
+            IVRFieldMappingSeeder::class,
+            DiagnosisCodesFromCsvSeeder::class,
+            RemoveHardcodedDataSeeder::class,
+            PatientManufacturerIVREpisodeSeeder::class,
         ]);
-
-        $this->command->info('Database seeded successfully!');
     }
 }

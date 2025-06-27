@@ -32,13 +32,20 @@ class PatientManufacturerIVREpisode extends Model
         'docuseal_submission_url',
         'metadata',
         'completed_at',
+        // Order Form fields
+        'order_form_status',
+        'order_form_submission_id',
+        'order_form_completed_at',
+        'forms_metadata',
     ];
 
     protected $casts = [
         'verification_date' => 'datetime',
         'expiration_date' => 'datetime',
         'completed_at' => 'datetime',
+        'order_form_completed_at' => 'datetime',
         'metadata' => 'array',
+        'forms_metadata' => 'array',
     ];
 
     /**

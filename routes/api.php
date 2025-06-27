@@ -24,6 +24,7 @@ use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\Admin\ProviderManagementController;
 use App\Http\Controllers\Api\OrderReviewController;
+use App\Http\Controllers\Api\FieldMappingController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -146,6 +147,14 @@ Route::prefix('v1/enhanced-docuseal')->middleware(['auth:sanctum'])->group(funct
     Route::post('finalize-submission', [App\Http\Controllers\EnhancedDocuSealController::class, 'finalizeSubmission']);
     Route::get('submission-status/{submission_id}', [App\Http\Controllers\EnhancedDocuSealController::class, 'getSubmissionStatus']);
     Route::post('webhook', [App\Http\Controllers\EnhancedDocuSealController::class, 'handleWebhook']);
+});
+
+// Order Form Processing routes (Optional Step 8)
+Route::prefix('v1/order-form')->middleware(['auth:sanctum'])->group(function () {
+    Route::post('process-completion', [App\Http\Controllers\Api\OrderFormController::class, 'processCompletion'])
+        ->name('api.order_form.process_completion');
+    Route::get('status', [App\Http\Controllers\Api\OrderFormController::class, 'getStatus'])
+        ->name('api.order_form.status');
 });
 
 // Quick Request Order Summary routes
@@ -314,6 +323,42 @@ Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::c
 Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])
     ->middleware('webhook.verify:docuseal')
     ->name('docuseal.webhook.quickrequest');
+
+// Unified Field Mapping Routes
+Route::prefix('v1/field-mapping')->middleware(['auth:sanctum'])->name('field-mapping.')->group(function () {
+    // Episode field mapping
+    Route::post('episode/{episodeId}', [FieldMappingController::class, 'mapEpisode'])->name('map-episode');
+    Route::get('episode/{episodeId}/logs', [FieldMappingController::class, 'getEpisodeLogs'])->name('episode-logs');
+    
+    // Manufacturer configuration
+    Route::get('manufacturers', [FieldMappingController::class, 'listManufacturers'])->name('manufacturers');
+    Route::get('manufacturer/{manufacturer}', [FieldMappingController::class, 'getManufacturerConfig'])->name('manufacturer-config');
+    Route::get('manufacturer/{manufacturer}/field-suggestions', [FieldMappingController::class, 'getFieldSuggestions'])->name('field-suggestions');
+    
+    // Validation and analytics
+    Route::post('validate', [FieldMappingController::class, 'validateMapping'])->name('validate');
+    Route::get('analytics', [FieldMappingController::class, 'getAnalytics'])->name('analytics');
+    Route::post('batch-map', [FieldMappingController::class, 'batchMapEpisodes'])->name('batch-map');
+});
+
+// Unified DocuSeal Service Routes
+Route::prefix('v1/docuseal')->middleware(['auth:sanctum'])->name('docuseal.unified.')->group(function () {
+    // Submission management using unified service
+    Route::post('submission/create', [\App\Http\Controllers\Api\DocuSealController::class, 'createOrUpdateSubmission'])->name('create-submission');
+    Route::get('submission/{submissionId}', [\App\Http\Controllers\Api\DocuSealController::class, 'getSubmission'])->name('get-submission');
+    Route::post('submission/{submissionId}/send', [\App\Http\Controllers\Api\DocuSealController::class, 'sendForSigning'])->name('send-signing');
+    Route::get('submission/{submissionId}/download', [\App\Http\Controllers\Api\DocuSealController::class, 'downloadDocument'])->name('download-document');
+    
+    // Template management
+    Route::get('template/{manufacturer}/fields', [\App\Http\Controllers\Api\DocuSealController::class, 'getTemplateFields'])->name('template-fields');
+    
+    // Batch operations
+    Route::post('batch-process', [\App\Http\Controllers\Api\DocuSealController::class, 'batchProcessEpisodes'])->name('batch-process');
+    
+    // Analytics and status
+    Route::get('episodes/status/{status}', [\App\Http\Controllers\Api\DocuSealController::class, 'getEpisodesByStatus'])->name('episodes-by-status');
+    Route::get('analytics', [\App\Http\Controllers\Api\DocuSealController::class, 'getAnalytics'])->name('analytics');
+});
 
 // Note: eClinicalWorks Integration Routes have been removed
 // The EcwController has been deprecated and removed from the codebase
@@ -681,3 +726,4 @@ Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
 });
 
 // Fallback Route for 404 API requests
+  Route::get('providers/{providerId}/debug-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'debugProviderProducts']);

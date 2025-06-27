@@ -501,7 +501,7 @@ export default function Step7DocuSealIVR({
               </button>
             </div>
           </div>
-        )
+        ) : submissionError ? (
           <div className="p-8">
             <div className={cn(
               "p-4 rounded-lg border",

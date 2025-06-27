@@ -11,7 +11,8 @@ import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
-import { getManufacturerByProduct } from './manufacturerFields';
+import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
+import { getManufacturerByProduct, manufacturerConfigs } from './manufacturerFields';
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -293,6 +294,26 @@ function QuickRequestCreateNew({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
+  // Helper function to check if any selected products have manufacturers with order forms
+  const hasManufacturerWithOrderForm = (): boolean => {
+    if (!formData.selected_products || formData.selected_products.length === 0) {
+      return false;
+    }
+
+    return formData.selected_products.some(selectedProduct => {
+      const product = products.find(p => p.id === selectedProduct.product_id);
+      if (!product) return false;
+
+      // Find the manufacturer configuration
+      const manufacturerConfig = manufacturerConfigs.find(config => 
+        config.name === product.manufacturer || 
+        config.products.some(productName => product.name.includes(productName))
+      );
+
+      return manufacturerConfig?.hasOrderForm === true;
+    });
+  };
+
   // Pre-fill function for testing
   const prefillTestData = () => {
     const testData: Partial<QuickRequestFormData> = {
@@ -412,13 +433,25 @@ function QuickRequestCreateNew({
   const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
   const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
 
-  const sections = [
-    { title: 'Patient & Insurance', icon: FiUser },
-    { title: 'Clinical Validation', icon: FiActivity },
-    { title: 'Select Products', icon: FiShoppingCart },
-    { title: 'Complete IVR Form', icon: FiFileText },
-    { title: 'Review & Confirm', icon: FiCheck }
-  ];
+  // Dynamic sections array that conditionally includes order form step
+  const getSections = () => {
+    const baseSections = [
+      { title: 'Patient & Insurance', icon: FiUser },
+      { title: 'Clinical Validation', icon: FiActivity },
+      { title: 'Select Products', icon: FiShoppingCart },
+      { title: 'Complete IVR Form', icon: FiFileText },
+    ];
+
+    // Check if order form step should be included
+    if (hasManufacturerWithOrderForm()) {
+      baseSections.push({ title: 'Order Form Review', icon: FiFileText });
+    }
+
+    baseSections.push({ title: 'Review & Confirm', icon: FiCheck });
+    return baseSections;
+  };
+
+  const sections = getSections();
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -1023,7 +1056,7 @@ function QuickRequestCreateNew({
               Create New Order
             </h1>
             <p className={cn(t.text.secondary)}>
-              Complete your wound care order in 5 simple steps
+              Complete your wound care order in {sections.length} simple steps
             </p>
 
             {/* Pre-fill Test Data Button */}
@@ -1144,7 +1177,20 @@ function QuickRequestCreateNew({
               />
             )}
 
-            {currentSection === 4 && (
+            {/* Order Form Review Step (conditional) */}
+            {currentSection === 4 && hasManufacturerWithOrderForm() && (
+              <Step8OrderFormApproval
+                formData={formData as any}
+                updateFormData={updateFormData as any}
+                products={products}
+                providers={providers}
+                facilities={facilities}
+                errors={errors}
+              />
+            )}
+
+            {/* Review & Submit Step */}
+            {currentSection === (hasManufacturerWithOrderForm() ? 5 : 4) && (
               <Step6ReviewSubmit
                 formData={formData}
                 products={products}

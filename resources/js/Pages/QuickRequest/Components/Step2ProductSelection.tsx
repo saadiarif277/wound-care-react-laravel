@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import { usePage } from '@inertiajs/react';
 
 interface Product {
   id: number;
@@ -48,10 +49,29 @@ interface Step5Props {
   updateFormData: (data: Partial<FormData>) => void;
   errors: Record<string, string>;
   currentUser?: {
+    id?: number;
     role?: string;
+    permissions?: string[];
   };
 }
 
+interface AuthUser {
+  id: number;
+  email: string;
+  name: string;
+  permissions?: string[];
+  roles?: Array<{
+    slug: string;
+    name: string;
+  }>;
+}
+
+interface PageProps {
+  auth?: {
+    user?: AuthUser;
+  };
+  [key: string]: any;
+}
 
 export default function Step5ProductSelection({
   formData,
@@ -61,6 +81,10 @@ export default function Step5ProductSelection({
 }: Step5Props) {
   const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  // Get authenticated user from Inertia page props
+  const { auth } = usePage<PageProps>().props;
+  const authenticatedUser = auth?.user;
   
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -74,27 +98,62 @@ export default function Step5ProductSelection({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Fetch provider's onboarded products when provider_id changes
+  // Determine which provider ID to use
+  const getProviderId = () => {
+    // If a specific provider is selected in the form, use that
+    if (formData.provider_id) {
+      return formData.provider_id;
+    }
+    
+    // Otherwise, use the current authenticated user's ID if they are a provider
+    if (authenticatedUser?.id && authenticatedUser.roles?.some(role => role.slug === 'provider')) {
+      return authenticatedUser.id;
+    }
+    
+    // Or from currentUser prop
+    if (currentUser?.id) {
+      return currentUser.id;
+    }
+    
+    return null;
+  };
+
+  // Fetch provider's onboarded products
   useEffect(() => {
     const fetchProviderProducts = async () => {
-      if (formData.provider_id) {
-        setLoading(true);
-        try {
-          const response = await fetch(`/api/v1/providers/${formData.provider_id}/onboarded-products`);
-          const data = await response.json();
-          if (data.success) {
-            setProviderOnboardedProducts(data.q_codes || []);
-          }
-        } catch (error) {
-          console.error('Error fetching provider products:', error);
-        } finally {
-          setLoading(false);
+      const providerId = getProviderId();
+      
+      if (!providerId) {
+        console.log('No provider ID available, skipping product fetch');
+        setProviderOnboardedProducts([]);
+        return;
+      }
+      
+      setLoading(true);
+      try {
+        console.log(`Fetching onboarded products for provider ${providerId}`);
+        const response = await fetch(`/api/v1/providers/${providerId}/onboarded-products`);
+        const data = await response.json();
+        
+        console.log('Provider products response:', data);
+        
+        if (data.success && data.q_codes) {
+          setProviderOnboardedProducts(data.q_codes);
+          console.log(`Loaded ${data.q_codes.length} onboarded products:`, data.q_codes);
+        } else {
+          console.warn('No onboarded products found for provider');
+          setProviderOnboardedProducts([]);
         }
+      } catch (error) {
+        console.error('Error fetching provider products:', error);
+        setProviderOnboardedProducts([]);
+      } finally {
+        setLoading(false);
       }
     };
     
     fetchProviderProducts();
-  }, [formData.provider_id]);
+  }, [formData.provider_id, authenticatedUser?.id]);
 
   // Determine insurance type for product filtering
   const getInsuranceType = () => {
@@ -118,46 +177,81 @@ export default function Step5ProductSelection({
     return length * width;
   };
 
-  // Get provider onboarded products
-  const getProviderOnboardedProducts = () => {
-    // Use the fetched provider onboarded products from the API
-    return providerOnboardedProducts;
-  };
-
-  // Get role restrictions based on user role
+  // Get role restrictions based on actual user permissions
   const getRoleRestrictions = () => {
-    const userRole = currentUser?.role || 'provider';
-
-    switch (userRole) {
-      case 'office-manager':
-        return {
-          can_view_financials: false,
-          can_see_discounts: false,
-          can_see_msc_pricing: false,
-          can_see_order_totals: false,
-          pricing_access_level: 'national_asp_only',
-          commission_access_level: 'none'
-        };
-      case 'provider':
-      default:
-        return {
-          can_view_financials: true,
-          can_see_discounts: true,
-          can_see_msc_pricing: true,
-          can_see_order_totals: true,
-          pricing_access_level: 'full',
-          commission_access_level: 'full'
-        };
+    // Use authenticated user's permissions if available
+    const permissions = authenticatedUser?.permissions || currentUser?.permissions || [];
+    
+    // Check specific permissions
+    const hasViewNationalAsp = permissions.includes('view-national-asp');
+    const hasViewMscPricing = permissions.includes('view-msc-pricing');
+    const hasViewFinancials = permissions.includes('view-financials');
+    const hasViewDiscounts = permissions.includes('view-discounts');
+    const hasViewOrderTotals = permissions.includes('view-order-totals');
+    
+    // Determine user's primary role
+    const userRoles = authenticatedUser?.roles || [];
+    const isOfficeManager = userRoles.some(role => role.slug === 'office-manager');
+    const isProvider = userRoles.some(role => role.slug === 'provider');
+    const isAdmin = userRoles.some(role => ['msc-admin', 'super-admin'].includes(role.slug));
+    
+    // Office managers: Only see National ASP
+    if (isOfficeManager && !isAdmin) {
+      return {
+        can_view_financials: false,
+        can_see_discounts: false,
+        can_see_msc_pricing: false,
+        can_see_order_totals: hasViewOrderTotals,
+        pricing_access_level: 'national_asp_only',
+        commission_access_level: 'none'
+      };
     }
+    
+    // Providers and Admins: See both National ASP and MSC Pricing
+    if (isProvider || isAdmin) {
+      return {
+        can_view_financials: hasViewFinancials || isAdmin,
+        can_see_discounts: hasViewDiscounts || isAdmin,
+        can_see_msc_pricing: hasViewMscPricing || isAdmin || isProvider,
+        can_see_order_totals: hasViewOrderTotals || isAdmin,
+        pricing_access_level: 'full',
+        commission_access_level: (hasViewFinancials || isAdmin) ? 'full' : 'limited'
+      };
+    }
+    
+    // Default restrictions for other roles
+    return {
+      can_view_financials: hasViewFinancials,
+      can_see_discounts: hasViewDiscounts,
+      can_see_msc_pricing: hasViewMscPricing,
+      can_see_order_totals: hasViewOrderTotals,
+      pricing_access_level: hasViewMscPricing ? 'full' : 'national_asp_only',
+      commission_access_level: hasViewFinancials ? 'full' : 'none'
+    };
   };
 
   const handleProductsChange = (selectedProducts: SelectedProduct[]) => {
     updateFormData({ selected_products: selectedProducts });
   };
 
+  const providerId = getProviderId();
+
   return (
     <div className="space-y-6">
-      {loading && formData.provider_id ? (
+      {/* Debug Information (remove in production) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className={cn(
+          "p-4 rounded-lg text-xs font-mono",
+          theme === 'dark' ? 'bg-gray-800/50' : 'bg-gray-100'
+        )}>
+          <p>Provider ID: {providerId || 'None'}</p>
+          <p>Onboarded Products: {providerOnboardedProducts.length} ({providerOnboardedProducts.join(', ') || 'None'})</p>
+          <p>Insurance Type: {getInsuranceType()}</p>
+          <p>Wound Size: {calculateWoundSize()} sq cm</p>
+        </div>
+      )}
+
+      {loading && providerId ? (
         <div className={cn(
           "p-8 text-center rounded-lg",
           theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
@@ -169,12 +263,30 @@ export default function Step5ProductSelection({
             Loading provider products...
           </p>
         </div>
+      ) : !providerId ? (
+        <div className={cn(
+          "p-8 text-center rounded-lg border-2 border-dashed",
+          theme === 'dark' ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-300'
+        )}>
+          <p className={cn(
+            "text-sm font-medium mb-2",
+            theme === 'dark' ? 'text-gray-300' : 'text-gray-700'
+          )}>
+            No Provider Selected
+          </p>
+          <p className={cn(
+            "text-xs",
+            theme === 'dark' ? 'text-gray-500' : 'text-gray-500'
+          )}>
+            Please select a provider in the previous step to view available products.
+          </p>
+        </div>
       ) : (
         <ProductSelectorQuickRequest
           insuranceType={getInsuranceType()}
           patientState={formData.patient_state}
           woundSize={calculateWoundSize()}
-          providerOnboardedProducts={getProviderOnboardedProducts()}
+          providerOnboardedProducts={providerOnboardedProducts}
           onProductsChange={handleProductsChange}
           roleRestrictions={getRoleRestrictions()}
           last24HourOrders={formData.last_24_hour_orders}

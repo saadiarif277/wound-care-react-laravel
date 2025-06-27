@@ -98,4 +98,92 @@ class ProviderProductController extends Controller
             ], 500);
         }
     }
+
+    /**
+     * Debug endpoint to check provider products with detailed information
+     * 
+     * @param int $providerId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function debugProviderProducts($providerId)
+    {
+        try {
+            $provider = User::with(['roles', 'onboardedProducts' => function ($query) {
+                $query->withPivot(['onboarding_status', 'expiration_date', 'notes', 'onboarded_at']);
+            }])->find($providerId);
+
+            if (!$provider) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Provider not found'
+                ], 404);
+            }
+
+            // Check if user is actually a provider
+            $isProvider = $provider->roles->contains('slug', 'provider');
+
+            // Get all products with their status
+            $allProducts = $provider->onboardedProducts->map(function ($product) {
+                return [
+                    'id' => $product->id,
+                    'name' => $product->name,
+                    'q_code' => $product->q_code,
+                    'manufacturer' => $product->manufacturer,
+                    'onboarding_status' => $product->pivot->onboarding_status,
+                    'onboarded_at' => $product->pivot->onboarded_at,
+                    'expiration_date' => $product->pivot->expiration_date,
+                    'is_active' => $product->pivot->onboarding_status === 'active' && 
+                                 (!$product->pivot->expiration_date || $product->pivot->expiration_date > now()),
+                    'notes' => $product->pivot->notes,
+                ];
+            });
+
+            // Get only active products
+            $activeProducts = $allProducts->filter(function ($product) {
+                return $product['is_active'];
+            });
+
+            // Get permissions
+            $permissions = $provider->getAllPermissions()->pluck('slug')->toArray();
+
+            return response()->json([
+                'success' => true,
+                'provider' => [
+                    'id' => $provider->id,
+                    'name' => $provider->name,
+                    'email' => $provider->email,
+                    'is_provider' => $isProvider,
+                    'roles' => $provider->roles->pluck('slug'),
+                    'permissions' => $permissions,
+                    'has_view_msc_pricing' => in_array('view-msc-pricing', $permissions),
+                    'has_view_national_asp' => in_array('view-national-asp', $permissions),
+                ],
+                'products' => [
+                    'total_count' => $allProducts->count(),
+                    'active_count' => $activeProducts->count(),
+                    'active_q_codes' => $activeProducts->pluck('q_code')->values(),
+                    'all_products' => $allProducts->values(),
+                ],
+                'debug_info' => [
+                    'current_time' => now()->toDateTimeString(),
+                    'provider_products_table_count' => \DB::table('provider_products')
+                        ->where('user_id', $providerId)
+                        ->count(),
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Error in debugProviderProducts', [
+                'provider_id' => $providerId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Error debugging provider products',
+                'error' => config('app.debug') ? $e->getMessage() : 'Internal error'
+            ], 500);
+        }
+    }
 }

@@ -180,7 +180,8 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
         "border",
         status.border,
         "hover:shadow-lg hover:scale-[1.01]",
-        viewMode === 'expanded' && "col-span-full"
+        viewMode === 'expanded' && "col-span-full",
+        isExpanded && "z-[100]" // Ensure expanded card is above all others
       )}
     >
       {/* Status pulse animation */}
@@ -302,13 +303,13 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
           <>
             {/* Backdrop overlay */}
             <div 
-              className="fixed inset-0 bg-black/20 z-10" 
+              className="fixed inset-0 bg-black/20 z-40" 
               onClick={() => setIsExpanded(false)}
             />
             
             {/* Dropdown content */}
             <div className={cn(
-              "absolute top-full left-0 right-0 z-20 mt-2",
+              "absolute top-full left-0 right-0 z-50 mt-2",
               "rounded-xl shadow-xl border backdrop-blur-md",
               theme === 'dark' 
                 ? 'bg-gray-900/95 border-gray-700' 

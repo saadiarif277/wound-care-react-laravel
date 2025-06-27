@@ -20,5 +20,9 @@ class VerifyCsrfToken extends Middleware
         'product-requests/create',
         'product-requests/store',
         'product-requests/submit',
+        // DocuSeal integration endpoints for testing and API calls
+        'quick-requests/docuseal/generate-submission-slug',
+        'quick-requests/docuseal/generate-builder-token',
+        'quick-requests/docuseal/generate-form-token',
     ];
 }

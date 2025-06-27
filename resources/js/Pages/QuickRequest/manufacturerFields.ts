@@ -17,6 +17,7 @@ export interface ManufacturerConfig {
   name: string;
   products: string[];
   signatureRequired: boolean;
+  hasOrderForm?: boolean; // NEW: Indicates if manufacturer provides order forms
   docusealTemplateId?: string;
   fields: ManufacturerField[];
 }
@@ -26,6 +27,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'ACZ',
     products: ['Membrane Wrap', 'Revoshield'],
     signatureRequired: true,
+    hasOrderForm: true, // ACZ provides order forms
     fields: [
       {
         name: 'physician_attestation',
@@ -45,6 +47,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'Advanced Health',
     products: ['Complete AA', 'Complete FT', 'WoundPlus'],
     signatureRequired: true,
+    hasOrderForm: true, // Advanced Health provides order forms
     fields: [
       {
         name: 'multiple_products',
@@ -76,6 +79,7 @@ export const manufacturerConfigs: ManufacturerConfig[] = [
     name: 'MedLife',
     products: ['Amnio AMP'],
     signatureRequired: true,
+    hasOrderForm: true, // MedLife provides order forms
     fields: [
       {
         name: 'amnio_amp_size',
