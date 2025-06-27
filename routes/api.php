@@ -666,4 +666,10 @@ Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
         ->middleware('permission:view-orders');
 });
 
+// Admin Notification Routes
+Route::prefix('admin')->group(function () {
+    Route::post('send-notification', [App\Http\Controllers\Api\AdminNotificationController::class, 'sendNotification'])
+        ->name('api.admin.send-notification');
+});
+
 // Fallback Route for 404 API requests
