@@ -178,7 +178,7 @@ class DebugFieldMappings extends Command
         // Test the mapping using DocuSeal service
         try {
             $docuSealService = app(DocusealService::class);
-            $mappedFields = $docuSealService->mapFieldsUsingTemplate($sampleData, $template);
+            $mappedFields = $docuSealService->mapFieldsFromArray($sampleData, $template);
 
             $this->info("\n✅ Mapped fields result:");
             if (empty($mappedFields)) {

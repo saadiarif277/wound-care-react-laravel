@@ -16,7 +16,6 @@ final class QuickRequestService
     public function __construct(
         private FhirService $fhirClient,
         private DocuSealService $docuSealService,
-        private Templates\DocuSealBuilder $builder,
     ) {}
 
     /**
@@ -118,18 +117,9 @@ final class QuickRequestService
             $manufacturerId = $data['manufacturer_id'];
             $productCode = $data['order_details']['product'] ?? null;
 
-            try {
-                $template = $this->builder->getTemplate($manufacturerId, $productCode);
-                $dataWithTemplate = $data;
-                $dataWithTemplate['template_id'] = $template->docuseal_template_id;
-            } catch (\Exception $lookupException) {
-                Log::error('DocuSeal template lookup failed', [
-                    'error' => $lookupException->getMessage(),
-                    'lookup' => ['manufacturer_id' => $manufacturerId, 'product_code' => $productCode],
-                    'episode_id' => $episode->id,
-                ]);
-                $dataWithTemplate = $data;
-            }
+            // Note: DocuSealBuilder service not implemented yet
+            // For now, use basic data without template lookup
+            $dataWithTemplate = $data;
             $submission = $this->docuSealService->createIVRSubmission(
                 $dataWithTemplate,
                 $episode

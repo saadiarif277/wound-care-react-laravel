@@ -160,7 +160,7 @@ class TestDocuSealIntegration extends Command
             
             // Test field mapping
             $this->info("🗺️ Testing field mapping...");
-            $mappedFields = $docuSealService->mapFieldsUsingTemplate($requestData['prefill_data'], $template);
+            $mappedFields = $docuSealService->mapFieldsFromArray($requestData['prefill_data'], $template);
             
             $this->info("📊 Field mapping results:");
             $this->table(['Field', 'Value'], [

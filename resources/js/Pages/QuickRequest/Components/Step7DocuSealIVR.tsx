@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { prepareDocuSealData } from './docusealUtils';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShield, FiHeart, FiClock, FiStar, FiCheck, FiInfo } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
@@ -388,17 +388,67 @@ export default function Step7DocuSealIVR({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className={cn("p-4 rounded-lg", t.glass.card)}>
-        <div className="flex items-start">
-          <FiFileText className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", t.text.secondary)} />
-          <div>
-            <h3 className={cn("text-lg font-medium", t.text.primary)}>
-              Independent Verification Request (IVR)
-            </h3>
-            <p className={cn("text-sm mt-1", t.text.secondary)}>
-              {manufacturerConfig?.name} requires an electronic signature on their IVR form
-            </p>
+      {/* Enhanced Header with Visual Appeal */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-blue-900/20 dark:via-indigo-900/20 dark:to-purple-900/20">
+        {/* Background Pattern */}
+        <div className="absolute inset-0 opacity-30" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233b82f6' fill-opacity='0.1' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+        
+        <div className="relative p-8">
+          <div className="flex items-start gap-4">
+            {/* Icon with enhanced styling */}
+            <div className="flex-shrink-0">
+              <div className="p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-xl shadow-lg border border-white/50 dark:border-gray-700/50">
+                <FiShield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+            </div>
+            
+            {/* Content */}
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <h2 className={cn("text-2xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent", t.text.primary)}>
+                  Insurance Verification Request
+                </h2>
+                <div className="flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/20 rounded-full">
+                  <FiStar className="h-3 w-3 text-green-600 dark:text-green-400" />
+                  <span className="text-xs font-medium text-green-700 dark:text-green-300">Required</span>
+                </div>
+              </div>
+              
+              <p className={cn("text-lg mb-4", t.text.secondary)}>
+                Complete your {manufacturerConfig?.name} IVR form with pre-filled information
+              </p>
+              
+              {/* Key Benefits */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
+                  <FiClock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Pre-filled Data</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
+                  <FiShield className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Secure & HIPAA</span>
+                </div>
+                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
+                  <FiHeart className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Patient Focused</span>
+                </div>
+              </div>
+              
+              {/* FHIR Enhancement Notice */}
+              {formData.episode_id && (
+                <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <div className="flex items-center gap-2 mb-1">
+                    <FiHeart className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <span className="text-sm font-semibold text-green-800 dark:text-green-200">FHIR-Enhanced Experience</span>
+                  </div>
+                  <p className="text-xs text-green-700 dark:text-green-300">
+                    Your healthcare data has been automatically integrated to pre-fill this form, saving you time and ensuring accuracy.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

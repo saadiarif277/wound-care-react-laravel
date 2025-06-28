@@ -33,6 +33,8 @@ export interface FieldMapping {
   validation_status: 'valid' | 'warning' | 'error';
   validation_messages: string[];
   is_active: boolean;
+  is_composite?: boolean;
+  composite_fields?: number[];
   created_by?: number;
   updated_by?: number;
   version?: number;
@@ -41,9 +43,13 @@ export interface FieldMapping {
 }
 
 export interface TransformationRule {
-  type: 'parse' | 'format' | 'convert' | 'normalize';
-  operation: string;
-  parameters: Record<string, any>;
+  type: 'parse' | 'format' | 'convert' | 'normalize' | 'concatenate' | 'split';
+  operation?: string;
+  parameters?: Record<string, any>;
+  fields?: string[];
+  separator?: string;
+  index?: number;
+  target_field?: string;
 }
 
 export interface MappingStatistics {

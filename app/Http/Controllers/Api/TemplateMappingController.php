@@ -101,6 +101,8 @@ class TemplateMappingController extends Controller
                 $mapping->canonical_field_id = $mappingData['canonical_field_id'] ?? null;
                 $mapping->transformation_rules = $mappingData['transformation_rules'] ?? [];
                 $mapping->is_active = $mappingData['is_active'] ?? true;
+                $mapping->is_composite = $mappingData['is_composite'] ?? false;
+                $mapping->composite_fields = $mappingData['composite_fields'] ?? [];
                 $mapping->updated_by = auth()->id();
 
                 // Calculate confidence score if canonical field is set
@@ -214,6 +216,100 @@ class TemplateMappingController extends Controller
             return response()->json([
                 'success' => false,
                 'message' => 'Bulk operation failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Auto-map fields using AI
+     */
+    public function autoMapFields(Request $request, string $templateId): JsonResponse
+    {
+        $request->validate([
+            'use_ai' => 'nullable|boolean',
+            'confidence_threshold' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $template = DocusealTemplate::findOrFail($templateId);
+        $useAI = $request->use_ai ?? true;
+        $threshold = $request->confidence_threshold ?? 70;
+
+        DB::beginTransaction();
+        try {
+            $mappedCount = 0;
+            $templateFields = array_keys($template->field_mappings ?? []);
+            $canonicalFields = CanonicalField::all();
+
+            foreach ($templateFields as $fieldName) {
+                // Skip if already mapped
+                $existingMapping = TemplateFieldMapping::where('template_id', $templateId)
+                    ->where('field_name', $fieldName)
+                    ->first();
+                
+                if ($existingMapping && $existingMapping->canonical_field_id) {
+                    continue;
+                }
+
+                // Get AI suggestions
+                $suggestions = $this->suggestionService->suggestMapping($fieldName, $canonicalFields);
+                
+                if (empty($suggestions)) {
+                    continue;
+                }
+
+                // Use the highest confidence suggestion
+                $bestSuggestion = collect($suggestions)->sortByDesc('confidence')->first();
+                
+                if ($bestSuggestion['confidence'] < $threshold) {
+                    continue;
+                }
+
+                // Create or update mapping
+                $mapping = TemplateFieldMapping::firstOrNew([
+                    'template_id' => $templateId,
+                    'field_name' => $fieldName,
+                ]);
+
+                $mapping->canonical_field_id = $bestSuggestion['canonical_field_id'];
+                $mapping->confidence_score = $bestSuggestion['confidence'];
+                $mapping->transformation_rules = $bestSuggestion['transformation_rules'] ?? [];
+                $mapping->is_active = true;
+                $mapping->save();
+
+                $mappedCount++;
+            }
+
+            DB::commit();
+
+            // Audit log
+            MappingAuditLog::create([
+                'template_id' => $templateId,
+                'action' => 'auto_map',
+                'user_id' => auth()->id(),
+                'changes' => [
+                    'mapped_count' => $mappedCount,
+                    'use_ai' => $useAI,
+                    'threshold' => $threshold,
+                ],
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'mapped_count' => $mappedCount,
+                'total_fields' => count($templateFields),
+                'message' => "Successfully mapped {$mappedCount} fields using AI",
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to auto-map fields', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to auto-map fields: ' . $e->getMessage(),
             ], 500);
         }
     }

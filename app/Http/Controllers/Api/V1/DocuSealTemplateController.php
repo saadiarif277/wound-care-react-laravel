@@ -169,26 +169,66 @@ class DocuSealTemplateController extends Controller
             $errors = 0;
 
             try {
-                // Fetch templates from DocuSeal
-                $response = $client->get($docusealApiUrl . '/templates', [
-                    'headers' => [
-                        'X-Auth-Token' => $docusealApiKey,
-                    ],
-                    'timeout' => 30,
-                ]);
+                // Fetch templates from DocuSeal (handle pagination)
+                $allTemplates = [];
+                $page = 1;
+                $hasMore = true;
+                
+                while ($hasMore) {
+                    $response = $client->get($docusealApiUrl . '/templates', [
+                        'headers' => [
+                            'X-Auth-Token' => $docusealApiKey,
+                        ],
+                        'query' => [
+                            'limit' => 100, // Get more per page
+                            'page' => $page
+                        ],
+                        'timeout' => 30,
+                    ]);
 
-                $docusealTemplates = json_decode($response->getBody()->getContents(), true);
-
-                if (!is_array($docusealTemplates)) {
-                    throw new \Exception('Invalid response from DocuSeal API');
+                    $responseData = json_decode($response->getBody()->getContents(), true);
+                    
+                    if (!is_array($responseData)) {
+                        throw new \Exception('Invalid response from DocuSeal API');
+                    }
+                    
+                    // Handle paginated response
+                    if (isset($responseData['data']) && is_array($responseData['data'])) {
+                        $allTemplates = array_merge($allTemplates, $responseData['data']);
+                        $hasMore = !empty($responseData['next']);
+                        $page++;
+                    } else {
+                        // Non-paginated response
+                        $allTemplates = $responseData;
+                        $hasMore = false;
+                    }
                 }
 
+                $docusealTemplates = $allTemplates;
                 $templatesFound = count($docusealTemplates);
+                
+                // Log all templates found for debugging
+                Log::info('DocuSeal sync found templates', [
+                    'total_count' => $templatesFound,
+                    'templates' => collect($docusealTemplates)->map(function($t) {
+                        return [
+                            'id' => $t['id'] ?? 'unknown',
+                            'name' => $t['name'] ?? 'unknown',
+                            'folder_name' => $t['folder_name'] ?? 'no folder',
+                            'created_at' => $t['created_at'] ?? 'unknown'
+                        ];
+                    })->toArray()
+                ]);
 
                 foreach ($docusealTemplates as $docusealTemplate) {
                     try {
                         // Check if template exists locally
                         $localTemplate = DocusealTemplate::where('docuseal_template_id', $docusealTemplate['id'])->first();
+
+                        // Extract folder/manufacturer info from template data
+                        // DocuSeal provides folder_name directly
+                        $folderName = $docusealTemplate['folder_name'] ?? null;
+                        $manufacturerId = $this->detectManufacturerFromFolder($folderName, $docusealTemplate);
 
                         if (!$localTemplate) {
                             // Create new template
@@ -196,6 +236,7 @@ class DocuSealTemplateController extends Controller
                                 'template_name' => $docusealTemplate['name'] ?? 'Unnamed Template',
                                 'docuseal_template_id' => $docusealTemplate['id'],
                                 'document_type' => $this->detectDocumentType($docusealTemplate['name'] ?? ''),
+                                'manufacturer_id' => $manufacturerId,
                                 'is_active' => true,
                                 'is_default' => false,
                                 'field_mappings' => [],
@@ -203,6 +244,7 @@ class DocuSealTemplateController extends Controller
                                     'synced_from_docuseal' => true,
                                     'sync_date' => now()->toIso8601String(),
                                     'docuseal_data' => $docusealTemplate,
+                                    'folder_name' => $folderName,
                                 ],
                             ]);
                             $templatesUpdated++;
@@ -296,9 +338,7 @@ class DocuSealTemplateController extends Controller
                     'headers' => [
                         'X-Auth-Token' => $docusealApiKey,
                     ],
-                    'query' => [
-                        'limit' => 1, // Just test with one template
-                    ],
+                    // Remove limit to see all templates
                     'timeout' => 10,
                 ]);
                 $endTime = microtime(true);
@@ -316,6 +356,22 @@ class DocuSealTemplateController extends Controller
                     $message .= "Total templates found: " . count($templates);
                 }
 
+                // Add template details to response
+                $templateDetails = [];
+                if (is_array($templates)) {
+                    foreach ($templates as $template) {
+                        $templateDetails[] = [
+                            'id' => $template['id'] ?? 'unknown',
+                            'name' => $template['name'] ?? 'unknown',
+                            'folder' => $template['folder'] ?? null,
+                            'folder_name' => $template['folder_name'] ?? null,
+                            'created_at' => $template['created_at'] ?? null,
+                            'fields_count' => isset($template['fields']) ? count($template['fields']) : 'unknown',
+                            'all_keys' => array_keys($template), // Show all available keys
+                        ];
+                    }
+                }
+
                 return response()->json([
                     'success' => true,
                     'message' => $message,
@@ -324,6 +380,7 @@ class DocuSealTemplateController extends Controller
                         'status_code' => $statusCode,
                         'api_url' => $docusealApiUrl,
                         'templates_found' => is_array($templates) ? count($templates) : 0,
+                        'templates' => $templateDetails,
                     ],
                 ]);
 
@@ -418,6 +475,70 @@ class DocuSealTemplateController extends Controller
                 'error' => $e->getMessage(),
             ]);
         }
+    }
+
+    /**
+     * Detect manufacturer from folder name or template data
+     */
+    private function detectManufacturerFromFolder(?string $folderName, array $templateData): ?int
+    {
+        // First check if manufacturer info is in the template data
+        if (isset($templateData['folder']) && is_array($templateData['folder'])) {
+            $folderName = $templateData['folder']['name'] ?? $folderName;
+        }
+        
+        // If no folder name, try to extract from template name
+        if (!$folderName && isset($templateData['name'])) {
+            // Check if template name contains manufacturer info
+            $templateName = $templateData['name'];
+            
+            // Common patterns: "MedLife - IVR Form", "ACZ Order Form", etc.
+            if (preg_match('/^([^-]+)\s*-/', $templateName, $matches)) {
+                $folderName = trim($matches[1]);
+            }
+        }
+        
+        if (!$folderName) {
+            Log::warning('No folder/manufacturer info found for template', [
+                'template_id' => $templateData['id'] ?? 'unknown',
+                'template_name' => $templateData['name'] ?? 'unknown'
+            ]);
+            return null;
+        }
+        
+        // Try to find manufacturer by name
+        $manufacturer = \App\Models\Order\Manufacturer::where('name', 'LIKE', '%' . $folderName . '%')
+            ->orWhere('name', 'LIKE', '%' . str_replace(' ', '', $folderName) . '%')
+            ->first();
+            
+        if ($manufacturer) {
+            return $manufacturer->id;
+        }
+        
+        // Try common variations
+        $variations = [
+            'MedLife' => ['MedLife Solutions', 'MedLife', 'Med Life'],
+            'ACZ' => ['ACZ', 'ACZ Laboratories'],
+            'Extremity Care' => ['Extremity Care', 'ExtremityCare'],
+            'Bio Wound' => ['BioWound', 'Bio Wound'],
+            'Imbed Bio' => ['ImbedBio', 'Imbed Bio'],
+        ];
+        
+        foreach ($variations as $key => $names) {
+            if (stripos($folderName, $key) !== false) {
+                $manufacturer = \App\Models\Order\Manufacturer::whereIn('name', $names)->first();
+                if ($manufacturer) {
+                    return $manufacturer->id;
+                }
+            }
+        }
+        
+        Log::warning('Could not match manufacturer for folder', [
+            'folder_name' => $folderName,
+            'template_id' => $templateData['id'] ?? 'unknown'
+        ]);
+        
+        return null;
     }
 
     /**

@@ -90,6 +90,30 @@ export const FieldMappingInterface: React.FC<FieldMappingInterfaceProps> = ({
     }
   };
 
+  // Auto-map fields using AI
+  const autoMapFields = async () => {
+    setSaving(true);
+    try {
+      const response = await axios.post(
+        `/api/v1/admin/docuseal/templates/${templateId}/field-mappings/auto-map`,
+        { use_ai: true }
+      );
+      
+      if (response.data.success) {
+        // Refresh the mappings
+        await fetchData();
+        await validateMappings();
+        
+        // Show success message (you might want to add a toast notification here)
+        console.log(`Successfully mapped ${response.data.mapped_count} fields using AI`);
+      }
+    } catch (error) {
+      console.error('Failed to auto-map fields:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   // Validate all mappings
   const validateMappings = async () => {
     try {
@@ -129,6 +153,22 @@ export const FieldMappingInterface: React.FC<FieldMappingInterfaceProps> = ({
         ? { ...mapping, ...updates }
         : mapping
     ));
+  };
+
+  // Create composite mapping (for fields like "Full Name" that combine multiple canonical fields)
+  const createCompositeMapping = (fieldName: string, canonicalFieldIds: string[]) => {
+    const transformationRule: TransformationRule = {
+      type: 'concatenate',
+      fields: canonicalFieldIds,
+      separator: ' '
+    };
+    
+    updateMapping(fieldName, {
+      canonical_field_id: canonicalFieldIds[0], // Primary field
+      composite_fields: canonicalFieldIds,
+      transformation_rules: [transformationRule],
+      is_composite: true
+    });
   };
 
   // Apply suggestion
@@ -312,11 +352,20 @@ export const FieldMappingInterface: React.FC<FieldMappingInterfaceProps> = ({
 
                     <div className="flex items-center gap-3">
                       <button
+                        onClick={autoMapFields}
+                        disabled={saving}
+                        className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-2 disabled:opacity-50"
+                      >
+                        <Wand2 className="w-4 h-4" />
+                        AI Auto-Map
+                      </button>
+
+                      <button
                         onClick={fetchSuggestions}
                         className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2"
                       >
                         <Sparkles className="w-4 h-4" />
-                        Get AI Suggestions
+                        Get Suggestions
                       </button>
 
                       <button
@@ -549,26 +598,98 @@ const MappingRow: React.FC<MappingRowProps> = ({
           </div>
           
           {/* Canonical Field Selector */}
-          <select
-            value={mapping.canonical_field_id || ''}
-            onChange={(e) => {
-              const fieldId = e.target.value ? parseInt(e.target.value) : null;
-              const canonicalField = canonicalFields.find(f => f.id === fieldId);
-              onUpdate({
-                canonical_field_id: fieldId,
-                canonical_field: canonicalField
-              });
-            }}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <option value="">-- Select Canonical Field --</option>
-            {canonicalFields.map(field => (
-              <option key={field.id} value={field.id}>
-                {field.category} → {field.field_name}
-              </option>
-            ))}
-          </select>
+          <div className="space-y-2">
+            <select
+              value={mapping.canonical_field_id || ''}
+              onChange={(e) => {
+                const fieldId = e.target.value ? parseInt(e.target.value) : null;
+                const canonicalField = canonicalFields.find(f => f.id === fieldId);
+                onUpdate({
+                  canonical_field_id: fieldId,
+                  canonical_field: canonicalField,
+                  is_composite: false,
+                  composite_fields: []
+                });
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <option value="">-- Select Canonical Field --</option>
+              <optgroup label="Single Fields">
+                {canonicalFields.map(field => (
+                  <option key={field.id} value={field.id}>
+                    {field.category} → {field.field_name}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Composite Fields">
+                <option value="composite_full_name">Combine: First + Middle + Last Name</option>
+                <option value="composite_full_address">Combine: Street + City + State + ZIP</option>
+                <option value="composite_phone">Combine: Phone Parts</option>
+              </optgroup>
+            </select>
+            
+            {/* Show composite field selector if needed */}
+            {mapping.field_name.toLowerCase().includes('full name') && !mapping.is_composite && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800 mb-2">
+                  This field appears to need multiple values. Would you like to combine fields?
+                </p>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    // Set up composite mapping for full name
+                    const firstNameField = canonicalFields.find(f => f.field_name === 'firstName' && f.category === 'patientInformation');
+                    const middleInitialField = canonicalFields.find(f => f.field_name === 'middleInitial' && f.category === 'patientInformation');
+                    const lastNameField = canonicalFields.find(f => f.field_name === 'lastName' && f.category === 'patientInformation');
+                    
+                    if (firstNameField && lastNameField) {
+                      const compositeFields = [firstNameField.id, lastNameField.id];
+                      if (middleInitialField) {
+                        compositeFields.splice(1, 0, middleInitialField.id);
+                      }
+                      
+                      onUpdate({
+                        canonical_field_id: firstNameField.id,
+                        canonical_field: firstNameField,
+                        is_composite: true,
+                        composite_fields: compositeFields,
+                        transformation_rules: [{
+                          type: 'concatenate',
+                          fields: compositeFields.map(id => canonicalFields.find(f => f.id === id)?.field_name || ''),
+                          separator: ' '
+                        }]
+                      });
+                    }
+                  }}
+                  className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                >
+                  <Layers className="w-4 h-4 inline mr-1" />
+                  Combine Name Fields
+                </button>
+              </div>
+            )}
+            
+            {/* Show composite fields if this is a composite mapping */}
+            {mapping.is_composite && mapping.composite_fields && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="text-sm font-medium text-purple-800 mb-2">
+                  Composite Field Mapping:
+                </p>
+                <div className="space-y-1">
+                  {mapping.composite_fields.map((fieldId, index) => {
+                    const field = canonicalFields.find(f => f.id === fieldId);
+                    return field ? (
+                      <div key={fieldId} className="text-sm text-purple-700">
+                        {index > 0 && <span className="text-purple-400 mx-1">+</span>}
+                        {field.field_name}
+                      </div>
+                    ) : null;
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Validation Messages */}
           {mapping.validation_messages.length > 0 && (

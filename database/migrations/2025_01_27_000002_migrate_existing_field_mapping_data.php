@@ -23,6 +23,12 @@ return new class extends Migration
      */
     private function migrateIvrFieldMappings(): void
     {
+        // Check if manufacturer_fields column exists
+        if (!DB::getSchemaBuilder()->hasColumn('patient_manufacturer_ivr_episodes', 'manufacturer_fields')) {
+            Log::info('Skipping IVR field mapping migration - manufacturer_fields column does not exist');
+            return;
+        }
+        
         // Get all existing IVR episodes
         $ivrEpisodes = DB::table('patient_manufacturer_ivr_episodes')
             ->whereNotNull('manufacturer_fields')
@@ -96,6 +102,12 @@ return new class extends Migration
      */
     private function migrateFieldMappingPatterns(): void
     {
+        // Check if manufacturer_fields column exists
+        if (!DB::getSchemaBuilder()->hasColumn('patient_manufacturer_ivr_episodes', 'manufacturer_fields')) {
+            Log::info('Skipping field mapping pattern migration - manufacturer_fields column does not exist');
+            return;
+        }
+        
         // Analyze existing mappings to identify common patterns
         $manufacturers = ['ACZ', 'Acell', 'Advanced Health', 'AVITA', 'LifeSciences', 'LifeNet', 'MTF Biologics', 'Organogenesis'];
         

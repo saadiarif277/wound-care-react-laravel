@@ -1,0 +1,544 @@
+{
+  "orderFormFieldMappings": {
+    "standardFields": {
+      "orderInformation": {
+        "canonicalFields": {
+          "orderDate": {
+            "description": "Date the order is placed",
+            "dataType": "date",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Date of Order",
+              "form4_BioWound": "DATE",
+              "form5_AdvancedSolution": "Order Details section header",
+              "form6_MedLife": "Date",
+              "form7_ExtremityCare_FT": "Order Date",
+              "form8_ExtremityCare_RO": "Order Date"
+            }
+          },
+          "anticipatedApplicationDate": {
+            "description": "Expected date of product application/procedure",
+            "dataType": "date",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Anticipated Application Date",
+              "form4_BioWound": "REQUESTED DELIVERY DATE",
+              "form5_AdvancedSolution": "Date of Case",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Date of Service",
+              "form8_ExtremityCare_RO": "Date of Service"
+            }
+          },
+          "poNumber": {
+            "description": "Purchase order number",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "PO#",
+              "form4_BioWound": "PO#",
+              "form5_AdvancedSolution": "Purchase Order Number",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "orderNumber": {
+            "description": "Internal order tracking number",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "Order Number (Office Use Only)",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "patientId": {
+            "description": "Patient identifier or case ID",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Patient ID",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Patient Name/Case ID",
+              "form8_ExtremityCare_RO": "Patient Name/Case ID"
+            }
+          }
+        }
+      },
+      "shippingInformation": {
+        "canonicalFields": {
+          "facilityName": {
+            "description": "Name of facility to ship to",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Facility or Office",
+              "form4_BioWound": "SHIP TO",
+              "form5_AdvancedSolution": "Facility Name",
+              "form6_MedLife": "Company/Facility",
+              "form7_ExtremityCare_FT": "Facility Name",
+              "form8_ExtremityCare_RO": "Facility Name"
+            }
+          },
+          "shippingAddress": {
+            "description": "Street address for delivery",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Ship to Address",
+              "form4_BioWound": "SHIP TO address section",
+              "form5_AdvancedSolution": "Shipping Address",
+              "form6_MedLife": "Address",
+              "form7_ExtremityCare_FT": "Facility Address",
+              "form8_ExtremityCare_RO": "Facility Address"
+            }
+          },
+          "shippingCity": {
+            "description": "City for delivery",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "City",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingState": {
+            "description": "State for delivery",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "State",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingZip": {
+            "description": "ZIP code for delivery",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "ZIP",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingContactName": {
+            "description": "Contact person at shipping location",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Contact Name",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Shipping Contact Name",
+              "form6_MedLife": "Contact Name",
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingPhone": {
+            "description": "Phone number for delivery contact",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Contact Number",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Phone Number",
+              "form6_MedLife": "Contact Phone",
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingEmail": {
+            "description": "Email for delivery notifications",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "Contact e-mail",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Email Address",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "shippingFax": {
+            "description": "Fax number for shipping location",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Fax Number",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          }
+        }
+      },
+      "billingInformation": {
+        "canonicalFields": {
+          "billingName": {
+            "description": "Billing entity name",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": "BILL TO",
+              "form5_AdvancedSolution": "Billing Information - Facility Name",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "billingAddress": {
+            "description": "Billing address if different from shipping",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": "BILL TO address section",
+              "form5_AdvancedSolution": "Billing Information - Shipping Address",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "paymentTerms": {
+            "description": "Payment terms for the order",
+            "dataType": "enum",
+            "values": ["Net 30", "Time of Order", "Credit Card", "ACH"],
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Terms: Net 30, Charge CC, ACH",
+              "form4_BioWound": "NET TERMS",
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          }
+        }
+      },
+      "providerInformation": {
+        "canonicalFields": {
+          "requestingProvider": {
+            "description": "Name of requesting physician/provider",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Requesting Provider",
+              "form8_ExtremityCare_RO": "Requesting Provider"
+            }
+          },
+          "providerPhone": {
+            "description": "Provider contact phone",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Provider Phone",
+              "form8_ExtremityCare_RO": "Provider Phone"
+            }
+          },
+          "providerEmail": {
+            "description": "Provider email address",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Email",
+              "form8_ExtremityCare_RO": "Email"
+            }
+          },
+          "providerNPI": {
+            "description": "Provider NPI number",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "NPI Number",
+              "form8_ExtremityCare_RO": "NPI Number"
+            }
+          }
+        }
+      },
+      "productInformation": {
+        "canonicalFields": {
+          "productDescription": {
+            "description": "Product name and description",
+            "dataType": "array",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Description column",
+              "form4_BioWound": "DESCRIPTION column",
+              "form5_AdvancedSolution": "Product Code / Manufacturer columns",
+              "form6_MedLife": "AmnioAMP-MP",
+              "form7_ExtremityCare_FT": "complete FT™ Placental Allograft Membrane",
+              "form8_ExtremityCare_RO": "Restorigin™ Amnion Patch, Thin"
+            }
+          },
+          "productSize": {
+            "description": "Size of product ordered",
+            "dataType": "array",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Size column",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": "Graft Size column",
+              "form7_ExtremityCare_FT": "Size column",
+              "form8_ExtremityCare_RO": "Size column"
+            }
+          },
+          "productQuantity": {
+            "description": "Quantity of each product",
+            "dataType": "array",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "Quantity column",
+              "form4_BioWound": "QUANTITY column",
+              "form5_AdvancedSolution": "Quantity column",
+              "form6_MedLife": "Quantity column",
+              "form7_ExtremityCare_FT": "QTY column",
+              "form8_ExtremityCare_RO": "Qty column"
+            }
+          },
+          "productSKU": {
+            "description": "Product SKU or code",
+            "dataType": "array",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Product Code column",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "SKU column",
+              "form8_ExtremityCare_RO": "SKU column"
+            }
+          },
+          "unitPrice": {
+            "description": "Price per unit",
+            "dataType": "array",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "Unit Price column",
+              "form4_BioWound": "UNIT PRICE column",
+              "form5_AdvancedSolution": "Cost Per Unit column",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "List Price / ASP columns",
+              "form8_ExtremityCare_RO": "List Price / ASP columns"
+            }
+          }
+        }
+      },
+      "shippingMethod": {
+        "canonicalFields": {
+          "shippingMethod": {
+            "description": "Shipping/delivery method",
+            "dataType": "enum",
+            "values": ["FedEx", "2-Day", "Overnight", "Pick up", "Standard"],
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "FedEx checkbox",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Product Arrival Date & Time",
+              "form6_MedLife": "Shipping: 2-Day / Overnight / Pick up",
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "dateToReceive": {
+            "description": "Requested delivery date",
+            "dataType": "date",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "Date to Receive",
+              "form4_BioWound": "REQUESTED DELIVERY DATE",
+              "form5_AdvancedSolution": "Product Arrival Date & Time",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "signatureRequired": {
+            "description": "Whether signature is required on delivery",
+            "dataType": "boolean",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": "Signature Required checkbox",
+              "form8_ExtremityCare_RO": "Signature Required checkbox"
+            }
+          }
+        }
+      },
+      "additionalInformation": {
+        "canonicalFields": {
+          "salesPerson": {
+            "description": "Sales representative or distributor",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "SERVICED BY",
+              "form4_BioWound": "SALESPERSON",
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": "Distributor/Sales Rep",
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "notes": {
+            "description": "Additional notes or special instructions",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "Notes",
+              "form4_BioWound": "COMMENTS OR SPECIAL INSTRUCTIONS",
+              "form5_AdvancedSolution": null,
+              "form6_MedLife": "Notes",
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "orderType": {
+            "description": "Type of order",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Order Type column",
+              "form6_MedLife": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          }
+        }
+      }
+    },
+    "formToIVRLinkage": {
+      "description": "Mapping between Order Forms and their corresponding IVRs",
+      "linkages": {
+        "form1_ACZ": {
+          "orderFormName": "ACZ Distribution Order Form",
+          "correspondingIVR": "form1_ACZ",
+          "ivrFormName": "ACZ Distribution IVR",
+          "sharedIdentifiers": ["facilityName", "patientId", "procedureDate"],
+          "notes": "Both forms share same vendor and product lineup"
+        },
+        "form4_BioWound": {
+          "orderFormName": "BioWound Solutions Purchase Order",
+          "correspondingIVR": "form4_BioWound",
+          "ivrFormName": "BioWound Solutions IVR",
+          "sharedIdentifiers": ["facilityName", "patientInfo"],
+          "notes": "Order form follows IVR verification"
+        },
+        "form5_AdvancedSolution": {
+          "orderFormName": "Advanced Solution Order Form",
+          "correspondingIVR": "form5_AdvancedSolution",
+          "ivrFormName": "Advanced Solution Health IVR",
+          "sharedIdentifiers": ["facilityName", "procedureDate"],
+          "notes": "Integrated billing and shipping sections"
+        },
+        "form6_MedLife": {
+          "orderFormName": "MedLife Solutions Order Form",
+          "correspondingIVR": "form2_IVR",
+          "ivrFormName": "MedLife Sol (IVR)",
+          "sharedIdentifiers": ["facilityName", "practiceInfo"],
+          "notes": "MedLife order form corresponds to form2_IVR"
+        },
+        "form7_ExtremityCare_FT": {
+          "orderFormName": "Extremity Care completeFT Order Form",
+          "correspondingIVR": "form7_ExtremityCare_FT",
+          "ivrFormName": "Extremity Care - completeFT IVR",
+          "sharedIdentifiers": ["providerNPI", "facilityName", "patientId"],
+          "notes": "Must submit IVR before order form per instructions"
+        },
+        "form8_ExtremityCare_RO": {
+          "orderFormName": "Extremity Care Restorigin Order Form",
+          "correspondingIVR": "form8_ExtremityCare_RO",
+          "ivrFormName": "Extremity Care - Restorigin IVR",
+          "sharedIdentifiers": ["providerNPI", "facilityName", "patientId"],
+          "notes": "Must submit IVR before order form per instructions"
+        }
+      }
+    },
+    "processingInstructions": {
+      "orderSubmissionEmails": {
+        "form1_ACZ": "Support@ACZandAssociates.com",
+        "form4_BioWound": "service@biowound.com",
+        "form5_AdvancedSolution": "Orders@AdvancedSolution.Health",
+        "form6_MedLife": "customerservice@medlifesol.com",
+        "form7_ExtremityCare_FT": "orders@extremitycare.com",
+        "form8_ExtremityCare_RO": "orders@extremitycare.com"
+      },
+      "orderCutoffTimes": {
+        "form5_AdvancedSolution": "4pm EST",
+        "notes": "Orders after cutoff processed next business day"
+      },
+      "specialRequirements": {
+        "extremityCare": "Insurance must be verified using IVR form before order submission",
+        "advancedSolution": "Accounts with past due balance require accounting approval"
+      }
+    },
+    "implementationGuidelines": {
+      "orderProcessingFlow": [
+        "1. Complete Insurance Verification Request (IVR) form",
+        "2. Receive insurance approval/verification",
+        "3. Complete corresponding Order Form with product details",
+        "4. Submit order form to appropriate email/fax",
+        "5. Track order using PO# or Order Number"
+      ],
+      "dataValidation": {
+        "requiredForAllOrders": [
+          "Facility/shipping information",
+          "Product selection with quantities",
+          "Anticipated application/procedure date",
+          "Contact information"
+        ],
+        "conditionalRequirements": [
+          "Provider NPI (ExtremityCare forms)",
+          "Billing information (if different from shipping)",
+          "Purchase Order number (varies by vendor)"
+        ]
+      },
+      "integrationPoints": {
+        "ivrToOrder": "Patient and facility data should flow from IVR to Order",
+        "orderToFulfillment": "Order data feeds into shipping/billing systems",
+        "trackingUpdates": "Order numbers link to shipment tracking"
+      }
+    }
+  }
+}

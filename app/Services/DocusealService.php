@@ -4,9 +4,13 @@ namespace App\Services;
 
 use App\Models\PatientManufacturerIVREpisode;
 use App\Services\UnifiedFieldMappingService;
+use App\Services\AI\IntelligentDocuSealService;
+use App\Services\AI\AzureFoundryService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Carbon\Carbon;
 
 class DocuSealService
 {
@@ -49,7 +53,8 @@ class DocuSealService
                 // Update existing submission
                 $response = $this->updateSubmission(
                     $ivrEpisode->docuseal_submission_id,
-                    $mappingResult['data']
+                    $mappingResult['data'],
+                    $mappingResult['manufacturer']['template_id']
                 );
             } else {
                 // Create new submission
@@ -101,6 +106,14 @@ class DocuSealService
      */
     private function createSubmission(string $templateId, array $fields, int $episodeId): array
     {
+        $preparedFields = $this->prepareFieldsForDocuSeal($fields, $templateId);
+        
+        Log::info('Creating DocuSeal submission', [
+            'template_id' => $templateId,
+            'episode_id' => $episodeId,
+            'field_count' => count($preparedFields),
+        ]);
+
         $response = Http::withHeaders([
             'Authorization' => 'API-Key ' . $this->apiKey,
             'Content-Type' => 'application/json',
@@ -111,11 +124,33 @@ class DocuSealService
                 'episode_id' => $episodeId,
                 'created_at' => now()->toIso8601String(),
             ],
-            'fields' => $this->prepareFieldsForDocuSeal($fields),
+            'fields' => $preparedFields,
         ]);
 
         if (!$response->successful()) {
-            throw new \Exception('Failed to create DocuSeal submission: ' . $response->body());
+            $errorBody = $response->json();
+            $errorMessage = 'Failed to create DocuSeal submission';
+            
+            // Extract specific error details from DocuSeal response
+            if (isset($errorBody['error'])) {
+                $errorMessage .= ': ' . $errorBody['error'];
+            } elseif (isset($errorBody['message'])) {
+                $errorMessage .= ': ' . $errorBody['message'];
+            } else {
+                $errorMessage .= ': ' . $response->body();
+            }
+            
+            // Log detailed error information
+            Log::error('DocuSeal submission creation failed', [
+                'template_id' => $templateId,
+                'episode_id' => $episodeId,
+                'status_code' => $response->status(),
+                'error_response' => $errorBody,
+                'field_count' => count($preparedFields),
+                'sample_fields' => array_slice($preparedFields, 0, 5), // Log first 5 fields for debugging
+            ]);
+            
+            throw new \Exception($errorMessage);
         }
 
         return $response->json();
@@ -124,13 +159,13 @@ class DocuSealService
     /**
      * Update an existing DocuSeal submission
      */
-    private function updateSubmission(string $submissionId, array $fields): array
+    private function updateSubmission(string $submissionId, array $fields, string $templateId = null): array
     {
         $response = Http::withHeaders([
             'Authorization' => 'API-Key ' . $this->apiKey,
             'Content-Type' => 'application/json',
         ])->put("{$this->apiUrl}/submissions/{$submissionId}", [
-            'fields' => $this->prepareFieldsForDocuSeal($fields),
+            'fields' => $this->prepareFieldsForDocuSeal($fields, $templateId),
             'metadata' => [
                 'updated_at' => now()->toIso8601String(),
             ],
@@ -199,6 +234,77 @@ class DocuSealService
         }
 
         return $response->json();
+    }
+
+    /**
+     * Get template fields directly from DocuSeal API
+     */
+    public function getTemplateFieldsFromAPI(string $templateId): array
+    {
+        try {
+            // Check cache first
+            $cacheKey = "docuseal_template_fields_{$templateId}";
+            $cachedFields = Cache::get($cacheKey);
+            if ($cachedFields !== null) {
+                return $cachedFields;
+            }
+
+            $response = Http::withHeaders([
+                'Authorization' => 'API-Key ' . $this->apiKey,
+            ])->get("{$this->apiUrl}/templates/{$templateId}");
+
+            if (!$response->successful()) {
+                Log::error('Failed to get template from DocuSeal', [
+                    'template_id' => $templateId,
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                return [];
+            }
+
+            $template = $response->json();
+            $fields = [];
+
+            // Extract fields from template documents
+            if (isset($template['documents']) && is_array($template['documents'])) {
+                foreach ($template['documents'] as $document) {
+                    if (isset($document['fields']) && is_array($document['fields'])) {
+                        foreach ($document['fields'] as $field) {
+                            $fieldName = $field['name'] ?? '';
+                            if (!empty($fieldName)) {
+                                $fields[$fieldName] = [
+                                    'id' => $field['uuid'] ?? $fieldName,
+                                    'type' => $field['type'] ?? 'text',
+                                    'label' => $field['title'] ?? $fieldName,
+                                    'required' => $field['required'] ?? false,
+                                    'options' => $field['options'] ?? [],
+                                    'submitter' => $field['submitter_uuid'] ?? null,
+                                    'areas' => $field['areas'] ?? []
+                                ];
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Cache the fields for future use
+            Cache::put($cacheKey, $fields, now()->addHours(24));
+
+            Log::info('Retrieved template fields from DocuSeal', [
+                'template_id' => $templateId,
+                'field_count' => count($fields),
+                'field_names' => array_keys($fields)
+            ]);
+
+            return $fields;
+
+        } catch (\Exception $e) {
+            Log::error('Error getting template fields from DocuSeal', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
     }
 
     /**
@@ -328,13 +434,37 @@ class DocuSealService
     /**
      * Prepare fields for DocuSeal API format
      */
-    private function prepareFieldsForDocuSeal(array $fields): array
+    private function prepareFieldsForDocuSeal(array $fields, string $templateId = null): array
     {
         $docuSealFields = [];
+        $skippedFields = [];
+
+        // Get template field definitions if available
+        $templateFields = [];
+        if ($templateId) {
+            $templateFields = $this->getTemplateFieldsFromAPI($templateId);
+            
+            Log::info('Template fields retrieved from DocuSeal', [
+                'template_id' => $templateId,
+                'template_field_count' => count($templateFields),
+                'template_field_names' => array_keys($templateFields)
+            ]);
+        }
 
         foreach ($fields as $key => $value) {
             // Skip internal fields
             if (str_starts_with($key, '_')) {
+                continue;
+            }
+
+            // If we have template fields, only include fields that exist in the template
+            if (!empty($templateFields) && !isset($templateFields[$key])) {
+                $skippedFields[] = $key;
+                Log::debug('Skipping field not found in DocuSeal template', [
+                    'field_name' => $key,
+                    'value' => $value,
+                    'template_id' => $templateId
+                ]);
                 continue;
             }
 
@@ -353,11 +483,37 @@ class DocuSealService
                 $value = $value ? 'Yes' : 'No';
             }
 
+            // Use field UUID if available from template definition
+            $fieldId = $key;
+            if (!empty($templateFields[$key]['id'])) {
+                $fieldId = $templateFields[$key]['id'];
+                Log::debug('Using DocuSeal field UUID', [
+                    'field_name' => $key,
+                    'field_uuid' => $fieldId
+                ]);
+            }
+
             $docuSealFields[] = [
-                'name' => $key,
+                'name' => $fieldId,
                 'value' => (string) $value,
             ];
         }
+
+        if (!empty($skippedFields)) {
+            Log::warning('Fields skipped due to not existing in DocuSeal template', [
+                'template_id' => $templateId,
+                'skipped_fields' => $skippedFields,
+                'skipped_count' => count($skippedFields)
+            ]);
+        }
+
+        Log::info('Prepared fields for DocuSeal', [
+            'input_count' => count($fields),
+            'output_count' => count($docuSealFields),
+            'skipped_count' => count($skippedFields),
+            'template_id' => $templateId,
+            'template_fields_available' => count($templateFields) > 0
+        ]);
 
         return $docuSealFields;
     }
@@ -413,6 +569,225 @@ class DocuSealService
         return $query->with(['episode', 'episode.patient'])
             ->orderBy('created_at', 'desc')
             ->get();
+    }
+
+    /**
+     * Map fields using AI when available, with fallback to static mappings
+     */
+    public function mapFieldsWithAI(array $data, $template): array
+    {
+        try {
+            // Try AI mapping first if enabled
+            if (config('ai.enabled', false) && config('ai.provider') !== 'mock' && config('azure.ai_foundry.enabled', false)) {
+                Log::info('🤖 Attempting AI-powered field mapping', [
+                    'template_id' => $template->id,
+                    'input_fields' => count($data)
+                ]);
+                
+                try {
+                    $azureAI = app(AzureFoundryService::class);
+                    
+                    // Get template fields from DocuSeal API directly
+                    $templateFields = $this->getTemplateFieldsFromAPI($template->docuseal_template_id);
+                    
+                    // If no fields from API, try the old method
+                    if (empty($templateFields)) {
+                        Log::warning('No fields from DocuSeal API, trying legacy method');
+                        $templateFields = $this->getTemplateFields($template->manufacturer->name ?? 'Unknown');
+                    }
+                    
+                    Log::info('Template fields for AI mapping', [
+                        'field_count' => count($templateFields),
+                        'field_names' => array_keys($templateFields),
+                        'template_id' => $template->docuseal_template_id
+                    ]);
+                    
+                    // Use AI to map the fields
+                    $aiResult = $azureAI->translateFormData(
+                        $data,
+                        $templateFields,
+                        'MSC Wound Care Form Data',
+                        "DocuSeal template for {$template->manufacturer->name}",
+                        ['preserve_unmapped' => true]
+                    );
+                    
+                    if ($aiResult['success'] && !empty($aiResult['mappings'])) {
+                        Log::info('✅ AI field mapping successful', [
+                            'mapped_fields' => count($aiResult['mappings']),
+                            'confidence' => $aiResult['overall_confidence'] ?? 0
+                        ]);
+                        
+                        // Convert AI result format to simple key-value pairs
+                        $mappedFields = [];
+                        foreach ($aiResult['mappings'] as $targetField => $mapping) {
+                            if (isset($mapping['value'])) {
+                                $mappedFields[$targetField] = $mapping['value'];
+                            }
+                        }
+                        
+                        // Special handling for MedLife amnio_amp_size
+                        if ($template->manufacturer && in_array($template->manufacturer->name, ['MedLife', 'MedLife Solutions'])) {
+                            // Check if amnio_amp_size is in the original data but not mapped
+                            if (isset($data['amnio_amp_size']) && !isset($mappedFields['amnio_amp_size'])) {
+                                $mappedFields['amnio_amp_size'] = $data['amnio_amp_size'];
+                                Log::info('Added MedLife amnio_amp_size field', [
+                                    'value' => $data['amnio_amp_size']
+                                ]);
+                            }
+                        }
+                        
+                        return $mappedFields;
+                    }
+                } catch (\Exception $aiException) {
+                    Log::warning('⚠️ AI mapping failed, falling back to static mappings', [
+                        'error' => $aiException->getMessage()
+                    ]);
+                }
+            }
+            
+            // Fallback to static mapping
+            return $this->mapFieldsFromArray($data, $template);
+            
+        } catch (\Exception $e) {
+            Log::error('DocuSeal: Error in AI field mapping', [
+                'error' => $e->getMessage()
+            ]);
+            return $this->mapFieldsFromArray($data, $template);
+        }
+    }
+
+    /**
+     * Legacy method to map fields using array data and template
+     * @deprecated Use mapFieldsWithAI for better results
+     */
+    public function mapFieldsFromArray(array $data, $template): array
+    {
+        try {
+            // If template is not found or invalid, return empty array
+            if (!$template || !isset($template->field_mappings)) {
+                Log::warning('DocuSeal: No template or field mappings found', [
+                    'template_id' => $template->id ?? null
+                ]);
+                return [];
+            }
+
+            $mappedFields = [];
+            $fieldMappings = $template->field_mappings;
+
+            // If field_mappings is a string, decode it
+            if (is_string($fieldMappings)) {
+                $fieldMappings = json_decode($fieldMappings, true);
+            }
+
+            if (!is_array($fieldMappings)) {
+                Log::warning('DocuSeal: Invalid field mappings format', [
+                    'template_id' => $template->id,
+                    'mappings_type' => gettype($fieldMappings)
+                ]);
+                return [];
+            }
+
+            // Map each field according to the template mappings
+            foreach ($fieldMappings as $docusealField => $mappingConfig) {
+                // Handle different mapping config formats
+                if (is_string($mappingConfig)) {
+                    // Simple string mapping
+                    if (isset($data[$mappingConfig])) {
+                        $mappedFields[$docusealField] = $data[$mappingConfig];
+                    }
+                } elseif (is_array($mappingConfig)) {
+                    // Complex mapping with source field
+                    $sourceField = $mappingConfig['source'] ?? $mappingConfig['field'] ?? null;
+                    if ($sourceField && isset($data[$sourceField])) {
+                        $value = $data[$sourceField];
+                        
+                        // Apply any transformations if specified
+                        if (isset($mappingConfig['transform'])) {
+                            $value = $this->applyTransformation($value, $mappingConfig['transform']);
+                        }
+                        
+                        $mappedFields[$docusealField] = $value;
+                    }
+                }
+            }
+
+            Log::info('DocuSeal: Field mapping completed', [
+                'input_fields' => count($data),
+                'mapped_fields' => count($mappedFields),
+                'template_id' => $template->id
+            ]);
+
+            return $mappedFields;
+
+        } catch (\Exception $e) {
+            Log::error('DocuSeal: Error mapping fields', [
+                'error' => $e->getMessage(),
+                'template_id' => $template->id ?? null
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Apply transformation to a field value
+     */
+    private function applyTransformation($value, $transform)
+    {
+        switch ($transform) {
+            case 'uppercase':
+                return strtoupper($value);
+            case 'lowercase':
+                return strtolower($value);
+            case 'date':
+                return Carbon::parse($value)->format('Y-m-d');
+            case 'phone':
+                return preg_replace('/[^0-9]/', '', $value);
+            default:
+                return $value;
+        }
+    }
+
+    /**
+     * Map fields using template for a specific manufacturer
+     */
+    public function mapFieldsUsingTemplate(int $episodeId, string $manufacturerName, array $additionalData = []): array
+    {
+        try {
+            // Use the unified field mapping service to get mapped data
+            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
+                $episodeId,
+                $manufacturerName,
+                $additionalData
+            );
+
+            // Get or create IVR episode record to store mapping data
+            $ivrEpisode = $this->getOrCreateIvrEpisode($episodeId, $mappingResult);
+            
+            // Update with latest mapping data
+            $ivrEpisode->update([
+                'field_mapping_completeness' => $mappingResult['completeness']['percentage'],
+                'required_fields_completeness' => $mappingResult['completeness']['required_percentage'],
+                'mapped_fields' => $mappingResult['data'],
+                'validation_warnings' => $mappingResult['validation']['warnings'],
+            ]);
+
+            return [
+                'success' => true,
+                'data' => $mappingResult['data'],
+                'completeness' => $mappingResult['completeness'],
+                'validation' => $mappingResult['validation'],
+                'manufacturer' => $mappingResult['manufacturer'],
+                'ivr_episode' => $ivrEpisode,
+            ];
+        } catch (\Exception $e) {
+            Log::error('Field mapping failed', [
+                'episode_id' => $episodeId,
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
     }
 
     /**

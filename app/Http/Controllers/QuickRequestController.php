@@ -19,6 +19,7 @@ use App\Services\PayerService;
 use App\Services\PhiAuditService;
 use App\Services\CurrentOrganization;
 use App\Services\DocuSealService;
+use App\Services\DocuSealFieldMapper;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
@@ -359,7 +360,7 @@ final class QuickRequestController extends Controller
                 try {
                     $template = $this->getTemplateForManufacturer($manufacturerId);
                     if ($template) {
-                        $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                        $mappedFields = $this->docuSealService->mapFieldsWithAI(
                             $data['prefill_data'],
                             $template
                         );
@@ -570,7 +571,7 @@ final class QuickRequestController extends Controller
             $mappedFields = [];
             if (!empty($data['prefill_data'])) {
                 try {
-                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                    $mappedFields = $this->docuSealService->mapFieldsWithAI(
                         $data['prefill_data'],
                         $template
                     );
@@ -830,6 +831,10 @@ final class QuickRequestController extends Controller
 
             // Step 5: Field Mapping with Enhanced Error Handling
             $mappedFields = [];
+            $aiMappingUsed = false;
+            $aiConfidence = 0;
+            $mappingMethod = 'static';
+            
             if (!empty($data['prefill_data'])) {
                 Log::info('🗂️ Starting field mapping', [
                     'input_fields_count' => count($data['prefill_data']),
@@ -838,7 +843,13 @@ final class QuickRequestController extends Controller
                 ]);
 
                 try {
-                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
+                    // Check if AI is enabled
+                    if (config('ai.enabled', false) && config('ai.provider') !== 'mock') {
+                        $aiMappingUsed = true;
+                        $mappingMethod = 'ai';
+                    }
+                    
+                    $mappedFields = $this->docuSealService->mapFieldsWithAI(
                         $data['prefill_data'],
                         $template
                     );
@@ -848,7 +859,8 @@ final class QuickRequestController extends Controller
                         'mapped_fields' => count($mappedFields),
                         'sample_mapped_fields' => array_slice($mappedFields, 0, 5),
                         'mapping_success_rate' => count($data['prefill_data']) > 0 ?
-                            round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%' : '0%'
+                            round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%' : '0%',
+                        'ai_used' => $aiMappingUsed
                     ]);
                 } catch (\Exception $e) {
                     Log::error('❌ Field mapping FAILED', [
@@ -857,6 +869,8 @@ final class QuickRequestController extends Controller
                     ]);
                     // Continue with empty mapped fields rather than failing
                     $mappedFields = [];
+                    $aiMappingUsed = false;
+                    $mappingMethod = 'fallback';
                 }
             }
 
@@ -880,6 +894,26 @@ final class QuickRequestController extends Controller
             }
 
             // Step 7: Create Submission Data with Validation
+            // Use the new mapper to properly format fields for DocuSeal
+            if (count($mappedFields) > 0) {
+                // If we have AI-mapped fields, convert them to DocuSeal format
+                $docuSealFields = DocuSealFieldMapper::toDocuSealFields($mappedFields);
+            } else {
+                // If no AI mapping, use the JSON-based mapping
+                $docuSealFields = DocuSealFieldMapper::mapFieldsForManufacturer(
+                    $data['prefill_data'] ?? [],
+                    $manufacturer->name
+                );
+            }
+            
+            // Log the field mapping result
+            Log::info('📋 DocuSeal field conversion', [
+                'manufacturer' => $manufacturer->name,
+                'ai_mapped_count' => count($mappedFields),
+                'final_field_count' => count($docuSealFields),
+                'sample_fields' => array_slice($docuSealFields, 0, 3)
+            ]);
+            
             $submissionData = [
                 'template_id' => (int) $template->docuseal_template_id,
                 'send_email' => false,
@@ -887,7 +921,7 @@ final class QuickRequestController extends Controller
                     [
                         'email' => $data['integration_email'] ?? $data['user_email'],
                         'role' => $templateRole,
-                        'fields' => $mappedFields
+                        'fields' => $docuSealFields
                     ]
                 ]
             ];
@@ -905,7 +939,9 @@ final class QuickRequestController extends Controller
                 'template_id' => $submissionData['template_id'],
                 'submitter_email' => $submissionData['submitters'][0]['email'],
                 'submitter_role' => $submissionData['submitters'][0]['role'],
-                'fields_count' => count($submissionData['submitters'][0]['fields']),
+                'mapped_fields_count' => count($mappedFields),
+                'docuseal_fields_count' => count($docuSealFields),
+                'sample_fields' => array_slice($docuSealFields, 0, 3),
                 'api_endpoint' => "{$apiUrl}/submissions"
             ]);
 
@@ -1017,9 +1053,12 @@ final class QuickRequestController extends Controller
                 'template_id' => $template->docuseal_template_id,
                 'template_name' => $template->template_name,
                 'manufacturer' => $manufacturer->name,
-                'mapped_fields_count' => count($mappedFields),
+                'fields_mapped' => count($mappedFields),
                 'embed_url' => "https://docuseal.com/s/{$slug}",
-                'integration_type' => 'standard'
+                'integration_type' => 'standard',
+                'ai_mapping_used' => $aiMappingUsed,
+                'ai_confidence' => $aiConfidence,
+                'mapping_method' => $mappingMethod
             ]);
 
         } catch (ValidationException $e) {
@@ -1254,7 +1293,7 @@ final class QuickRequestController extends Controller
         ];
 
         try {
-            $mappedFields = $this->docuSealService->mapFieldsUsingTemplate($sampleData, $template);
+            $mappedFields = $this->docuSealService->mapFieldsWithAI($sampleData, $template);
             return [
                 'status' => 'success',
                 'input_fields' => count($sampleData),

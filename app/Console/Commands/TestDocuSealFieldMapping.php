@@ -85,7 +85,7 @@ class TestDocuSealFieldMapping extends Command
         
         // Test mapping
         $docuSealService = new DocuSealService();
-        $mappedFields = $docuSealService->mapFieldsUsingTemplate($sampleData, $template);
+        $mappedFields = $docuSealService->mapFieldsFromArray($sampleData, $template);
         
         $this->info("\nField Mapping Results:");
         $this->info("====================");

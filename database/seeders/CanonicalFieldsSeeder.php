@@ -22,17 +22,18 @@ class CanonicalFieldsSeeder extends Seeder
                         'field_name' => $fieldName,
                     ],
                     [
+                        'field_path' => $category . '.' . $fieldName,
                         'display_name' => $fieldData['display_name'] ?? $this->formatFieldName($fieldName),
                         'data_type' => $fieldData['data_type'] ?? 'string',
                         'is_required' => $fieldData['required'] ?? false,
                         'is_phi' => $fieldData['is_phi'] ?? $this->isPhiField($category, $fieldName),
-                        'validation_rules' => $fieldData['validation_rules'] ?? [],
+                        'validation_rules' => json_encode($fieldData['validation_rules'] ?? []),
                         'description' => $fieldData['description'] ?? null,
-                        'example_values' => $fieldData['example_values'] ?? [],
-                        'metadata' => [
+                        'example_values' => json_encode($fieldData['example_values'] ?? []),
+                        'metadata' => json_encode([
                             'source' => 'canonical_structure',
                             'version' => '1.0',
-                        ],
+                        ]),
                     ]
                 );
             }

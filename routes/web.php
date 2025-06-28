@@ -1114,6 +1114,10 @@ Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
         ->name('docuseal.debug');
     Route::get('/test-submission', [\App\Http\Controllers\DocuSealDebugController::class, 'testSubmission'])
         ->name('docuseal.test-submission');
+    Route::get('/field-mapping', [\App\Http\Controllers\DebugFieldMappingController::class, 'debugMapping'])
+        ->name('docuseal.debug-mapping');
+    Route::get('/test-actual-mapping', [\App\Http\Controllers\DebugFieldMappingController::class, 'testActualMapping'])
+        ->name('docuseal.test-actual-mapping');
 });
 
 // DocuSeal API Test Route (remove in production)

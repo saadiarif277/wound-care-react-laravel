@@ -19,6 +19,7 @@ import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsD
 import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
 import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
 import { ImportExportModal } from '@/Components/Admin/DocuSeal/ImportExportModal';
+import { AITemplateAnalyzer } from '@/Components/Admin/DocuSeal/AITemplateAnalyzer';
 import type { CanonicalField, MappingStatistics, ValidationResult } from '@/types/field-mapping';
 
 // Enhanced Types
@@ -114,6 +115,8 @@ export default function Templates() {
   const [currentValidationResult, setCurrentValidationResult] = useState<ValidationResult | null>(null);
   const [bulkMappingTemplateId, setBulkMappingTemplateId] = useState<string>('');
   const [importExportTemplate, setImportExportTemplate] = useState<Template | null>(null);
+  const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
+  const [selectedTemplateForAI, setSelectedTemplateForAI] = useState<Template | null>(null);
 
   // Computed values
   const manufacturers = useMemo(() => {
@@ -257,8 +260,32 @@ export default function Templates() {
       const stats: Record<string, MappingStatistics> = {};
       await Promise.all(
         templateIds.map(async (id) => {
-          const response = await axios.get(`/api/v1/admin/docuseal/templates/${id}/mapping-stats`);
-          stats[id] = response.data;
+          try {
+            const response = await axios.get(`/api/v1/admin/docuseal/templates/${id}/mapping-stats`);
+            stats[id] = response.data;
+          } catch (err) {
+            // Handle individual template errors without failing all
+            console.warn(`Failed to load mapping stats for template ${id}:`, err);
+            stats[id] = {
+              totalFields: 0,
+              mappedFields: 0,
+              unmappedFields: 0,
+              activeFields: 0,
+              requiredFieldsMapped: 0,
+              totalRequiredFields: 0,
+              optionalFieldsMapped: 0,
+              coveragePercentage: 0,
+              requiredCoveragePercentage: 0,
+              highConfidenceCount: 0,
+              validationStatus: {
+                valid: 0,
+                warning: 0,
+                error: 0
+              },
+              lastUpdated: null,
+              lastUpdatedBy: null
+            };
+          }
         })
       );
       setMappingStats(stats);
@@ -298,11 +325,11 @@ export default function Templates() {
   }, []);
 
   useEffect(() => {
-    if (templates.length > 0) {
+    if (templates.length > 0 && mappingMode === 'edit') {
       const templateIds = templates.map(t => t.id);
       fetchMappingStats(templateIds);
     }
-  }, [templates]);
+  }, [templates, mappingMode]);
 
   return (
     <MainLayout>
@@ -392,6 +419,16 @@ export default function Templates() {
                         >
                           <FileJson className="w-4 h-4" />
                           Import/Export
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setShowAIAnalyzer(true);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-lg hover:from-purple-200 hover:to-blue-200 transition-colors flex items-center gap-2"
+                        >
+                          <Brain className="w-4 h-4" />
+                          AI Analyzer
                         </button>
                       </>
                     )}
@@ -730,6 +767,18 @@ export default function Templates() {
                                     >
                                       <Shield className="w-3 h-3" />
                                     </button>
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTemplateForAI(template);
+                                        setShowAIAnalyzer(true);
+                                      }}
+                                      className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors"
+                                      title="AI Analysis"
+                                    >
+                                      <Brain className="w-3 h-3" />
+                                    </button>
                                   </div>
                                 </div>
                               </div>
@@ -847,6 +896,16 @@ export default function Templates() {
                                       title="Validate Mappings"
                                     >
                                       <Shield className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTemplateForAI(template);
+                                        setShowAIAnalyzer(true);
+                                      }}
+                                      className="text-purple-600 hover:text-purple-900"
+                                      title="AI Analysis"
+                                    >
+                                      <Brain className="w-4 h-4" />
                                     </button>
                                   </>
                                 )}
@@ -1186,6 +1245,25 @@ export default function Templates() {
           }}
         />
       )}
+      
+      {/* AI Template Analyzer Modal */}
+      <AITemplateAnalyzer
+        show={showAIAnalyzer}
+        onClose={() => {
+          setShowAIAnalyzer(false);
+          setSelectedTemplateForAI(null);
+        }}
+        templateId={selectedTemplateForAI?.id}
+        onAnalysisComplete={(analysis) => {
+          console.log('AI Analysis completed:', analysis);
+          // Handle the analysis results - could auto-apply mappings, etc.
+          if (selectedTemplateForAI && analysis.auto_mappings) {
+            // You could automatically apply the mappings here
+            // or just close the modal and refresh
+            fetchTemplates();
+          }
+        }}
+      />
     </MainLayout>
   );
 }

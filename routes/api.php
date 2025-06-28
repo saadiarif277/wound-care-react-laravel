@@ -26,6 +26,8 @@ use App\Http\Controllers\Admin\ProviderManagementController;
 use App\Http\Controllers\Api\OrderReviewController;
 use App\Http\Controllers\Api\FieldMappingController;
 use App\Http\Controllers\Api\TemplateMappingController;
+use App\Http\Controllers\Api\DocumentIntelligenceController;
+use App\Http\Controllers\Api\DocuSealDebugController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -140,6 +142,10 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
         ->name('api.quickrequest.orders.updateStatus');
 
     // DocuSeal endpoints moved to Quick Request group below
+    
+    // AI Field Mapping Test
+    Route::post('/test-ai-mapping', [App\Http\Controllers\Api\V1\QuickRequestController::class, 'testAIFieldMapping'])
+        ->name('api.quickrequest.test-ai-mapping');
 });
 
 // Enhanced DocuSeal routes with FHIR integration
@@ -148,6 +154,16 @@ Route::prefix('v1/enhanced-docuseal')->middleware(['auth:sanctum'])->group(funct
     Route::post('finalize-submission', [App\Http\Controllers\EnhancedDocuSealController::class, 'finalizeSubmission']);
     Route::get('submission-status/{submission_id}', [App\Http\Controllers\EnhancedDocuSealController::class, 'getSubmissionStatus']);
     Route::post('webhook', [App\Http\Controllers\EnhancedDocuSealController::class, 'handleWebhook']);
+});
+
+// DocuSeal Field Discovery routes
+Route::prefix('v1/docuseal')->middleware(['auth:sanctum'])->group(function () {
+    Route::post('template-fields', [App\Http\Controllers\Api\DocuSealFieldDiscoveryController::class, 'getTemplateFields'])
+        ->name('api.docuseal.template-fields');
+    Route::post('manufacturer-template-fields', [App\Http\Controllers\Api\DocuSealFieldDiscoveryController::class, 'getManufacturerTemplateFields'])
+        ->name('api.docuseal.manufacturer-template-fields');
+    Route::post('preview-mapping', [App\Http\Controllers\Api\DocuSealFieldDiscoveryController::class, 'previewFieldMapping'])
+        ->name('api.docuseal.preview-mapping');
 });
 
 // Order Form Processing routes (Optional Step 8)
@@ -299,7 +315,7 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 });
 
 // DocuSeal Integration Routes
-Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->name('docuseal.')->group(function () {
+Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
     // JWT token generation for form embedding
     Route::post('generate-token', [\App\Http\Controllers\DocusealController::class, 'generateToken'])->name('generate-token');
 
@@ -326,6 +342,7 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
     Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');
     Route::post('templates/{id}/field-mappings/bulk', [\App\Http\Controllers\Api\TemplateMappingController::class, 'bulkUpdateMappings'])->name('mappings.bulk');
     Route::post('templates/{id}/field-mappings/suggest', [\App\Http\Controllers\Api\TemplateMappingController::class, 'suggestMappings'])->name('mappings.suggest');
+    Route::post('templates/{id}/field-mappings/auto-map', [\App\Http\Controllers\Api\TemplateMappingController::class, 'autoMapFields'])->name('mappings.auto-map');
     Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate');
     Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getMappingStatistics'])->name('mappings.stats');
     
@@ -344,6 +361,15 @@ Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealController::c
 Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])
     ->middleware('webhook.verify:docuseal')
     ->name('docuseal.webhook.quickrequest');
+
+// Document Intelligence Routes
+Route::prefix('v1/document-intelligence')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('document-intelligence.')->group(function () {
+    Route::post('analyze-template', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'analyzeTemplate'])->name('analyze-template');
+    Route::post('extract-form-data', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'extractFormData'])->name('extract-form-data');
+    Route::post('get-suggestions', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'getSuggestions'])->name('get-suggestions');
+    Route::post('batch-analyze', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'batchAnalyze'])->name('batch-analyze');
+    Route::post('test-mappings', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'testMappings'])->name('test-mappings');
+});
 
 // Unified Field Mapping Routes
 Route::prefix('v1/field-mapping')->middleware(['auth:sanctum'])->name('field-mapping.')->group(function () {
@@ -744,6 +770,19 @@ Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
     Route::get('/{episode}/mac-validation', [\App\Http\Controllers\Api\EpisodeMacValidationController::class, 'show'])
         ->name('api.episodes.mac-validation')
         ->middleware('permission:view-orders');
+});
+
+// DocuSeal Debug Routes
+Route::prefix('docuseal-debug')->middleware(['auth:sanctum'])->group(function() {
+    Route::get('medlife', [DocuSealDebugController::class, 'debugMedLifeMapping']);
+    Route::post('test-mapping', [DocuSealDebugController::class, 'testFieldMapping']);
+});
+
+// DocuSeal Field Validation Routes
+Route::prefix('v1/docuseal/validation')->middleware(['auth:sanctum'])->group(function () {
+    Route::post('validate-fields', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'validateFields'])->name('docuseal.validate-fields');
+    Route::post('template-fields', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'getTemplateFields'])->name('docuseal.template-fields');
+    Route::post('clear-cache', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'clearCache'])->name('docuseal.clear-cache');
 });
 
 // Fallback Route for 404 API requests

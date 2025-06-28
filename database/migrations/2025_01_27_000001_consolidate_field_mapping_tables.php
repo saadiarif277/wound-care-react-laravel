@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         // Create field_mapping_logs table to track all mapping operations
-        Schema::create('field_mapping_logs', function (Blueprint $table) {
+        if (!Schema::hasTable('field_mapping_logs')) {
+            Schema::create('field_mapping_logs', function (Blueprint $table) {
             $table->id();
             $table->unsignedBigInteger('episode_id');
             $table->string('manufacturer_name');
@@ -32,15 +33,20 @@ return new class extends Migration
             $table->unsignedBigInteger('created_by')->nullable();
             $table->timestamps();
             
-            $table->foreign('episode_id')->references('id')->on('episodes');
+            $table->foreign('episode_id')->references('id')->on('patient_manufacturer_ivr_episodes');
             $table->index(['episode_id', 'manufacturer_name']);
             $table->index('mapping_type');
             $table->index('created_at');
-        });
+            });
+        }
 
         // Add new columns to patient_manufacturer_ivr_episodes for unified tracking
         Schema::table('patient_manufacturer_ivr_episodes', function (Blueprint $table) {
             // Add columns if they don't exist
+            if (!Schema::hasColumn('patient_manufacturer_ivr_episodes', 'manufacturer_name')) {
+                $table->string('manufacturer_name')->nullable()->after('manufacturer_id');
+            }
+            
             if (!Schema::hasColumn('patient_manufacturer_ivr_episodes', 'template_id')) {
                 $table->string('template_id')->nullable()->after('manufacturer_name');
             }
@@ -89,13 +95,25 @@ return new class extends Migration
                 $table->text('signed_document_url')->nullable();
             }
             
-            // Add indexes for performance
-            $table->index('docuseal_status');
-            $table->index('field_mapping_completeness');
+        });
+        
+        // Add indexes separately to check existence
+        Schema::table('patient_manufacturer_ivr_episodes', function (Blueprint $table) {
+            $sm = Schema::getConnection()->getDoctrineSchemaManager();
+            $indexesFound = $sm->listTableIndexes('patient_manufacturer_ivr_episodes');
+            
+            if (!array_key_exists('pmi_episodes_docuseal_status_idx', $indexesFound)) {
+                $table->index('docuseal_status', 'pmi_episodes_docuseal_status_idx');
+            }
+            
+            if (!array_key_exists('pmi_episodes_field_completeness_idx', $indexesFound)) {
+                $table->index('field_mapping_completeness', 'pmi_episodes_field_completeness_idx');
+            }
         });
 
         // Create field_mapping_cache table for performance optimization
-        Schema::create('field_mapping_cache', function (Blueprint $table) {
+        if (!Schema::hasTable('field_mapping_cache')) {
+            Schema::create('field_mapping_cache', function (Blueprint $table) {
             $table->id();
             $table->string('cache_key')->unique();
             $table->json('cached_data');
@@ -103,10 +121,12 @@ return new class extends Migration
             $table->timestamps();
             
             $table->index('expires_at');
-        });
+            });
+        }
 
         // Create field_mapping_analytics table for tracking patterns
-        Schema::create('field_mapping_analytics', function (Blueprint $table) {
+        if (!Schema::hasTable('field_mapping_analytics')) {
+            Schema::create('field_mapping_analytics', function (Blueprint $table) {
             $table->id();
             $table->string('manufacturer_name');
             $table->string('field_name');
@@ -120,7 +140,8 @@ return new class extends Migration
             $table->index(['manufacturer_name', 'field_name']);
             $table->index('match_type');
             $table->index('usage_count');
-        });
+            });
+        }
     }
 
     /**
@@ -135,6 +156,7 @@ return new class extends Migration
         // Remove added columns from patient_manufacturer_ivr_episodes
         Schema::table('patient_manufacturer_ivr_episodes', function (Blueprint $table) {
             $columnsToRemove = [
+                'manufacturer_name',
                 'template_id',
                 'field_mapping_completeness',
                 'required_fields_completeness',

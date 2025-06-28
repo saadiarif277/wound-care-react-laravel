@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { AlertCircle, Bug, CheckCircle2, Info, ExternalLink } from 'lucide-react';
+import { AlertCircle, Bug, CheckCircle2, Info, ExternalLink, FileText, Shield, Clock, User, Building2, Heart, Zap, Award, Brain } from 'lucide-react';
 
 // Better TypeScript interfaces
 interface FormData {
@@ -28,6 +28,9 @@ interface DocuSealResponse {
   fields_mapped?: number;
   template_name?: string;
   manufacturer?: string;
+  ai_mapping_used?: boolean;
+  ai_confidence?: number;
+  mapping_method?: 'ai' | 'static' | 'hybrid';
 }
 
 interface DocuSealEmbedProps {
@@ -57,8 +60,9 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   const [, setTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [useDirectUrl, setUseDirectUrl] = useState(true); // Default to direct URL, but allow embedded option
+  const [useDirectUrl, setUseDirectUrl] = useState(false); // Default to embedded for better UX
   const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
+  const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
 
@@ -77,6 +81,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
       setIsLoading(true);
       setError(null);
+      setMappingProgress('Initializing form...');
 
       // Enhanced request with FHIR integration support
       const requestData = {
@@ -98,6 +103,13 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         hasEpisode: !!episodeId,
         sampleData: Object.keys(formData || {}).slice(0, 5)
       });
+      
+      // Update progress
+      if (episodeId) {
+        setMappingProgress('Loading FHIR data...');
+      } else if (Object.keys(formData || {}).length > 0) {
+        setMappingProgress('Mapping form fields with AI...');
+      }
 
       const response = await axios.post<DocuSealResponse>(
         '/quick-requests/docuseal/generate-submission-slug',
@@ -111,7 +123,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         }
       );
 
-      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer } = response.data;
+      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence, mapping_method } = response.data;
 
       if (!slug) {
         throw new Error('No slug received from server');
@@ -127,6 +139,13 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         templateName: template_name,
         manufacturer: manufacturer
       });
+      
+      // Update progress based on AI usage
+      if (ai_mapping_used) {
+        setMappingProgress(`AI mapping complete! (${Math.round((ai_confidence || 0) * 100)}% confidence)`);
+      } else {
+        setMappingProgress('Form ready!');
+      }
 
       setTemplateId(template_id);
       setToken(slug);
@@ -219,21 +238,156 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
   if (error) {
     return (
-      <div className={`bg-red-50 border border-red-200 rounded-lg p-4 text-center ${className}`}>
-        <p className="text-red-800 font-medium">Error loading form</p>
-        <p className="text-red-600 text-sm mt-1">{error}</p>
+      <div className={`relative overflow-hidden ${className}`}>
+        {/* Error Background Pattern */}
+        <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-red-100 opacity-50" />
+        <div className="absolute inset-0" style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ef4444' fill-opacity='0.05' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+        }} />
+        
+        <div className="relative z-10 bg-white/90 backdrop-blur-sm border border-red-200 rounded-2xl p-8 text-center shadow-lg">
+          <div className="flex justify-center mb-4">
+            <div className="p-3 bg-red-100 rounded-full">
+              <AlertCircle className="h-8 w-8 text-red-600" />
+            </div>
+          </div>
+          
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Form</h3>
+          <p className="text-red-700 font-medium mb-4">{error}</p>
+          
+          <div className="space-y-3">
+            <button
+              onClick={() => {
+                setError(null);
+                fetchToken();
+              }}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-6 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+            >
+              <Zap className="h-4 w-4" />
+              Try Again
+            </button>
+            
+            <div className="flex gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors"
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={() => {
+                  if (onError) onError('User reported issue: ' + error);
+                }}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors flex items-center justify-center gap-1"
+              >
+                <Bug className="h-4 w-4" />
+                Report Issue
+              </button>
+            </div>
+          </div>
+          
+          <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm text-red-800">
+              <strong>Need help?</strong> Contact our support team at{' '}
+              <a href="mailto:support@mscwoundcare.com" className="underline hover:no-underline">
+                support@mscwoundcare.com
+              </a>
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (isLoading) {
     return (
-      <div className={`flex items-center justify-center ${className}`} style={{ minHeight: '600px' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto" />
-          <p className="mt-3 text-sm text-gray-600">
-            {episodeId ? 'Loading form with FHIR data...' : 'Loading form...'}
-          </p>
+      <div className={`relative overflow-hidden ${className}`} style={{ minHeight: '600px' }}>
+        {/* Animated Background */}
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
+          <div className="absolute inset-0" style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233b82f6' fill-opacity='0.03' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
+          }} />
+        </div>
+        
+        <div className="relative z-10 flex items-center justify-center h-full">
+          <div className="text-center p-8 max-w-md">
+            {/* Enhanced Loading Animation */}
+            <div className="relative mb-6">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-blue-200 rounded-full animate-pulse" />
+              </div>
+              <div className="relative flex items-center justify-center">
+                <div className="w-16 h-16 border-4 border-transparent border-t-blue-600 border-r-blue-500 rounded-full animate-spin" />
+                <div className="absolute">
+                  {episodeId ? (
+                    <Heart className="h-6 w-6 text-blue-600 animate-pulse" />
+                  ) : documentType === 'OrderForm' ? (
+                    <FileText className="h-6 w-6 text-blue-600 animate-pulse" />
+                  ) : (
+                    <Shield className="h-6 w-6 text-blue-600 animate-pulse" />
+                  )}
+                </div>
+              </div>
+            </div>
+            
+            {/* Dynamic Loading Messages */}
+            <h3 className="text-lg font-semibold text-gray-800 mb-2">
+              {episodeId ? 'Preparing Your Smart Form' : 
+               documentType === 'OrderForm' ? 'Loading Order Form' : 
+               'Setting Up Insurance Verification'}
+            </h3>
+            
+            <div className="space-y-2 text-sm text-gray-600">
+              <p className="flex items-center justify-center gap-2">
+                <Clock className="h-4 w-4 animate-pulse" />
+                {mappingProgress || (episodeId ? 'Fetching your healthcare data...' : 
+                 documentType === 'OrderForm' ? 'Preparing manufacturer order form...' : 
+                 'Creating personalized IVR form...')}
+              </p>
+              
+              {episodeId && (
+                <div className="mt-4 p-3 bg-white/80 backdrop-blur rounded-lg border border-blue-200">
+                  <div className="flex items-center gap-2 text-blue-700">
+                    <Award className="h-4 w-4" />
+                    <span className="font-medium">FHIR-Enhanced Experience</span>
+                  </div>
+                  <p className="text-xs text-blue-600 mt-1">
+                    Your form will be pre-filled with data from your healthcare records
+                  </p>
+                </div>
+              )}
+              
+              {/* AI Mapping Indicator */}
+              {mappingProgress && (
+                <div className="mt-3 p-3 bg-purple-50 backdrop-blur rounded-lg border border-purple-200">
+                  <div className="flex items-center gap-2 text-purple-700">
+                    <Brain className="h-4 w-4 animate-pulse" />
+                    <span className="font-medium">AI-Powered Field Mapping</span>
+                  </div>
+                  <p className="text-xs text-purple-600 mt-1">
+                    Using artificial intelligence to optimize form filling
+                  </p>
+                </div>
+              )}
+            </div>
+            
+            {/* Progress Indicators */}
+            <div className="mt-6">
+              <div className="flex justify-center space-x-2">
+                <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+              </div>
+            </div>
+            
+            {/* Security Assurance */}
+            <div className="mt-6 p-3 bg-green-50 rounded-lg border border-green-200">
+              <div className="flex items-center justify-center gap-2 text-green-700">
+                <Shield className="h-4 w-4" />
+                <span className="text-xs font-medium">HIPAA Compliant & Secure</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -337,30 +491,138 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
     );
   }
 
-  // If not using direct URL, show embedded form
-  if (!useDirectUrl && token) {
+  // Show embedded form by default
+  if (token) {
     return (
       <div className={`w-full ${className}`}>
-        <div className="mb-4 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">Embedded DocuSeal Form</h3>
-          <button
-            onClick={() => setUseDirectUrl(true)}
-            className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
-          >
-            Switch to New Window
-          </button>
-        </div>
-        <div
-          id="docuseal-embed-container"
-          className="w-full bg-white border border-gray-200 rounded-lg"
-          style={{
-            minHeight: '600px',
-            height: '80vh',
-            width: '100%'
-          }}
-        >
-          {/* DocuSeal form will be inserted here */}
-        </div>
+        {/* Integration Info Banner */}
+        {integrationInfo && (
+          <div className={`mb-4 p-4 rounded-lg ${
+            integrationInfo.type === 'fhir_enhanced'
+              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200'
+              : 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
+          }`}>
+            <div className="flex items-start justify-between">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  {integrationInfo.type === 'fhir_enhanced' ? (
+                    <CheckCircle2 className="w-5 h-5 text-green-600" />
+                  ) : (
+                    <Info className="w-5 h-5 text-blue-600" />
+                  )}
+                  <span className={`font-semibold ${
+                    integrationInfo.type === 'fhir_enhanced' ? 'text-green-800' : 'text-blue-800'
+                  }`}>
+                    {integrationInfo.type === 'fhir_enhanced'
+                      ? 'FHIR-Enhanced Form'
+                      : 'Standard Form'
+                    }
+                  </span>
+                  {mappingProgress.includes('AI') && (
+                    <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full flex items-center gap-1">
+                      <Brain className="w-3 h-3" />
+                      AI-Powered
+                    </span>
+                  )}
+                </div>
+                <div className={`mt-1 text-sm ${
+                  integrationInfo.type === 'fhir_enhanced' ? 'text-green-700' : 'text-blue-700'
+                }`}>
+                  {integrationInfo.type === 'fhir_enhanced' ? (
+                    <>
+                      <span className="font-medium">{integrationInfo.fhirDataUsed}</span> fields from healthcare records •
+                      <span className="font-medium">{integrationInfo.fieldsMapped}</span> total fields mapped
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-medium">{integrationInfo.fieldsMapped}</span> fields ready for completion
+                    </>
+                  )}
+                </div>
+                {integrationInfo.templateName && (
+                  <div className="mt-1 text-xs opacity-75">
+                    {integrationInfo.manufacturer} - {integrationInfo.templateName}
+                  </div>
+                )}
+              </div>
+              
+              {/* View Options */}
+              <div className="flex items-center gap-2 ml-4">
+                {useDirectUrl ? (
+                  <button
+                    onClick={() => setUseDirectUrl(false)}
+                    className="px-3 py-1.5 text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-lg border border-gray-300 transition-colors"
+                  >
+                    Embed Form
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const url = `https://docuseal.com/s/${token}`;
+                      window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+                    }}
+                    className="px-3 py-1.5 text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-lg border border-gray-300 transition-colors flex items-center gap-1"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Open in New Tab
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Embedded Form Container */}
+        {!useDirectUrl ? (
+          <div className="relative">
+            <div
+              id="docuseal-embed-container"
+              className="w-full bg-white rounded-lg shadow-lg overflow-hidden"
+              style={{
+                minHeight: '700px',
+                height: '85vh',
+                width: '100%'
+              }}
+            >
+              {/* DocuSeal form will be inserted here */}
+            </div>
+            
+            {/* Loading overlay while form loads */}
+            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-500 pointer-events-none opacity-0" id="docuseal-loading-overlay">
+              <div className="text-center">
+                <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+                <p className="text-sm text-gray-600">Loading form...</p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <div className="max-w-md mx-auto">
+              <FileText className="w-16 h-16 text-blue-600 mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Form Ready</h3>
+              <p className="text-gray-600 mb-6">
+                Your {documentType === 'OrderForm' ? 'order' : 'insurance verification'} form has been prepared
+                {integrationInfo?.fieldsMapped > 0 && ` with ${integrationInfo.fieldsMapped} pre-filled fields`}.
+              </p>
+              <button
+                onClick={() => {
+                  const url = `https://docuseal.com/s/${token}`;
+                  window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+                }}
+                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              >
+                <ExternalLink className="w-4 h-4" />
+                Open Form in New Window
+              </button>
+              <button
+                onClick={() => setUseDirectUrl(false)}
+                className="mt-3 text-sm text-gray-600 hover:text-gray-800 underline"
+              >
+                or embed it here instead
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

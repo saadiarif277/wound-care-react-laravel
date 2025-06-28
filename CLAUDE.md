@@ -231,3 +231,8 @@ The application uses a service-oriented architecture with key services:
 3. **Database Queries**: Use eager loading to prevent N+1 queries
 4. **API Responses**: Implement pagination for large datasets
 5. **Circuit Breakers**: External API calls use circuit breaker pattern
+
+### System Memories
+
+- Remember our platform is permissions based
+- Never use mock data or even have it as a fall back

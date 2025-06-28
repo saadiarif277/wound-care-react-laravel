@@ -349,7 +349,7 @@ class UnifiedFieldMappingService
     /**
      * Get manufacturer configuration
      */
-    private function getManufacturerConfig(string $name): ?array
+    public function getManufacturerConfig(string $name): ?array
     {
         // First try exact match
         if (isset($this->config['manufacturers'][$name])) {
