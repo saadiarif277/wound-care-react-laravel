@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\Admin\ProviderManagementController;
 use App\Http\Controllers\Api\OrderReviewController;
 use App\Http\Controllers\Api\FieldMappingController;
+use App\Http\Controllers\Api\TemplateMappingController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -314,6 +315,26 @@ Route::prefix('v1/admin/docuseal')->middleware(['permission:manage-orders'])->na
 
     // Get manufacturer template fields
     Route::get('manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields'])->name('manufacturer.fields');
+
+    // Template Management Routes
+    Route::get('templates', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'listTemplates'])->name('templates.list');
+    Route::post('sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncTemplates'])->name('templates.sync');
+    Route::post('test-sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'testSync'])->name('templates.test-sync');
+
+    // Field Mapping Management Routes
+    Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
+    Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');
+    Route::post('templates/{id}/field-mappings/bulk', [\App\Http\Controllers\Api\TemplateMappingController::class, 'bulkUpdateMappings'])->name('mappings.bulk');
+    Route::post('templates/{id}/field-mappings/suggest', [\App\Http\Controllers\Api\TemplateMappingController::class, 'suggestMappings'])->name('mappings.suggest');
+    Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate');
+    Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getMappingStatistics'])->name('mappings.stats');
+    
+    // Canonical Fields Routes
+    Route::get('canonical-fields', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getCanonicalFields'])->name('canonical.fields');
+    
+    // Import/Export Routes
+    Route::post('field-mappings/import', [\App\Http\Controllers\Api\TemplateMappingController::class, 'importMappings'])->name('mappings.import');
+    Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
 });
 
 // DocuSeal Webhook with signature verification

@@ -5,7 +5,11 @@ namespace App\Services;
 use App\Services\FieldMapping\DataExtractor;
 use App\Services\FieldMapping\FieldTransformer;
 use App\Services\FieldMapping\FieldMatcher;
+use App\Models\CanonicalField;
+use App\Models\TemplateFieldMapping;
+use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
 
 class UnifiedFieldMappingService
 {
@@ -424,5 +428,292 @@ class UnifiedFieldMappingService
         }
 
         return $manufacturers;
+    }
+
+    /**
+     * Load canonical fields from JSON file into database
+     */
+    public function loadCanonicalFieldsFromJson(): void
+    {
+        $jsonPath = base_path('docs/mapping-final/insurance_form_mappings.json');
+        
+        if (!file_exists($jsonPath)) {
+            Log::error('Canonical fields JSON file not found', ['path' => $jsonPath]);
+            return;
+        }
+
+        $data = json_decode(file_get_contents($jsonPath), true);
+        
+        if (!isset($data['standardFieldMappings'])) {
+            Log::error('Invalid canonical fields JSON structure');
+            return;
+        }
+
+        foreach ($data['standardFieldMappings'] as $category => $categoryData) {
+            if (!isset($categoryData['canonicalFields'])) {
+                continue;
+            }
+
+            foreach ($categoryData['canonicalFields'] as $fieldName => $fieldData) {
+                CanonicalField::updateOrCreate(
+                    [
+                        'field_name' => $fieldName,
+                        'category' => $category,
+                    ],
+                    [
+                        'field_path' => $category . '.' . $fieldName,
+                        'data_type' => $fieldData['dataType'] ?? 'string',
+                        'is_required' => $fieldData['required'] ?? false,
+                        'description' => $fieldData['description'] ?? null,
+                        'validation_rules' => $this->getValidationRules($fieldData['dataType'] ?? 'string'),
+                        'hipaa_flag' => $this->isPhiField($category, $fieldName),
+                    ]
+                );
+            }
+        }
+
+        Log::info('Canonical fields loaded from JSON successfully');
+    }
+
+    /**
+     * Get field mappings for a template
+     */
+    public function getFieldMappingsForTemplate(string $templateId): array
+    {
+        $template = DocusealTemplate::with('fieldMappings.canonicalField')->find($templateId);
+        
+        if (!$template) {
+            return [];
+        }
+
+        return $template->fieldMappings->map(function ($mapping) {
+            return [
+                'field_name' => $mapping->field_name,
+                'canonical_field' => $mapping->canonicalField,
+                'transformation_rules' => $mapping->transformation_rules,
+                'confidence_score' => $mapping->confidence_score,
+                'validation_status' => $mapping->validation_status,
+                'is_active' => $mapping->is_active,
+            ];
+        })->toArray();
+    }
+
+    /**
+     * Update field mapping for a template
+     */
+    public function updateFieldMapping(
+        string $templateId, 
+        string $fieldName, 
+        ?int $canonicalFieldId, 
+        array $transformationRules = []
+    ): TemplateFieldMapping {
+        $mapping = TemplateFieldMapping::updateOrCreate(
+            [
+                'template_id' => $templateId,
+                'field_name' => $fieldName,
+            ],
+            [
+                'canonical_field_id' => $canonicalFieldId,
+                'transformation_rules' => $transformationRules,
+                'updated_by' => auth()->id(),
+            ]
+        );
+
+        // Validate the mapping
+        $validation = $this->validateFieldMapping($mapping);
+        $mapping->validation_status = $validation['status'];
+        $mapping->validation_messages = $validation['messages'];
+        $mapping->save();
+
+        return $mapping;
+    }
+
+    /**
+     * Validate a field mapping
+     */
+    public function validateFieldMapping(TemplateFieldMapping $mapping): array
+    {
+        $status = 'valid';
+        $messages = [];
+
+        // Check if canonical field exists
+        if (!$mapping->canonical_field_id) {
+            $status = 'warning';
+            $messages[] = 'No canonical field mapped';
+            return compact('status', 'messages');
+        }
+
+        $canonicalField = $mapping->canonicalField;
+        if (!$canonicalField) {
+            $status = 'error';
+            $messages[] = 'Invalid canonical field reference';
+            return compact('status', 'messages');
+        }
+
+        // Validate transformation rules
+        if (!empty($mapping->transformation_rules)) {
+            foreach ($mapping->transformation_rules as $rule) {
+                if (!isset($rule['type']) || !isset($rule['operation'])) {
+                    $status = 'warning';
+                    $messages[] = 'Invalid transformation rule format';
+                }
+            }
+        }
+
+        // Check data type compatibility
+        if ($canonicalField->data_type === 'date' && empty($mapping->transformation_rules)) {
+            $hasDateTransform = false;
+            foreach ($mapping->transformation_rules ?? [] as $rule) {
+                if ($rule['type'] === 'format' && $rule['operation'] === 'date') {
+                    $hasDateTransform = true;
+                    break;
+                }
+            }
+            if (!$hasDateTransform) {
+                $status = 'warning';
+                $messages[] = 'Date field may need format transformation';
+            }
+        }
+
+        // Check for required field
+        if ($canonicalField->is_required && !$mapping->is_active) {
+            $status = 'warning';
+            $messages[] = 'Required field is not active';
+        }
+
+        return compact('status', 'messages');
+    }
+
+    /**
+     * Calculate mapping statistics for a template
+     */
+    public function getMappingStatistics(string $templateId): array
+    {
+        $template = DocusealTemplate::with('fieldMappings')->find($templateId);
+        
+        if (!$template) {
+            return [
+                'total_fields' => 0,
+                'mapped_fields' => 0,
+                'coverage_percentage' => 0,
+            ];
+        }
+
+        $totalFields = count($template->field_mappings ?? []);
+        $mappedFields = $template->fieldMappings->whereNotNull('canonical_field_id')->count();
+        
+        return [
+            'total_fields' => $totalFields,
+            'mapped_fields' => $mappedFields,
+            'unmapped_fields' => $totalFields - $template->fieldMappings->count(),
+            'coverage_percentage' => $totalFields > 0 ? round(($mappedFields / $totalFields) * 100, 2) : 0,
+            'validation_errors' => $template->fieldMappings->where('validation_status', 'error')->count(),
+            'validation_warnings' => $template->fieldMappings->where('validation_status', 'warning')->count(),
+        ];
+    }
+
+    /**
+     * Get validation rules for a data type
+     */
+    private function getValidationRules(string $dataType): array
+    {
+        $rules = [];
+
+        switch ($dataType) {
+            case 'string':
+                $rules[] = ['type' => 'string', 'max_length' => 255];
+                break;
+            
+            case 'date':
+                $rules[] = ['type' => 'date', 'format' => 'Y-m-d'];
+                break;
+            
+            case 'boolean':
+                $rules[] = ['type' => 'boolean', 'accepted_values' => ['true', 'false', '1', '0', 'yes', 'no']];
+                break;
+            
+            case 'phone':
+                $rules[] = ['type' => 'phone', 'pattern' => '/^\(\d{3}\) \d{3}-\d{4}$/'];
+                break;
+            
+            case 'npi':
+                $rules[] = ['type' => 'npi', 'pattern' => '/^\d{10}$/'];
+                break;
+            
+            case 'email':
+                $rules[] = ['type' => 'email', 'pattern' => '/^[^\s@]+@[^\s@]+\.[^\s@]+$/'];
+                break;
+        }
+
+        return $rules;
+    }
+
+    /**
+     * Check if a field contains PHI
+     */
+    private function isPhiField(string $category, string $fieldName): bool
+    {
+        $phiCategories = ['patientInformation', 'insuranceInformation'];
+        $phiFields = ['patientName', 'patientDOB', 'patientSSN', 'policyNumber', 'memberID'];
+
+        return in_array($category, $phiCategories) || in_array($fieldName, $phiFields);
+    }
+
+    /**
+     * Apply mapping configuration to data
+     */
+    public function applyMappingConfiguration(array $data, string $templateId): array
+    {
+        $mappings = TemplateFieldMapping::where('template_id', $templateId)
+            ->where('is_active', true)
+            ->with('canonicalField')
+            ->get();
+
+        $mappedData = [];
+        $rulesEngine = app(MappingRulesEngine::class);
+
+        foreach ($mappings as $mapping) {
+            if (!isset($data[$mapping->field_name])) {
+                continue;
+            }
+
+            $value = $data[$mapping->field_name];
+
+            // Apply transformation rules if any
+            if (!empty($mapping->transformation_rules)) {
+                $value = $rulesEngine->applyTransformationRules($value, $mapping->transformation_rules);
+            }
+
+            // Map to canonical field path
+            if ($mapping->canonicalField) {
+                $this->setNestedValue(
+                    $mappedData, 
+                    $mapping->canonicalField->field_path, 
+                    $value
+                );
+            }
+        }
+
+        return $mappedData;
+    }
+
+    /**
+     * Set nested value in array using dot notation
+     */
+    private function setNestedValue(array &$array, string $path, $value): void
+    {
+        $keys = explode('.', $path);
+        $current = &$array;
+
+        foreach ($keys as $i => $key) {
+            if ($i === count($keys) - 1) {
+                $current[$key] = $value;
+            } else {
+                if (!isset($current[$key]) || !is_array($current[$key])) {
+                    $current[$key] = [];
+                }
+                $current = &$current[$key];
+            }
+        }
     }
 }

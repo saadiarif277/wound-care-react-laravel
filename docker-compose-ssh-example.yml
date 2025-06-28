@@ -1,0 +1,43 @@
+# Example docker-compose.yml for SSH access to GitHub
+version: '3.8'
+
+services:
+  # Example for a Node.js/React app
+  frontend:
+    build: ./frontend
+    volumes:
+      # Mount SSH keys for GitHub access (Windows path)
+      - C:\Users\Richa\.ssh:/root/.ssh:ro
+      # Optional: Mount git config
+      - C:\Users\Richa\.gitconfig:/root/.gitconfig:ro
+    environment:
+      - NODE_ENV=development
+    ports:
+      - "3000:3000"
+    # Test SSH connection during startup
+    command: sh -c "ssh -T git@github.com && npm start"
+
+  # Example for a Laravel/PHP app  
+  backend:
+    build: ./backend
+    volumes:
+      # Mount SSH keys for GitHub access (Windows path)
+      - C:\Users\Richa\.ssh:/root/.ssh:ro
+      # Optional: Mount git config
+      - C:\Users\Richa\.gitconfig:/root/.gitconfig:ro
+    environment:
+      - APP_ENV=local
+    ports:
+      - "8000:8000"
+    # Test SSH connection during startup
+    command: sh -c "ssh -T git@github.com && php artisan serve --host=0.0.0.0"
+
+  # Alternative approach using bind mounts with $HOME variable
+  app-alternative:
+    image: node:18
+    volumes:
+      # This works on Linux/Mac, adjust for Windows
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ${HOME}/.gitconfig:/root/.gitconfig:ro
+    working_dir: /app
+    command: sh -c "ssh -T git@github.com && echo 'SSH working in Docker!'"

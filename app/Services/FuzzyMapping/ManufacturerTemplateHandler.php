@@ -444,4 +444,96 @@ class ManufacturerTemplateHandler
         
         return $calculatedCheck == $checkDigit;
     }
+    
+    /**
+     * Get validation rules for manufacturer template
+     */
+    public function getValidationRulesForManufacturer(string $manufacturerName, string $templateName): array
+    {
+        $rules = [];
+        
+        // Get manufacturer configuration
+        $manufacturerRules = $this->getManufacturerRules($manufacturerName);
+        
+        // Get template fields from database
+        $manufacturer = Manufacturer::where('name', $manufacturerName)->first();
+        if (!$manufacturer) {
+            return $rules;
+        }
+        
+        $templateFields = IVRTemplateField::where('manufacturer_id', $manufacturer->id)
+            ->where('template_name', $templateName)
+            ->get();
+        
+        foreach ($templateFields as $field) {
+            $fieldRules = [
+                'required' => $field->is_required,
+                'type' => $this->mapFieldTypeToValidationType($field->field_type),
+            ];
+            
+            // Add field-specific validation rules
+            switch ($field->field_type) {
+                case 'text':
+                    if ($field->field_metadata && isset($field->field_metadata['max_length'])) {
+                        $fieldRules['max_length'] = $field->field_metadata['max_length'];
+                    }
+                    if ($field->field_metadata && isset($field->field_metadata['min_length'])) {
+                        $fieldRules['min_length'] = $field->field_metadata['min_length'];
+                    }
+                    break;
+                    
+                case 'phone':
+                    $fieldRules['pattern'] = '/^[\d\s\-\(\)\+]+$/';
+                    $fieldRules['type'] = 'phone';
+                    break;
+                    
+                case 'email':
+                    $fieldRules['type'] = 'email';
+                    break;
+                    
+                case 'date':
+                    $fieldRules['type'] = 'date';
+                    break;
+                    
+                case 'select':
+                    if ($field->field_metadata && isset($field->field_metadata['options'])) {
+                        $fieldRules['allowed_values'] = $field->field_metadata['options'];
+                    }
+                    break;
+                    
+                case 'boolean':
+                    $fieldRules['type'] = 'boolean';
+                    $fieldRules['allowed_values'] = ['true', 'false', '1', '0', 'yes', 'no', 'Yes', 'No'];
+                    break;
+            }
+            
+            // Add manufacturer-specific patterns
+            if (isset($manufacturerRules['field_patterns'][$field->field_name])) {
+                $fieldRules['pattern'] = $manufacturerRules['field_patterns'][$field->field_name];
+            }
+            
+            $rules[$field->field_name] = $fieldRules;
+        }
+        
+        return $rules;
+    }
+    
+    /**
+     * Map field type to validation type
+     */
+    protected function mapFieldTypeToValidationType(string $fieldType): string
+    {
+        $typeMap = [
+            'text' => 'string',
+            'phone' => 'phone',
+            'email' => 'email',
+            'date' => 'date',
+            'number' => 'numeric',
+            'boolean' => 'boolean',
+            'select' => 'string',
+            'textarea' => 'string',
+        ];
+        
+        return $typeMap[$fieldType] ?? 'string';
+    }
 }

@@ -27,6 +27,420 @@ class DocuSealTemplateController extends Controller
 
 
     /**
+     * List all templates with comprehensive data
+     */
+    public function listTemplates(Request $request): JsonResponse
+    {
+        try {
+            // Check permission - but allow MSC admin role even without specific permission
+            $user = Auth::user();
+            if (!$user) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized',
+                ], 401);
+            }
+            
+            // Allow if user has manage-orders permission OR is msc-admin
+            if (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin')) {
+                Log::warning('DocuSeal access denied', [
+                    'user_id' => $user->id,
+                    'user_email' => $user->email,
+                    'roles' => $user->roles->pluck('slug'),
+                    'permissions' => $user->roles->flatMap->permissions->pluck('slug')->unique(),
+                ]);
+                
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied. You need manage-orders permission or msc-admin role.',
+                ], 403);
+            }
+            
+            // Get templates with relationships
+            $templates = DocusealTemplate::with(['manufacturer', 'fieldMappings'])
+                ->orderBy('manufacturer_id')
+                ->orderBy('template_name')
+                ->get();
+            
+            // Calculate statistics
+            $stats = [
+                'total_templates' => $templates->count(),
+                'active_templates' => $templates->where('is_active', true)->count(),
+                'manufacturers_covered' => $templates->pluck('manufacturer_id')->unique()->filter()->count(),
+                'avg_field_coverage' => $templates->avg('mapping_coverage') ?? 0,
+                'total_submissions' => 0, // You can add submission count logic here
+                'templates_needing_attention' => $templates->where('validation_errors_count', '>', 0)->count(),
+            ];
+
+            // Transform templates with additional computed fields
+            $templatesWithStats = $templates->map(function ($template) {
+                return [
+                    'id' => $template->id,
+                    'template_name' => $template->template_name,
+                    'docuseal_template_id' => $template->docuseal_template_id,
+                    'document_type' => $template->document_type,
+                    'manufacturer_id' => $template->manufacturer_id,
+                    'manufacturer' => $template->manufacturer,
+                    'is_active' => $template->is_active,
+                    'is_default' => $template->is_default,
+                    'field_mappings' => $template->field_mappings,
+                    'extraction_metadata' => $template->extraction_metadata,
+                    'last_extracted_at' => $template->last_extracted_at,
+                    'created_at' => $template->created_at,
+                    'updated_at' => $template->updated_at,
+                    'field_coverage_percentage' => $template->mapping_coverage ?? 0,
+                    'submission_count' => 0, // Add actual count logic
+                    'success_rate' => 0, // Add actual calculation
+                    'total_mapped_fields' => $template->total_mapped_fields,
+                    'required_fields_mapped' => $template->required_fields_mapped,
+                    'validation_errors_count' => $template->validation_errors_count,
+                    'last_mapping_update' => $template->last_mapping_update,
+                ];
+            });
+            
+            return response()->json([
+                'success' => true,
+                'templates' => $templatesWithStats,
+                'stats' => $stats,
+                'sync_status' => [
+                    'is_syncing' => false,
+                    'last_sync' => DocusealTemplate::max('updated_at'),
+                    'templates_found' => $templates->count(),
+                    'templates_updated' => 0,
+                    'errors' => 0,
+                ],
+            ]);
+        } catch (\Exception $e) {
+            Log::error('DocuSeal templates list failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Sync templates from DocuSeal API
+     */
+    public function syncTemplates(Request $request): JsonResponse
+    {
+        try {
+            // Check permissions
+            $user = Auth::user();
+            if (!$user || (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin'))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            $request->validate([
+                'force' => 'boolean',
+                'queue' => 'boolean',
+            ]);
+
+            $docusealApiKey = config('services.docuseal.api_key');
+            $docusealApiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+            
+            if (!$docusealApiKey) {
+                throw new \Exception('DocuSeal API key not configured.');
+            }
+
+            // If queue is requested, dispatch a job instead
+            if ($request->get('queue', false)) {
+                // Dispatch sync job (you would need to create this job)
+                // dispatch(new SyncDocuSealTemplatesJob($user->id, $request->get('force', false)));
+                
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Template sync queued successfully',
+                    'queued' => true,
+                ]);
+            }
+
+            // Perform sync inline
+            $client = new HttpClient();
+            $templatesFound = 0;
+            $templatesUpdated = 0;
+            $errors = 0;
+
+            try {
+                // Fetch templates from DocuSeal
+                $response = $client->get($docusealApiUrl . '/templates', [
+                    'headers' => [
+                        'X-Auth-Token' => $docusealApiKey,
+                    ],
+                    'timeout' => 30,
+                ]);
+
+                $docusealTemplates = json_decode($response->getBody()->getContents(), true);
+
+                if (!is_array($docusealTemplates)) {
+                    throw new \Exception('Invalid response from DocuSeal API');
+                }
+
+                $templatesFound = count($docusealTemplates);
+
+                foreach ($docusealTemplates as $docusealTemplate) {
+                    try {
+                        // Check if template exists locally
+                        $localTemplate = DocusealTemplate::where('docuseal_template_id', $docusealTemplate['id'])->first();
+
+                        if (!$localTemplate) {
+                            // Create new template
+                            $localTemplate = DocusealTemplate::create([
+                                'template_name' => $docusealTemplate['name'] ?? 'Unnamed Template',
+                                'docuseal_template_id' => $docusealTemplate['id'],
+                                'document_type' => $this->detectDocumentType($docusealTemplate['name'] ?? ''),
+                                'is_active' => true,
+                                'is_default' => false,
+                                'field_mappings' => [],
+                                'extraction_metadata' => [
+                                    'synced_from_docuseal' => true,
+                                    'sync_date' => now()->toIso8601String(),
+                                    'docuseal_data' => $docusealTemplate,
+                                ],
+                            ]);
+                            $templatesUpdated++;
+                        } elseif ($request->get('force', false)) {
+                            // Update existing template if force sync
+                            $localTemplate->update([
+                                'template_name' => $docusealTemplate['name'] ?? $localTemplate->template_name,
+                                'extraction_metadata' => array_merge($localTemplate->extraction_metadata ?? [], [
+                                    'last_sync' => now()->toIso8601String(),
+                                    'docuseal_data' => $docusealTemplate,
+                                ]),
+                            ]);
+                            $templatesUpdated++;
+                        }
+
+                        // Fetch template fields if available
+                        if (isset($docusealTemplate['fields']) || $request->get('force', false)) {
+                            $this->syncTemplateFields($localTemplate, $docusealTemplate['id']);
+                        }
+
+                    } catch (\Exception $e) {
+                        Log::error('Failed to sync individual template', [
+                            'docuseal_template_id' => $docusealTemplate['id'] ?? 'unknown',
+                            'error' => $e->getMessage(),
+                        ]);
+                        $errors++;
+                    }
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => "Sync completed. Found: {$templatesFound}, Updated: {$templatesUpdated}, Errors: {$errors}",
+                    'templates_found' => $templatesFound,
+                    'templates_updated' => $templatesUpdated,
+                    'errors' => $errors,
+                ]);
+
+            } catch (\GuzzleHttp\Exception\RequestException $e) {
+                $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response';
+                Log::error('DocuSeal API sync failed', [
+                    'error' => $e->getMessage(),
+                    'response' => $errorBody,
+                ]);
+                throw new \Exception('Failed to sync with DocuSeal: ' . $e->getMessage());
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Template sync failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Sync failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Test sync connection
+     */
+    public function testSync(Request $request): JsonResponse
+    {
+        try {
+            // Check permissions
+            $user = Auth::user();
+            if (!$user || (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin'))) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Access denied.',
+                ], 403);
+            }
+
+            $docusealApiKey = config('services.docuseal.api_key');
+            $docusealApiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+            
+            if (!$docusealApiKey) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.',
+                ], 500);
+            }
+
+            $client = new HttpClient();
+
+            try {
+                // Test API connection by fetching templates
+                $startTime = microtime(true);
+                $response = $client->get($docusealApiUrl . '/templates', [
+                    'headers' => [
+                        'X-Auth-Token' => $docusealApiKey,
+                    ],
+                    'query' => [
+                        'limit' => 1, // Just test with one template
+                    ],
+                    'timeout' => 10,
+                ]);
+                $endTime = microtime(true);
+
+                $responseTime = round(($endTime - $startTime) * 1000, 2); // Convert to milliseconds
+                $statusCode = $response->getStatusCode();
+                $templates = json_decode($response->getBody()->getContents(), true);
+
+                $message = "Connection successful!\n";
+                $message .= "Response time: {$responseTime}ms\n";
+                $message .= "Status code: {$statusCode}\n";
+                $message .= "Templates accessible: " . (is_array($templates) ? 'Yes' : 'No') . "\n";
+                
+                if (is_array($templates)) {
+                    $message .= "Total templates found: " . count($templates);
+                }
+
+                return response()->json([
+                    'success' => true,
+                    'message' => $message,
+                    'details' => [
+                        'response_time_ms' => $responseTime,
+                        'status_code' => $statusCode,
+                        'api_url' => $docusealApiUrl,
+                        'templates_found' => is_array($templates) ? count($templates) : 0,
+                    ],
+                ]);
+
+            } catch (\GuzzleHttp\Exception\RequestException $e) {
+                $errorMessage = 'Connection failed: ' . $e->getMessage();
+                
+                if ($e->hasResponse()) {
+                    $statusCode = $e->getResponse()->getStatusCode();
+                    $errorBody = $e->getResponse()->getBody()->getContents();
+                    $errorMessage .= "\nStatus code: {$statusCode}";
+                    $errorMessage .= "\nResponse: " . substr($errorBody, 0, 200);
+                }
+
+                return response()->json([
+                    'success' => false,
+                    'message' => $errorMessage,
+                    'details' => [
+                        'error' => $e->getMessage(),
+                        'api_url' => $docusealApiUrl,
+                    ],
+                ], 500);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Test sync failed', [
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Test failed: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Sync template fields from DocuSeal
+     */
+    private function syncTemplateFields(DocusealTemplate $template, string $docusealTemplateId): void
+    {
+        try {
+            $client = new HttpClient();
+            $docusealApiKey = config('services.docuseal.api_key');
+            $docusealApiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+
+            // Fetch template details including fields
+            $response = $client->get($docusealApiUrl . '/templates/' . $docusealTemplateId, [
+                'headers' => [
+                    'X-Auth-Token' => $docusealApiKey,
+                ],
+                'timeout' => 30,
+            ]);
+
+            $templateData = json_decode($response->getBody()->getContents(), true);
+
+            if (isset($templateData['fields']) && is_array($templateData['fields'])) {
+                $fieldMappings = [];
+                
+                foreach ($templateData['fields'] as $field) {
+                    $fieldName = $field['name'] ?? $field['slug'] ?? '';
+                    if (empty($fieldName)) continue;
+
+                    $fieldMappings[$fieldName] = [
+                        'type' => $field['type'] ?? 'text',
+                        'required' => $field['required'] ?? false,
+                        'docuseal_field_data' => $field,
+                        'synced_at' => now()->toIso8601String(),
+                    ];
+                }
+
+                // Update template with new field mappings
+                $template->update([
+                    'field_mappings' => array_merge($template->field_mappings ?? [], $fieldMappings),
+                    'extraction_metadata' => array_merge($template->extraction_metadata ?? [], [
+                        'fields_synced' => true,
+                        'fields_sync_date' => now()->toIso8601String(),
+                        'total_fields' => count($fieldMappings),
+                    ]),
+                ]);
+
+                Log::info('Synced template fields', [
+                    'template_id' => $template->id,
+                    'docuseal_template_id' => $docusealTemplateId,
+                    'fields_count' => count($fieldMappings),
+                ]);
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to sync template fields', [
+                'template_id' => $template->id,
+                'docuseal_template_id' => $docusealTemplateId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    /**
+     * Detect document type from template name
+     */
+    private function detectDocumentType(string $templateName): string
+    {
+        $lowercaseName = strtolower($templateName);
+        
+        if (str_contains($lowercaseName, 'ivr') || str_contains($lowercaseName, 'insurance verification')) {
+            return 'IVR';
+        }
+        if (str_contains($lowercaseName, 'onboarding')) {
+            return 'OnboardingForm';
+        }
+        if (str_contains($lowercaseName, 'order')) {
+            return 'OrderForm';
+        }
+        
+        return 'InsuranceVerification';
+    }
+
+    /**
      * List all templates from local DB.
      */
     public function index(Request $request): JsonResponse

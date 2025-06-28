@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Insurance Form Field Mapping Visualizer</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        
+        .field-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .section-title {
+            font-size: 20px;
+            font-weight: bold;
+            color: #2c5aa0;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+        }
+        
+        .field-mapping {
+            margin-bottom: 25px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+        
+        .canonical-field {
+            background: #f8f9fa;
+            padding: 15px;
+            font-weight: bold;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .field-name {
+            font-size: 16px;
+        }
+        
+        .field-type {
+            font-size: 12px;
+            background: #6c757d;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            margin-left: 10px;
+        }
+        
+        .required {
+            background: #dc3545;
+        }
+        
+        .form-mappings {
+            padding: 0;
+            margin: 0;
+        }
+        
+        .form-mapping-item {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            padding: 10px 15px;
+            border-bottom: 1px solid #f0f0f0;
+            align-items: center;
+        }
+        
+        .form-mapping-item:last-child {
+            border-bottom: none;
+        }
+        
+        .form-name {
+            font-weight: 500;
+            color: #495057;
+        }
+        
+        .form-field {
+            color: #6c757d;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        
+        .no-mapping {
+            color: #dc3545;
+            font-style: italic;
+        }
+        
+        .filter-section {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        select, input[type="text"] {
+            padding: 8px 12px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #2c5aa0;
+        }
+        
+        .stat-label {
+            font-size: 14px;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+        
+        .highlight {
+            background-color: #fff3cd;
+        }
+        
+        .collapsed {
+            display: none;
+        }
+        
+        .expand-btn {
+            cursor: pointer;
+            user-select: none;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Insurance Form Field Mapping Visualizer</h1>
+        
+        <div class="controls">
+            <div class="filter-section">
+                <div class="filter-group">
+                    <label>Search Fields:</label>
+                    <input type="text" id="searchField" placeholder="Enter field name...">
+                </div>
+                <div class="filter-group">
+                    <label>Filter by Form:</label>
+                    <select id="formFilter">
+                        <option value="">All Forms</option>
+                        <option value="form1_ACZ">ACZ Distribution</option>
+                        <option value="form2_IVR">MedLife Sol (IVR)</option>
+                        <option value="form3_Centurion">Centurion Therapeutics</option>
+                        <option value="form4_BioWound">BioWound Solutions</option>
+                        <option value="form5_AdvancedSolution">Advanced Solution Health</option>
+                        <option value="form6_ImbedBio">Imbed Biosciences</option>
+                        <option value="form7_ExtremityCare_FT">Extremity Care - completeFT</option>
+                        <option value="form8_ExtremityCare_RO">Extremity Care - Restorigin</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label>Show Only:</label>
+                    <select id="requirementFilter">
+                        <option value="">All Fields</option>
+                        <option value="required">Required Fields</option>
+                        <option value="optional">Optional Fields</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalFields">0</div>
+                    <div class="stat-label">Total Fields</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="requiredFields">0</div>
+                    <div class="stat-label">Required Fields</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="mappedFields">0</div>
+                    <div class="stat-label">Fully Mapped</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="unmappedFields">0</div>
+                    <div class="stat-label">Partially Mapped</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="mappingContainer"></div>
+    </div>
+    
+    <script>
+        const mappingData = {
+            "Physician Information": {
+                fields: [
+                    {
+                        canonical: "physicianName",
+                        description: "Full name of the treating physician",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "PHYSICIAN NAME",
+                            "form2_IVR": "Physician Name",
+                            "form3_Centurion": "*Provider Name",
+                            "form4_BioWound": "Physician Name",
+                            "form5_AdvancedSolution": "Physician Name",
+                            "form6_ImbedBio": "Name",
+                            "form7_ExtremityCare_FT": "*Provider Name",
+                            "form8_ExtremityCare_RO": "*Provider Name"
+                        }
+                    },
+                    {
+                        canonical: "physicianNPI",
+                        description: "National Provider Identifier",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "NPI",
+                            "form2_IVR": "Physician NPI",
+                            "form3_Centurion": "*Provider ID #s: NPI",
+                            "form4_BioWound": "NPI",
+                            "form5_AdvancedSolution": "NPI"
+                        }
+                    },
+                    {
+                        canonical: "physicianSpecialty",
+                        description: "Medical specialty of the physician",
+                        type: "string",
+                        required: false,
+                        mappings: {
+                            "form1_ACZ": "PHYSICIAN SPECIALTY",
+                            "form2_IVR": null,
+                            "form3_Centurion": "Specialty",
+                            "form4_BioWound": "Physician Specialty",
+                            "form5_AdvancedSolution": null
+                        }
+                    },
+                    {
+                        canonical: "taxId",
+                        description: "Tax identification number",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "TAX ID",
+                            "form2_IVR": "TAX ID#",
+                            "form3_Centurion": "Tax ID",
+                            "form4_BioWound": "Tax ID",
+                            "form5_AdvancedSolution": "TIN"
+                        }
+                    }
+                ]
+            },
+            "Facility Information": {
+                fields: [
+                    {
+                        canonical: "facilityName",
+                        description: "Name of the medical facility",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "FACILITY NAME",
+                            "form2_IVR": "Practice Name",
+                            "form3_Centurion": "*Facility Name",
+                            "form4_BioWound": "Facility Name",
+                            "form5_AdvancedSolution": "Facility Name"
+                        }
+                    },
+                    {
+                        canonical: "facilityAddress",
+                        description: "Street address of the facility",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "FACILITY ADDRESS",
+                            "form2_IVR": null,
+                            "form3_Centurion": "Address",
+                            "form4_BioWound": "Facility Address",
+                            "form5_AdvancedSolution": "Address"
+                        }
+                    },
+                    {
+                        canonical: "contactName",
+                        description: "Primary contact person at facility",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "CONTACT NAME",
+                            "form2_IVR": "Office Contact Name",
+                            "form3_Centurion": "*Facility Contact",
+                            "form4_BioWound": "Contact Name",
+                            "form5_AdvancedSolution": "Contact Name"
+                        }
+                    }
+                ]
+            },
+            "Patient Information": {
+                fields: [
+                    {
+                        canonical: "patientName",
+                        description: "Full name of the patient",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "PATIENT NAME",
+                            "form2_IVR": "Patient Name",
+                            "form3_Centurion": "*Patient Name",
+                            "form4_BioWound": "Patient Name",
+                            "form5_AdvancedSolution": "Patient Name"
+                        }
+                    },
+                    {
+                        canonical: "patientDOB",
+                        description: "Patient date of birth",
+                        type: "date",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "PATIENT DOB",
+                            "form2_IVR": "Patient DOB",
+                            "form3_Centurion": "*DOB",
+                            "form4_BioWound": "Patient Date of Birth",
+                            "form5_AdvancedSolution": "Date of Birth"
+                        }
+                    },
+                    {
+                        canonical: "patientAddress",
+                        description: "Patient street address",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "PATIENT ADDRESS",
+                            "form2_IVR": null,
+                            "form3_Centurion": "Address",
+                            "form4_BioWound": "Patient Address",
+                            "form5_AdvancedSolution": "Address"
+                        }
+                    }
+                ]
+            },
+            "Insurance Information": {
+                fields: [
+                    {
+                        canonical: "primaryInsuranceName",
+                        description: "Name of primary insurance company",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "INSURANCE NAME",
+                            "form2_IVR": "Primary Insurance",
+                            "form3_Centurion": "Primary Insurance",
+                            "form4_BioWound": "Payer Name",
+                            "form5_AdvancedSolution": "Primary Insurance"
+                        }
+                    },
+                    {
+                        canonical: "primaryPolicyNumber",
+                        description: "Primary insurance policy number",
+                        type: "string",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "POLICY NUMBER",
+                            "form2_IVR": "Member ID",
+                            "form3_Centurion": "Policy Number",
+                            "form4_BioWound": "Policy #",
+                            "form5_AdvancedSolution": "Policy Number"
+                        }
+                    },
+                    {
+                        canonical: "secondaryInsuranceName",
+                        description: "Name of secondary insurance company",
+                        type: "string",
+                        required: false,
+                        mappings: {
+                            "form1_ACZ": "INSURANCE NAME (Secondary)",
+                            "form2_IVR": "Secondary Insurance",
+                            "form3_Centurion": "Secondary Insurance",
+                            "form4_BioWound": "Payer Name (Secondary)",
+                            "form5_AdvancedSolution": "Secondary Insurance"
+                        }
+                    }
+                ]
+            },
+            "Service Information": {
+                fields: [
+                    {
+                        canonical: "placeOfService",
+                        description: "Location where patient is being seen",
+                        type: "enum",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "PLACE OF SERVICE WHERE PATIENT IS BEING SEEN",
+                            "form2_IVR": "Place of Service",
+                            "form3_Centurion": "*Treatment Setting",
+                            "form4_BioWound": "Place of Service checkboxes",
+                            "form5_AdvancedSolution": "Place of Service"
+                        }
+                    },
+                    {
+                        canonical: "inSkilledNursingFacility",
+                        description: "Is patient in skilled nursing facility",
+                        type: "boolean",
+                        required: true,
+                        mappings: {
+                            "form1_ACZ": "IS THE PATIENT CURRENTLY IN HOSPICE?",
+                            "form2_IVR": "Is the patient currently residing in a Nursing Home OR Skilled Nursing Facility",
+                            "form3_Centurion": "*Is this patient currently in a skilled facility or nursing home?",
+                            "form4_BioWound": "Is the patient currently in a Skilled Nursing Facility?",
+                            "form5_AdvancedSolution": "Is the patient currently residing in SNF?"
+                        }
+                    }
+                ]
+            }
+        };
+        
+        const formNames = {
+            "form1_ACZ": "ACZ Distribution",
+            "form2_IVR": "MedLife Sol (IVR)",
+            "form3_Centurion": "Centurion Therapeutics",
+            "form4_BioWound": "BioWound Solutions",
+            "form5_AdvancedSolution": "Advanced Solution Health",
+            "form6_ImbedBio": "Imbed Biosciences",
+            "form7_ExtremityCare_FT": "Extremity Care - completeFT",
+            "form8_ExtremityCare_RO": "Extremity Care - Restorigin"
+        };
+        
+        function renderMappings() {
+            const container = document.getElementById('mappingContainer');
+            container.innerHTML = '';
+            
+            let totalFieldCount = 0;
+            let requiredFieldCount = 0;
+            let fullyMappedCount = 0;
+            let partiallyMappedCount = 0;
+            
+            Object.entries(mappingData).forEach(([sectionName, section]) => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'field-section';
+                
+                const titleDiv = document.createElement('div');
+                titleDiv.className = 'section-title';
+                titleDiv.innerHTML = `<span class="expand-btn">▼</span>${sectionName}`;
+                titleDiv.onclick = () => toggleSection(sectionDiv);
+                sectionDiv.appendChild(titleDiv);
+                
+                const fieldsContainer = document.createElement('div');
+                fieldsContainer.className = 'fields-container';
+                
+                section.fields.forEach(field => {
+                    totalFieldCount++;
+                    if (field.required) requiredFieldCount++;
+                    
+                    const mappingDiv = document.createElement('div');
+                    mappingDiv.className = 'field-mapping';
+                    mappingDiv.dataset.canonical = field.canonical;
+                    mappingDiv.dataset.required = field.required;
+                    
+                    const canonicalDiv = document.createElement('div');
+                    canonicalDiv.className = 'canonical-field';
+                    canonicalDiv.innerHTML = `
+                        <div>
+                            <span class="field-name">${field.canonical}</span>
+                            <span class="field-type ${field.required ? 'required' : ''}">${field.required ? 'Required' : 'Optional'}</span>
+                            <span class="field-type">${field.type}</span>
+                        </div>
+                        <div style="font-size: 12px; color: #6c757d; font-weight: normal;">
+                            ${field.description}
+                        </div>
+                    `;
+                    mappingDiv.appendChild(canonicalDiv);
+                    
+                    const formMappingsDiv = document.createElement('div');
+                    formMappingsDiv.className = 'form-mappings';
+                    
+                    let mappedCount = 0;
+                    Object.entries(field.mappings).forEach(([formId, formField]) => {
+                        if (formField) mappedCount++;
+                        
+                        const itemDiv = document.createElement('div');
+                        itemDiv.className = 'form-mapping-item';
+                        itemDiv.dataset.formId = formId;
+                        itemDiv.innerHTML = `
+                            <div class="form-name">${formNames[formId]}:</div>
+                            <div class="form-field ${!formField ? 'no-mapping' : ''}">${formField || 'Not mapped'}</div>
+                        `;
+                        formMappingsDiv.appendChild(itemDiv);
+                    });
+                    
+                    if (mappedCount === 8) fullyMappedCount++;
+                    else if (mappedCount > 0) partiallyMappedCount++;
+                    
+                    mappingDiv.appendChild(formMappingsDiv);
+                    fieldsContainer.appendChild(mappingDiv);
+                });
+                
+                sectionDiv.appendChild(fieldsContainer);
+                container.appendChild(sectionDiv);
+            });
+            
+            // Update statistics
+            document.getElementById('totalFields').textContent = totalFieldCount;
+            document.getElementById('requiredFields').textContent = requiredFieldCount;
+            document.getElementById('mappedFields').textContent = fullyMappedCount;
+            document.getElementById('unmappedFields').textContent = partiallyMappedCount;
+        }
+        
+        function toggleSection(sectionDiv) {
+            const container = sectionDiv.querySelector('.fields-container');
+            const expandBtn = sectionDiv.querySelector('.expand-btn');
+            
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                expandBtn.textContent = '▼';
+            } else {
+                container.style.display = 'none';
+                expandBtn.textContent = '▶';
+            }
+        }
+        
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchField').value.toLowerCase();
+            const formFilter = document.getElementById('formFilter').value;
+            const requirementFilter = document.getElementById('requirementFilter').value;
+            
+            document.querySelectorAll('.field-mapping').forEach(mapping => {
+                const canonical = mapping.dataset.canonical.toLowerCase();
+                const isRequired = mapping.dataset.required === 'true';
+                
+                let showField = true;
+                
+                // Search filter
+                if (searchTerm && !canonical.includes(searchTerm)) {
+                    showField = false;
+                }
+                
+                // Requirement filter
+                if (requirementFilter === 'required' && !isRequired) {
+                    showField = false;
+                } else if (requirementFilter === 'optional' && isRequired) {
+                    showField = false;
+                }
+                
+                mapping.style.display = showField ? 'block' : 'none';
+                
+                // Form filter
+                if (formFilter && showField) {
+                    mapping.querySelectorAll('.form-mapping-item').forEach(item => {
+                        if (item.dataset.formId === formFilter) {
+                            item.classList.add('highlight');
+                        } else {
+                            item.classList.remove('highlight');
+                        }
+                    });
+                } else {
+                    mapping.querySelectorAll('.form-mapping-item').forEach(item => {
+                        item.classList.remove('highlight');
+                    });
+                }
+            });
+        }
+        
+        // Event listeners
+        document.getElementById('searchField').addEventListener('input', applyFilters);
+        document.getElementById('formFilter').addEventListener('change', applyFilters);
+        document.getElementById('requirementFilter').addEventListener('change', applyFilters);
+        
+        // Initial render
+        renderMappings();
+    </script>
+</body>
+</html>
