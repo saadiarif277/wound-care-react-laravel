@@ -38,7 +38,6 @@
     "@sentry/browser": "^7.119.1",
     "@sentry/react": "^9.30.0",
     "@smithery/sdk": "^1.5.2",
-    "@superinterface/react": "^3.29.0",
     "@tailwindcss/line-clamp": "^0.4.4",
     "@tanstack/react-query": "^5.80.7",
     "@types/react-select": "^5.0.0",
@@ -106,5 +105,8 @@
     "ts-jest": "^29.1.1",
     "typescript": "^5.8.3",
     "vite": "^5.4.14"
+  },
+  "optionalDependencies": {
+    "@rollup/rollup-win32-x64-msvc": "^4.44.1"
   }
 }

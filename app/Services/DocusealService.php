@@ -901,4 +901,78 @@ class DocuSealService
             'date_range' => $dateRange,
         ];
     }
+
+    /**
+     * Create IVR submission (alias for createOrUpdateSubmission for legacy compatibility)
+     */
+    public function createIVRSubmission(array $data, Episode $episode): array
+    {
+        Log::info('Creating IVR submission', [
+            'episode_id' => $episode->id,
+            'manufacturer_id' => $data['manufacturer_id'] ?? null
+        ]);
+
+        try {
+            // Extract manufacturer name from data
+            $manufacturerName = $data['manufacturer_name'] ?? 'Unknown';
+            
+            // Use the main method with episode ID and manufacturer
+            $result = $this->createOrUpdateSubmission($episode->id, $manufacturerName, $data);
+            
+            return [
+                'success' => true,
+                'embed_url' => $result['submission']['embed_url'] ?? null,
+                'submission_id' => $result['submission']['id'] ?? null,
+                'pdf_url' => $result['submission']['pdf_url'] ?? null
+            ];
+            
+        } catch (\Exception $e) {
+            Log::error('IVR submission creation failed', [
+                'episode_id' => $episode->id,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Test DocuSeal API connection
+     */
+    public function testConnection(): array
+    {
+        try {
+            $response = Http::withHeaders([
+                'X-API-TOKEN' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->get($this->apiUrl . '/api/templates');
+
+            if ($response->successful()) {
+                $templates = $response->json();
+                return [
+                    'success' => true,
+                    'status' => 'connected',
+                    'api_url' => $this->apiUrl,
+                    'template_count' => count($templates ?? [])
+                ];
+            } else {
+                return [
+                    'success' => false,
+                    'status' => 'failed',
+                    'error' => 'API returned status: ' . $response->status(),
+                    'api_url' => $this->apiUrl
+                ];
+            }
+        } catch (\Exception $e) {
+            return [
+                'success' => false,
+                'status' => 'error',
+                'error' => $e->getMessage(),
+                'api_url' => $this->apiUrl
+            ];
+        }
+    }
 }
