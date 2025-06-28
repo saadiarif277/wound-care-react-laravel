@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
+import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAutocompleteWithFallback';
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
@@ -406,8 +407,10 @@ function Step2PatientInsurance({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Address Line 1
             </label>
-            <GoogleAddressAutocompleteSimple
+            <GoogleAddressAutocompleteWithFallback
               onPlaceSelect={handleAddressSelect}
+              value={formData.patient_address_line1}
+              onChange={(value) => updateFormData({ patient_address_line1: value })}
               defaultValue={formData.patient_address_line1}
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               placeholder="Start typing address..."

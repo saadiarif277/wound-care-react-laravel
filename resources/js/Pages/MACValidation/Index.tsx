@@ -8,6 +8,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
+import WoundCareMACTool from './WoundCareMACTool';
 
 interface QuickValidationResult {
     success: boolean;
@@ -1740,6 +1741,17 @@ const MACValidationPage = () => {
                             </div>
                         </form>
                     )}
+
+                    {/* Wound Care MAC Requirements Tool */}
+                    <div className="mt-12">
+                        <div className="bg-white shadow-lg rounded-xl p-8 border border-gray-100">
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900 mb-2">Wound Care & Skin Substitute Requirements</h2>
+                                <p className="text-gray-600">Find MAC-specific coverage requirements for CTPs/skin substitutes by state and coverage period</p>
+                            </div>
+                            <WoundCareMACTool />
+                        </div>
+                    </div>
                 </div>
             </div>
         </MainLayout>

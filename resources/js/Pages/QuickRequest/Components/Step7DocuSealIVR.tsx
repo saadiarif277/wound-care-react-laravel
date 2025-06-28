@@ -270,6 +270,24 @@ export default function Step7DocuSealIVR({
 
   // Override preparedDocuSealData with the extended version
   Object.assign(preparedDocuSealData, extendedDocuSealData);
+  
+  // Log the final data being sent to DocuSeal
+  console.log('📊 DocuSeal Form Data Prepared:', {
+    fields: Object.keys(preparedDocuSealData).length,
+    hasPatientData: !!preparedDocuSealData.patient_name,
+    hasInsuranceData: !!preparedDocuSealData.primary_insurance_name,
+    hasProviderData: !!preparedDocuSealData.provider_name,
+    hasFacilityData: !!preparedDocuSealData.facility_name,
+    hasClinicalData: !!preparedDocuSealData.wound_type,
+    actualFormData: {
+      patient_name: preparedDocuSealData.patient_name,
+      patient_dob: preparedDocuSealData.patient_dob,
+      provider_name: preparedDocuSealData.provider_name,
+      provider_npi: preparedDocuSealData.provider_npi,
+      primary_insurance_name: preparedDocuSealData.primary_insurance_name,
+      facility_name: preparedDocuSealData.facility_name
+    }
+  });
 
   // Enhanced completion handler with FHIR integration and redirect
   const handleDocuSealComplete = async (submissionData: any) => {

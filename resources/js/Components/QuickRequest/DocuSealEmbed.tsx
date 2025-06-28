@@ -495,80 +495,29 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   if (token) {
     return (
       <div className={`w-full ${className}`}>
-        {/* Integration Info Banner */}
-        {integrationInfo && (
-          <div className={`mb-4 p-4 rounded-lg ${
-            integrationInfo.type === 'fhir_enhanced'
-              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200'
-              : 'bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200'
-          }`}>
-            <div className="flex items-start justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2">
-                  {integrationInfo.type === 'fhir_enhanced' ? (
-                    <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  ) : (
-                    <Info className="w-5 h-5 text-blue-600" />
-                  )}
-                  <span className={`font-semibold ${
-                    integrationInfo.type === 'fhir_enhanced' ? 'text-green-800' : 'text-blue-800'
-                  }`}>
-                    {integrationInfo.type === 'fhir_enhanced'
-                      ? 'FHIR-Enhanced Form'
-                      : 'Standard Form'
-                    }
-                  </span>
-                  {mappingProgress.includes('AI') && (
-                    <span className="ml-2 px-2 py-1 bg-purple-100 text-purple-700 text-xs font-medium rounded-full flex items-center gap-1">
-                      <Brain className="w-3 h-3" />
-                      AI-Powered
-                    </span>
-                  )}
-                </div>
-                <div className={`mt-1 text-sm ${
-                  integrationInfo.type === 'fhir_enhanced' ? 'text-green-700' : 'text-blue-700'
-                }`}>
-                  {integrationInfo.type === 'fhir_enhanced' ? (
-                    <>
-                      <span className="font-medium">{integrationInfo.fhirDataUsed}</span> fields from healthcare records •
-                      <span className="font-medium">{integrationInfo.fieldsMapped}</span> total fields mapped
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-medium">{integrationInfo.fieldsMapped}</span> fields ready for completion
-                    </>
-                  )}
-                </div>
-                {integrationInfo.templateName && (
-                  <div className="mt-1 text-xs opacity-75">
-                    {integrationInfo.manufacturer} - {integrationInfo.templateName}
-                  </div>
-                )}
-              </div>
-              
-              {/* View Options */}
-              <div className="flex items-center gap-2 ml-4">
-                {useDirectUrl ? (
-                  <button
-                    onClick={() => setUseDirectUrl(false)}
-                    className="px-3 py-1.5 text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-lg border border-gray-300 transition-colors"
-                  >
-                    Embed Form
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => {
-                      const url = `https://docuseal.com/s/${token}`;
-                      window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-                    }}
-                    className="px-3 py-1.5 text-sm bg-white hover:bg-gray-50 text-gray-700 rounded-lg border border-gray-300 transition-colors flex items-center gap-1"
-                  >
-                    <ExternalLink className="w-3 h-3" />
-                    Open in New Tab
-                  </button>
-                )}
-              </div>
+        {/* Compact Status Bar */}
+        {integrationInfo && integrationInfo.fieldsMapped > 0 && (
+          <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm">
+              <CheckCircle2 className="w-4 h-4 text-green-600" />
+              <span className="text-green-800">
+                <span className="font-medium">{integrationInfo.fieldsMapped}</span> fields pre-filled
+              </span>
+              {mappingProgress.includes('AI') && (
+                <span className="px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-medium rounded-full">
+                  AI-Powered
+                </span>
+              )}
             </div>
+            <button
+              onClick={() => {
+                const url = `https://docuseal.com/s/${token}`;
+                window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+              }}
+              className="text-sm text-blue-600 hover:text-blue-800 underline"
+            >
+              Open in new tab
+            </button>
           </div>
         )}
 
@@ -579,8 +528,9 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               id="docuseal-embed-container"
               className="w-full bg-white rounded-lg shadow-lg overflow-hidden"
               style={{
-                minHeight: '700px',
-                height: '85vh',
+                minHeight: '800px',
+                height: '100vh',
+                maxHeight: '1200px',
                 width: '100%'
               }}
             >

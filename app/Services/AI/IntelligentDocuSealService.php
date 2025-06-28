@@ -486,7 +486,7 @@ final class IntelligentDocuSealService
 
             // Test a simple mapping
             $testResult = $this->azureAI->translateFormData(
-                ['patient_name' => 'John Doe', 'dob' => '1980-01-01'],
+                ['patient_name' => 'Test Patient', 'dob' => '1990-01-01'],
                 ['Patient Name' => 'text', 'Date of Birth' => 'date'],
                 'Test source',
                 'Test target',

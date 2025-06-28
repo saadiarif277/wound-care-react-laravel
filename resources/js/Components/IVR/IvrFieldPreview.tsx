@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import GlassCard from '@/Components/UI/GlassCard';
-import Heading from '@/Components/UI/Heading';
+import GlassCard from '@/Components/ui/GlassCard';
+import Heading from '@/Components/ui/Heading';
 
 interface IvrFieldPreviewProps {
     formData: any;
@@ -102,7 +102,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
     if (error) {
         return (
             <GlassCard variant="danger" className={cn("p-6", className)}>
-                <p className={t.text.danger}>Error loading IVR preview: {error}</p>
+                <p className="text-red-400">Error loading IVR preview: {error}</p>
             </GlassCard>
         );
     }
@@ -126,7 +126,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
     
     return (
         <GlassCard variant="primary" className={cn("p-6", className)}>
-            <Heading size="md" className="mb-6">IVR Field Coverage Preview</Heading>
+            <Heading level={3} className="mb-6">IVR Field Coverage Preview</Heading>
             
             {coverage && (
                 <>

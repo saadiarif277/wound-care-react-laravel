@@ -26,7 +26,7 @@ final class AzureFoundryService
     {
         $this->endpoint = config('azure.ai_foundry.endpoint');
         $this->apiKey = config('azure.ai_foundry.api_key');
-        $this->deploymentName = config('azure.ai_foundry.deployment_name', 'gpt-4');
+        $this->deploymentName = config('azure.ai_foundry.deployment_name', 'gpt-4o');
         $this->apiVersion = config('azure.ai_foundry.api_version', '2024-02-15-preview');
     }
 
@@ -251,7 +251,15 @@ final class AzureFoundryService
      */
     private function callAzureOpenAI(array $payload): array
     {
-        $url = "{$this->endpoint}/openai/deployments/{$this->deploymentName}/chat/completions";
+        // Ensure endpoint doesn't have trailing slash
+        $endpoint = rtrim($this->endpoint, '/');
+        $url = "{$endpoint}/openai/deployments/{$this->deploymentName}/chat/completions?api-version={$this->apiVersion}";
+        
+        Log::debug('Azure OpenAI API call', [
+            'url' => $url,
+            'deployment' => $this->deploymentName,
+            'api_version' => $this->apiVersion
+        ]);
         
         $response = Http::withHeaders([
             'api-key' => $this->apiKey,
@@ -259,11 +267,14 @@ final class AzureFoundryService
         ])
         ->timeout(60)
         ->retry(3, 1000)
-        ->post($url, array_merge($payload, [
-            'api-version' => $this->apiVersion
-        ]));
+        ->post($url, $payload);
 
         if (!$response->successful()) {
+            Log::error('Azure OpenAI API failed', [
+                'status' => $response->status(),
+                'body' => $response->body(),
+                'url' => $url
+            ]);
             throw new Exception("Azure OpenAI API call failed: " . $response->body());
         }
 
@@ -316,10 +327,13 @@ TARGET SCHEMA:
 
 INSTRUCTIONS:
 1. Map each source field to the most appropriate target field
-2. Transform data formats as needed (dates, phone numbers, etc.)
-3. Handle missing fields gracefully
-4. Preserve medical accuracy and context
-5. Return confidence scores for each mapping
+2. Use ONLY the target field names exactly as they appear in the TARGET SCHEMA
+3. Transform data formats as needed (dates, phone numbers, etc.)
+4. Handle missing fields gracefully
+5. Preserve medical accuracy and context
+6. Return confidence scores for each mapping
+
+IMPORTANT: The \"target_field_name\" in your response MUST be one of the field names from the TARGET SCHEMA, not from the source data.
 
 RESPONSE FORMAT:
 {
@@ -374,9 +388,9 @@ INSTRUCTIONS:
 RESPONSE FORMAT:
 {
   \"mapped_data\": {
-    \"Patient Name\": \"John Doe\",
-    \"DOB\": \"01/15/1980\",
-    \"Physician NPI 1\": \"1234567890\"
+    \"Patient Name\": \"[Patient Name]\",
+    \"DOB\": \"MM/DD/YYYY\",
+    \"Physician NPI 1\": \"[NPI Number]\"
   },
   \"mapping_details\": {
     \"Patient Name\": {

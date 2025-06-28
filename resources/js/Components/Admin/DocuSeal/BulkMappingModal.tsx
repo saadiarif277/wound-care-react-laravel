@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import axios from 'axios';
 import {
   X, Layers, Copy, RefreshCw, Zap, AlertTriangle,
-  ArrowRight, FileText, Wand2, CheckCircle
+  ArrowRight, Wand2, CheckCircle
 } from 'lucide-react';
 import { TransformationRule, AVAILABLE_TRANSFORMATION_RULES } from '@/types/field-mapping';
 
@@ -147,7 +147,7 @@ export const BulkMappingModal: React.FC<BulkMappingModalProps> = ({
 
   const updateTransformationRule = (index: number, updates: Partial<TransformationRule>) => {
     const newRules = [...transformationRules];
-    newRules[index] = { ...newRules[index], ...updates };
+    newRules[index] = { ...newRules[index], ...updates } as TransformationRule;
     setTransformationRules(newRules);
   };
 
@@ -526,7 +526,7 @@ const TransformationRulesBuilder: React.FC<TransformationRulesBuilderProps> = ({
             className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded"
           >
             <option value="">Select operation...</option>
-            {Object.entries(AVAILABLE_TRANSFORMATION_RULES[rule.type]?.operations || {}).map(([op, desc]) => (
+            {Object.entries(AVAILABLE_TRANSFORMATION_RULES[rule.type]?.operations || {}).map(([op]) => (
               <option key={op} value={op}>{op}</option>
             ))}
           </select>

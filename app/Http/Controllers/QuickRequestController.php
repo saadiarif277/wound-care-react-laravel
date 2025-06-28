@@ -20,6 +20,8 @@ use App\Services\PhiAuditService;
 use App\Services\CurrentOrganization;
 use App\Services\DocuSealService;
 use App\Services\DocuSealFieldMapper;
+use App\Services\DocuSealFieldValidator;
+use App\Services\AI\EnhancedDocuSealMappingService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
@@ -503,7 +505,7 @@ final class QuickRequestController extends Controller
             return response()->json([
                 'success' => true,
                 'submission_id' => $response['submission_id'],
-                'embed_url' => "https://api.docuseal.com/s/{$response['submission_id']}",
+                'embed_url' => "https://docuseal.com/s/{$response['submission_id']}",
                 'template_id' => $template->docuseal_template_id,
                 'manufacturer' => $template->manufacturer->name,
                 'manufacturer_id' => $manufacturerId
@@ -736,9 +738,11 @@ final class QuickRequestController extends Controller
             }
 
             // Step 3a: Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            // Extract facility_id from prefill_data if available
+            $facilityId = $data['prefill_data']['facility_id'] ?? null;
+            $userProfileData = $this->loadUserProfileDataForDocuSeal($facilityId);
 
-            // Merge user profile data with prefill data
+            // Merge user profile data with prefill data (prefill data takes precedence)
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
 
@@ -844,15 +848,58 @@ final class QuickRequestController extends Controller
 
                 try {
                     // Check if AI is enabled
-                    if (config('ai.enabled', false) && config('ai.provider') !== 'mock') {
-                        $aiMappingUsed = true;
-                        $mappingMethod = 'ai';
-                    }
+                    $aiEnabled = config('ai.enabled', false);
+                    $aiProvider = config('ai.provider');
+                    $azureAiEnabled = config('azure.ai_foundry.enabled', false);
                     
-                    $mappedFields = $this->docuSealService->mapFieldsWithAI(
-                        $data['prefill_data'],
-                        $template
-                    );
+                    Log::info('🔍 AI Configuration Check', [
+                        'ai_enabled' => $aiEnabled,
+                        'ai_provider' => $aiProvider,
+                        'azure_ai_enabled' => $azureAiEnabled,
+                        'will_use_ai' => $aiEnabled && $aiProvider !== 'mock' && $azureAiEnabled
+                    ]);
+                    
+                    if ($aiEnabled && $aiProvider !== 'mock' && $azureAiEnabled) {
+                        $aiMappingUsed = true;
+                        $mappingMethod = 'ai_enhanced';
+                        
+                        // Use enhanced AI mapping with full context
+                        try {
+                            $enhancedMapper = app(EnhancedDocuSealMappingService::class);
+                            $formId = DocuSealFieldMapper::getFormIdForManufacturer($manufacturer->name);
+                            
+                            // Get template fields for validation
+                            $templateFields = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
+                            
+                            $mappedFields = $enhancedMapper->mapFieldsWithEnhancedContext(
+                                $data['prefill_data'],
+                                $templateFields,
+                                $manufacturer->name,
+                                $formId
+                            );
+                            
+                            Log::info('🤖 Enhanced AI mapping used', [
+                                'form_id' => $formId,
+                                'mapped_count' => count($mappedFields)
+                            ]);
+                        } catch (\Exception $aiEx) {
+                            Log::warning('⚠️ Enhanced AI mapping failed, falling back to standard', [
+                                'error' => $aiEx->getMessage()
+                            ]);
+                            
+                            // Fallback to standard AI mapping
+                            $mappedFields = $this->docuSealService->mapFieldsWithAI(
+                                $data['prefill_data'],
+                                $template
+                            );
+                        }
+                    } else {
+                        // Use standard mapping (AI or static based on config)
+                        $mappedFields = $this->docuSealService->mapFieldsWithAI(
+                            $data['prefill_data'],
+                            $template
+                        );
+                    }
 
                     Log::info('✅ Field mapping SUCCESSFUL', [
                         'original_fields' => count($data['prefill_data']),
@@ -895,11 +942,11 @@ final class QuickRequestController extends Controller
 
             // Step 7: Create Submission Data with Validation
             // Use the new mapper to properly format fields for DocuSeal
-            if (count($mappedFields) > 0) {
-                // If we have AI-mapped fields, convert them to DocuSeal format
-                $docuSealFields = DocuSealFieldMapper::toDocuSealFields($mappedFields);
+            if (count($mappedFields) > 0 && isset($mappedFields[0]['name'])) {
+                // If we have AI-mapped fields already in DocuSeal format, use them directly
+                $docuSealFields = $mappedFields;
             } else {
-                // If no AI mapping, use the JSON-based mapping
+                // If no AI mapping or wrong format, use the JSON-based mapping
                 $docuSealFields = DocuSealFieldMapper::mapFieldsForManufacturer(
                     $data['prefill_data'] ?? [],
                     $manufacturer->name
@@ -913,6 +960,55 @@ final class QuickRequestController extends Controller
                 'final_field_count' => count($docuSealFields),
                 'sample_fields' => array_slice($docuSealFields, 0, 3)
             ]);
+            
+            // Step 6a: Validate and clean fields using enhanced validator
+            try {
+                $templateFieldsFromAPI = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
+                
+                if (!empty($templateFieldsFromAPI)) {
+                    // Use the enhanced field validator with fuzzy matching
+                    $docuSealFields = DocuSealFieldValidator::validateAndCleanFields(
+                        $docuSealFields,
+                        $templateFieldsFromAPI
+                    );
+                    
+                    Log::info('✅ Field validation with fuzzy matching complete', [
+                        'template_id' => $template->docuseal_template_id,
+                        'validated_field_count' => count($docuSealFields)
+                    ]);
+                } else {
+                    // If we couldn't get template fields, use basic validation
+                    Log::warning('⚠️ Using basic field validation without template fields');
+                    
+                    // Remove known problematic fields that commonly cause issues
+                    $filteredFields = [];
+                    $problematicPatterns = ['provider_', 'facility_', '_id$'];
+                    
+                    foreach ($docuSealFields as $field) {
+                        $fieldName = $field['name'] ?? '';
+                        $isProblematic = false;
+                        
+                        foreach ($problematicPatterns as $pattern) {
+                            if (preg_match('/' . $pattern . '/', $fieldName)) {
+                                $isProblematic = true;
+                                break;
+                            }
+                        }
+                        
+                        if (!$isProblematic) {
+                            $filteredFields[] = $field;
+                        }
+                    }
+                    
+                    $docuSealFields = $filteredFields;
+                }
+            } catch (\Exception $e) {
+                Log::warning('⚠️ Field validation failed, proceeding with original fields', [
+                    'error' => $e->getMessage(),
+                    'template_id' => $template->docuseal_template_id
+                ]);
+                // Continue with original fields
+            }
             
             $submissionData = [
                 'template_id' => (int) $template->docuseal_template_id,
@@ -935,13 +1031,19 @@ final class QuickRequestController extends Controller
                 throw new \Exception('Submitter email is invalid: ' . $submissionData['submitters'][0]['email']);
             }
 
+            // Log all field names being sent
+            $fieldNames = array_map(function($field) {
+                return $field['name'] ?? 'unknown';
+            }, $docuSealFields);
+            
             Log::info('📤 Sending DocuSeal API request', [
                 'template_id' => $submissionData['template_id'],
                 'submitter_email' => $submissionData['submitters'][0]['email'],
                 'submitter_role' => $submissionData['submitters'][0]['role'],
                 'mapped_fields_count' => count($mappedFields),
                 'docuseal_fields_count' => count($docuSealFields),
-                'sample_fields' => array_slice($docuSealFields, 0, 3),
+                'all_field_names' => $fieldNames,
+                'sample_fields' => array_slice($docuSealFields, 0, 5),
                 'api_endpoint' => "{$apiUrl}/submissions"
             ]);
 
@@ -1934,7 +2036,7 @@ final class QuickRequestController extends Controller
                     'docuseal_submission_id' => $productRequest->docuseal_submission_id,
                     'completed_at' => $productRequest->ivr_completed_at,
                     'pdf_url' => $productRequest->docuseal_submission_id 
-                        ? "https://api.docuseal.com/submissions/{$productRequest->docuseal_submission_id}/download"
+                        ? config('services.docuseal.api_url', 'https://api.docuseal.com') . "/submissions/{$productRequest->docuseal_submission_id}/download"
                         : null,
                 ],
                 'status' => [
@@ -1978,7 +2080,7 @@ final class QuickRequestController extends Controller
                 'ivr_completed_at' => $productRequest->ivr_completed_at?->format('Y-m-d H:i:s'),
                 'docuseal_submission_id' => $productRequest->docuseal_submission_id,
                 'pdf_url' => $productRequest->docuseal_submission_id 
-                    ? "https://api.docuseal.com/submissions/{$productRequest->docuseal_submission_id}/download"
+                    ? config('services.docuseal.api_url', 'https://api.docuseal.com') . "/submissions/{$productRequest->docuseal_submission_id}/download"
                     : null,
             ]);
             
@@ -2012,7 +2114,7 @@ final class QuickRequestController extends Controller
             ])
             ->timeout(15) // Shorter timeout for template fetching
             ->retry(2, 500) // Retry twice with 500ms delay
-            ->get("https://api.docuseal.com/templates/{$templateId}");
+            ->get(config('services.docuseal.api_url', 'https://api.docuseal.com') . "/templates/{$templateId}");
 
             if ($response->successful()) {
                 $templateData = $response->json();
@@ -2218,8 +2320,9 @@ final class QuickRequestController extends Controller
 
     /**
      * Load authenticated user's profile data for DocuSeal forms
+     * @param int|null $facilityId Optional facility ID to use instead of primary facility
      */
-    private function loadUserProfileDataForDocuSeal(): array
+    private function loadUserProfileDataForDocuSeal(?int $facilityId = null): array
     {
         try {
             $user = Auth::user();
@@ -2259,32 +2362,79 @@ final class QuickRequestController extends Controller
                 $profileData['provider_dea'] = $providerProfile->dea_number ?? '';
                 $profileData['provider_practice_name'] = $providerProfile->practice_name ?? '';
                 $profileData['provider_tax_id'] = $providerProfile->tax_id ?? '';
+                
+                // Additional provider credentials
+                $profileData['practice_name'] = $providerProfile->practice_name ?? '';
+                $profileData['practice_npi'] = $providerProfile->practice_npi ?? '';
+                $profileData['practice_ptan'] = $providerProfile->ptan ?? '';
+                $profileData['ptanNumber'] = $providerProfile->ptan ?? '';
+                $profileData['medicaidNumber'] = $providerProfile->medicaid_number ?? '';
 
                 if ($providerProfile->credentials) {
                     $profileData['provider_credentials'] = $providerProfile->credentials;
                 }
+                
+                // Provider contact information
+                $profileData['physician_name'] = $user->first_name . ' ' . $user->last_name;
+                $profileData['physician_npi'] = $profileData['provider_npi'] ?? '';
+                $profileData['physician_email'] = $user->email;
             }
 
-            // Primary Facility Information
-            $primaryFacility = $user->facilities()->wherePivot('is_primary', true)->first();
-            if (!$primaryFacility && $user->facilities->count() > 0) {
-                $primaryFacility = $user->facilities->first();
+            // Facility Information - Use specified facility or fallback to primary
+            $facility = null;
+            
+            if ($facilityId) {
+                // Use the facility specified in the request
+                $facility = $user->facilities()->where('facilities.id', $facilityId)->first();
+                if (!$facility) {
+                    // Try to find the facility in the database (in case user has access through organization)
+                    $facility = \App\Models\Fhir\Facility::find($facilityId);
+                }
+            }
+            
+            // Fallback to primary facility if no specific facility was requested or found
+            if (!$facility) {
+                $facility = $user->facilities()->wherePivot('is_primary', true)->first();
+                if (!$facility && $user->facilities->count() > 0) {
+                    $facility = $user->facilities->first();
+                }
             }
 
-            if ($primaryFacility) {
-                $profileData['facility_name'] = $primaryFacility->name;
-                $profileData['facility_npi'] = $primaryFacility->npi ?? '';
-                $profileData['facility_phone'] = $primaryFacility->phone ?? '';
-                $profileData['facility_fax'] = $primaryFacility->fax ?? '';
-                $profileData['facility_address'] = $primaryFacility->address_line1 ?? '';
-                $profileData['facility_address_line2'] = $primaryFacility->address_line2 ?? '';
-                $profileData['facility_city'] = $primaryFacility->city ?? '';
-                $profileData['facility_state'] = $primaryFacility->state ?? '';
-                $profileData['facility_zip'] = $primaryFacility->zip ?? '';
+            if ($facility) {
+                $profileData['facility_name'] = $facility->name;
+                $profileData['facility_npi'] = $facility->npi ?? '';
+                $profileData['facility_phone'] = $facility->phone ?? '';
+                $profileData['facility_fax'] = $facility->fax ?? '';
+                $profileData['facility_address'] = $facility->address ?? '';
+                $profileData['facility_address_line1'] = $facility->address ?? '';
+                $profileData['facility_address_line2'] = $facility->address_line2 ?? '';
+                $profileData['facility_city'] = $facility->city ?? '';
+                $profileData['facility_state'] = $facility->state ?? '';
+                $profileData['facility_zip'] = $facility->zip_code ?? $facility->zip ?? '';
+                
+                // Additional facility fields
+                $profileData['facility_group_npi'] = $facility->group_npi ?? '';
+                $profileData['facility_ptan'] = $facility->ptan ?? '';
+                $profileData['facility_tax_id'] = $facility->tax_id ?? '';
+                $profileData['facility_type'] = $facility->facility_type ?? '';
+                $profileData['place_of_service'] = $facility->default_place_of_service ?? '';
+                
+                // Contact information
+                $profileData['facility_contact_name'] = $facility->contact_name ?? '';
+                $profileData['facility_contact_phone'] = $facility->contact_phone ?? '';
+                $profileData['facility_contact_email'] = $facility->contact_email ?? '';
+                $profileData['facility_contact_fax'] = $facility->contact_fax ?? '';
+                
+                // Common contact mappings
+                $profileData['contact_name'] = $facility->contact_name ?? $user->first_name . ' ' . $user->last_name;
+                $profileData['contact_email'] = $facility->contact_email ?? $user->email;
+                $profileData['contact_phone'] = $facility->contact_phone ?? $user->phone ?? '';
+                $profileData['office_contact_name'] = $profileData['contact_name'];
+                $profileData['office_contact_email'] = $profileData['contact_email'];
 
                 // Full facility address
-                if ($primaryFacility->full_address) {
-                    $profileData['facility_full_address'] = $primaryFacility->full_address;
+                if ($facility->full_address) {
+                    $profileData['facility_full_address'] = $facility->full_address;
                 }
             }
 
@@ -2325,7 +2475,10 @@ final class QuickRequestController extends Controller
                 'user_id' => $user->id,
                 'fields_loaded' => count($profileData),
                 'has_provider_profile' => isset($providerProfile),
-                'has_facility' => isset($primaryFacility),
+                'has_facility' => isset($facility),
+                'facility_id' => $facility->id ?? null,
+                'facility_name' => $facility->name ?? null,
+                'requested_facility_id' => $facilityId,
                 'has_organization' => isset($currentOrg)
             ]);
 

@@ -3,7 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import axios from 'axios';
 import {
-  Upload, Brain, FileText, CheckCircle, AlertCircle,
+  Upload, Brain, FileText, AlertCircle,
   Sparkles, ArrowRight, Loader2, Download, Eye,
   Zap, Target, TrendingUp, X, Info, FileSearch
 } from 'lucide-react';
@@ -49,7 +49,7 @@ export const AITemplateAnalyzer: React.FC<AITemplateAnalyzerProps> = ({
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setSelectedFile(acceptedFiles[0]);
+      setSelectedFile(acceptedFiles[0] || null);
       setError(null);
     }
   }, []);
@@ -66,7 +66,7 @@ export const AITemplateAnalyzer: React.FC<AITemplateAnalyzerProps> = ({
   
   const onTestDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
-      setTestFile(acceptedFiles[0]);
+      setTestFile(acceptedFiles[0] || null);
       setError(null);
     }
   }, []);
@@ -132,11 +132,11 @@ export const AITemplateAnalyzer: React.FC<AITemplateAnalyzerProps> = ({
     const mappings: any[] = [];
     
     analysisResult.detected_fields.forEach((field: DetectedField) => {
-      if (field.suggestions.length > 0 && field.suggestions[0].confidence > 70) {
+      if (field.suggestions.length > 0 && field.suggestions[0]?.confidence > 70) {
         mappings.push({
           field_name: field.name,
-          canonical_field_id: field.suggestions[0].canonical_field_id,
-          confidence: field.suggestions[0].confidence
+          canonical_field_id: field.suggestions[0]?.canonical_field_id,
+          confidence: field.suggestions[0]?.confidence
         });
       }
     });

@@ -37,8 +37,8 @@ class SecurityHeaders
                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " .
                "font-src 'self' https://fonts.gstatic.com; " .
                "img-src 'self' data: https:; " .
-               "connect-src 'self' https://api.docuseal.co https://*.azurehealthcareapis.com; " .
-               "frame-src 'self' https://docuseal.co;";
+               "connect-src 'self' https://api.docuseal.com https://*.azurehealthcareapis.com; " .
+               "frame-src 'self' https://docuseal.com;";
         
         $response->headers->set('Content-Security-Policy', $csp);
         

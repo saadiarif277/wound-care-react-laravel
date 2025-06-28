@@ -21,7 +21,7 @@ class DocuSealService
         private UnifiedFieldMappingService $fieldMappingService
     ) {
         $this->apiKey = config('services.docuseal.api_key');
-        $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.co');
+        $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
     }
 
     /**
@@ -495,7 +495,7 @@ class DocuSealService
 
             $docuSealFields[] = [
                 'name' => $fieldId,
-                'value' => (string) $value,
+                'default_value' => (string) $value,
             ];
         }
 
@@ -603,6 +603,12 @@ class DocuSealService
                     ]);
                     
                     // Use AI to map the fields
+                    Log::info('🤖 Calling Azure AI with template fields', [
+                        'source_fields' => array_keys($data),
+                        'target_fields' => array_keys($templateFields),
+                        'sample_target_fields' => array_slice(array_keys($templateFields), 0, 10)
+                    ]);
+                    
                     $aiResult = $azureAI->translateFormData(
                         $data,
                         $templateFields,
@@ -614,33 +620,74 @@ class DocuSealService
                     if ($aiResult['success'] && !empty($aiResult['mappings'])) {
                         Log::info('✅ AI field mapping successful', [
                             'mapped_fields' => count($aiResult['mappings']),
-                            'confidence' => $aiResult['overall_confidence'] ?? 0
+                            'confidence' => $aiResult['overall_confidence'] ?? 0,
+                            'sample_mappings' => array_slice($aiResult['mappings'], 0, 5, true)
                         ]);
                         
-                        // Convert AI result format to simple key-value pairs
+                        // Convert AI result format to DocuSeal format directly
                         $mappedFields = [];
                         foreach ($aiResult['mappings'] as $targetField => $mapping) {
-                            if (isset($mapping['value'])) {
-                                $mappedFields[$targetField] = $mapping['value'];
+                            if (isset($mapping['value']) && $mapping['value'] !== null && $mapping['value'] !== '') {
+                                // Special handling for gender field - split "Male Female" into separate checkboxes
+                                if ($targetField === 'Male Female' && isset($mapping['value'])) {
+                                    $genderValue = strtolower($mapping['value']);
+                                    Log::info('Processing AI-mapped gender field', [
+                                        'original_field' => $targetField,
+                                        'value' => $mapping['value'],
+                                        'normalized' => $genderValue
+                                    ]);
+                                    
+                                    if (strpos($genderValue, 'male') !== false && strpos($genderValue, 'female') === false) {
+                                        $mappedFields[] = ['name' => 'Male', 'default_value' => 'true'];
+                                        $mappedFields[] = ['name' => 'Female', 'default_value' => 'false'];
+                                    } elseif (strpos($genderValue, 'female') !== false) {
+                                        $mappedFields[] = ['name' => 'Male', 'default_value' => 'false'];
+                                        $mappedFields[] = ['name' => 'Female', 'default_value' => 'true'];
+                                    }
+                                } else {
+                                    $mappedFields[] = [
+                                        'name' => $targetField,
+                                        'default_value' => (string)$mapping['value']
+                                    ];
+                                }
                             }
                         }
                         
                         // Special handling for MedLife amnio_amp_size
                         if ($template->manufacturer && in_array($template->manufacturer->name, ['MedLife', 'MedLife Solutions'])) {
                             // Check if amnio_amp_size is in the original data but not mapped
-                            if (isset($data['amnio_amp_size']) && !isset($mappedFields['amnio_amp_size'])) {
-                                $mappedFields['amnio_amp_size'] = $data['amnio_amp_size'];
+                            $hasMappedAmnioSize = false;
+                            foreach ($mappedFields as $field) {
+                                if ($field['name'] === 'amnio_amp_size') {
+                                    $hasMappedAmnioSize = true;
+                                    break;
+                                }
+                            }
+                            
+                            if (isset($data['amnio_amp_size']) && !$hasMappedAmnioSize) {
+                                $mappedFields[] = [
+                                    'name' => 'amnio_amp_size',
+                                    'default_value' => (string)$data['amnio_amp_size']
+                                ];
                                 Log::info('Added MedLife amnio_amp_size field', [
                                     'value' => $data['amnio_amp_size']
                                 ]);
                             }
                         }
                         
+                        // Return the mapped fields directly in DocuSeal format
                         return $mappedFields;
                     }
                 } catch (\Exception $aiException) {
                     Log::warning('⚠️ AI mapping failed, falling back to static mappings', [
-                        'error' => $aiException->getMessage()
+                        'error' => $aiException->getMessage(),
+                        'error_type' => get_class($aiException),
+                        'stack_trace' => $aiException->getTraceAsString(),
+                        'ai_enabled' => config('ai.enabled'),
+                        'ai_provider' => config('ai.provider'),
+                        'azure_enabled' => config('azure.ai_foundry.enabled'),
+                        'azure_endpoint' => config('azure.ai_foundry.endpoint'),
+                        'azure_deployment' => config('azure.ai_foundry.deployment_name')
                     ]);
                 }
             }
@@ -717,7 +764,16 @@ class DocuSealService
                 'template_id' => $template->id
             ]);
 
-            return $mappedFields;
+            // Convert to DocuSeal format
+            $docuSealFields = [];
+            foreach ($mappedFields as $fieldName => $fieldValue) {
+                $docuSealFields[] = [
+                    'name' => $fieldName,
+                    'default_value' => (string)$fieldValue
+                ];
+            }
+
+            return $docuSealFields;
 
         } catch (\Exception $e) {
             Log::error('DocuSeal: Error mapping fields', [

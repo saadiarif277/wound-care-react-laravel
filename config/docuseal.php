@@ -28,26 +28,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal Template IDs by Manufacturer
+    | DocuSeal Template Configuration
     |--------------------------------------------------------------------------
     |
-    | Map of manufacturer names/IDs to their DocuSeal template IDs
-    | These should match the template IDs in your DocuSeal account
+    | Template IDs are now managed via the database (docuseal_templates table)
+    | This provides better flexibility and avoids hardcoded values
     |
     */
-    'templates' => [
-        'acz' => env('DOCUSEAL_ACZ_TEMPLATE_ID', '852440'),
-        'advanced_health' => env('DOCUSEAL_ADVANCED_HEALTH_TEMPLATE_ID', '113461'),
-        'medlife' => env('DOCUSEAL_MEDLIFE_TEMPLATE_ID', '113461'),
-        'centurion' => env('DOCUSEAL_CENTURION_TEMPLATE_ID', '113461'),
-        'biowerx' => env('DOCUSEAL_BIOWERX_TEMPLATE_ID', '113461'),
-        'biowound' => env('DOCUSEAL_BIOWOUND_TEMPLATE_ID', '113461'),
-        'extremity_care' => env('DOCUSEAL_EXTREMITY_CARE_TEMPLATE_ID', '113461'),
-        'skye_biologics' => env('DOCUSEAL_SKYE_BIOLOGICS_TEMPLATE_ID', '113461'),
-        'total_ancillary' => env('DOCUSEAL_TOTAL_ANCILLARY_TEMPLATE_ID', '113461'),
-        'biovance' => env('DOCUSEAL_BIOVANCE_TEMPLATE_ID', '113461'),
-        'biovance_advanced' => env('DOCUSEAL_BIOVANCE_ADVANCED_TEMPLATE_ID', '113461'),
-    ],
 
     /*
     |--------------------------------------------------------------------------
