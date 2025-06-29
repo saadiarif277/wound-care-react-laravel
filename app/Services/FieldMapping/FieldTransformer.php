@@ -4,6 +4,7 @@ namespace App\Services\FieldMapping;
 
 use DateTime;
 use InvalidArgumentException;
+use Illuminate\Support\Facades\Log;
 
 class FieldTransformer
 {
@@ -73,7 +74,7 @@ class FieldTransformer
         try {
             return $this->transformers[$type][$format]($value);
         } catch (\Exception $e) {
-            \Log::warning("Transformation failed for {$transformer}: {$e->getMessage()}", [
+            Log::warning("Transformation failed for {$transformer}: {$e->getMessage()}", [
                 'value' => $value,
                 'transformer' => $transformer
             ]);

@@ -24,10 +24,9 @@ use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\Admin\ProviderManagementController;
 use App\Http\Controllers\Api\OrderReviewController;
-use App\Http\Controllers\Api\FieldMappingController;
 use App\Http\Controllers\Api\TemplateMappingController;
 use App\Http\Controllers\Api\DocumentIntelligenceController;
-use App\Http\Controllers\Api\DocuSealDebugController;
+use App\Http\Controllers\Api\ManufacturerController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -196,6 +195,16 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         // Document viewing
         Route::get('{orderId}/documents/{documentId}', [OrderReviewController::class, 'viewDocument'])
             ->name('api.orders.documents.view');
+    });
+    
+    // Manufacturer API routes
+    Route::prefix('manufacturers')->group(function () {
+        Route::get('/', [ManufacturerController::class, 'index'])
+            ->name('api.manufacturers.index');
+        Route::get('/{manufacturerIdOrName}', [ManufacturerController::class, 'show'])
+            ->name('api.manufacturers.show');
+        Route::post('/clear-cache', [ManufacturerController::class, 'clearCache'])
+            ->name('api.manufacturers.clear-cache');
     });
 });
 
@@ -371,22 +380,7 @@ Route::prefix('v1/document-intelligence')->middleware(['auth:sanctum', 'permissi
     Route::post('test-mappings', [\App\Http\Controllers\Api\DocumentIntelligenceController::class, 'testMappings'])->name('test-mappings');
 });
 
-// Unified Field Mapping Routes
-Route::prefix('v1/field-mapping')->middleware(['auth:sanctum'])->name('field-mapping.')->group(function () {
-    // Episode field mapping
-    Route::post('episode/{episodeId}', [FieldMappingController::class, 'mapEpisode'])->name('map-episode');
-    Route::get('episode/{episodeId}/logs', [FieldMappingController::class, 'getEpisodeLogs'])->name('episode-logs');
-    
-    // Manufacturer configuration
-    Route::get('manufacturers', [FieldMappingController::class, 'listManufacturers'])->name('manufacturers');
-    Route::get('manufacturer/{manufacturer}', [FieldMappingController::class, 'getManufacturerConfig'])->name('manufacturer-config');
-    Route::get('manufacturer/{manufacturer}/field-suggestions', [FieldMappingController::class, 'getFieldSuggestions'])->name('field-suggestions');
-    
-    // Validation and analytics
-    Route::post('validate', [FieldMappingController::class, 'validateMapping'])->name('validate');
-    Route::get('analytics', [FieldMappingController::class, 'getAnalytics'])->name('analytics');
-    Route::post('batch-map', [FieldMappingController::class, 'batchMapEpisodes'])->name('batch-map');
-});
+// Field mapping functionality is now handled by TemplateMappingController
 
 // Unified DocuSeal Service Routes
 Route::prefix('v1/docuseal')->middleware(['auth:sanctum'])->name('docuseal.unified.')->group(function () {
@@ -772,18 +766,7 @@ Route::prefix('episodes')->middleware(['auth:sanctum'])->group(function () {
         ->middleware('permission:view-orders');
 });
 
-// DocuSeal Debug Routes
-Route::prefix('docuseal-debug')->middleware(['auth:sanctum'])->group(function() {
-    Route::get('medlife', [DocuSealDebugController::class, 'debugMedLifeMapping']);
-    Route::post('test-mapping', [DocuSealDebugController::class, 'testFieldMapping']);
-});
-
-// DocuSeal Field Validation Routes
-Route::prefix('v1/docuseal/validation')->middleware(['auth:sanctum'])->group(function () {
-    Route::post('validate-fields', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'validateFields'])->name('docuseal.validate-fields');
-    Route::post('template-fields', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'getTemplateFields'])->name('docuseal.template-fields');
-    Route::post('clear-cache', [\App\Http\Controllers\Api\DocuSealFieldValidationController::class, 'clearCache'])->name('docuseal.clear-cache');
-});
+// DocuSeal validation and debugging functionality is now integrated into the main DocuSeal services
 
 // Fallback Route for 404 API requests
   Route::get('providers/{providerId}/debug-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'debugProviderProducts']);

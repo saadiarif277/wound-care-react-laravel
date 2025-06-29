@@ -363,7 +363,56 @@ class UnifiedFieldMappingService
             }
         }
 
+        // Try matching by manufacturer name in config
+        foreach ($this->config['manufacturers'] as $key => $config) {
+            if (isset($config['name']) && 
+                (strtolower($config['name']) === strtolower($name) || 
+                 str_contains(strtolower($config['name']), strtolower($name)))) {
+                return $config;
+            }
+        }
+
         return null;
+    }
+
+    /**
+     * Convert mapped data to DocuSeal field format
+     */
+    public function convertToDocuSealFields(array $mappedData, array $manufacturerConfig): array
+    {
+        $docuSealFields = [];
+        $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
+
+        foreach ($mappedData as $canonicalName => $value) {
+            // Skip null or empty values
+            if ($value === null || $value === '') {
+                continue;
+            }
+
+            // Get the DocuSeal field name for this canonical field
+            $docuSealFieldName = $fieldNameMapping[$canonicalName] ?? $canonicalName;
+
+            // Special handling for gender checkboxes (Centurion)
+            if ($canonicalName === 'patient_gender' && $docuSealFieldName === 'Male/Female') {
+                // Split into two checkbox fields
+                if (strtolower($value) === 'male') {
+                    $docuSealFields[] = ['name' => 'Male', 'default_value' => 'true'];
+                    $docuSealFields[] = ['name' => 'Female', 'default_value' => 'false'];
+                } elseif (strtolower($value) === 'female') {
+                    $docuSealFields[] = ['name' => 'Male', 'default_value' => 'false'];
+                    $docuSealFields[] = ['name' => 'Female', 'default_value' => 'true'];
+                }
+                continue;
+            }
+
+            // Add the field with its DocuSeal name
+            $docuSealFields[] = [
+                'name' => $docuSealFieldName,
+                'default_value' => (string) $value
+            ];
+        }
+
+        return $docuSealFields;
     }
 
     /**

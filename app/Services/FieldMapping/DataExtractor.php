@@ -76,7 +76,7 @@ class DataExtractor
             'episode_number' => $episode->episode_number,
             'status' => $episode->status,
             'created_at' => $episode->created_at,
-            'manufacturer_name' => $episode->manufacturer_name,
+            'manufacturer_name' => $episode->manufacturer->name ?? null,
         ];
     }
 

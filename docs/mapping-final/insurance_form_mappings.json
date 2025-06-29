@@ -15,6 +15,7 @@
             "form6_ImbedBio": "Name",
             "form7_ExtremityCare_FT": "*Provider Name",
             "form8_ExtremityCare_RO": "*Provider Name"
+            }
           }
         },
         "physicianNPI": {
@@ -445,27 +446,41 @@
             "form8_ExtremityCare_RO": null
           }
         },
-        "patientGender": {
-          "description": "Patient gender",
-          "dataType": "enum",
-          "values": ["Male", "Female"],
-          "required": false,
+        "patientGenderMale": {
+          "description": "Patient Gender - Male checkbox",
+          "dataType": "boolean",
+          "values": [true, false],
+          "notes": "Only one of patientGenderMale or patientGenderFemale should be true at a time to ensure mutual exclusivity.",
           "formMappings": {
-            "form1_ACZ": null,
-            "form2_IVR": "Male Female",
-            "form3_Centurion": "Male Female",
-            "form4_BioWound": null,
-            "form5_AdvancedSolution": null,
-            "form6_ImbedBio": null,
-            "form7_ExtremityCare_FT": "Male Female",
-            "form8_ExtremityCare_RO": "Male Female"
+            "form2_IVR": "Male",
+            "form3_Centurion": "Male",
+            "form4_BioWound": "Male",
+            "form5_AdvancedSolution": "Male",
+            "form6_ImbedBio": "Male",
+            "form7_ExtremityCare_FT": "Male",
+            "form8_ExtremityCare_RO": "Male"
+          }
+        },
+        "patientGenderFemale": {
+          "description": "Patient Gender - Female checkbox",
+          "dataType": "boolean",
+          "values": [true, false],
+          "notes": "Only one of patientGenderMale or patientGenderFemale should be true at a time to ensure mutual exclusivity.",
+          "formMappings": {
+            "form2_IVR": "Female",
+            "form3_Centurion": "Female",
+            "form4_BioWound": "Female",
+            "form5_AdvancedSolution": "Female",
+            "form6_ImbedBio": "Female",
+            "form7_ExtremityCare_FT": "Female",
+            "form8_ExtremityCare_RO": "Female"
           }
         }
-      }
+        }
     },
-    "insuranceInformation": {
-      "primaryInsurance": {
-        "canonicalFields": {
+"insuranceInformation": {
+  "primaryInsurance": {
+    "canonicalFields": {
           "insuranceName": {
             "description": "Name of primary insurance company",
             "dataType": "string",
@@ -545,5 +560,4 @@
         }
       }
     }
-  } 
-}   
+  }

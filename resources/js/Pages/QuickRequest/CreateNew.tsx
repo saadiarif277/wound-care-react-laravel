@@ -12,7 +12,7 @@ import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
 import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
-import { getManufacturerByProduct, manufacturerConfigs } from './manufacturerFields';
+import { useManufacturers } from '@/hooks/useManufacturers';
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -235,6 +235,9 @@ function QuickRequestCreateNew({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  // Use manufacturers hook
+  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
+
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -304,13 +307,12 @@ function QuickRequestCreateNew({
       const product = products.find(p => p.id === selectedProduct.product_id);
       if (!product) return false;
 
-      // Find the manufacturer configuration
-      const manufacturerConfig = manufacturerConfigs.find(config => 
-        config.name === product.manufacturer || 
-        config.products.some(productName => product.name.includes(productName))
-      );
-
-      return manufacturerConfig?.hasOrderForm === true;
+      // Find the manufacturer configuration from API data
+      const manufacturerConfig = getManufacturerByName(product.manufacturer);
+      
+      // For now, we'll return false since order forms aren't configured in the database yet
+      // TODO: Add order_form_template_id to manufacturers table and check manufacturerConfig?.order_form_template_id
+      return false;
     });
   };
 
@@ -755,8 +757,8 @@ function QuickRequestCreateNew({
     const product = products.find(p => p.id === firstProduct.product_id);
     if (!product) return;
 
-    const manufacturerKey = getManufacturerByProduct(product.code);
-    if (!manufacturerKey) return;
+    const manufacturerConfig = getManufacturerByName(product.manufacturer);
+    if (!manufacturerConfig) return;
 
     setIsExtractingIvrFields(true);
     try {
@@ -774,7 +776,7 @@ function QuickRequestCreateNew({
         device_request_id: formData.fhir_device_request_id,
         episode_id: formData.episode_id,
         episode_of_care_id: formData.fhir_episode_of_care_id,
-        manufacturer_key: manufacturerKey,
+        manufacturer_key: manufacturerConfig.name,
         sales_rep: formData.sales_rep_id ? {
           name: 'MSC Distribution',
           email: 'orders@mscwoundcare.com'

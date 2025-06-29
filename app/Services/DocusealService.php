@@ -2,9 +2,9 @@
 
 namespace App\Services;
 
+use App\Models\Episode;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Services\UnifiedFieldMappingService;
-use App\Services\AI\IntelligentDocuSealService;
 use App\Services\AI\AzureFoundryService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -61,7 +61,8 @@ class DocuSealService
                 $response = $this->createSubmission(
                     $mappingResult['manufacturer']['template_id'],
                     $mappingResult['data'],
-                    $episodeId
+                    $episodeId,
+                    $mappingResult['manufacturer']
                 );
 
                 // Update IVR episode with submission ID
@@ -104,9 +105,15 @@ class DocuSealService
     /**
      * Create a new DocuSeal submission
      */
-    private function createSubmission(string $templateId, array $fields, int $episodeId): array
+    private function createSubmission(string $templateId, array $fields, int $episodeId, array $manufacturerConfig = []): array
     {
-        $preparedFields = $this->prepareFieldsForDocuSeal($fields, $templateId);
+        // Use UnifiedFieldMappingService to convert fields to DocuSeal format
+        if (!empty($manufacturerConfig['docuseal_field_names'])) {
+            $preparedFields = $this->fieldMappingService->convertToDocuSealFields($fields, $manufacturerConfig);
+        } else {
+            // Fallback to old method if no mapping config
+            $preparedFields = $this->prepareFieldsForDocuSeal($fields, $templateId);
+        }
         
         Log::info('Creating DocuSeal submission', [
             'template_id' => $templateId,
@@ -159,7 +166,7 @@ class DocuSealService
     /**
      * Update an existing DocuSeal submission
      */
-    private function updateSubmission(string $submissionId, array $fields, string $templateId = null): array
+    private function updateSubmission(string $submissionId, array $fields, ?string $templateId = null): array
     {
         $response = Http::withHeaders([
             'Authorization' => 'API-Key ' . $this->apiKey,
@@ -250,7 +257,8 @@ class DocuSealService
             }
 
             $response = Http::withHeaders([
-                'Authorization' => 'API-Key ' . $this->apiKey,
+                'X-API-TOKEN' => $this->apiKey,
+                'Content-Type' => 'application/json',
             ])->get("{$this->apiUrl}/templates/{$templateId}");
 
             if (!$response->successful()) {
@@ -261,9 +269,24 @@ class DocuSealService
                 ]);
                 return [];
             }
+            
+            // Debug log the raw response
+            Log::info('DocuSeal template API response', [
+                'template_id' => $templateId,
+                'status' => $response->status(),
+                'response_keys' => array_keys($response->json() ?? [])
+            ]);
 
             $template = $response->json();
             $fields = [];
+            
+            // Debug the template structure
+            Log::info('DocuSeal template structure', [
+                'has_documents' => isset($template['documents']),
+                'has_fields' => isset($template['fields']),
+                'has_schema' => isset($template['schema']),
+                'template_keys' => array_keys($template ?? [])
+            ]);
 
             // Extract fields from template documents
             if (isset($template['documents']) && is_array($template['documents'])) {
@@ -427,14 +450,14 @@ class DocuSealService
             'required_fields_completeness' => $mappingResult['completeness']['required_percentage'],
             'mapped_fields' => $mappingResult['data'],
             'validation_warnings' => $mappingResult['validation']['warnings'],
-            'created_by' => auth()->id(),
+            'created_by' => optional(auth())->id(),
         ]);
     }
 
     /**
      * Prepare fields for DocuSeal API format
      */
-    private function prepareFieldsForDocuSeal(array $fields, string $templateId = null): array
+    private function prepareFieldsForDocuSeal(array $fields, ?string $templateId = null): array
     {
         $docuSealFields = [];
         $skippedFields = [];
@@ -948,7 +971,7 @@ class DocuSealService
             $response = Http::withHeaders([
                 'X-API-TOKEN' => $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->get($this->apiUrl . '/api/templates');
+            ])->get($this->apiUrl . '/templates');
 
             if ($response->successful()) {
                 $templates = $response->json();

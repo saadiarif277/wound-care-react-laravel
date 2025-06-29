@@ -1,13 +1,57 @@
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
-import { prepareDocuSealData } from './docusealUtils';
 import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShield, FiHeart, FiClock, FiStar, FiCheck, FiInfo } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
-import { getManufacturerByProduct, getManufacturerConfig } from '../manufacturerFields';
+import { useManufacturers } from '@/hooks/useManufacturers';
 import axios from 'axios';
 
+// Prepare DocuSeal data function (moved from deleted docusealUtils.ts)
+const prepareDocuSealData = ({ formData, products, providers, facilities }: any) => {
+  const selectedProduct = formData.selected_products?.[0];
+  const product = products?.find((p: any) => p.id === selectedProduct?.product_id);
+  const provider = providers?.find((p: any) => p.id === formData.provider_id);
+  const facility = facilities?.find((f: any) => f.id === formData.facility_id);
+
+  return {
+    // Patient Information
+    patient_name: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
+    patient_first_name: formData.patient_first_name || '',
+    patient_last_name: formData.patient_last_name || '',
+    patient_dob: formData.patient_dob || '',
+    patient_gender: formData.patient_gender || '',
+    
+    // Provider Information
+    provider_name: provider?.name || formData.provider_name || '',
+    provider_npi: provider?.npi || formData.provider_npi || '',
+    provider_email: formData.provider_email || '',
+    
+    // Facility Information
+    facility_name: facility?.name || formData.facility_name || '',
+    facility_address: facility?.address || '',
+    
+    // Product Information
+    product_name: product?.name || '',
+    product_code: product?.code || '',
+    product_manufacturer: product?.manufacturer || '',
+    manufacturer_id: product?.manufacturer_id || null,
+    
+    // Insurance Information
+    primary_insurance_name: formData.primary_insurance_name || '',
+    primary_member_id: formData.primary_member_id || '',
+    
+    // Clinical Information
+    wound_type: formData.wound_type || '',
+    wound_location: formData.wound_location || '',
+    wound_size_length: formData.wound_size_length || '',
+    wound_size_width: formData.wound_size_width || '',
+    wound_size_depth: formData.wound_size_depth || '',
+    
+    // Other fields
+    ...formData
+  };
+};
 
 interface SelectedProduct {
   product_id: number;
@@ -132,6 +176,9 @@ export default function Step7DocuSealIVR({
   const [enhancedSubmission, setEnhancedSubmission] = useState<any>(null);
   const [redirectTimeout, setRedirectTimeout] = useState<number | null>(null);
 
+  // Use the manufacturers hook
+  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
+
   // Get the selected product
   const getSelectedProduct = () => {
     if (!formData.selected_products || formData.selected_products.length === 0) {
@@ -147,12 +194,11 @@ export default function Step7DocuSealIVR({
   };
 
   const selectedProduct = getSelectedProduct();
-  let manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
-
-  // If no config found by product name, try by manufacturer name
-  if (!manufacturerConfig && selectedProduct?.manufacturer) {
-    manufacturerConfig = getManufacturerConfig(selectedProduct.manufacturer);
-  }
+  
+  // Get manufacturer config from API data
+  const manufacturerConfig = selectedProduct?.manufacturer 
+    ? getManufacturerByName(selectedProduct.manufacturer)
+    : null;
 
   // Debug logging
   console.log('Selected Product:', {
@@ -162,7 +208,7 @@ export default function Step7DocuSealIVR({
     code: selectedProduct?.code
   });
   console.log('Manufacturer Config found:', manufacturerConfig);
-  console.log('Signature Required:', manufacturerConfig?.signatureRequired);
+  console.log('Signature Required:', manufacturerConfig?.signature_required);
 
   // Get provider and facility details
   const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
@@ -380,7 +426,7 @@ export default function Step7DocuSealIVR({
   }
 
   // No IVR required for this manufacturer
-  if (!manufacturerConfig || !manufacturerConfig?.signatureRequired) {
+  if (!manufacturerConfig || !manufacturerConfig?.signature_required) {
     // Set a placeholder submission ID when IVR is not required
     React.useEffect(() => {
       if (!formData.docuseal_submission_id) {

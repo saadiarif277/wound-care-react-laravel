@@ -4,7 +4,7 @@ import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward, 
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
-import { getManufacturerByProduct, getManufacturerConfig } from '../manufacturerFields';
+import { useManufacturers } from '@/hooks/useManufacturers';
 import axios from 'axios';
 
 interface SelectedProduct {
@@ -135,6 +135,9 @@ export default function Step8OrderFormApproval({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  // Use manufacturers hook
+  const { getManufacturerByName } = useManufacturers();
+
   const [showOrderForm, setShowOrderForm] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [isSkipped, setIsSkipped] = useState(false);
@@ -157,15 +160,13 @@ export default function Step8OrderFormApproval({
   };
 
   const selectedProduct = getSelectedProduct();
-  let manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
-
-  // If no config found by product name, try by manufacturer name
-  if (!manufacturerConfig && selectedProduct?.manufacturer) {
-    manufacturerConfig = getManufacturerConfig(selectedProduct.manufacturer);
-  }
+  const manufacturerConfig = selectedProduct?.manufacturer 
+    ? getManufacturerByName(selectedProduct.manufacturer)
+    : null;
 
   // Check if order form is available for this manufacturer
-  const hasOrderForm = manufacturerConfig?.hasOrderForm || false;
+  // TODO: Add order_form_template_id to manufacturers table and check manufacturerConfig?.order_form_template_id
+  const hasOrderForm = false; // For now, order forms aren't configured in the database yet
 
   // Debug logging
   console.log('Step 8 - Selected Product:', {

@@ -402,6 +402,7 @@ export interface QuickRequestStepProps {
 export interface UseQuickRequestReturn {
   state: QuickRequestState;
   currentStepData: any;
+  formData: QuickRequestState['data'];
   isLoading: boolean;
   errors: ValidationError[];
   warnings: Warning[];
@@ -409,9 +410,13 @@ export interface UseQuickRequestReturn {
   goNext: () => void;
   goBack: () => void;
   saveStep: (data: any) => Promise<void>;
+  updateFormData: (data: any) => void;
   submitEpisode: () => Promise<Episode>;
   validateStep: (step?: QuickRequestStep) => Promise<ValidationResult[]>;
   resetWorkflow: () => void;
+  canGoBack: boolean;
+  canGoNext: boolean;
+  progress: number;
 }
 
 // Context Types
@@ -419,8 +424,8 @@ export interface QuickRequestContextValue {
   state: QuickRequestState;
   dispatch: React.Dispatch<QuickRequestAction>;
   api: {
-    saveProgress: (step: QuickRequestStep, data: any) => Promise<void>;
-    loadProgress: (sessionId: string) => Promise<QuickRequestState>;
+    saveProgress: (sessionId: string, step: QuickRequestStep, data: any) => Promise<void>;
+    loadProgress: (sessionId: string) => Promise<QuickRequestState | null>;
     createEpisode: (data: QuickRequestState['data']) => Promise<Episode>;
     validateStep: (step: QuickRequestStep, data: any) => Promise<ValidationResult[]>;
   };
@@ -436,4 +441,5 @@ export type QuickRequestAction =
   | { type: 'LOAD_STATE'; payload: QuickRequestState }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERRORS'; payload: ValidationError[] }
-  | { type: 'SET_WARNINGS'; payload: Warning[] };
+  | { type: 'SET_WARNINGS'; payload: Warning[] }
+  | { type: 'UPDATE_DATA'; payload: Partial<QuickRequestState['data']> };

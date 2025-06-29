@@ -1112,12 +1112,7 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
 Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
     Route::get('/test', [\App\Http\Controllers\DocuSealDebugController::class, 'debug'])
         ->name('docuseal.debug');
-    Route::get('/test-submission', [\App\Http\Controllers\DocuSealDebugController::class, 'testSubmission'])
-        ->name('docuseal.test-submission');
-    Route::get('/field-mapping', [\App\Http\Controllers\DebugFieldMappingController::class, 'debugMapping'])
-        ->name('docuseal.debug-mapping');
-    Route::get('/test-actual-mapping', [\App\Http\Controllers\DebugFieldMappingController::class, 'testActualMapping'])
-        ->name('docuseal.test-actual-mapping');
+    // Debug routes removed - functionality moved to main services
 });
 
 // DocuSeal API Test Route (remove in production)

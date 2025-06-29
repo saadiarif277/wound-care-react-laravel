@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { getManufacturerConfig } from './manufacturerFields';
+import { useManufacturers } from '@/hooks/useManufacturers';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
 
 interface Step4Props {
@@ -45,6 +45,9 @@ export default function Step4Confirmation({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+  // Use manufacturers hook
+  const { getManufacturerByName } = useManufacturers();
+
   const [showIVRFrame, setShowIVRFrame] = useState(false);
   const [ivrSigned, setIvrSigned] = useState(false);
   // ASHLEY'S REQUIREMENT: ALL orders require IVR completion
@@ -54,7 +57,7 @@ export default function Step4Confirmation({
 
   const selectedProduct = products.find(p => p.id === formData.product_id);
   const selectedFacility = facilities.find(f => f.id === formData.facility_id);
-  const manufacturerConfig = selectedProduct ? getManufacturerConfig(selectedProduct.manufacturer) : null;
+  const manufacturerConfig = selectedProduct ? getManufacturerByName(selectedProduct.manufacturer) : null;
 
   // Debug logging
   console.log('Step4Confirmation Debug:', {
@@ -71,19 +74,14 @@ export default function Step4Confirmation({
   });
 
   const getTemplateId = () => {
-    // Get template ID from manufacturer config
-    if (manufacturerConfig?.docusealTemplateId) {
-      return manufacturerConfig.docusealTemplateId;
+    // Get template ID from manufacturer config (API data)
+    if (manufacturerConfig?.docuseal_template_id) {
+      return manufacturerConfig.docuseal_template_id;
     }
 
-    // Fallback template map if not in config
-    const templateMap: Record<string, string> = {
-      'Acell': '1234567',  // TODO: Replace with actual Acell template ID
-      'Organogenesis': '2345678',  // TODO: Replace with actual Organogenesis template ID
-      // Add other manufacturers as needed
-    };
-
-    return templateMap[selectedProduct?.manufacturer || ''] || '1234567'; // Default template
+    // No fallback - template IDs should come from database
+    console.error('No DocuSeal template ID found for manufacturer:', selectedProduct?.manufacturer);
+    return null;
   };
 
   useEffect(() => {

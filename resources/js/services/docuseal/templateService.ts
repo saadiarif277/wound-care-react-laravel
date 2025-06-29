@@ -70,12 +70,12 @@ class DocuSealTemplateService {
   /**
    * Extract fields from uploaded PDF
    */
-  async extractFields(file: File, templateId: string, manufacturerId: string): Promise<any> {
+  async extractFields(file: File, templateId: string, manufacturer: string): Promise<any> {
     try {
       const formData = new FormData();
       formData.append('pdf', file);
       formData.append('template_id', templateId);
-      formData.append('manufacturer_id', manufacturerId);
+      formData.append('manufacturer', manufacturer);
 
       const response = await axios.post(`${this.baseUrl}/extract-fields`, formData, {
         headers: {

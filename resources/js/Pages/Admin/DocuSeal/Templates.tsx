@@ -14,7 +14,7 @@ import {
   Layers, Target, Sparkles, ClipboardCheck, FileJson,
   Activity, Shield, Brain, Workflow
 } from 'lucide-react';
-import { FieldMappingInterface } from '@/Components/Admin/DocuSeal/FieldMappingInterface';
+// import { FieldMappingInterface } from '@/Components/Admin/DocuSeal/FieldMappingInterface';
 import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsDashboard';
 import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
 import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
@@ -746,7 +746,8 @@ export default function Templates() {
                                   )}
                                   
                                   <div className="flex gap-2">
-                                    <button
+                                    {/* Configure button temporarily disabled after cleanup */}
+                                    {/* <button
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         openMappingInterface(template);
@@ -755,7 +756,7 @@ export default function Templates() {
                                     >
                                       <MapPin className="w-3 h-3" />
                                       Configure
-                                    </button>
+                                    </button> */}
                                     
                                     <button
                                       onClick={(e) => {
@@ -883,13 +884,14 @@ export default function Templates() {
                                 </button>
                                 {mappingMode === 'edit' && (
                                   <>
-                                    <button
+                                    {/* Configure Mappings button temporarily disabled after cleanup */}
+                                    {/* <button
                                       onClick={() => openMappingInterface(template)}
                                       className="text-purple-600 hover:text-purple-900"
                                       title="Configure Mappings"
                                     >
                                       <MapPin className="w-4 h-4" />
-                                    </button>
+                                    </button> */}
                                     <button
                                       onClick={() => validateTemplate(template)}
                                       className="text-indigo-600 hover:text-indigo-900"
@@ -1193,8 +1195,8 @@ export default function Templates() {
         </Dialog>
       </Transition>
 
-      {/* Field Mapping Interface Modal */}
-      {selectedTemplateForMapping && showMappingModal && (
+      {/* Field Mapping Interface Modal - Temporarily disabled after cleanup */}
+      {/* {selectedTemplateForMapping && showMappingModal && (
         <FieldMappingInterface
           show={showMappingModal}
           onClose={() => {
@@ -1205,7 +1207,7 @@ export default function Templates() {
           templateName={selectedTemplateForMapping.template_name}
           onUpdate={() => handleMappingUpdate(selectedTemplateForMapping.id)}
         />
-      )}
+      )} */}
 
       {/* Bulk Mapping Modal */}
       {showBulkMappingModal && bulkMappingTemplateId && (

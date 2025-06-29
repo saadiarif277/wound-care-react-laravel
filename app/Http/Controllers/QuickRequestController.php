@@ -19,14 +19,10 @@ use App\Services\PayerService;
 use App\Services\PhiAuditService;
 use App\Services\CurrentOrganization;
 use App\Services\DocuSealService;
-use App\Services\DocuSealFieldMapper;
-use App\Services\DocuSealFieldValidator;
-use App\Services\AI\EnhancedDocuSealMappingService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use App\Jobs\QuickRequest\SendManufacturerNotification;
-use App\Jobs\QuickRequest\GenerateDocuSealPdf;
 use App\Jobs\QuickRequest\CreateApprovalTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +39,7 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Http;
 use App\Models\Episode;
 use App\Services\FhirDocuSealIntegrationService;
+use App\Services\UnifiedFieldMappingService;
 
 /**
  * QuickRequestController
@@ -58,7 +55,8 @@ final class QuickRequestController extends Controller
         protected PatientService $patientService,
         protected PayerService $payerService,
         protected CurrentOrganization $currentOrganization,
-        protected DocuSealService $docuSealService
+        protected DocuSealService $docuSealService,
+        protected UnifiedFieldMappingService $fieldMappingService
     ) {}
 
     /**
@@ -863,19 +861,18 @@ final class QuickRequestController extends Controller
                         $aiMappingUsed = true;
                         $mappingMethod = 'ai_enhanced';
                         
-                        // Use enhanced AI mapping with full context
+                        // Use unified field mapping service with full context
                         try {
-                            $enhancedMapper = app(EnhancedDocuSealMappingService::class);
-                            $formId = DocuSealFieldMapper::getFormIdForManufacturer($manufacturer->name);
+                            $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name);
+                            $formId = $manufacturerConfig['template_id'] ?? null;
                             
                             // Get template fields for validation
                             $templateFields = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
                             
-                            $mappedFields = $enhancedMapper->mapFieldsWithEnhancedContext(
-                                $data['prefill_data'],
-                                $templateFields,
+                            $mappedFields = $this->fieldMappingService->mapEpisodeToTemplate(
+                                $episode->id,
                                 $manufacturer->name,
-                                $formId
+                                $data['prefill_data'] ?? []
                             );
                             
                             Log::info('🤖 Enhanced AI mapping used', [
@@ -946,11 +943,14 @@ final class QuickRequestController extends Controller
                 // If we have AI-mapped fields already in DocuSeal format, use them directly
                 $docuSealFields = $mappedFields;
             } else {
-                // If no AI mapping or wrong format, use the JSON-based mapping
-                $docuSealFields = DocuSealFieldMapper::mapFieldsForManufacturer(
-                    $data['prefill_data'] ?? [],
-                    $manufacturer->name
+                // If no AI mapping or wrong format, use the unified field mapping service
+                $mappedData = $this->fieldMappingService->mapEpisodeToTemplate(
+                    $episode->id,
+                    $manufacturer->name,
+                    $data['prefill_data'] ?? []
                 );
+                $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name);
+                $docuSealFields = $this->fieldMappingService->convertToDocuSealFields($mappedData, $manufacturerConfig);
             }
             
             // Log the field mapping result
@@ -966,41 +966,27 @@ final class QuickRequestController extends Controller
                 $templateFieldsFromAPI = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
                 
                 if (!empty($templateFieldsFromAPI)) {
-                    // Use the enhanced field validator with fuzzy matching
-                    $docuSealFields = DocuSealFieldValidator::validateAndCleanFields(
-                        $docuSealFields,
-                        $templateFieldsFromAPI
-                    );
+                    // Basic field validation - filter out empty fields
+                    $docuSealFields = array_filter($docuSealFields, function($field) {
+                        return !empty($field['name']) && isset($field['value']);
+                    });
                     
                     Log::info('✅ Field validation with fuzzy matching complete', [
                         'template_id' => $template->docuseal_template_id,
                         'validated_field_count' => count($docuSealFields)
                     ]);
                 } else {
-                    // If we couldn't get template fields, use basic validation
-                    Log::warning('⚠️ Using basic field validation without template fields');
+                    // If we couldn't get template fields, skip field prefilling entirely
+                    Log::warning('⚠️ Could not retrieve template fields from DocuSeal API - skipping field prefilling', [
+                        'template_id' => $template->docuseal_template_id,
+                        'reason' => 'API may be unavailable or template structure different'
+                    ]);
                     
-                    // Remove known problematic fields that commonly cause issues
-                    $filteredFields = [];
-                    $problematicPatterns = ['provider_', 'facility_', '_id$'];
+                    // Empty the fields to avoid 422 errors
+                    $docuSealFields = [];
                     
-                    foreach ($docuSealFields as $field) {
-                        $fieldName = $field['name'] ?? '';
-                        $isProblematic = false;
-                        
-                        foreach ($problematicPatterns as $pattern) {
-                            if (preg_match('/' . $pattern . '/', $fieldName)) {
-                                $isProblematic = true;
-                                break;
-                            }
-                        }
-                        
-                        if (!$isProblematic) {
-                            $filteredFields[] = $field;
-                        }
-                    }
-                    
-                    $docuSealFields = $filteredFields;
+                    // Add a flag to indicate no prefilling
+                    $data['prefill_skipped'] = true;
                 }
             } catch (\Exception $e) {
                 Log::warning('⚠️ Field validation failed, proceeding with original fields', [
@@ -1045,6 +1031,15 @@ final class QuickRequestController extends Controller
                 'all_field_names' => $fieldNames,
                 'sample_fields' => array_slice($docuSealFields, 0, 5),
                 'api_endpoint' => "{$apiUrl}/submissions"
+            ]);
+
+            // Log the submission data being sent
+            Log::info('📤 Sending DocuSeal submission request', [
+                'template_id' => $submissionData['template_id'],
+                'submitter_email' => $submissionData['submitters'][0]['email'] ?? 'unknown',
+                'field_count' => count($submissionData['submitters'][0]['fields'] ?? []),
+                'field_names' => array_map(function($f) { return $f['name'] ?? 'unnamed'; }, $submissionData['submitters'][0]['fields'] ?? []),
+                'api_url' => $apiUrl . '/submissions'
             ]);
 
             // Step 8: Make API Call with Enhanced Error Handling
@@ -1767,7 +1762,11 @@ final class QuickRequestController extends Controller
             $selectedProducts = $prefillData['selected_products'];
             if (!empty($selectedProducts[0]['product_id'])) {
                 $product = Product::find($selectedProducts[0]['product_id']);
-                return $product?->manufacturer_id;
+                if ($product && $product->manufacturer) {
+                    // Look up manufacturer by name since Product stores manufacturer as a string
+                    $manufacturer = \App\Models\Order\Manufacturer::where('name', $product->manufacturer)->first();
+                    return $manufacturer?->id;
+                }
             }
         }
 

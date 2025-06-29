@@ -1,0 +1,2 @@
+[2025-06-29 01:48:06] local.WARNING: Azure Document Intelligence not configured properly  
+[2025-06-29 01:48:06] local.INFO: CmsCoverageApiService initialized {"base_url":"https://api.coverage.cms.gov/v1","throttle_limit":9000,"cache_minutes":60,"ppl_api_enabled":false} 

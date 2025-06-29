@@ -12,14 +12,65 @@ return [
     |
     */
 
+    /*
+    |--------------------------------------------------------------------------
+    | Canonical Field Names
+    |--------------------------------------------------------------------------
+    |
+    | These are the standardized field names that all manufacturer forms map to.
+    | This allows us to have a single data structure regardless of how each
+    | manufacturer names their fields.
+    |
+    */
+    'canonical_fields' => [
+        'patient_name', 'patient_first_name', 'patient_last_name', 'patient_dob',
+        'patient_gender', 'patient_phone', 'patient_email', 'patient_address',
+        'patient_city', 'patient_state', 'patient_zip', 'physician_name',
+        'physician_npi', 'physician_ptan', 'facility_name', 'facility_npi',
+        'facility_ptan', 'facility_address', 'insurance_name', 'policy_number',
+        'member_id', 'plan_type', 'place_of_service', 'wound_location',
+        'wound_size', 'wound_type', 'diagnosis_code', 'service_date'
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Field Aliases
+    |--------------------------------------------------------------------------
+    |
+    | Maps various field name variations to canonical names
+    |
+    */
+    'field_aliases' => [
+        'provider_name' => 'physician_name',
+        'provider_npi' => 'physician_npi',
+        'practice_name' => 'facility_name',
+        'clinic_name' => 'facility_name',
+        'insurance_company' => 'insurance_name',
+        'policy_id' => 'policy_number',
+        'member_number' => 'member_id',
+        'dos' => 'service_date',
+        'date_of_service' => 'service_date',
+    ],
+
     'manufacturers' => [
         'ACZ' => [
             'id' => 1,
-            'name' => 'ACZ',
-            'template_id' => env('DOCUSEAL_ACZ_TEMPLATE_ID', '852440'),
+            'name' => 'ACZ & Associates',
             'signature_required' => true,
             'has_order_form' => false,
             'duration_requirement' => 'greater_than_4_weeks',
+            'docuseal_field_names' => [
+                // Map canonical names to ACZ's specific field names
+                'patient_name' => 'PATIENT NAME',
+                'patient_dob' => 'PATIENT DOB',
+                'physician_name' => 'PHYSICIAN NAME',
+                'physician_npi' => 'NPI',
+                'facility_name' => 'FACILITY NAME',
+                'facility_ptan' => 'PTAN',
+                'insurance_name' => 'INSURANCE NAME',
+                'policy_number' => 'POLICY NUMBER',
+                'place_of_service' => 'PLACE OF SERVICE WHERE PATIENT IS BEING SEEN',
+            ],
             'fields' => [
                 // Patient Information
                 'patient_name' => [
@@ -176,7 +227,6 @@ return [
         'Advanced Health' => [
             'id' => 2,
             'name' => 'Advanced Health',
-            'template_id' => env('DOCUSEAL_ADVANCED_HEALTH_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => true,
             'fields' => [
@@ -192,31 +242,215 @@ return [
         ],
         
         'MedLife' => [
-            'id' => 3,
-            'name' => 'MedLife',
-            'template_id' => env('DOCUSEAL_MEDLIFE_TEMPLATE_ID', ''),
+            'id' => 5,
+            'name' => 'MEDLIFE SOLUTIONS',
             'signature_required' => true,
             'has_order_form' => false,
+            'docuseal_field_names' => [
+                // Map canonical names to MedLife's specific field names (form2_IVR)
+                'physician_name' => 'Physician Name',
+                'physician_npi' => 'Physician NPI',
+                'physician_ptan' => 'Physician PTAN',
+                'facility_name' => 'Practice Name',
+                'facility_npi' => 'Practice NPI',
+                'facility_ptan' => 'Practice PTAN',
+                'patient_name' => 'Patient Name',
+                'patient_dob' => 'Patient DOB',
+                'insurance_name' => 'Primary Insurance',
+                'member_id' => 'Member ID',
+                'place_of_service' => 'Place of Service',
+                'tax_id' => 'TAX ID#',
+            ],
             'fields' => [
-                // MedLife specific field mappings
+                // Patient Information
+                'patient_name' => [
+                    'source' => 'computed',
+                    'computation' => 'patient_first_name + patient_last_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'patient_dob' => [
+                    'source' => 'patient_dob',
+                    'transform' => 'date:m/d/Y',
+                    'required' => true,
+                    'type' => 'date'
+                ],
+                // Physician Information
+                'physician_name' => [
+                    'source' => 'provider_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'physician_npi' => [
+                    'source' => 'provider_npi',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'physician_ptan' => [
+                    'source' => 'provider_ptan',
+                    'required' => false,
+                    'type' => 'string'
+                ],
+                // Facility Information
+                'practice_name' => [
+                    'source' => 'facility_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'practice_npi' => [
+                    'source' => 'facility_npi',
+                    'required' => false,
+                    'type' => 'string'
+                ],
+                'practice_ptan' => [
+                    'source' => 'facility_ptan',
+                    'required' => false,
+                    'type' => 'string'
+                ],
+                // Insurance Information
+                'primary_insurance' => [
+                    'source' => 'primary_insurance_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'member_id' => [
+                    'source' => 'primary_member_id',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                // Other fields
+                'place_of_service' => [
+                    'source' => 'place_of_service',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'tax_id' => [
+                    'source' => 'tax_id',
+                    'required' => true,
+                    'type' => 'string'
+                ],
             ]
         ],
         
         'Centurion' => [
-            'id' => 4,
-            'name' => 'Centurion Therapeutics',
-            'template_id' => env('DOCUSEAL_CENTURION_TEMPLATE_ID', ''),
+            'id' => 11,
+            'name' => 'CENTURION THERAPEUTICS',
             'signature_required' => true,
             'has_order_form' => false,
+            'docuseal_field_names' => [
+                // Map canonical names to Centurion's specific field names (form3_Centurion)
+                'patient_name' => '*Patient Name',
+                'patient_dob' => '*DOB',
+                'patient_gender' => 'Male/Female', // Special handling needed
+                'provider_name' => '*Provider Name',
+                'provider_npi' => '*Provider ID #s: NPI',
+                'provider_ptan' => 'PTAN #',
+                'facility_name' => '*Facility Name',
+                'facility_address' => 'Address',
+                'facility_city' => 'City',
+                'facility_state' => 'State',
+                'facility_zip' => 'Zip',
+                'insurance_name' => 'Primary Insurance',
+                'policy_number' => 'Policy Number',
+                'treatment_setting' => '*Treatment Setting',
+                'medicaid_provider' => 'Medicaid Provider #',
+                'tax_id' => 'Tax ID',
+            ],
             'fields' => [
-                // Centurion specific field mappings
+                // Patient Information
+                'patient_name' => [
+                    'source' => 'computed',
+                    'computation' => 'patient_first_name + patient_last_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'patient_dob' => [
+                    'source' => 'patient_dob',
+                    'transform' => 'date:m/d/Y',
+                    'required' => true,
+                    'type' => 'date'
+                ],
+                'patient_gender' => [
+                    'source' => 'patient_gender',
+                    'transform' => 'gender_checkboxes', // Special transform for Male/Female checkboxes
+                    'required' => false,
+                    'type' => 'checkbox_group'
+                ],
+                // Provider Information
+                'provider_name' => [
+                    'source' => 'provider_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'provider_npi' => [
+                    'source' => 'provider_npi',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'provider_ptan' => [
+                    'source' => 'provider_ptan',
+                    'required' => false,
+                    'type' => 'string'
+                ],
+                // Facility Information
+                'facility_name' => [
+                    'source' => 'facility_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'facility_address' => [
+                    'source' => 'facility_address',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'facility_city' => [
+                    'source' => 'facility_city',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'facility_state' => [
+                    'source' => 'facility_state',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'facility_zip' => [
+                    'source' => 'facility_zip',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                // Insurance Information
+                'primary_insurance' => [
+                    'source' => 'primary_insurance_name',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'policy_number' => [
+                    'source' => 'primary_member_id',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                // Other fields
+                'treatment_setting' => [
+                    'source' => 'place_of_service',
+                    'required' => true,
+                    'type' => 'string'
+                ],
+                'medicaid_provider' => [
+                    'source' => 'medicaid_provider_number',
+                    'required' => false,
+                    'type' => 'string'
+                ],
+                'tax_id' => [
+                    'source' => 'tax_id',
+                    'required' => true,
+                    'type' => 'string'
+                ],
             ]
         ],
         
         'BioWerX' => [
             'id' => 5,
             'name' => 'BioWerX',
-            'template_id' => env('DOCUSEAL_BIOWERX_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => false,
             'fields' => [
@@ -227,7 +461,6 @@ return [
         'BioWound' => [
             'id' => 6,
             'name' => 'BioWound',
-            'template_id' => env('DOCUSEAL_BIOWOUND_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => false,
             'fields' => [
@@ -238,7 +471,6 @@ return [
         'Extremity Care' => [
             'id' => 7,
             'name' => 'Extremity Care',
-            'template_id' => env('DOCUSEAL_EXTREMITY_CARE_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => true,
             'fields' => [
@@ -249,7 +481,6 @@ return [
         'SKYE Biologics' => [
             'id' => 8,
             'name' => 'SKYE Biologics',
-            'template_id' => env('DOCUSEAL_SKYE_BIOLOGICS_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => false,
             'fields' => [
@@ -260,7 +491,6 @@ return [
         'Total Ancillary' => [
             'id' => 9,
             'name' => 'Total Ancillary',
-            'template_id' => env('DOCUSEAL_TOTAL_ANCILLARY_TEMPLATE_ID', ''),
             'signature_required' => true,
             'has_order_form' => false,
             'fields' => [

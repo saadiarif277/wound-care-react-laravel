@@ -3,7 +3,7 @@
 namespace App\Services\Insurance;
 
 use App\Services\Eligibility\UnifiedEligibilityService;
-use App\Services\Templates\UnifiedTemplateMappingEngine;
+use App\Services\UnifiedFieldMappingService;
 use App\Services\FhirDataLake\FhirAuditEventService;
 use App\Services\FhirDataLake\InsuranceAnalyticsService;
 use Illuminate\Support\Facades\Cache;
@@ -12,20 +12,20 @@ use Illuminate\Support\Facades\Log;
 class InsuranceIntegrationService
 {
     private InsuranceDataNormalizer $normalizer;
-    private UnifiedTemplateMappingEngine $mappingEngine;
+    private UnifiedFieldMappingService $fieldMappingService;
     private UnifiedEligibilityService $eligibilityService;
     private FhirAuditEventService $auditService;
     private InsuranceAnalyticsService $analyticsService;
     
     public function __construct(
         InsuranceDataNormalizer $normalizer,
-        UnifiedTemplateMappingEngine $mappingEngine,
+        UnifiedFieldMappingService $fieldMappingService,
         UnifiedEligibilityService $eligibilityService,
         FhirAuditEventService $auditService,
         InsuranceAnalyticsService $analyticsService
     ) {
         $this->normalizer = $normalizer;
-        $this->mappingEngine = $mappingEngine;
+        $this->fieldMappingService = $fieldMappingService;
         $this->eligibilityService = $eligibilityService;
         $this->auditService = $auditService;
         $this->analyticsService = $analyticsService;
@@ -48,8 +48,8 @@ class InsuranceIntegrationService
             $normalized['eligibility'] = $eligibilityResult;
         }
         
-        // Map to template fields if needed
-        $templateData = $this->mappingEngine->mapInsuranceData($normalized, 'ivr_template');
+        // Map to canonical fields using UnifiedFieldMappingService
+        $templateData = $this->fieldMappingService->mapToCanonicalFields($normalized);
         
         return [
             'normalized_data' => $normalized,

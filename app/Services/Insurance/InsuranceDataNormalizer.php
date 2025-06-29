@@ -2,18 +2,18 @@
 
 namespace App\Services\Insurance;
 
-use App\Services\Templates\UnifiedTemplateMappingEngine;
+use App\Services\UnifiedFieldMappingService;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class InsuranceDataNormalizer
 {
-    private UnifiedTemplateMappingEngine $mappingEngine;
+    private UnifiedFieldMappingService $fieldMappingService;
     private array $normalizationRules;
     
-    public function __construct(UnifiedTemplateMappingEngine $mappingEngine)
+    public function __construct(UnifiedFieldMappingService $fieldMappingService)
     {
-        $this->mappingEngine = $mappingEngine;
+        $this->fieldMappingService = $fieldMappingService;
         $this->loadNormalizationRules();
     }
     
@@ -123,15 +123,14 @@ class InsuranceDataNormalizer
         // DocuSeal returns data in a nested structure
         $fields = data_get($data, 'submission.fields', []);
         
-        $normalized = [];
+        // Convert to flat array for mapping
+        $flatData = [];
         foreach ($fields as $field) {
-            $fieldName = $this->mapDocuSealFieldToNormalized($field['name']);
-            if ($fieldName) {
-                $normalized[$fieldName] = $field['value'];
-            }
+            $flatData[$field['name']] = $field['value'];
         }
         
-        return $normalized;
+        // Use UnifiedFieldMappingService to map to canonical fields
+        return $this->fieldMappingService->mapToCanonicalFields($flatData);
     }
     
     /**
@@ -439,23 +438,6 @@ class InsuranceDataNormalizer
         return $value ? (float) $value : null;
     }
     
-    /**
-     * Map DocuSeal field names to normalized names
-     */
-    private function mapDocuSealFieldToNormalized(string $fieldName): ?string
-    {
-        $mappings = [
-            'patient_name' => 'patient_full_name',
-            'member_id' => 'patient_member_id',
-            'insurance_company' => 'payer_name',
-            'group_no' => 'group_number',
-            'phone' => 'patient_phone',
-            'dob' => 'patient_dob',
-            // Add more mappings as needed
-        ];
-        
-        return $mappings[$fieldName] ?? null;
-    }
     
     /**
      * Determine MAC jurisdiction from state

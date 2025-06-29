@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\FuzzyMapping\IVRMappingOrchestrator;
+use App\Services\UnifiedFieldMappingService;
 use App\Models\Order\Manufacturer;
 use App\Models\IVRTemplateField;
 use Illuminate\Support\Facades\Storage;
@@ -30,12 +30,12 @@ class AnalyzeIVRTemplate extends Command
      */
     protected $description = 'Analyze IVR template compatibility and field mappings';
 
-    protected IVRMappingOrchestrator $orchestrator;
+    protected UnifiedFieldMappingService $fieldMappingService;
 
-    public function __construct(IVRMappingOrchestrator $orchestrator)
+    public function __construct(UnifiedFieldMappingService $fieldMappingService)
     {
         parent::__construct();
-        $this->orchestrator = $orchestrator;
+        $this->fieldMappingService = $fieldMappingService;
     }
 
     /**
