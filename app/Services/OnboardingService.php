@@ -904,4 +904,258 @@ class OnboardingService
             ]);
         }
     }
+
+    /**
+     * Handle unified onboarding process for new organizations
+     * Creates organization, facility, provider, and initiates all checklists
+     */
+    public function processUnifiedOnboarding(string $token, array $data): array
+    {
+        // Validate the invitation token
+        $invitation = ProviderInvitation::where('invitation_token', $token)
+            ->where('invitation_type', 'organization')
+            ->where('expires_at', '>', now())
+            ->first();
+
+        if (!$invitation) {
+            Log::warning('Invalid or expired organization invitation token used', ['token' => substr($token, 0, 8) . '...']);
+            return ['success' => false, 'message' => 'Invalid or expired invitation.'];
+        }
+
+        DB::beginTransaction();
+        try {
+            // 1. Create Organization
+            $organization = Organization::create([
+                'name' => $data['organization_name'],
+                'type' => $data['organization_type'] ?? 'healthcare',
+                'tax_id' => $data['organization_tax_id'],
+                'status' => 'active',
+                'contact_email' => $data['contact_email'],
+                'contact_phone' => $data['contact_phone'] ?? null,
+                'address' => $data['address'] ?? null,
+                'city' => $data['city'] ?? null,
+                'state' => $data['state'] ?? null,
+                'zip_code' => $data['zip_code'] ?? null,
+                'billing_address' => $data['billing_address'] ?? null,
+                'billing_city' => $data['billing_city'] ?? null,
+                'billing_state' => $data['billing_state'] ?? null,
+                'billing_zip' => $data['billing_zip'] ?? null,
+                'ap_contact_name' => $data['ap_contact_name'] ?? null,
+                'ap_contact_phone' => $data['ap_contact_phone'] ?? null,
+                'ap_contact_email' => $data['ap_contact_email'] ?? null,
+            ]);
+
+            // 2. Create User (Provider/Admin)
+            $user = User::create([
+                'first_name' => $data['first_name'],
+                'last_name' => $data['last_name'],
+                'email' => $data['email'],
+                'password' => bcrypt($data['password']),
+                'email_verified_at' => now(),
+                'title' => $data['title'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'current_organization_id' => $organization->id,
+            ]);
+
+            // Assign admin role
+            $adminRole = \App\Models\Role::where('slug', 'admin')->first();
+            if ($adminRole) {
+                $user->assignRole($adminRole);
+            }
+            
+            // Associate with organization
+            $user->organizations()->attach($organization->id, ['current' => true, 'is_owner' => true]);
+
+            // 3. Create Facility
+            $facility = Facility::create([
+                'organization_id' => $organization->id,
+                'name' => $data['facility_name'],
+                'facility_type' => $data['facility_type'],
+                'group_npi' => $data['group_npi'] ?? null,
+                'tax_id' => $data['facility_tax_id'] ?? $organization->tax_id,
+                'ptan' => $data['facility_ptan'] ?? null,
+                'medicaid_number' => $data['facility_medicaid_number'] ?? null,
+                'default_place_of_service' => $data['default_place_of_service'] ?? '11',
+                'status' => 'active',
+                'address' => $data['facility_address'],
+                'city' => $data['facility_city'],
+                'state' => $data['facility_state'],
+                'zip_code' => $data['facility_zip'],
+                'phone' => $data['facility_phone'] ?? null,
+                'fax' => $data['facility_fax'] ?? null,
+                'email' => $data['facility_email'] ?? null,
+                'contact_name' => $data['facility_contact_name'] ?? null,
+                'contact_phone' => $data['facility_contact_phone'] ?? null,
+                'contact_email' => $data['facility_contact_email'] ?? null,
+                'contact_fax' => $data['facility_contact_fax'] ?? null,
+                'business_hours' => $data['business_hours'] ?? null,
+                'active' => true,
+            ]);
+
+            // Associate user with facility
+            $facility->users()->attach($user->id, ['role' => 'admin']);
+
+            // 4. Create Provider Profile
+            $user->providerProfile()->create([
+                'provider_id' => $user->id,
+                'npi' => $data['individual_npi'] ?? null,
+                'tax_id' => $data['tax_id'] ?? null,
+                'ptan' => $data['ptan'] ?? null,
+                'medicaid_number' => $data['medicaid_number'] ?? null,
+                'specialty' => $data['specialty'] ?? null,
+                'phone' => $data['phone'] ?? null,
+                'fax' => $data['fax'] ?? null,
+            ]);
+
+            // 5. Create Provider Credentials
+            if (!empty($data['individual_npi'])) {
+                ProviderCredential::create([
+                    'provider_id' => $user->id,
+                    'credential_type' => 'npi_number',
+                    'credential_number' => $data['individual_npi'],
+                    'is_primary' => true,
+                    'verification_status' => 'pending',
+                ]);
+            }
+
+            if (!empty($data['license_number'])) {
+                ProviderCredential::create([
+                    'provider_id' => $user->id,
+                    'credential_type' => 'medical_license',
+                    'credential_number' => $data['license_number'],
+                    'issuing_state' => $data['license_state'] ?? null,
+                    'is_primary' => true,
+                    'verification_status' => 'pending',
+                ]);
+            }
+
+            if (!empty($data['ptan'])) {
+                ProviderCredential::create([
+                    'provider_id' => $user->id,
+                    'credential_type' => 'ptan',
+                    'credential_number' => $data['ptan'],
+                    'is_primary' => true,
+                    'verification_status' => 'pending',
+                ]);
+            }
+
+            // 6. Initialize Organization Onboarding
+            $this->initiateOrganizationOnboarding($organization, $user->id);
+
+            // 7. Mark BAA as signed if provided
+            if ($data['baa_signed'] ?? false) {
+                $this->updateOnboardingProgress(
+                    self::ENTITY_TYPE_ORGANIZATION, 
+                    $organization->id, 
+                    'baa_agreement', 
+                    true
+                );
+            }
+
+            // 8. Update the invitation
+            $invitation->update([
+                'status' => 'accepted',
+                'accepted_at' => now(),
+                'created_user_id' => $user->id,
+                'organization_id' => $organization->id,
+            ]);
+
+            DB::commit();
+
+            Log::info('Unified onboarding completed successfully', [
+                'user_id' => $user->id,
+                'organization_id' => $organization->id,
+                'facility_id' => $facility->id,
+            ]);
+
+            return [
+                'success' => true,
+                'user' => $user,
+                'organization' => $organization,
+                'facility' => $facility,
+            ];
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            Log::error('Failed to complete unified onboarding', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+            return ['success' => false, 'message' => 'An error occurred during registration.'];
+        }
+    }
+
+    /**
+     * Create organization invitation for email-based onboarding
+     */
+    public function createOrganizationInvitation(string $organizationName, string $contactEmail, int $invitedBy): array
+    {
+        try {
+            // Check if invitation already exists
+            $existing = ProviderInvitation::where('email', strtolower(trim($contactEmail)))
+                ->where('invitation_type', 'organization')
+                ->where('expires_at', '>', now())
+                ->first();
+
+            if ($existing) {
+                return [
+                    'success' => false,
+                    'message' => 'An active invitation already exists for this email address.'
+                ];
+            }
+
+            $token = $this->generateSecureToken();
+
+            $invitation = ProviderInvitation::create([
+                'email' => strtolower(trim($contactEmail)),
+                'invitation_token' => $token,
+                'invitation_type' => 'organization',
+                'organization_name' => trim($organizationName),
+                'invited_by_user_id' => $invitedBy,
+                'status' => 'pending',
+                'expires_at' => now()->addDays(self::INVITATION_EXPIRY_DAYS),
+                'metadata' => [
+                    'invited_for' => 'organization_creation',
+                    'organization_name' => $organizationName,
+                ],
+            ]);
+
+            // Send invitation email
+            Mail::to($contactEmail)->send(new \App\Mail\OrganizationInvitationEmail([
+                'organization_name' => $organizationName,
+                'invitation_url' => url("/auth/organization-invitation/{$token}"),
+                'expires_at' => now()->addDays(self::INVITATION_EXPIRY_DAYS),
+            ]));
+
+            $invitation->update([
+                'status' => 'sent',
+                'sent_at' => now(),
+            ]);
+
+            Log::info('Organization invitation created and sent', [
+                'invitation_id' => $invitation->id,
+                'organization_name' => $organizationName,
+                'email' => $contactEmail,
+                'invited_by' => $invitedBy,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => 'Invitation sent successfully.',
+                'invitation_id' => $invitation->id,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create organization invitation', [
+                'organization_name' => $organizationName,
+                'email' => $contactEmail,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'message' => 'Failed to send invitation. Please try again.',
+            ];
+        }
+    }
 }

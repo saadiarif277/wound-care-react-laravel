@@ -140,7 +140,65 @@ Route::delete('logout', [LoginController::class, 'destroy'])
 
 // Access Request routes removed - feature deprecated
 
-// Provider Invitation Routes
+// Organization invitation and unified onboarding
+Route::get('auth/organization-invitation/{token}', function ($token) {
+    $invitation = \App\Models\Users\Provider\ProviderInvitation::where('invitation_token', $token)
+        ->where('invitation_type', 'organization')
+        ->where('expires_at', '>', now())
+        ->firstOrFail();
+
+    $states = [
+        ['code' => 'AL', 'name' => 'Alabama'], ['code' => 'AK', 'name' => 'Alaska'], 
+        ['code' => 'AZ', 'name' => 'Arizona'], ['code' => 'AR', 'name' => 'Arkansas'], 
+        ['code' => 'CA', 'name' => 'California'], ['code' => 'CO', 'name' => 'Colorado'], 
+        ['code' => 'CT', 'name' => 'Connecticut'], ['code' => 'DE', 'name' => 'Delaware'], 
+        ['code' => 'FL', 'name' => 'Florida'], ['code' => 'GA', 'name' => 'Georgia'],
+        ['code' => 'HI', 'name' => 'Hawaii'], ['code' => 'ID', 'name' => 'Idaho'], 
+        ['code' => 'IL', 'name' => 'Illinois'], ['code' => 'IN', 'name' => 'Indiana'], 
+        ['code' => 'IA', 'name' => 'Iowa'], ['code' => 'KS', 'name' => 'Kansas'], 
+        ['code' => 'KY', 'name' => 'Kentucky'], ['code' => 'LA', 'name' => 'Louisiana'], 
+        ['code' => 'ME', 'name' => 'Maine'], ['code' => 'MD', 'name' => 'Maryland'],
+        ['code' => 'MA', 'name' => 'Massachusetts'], ['code' => 'MI', 'name' => 'Michigan'], 
+        ['code' => 'MN', 'name' => 'Minnesota'], ['code' => 'MS', 'name' => 'Mississippi'], 
+        ['code' => 'MO', 'name' => 'Missouri'], ['code' => 'MT', 'name' => 'Montana'], 
+        ['code' => 'NE', 'name' => 'Nebraska'], ['code' => 'NV', 'name' => 'Nevada'], 
+        ['code' => 'NH', 'name' => 'New Hampshire'], ['code' => 'NJ', 'name' => 'New Jersey'],
+        ['code' => 'NM', 'name' => 'New Mexico'], ['code' => 'NY', 'name' => 'New York'], 
+        ['code' => 'NC', 'name' => 'North Carolina'], ['code' => 'ND', 'name' => 'North Dakota'], 
+        ['code' => 'OH', 'name' => 'Ohio'], ['code' => 'OK', 'name' => 'Oklahoma'], 
+        ['code' => 'OR', 'name' => 'Oregon'], ['code' => 'PA', 'name' => 'Pennsylvania'], 
+        ['code' => 'RI', 'name' => 'Rhode Island'], ['code' => 'SC', 'name' => 'South Carolina'],
+        ['code' => 'SD', 'name' => 'South Dakota'], ['code' => 'TN', 'name' => 'Tennessee'], 
+        ['code' => 'TX', 'name' => 'Texas'], ['code' => 'UT', 'name' => 'Utah'], 
+        ['code' => 'VT', 'name' => 'Vermont'], ['code' => 'VA', 'name' => 'Virginia'], 
+        ['code' => 'WA', 'name' => 'Washington'], ['code' => 'WV', 'name' => 'West Virginia'], 
+        ['code' => 'WI', 'name' => 'Wisconsin'], ['code' => 'WY', 'name' => 'Wyoming']
+    ];
+
+    return Inertia::render('Auth/UnifiedOnboardingWizard', [
+        'invitation' => [
+            'id' => $invitation->id,
+            'email' => $invitation->email,
+            'organization_name' => $invitation->organization_name,
+            'token' => $token,
+        ],
+        'states' => $states,
+    ]);
+})->name('auth.organization-invitation.show')->middleware('guest');
+
+Route::post('auth/unified-onboarding/{token}/complete', function ($token, Request $request) {
+    $onboardingService = app(\App\Services\OnboardingService::class);
+
+    $result = $onboardingService->processUnifiedOnboarding($token, $request->all());
+
+    if ($result['success']) {
+        return redirect()->route('login')->with('success', 'Organization created successfully. Please log in.');
+    } else {
+        return back()->withErrors(['error' => $result['message']]);
+    }
+})->name('auth.unified-onboarding.complete')->middleware('guest');
+
+// Provider invitation (existing route)
 Route::get('auth/provider-invitation/{token}', function ($token) {
     // Get invitation data and render the invitation page
     $invitation = App\Models\Users\Provider\ProviderInvitation::where('invitation_token', $token)
@@ -866,6 +924,8 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // DocuSeal API endpoints (within web middleware for session auth)
+    // NOTE: DocuSealTemplateController needs to be created
+    /*
     Route::prefix('api/v1/docuseal/templates')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
         Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
@@ -877,6 +937,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'applyBulkPatterns']);
         Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncFields']);
     });
+    */
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {
@@ -1002,6 +1063,8 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 // DocuSeal Routes
 Route::middleware(['auth'])->group(function () {
+    // NOTE: DocuSealController needs to be created
+    /*
     // Create DocuSeal submission with pre-filled data
     Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createSubmission'])
         ->name('docuseal.create-submission')
@@ -1010,6 +1073,7 @@ Route::middleware(['auth'])->group(function () {
     // Demo-specific DocuSeal submission (only requires authentication, not manage-orders permission)
     Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createDemoSubmission'])
         ->name('docuseal.demo.create-submission');
+    */
 });
 
 // QuickRequest DocuSeal Routes (Consolidated)

@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { AlertCircle, Bug, CheckCircle2, Info, ExternalLink, FileText, Shield, Clock, User, Building2, Heart, Zap, Award, Brain } from 'lucide-react';
+import { AlertCircle, Bug, CheckCircle2, ExternalLink, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
 
 // Better TypeScript interfaces
 interface FormData {
@@ -69,7 +69,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [ setDebugInfo ] = useState<any>(null);
 
   // Memoized token fetch function
   const fetchToken = useCallback(async () => {
@@ -198,7 +198,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         }
       );
 
-      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence, mapping_method } = response.data;
+      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response.data;
 
       if (!slug) {
         throw new Error('No slug received from server');

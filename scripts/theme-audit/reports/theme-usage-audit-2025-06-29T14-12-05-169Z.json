@@ -1,0 +1,232 @@
+{
+  "metadata": {
+    "scanDate": "2025-06-29T14:12:05.169Z",
+    "totalIssues": 19,
+    "severityBreakdown": {
+      "critical": 0,
+      "warning": 19,
+      "info": 0
+    },
+    "typeBreakdown": {
+      "missing-main-layout": 19
+    },
+    "componentsAnalyzed": 0
+  },
+  "results": [
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\OrderSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.155Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\RequestAccess.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.158Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitationRefactored.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.159Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.159Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\Login.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.159Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step8OrderFormApproval.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.159Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.159Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step5ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4ClinicalBilling.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step3Documentation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step1PatientInfoNew.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.160Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\OrderReviewSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.161Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\ProviderInvitations\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.163Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationEdit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.164Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationDetail.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:12:05.164Z"
+    }
+  ],
+  "componentSummary": {
+    "totalComponents": 0,
+    "componentsWithThemeImports": 0,
+    "componentsWithGlassThemeImports": 0,
+    "componentsWithThemeUsage": 0
+  }
+}

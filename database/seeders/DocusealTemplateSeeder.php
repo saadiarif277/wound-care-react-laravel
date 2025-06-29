@@ -96,6 +96,12 @@ class DocusealTemplateSeeder extends Seeder
                         'docuseal_template_id' => '1254774',
                         'document_type' => 'IVR',
                         'is_default' => true,
+                    ],
+                    [
+                        'name' => 'BioWound Order Form',
+                        'docuseal_template_id' => '1299495',
+                        'document_type' => 'OrderForm',
+                        'is_default' => false,
                     ]
                 ]
             ],

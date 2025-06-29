@@ -781,11 +781,14 @@ function QuickRequestCreateNew({
           name: 'MSC Distribution',
           email: 'orders@mscwoundcare.com'
         } : undefined,
-        selected_products: formData.selected_products?.map(sp => ({
-          name: product.name,
-          code: product.code,
-          size: sp.size
-        }))
+        selected_products: formData.selected_products?.map(sp => {
+          const product = products.find(p => p.id === sp.product_id);
+          return {
+            name: product?.name || 'Unknown Product',
+            code: product?.code || 'Unknown Code',
+            size: sp.size
+          };
+        })
       }, {
         headers: { 'X-CSRF-TOKEN': csrfToken }
       });

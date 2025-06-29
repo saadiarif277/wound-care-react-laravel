@@ -54,7 +54,7 @@ class UnifiedFieldMappingService
             }
 
             // 3. Map fields according to configuration
-            $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields']);
+            $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields'], $documentType);
 
             // 4. Apply manufacturer-specific business rules
             $mappedData = $this->applyBusinessRules($mappedData, $manufacturerConfig, $sourceData);
@@ -98,11 +98,16 @@ class UnifiedFieldMappingService
     /**
      * Map fields according to manufacturer configuration
      */
-    private function mapFields(array $sourceData, array $fieldConfig): array
+    private function mapFields(array $sourceData, array $fieldConfig, string $documentType = 'IVR'): array
     {
         $mapped = [];
 
         foreach ($fieldConfig as $targetField => $config) {
+            // Skip fields that are not meant for this document type
+            if (isset($config['forms']) && !in_array($documentType, $config['forms'])) {
+                continue;
+            }
+            
             $value = null;
 
             // Handle different source types
@@ -363,31 +368,104 @@ class UnifiedFieldMappingService
      */
     public function getManufacturerConfig(string $name, string $documentType = 'IVR'): ?array
     {
+        // First try to load from individual manufacturer file
+        $config = $this->loadManufacturerFromFile($name);
+        if ($config) {
+            return $config;
+        }
+
         // Choose the appropriate config based on document type
         $configSource = $documentType === 'OrderForm' ? $this->orderFormConfig : $this->config;
         
-        // First try exact match
+        // First try exact match in main config
         if (isset($configSource['manufacturers'][$name])) {
-            return $configSource['manufacturers'][$name];
+            $config = $configSource['manufacturers'][$name];
+            return $this->resolveConfigReference($config, $configSource);
         }
 
         // Try case-insensitive match
         foreach ($configSource['manufacturers'] as $key => $config) {
             if (strtolower($key) === strtolower($name)) {
-                return $config;
+                return $this->resolveConfigReference($config, $configSource);
             }
         }
 
-        // Try matching by manufacturer name in config
+                // Try matching by manufacturer name in config
         foreach ($configSource['manufacturers'] as $key => $config) {
-            if (isset($config['name']) && 
+            if (isset($config['name']) && is_string($config['name']) &&
                 (strtolower($config['name']) === strtolower($name) || 
                  str_contains(strtolower($config['name']), strtolower($name)))) {
-                return $config;
+                return $this->resolveConfigReference($config, $configSource);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Load manufacturer configuration from individual file
+     */
+    private function loadManufacturerFromFile(string $manufacturerName): ?array
+    {
+        // Convert manufacturer name to filename format
+        $filename = \Illuminate\Support\Str::slug($manufacturerName);
+        $manufacturerConfigPath = config_path("manufacturers/{$filename}.php");
+
+        if (file_exists($manufacturerConfigPath)) {
+            try {
+                $config = include $manufacturerConfigPath;
+                
+                // Validate that the config is an array
+                if (!is_array($config)) {
+                    Log::warning("Invalid manufacturer config format", [
+                        'manufacturer' => $manufacturerName,
+                        'file' => $manufacturerConfigPath
+                    ]);
+                    return null;
+                }
+
+                Log::info("Loaded manufacturer config from file", [
+                    'manufacturer' => $manufacturerName,
+                    'file' => $filename . '.php',
+                    'fields_count' => count($config['fields'] ?? [])
+                ]);
+
+                return $config;
+            } catch (\Exception $e) {
+                Log::error("Failed to load manufacturer config file", [
+                    'manufacturer' => $manufacturerName,
+                    'file' => $manufacturerConfigPath,
+                    'error' => $e->getMessage()
+                ]);
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Resolve configuration reference if it exists
+     */
+    private function resolveConfigReference(array $config, array $configSource): array
+    {
+        // If this config has a reference_config, load the referenced config
+        if (isset($config['reference_config'])) {
+            $referenceName = $config['reference_config'];
+            if (isset($configSource['manufacturers'][$referenceName])) {
+                $referencedConfig = $configSource['manufacturers'][$referenceName];
+                // Merge the original config with the referenced config, preserving important fields
+                return array_merge($referencedConfig, [
+                    'id' => $config['id'] ?? $referencedConfig['id'] ?? null,
+                    'name' => $config['name'] ?? $referencedConfig['name'] ?? null,
+                    'signature_required' => $config['signature_required'] ?? $referencedConfig['signature_required'] ?? true,
+                    'has_order_form' => $config['has_order_form'] ?? $referencedConfig['has_order_form'] ?? false,
+                    'docuseal_template_id' => $config['docuseal_template_id'] ?? $referencedConfig['docuseal_template_id'] ?? null,
+                ]);
+            }
+        }
+        
+        return $config;
     }
 
     /**
@@ -410,8 +488,19 @@ class UnifiedFieldMappingService
                 continue;
             }
 
+            // IMPORTANT: Only include fields that are explicitly defined in the field mapping
+            // This prevents sending unknown fields to DocuSeal which causes 422 errors
+            if (!isset($fieldNameMapping[$canonicalName])) {
+                Log::debug("Skipping field not in DocuSeal template mapping", [
+                    'field' => $canonicalName,
+                    'document_type' => $documentType,
+                    'manufacturer' => $manufacturerConfig['name'] ?? 'unknown'
+                ]);
+                continue;
+            }
+
             // Get the DocuSeal field name for this canonical field
-            $docuSealFieldName = $fieldNameMapping[$canonicalName] ?? $canonicalName;
+            $docuSealFieldName = $fieldNameMapping[$canonicalName];
 
             // Special handling for gender checkboxes (Centurion)
             if ($canonicalName === 'patient_gender' && $docuSealFieldName === 'Male/Female') {
@@ -520,14 +609,17 @@ class UnifiedFieldMappingService
         $manufacturers = [];
         
         foreach ($this->config['manufacturers'] as $name => $config) {
+            // Resolve config reference if needed
+            $resolvedConfig = $this->resolveConfigReference($config, $this->config);
+            
             $manufacturers[] = [
-                'id' => $config['id'],
-                'name' => $config['name'],
-                'template_id' => $config['template_id'],
-                'signature_required' => $config['signature_required'],
-                'has_order_form' => $config['has_order_form'],
-                'fields_count' => count($config['fields']),
-                'required_fields_count' => count(array_filter($config['fields'], fn($f) => $f['required'] ?? false))
+                'id' => $resolvedConfig['id'] ?? null,
+                'name' => $resolvedConfig['name'] ?? $name,
+                'docuseal_template_id' => $resolvedConfig['docuseal_template_id'] ?? null,
+                'signature_required' => $resolvedConfig['signature_required'] ?? true,
+                'has_order_form' => $resolvedConfig['has_order_form'] ?? false,
+                'fields_count' => count($resolvedConfig['fields'] ?? []),
+                'required_fields_count' => count(array_filter($resolvedConfig['fields'] ?? [], fn($f) => $f['required'] ?? false))
             ];
         }
 

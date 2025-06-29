@@ -998,4 +998,73 @@ class DocuSealService
             ];
         }
     }
+
+    /**
+     * Map FHIR checklist data to DocuSeal fields
+     * This method transforms FHIR-formatted data into DocuSeal field format
+     */
+    public function mapFHIRToDocuSeal(array $checklistData): array
+    {
+        try {
+            // Use the AI service if available for intelligent mapping
+            $aiService = app(AzureFoundryService::class);
+            if (method_exists($aiService, 'mapFhirToDocuSeal')) {
+                // The AI service expects 4 parameters: fhirData, docuSealFields, manufacturerName, context
+                $docuSealFields = []; // Empty array since we don't have specific fields
+                $manufacturerName = ''; // Unknown manufacturer
+                $context = []; // No additional context
+                
+                return $aiService->mapFhirToDocuSeal($checklistData, $docuSealFields, $manufacturerName, $context);
+            }
+        } catch (\Exception $e) {
+            Log::warning('AI service not available for FHIR mapping', ['error' => $e->getMessage()]);
+        }
+
+        // Fallback to basic mapping
+        $mappedData = [];
+        
+        // Map common FHIR fields to DocuSeal fields
+        $fieldMapping = [
+            'patient_name' => 'Patient Name',
+            'patient_dob' => 'Patient Date of Birth',
+            'patient_id' => 'Patient ID',
+            'provider_name' => 'Provider Name',
+            'provider_npi' => 'Provider NPI',
+            'facility_name' => 'Facility Name',
+            'facility_npi' => 'Facility NPI',
+            'diagnosis_codes' => 'Diagnosis Codes',
+            'order_date' => 'Order Date',
+            'insurance_name' => 'Insurance Name',
+            'insurance_id' => 'Insurance ID',
+            'wound_location' => 'Wound Location',
+            'wound_type' => 'Wound Type',
+            'product_name' => 'Product Name',
+            'quantity' => 'Quantity',
+        ];
+
+        foreach ($fieldMapping as $fhirKey => $docuSealKey) {
+            if (isset($checklistData[$fhirKey])) {
+                $mappedData[$docuSealKey] = $checklistData[$fhirKey];
+            }
+        }
+
+        // Handle nested FHIR structures
+        if (isset($checklistData['patient']) && is_array($checklistData['patient'])) {
+            $mappedData['Patient Name'] = $checklistData['patient']['name'] ?? '';
+            $mappedData['Patient Date of Birth'] = $checklistData['patient']['birthDate'] ?? '';
+            $mappedData['Patient ID'] = $checklistData['patient']['identifier'] ?? '';
+        }
+
+        if (isset($checklistData['provider']) && is_array($checklistData['provider'])) {
+            $mappedData['Provider Name'] = $checklistData['provider']['name'] ?? '';
+            $mappedData['Provider NPI'] = $checklistData['provider']['identifier'] ?? '';
+        }
+
+        if (isset($checklistData['coverage']) && is_array($checklistData['coverage'])) {
+            $mappedData['Insurance Name'] = $checklistData['coverage']['payor'] ?? '';
+            $mappedData['Insurance ID'] = $checklistData['coverage']['subscriberId'] ?? '';
+        }
+
+        return $mappedData;
+    }
 }

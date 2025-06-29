@@ -355,125 +355,49 @@ export default function Step8OrderFormApproval({
 
   return (
     <div className="space-y-6">
-      {/* Enhanced Header with Visual Appeal */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-50 via-yellow-50 to-amber-50 dark:from-orange-900/20 dark:via-yellow-900/20 dark:to-amber-900/20">
-        {/* Background Pattern */}
-        <div className="absolute inset-0 opacity-30" style={{
-          backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23f59e0b' fill-opacity='0.1' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
-        }} />
-        
-        <div className="relative p-8">
-          <div className="flex items-start gap-4">
-            {/* Icon with enhanced styling */}
-            <div className="flex-shrink-0">
-              <div className="p-3 bg-white/80 dark:bg-gray-800/80 backdrop-blur rounded-xl shadow-lg border border-white/50 dark:border-gray-700/50">
-                <FiClipboard className="h-6 w-6 text-orange-600 dark:text-orange-400" />
-              </div>
-            </div>
-            
-            {/* Content */}
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <h2 className={cn("text-2xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent", t.text.primary)}>
-                  Optional Order Form
-                </h2>
-                <div className="flex items-center gap-1 px-2 py-1 bg-yellow-100 dark:bg-yellow-900/20 rounded-full">
-                  <FiStar className="h-3 w-3 text-yellow-600 dark:text-yellow-400" />
-                  <span className="text-xs font-medium text-yellow-700 dark:text-yellow-300">Recommended</span>
-                </div>
-              </div>
-              
-              <p className={cn("text-lg mb-4", t.text.secondary)}>
-                Review your {manufacturerConfig?.name} order form for final accuracy
-              </p>
-              
-              {/* Key Benefits */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
-                  <FiZap className="h-4 w-4 text-orange-600 dark:text-orange-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Quick Review</span>
-                </div>
-                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
-                  <FiCheck className="h-4 w-4 text-green-600 dark:text-green-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Accuracy Check</span>
-                </div>
-                <div className="flex items-center gap-2 p-3 bg-white/60 dark:bg-gray-800/60 backdrop-blur rounded-lg border border-white/50 dark:border-gray-700/50">
-                  <FiPackage className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">Order Complete</span>
-                </div>
-              </div>
-              
-              {/* Optional Notice */}
-              <div className="p-4 bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <div className="flex items-center gap-2 mb-1">
-                  <FiClock className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                  <span className="text-sm font-semibold text-amber-800 dark:text-amber-200">Optional Step</span>
-                </div>
-                <p className="text-xs text-amber-700 dark:text-amber-300">
-                  This step is optional but recommended for ensuring all order details are accurate before final submission.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Simple Title */}
+      <div className="mb-6">
+        <h2 className={cn("text-xl font-semibold", t.text.primary)}>
+          Review Order Form
+        </h2>
+        <p className={cn("text-sm mt-1", t.text.secondary)}>
+          Optional step to review and confirm all order details
+        </p>
       </div>
 
       {/* Choice Section */}
       {!showOrderForm && !submissionError && (
-        <div className={cn(
-          "p-6 rounded-lg border",
-          theme === 'dark'
-            ? 'bg-blue-900/20 border-blue-800'
-            : 'bg-blue-50 border-blue-200'
-        )}>
-          <div className="flex items-start">
-            <FiAlertCircle className={cn(
-              "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
-              theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
-            )} />
-            <div className="flex-1">
-              <h4 className={cn(
-                "text-sm font-medium",
-                theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
-              )}>
-                Review Order Form?
-              </h4>
-              <p className={cn(
-                "mt-2 text-sm",
-                theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
-              )}>
-                You can review and fill out the manufacturer's order form to ensure all details are accurate, 
-                or skip this step to proceed directly to the final review.
-              </p>
-              
-              <div className="flex gap-3 mt-4">
-                <button
-                  onClick={handleShowOrderForm}
-                  className={cn(
-                    "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                    theme === 'dark' 
-                      ? 'bg-blue-700 hover:bg-blue-600 text-white' 
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  )}
-                >
-                  <FiFileText className="mr-2 h-4 w-4" />
-                  Review Order Form
-                </button>
-                
-                <button
-                  onClick={handleSkip}
-                  className={cn(
-                    "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                    theme === 'dark' 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
-                      : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
-                  )}
-                >
-                  <FiSkipForward className="mr-2 h-4 w-4" />
-                  Skip This Step
-                </button>
-              </div>
-            </div>
+        <div className={cn("p-4 rounded-lg", t.glass.card)}>
+          <p className={cn("text-sm mb-4", t.text.secondary)}>
+            You can review the manufacturer's order form or skip this optional step.
+          </p>
+          
+          <div className="flex gap-3">
+            <button
+              onClick={handleShowOrderForm}
+              className={cn(
+                "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                theme === 'dark' 
+                  ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              )}
+            >
+              <FiFileText className="mr-2 h-4 w-4" />
+              Review Order Form
+            </button>
+            
+            <button
+              onClick={handleSkip}
+              className={cn(
+                "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                theme === 'dark' 
+                  ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' 
+                  : 'bg-gray-300 hover:bg-gray-400 text-gray-700'
+              )}
+            >
+              <FiSkipForward className="mr-2 h-4 w-4" />
+              Skip This Step
+            </button>
           </div>
         </div>
       )}
