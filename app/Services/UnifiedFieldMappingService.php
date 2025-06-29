@@ -10,6 +10,7 @@ use App\Models\TemplateFieldMapping;
 use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 
 class UnifiedFieldMappingService
 {
@@ -27,7 +28,7 @@ class UnifiedFieldMappingService
      * Main entry point for all field mapping needs
      */
     public function mapEpisodeToTemplate(
-        int $episodeId, 
+        ?int $episodeId, 
         string $manufacturerName,
         array $additionalData = []
     ): array {
@@ -35,8 +36,13 @@ class UnifiedFieldMappingService
 
         try {
             // 1. Extract all data once
-            $sourceData = $this->dataExtractor->extractEpisodeData($episodeId);
-            $sourceData = array_merge($sourceData, $additionalData);
+            if ($episodeId) {
+                $sourceData = $this->dataExtractor->extractEpisodeData($episodeId);
+                $sourceData = array_merge($sourceData, $additionalData);
+            } else {
+                // If no episode, use only additional data
+                $sourceData = $additionalData;
+            }
 
             // 2. Get manufacturer configuration
             $manufacturerConfig = $this->getManufacturerConfig($manufacturerName);
@@ -57,7 +63,9 @@ class UnifiedFieldMappingService
             $completeness = $this->calculateCompleteness($mappedData, $manufacturerConfig);
 
             // 7. Log mapping analytics
-            $this->logMappingAnalytics($episodeId, $manufacturerName, $completeness, microtime(true) - $startTime);
+            if ($episodeId) {
+                $this->logMappingAnalytics($episodeId, $manufacturerName, $completeness, microtime(true) - $startTime);
+            }
 
             return [
                 'data' => $mappedData,
@@ -69,6 +77,7 @@ class UnifiedFieldMappingService
                     'manufacturer' => $manufacturerName,
                     'mapped_at' => now()->toIso8601String(),
                     'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                    'source' => $episodeId ? 'episode' : 'direct'
                 ]
             ];
 
@@ -406,6 +415,11 @@ class UnifiedFieldMappingService
             }
 
             // Add the field with its DocuSeal name
+            // Handle array values by converting to string representation
+            if (is_array($value)) {
+                $value = json_encode($value);
+            }
+            
             $docuSealFields[] = [
                 'name' => $docuSealFieldName,
                 'default_value' => (string) $value
@@ -563,8 +577,7 @@ class UnifiedFieldMappingService
             ],
             [
                 'canonical_field_id' => $canonicalFieldId,
-                'transformation_rules' => $transformationRules,
-                'updated_by' => auth()->id(),
+                'updated_by' => (Auth::user())->id
             ]
         );
 

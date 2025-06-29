@@ -869,11 +869,14 @@ final class QuickRequestController extends Controller
                             // Get template fields for validation
                             $templateFields = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
                             
-                            $mappedFields = $this->fieldMappingService->mapEpisodeToTemplate(
-                                $episode->id,
+                            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
+                                $episode ? $episode->id : null,
                                 $manufacturer->name,
                                 $data['prefill_data'] ?? []
                             );
+                            
+                            // Convert to DocuSeal format
+                            $mappedFields = $this->fieldMappingService->convertToDocuSealFields($mappingResult['data'], $manufacturerConfig);
                             
                             Log::info('🤖 Enhanced AI mapping used', [
                                 'form_id' => $formId,
@@ -944,13 +947,14 @@ final class QuickRequestController extends Controller
                 $docuSealFields = $mappedFields;
             } else {
                 // If no AI mapping or wrong format, use the unified field mapping service
-                $mappedData = $this->fieldMappingService->mapEpisodeToTemplate(
-                    $episode->id,
+                $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
+                    $episode ? $episode->id : null,
                     $manufacturer->name,
                     $data['prefill_data'] ?? []
                 );
                 $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name);
-                $docuSealFields = $this->fieldMappingService->convertToDocuSealFields($mappedData, $manufacturerConfig);
+                // Extract just the data portion from the mapping result
+                $docuSealFields = $this->fieldMappingService->convertToDocuSealFields($mappingResult['data'], $manufacturerConfig);
             }
             
             // Log the field mapping result
