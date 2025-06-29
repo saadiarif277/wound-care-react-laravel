@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Auth;
 class UnifiedFieldMappingService
 {
     private array $config;
+    private array $orderFormConfig;
 
     public function __construct(
         private DataExtractor $dataExtractor,
@@ -22,6 +23,7 @@ class UnifiedFieldMappingService
         private FieldMatcher $fieldMatcher
     ) {
         $this->config = config('field-mapping');
+        $this->orderFormConfig = config('order-form-mapping');
     }
 
     /**
@@ -30,7 +32,8 @@ class UnifiedFieldMappingService
     public function mapEpisodeToTemplate(
         ?int $episodeId, 
         string $manufacturerName,
-        array $additionalData = []
+        array $additionalData = [],
+        string $documentType = 'IVR'
     ): array {
         $startTime = microtime(true);
 
@@ -44,10 +47,10 @@ class UnifiedFieldMappingService
                 $sourceData = $additionalData;
             }
 
-            // 2. Get manufacturer configuration
-            $manufacturerConfig = $this->getManufacturerConfig($manufacturerName);
+            // 2. Get manufacturer configuration based on document type
+            $manufacturerConfig = $this->getManufacturerConfig($manufacturerName, $documentType);
             if (!$manufacturerConfig) {
-                throw new \InvalidArgumentException("Unknown manufacturer: {$manufacturerName}");
+                throw new \InvalidArgumentException("Unknown manufacturer: {$manufacturerName} for document type: {$documentType}");
             }
 
             // 3. Map fields according to configuration
@@ -356,24 +359,27 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Get manufacturer configuration
+     * Get manufacturer configuration based on document type
      */
-    public function getManufacturerConfig(string $name): ?array
+    public function getManufacturerConfig(string $name, string $documentType = 'IVR'): ?array
     {
+        // Choose the appropriate config based on document type
+        $configSource = $documentType === 'OrderForm' ? $this->orderFormConfig : $this->config;
+        
         // First try exact match
-        if (isset($this->config['manufacturers'][$name])) {
-            return $this->config['manufacturers'][$name];
+        if (isset($configSource['manufacturers'][$name])) {
+            return $configSource['manufacturers'][$name];
         }
 
         // Try case-insensitive match
-        foreach ($this->config['manufacturers'] as $key => $config) {
+        foreach ($configSource['manufacturers'] as $key => $config) {
             if (strtolower($key) === strtolower($name)) {
                 return $config;
             }
         }
 
         // Try matching by manufacturer name in config
-        foreach ($this->config['manufacturers'] as $key => $config) {
+        foreach ($configSource['manufacturers'] as $key => $config) {
             if (isset($config['name']) && 
                 (strtolower($config['name']) === strtolower($name) || 
                  str_contains(strtolower($config['name']), strtolower($name)))) {
@@ -387,14 +393,20 @@ class UnifiedFieldMappingService
     /**
      * Convert mapped data to DocuSeal field format
      */
-    public function convertToDocuSealFields(array $mappedData, array $manufacturerConfig): array
+    public function convertToDocuSealFields(array $mappedData, array $manufacturerConfig, string $documentType = 'IVR'): array
     {
         $docuSealFields = [];
-        $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
+        
+        // Choose the correct field mapping based on document type
+        if ($documentType === 'OrderForm' && isset($manufacturerConfig['order_form_field_names'])) {
+            $fieldNameMapping = $manufacturerConfig['order_form_field_names'];
+        } else {
+            $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
+        }
 
         foreach ($mappedData as $canonicalName => $value) {
-            // Skip null or empty values
-            if ($value === null || $value === '') {
+            // Skip null or empty values unless it's a boolean false
+            if ($value === null || ($value === '' && !is_bool($value))) {
                 continue;
             }
 
@@ -414,12 +426,41 @@ class UnifiedFieldMappingService
                 continue;
             }
 
-            // Add the field with its DocuSeal name
+            // Handle boolean values for checkboxes
+            if (is_bool($value) || in_array($value, ['true', 'false', 'Yes', 'No', '1', '0', 1, 0], true)) {
+                // Convert various boolean representations to DocuSeal checkbox format
+                $boolValue = false;
+                
+                if (is_bool($value)) {
+                    $boolValue = $value;
+                } elseif (in_array($value, ['true', 'Yes', '1', 1], true)) {
+                    $boolValue = true;
+                } elseif (in_array($value, ['false', 'No', '0', 0], true)) {
+                    $boolValue = false;
+                }
+                
+                // For checkbox fields, DocuSeal expects 'true' or 'false' as strings
+                $docuSealFields[] = [
+                    'name' => $docuSealFieldName,
+                    'default_value' => $boolValue ? 'true' : 'false'
+                ];
+                continue;
+            }
+
             // Handle array values by converting to string representation
             if (is_array($value)) {
-                $value = json_encode($value);
+                // For arrays like ICD codes, we might need to handle them differently
+                // depending on the field type
+                if (strpos($canonicalName, 'icd10_code_') !== false || 
+                    strpos($canonicalName, 'cpt_code_') !== false ||
+                    strpos($canonicalName, 'hcpcs_code_') !== false) {
+                    // These are handled individually, not as arrays
+                    continue;
+                }
+                $value = implode(', ', $value);
             }
             
+            // Add the field with its DocuSeal name
             $docuSealFields[] = [
                 'name' => $docuSealFieldName,
                 'default_value' => (string) $value

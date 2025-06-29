@@ -33,7 +33,7 @@ class DocusealTemplateSeeder extends Seeder
                         'name' => 'MedLife Order Form',
                         'docuseal_template_id' => '1234279',
                         'document_type' => 'OrderForm',
-                        'is_default' => false,
+                        'is_default' => true,
                     ]
                 ]
             ],

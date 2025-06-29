@@ -4,8 +4,9 @@ import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShiel
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
-import { useManufacturers } from '@/hooks/useManufacturers';
+import { useManufacturers } from '@/Hooks/useManufacturers';
 import axios from 'axios';
+import { Button } from '@/Components/ui/Button';
 
 // Prepare DocuSeal data function (moved from deleted docusealUtils.ts)
 const prepareDocuSealData = ({ formData, products, providers, facilities }: any) => {
@@ -13,6 +14,18 @@ const prepareDocuSealData = ({ formData, products, providers, facilities }: any)
   const product = products?.find((p: any) => p.id === selectedProduct?.product_id);
   const provider = providers?.find((p: any) => p.id === formData.provider_id);
   const facility = facilities?.find((f: any) => f.id === formData.facility_id);
+
+  // Extract Q codes from all selected products for product checkbox automation
+  const selectedProductCodes = formData.selected_products?.map((selectedProd: any) => {
+    const prod = products?.find((p: any) => p.id === selectedProd.product_id);
+    return prod?.q_code || prod?.code;
+  }).filter(Boolean) || [];
+
+  // Get product names for additional matching
+  const selectedProductNames = formData.selected_products?.map((selectedProd: any) => {
+    const prod = products?.find((p: any) => p.id === selectedProd.product_id);
+    return prod?.name;
+  }).filter(Boolean) || [];
 
   return {
     // Patient Information
@@ -22,20 +35,40 @@ const prepareDocuSealData = ({ formData, products, providers, facilities }: any)
     patient_dob: formData.patient_dob || '',
     patient_gender: formData.patient_gender || '',
     
-    // Provider Information
+    // Provider Information (structured for field mapping)
     provider_name: provider?.name || formData.provider_name || '',
     provider_npi: provider?.npi || formData.provider_npi || '',
     provider_email: formData.provider_email || '',
+    provider: {
+      name: provider?.name || formData.provider_name || '',
+      npi: provider?.npi || formData.provider_npi || '',
+      ptan: provider?.ptan || formData.provider_ptan || '',
+      credentials: provider?.credentials || formData.provider_credentials || '',
+      email: formData.provider_email || '',
+    },
     
-    // Facility Information
+    // Facility Information (structured for field mapping)
     facility_name: facility?.name || formData.facility_name || '',
     facility_address: facility?.address || '',
+    facility: {
+      name: facility?.name || formData.facility_name || '',
+      address: facility?.address || '',
+      email: facility?.email || '',
+      phone: facility?.phone || '',
+      contact_name: facility?.contact_name || facility?.name || '',
+      npi: facility?.npi || facility?.group_npi || '',
+      ptan: facility?.ptan || facility?.facility_ptan || '',
+    },
     
     // Product Information
     product_name: product?.name || '',
-    product_code: product?.code || '',
+    product_code: product?.code || product?.q_code || '',
     product_manufacturer: product?.manufacturer || '',
     manufacturer_id: product?.manufacturer_id || null,
+    
+    // Product Selection Arrays (for field mapping computations)
+    selected_product_codes: selectedProductCodes,
+    selected_product_names: selectedProductNames,
     
     // Insurance Information
     primary_insurance_name: formData.primary_insurance_name || '',
@@ -130,6 +163,7 @@ interface Step7Props {
   products: Array<{
     id: number;
     code: string;
+    q_code?: string;
     name: string;
     manufacturer: string;
     manufacturer_id?: number;
@@ -149,6 +183,21 @@ interface Step7Props {
   }>;
   errors: Record<string, string>;
 }
+
+// Direct product-to-template mapping
+// This eliminates the complex manufacturer lookup
+const PRODUCT_TEMPLATE_MAP: Record<number, string> = {
+  10: '1233913',  // Amnio AMP → MEDLIFE SOLUTIONS template
+  // Add more product mappings as needed
+  // Format: [product_id]: 'docuseal_template_id'
+};
+
+// Q-Code to template mapping for more reliable matching
+const Q_CODE_TEMPLATE_MAP: Record<string, string> = {
+  'Q4162': '1233913',  // MedLife template
+  'Q4151': '1233918',  // Centurion AmnioBand
+  'Q4128': '1233918',  // Centurion Allopatch
+};
 
 export default function Step7DocuSealIVR({
   formData,
@@ -175,6 +224,10 @@ export default function Step7DocuSealIVR({
   const [isProcessing, setIsProcessing] = useState(false);
   const [enhancedSubmission, setEnhancedSubmission] = useState<any>(null);
   const [redirectTimeout, setRedirectTimeout] = useState<number | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
+  const [debugMode, setDebugMode] = useState(true); // Enable debug mode
 
   // Use the manufacturers hook
   const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
@@ -195,7 +248,33 @@ export default function Step7DocuSealIVR({
 
   const selectedProduct = getSelectedProduct();
   
-  // Get manufacturer config from API data
+  // Get DocuSeal template ID - prefer direct mapping, fallback to Q code, then manufacturer config
+  const getTemplateId = (): string | undefined => {
+    if (!selectedProduct) return undefined;
+    
+    // First check our direct product mapping
+    if (selectedProduct.id && PRODUCT_TEMPLATE_MAP[selectedProduct.id]) {
+      console.log('Using direct product template mapping');
+      return PRODUCT_TEMPLATE_MAP[selectedProduct.id];
+    }
+    
+    // Second, check Q code mapping
+    if (selectedProduct.q_code && Q_CODE_TEMPLATE_MAP[selectedProduct.q_code]) {
+      console.log('Using Q code template mapping for:', selectedProduct.q_code);
+      return Q_CODE_TEMPLATE_MAP[selectedProduct.q_code];
+    }
+    
+    // Fallback to manufacturer config
+    const config = selectedProduct.manufacturer ? getManufacturerByName(selectedProduct.manufacturer) : null;
+    if (config?.docuseal_template_id) {
+      console.log('Using manufacturer template mapping');
+      return config.docuseal_template_id;
+    }
+    
+    return undefined;
+  };
+  
+  const templateId = getTemplateId();
   const manufacturerConfig = selectedProduct?.manufacturer 
     ? getManufacturerByName(selectedProduct.manufacturer)
     : null;
@@ -203,7 +282,9 @@ export default function Step7DocuSealIVR({
   // Debug logging
   console.log('Selected Product:', {
     name: selectedProduct?.name,
+    id: selectedProduct?.id,
     manufacturer: selectedProduct?.manufacturer,
+    templateId: templateId,
     manufacturer_id: selectedProduct?.manufacturer_id,
     code: selectedProduct?.code
   });
@@ -279,7 +360,7 @@ export default function Step7DocuSealIVR({
     ).join('\n'),
 
     // Clinical Information
-    total_wound_size: `${totalWoundSize} sq cm`,
+    wound_size_total: totalWoundSize, // Send as number, not string with units
     wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
     wound_duration: woundDuration,
     wound_duration_days: formData.wound_duration_days || '',
@@ -376,7 +457,7 @@ export default function Step7DocuSealIVR({
           });
         }, 3000);
         
-        setRedirectTimeout(timeout);
+        setRedirectTimeout(timeout as unknown as number);
       } else {
         console.error('Enhanced submission processing failed:', response.data.error);
         setIsCompleted(true); // Still mark as completed, but show warning
@@ -451,8 +532,8 @@ export default function Step7DocuSealIVR({
     );
   }
 
-  // No IVR required for this manufacturer
-  if (!manufacturerConfig || !manufacturerConfig?.signature_required) {
+  // No IVR required if no template ID found
+  if (!templateId) {
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
@@ -690,7 +771,8 @@ export default function Step7DocuSealIVR({
             )}
             
             <DocuSealEmbed
-              manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
+              manufacturerId={manufacturerConfig?.id?.toString() || selectedProduct?.manufacturer_id?.toString() || '1'}
+              templateId={templateId}
               productCode={selectedProduct?.code || ''}
               formData={preparedDocuSealData}
               episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}

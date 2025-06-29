@@ -35,6 +35,7 @@ interface DocuSealResponse {
 
 interface DocuSealEmbedProps {
   manufacturerId: string;
+  templateId?: string; // Direct template ID mapping
   productCode: string;
   documentType?: 'IVR' | 'OrderForm'; // NEW: Document type parameter
   formData?: FormData;
@@ -43,10 +44,12 @@ interface DocuSealEmbedProps {
   onSave?: (data: any) => void;
   onError?: (error: string) => void;
   className?: string;
+  debug?: boolean;
 }
 
 export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   manufacturerId,
+  templateId,
   productCode,
   documentType = 'IVR', // Default to IVR for backward compatibility
   formData = {}, // Default to empty object
@@ -55,6 +58,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   onSave,
   onError,
   className = '',
+  debug = true // Enable debug mode by default for now
 }) => {
   const [token, setToken] = useState<string | null>(null);
   const [, setTemplateId] = useState<string | null>(null);
@@ -65,6 +69,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Memoized token fetch function
   const fetchToken = useCallback(async () => {
@@ -83,12 +88,81 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       setError(null);
       setMappingProgress('Initializing form...');
 
+      // Comprehensive logging of formData
+      if (debug) {
+        console.group('🔍 DocuSealEmbed Debug - Form Data Analysis');
+        console.log('Template ID:', templateId);
+        console.log('Document Type:', documentType);
+        console.log('Manufacturer ID:', manufacturerId);
+        console.log('Episode ID:', episodeId);
+        console.log('Form Data Keys:', Object.keys(formData));
+        console.log('Form Data Keys Count:', Object.keys(formData).length);
+        
+        // Log all fields grouped by category
+        console.group('📋 Patient Information');
+        const patientFields = Object.entries(formData).filter(([key]) => 
+            key.includes('patient') || key === 'patient_name'
+        );
+        patientFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('👨‍⚕️ Provider Information');
+        const providerFields = Object.entries(formData).filter(([key]) => 
+            key.includes('provider') || key.includes('physician') || key.includes('doctor')
+        );
+        providerFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('🏥 Facility Information');
+        const facilityFields = Object.entries(formData).filter(([key]) => 
+            key.includes('facility') || key.includes('practice') || key.includes('office')
+        );
+        facilityFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('🩹 Clinical Information');
+        const clinicalFields = Object.entries(formData).filter(([key]) => 
+            key.includes('wound') || key.includes('diagnosis') || key.includes('icd') || 
+            key.includes('cpt') || key.includes('procedure')
+        );
+        clinicalFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('🏥 Insurance Information');
+        const insuranceFields = Object.entries(formData).filter(([key]) => 
+            key.includes('insurance') || key.includes('member')
+        );
+        insuranceFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('📦 Product Information');
+        const productFields = Object.entries(formData).filter(([key]) => 
+            key.includes('product') || key.includes('manufacturer')
+        );
+        productFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.group('📄 All Other Fields');
+        const otherFields = Object.entries(formData).filter(([key]) => 
+            !key.includes('patient') && !key.includes('provider') && !key.includes('physician') &&
+            !key.includes('facility') && !key.includes('practice') && !key.includes('wound') &&
+            !key.includes('diagnosis') && !key.includes('insurance') && !key.includes('product') &&
+            !key.includes('manufacturer') && !key.includes('icd') && !key.includes('cpt')
+        );
+        otherFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
+        console.groupEnd();
+        
+        console.log('Full Form Data:', formData);
+        console.groupEnd();
+      }
+
       // Enhanced request with FHIR integration support
       const requestData = {
         user_email: 'limitless@mscwoundcare.com',
         integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
         prefill_data: formData,
         manufacturerId,
+        templateId, // Direct template ID if provided
         productCode,
         documentType, // NEW: Include document type in request
         ...(episodeId && { episode_id: episodeId })
@@ -96,6 +170,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
       console.log('Sending enhanced DocuSeal request with FHIR support:', {
         manufacturerId,
+        templateId,
         productCode,
         episodeId,
         formDataKeys: Object.keys(formData || {}),
@@ -149,6 +224,34 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
       setTemplateId(template_id);
       setToken(slug);
+
+      if (debug) {
+        console.group('🔍 DocuSealEmbed Debug - API Response');
+        console.log('Response Status:', response.status);
+        console.log('Response Data:', response.data);
+        console.log('Slug:', response.data.slug);
+        console.log('Fields Mapped:', response.data.fields_mapped);
+        console.log('Mapping Method:', response.data.mapping_method);
+        console.log('Integration Type:', response.data.integration_type);
+        console.groupEnd();
+        
+        // Store debug info for display
+        setDebugInfo({
+          request: {
+            templateId,
+            manufacturerId,
+            documentType,
+            episodeId,
+            formDataKeys: Object.keys(formData),
+            formDataSample: {
+              patient_name: formData.patient_name,
+              physician_npi: formData.physician_npi,
+              facility_name: formData.facility_name
+            }
+          },
+          response: response.data
+        });
+      }
     } catch (err: any) {
       console.error('DocuSeal token fetch error:', {
         error: err,
@@ -184,7 +287,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       }
       requestInProgressRef.current = false;
     }
-  }, [manufacturerId, productCode, documentType, formData, episodeId, onError]);
+  }, [manufacturerId, productCode, documentType, formData, episodeId, onError, debug]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -552,7 +655,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               <h3 className="text-xl font-semibold text-gray-900 mb-2">Form Ready</h3>
               <p className="text-gray-600 mb-6">
                 Your {documentType === 'OrderForm' ? 'order' : 'insurance verification'} form has been prepared
-                {integrationInfo?.fieldsMapped > 0 && ` with ${integrationInfo.fieldsMapped} pre-filled fields`}.
+                {integrationInfo && integrationInfo.fieldsMapped > 0 && ` with ${integrationInfo.fieldsMapped} pre-filled fields`}.
               </p>
               <button
                 onClick={() => {

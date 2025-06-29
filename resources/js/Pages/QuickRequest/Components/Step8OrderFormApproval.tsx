@@ -165,8 +165,7 @@ export default function Step8OrderFormApproval({
     : null;
 
   // Check if order form is available for this manufacturer
-  // TODO: Add order_form_template_id to manufacturers table and check manufacturerConfig?.order_form_template_id
-  const hasOrderForm = false; // For now, order forms aren't configured in the database yet
+  const hasOrderForm = manufacturerConfig?.has_order_form === true || manufacturerConfig?.order_form_template_id;
 
   // Debug logging
   console.log('Step 8 - Selected Product:', {

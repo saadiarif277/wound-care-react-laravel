@@ -662,7 +662,9 @@ final class QuickRequestController extends Controller
                 'integration_email' => 'nullable|email',
                 'prefill_data' => 'nullable|array',
                 'manufacturerId' => 'nullable|numeric', // Accept both string and integer
+                'templateId' => 'nullable|string',
                 'productCode' => 'nullable|string',
+                'documentType' => 'nullable|string|in:IVR,OrderForm',
                 'episode_id' => 'nullable|integer',
             ]);
 
@@ -671,6 +673,7 @@ final class QuickRequestController extends Controller
                 'form_data_count' => count($data['prefill_data'] ?? []),
                 'manufacturer_id' => $data['manufacturerId'] ?? 'not_provided',
                 'product_code' => $data['productCode'] ?? 'not_provided',
+                'document_type' => $data['documentType'] ?? 'IVR',
                 'episode_id' => $data['episode_id'] ?? 'not_provided',
                 'sample_form_data' => array_slice($data['prefill_data'] ?? [], 0, 10)
             ]);
@@ -800,12 +803,29 @@ final class QuickRequestController extends Controller
             }
 
             // Step 4: Template Resolution (CRITICAL STEP)
+            $documentType = $data['documentType'] ?? 'IVR';
             Log::info('🔍 Starting template resolution', [
                 'manufacturer_id' => $manufacturerId,
+                'template_id' => $data['templateId'] ?? null,
+                'document_type' => $documentType,
                 'product_code' => $data['productCode'] ?? 'none'
             ]);
 
-            $template = $this->getTemplateForManufacturer($manufacturerId);
+            // If templateId is provided directly, use it
+            if (!empty($data['templateId'])) {
+                $template = DocusealTemplate::where('docuseal_template_id', $data['templateId'])
+                    ->where('is_active', true)
+                    ->first();
+                    
+                if ($template) {
+                    Log::info('✅ Template found by direct ID', [
+                        'docuseal_template_id' => $data['templateId']
+                    ]);
+                }
+            } else {
+                // Fallback to manufacturer lookup
+                $template = $this->getTemplateForManufacturer($manufacturerId, $documentType);
+            }
 
             if (!$template) {
                 $availableTemplates = DocusealTemplate::where('manufacturer_id', $manufacturerId)
@@ -831,93 +851,66 @@ final class QuickRequestController extends Controller
                 'field_mappings_count' => is_array($template->field_mappings) ? count($template->field_mappings) : 0
             ]);
 
-            // Step 5: Field Mapping with Enhanced Error Handling
-            $mappedFields = [];
-            $aiMappingUsed = false;
-            $aiConfidence = 0;
-            $mappingMethod = 'static';
+            // Step 5: SIMPLIFIED Field Mapping - Using UnifiedFieldMappingService exclusively
+            $docuSealFields = [];
             
             if (!empty($data['prefill_data'])) {
-                Log::info('🗂️ Starting field mapping', [
+                Log::info('🗂️ Starting unified field mapping', [
                     'input_fields_count' => count($data['prefill_data']),
-                    'template_mappings_available' => !empty($template->field_mappings),
-                    'first_10_input_fields' => array_slice(array_keys($data['prefill_data']), 0, 10)
+                    'manufacturer' => $manufacturer->name,
+                    'document_type' => $documentType
                 ]);
 
                 try {
-                    // Check if AI is enabled
-                    $aiEnabled = config('ai.enabled', false);
-                    $aiProvider = config('ai.provider');
-                    $azureAiEnabled = config('azure.ai_foundry.enabled', false);
+                    // Get manufacturer configuration based on document type
+                    $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name, $documentType);
                     
-                    Log::info('🔍 AI Configuration Check', [
-                        'ai_enabled' => $aiEnabled,
-                        'ai_provider' => $aiProvider,
-                        'azure_ai_enabled' => $azureAiEnabled,
-                        'will_use_ai' => $aiEnabled && $aiProvider !== 'mock' && $azureAiEnabled
-                    ]);
-                    
-                    if ($aiEnabled && $aiProvider !== 'mock' && $azureAiEnabled) {
-                        $aiMappingUsed = true;
-                        $mappingMethod = 'ai_enhanced';
-                        
-                        // Use unified field mapping service with full context
-                        try {
-                            $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name);
-                            $formId = $manufacturerConfig['template_id'] ?? null;
-                            
-                            // Get template fields for validation
-                            $templateFields = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
-                            
-                            $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                                $episode ? $episode->id : null,
-                                $manufacturer->name,
-                                $data['prefill_data'] ?? []
-                            );
-                            
-                            // Convert to DocuSeal format
-                            $mappedFields = $this->fieldMappingService->convertToDocuSealFields($mappingResult['data'], $manufacturerConfig);
-                            
-                            Log::info('🤖 Enhanced AI mapping used', [
-                                'form_id' => $formId,
-                                'mapped_count' => count($mappedFields)
-                            ]);
-                        } catch (\Exception $aiEx) {
-                            Log::warning('⚠️ Enhanced AI mapping failed, falling back to standard', [
-                                'error' => $aiEx->getMessage()
-                            ]);
-                            
-                            // Fallback to standard AI mapping
-                            $mappedFields = $this->docuSealService->mapFieldsWithAI(
-                                $data['prefill_data'],
-                                $template
-                            );
-                        }
-                    } else {
-                        // Use standard mapping (AI or static based on config)
-                        $mappedFields = $this->docuSealService->mapFieldsWithAI(
-                            $data['prefill_data'],
-                            $template
-                        );
+                    if (!$manufacturerConfig) {
+                        throw new \Exception("No field mapping configuration found for manufacturer: {$manufacturer->name} and document type: {$documentType}");
                     }
-
-                    Log::info('✅ Field mapping SUCCESSFUL', [
-                        'original_fields' => count($data['prefill_data']),
-                        'mapped_fields' => count($mappedFields),
-                        'sample_mapped_fields' => array_slice($mappedFields, 0, 5),
-                        'mapping_success_rate' => count($data['prefill_data']) > 0 ?
-                            round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%' : '0%',
-                        'ai_used' => $aiMappingUsed
+                    
+                    Log::info('📋 Manufacturer config loaded', [
+                        'manufacturer' => $manufacturer->name,
+                        'has_docuseal_field_names' => isset($manufacturerConfig['docuseal_field_names']),
+                        'field_count' => count($manufacturerConfig['fields'] ?? [])
                     ]);
+                    
+                    // Map the data using the unified service
+                    $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
+                        $episode ? $episode->id : null,
+                        $manufacturer->name,
+                        $data['prefill_data'] ?? [],
+                        $documentType
+                    );
+                    
+                    Log::info('🔄 Field mapping completed', [
+                        'canonical_fields_mapped' => count($mappingResult['data'] ?? []),
+                        'validation_valid' => $mappingResult['validation']['valid'] ?? false,
+                        'completeness_percentage' => $mappingResult['completeness']['percentage'] ?? 0
+                    ]);
+                    
+                    // Convert to DocuSeal format
+                    $docuSealFields = $this->fieldMappingService->convertToDocuSealFields(
+                        $mappingResult['data'], 
+                        $manufacturerConfig,
+                        $documentType
+                    );
+                    
+                    Log::info('✅ DocuSeal field conversion completed', [
+                        'docuseal_fields_count' => count($docuSealFields),
+                        'sample_fields' => array_slice($docuSealFields, 0, 5),
+                        'all_field_names' => array_map(function($f) { 
+                            return $f['name'] ?? 'unnamed'; 
+                        }, $docuSealFields)
+                    ]);
+                    
                 } catch (\Exception $e) {
-                    Log::error('❌ Field mapping FAILED', [
+                    Log::error('❌ Unified field mapping FAILED', [
                         'error' => $e->getMessage(),
-                        'input_field_count' => count($data['prefill_data'])
+                        'manufacturer' => $manufacturer->name
                     ]);
-                    // Continue with empty mapped fields rather than failing
-                    $mappedFields = [];
-                    $aiMappingUsed = false;
-                    $mappingMethod = 'fallback';
+                    // Continue with empty fields rather than failing completely
+                    $docuSealFields = [];
                 }
             }
 
@@ -941,65 +934,6 @@ final class QuickRequestController extends Controller
             }
 
             // Step 7: Create Submission Data with Validation
-            // Use the new mapper to properly format fields for DocuSeal
-            if (count($mappedFields) > 0 && isset($mappedFields[0]['name'])) {
-                // If we have AI-mapped fields already in DocuSeal format, use them directly
-                $docuSealFields = $mappedFields;
-            } else {
-                // If no AI mapping or wrong format, use the unified field mapping service
-                $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                    $episode ? $episode->id : null,
-                    $manufacturer->name,
-                    $data['prefill_data'] ?? []
-                );
-                $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name);
-                // Extract just the data portion from the mapping result
-                $docuSealFields = $this->fieldMappingService->convertToDocuSealFields($mappingResult['data'], $manufacturerConfig);
-            }
-            
-            // Log the field mapping result
-            Log::info('📋 DocuSeal field conversion', [
-                'manufacturer' => $manufacturer->name,
-                'ai_mapped_count' => count($mappedFields),
-                'final_field_count' => count($docuSealFields),
-                'sample_fields' => array_slice($docuSealFields, 0, 3)
-            ]);
-            
-            // Step 6a: Validate and clean fields using enhanced validator
-            try {
-                $templateFieldsFromAPI = $this->docuSealService->getTemplateFieldsFromAPI($template->docuseal_template_id);
-                
-                if (!empty($templateFieldsFromAPI)) {
-                    // Basic field validation - filter out empty fields
-                    $docuSealFields = array_filter($docuSealFields, function($field) {
-                        return !empty($field['name']) && isset($field['value']);
-                    });
-                    
-                    Log::info('✅ Field validation with fuzzy matching complete', [
-                        'template_id' => $template->docuseal_template_id,
-                        'validated_field_count' => count($docuSealFields)
-                    ]);
-                } else {
-                    // If we couldn't get template fields, skip field prefilling entirely
-                    Log::warning('⚠️ Could not retrieve template fields from DocuSeal API - skipping field prefilling', [
-                        'template_id' => $template->docuseal_template_id,
-                        'reason' => 'API may be unavailable or template structure different'
-                    ]);
-                    
-                    // Empty the fields to avoid 422 errors
-                    $docuSealFields = [];
-                    
-                    // Add a flag to indicate no prefilling
-                    $data['prefill_skipped'] = true;
-                }
-            } catch (\Exception $e) {
-                Log::warning('⚠️ Field validation failed, proceeding with original fields', [
-                    'error' => $e->getMessage(),
-                    'template_id' => $template->docuseal_template_id
-                ]);
-                // Continue with original fields
-            }
-            
             $submissionData = [
                 'template_id' => (int) $template->docuseal_template_id,
                 'send_email' => false,
@@ -1021,28 +955,15 @@ final class QuickRequestController extends Controller
                 throw new \Exception('Submitter email is invalid: ' . $submissionData['submitters'][0]['email']);
             }
 
-            // Log all field names being sent
-            $fieldNames = array_map(function($field) {
-                return $field['name'] ?? 'unknown';
-            }, $docuSealFields);
-            
-            Log::info('📤 Sending DocuSeal API request', [
-                'template_id' => $submissionData['template_id'],
-                'submitter_email' => $submissionData['submitters'][0]['email'],
-                'submitter_role' => $submissionData['submitters'][0]['role'],
-                'mapped_fields_count' => count($mappedFields),
-                'docuseal_fields_count' => count($docuSealFields),
-                'all_field_names' => $fieldNames,
-                'sample_fields' => array_slice($docuSealFields, 0, 5),
-                'api_endpoint' => "{$apiUrl}/submissions"
-            ]);
-
             // Log the submission data being sent
             Log::info('📤 Sending DocuSeal submission request', [
                 'template_id' => $submissionData['template_id'],
-                'submitter_email' => $submissionData['submitters'][0]['email'] ?? 'unknown',
-                'field_count' => count($submissionData['submitters'][0]['fields'] ?? []),
-                'field_names' => array_map(function($f) { return $f['name'] ?? 'unnamed'; }, $submissionData['submitters'][0]['fields'] ?? []),
+                'submitter_email' => $submissionData['submitters'][0]['email'],
+                'submitter_role' => $submissionData['submitters'][0]['role'],
+                'field_count' => count($docuSealFields),
+                'field_names' => array_map(function($f) { 
+                    return $f['name'] ?? 'unnamed'; 
+                }, $docuSealFields),
                 'api_url' => $apiUrl . '/submissions'
             ]);
 
@@ -1142,8 +1063,9 @@ final class QuickRequestController extends Controller
                 'submission_id' => $submissionId,
                 'slug' => $slug,
                 'submitter_email' => $submitters[0]['email'] ?? null,
-                'mapped_fields_count' => count($mappedFields),
+                'fields_mapped' => count($docuSealFields),
                 'manufacturer' => $manufacturer->name,
+                'document_type' => $documentType,
                 'integration_type' => 'standard'
             ]);
 
@@ -1154,12 +1076,10 @@ final class QuickRequestController extends Controller
                 'template_id' => $template->docuseal_template_id,
                 'template_name' => $template->template_name,
                 'manufacturer' => $manufacturer->name,
-                'fields_mapped' => count($mappedFields),
+                'fields_mapped' => count($docuSealFields),
                 'embed_url' => "https://docuseal.com/s/{$slug}",
                 'integration_type' => 'standard',
-                'ai_mapping_used' => $aiMappingUsed,
-                'ai_confidence' => $aiConfidence,
-                'mapping_method' => $mappingMethod
+                'mapping_method' => 'unified_field_mapping_service'
             ]);
 
         } catch (ValidationException $e) {
@@ -1780,13 +1700,13 @@ final class QuickRequestController extends Controller
     /**
      * Get template for manufacturer
      */
-    private function getTemplateForManufacturer(?int $manufacturerId): ?DocusealTemplate
+    private function getTemplateForManufacturer(?int $manufacturerId, string $documentType = 'IVR'): ?DocusealTemplate
     {
         if (!$manufacturerId) {
             return null;
         }
 
-        return DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+        return DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, $documentType);
     }
 
     /**

@@ -22,6 +22,9 @@ export interface ManufacturerData {
   custom_fields: ManufacturerField[];
   products: string[];
   active: boolean;
+  // Order form properties
+  has_order_form?: boolean;
+  order_form_template_id?: string;
 }
 
 interface UseManufacturersResult {

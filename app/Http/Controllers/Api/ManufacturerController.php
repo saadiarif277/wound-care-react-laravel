@@ -43,6 +43,9 @@ class ManufacturerController extends Controller
                         'custom_fields' => $this->getManufacturerFields($manufacturer, $activeTemplate),
                         'products' => $manufacturer->products ?? [],
                         'active' => !empty($activeTemplate),
+                        // Order form properties
+                        'has_order_form' => $fieldMappingConfig['has_order_form'] ?? false,
+                        'order_form_template_id' => $fieldMappingConfig['order_form_template_id'] ?? null,
                     ];
                 });
         });
@@ -102,6 +105,9 @@ class ManufacturerController extends Controller
                 'active' => !empty($activeTemplate),
                 'created_at' => $manufacturer->created_at,
                 'updated_at' => $manufacturer->updated_at,
+                // Order form properties
+                'has_order_form' => $fieldMappingConfig['has_order_form'] ?? false,
+                'order_form_template_id' => $fieldMappingConfig['order_form_template_id'] ?? null,
             ]
         ]);
     }

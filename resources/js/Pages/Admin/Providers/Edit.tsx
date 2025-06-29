@@ -28,11 +28,11 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     // Basic Info
     first_name: provider.first_name || '',
     last_name: provider.last_name || '',
+    credentials: provider.credentials || '',
     email: provider.email || '',
     
     // Professional Info
     npi_number: provider.npi_number || '',
-    dea_number: provider.dea_number || '',
     license_number: provider.license_number || '',
     license_state: provider.license_state || '',
     license_expiry: provider.license_expiry || '',
@@ -130,6 +130,30 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 )}
               </div>
 
+              <div>
+                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+                  Credentials
+                </label>
+                <input
+                  type="text"
+                  value={data.credentials}
+                  onChange={(e) => setData('credentials', e.target.value)}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-lg",
+                    t.input.base,
+                    t.input.border,
+                    errors.credentials && t.input.error
+                  )}
+                  placeholder="MD, DO, DPM, NP, etc."
+                />
+                {errors.credentials && (
+                  <p className={cn("mt-1 text-sm", t.status.error)}>{errors.credentials}</p>
+                )}
+                <p className={cn("mt-1 text-xs", t.text.secondary)}>
+                  Professional credentials (e.g., MD, DO, DPM, NP, PA)
+                </p>
+              </div>
+
               <div className="md:col-span-2">
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Email Address *
@@ -148,7 +172,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="provider@example.com"
                 />
                 {errors.email && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.email}</p>
+                  <p className={cn("mt-1 text-sm", t.status.error)}>{errors.email}</p>
                 )}
               </div>
             </div>
@@ -244,7 +268,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  NPI Number
+                  Physician NPI
                 </label>
                 <input
                   type="text"
@@ -259,34 +283,10 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="1234567890"
                 />
                 {errors.npi_number && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.npi_number}</p>
+                  <p className={cn("mt-1 text-sm", t.status.error)}>{errors.npi_number}</p>
                 )}
                 <p className={cn("mt-1 text-xs", t.text.secondary)}>
                   10-digit National Provider Identifier
-                </p>
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  DEA Number
-                </label>
-                <input
-                  type="text"
-                  value={data.dea_number}
-                  onChange={(e) => setData('dea_number', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    t.input.border,
-                    errors.dea_number && t.input.error
-                  )}
-                  placeholder="AB1234567"
-                />
-                {errors.dea_number && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.dea_number}</p>
-                )}
-                <p className={cn("mt-1 text-xs", t.text.secondary)}>
-                  Drug Enforcement Administration registration
                 </p>
               </div>
 
@@ -391,7 +391,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-                  PTAN
+                  Physician PTAN
                 </label>
                 <input
                   type="text"
@@ -406,7 +406,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="A12345"
                 />
                 {errors.ptan && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.ptan}</p>
+                  <p className={cn("mt-1 text-sm", t.status.error)}>{errors.ptan}</p>
                 )}
                 <p className={cn("mt-1 text-xs", t.text.secondary)}>
                   Provider Transaction Access Number for Medicare
