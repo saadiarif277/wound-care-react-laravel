@@ -2,9 +2,27 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## AI Operating Instructions
+
+VERSION: 2025-06-28-hash-abc123
+
+1. Always load and parse both files:
+   - `myrules.md` - Full governance rules (source of truth)
+   - `myrules_pipe.md` - Quick reference index
+
+2. Usage:
+   - Use pipe format to quickly identify applicable rule categories
+   - Reference full rules for implementation details
+   - When in doubt, full rules supersede pipe format
+
+3. Validation:
+   - Check both files are present before proceeding
+   - Verify pipe format matches full rules version
+
 ## Development Commands
 
 ### Initial Setup
+
 ```bash
 # Install PHP dependencies
 composer install
@@ -22,6 +40,7 @@ php artisan db:seed
 ```
 
 ### Daily Development
+
 ```bash
 # Start Laravel development server
 php artisan serve
@@ -50,6 +69,7 @@ npm run prod
 ```
 
 ### Database Commands
+
 ```bash
 # Refresh database with fresh migrations and seeders
 php artisan migrate:fresh --seed
@@ -62,6 +82,7 @@ php artisan make:migration create_table_name
 ```
 
 ### Common Artisan Commands
+
 ```bash
 # Clear all caches
 php artisan cache:clear
@@ -83,10 +104,11 @@ php artisan make:service ServiceName
 ## Architecture Overview
 
 ### Technology Stack
+
 - **Backend**: Laravel 11 with PHP 8.2+
 - **Frontend**: React 18 with TypeScript, Inertia.js
-- **Databases**: 
-  - Supabase PostgreSQL (non-PHI operational data)
+- **Databases**:
+  - Azure mySQL (non-PHI operational data)
   - Azure Health Data Services FHIR (PHI/clinical data)
 - **Authentication**: Laravel Sanctum
 - **State Management**: React Context API
@@ -96,7 +118,8 @@ php artisan make:service ServiceName
 
 **Critical**: This application maintains strict PHI/non-PHI data separation for HIPAA compliance.
 
-**Non-PHI Data (Supabase PostgreSQL)**:
+**Non-PHI Data (Azure mySQL)**:
+
 - User accounts, organizations, facilities
 - Product catalogs, pricing, inventory
 - Commission structures and calculations
@@ -104,6 +127,7 @@ php artisan make:service ServiceName
 - System configuration and settings
 
 **PHI Data (Azure FHIR)**:
+
 - Patient demographics and identifiers
 - Clinical documentation and wound assessments
 - Insurance information
@@ -111,13 +135,12 @@ php artisan make:service ServiceName
 - Diagnosis codes and treatment plans
 
 **Data Flow Example**:
-```
+
 Patient Registration → Create FHIR Patient Resource → Store Patient ID in local DB
                     ↓
                     Azure FHIR (PHI)
                     ↓
                     Reference by FHIR ID only in local database
-```
 
 ### Service Layer Architecture
 
@@ -151,11 +174,13 @@ The application uses a service-oriented architecture with key services:
 ### API Structure
 
 **API Routes** (`routes/api.php`):
+
 - `/api/v1/` - Versioned API endpoints
 - `/api/fhir/` - FHIR server REST API
 - `/api/docuseal/webhook` - DocuSeal webhook endpoint
 
 **Key API Groups**:
+
 - Quick Request workflow: `/api/v1/quick-request/*`
 - Medicare validation: `/api/v1/medicare-validation/*`
 - Eligibility checking: `/api/v1/eligibility/*`
@@ -164,16 +189,19 @@ The application uses a service-oriented architecture with key services:
 ### Frontend Architecture
 
 **Inertia.js Pages** (`resources/js/Pages/`):
+
 - Server-side rendered React components
 - Automatic prop injection from Laravel controllers
 - No separate API layer needed for page navigation
 
 **Component Structure**:
+
 - Glassmorphic design system components
 - Reusable form components with react-hook-form
 - TypeScript for type safety
 
 **State Management**:
+
 - React Context for theme and global state
 - Local component state for forms
 - Server state via Inertia props
@@ -181,12 +209,14 @@ The application uses a service-oriented architecture with key services:
 ### Testing Strategy
 
 **Backend Testing**:
+
 - Feature tests for API endpoints
 - Unit tests for services and models
 - Database tests with transactions
 - FHIR integration tests with mocks
 
 **Frontend Testing**:
+
 - Jest with React Testing Library
 - Component unit tests
 - Integration tests for workflows
@@ -203,6 +233,7 @@ The application uses a service-oriented architecture with key services:
 ### Common Development Patterns
 
 **Creating New Features**:
+
 1. Start with database migration if needed
 2. Create service class for business logic
 3. Add controller with dependency injection
@@ -211,6 +242,7 @@ The application uses a service-oriented architecture with key services:
 6. Update API documentation
 
 **Working with PHI Data**:
+
 1. Always use FhirService for PHI operations
 2. Never store PHI in local database
 3. Use FHIR resource IDs as references
@@ -218,6 +250,7 @@ The application uses a service-oriented architecture with key services:
 5. Test with PHI-safe mock data
 
 **DocuSeal Integration Flow**:
+
 1. Generate template with patient/order data
 2. Embed DocuSeal component in React
 3. Handle completion webhook

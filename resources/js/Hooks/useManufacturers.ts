@@ -43,10 +43,30 @@ export function useManufacturers(): UseManufacturersResult {
       setLoading(true);
       setError(null);
       const response = await axios.get('/api/v1/manufacturers');
-      setManufacturers(response.data.data);
-    } catch (err) {
+      
+      // Validate response structure
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        setManufacturers(response.data.data);
+        console.log('✅ Manufacturers loaded successfully:', response.data.data.length);
+      } else {
+        console.error('Invalid response structure:', response.data);
+        setError('Invalid manufacturer data format');
+      }
+    } catch (err: any) {
       console.error('Error fetching manufacturers:', err);
-      setError('Failed to load manufacturer data');
+      
+      // Enhanced error handling
+      if (err.response?.status === 401) {
+        setError('Authentication required. Please log in.');
+      } else if (err.response?.status === 403) {
+        setError('Access denied. Insufficient permissions.');
+      } else if (err.response?.status >= 500) {
+        setError('Server error. Please try again later.');
+      } else if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to load manufacturer data');
+      }
     } finally {
       setLoading(false);
     }
@@ -57,7 +77,7 @@ export function useManufacturers(): UseManufacturersResult {
   }, []);
 
   const getManufacturerByName = (name: string): ManufacturerData | undefined => {
-    return manufacturers.find(m => m.name === name);
+    return manufacturers.find(m => m.name.toLowerCase() === name.toLowerCase());
   };
 
   const getManufacturerById = (id: number): ManufacturerData | undefined => {

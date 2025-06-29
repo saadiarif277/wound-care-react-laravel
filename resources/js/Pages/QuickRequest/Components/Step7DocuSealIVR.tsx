@@ -207,6 +207,9 @@ export default function Step7DocuSealIVR({
     manufacturer_id: selectedProduct?.manufacturer_id,
     code: selectedProduct?.code
   });
+  console.log('All Manufacturers loaded:', manufacturers.map(m => ({ id: m.id, name: m.name, docuseal_template_id: m.docuseal_template_id })));
+  console.log('Manufacturers loading:', manufacturersLoading);
+  console.log('Looking for manufacturer:', selectedProduct?.manufacturer);
   console.log('Manufacturer Config found:', manufacturerConfig);
   console.log('Signature Required:', manufacturerConfig?.signature_required);
 
@@ -416,6 +419,17 @@ export default function Step7DocuSealIVR({
     };
   }, [redirectTimeout]);
 
+  // Set NO_IVR_REQUIRED when manufacturer doesn't require signature
+  useEffect(() => {
+    if (!manufacturersLoading && manufacturerConfig !== undefined) {
+      if (!manufacturerConfig || !manufacturerConfig.signature_required) {
+        if (!formData.docuseal_submission_id) {
+          updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
+        }
+      }
+    }
+  }, [manufacturersLoading, manufacturerConfig, formData.docuseal_submission_id, updateFormData]);
+
   // No product selected
   if (!selectedProduct) {
     return (
@@ -425,15 +439,20 @@ export default function Step7DocuSealIVR({
     );
   }
 
+  // Show loading state while manufacturers are being fetched
+  if (manufacturersLoading) {
+    return (
+      <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
+        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
+        <p className={cn("text-sm", t.text.secondary)}>
+          Loading manufacturer configuration...
+        </p>
+      </div>
+    );
+  }
+
   // No IVR required for this manufacturer
   if (!manufacturerConfig || !manufacturerConfig?.signature_required) {
-    // Set a placeholder submission ID when IVR is not required
-    React.useEffect(() => {
-      if (!formData.docuseal_submission_id) {
-        updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
-      }
-    }, []);
-
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />

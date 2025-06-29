@@ -74,7 +74,7 @@ class ManufacturerController extends Controller
             if (is_numeric($manufacturerIdOrName)) {
                 return $query->find($manufacturerIdOrName);
             } else {
-                return $query->where('name', $manufacturerIdOrName)->first();
+                return $query->whereRaw('LOWER(name) = LOWER(?)', [$manufacturerIdOrName])->first();
             }
         });
 
