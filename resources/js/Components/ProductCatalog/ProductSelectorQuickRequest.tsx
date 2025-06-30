@@ -240,7 +240,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
         params.append('wound_size', woundSize.toString());
       }
 
-      const url = `/products/search?${params.toString()}`;
+      const url = `/api/products/search?${params.toString()}`;
 
       const response = await fetch(url);
       const data = await response.json();

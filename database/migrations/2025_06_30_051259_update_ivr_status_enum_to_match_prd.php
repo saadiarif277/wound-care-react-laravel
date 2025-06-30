@@ -34,9 +34,8 @@ return new class extends Migration
         });
         
         // Update any other tables that might have ivr_status
-        if (Schema::hasTable('product_requests')) {
+        if (Schema::hasTable('product_requests') && Schema::hasColumn('product_requests', 'ivr_status')) {
             DB::table('product_requests')
-                ->whereNotNull('ivr_status')
                 ->where('ivr_status', 'expired')
                 ->update(['ivr_status' => 'rejected']);
         }
@@ -69,7 +68,7 @@ return new class extends Migration
             ->where('ivr_status', 'rejected')
             ->update(['ivr_status' => 'expired']);
             
-        if (Schema::hasTable('product_requests')) {
+        if (Schema::hasTable('product_requests') && Schema::hasColumn('product_requests', 'ivr_status')) {
             DB::table('product_requests')
                 ->where('ivr_status', 'rejected')
                 ->update(['ivr_status' => 'expired']);
