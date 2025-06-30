@@ -71,10 +71,17 @@ final class QuickRequestController extends Controller
             $this->currentOrganization->setId($currentOrg->id);
         }
 
+        // Determine if we should filter products by provider
+        $providerId = null;
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        if ($userRole === 'provider') {
+            $providerId = $user->id;
+        }
+        
         return Inertia::render('QuickRequest/CreateNew', [
             'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
             'providers' => $this->getProvidersForUser($user, $currentOrg),
-            'products' => $this->getActiveProducts(),
+            'products' => $this->getActiveProducts($providerId),
             'woundTypes' => $this->getWoundTypes(),
             'insuranceCarriers' => $this->getInsuranceCarriers(),
             'diagnosisCodes' => $this->getDiagnosisCodes(),
@@ -101,13 +108,20 @@ final class QuickRequestController extends Controller
         // Load necessary data for the review page
         $user = $this->loadUserWithRelations();
         $currentOrg = $user->organizations->first();
+        
+        // Determine if we should filter products by provider
+        $providerId = null;
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        if ($userRole === 'provider') {
+            $providerId = $user->id;
+        }
 
         return Inertia::render('QuickRequest/Orders/Index', [
             'formData' => $formData,
             'validatedEpisodeData' => $validatedEpisodeData,
             'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
             'providers' => $this->getProvidersForUser($user, $currentOrg),
-            'products' => $this->getActiveProducts(),
+            'products' => $this->getActiveProducts($providerId),
             'currentUser' => $this->getCurrentUserData($user, $currentOrg),
         ]);
     }
@@ -1461,10 +1475,18 @@ final class QuickRequestController extends Controller
     /**
      * Get active products
      */
-    private function getActiveProducts(): \Illuminate\Support\Collection
+    private function getActiveProducts(?int $providerId = null): \Illuminate\Support\Collection
     {
-        return Product::where('is_active', true)
-            ->get()
+        $query = Product::where('is_active', true);
+        
+        // If a provider ID is specified, filter to only products they're onboarded with
+        if ($providerId) {
+            $query->whereHas('activeProviders', function($q) use ($providerId) {
+                $q->where('users.id', $providerId);
+            });
+        }
+        
+        return $query->get()
             ->map(function($product) {
                 $sizes = $product->available_sizes;
                 if (is_string($sizes)) {
@@ -1687,8 +1709,8 @@ final class QuickRequestController extends Controller
             if (!empty($selectedProducts[0]['product_id'])) {
                 $product = Product::find($selectedProducts[0]['product_id']);
                 if ($product && $product->manufacturer) {
-                    // Look up manufacturer by name since Product stores manufacturer as a string
-                    $manufacturer = \App\Models\Order\Manufacturer::where('name', $product->manufacturer)->first();
+                    // Look up manufacturer by name (case-insensitive) since Product stores manufacturer as a string
+                    $manufacturer = \App\Models\Order\Manufacturer::whereRaw('LOWER(name) = ?', [strtolower($product->manufacturer)])->first();
                     return $manufacturer?->id;
                 }
             }
@@ -2415,5 +2437,121 @@ final class QuickRequestController extends Controller
 
             return [];
         }
+    }
+
+    /**
+     * Display the provider's orders page
+     *
+     * @param Request $request
+     * @return Response
+     */
+    public function myOrders(Request $request): Response
+    {
+        $user = Auth::user();
+        
+        // Build the query for orders based on user role
+        $query = PatientManufacturerIVREpisode::query()
+            ->with(['patient', 'manufacturer', 'product', 'facility', 'provider']);
+
+        // Apply role-based filtering
+        if ($user->role === 'Admin') {
+            // Admins see all orders
+        } elseif ($user->role === 'Provider') {
+            // Providers see their own orders
+            $query->where('provider_id', $user->id);
+        } elseif ($user->role === 'OM') {
+            // Office Managers see orders from their organization
+            $organizationIds = $user->organizations()->pluck('organizations.id');
+            $query->whereHas('provider', function($q) use ($organizationIds) {
+                $q->whereHas('organizations', function($q2) use ($organizationIds) {
+                    $q2->whereIn('organizations.id', $organizationIds);
+                });
+            });
+        } else {
+            // Other roles see only their created orders
+            $query->where('created_by', $user->id);
+        }
+
+        // Apply filters if provided
+        if ($request->has('status') && $request->status !== 'all') {
+            $query->where('status', $request->status);
+        }
+
+        if ($request->has('search')) {
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('episode_id', 'like', "%{$search}%")
+                    ->orWhereHas('patient', function($q2) use ($search) {
+                        $q2->where('first_name', 'like', "%{$search}%")
+                            ->orWhere('last_name', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('product', function($q2) use ($search) {
+                        $q2->where('name', 'like', "%{$search}%")
+                            ->orWhere('product_code', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        // Get orders with pagination
+        $orders = $query->orderBy('created_at', 'desc')
+            ->paginate(25)
+            ->through(function ($episode) use ($user) {
+                // Map episode status to order status
+                $orderStatus = match($episode->status) {
+                    'draft' => 'draft',
+                    'submitted' => 'submitted',
+                    'ivr_pending' => 'ivr_pending',
+                    'ivr_completed' => 'ivr_approved',
+                    'order_form_pending' => 'order_form_pending',
+                    'order_form_completed' => 'order_form_signed',
+                    'approved' => 'approved',
+                    'shipped' => 'shipped',
+                    'delivered' => 'delivered',
+                    'cancelled' => 'cancelled',
+                    default => 'submitted'
+                };
+
+                $orderData = [
+                    'id' => $episode->id,
+                    'order_number' => $episode->episode_id,
+                    'patient_name' => $episode->patient ? 
+                        "{$episode->patient->first_name} {$episode->patient->last_name}" : 
+                        'Unknown Patient',
+                    'product_name' => $episode->product->name ?? 'Unknown Product',
+                    'product_code' => $episode->product->product_code ?? 'N/A',
+                    'status' => $orderStatus,
+                    'created_at' => $episode->created_at->toIso8601String(),
+                    'updated_at' => $episode->updated_at->toIso8601String(),
+                    'facility_name' => $episode->facility->name ?? null,
+                    'tracking_number' => $episode->tracking_number ?? null,
+                ];
+
+                // Add pricing info only if user has permission
+                if ($user->role !== 'OM') {
+                    $orderData['asp_price'] = $episode->product->price ?? 0;
+                }
+
+                return $orderData;
+            });
+
+        return Inertia::render('QuickRequest/MyOrders', [
+            'auth' => [
+                'user' => [
+                    'id' => $user->id,
+                    'role' => $user->role,
+                    'name' => $user->name,
+                    'email' => $user->email,
+                ]
+            ],
+            'orders' => $orders->items(),
+            'filter' => $request->status,
+            'search' => $request->search,
+            'pagination' => [
+                'current_page' => $orders->currentPage(),
+                'last_page' => $orders->lastPage(),
+                'per_page' => $orders->perPage(),
+                'total' => $orders->total(),
+            ]
+        ]);
     }
 }

@@ -603,6 +603,11 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-episode-with-documents');
+            
+        // My Orders Page - Provider order tracking
+        Route::get('/my-orders', [\App\Http\Controllers\QuickRequestController::class, 'myOrders'])
+            ->middleware('permission:view-product-requests')
+            ->name('quick-requests.my-orders');
 
         // Test route - disabled in production
         // Route::get('/test-azure', function() {

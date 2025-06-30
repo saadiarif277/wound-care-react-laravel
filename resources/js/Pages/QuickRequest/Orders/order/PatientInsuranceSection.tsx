@@ -25,16 +25,16 @@ export const PatientInsuranceSection: React.FC<PatientInsuranceSectionProps> = (
   >
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-1">
-        <InfoRow label="Full Name" value={orderData.patient.fullName} />
-        <InfoRow label="Date of Birth" value={orderData.patient.dateOfBirth} icon={Calendar} />
-        <InfoRow label="Phone" value={orderData.patient.phone} icon={Phone} />
-        <InfoRow label="Email" value={orderData.patient.email} icon={Mail} />
-        <InfoRow label="Address" value={orderData.patient.address} icon={MapPin} />
+        <InfoRow label="Full Name" value={orderData.patient?.fullName || 'N/A'} />
+        <InfoRow label="Date of Birth" value={orderData.patient?.dateOfBirth || 'N/A'} icon={Calendar} />
+        <InfoRow label="Phone" value={orderData.patient?.phone || 'N/A'} icon={Phone} />
+        <InfoRow label="Email" value={orderData.patient?.email || 'N/A'} icon={Mail} />
+        <InfoRow label="Address" value={orderData.patient?.address || 'N/A'} icon={MapPin} />
       </div>
       <div className="space-y-1">
-        <InfoRow label="Primary Insurance" value={orderData.patient.primaryInsurance.payerName} />
-        <InfoRow label="Plan" value={orderData.patient.primaryInsurance.planName} />
-        <InfoRow label="Policy Number" value={orderData.patient.primaryInsurance.policyNumber} />
+        <InfoRow label="Primary Insurance" value={orderData.patient?.primaryInsurance?.payerName || 'N/A'} />
+        <InfoRow label="Plan" value={orderData.patient?.primaryInsurance?.planName || 'N/A'} />
+        <InfoRow label="Policy Number" value={orderData.patient?.primaryInsurance?.policyNumber || 'N/A'} />
         <div className="flex justify-between items-center py-2">
           <span className="font-medium text-sm">Insurance Card:</span>
           <span className="text-sm text-green-600">Uploaded</span>

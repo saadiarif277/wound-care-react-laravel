@@ -34,6 +34,7 @@ class FieldTransformer
                 'yes_no' => fn($value) => $this->booleanToYesNo($value),
                 '1_0' => fn($value) => $this->booleanToNumeric($value),
                 'true_false' => fn($value) => $this->booleanToString($value),
+                'checkbox' => fn($value) => $this->booleanToString($value),
             ],
             'address' => [
                 'full' => fn($data) => $this->formatFullAddress($data),
@@ -66,6 +67,15 @@ class FieldTransformer
         }
 
         [$type, $format] = $parts;
+        
+        // Handle special transformers that don't fit the normal pattern
+        if ($type === 'equals') {
+            return $this->equalsTransform($value, $format);
+        }
+        
+        if ($type === 'not_in') {
+            return $this->notInTransform($value, $format);
+        }
         
         if (!isset($this->transformers[$type][$format])) {
             throw new InvalidArgumentException("Unknown transformer: {$transformer}");
@@ -294,5 +304,22 @@ class FieldTransformer
         }
         
         return !empty($parts) ? implode(', ', $parts) : 'Not specified';
+    }
+    
+    /**
+     * Check if value equals a specific value
+     */
+    private function equalsTransform($value, $compareTo): bool
+    {
+        return (string) $value === (string) $compareTo;
+    }
+    
+    /**
+     * Check if value is not in a list of values
+     */
+    private function notInTransform($value, $list): bool
+    {
+        $values = explode(',', $list);
+        return !in_array((string) $value, $values);
     }
 }

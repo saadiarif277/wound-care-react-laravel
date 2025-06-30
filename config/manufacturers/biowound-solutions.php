@@ -1,8 +1,8 @@
 <?php
 
 return [
-    'id' => 6,
-    'name' => 'BioWound Solutions',
+    'id' => 3,
+    'name' => 'BIOWOUND SOLUTIONS',
     'signature_required' => true,
     'has_order_form' => true,
     'docuseal_template_id' => '1254774',

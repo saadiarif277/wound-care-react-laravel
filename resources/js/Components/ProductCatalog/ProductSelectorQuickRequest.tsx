@@ -192,20 +192,14 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   const [showSizeManager, setShowSizeManager] = useState(false);
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
+  const [providerMessage, setProviderMessage] = useState<string | null>(null);
 
   // Memoize selectedProducts to prevent infinite loops
   const selectedProductsMemo = useMemo(() => selectedProducts, [JSON.stringify(selectedProducts)]);
 
   // Fetch products only when we have provider onboarded products
   useEffect(() => {
-    // Only fetch if we have provider onboarded products
-    if (providerOnboardedProducts.length > 0) {
-      fetchProducts();
-    } else {
-      // Clear products when no provider products available
-      setProducts([]);
-      setLoading(false);
-    }
+    fetchProducts();
   }, [JSON.stringify(providerOnboardedProducts), insuranceType, patientState, woundSize]);
 
   // Update selected product when selectedProducts changes
@@ -228,23 +222,11 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
 
-      // Only proceed if we have provider onboarded products
-      // This prevents loading all products when provider data hasn't loaded yet
-      if (providerOnboardedProducts.length === 0) {
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
+      // Allow fetching even with empty provider products to get proper messaging
+      // The backend will handle the filtering and provide appropriate response
 
       // Add provider onboarded products for primary filtering
-      // Double-check to prevent race conditions where empty Q-codes could fetch all products
       const qCodesString = providerOnboardedProducts.filter(code => code && code.trim()).join(',');
-      if (!qCodesString || qCodesString.trim() === '') {
-        console.warn('ProductSelector: Attempted to fetch with empty Q-codes, aborting to prevent showing all products');
-        setProducts([]);
-        setLoading(false);
-        return;
-      }
       params.append('onboarded_q_codes', qCodesString);
 
       // Add insurance context for additional filtering
@@ -258,32 +240,40 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
         params.append('wound_size', woundSize.toString());
       }
 
-      const url = `/api/products/search?${params.toString()}`;
+      const url = `/products/search?${params.toString()}`;
 
       const response = await fetch(url);
       const data = await response.json();
 
-      // Temporary fix: Add sample size data to products that don't have any
-      const productsWithSizes = (data.products || []).map((product: Product) => {
-        const hasNewSizes = product.size_options && product.size_options.length > 0;
-        const hasLegacySizes = product.available_sizes && product.available_sizes.length > 0;
+      // Check if provider has no products
+      if (data.provider_has_no_products) {
+        setProviderMessage(data.message || 'This provider has not been onboarded to any products yet. Please contact your MSC administrator to request product access.');
+        setProducts([]);
+      } else {
+        setProviderMessage(null);
+        
+        // Temporary fix: Add sample size data to products that don't have any
+        const productsWithSizes = (data.products || []).map((product: Product) => {
+          const hasNewSizes = product.size_options && product.size_options.length > 0;
+          const hasLegacySizes = product.available_sizes && product.available_sizes.length > 0;
 
-        if (!hasNewSizes && !hasLegacySizes) {
-          // Add actual dimensional sizes for each product based on their typical offerings
-          const sampleSizes = [
-            '2x2', '2x3', '3x3', '3x4', '4x4', '4x5', '5x5', '5x6', '6x6'
-          ];
-          return {
-            ...product,
-            size_options: sampleSizes,
-            size_unit: 'cm'
-          };
-        }
+          if (!hasNewSizes && !hasLegacySizes) {
+            // Add actual dimensional sizes for each product based on their typical offerings
+            const sampleSizes = [
+              '2x2', '2x3', '3x3', '3x4', '4x4', '4x5', '5x5', '5x6', '6x6'
+            ];
+            return {
+              ...product,
+              size_options: sampleSizes,
+              size_unit: 'cm'
+            };
+          }
 
-        return product;
-      });
+          return product;
+        });
 
-      setProducts(productsWithSizes);
+        setProducts(productsWithSizes);
+      }
     } catch (error) {
       console.error('ProductSelectorQuickRequest: Error fetching products:', error);
     } finally {
@@ -498,7 +488,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   }
 
   // Show message when provider has no onboarded products
-  if (providerOnboardedProducts.length === 0 && !loading) {
+  if (providerMessage && !loading) {
     return (
       <div className={`${t.glass.card} rounded-lg p-8 text-center ${className}`}>
         <Package className={`w-12 h-12 mx-auto mb-3 ${t.text.muted}`} />
@@ -506,7 +496,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
           No Products Available
         </h4>
         <p className={`text-sm ${t.text.secondary} mb-4`}>
-          This provider is not currently onboarded with any products.
+          {providerMessage}
         </p>
         <div className={`${t.glass.frost} rounded-md p-3 text-left`}>
           <h5 className={`text-sm font-medium ${t.text.primary} mb-2`}>What this means:</h5>

@@ -69,7 +69,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
-  const [ setDebugInfo ] = useState<any>(null);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   // Memoized token fetch function
   const fetchToken = useCallback(async () => {
@@ -634,7 +634,8 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                 minHeight: '800px',
                 height: '100vh',
                 maxHeight: '1200px',
-                width: '100%'
+                width: '100%',
+                maxWidth: '100%'
               }}
             >
               {/* DocuSeal form will be inserted here */}

@@ -222,6 +222,9 @@ class ProductController extends Controller
 
         $query = Product::active();
 
+        // Add a flag to indicate if provider has no products
+        $providerHasNoProducts = false;
+
         // Filter by specific onboarded Q-codes if provided (for performance optimization)
         if ($request->filled('onboarded_q_codes')) {
             $qCodes = explode(',', $request->get('onboarded_q_codes'));
@@ -230,14 +233,26 @@ class ProductController extends Controller
 
             if (!empty($qCodes)) {
                 $query->whereIn('q_code', $qCodes);
+            } else {
+                // Provider has no onboarded products
+                $providerHasNoProducts = true;
             }
         }
         // Fallback to original provider filtering if no specific Q-codes provided
-        elseif ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
+        elseif ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
             // Only show products the provider is onboarded with
             $query->whereHas('activeProviders', function ($q) use ($user) {
                 $q->where('users.id', $user->id);
             });
+            
+            // Check if provider has any onboarded products
+            $onboardedCount = Product::whereHas('activeProviders', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })->count();
+            
+            if ($onboardedCount === 0) {
+                $providerHasNoProducts = true;
+            }
         }
 
         if ($request->filled('q')) {
@@ -291,6 +306,8 @@ class ProductController extends Controller
             'products' => $transformedProducts,
             'categories' => $categories,
             'manufacturers' => $manufacturers,
+            'provider_has_no_products' => $providerHasNoProducts,
+            'message' => $providerHasNoProducts ? 'This provider has not been onboarded to any products yet. Please contact your MSC administrator to request product access.' : null,
         ]);
     }
 

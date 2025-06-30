@@ -2,7 +2,7 @@
 
 return [
     'id' => 11,
-    'name' => 'ADVANCED SOLUTION IVR',
+    'name' => 'ADVANCED SOLUTION',
     'signature_required' => true,
     'has_order_form' => true,
     'docuseal_template_id' => '1199885',

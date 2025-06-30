@@ -54,7 +54,7 @@ class UnifiedFieldMappingService
             }
 
             // 3. Map fields according to configuration
-            $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields'], $documentType);
+            $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields']);
 
             // 4. Apply manufacturer-specific business rules
             $mappedData = $this->applyBusinessRules($mappedData, $manufacturerConfig, $sourceData);
@@ -98,16 +98,11 @@ class UnifiedFieldMappingService
     /**
      * Map fields according to manufacturer configuration
      */
-    private function mapFields(array $sourceData, array $fieldConfig, string $documentType = 'IVR'): array
+    private function mapFields(array $sourceData, array $fieldConfig): array
     {
         $mapped = [];
 
         foreach ($fieldConfig as $targetField => $config) {
-            // Skip fields that are not meant for this document type
-            if (isset($config['forms']) && !in_array($documentType, $config['forms'])) {
-                continue;
-            }
-            
             $value = null;
 
             // Handle different source types
@@ -148,6 +143,12 @@ class UnifiedFieldMappingService
 
             $mapped[$targetField] = $value;
         }
+        
+        Log::info('Field mapping completed', [
+            'mapped_fields_count' => count($mapped),
+            'mapped_fields' => array_keys($mapped),
+            'sample_mapped_data' => array_slice($mapped, 0, 10, true)
+        ]);
 
         return $mapped;
     }
@@ -165,14 +166,14 @@ class UnifiedFieldMappingService
         // Handle concatenation (field1 + field2)
         if (str_contains($computation, ' + ')) {
             $parts = array_map('trim', explode(' + ', $computation));
-            $values = array_map(fn($part) => $data[$part] ?? '', $parts);
+            $values = array_map(fn($part) => $this->getValueByPath($data, $part), $parts);
             return implode(' ', array_filter($values));
         }
 
         // Handle multiplication (field1 * field2)
         if (str_contains($computation, ' * ')) {
             $parts = array_map('trim', explode(' * ', $computation));
-            $values = array_map(fn($part) => (float)($data[$part] ?? 0), $parts);
+            $values = array_map(fn($part) => (float)($this->getValueByPath($data, $part) ?? 0), $parts);
             return array_reduce($values, fn($carry, $item) => $carry * $item, 1);
         }
 
@@ -180,8 +181,9 @@ class UnifiedFieldMappingService
         if (str_contains($computation, ' || ')) {
             $parts = array_map('trim', explode(' || ', $computation));
             foreach ($parts as $part) {
-                if (!empty($data[$part])) {
-                    return $data[$part];
+                $value = $this->getValueByPath($data, $part);
+                if (!empty($value)) {
+                    return $value;
                 }
             }
             return null;
@@ -191,14 +193,134 @@ class UnifiedFieldMappingService
         if (str_contains($computation, ' / ')) {
             $parts = array_map('trim', explode(' / ', $computation));
             if (count($parts) === 2) {
-                $numerator = (float)($data[$parts[0]] ?? 0);
-                $denominator = (float)($data[$parts[1]] ?? 1);
+                $numerator = (float)($this->getValueByPath($data, $parts[0]) ?? 0);
+                $denominator = (float)($this->getValueByPath($data, $parts[1]) ?? 1);
                 return $denominator != 0 ? $numerator / $denominator : 0;
             }
         }
 
-        Log::warning("Unknown computation type: {$computation}");
-        return null;
+        // Handle conditional expressions (condition ? value1 : value2)
+        if (str_contains($computation, ' ? ') && str_contains($computation, ' : ')) {
+            return $this->evaluateConditional($computation, $data);
+        }
+
+        // If no special operators, treat as a simple field path (including array indexing)
+        return $this->getValueByPath($data, $computation);
+    }
+
+    /**
+     * Evaluate conditional expressions (condition ? value1 : value2)
+     */
+    private function evaluateConditional(string $computation, array $data): mixed
+    {
+        // Parse condition ? value1 : value2
+        $questionPos = strpos($computation, ' ? ');
+        $colonPos = strpos($computation, ' : ');
+        
+        if ($questionPos === false || $colonPos === false || $colonPos <= $questionPos) {
+            return null;
+        }
+        
+        $condition = trim(substr($computation, 0, $questionPos));
+        $trueValue = trim(substr($computation, $questionPos + 3, $colonPos - $questionPos - 3));
+        $falseValue = trim(substr($computation, $colonPos + 3));
+        
+        // Evaluate the condition
+        $conditionResult = $this->evaluateCondition($condition, $data);
+        
+        // Return appropriate value
+        if ($conditionResult) {
+            // Handle quoted strings
+            if ((str_starts_with($trueValue, '"') && str_ends_with($trueValue, '"')) ||
+                (str_starts_with($trueValue, "'") && str_ends_with($trueValue, "'"))) {
+                return trim($trueValue, '"\'');
+            }
+            return $this->getValueByPath($data, $trueValue);
+        } else {
+            // Handle quoted strings
+            if ((str_starts_with($falseValue, '"') && str_ends_with($falseValue, '"')) ||
+                (str_starts_with($falseValue, "'") && str_ends_with($falseValue, "'"))) {
+                return trim($falseValue, '"\'');
+            }
+            return $this->getValueByPath($data, $falseValue);
+        }
+    }
+
+    /**
+     * Evaluate a condition (supports ==, !=, >, <, etc.)
+     */
+    private function evaluateCondition(string $condition, array $data): bool
+    {
+        // Handle OR conditions (||)
+        if (str_contains($condition, ' || ')) {
+            $parts = explode(' || ', $condition);
+            foreach ($parts as $part) {
+                if ($this->evaluateCondition(trim($part), $data)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        
+        // Handle AND conditions (&&)
+        if (str_contains($condition, ' && ')) {
+            $parts = explode(' && ', $condition);
+            foreach ($parts as $part) {
+                if (!$this->evaluateCondition(trim($part), $data)) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // Handle comparison operators
+        $operators = ['==', '!=', '>=', '<=', '>', '<'];
+        
+        foreach ($operators as $operator) {
+            if (str_contains($condition, " $operator ")) {
+                $parts = explode(" $operator ", $condition, 2);
+                if (count($parts) === 2) {
+                    $left = trim($parts[0]);
+                    $right = trim($parts[1]);
+                    
+                    // Get values
+                    $leftValue = $this->getValueByPath($data, $left);
+                    $rightValue = $right;
+                    
+                    // Handle quoted strings
+                    if ((str_starts_with($right, '"') && str_ends_with($right, '"')) ||
+                        (str_starts_with($right, "'") && str_ends_with($right, "'"))) {
+                        $rightValue = trim($right, '"\'');
+                    } else {
+                        // Try to get from data if not quoted
+                        $dataValue = $this->getValueByPath($data, $right);
+                        if ($dataValue !== null) {
+                            $rightValue = $dataValue;
+                        }
+                    }
+                    
+                    // Perform comparison
+                    switch ($operator) {
+                        case '==':
+                            return $leftValue == $rightValue;
+                        case '!=':
+                            return $leftValue != $rightValue;
+                        case '>':
+                            return (float)$leftValue > (float)$rightValue;
+                        case '<':
+                            return (float)$leftValue < (float)$rightValue;
+                        case '>=':
+                            return (float)$leftValue >= (float)$rightValue;
+                        case '<=':
+                            return (float)$leftValue <= (float)$rightValue;
+                    }
+                }
+            }
+        }
+        
+        // If no operators found, treat as a simple boolean check
+        $value = $this->getValueByPath($data, $condition);
+        return !empty($value);
     }
 
     /**
@@ -481,6 +603,15 @@ class UnifiedFieldMappingService
         } else {
             $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
         }
+        
+        Log::info('Starting DocuSeal field conversion', [
+            'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
+            'document_type' => $documentType,
+            'mapped_data_count' => count($mappedData),
+            'field_name_mapping_count' => count($fieldNameMapping),
+            'mapped_data_keys' => array_keys($mappedData),
+            'available_docuseal_fields' => array_keys($fieldNameMapping)
+        ]);
 
         foreach ($mappedData as $canonicalName => $value) {
             // Skip null or empty values unless it's a boolean false
@@ -564,14 +695,46 @@ class UnifiedFieldMappingService
      */
     private function getValueByPath(array $data, string $path): mixed
     {
+        // Handle array indexing syntax like application_cpt_codes[0]
+        if (str_contains($path, '[') && str_contains($path, ']')) {
+            // Extract array name and index
+            preg_match('/^([^[]+)\[(\d+)\]$/', $path, $matches);
+            if (count($matches) === 3) {
+                $arrayName = $matches[1];
+                $index = (int)$matches[2];
+                
+                if (isset($data[$arrayName]) && is_array($data[$arrayName]) && isset($data[$arrayName][$index])) {
+                    return $data[$arrayName][$index];
+                }
+                return null;
+            }
+        }
+        
+        // Handle dot notation for nested arrays
         $keys = explode('.', $path);
         $value = $data;
 
         foreach ($keys as $key) {
-            if (!is_array($value) || !isset($value[$key])) {
-                return null;
+            // Handle array indexing within dot notation
+            if (str_contains($key, '[') && str_contains($key, ']')) {
+                preg_match('/^([^[]+)\[(\d+)\]$/', $key, $matches);
+                if (count($matches) === 3) {
+                    $arrayName = $matches[1];
+                    $index = (int)$matches[2];
+                    
+                    if (!is_array($value) || !isset($value[$arrayName]) || !is_array($value[$arrayName]) || !isset($value[$arrayName][$index])) {
+                        return null;
+                    }
+                    $value = $value[$arrayName][$index];
+                } else {
+                    return null;
+                }
+            } else {
+                if (!is_array($value) || !isset($value[$key])) {
+                    return null;
+                }
+                $value = $value[$key];
             }
-            $value = $value[$key];
         }
 
         return $value;
@@ -608,19 +771,48 @@ class UnifiedFieldMappingService
     {
         $manufacturers = [];
         
+        // First, load manufacturers from individual config files
+        $configPath = config_path('manufacturers');
+        if (is_dir($configPath)) {
+            $files = glob($configPath . '/*.php');
+            foreach ($files as $file) {
+                $filename = basename($file, '.php');
+                $config = include $file;
+                
+                if (is_array($config) && isset($config['name'])) {
+                    $manufacturers[] = [
+                        'id' => $config['id'] ?? null,
+                        'name' => $config['name'],
+                        'docuseal_template_id' => $config['docuseal_template_id'] ?? null,
+                        'signature_required' => $config['signature_required'] ?? true,
+                        'has_order_form' => $config['has_order_form'] ?? false,
+                        'supports_insurance_upload_in_ivr' => $config['supports_insurance_upload_in_ivr'] ?? false,
+                        'fields_count' => count($config['fields'] ?? []),
+                        'required_fields_count' => count(array_filter($config['fields'] ?? [], fn($f) => $f['required'] ?? false))
+                    ];
+                }
+            }
+        }
+        
+        // Then, add manufacturers from main config (if not already added)
+        $existingNames = array_column($manufacturers, 'name');
         foreach ($this->config['manufacturers'] as $name => $config) {
             // Resolve config reference if needed
             $resolvedConfig = $this->resolveConfigReference($config, $this->config);
+            $manufacturerName = $resolvedConfig['name'] ?? $name;
             
-            $manufacturers[] = [
-                'id' => $resolvedConfig['id'] ?? null,
-                'name' => $resolvedConfig['name'] ?? $name,
-                'docuseal_template_id' => $resolvedConfig['docuseal_template_id'] ?? null,
-                'signature_required' => $resolvedConfig['signature_required'] ?? true,
-                'has_order_form' => $resolvedConfig['has_order_form'] ?? false,
-                'fields_count' => count($resolvedConfig['fields'] ?? []),
-                'required_fields_count' => count(array_filter($resolvedConfig['fields'] ?? [], fn($f) => $f['required'] ?? false))
-            ];
+            if (!in_array($manufacturerName, $existingNames)) {
+                $manufacturers[] = [
+                    'id' => $resolvedConfig['id'] ?? null,
+                    'name' => $manufacturerName,
+                    'docuseal_template_id' => $resolvedConfig['docuseal_template_id'] ?? null,
+                    'signature_required' => $resolvedConfig['signature_required'] ?? true,
+                    'has_order_form' => $resolvedConfig['has_order_form'] ?? false,
+                    'supports_insurance_upload_in_ivr' => $resolvedConfig['supports_insurance_upload_in_ivr'] ?? false,
+                    'fields_count' => count($resolvedConfig['fields'] ?? []),
+                    'required_fields_count' => count(array_filter($resolvedConfig['fields'] ?? [], fn($f) => $f['required'] ?? false))
+                ];
+            }
         }
 
         return $manufacturers;

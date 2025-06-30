@@ -12,7 +12,7 @@ import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
 import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
-import { useManufacturers } from '@/hooks/useManufacturers';
+import { useManufacturers } from '@/Hooks/useManufacturers';
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -310,9 +310,8 @@ function QuickRequestCreateNew({
       // Find the manufacturer configuration from API data
       const manufacturerConfig = getManufacturerByName(product.manufacturer);
       
-      // For now, we'll return false since order forms aren't configured in the database yet
-      // TODO: Add order_form_template_id to manufacturers table and check manufacturerConfig?.order_form_template_id
-      return false;
+      // Check if manufacturer has order form configured
+      return manufacturerConfig?.has_order_form === true;
     });
   };
 
@@ -373,10 +372,10 @@ function QuickRequestCreateNew({
       global_period_status: false,
 
       // Selected Products (pick first product if available)
-      selected_products: products.length > 0 ? [{
-        product_id: products[0].id,
+      selected_products: products.length > 0 && products[0] ? [{
+        product_id: products[0]?.id ?? 0,
         quantity: 1,
-        size: products[0].available_sizes?.[0]?.toString() || '4',
+        size: products[0]?.available_sizes?.[0]?.toString() || '4',
         product: products[0]
       }] : [],
 
@@ -453,7 +452,8 @@ function QuickRequestCreateNew({
     return baseSections;
   };
 
-  const sections = getSections();
+  // Make sections dynamic - recalculate when products change or manufacturers load
+  const sections = React.useMemo(() => getSections(), [formData.selected_products, manufacturersLoading]);
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -958,9 +958,9 @@ function QuickRequestCreateNew({
   };
 
   const handleSubmit = async () => {
-    // Validate all sections
+    // Validate all sections (excluding the final review section)
     let allErrors: Record<string, string> = {};
-    for (let i = 0; i <= 4; i++) {
+    for (let i = 0; i < sections.length - 1; i++) {
       const sectionErrors = validateSection(i);
       allErrors = { ...allErrors, ...sectionErrors };
     }
@@ -1082,7 +1082,7 @@ function QuickRequestCreateNew({
 
           {/* Progress Bar */}
           <div className="mb-8">
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center justify-between mb-2 transition-all duration-500">
               {sections.map((section, index) => {
                 const Icon = section.icon;
                 const isActive = index <= currentSection;
@@ -1101,7 +1101,12 @@ function QuickRequestCreateNew({
                       )}>
                         {isCompleted ? <FiCheck className="h-6 w-6 text-emerald-400" /> : <Icon className="h-6 w-6" />}
                       </div>
-                      <span className={cn("text-xs mt-2 text-center max-w-[100px]", t.text.secondary)}>{section.title}</span>
+                      <span className={cn(
+                        "text-xs mt-2 text-center max-w-[100px]", 
+                        t.text.secondary,
+                        // Highlight order form step when it appears
+                        section.title === 'Order Form Review' && "font-semibold"
+                      )}>{section.title}</span>
                     </div>
                     {index < sections.length - 1 && (
                       <div className={cn(
@@ -1191,6 +1196,8 @@ function QuickRequestCreateNew({
                 providers={providers}
                 facilities={facilities}
                 errors={errors}
+                onNext={handleNext}
+                onSkip={() => setCurrentSection(prev => prev + 1)}
               />
             )}
 

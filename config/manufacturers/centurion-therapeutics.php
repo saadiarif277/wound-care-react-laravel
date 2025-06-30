@@ -2,7 +2,7 @@
 
 return [
     'id' => 10,
-    'name' => 'Centurion Therapeutics',
+    'name' => 'CENTURION THERAPEUTICS',
     'signature_required' => true,
     'has_order_form' => false,
     'docuseal_template_id' => '1233918',

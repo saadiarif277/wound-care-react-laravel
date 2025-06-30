@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 VERSION: 2025-06-28-hash-abc123
 
 1. Always load and parse both files:
-   - `myrules.md` - Full governance rules (source of truth)
-   - `myrules_pipe.md` - Quick reference index
+   - `docs/ai/myrules.md` - Full governance rules (source of truth)
+   - `docs/ai/myrules_pipe.md` - Quick reference index
 
 2. Usage:
    - Use pipe format to quickly identify applicable rule categories
@@ -18,6 +18,12 @@ VERSION: 2025-06-28-hash-abc123
 3. Validation:
    - Check both files are present before proceeding
    - Verify pipe format matches full rules version
+
+## Important Notes
+
+- **Database Migration**: This project recently migrated from Supabase PostgreSQL to Azure SQL. The README may still reference Supabase, but the actual implementation uses Azure SQL.
+- **Laravel Version**: Using Laravel 11 (not 10) - Note that Laravel 11+ does not have Console\Kernel.php
+- **No Mock Data**: NEVER use mock data in production or as a fallback - this is a strict requirement for healthcare compliance
 
 ## Development Commands
 
@@ -171,6 +177,11 @@ The application uses a service-oriented architecture with key services:
    - Insurance card OCR processing
    - Field extraction and validation
 
+6. **UnifiedFieldMappingService** (`app/Services/UnifiedFieldMappingService.php`)
+   - Centralized field mapping for all manufacturers
+   - Dynamic form field transformation
+   - Manufacturer-specific configuration loading
+
 ### API Structure
 
 **API Routes** (`routes/api.php`):
@@ -220,7 +231,7 @@ The application uses a service-oriented architecture with key services:
 - Jest with React Testing Library
 - Component unit tests
 - Integration tests for workflows
-- 80% coverage threshold
+- 80% coverage threshold (Note: governance rules specify 85% but jest.config.js uses 80%)
 
 ### Security Considerations
 
@@ -270,6 +281,41 @@ The application uses a service-oriented architecture with key services:
 - Remember our platform is permissions based
 - Never use mock data or even have it as a fall back
 
+## RBAC System Implementation
+
+### Role Structure (Database Slugs)
+
+All roles use hyphenated slugs in the database:
+- `provider` - Healthcare Provider
+- `office-manager` - Office Manager  
+- `msc-rep` - MSC Sales Representative
+- `msc-subrep` - MSC Sub-Representative
+- `msc-admin` - MSC Administrator
+- `super-admin` - Super Administrator
+
+### Permission System
+
+The system uses 19 granular permissions:
+- User management: `view-users`, `edit-users`, `delete-users`
+- Financial access: `view-financials`, `view-msc-pricing`, `view-discounts`, `view-order-totals`
+- Order operations: `create-orders`, `approve-orders`, `process-orders`
+- System management: `manage-products`, `manage-commission`, `manage-settings`, `manage-system`
+- Viewing permissions: `view-commission`, `view-reports`, `view-phi`
+- Admin access: `super-admin-access`, `msc-admin-access`
+
+### Implementation Guidelines
+
+- **Backend**: Always use `$user->hasPermission('permission-name')` for checks
+- **Frontend**: Use permission-based visibility, not role checks
+- **Middleware**: Apply `permission:permission-name` middleware to routes
+- **Legacy**: The old UserRole.php model is removed - use Role.php with permissions
+
+### Commission Access Levels
+
+- Provider/Office Manager: `commission_access_level: 'none'`
+- MSC SubRep: `commission_access_level: 'limited'`
+- MSC Rep/Admin/Super Admin: `commission_access_level: 'full'`
+
 ## IVR Tips
 
 ### Exact Field Name Matching
@@ -292,3 +338,31 @@ The application uses a service-oriented architecture with key services:
 
 - Boolean-style fields should default to explicit "No" unless conditions are met
 - Place of Service checkboxes now properly activate based on selected option
+
+## Manufacturer Configuration
+
+The system supports multiple wound care manufacturers with custom field mappings:
+
+### Configuration Files (`config/manufacturers/`)
+
+- Each manufacturer has its own configuration file
+- Field mappings define how data transforms between systems
+- Supports both IVR forms and standard order forms
+- Examples: `advanced-solution.php`, `biowound-solutions.php`, `centurion-therapeutics.php`
+
+### Field Mapping Structure
+
+```php
+'field_mappings' => [
+    'source_field' => 'destination_field',
+    'patient.first_name' => 'Patient First Name',
+    // Complex mappings with transformations
+]
+```
+
+### Dynamic Loading
+
+The UnifiedFieldMappingService automatically loads the correct configuration based on:
+- Manufacturer selection in the product
+- Form type (IVR vs standard)
+- Organization-specific overrides

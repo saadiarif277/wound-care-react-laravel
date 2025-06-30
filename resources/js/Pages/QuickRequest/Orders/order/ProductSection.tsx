@@ -27,19 +27,19 @@ export const ProductSection: React.FC<ProductSectionProps> = ({
   >
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-1">
-        <InfoRow label="Product Name" value={orderData.product.name} />
-        <InfoRow label="Size" value={orderData.product.sizes.join(', ')} />
-        <InfoRow label="Quantity" value={orderData.product.quantity.toString()} />
+        <InfoRow label="Product Name" value={orderData.product?.name || 'N/A'} />
+        <InfoRow label="Size" value={orderData.product?.sizes?.join(', ') || 'N/A'} />
+        <InfoRow label="Quantity" value={orderData.product?.quantity?.toString() || '0'} />
       </div>
-      <div className="space-y-1">
-        <InfoRow label="ASP Total Price" value={`$${orderData.product.aspPrice.toFixed(2)}`} />
-        {userRole !== 'OM' && (
+      {userRole !== 'OM' && (
+        <div className="space-y-1">
+          <InfoRow label="ASP Total Price" value={`$${orderData.product?.aspPrice?.toFixed(2) || '0.00'}`} />
           <InfoRow 
             label="Amount to be Billed" 
-            value={`$${orderData.product.discountedPrice.toFixed(2)}`} 
+            value={`$${orderData.product?.discountedPrice?.toFixed(2) || '0.00'}`} 
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   </SectionCard>
 );

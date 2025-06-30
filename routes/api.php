@@ -712,7 +712,7 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
 
 // Insurance Card Processing Routes
 Route::middleware(['web'])->group(function () {
-    Route::post('/insurance-card/analyze', [\App\Http\Controllers\QuickRequestController::class, 'analyzeInsuranceCard'])
+    Route::post('/insurance-card/analyze', [\App\Http\Controllers\Api\InsuranceCardController::class, 'analyze'])
         ->name('api.insurance-card.analyze');
     Route::get('/insurance-card/status', [\App\Http\Controllers\QuickRequestController::class, 'checkAzureStatus'])
         ->name('api.insurance-card.status');
