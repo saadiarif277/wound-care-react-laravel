@@ -11,7 +11,12 @@ import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
+<<<<<<< HEAD
 import { getManufacturerByProduct } from './manufacturerFields';
+=======
+import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
+import { useManufacturers } from '@/Hooks/useManufacturers';
+>>>>>>> origin/provider-side
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -213,6 +218,17 @@ interface Props {
     };
   };
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
+<<<<<<< HEAD
+=======
+  roleRestrictions?: {
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    pricing_access_level: string;
+    commission_access_level: string;
+  };
+>>>>>>> origin/provider-side
 }
 
 function QuickRequestCreateNew({
@@ -221,6 +237,10 @@ function QuickRequestCreateNew({
   products = [],
   diagnosisCodes,
   currentUser,
+<<<<<<< HEAD
+=======
+  roleRestrictions,
+>>>>>>> origin/provider-side
 }: Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -234,6 +254,12 @@ function QuickRequestCreateNew({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+<<<<<<< HEAD
+=======
+  // Use manufacturers hook
+  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
+
+>>>>>>> origin/provider-side
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -293,6 +319,27 @@ function QuickRequestCreateNew({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
+<<<<<<< HEAD
+=======
+  // Helper function to check if any selected products have manufacturers with order forms
+  const hasManufacturerWithOrderForm = (): boolean => {
+    if (!formData.selected_products || formData.selected_products.length === 0) {
+      return false;
+    }
+
+    return formData.selected_products.some(selectedProduct => {
+      const product = products.find(p => p.id === selectedProduct.product_id);
+      if (!product) return false;
+
+      // Find the manufacturer configuration from API data
+      const manufacturerConfig = getManufacturerByName(product.manufacturer);
+      
+      // Check if manufacturer has order form configured
+      return manufacturerConfig?.has_order_form === true;
+    });
+  };
+
+>>>>>>> origin/provider-side
   // Pre-fill function for testing
   const prefillTestData = () => {
     const testData: Partial<QuickRequestFormData> = {
@@ -350,10 +397,17 @@ function QuickRequestCreateNew({
       global_period_status: false,
 
       // Selected Products (pick first product if available)
+<<<<<<< HEAD
       selected_products: products.length > 0 ? [{
         product_id: products[0].id,
         quantity: 1,
         size: products[0].available_sizes?.[0]?.toString() || '4',
+=======
+      selected_products: products.length > 0 && products[0] ? [{
+        product_id: products[0]?.id ?? 0,
+        quantity: 1,
+        size: products[0]?.available_sizes?.[0]?.toString() || '4',
+>>>>>>> origin/provider-side
         product: products[0]
       }] : [],
 
@@ -412,6 +466,7 @@ function QuickRequestCreateNew({
   const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
   const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
 
+<<<<<<< HEAD
   const sections = [
     { title: 'Patient & Insurance', icon: FiUser },
     { title: 'Clinical Validation', icon: FiActivity },
@@ -419,6 +474,28 @@ function QuickRequestCreateNew({
     { title: 'Complete IVR Form', icon: FiFileText },
     { title: 'Review & Confirm', icon: FiCheck }
   ];
+=======
+  // Dynamic sections array that conditionally includes order form step
+  const getSections = () => {
+    const baseSections = [
+      { title: 'Patient & Insurance', icon: FiUser },
+      { title: 'Clinical Validation', icon: FiActivity },
+      { title: 'Select Products', icon: FiShoppingCart },
+      { title: 'Complete IVR Form', icon: FiFileText },
+    ];
+
+    // Check if order form step should be included
+    if (hasManufacturerWithOrderForm()) {
+      baseSections.push({ title: 'Order Form Review', icon: FiFileText });
+    }
+
+    baseSections.push({ title: 'Review & Confirm', icon: FiCheck });
+    return baseSections;
+  };
+
+  // Make sections dynamic - recalculate when products change or manufacturers load
+  const sections = React.useMemo(() => getSections(), [formData.selected_products, manufacturersLoading]);
+>>>>>>> origin/provider-side
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -722,8 +799,13 @@ function QuickRequestCreateNew({
     const product = products.find(p => p.id === firstProduct.product_id);
     if (!product) return;
 
+<<<<<<< HEAD
     const manufacturerKey = getManufacturerByProduct(product.code);
     if (!manufacturerKey) return;
+=======
+    const manufacturerConfig = getManufacturerByName(product.manufacturer);
+    if (!manufacturerConfig) return;
+>>>>>>> origin/provider-side
 
     setIsExtractingIvrFields(true);
     try {
@@ -741,16 +823,31 @@ function QuickRequestCreateNew({
         device_request_id: formData.fhir_device_request_id,
         episode_id: formData.episode_id,
         episode_of_care_id: formData.fhir_episode_of_care_id,
+<<<<<<< HEAD
         manufacturer_key: manufacturerKey,
+=======
+        manufacturer_key: manufacturerConfig.name,
+>>>>>>> origin/provider-side
         sales_rep: formData.sales_rep_id ? {
           name: 'MSC Distribution',
           email: 'orders@mscwoundcare.com'
         } : undefined,
+<<<<<<< HEAD
         selected_products: formData.selected_products?.map(sp => ({
           name: product.name,
           code: product.code,
           size: sp.size
         }))
+=======
+        selected_products: formData.selected_products?.map(sp => {
+          const product = products.find(p => p.id === sp.product_id);
+          return {
+            name: product?.name || 'Unknown Product',
+            code: product?.code || 'Unknown Code',
+            size: sp.size
+          };
+        })
+>>>>>>> origin/provider-side
       }, {
         headers: { 'X-CSRF-TOKEN': csrfToken }
       });
@@ -920,9 +1017,15 @@ function QuickRequestCreateNew({
   };
 
   const handleSubmit = async () => {
+<<<<<<< HEAD
     // Validate all sections
     let allErrors: Record<string, string> = {};
     for (let i = 0; i <= 4; i++) {
+=======
+    // Validate all sections (excluding the final review section)
+    let allErrors: Record<string, string> = {};
+    for (let i = 0; i < sections.length - 1; i++) {
+>>>>>>> origin/provider-side
       const sectionErrors = validateSection(i);
       allErrors = { ...allErrors, ...sectionErrors };
     }
@@ -942,6 +1045,7 @@ function QuickRequestCreateNew({
         return;
       }
 
+<<<<<<< HEAD
       // Create FormData for file uploads
       const submitData = new FormData();
 
@@ -949,11 +1053,15 @@ function QuickRequestCreateNew({
       addCSRFTokenToFormData(submitData, csrfToken);
 
       // Add all form fields including IVR fields
+=======
+      // Prepare final form data including IVR fields
+>>>>>>> origin/provider-side
       const finalFormData = {
         ...formData,
         manufacturer_fields: ivrFields || {}
       };
 
+<<<<<<< HEAD
       Object.entries(finalFormData).forEach(([key, value]) => {
         if (value instanceof File) {
           submitData.append(key, value);
@@ -1018,6 +1126,36 @@ function QuickRequestCreateNew({
     } catch (error) {
       console.error('Error submitting quick request:', error);
       alert('An error occurred while submitting the request');
+=======
+      // Store form data in session and redirect to review page
+      const response = await axios.post('/api/session/store-form-data', {
+        quick_request_form_data: finalFormData,
+        validated_episode_data: {
+          episode_id: formData.episode_id,
+          patient_fhir_id: formData.patient_fhir_id,
+          fhir_episode_of_care_id: formData.fhir_episode_of_care_id,
+          fhir_coverage_ids: formData.fhir_coverage_ids,
+          fhir_questionnaire_response_id: formData.fhir_questionnaire_response_id,
+          fhir_device_request_id: formData.fhir_device_request_id
+        }
+      }, {
+        headers: {
+          'X-CSRF-TOKEN': csrfToken,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.data.success) {
+        // Redirect to review page
+        router.visit('/quick-requests/review');
+      } else {
+        throw new Error('Failed to store form data in session');
+      }
+
+    } catch (error) {
+      console.error('Error preparing order for review:', error);
+      alert('An error occurred while preparing the order for review');
+>>>>>>> origin/provider-side
     } finally {
       setIsSubmitting(false);
     }
@@ -1065,7 +1203,11 @@ function QuickRequestCreateNew({
               Create New Order
             </h1>
             <p className={cn(t.text.secondary)}>
+<<<<<<< HEAD
               Complete your wound care order in 5 simple steps
+=======
+              Complete your wound care order in {sections.length} simple steps
+>>>>>>> origin/provider-side
             </p>
 
             {/* Pre-fill Test Data Button */}
@@ -1086,7 +1228,11 @@ function QuickRequestCreateNew({
 
           {/* Progress Bar */}
           <div className="mb-8">
+<<<<<<< HEAD
             <div className="flex items-center justify-between mb-2">
+=======
+            <div className="flex items-center justify-between mb-2 transition-all duration-500">
+>>>>>>> origin/provider-side
               {sections.map((section, index) => {
                 const Icon = section.icon;
                 const isActive = index <= currentSection;
@@ -1105,7 +1251,16 @@ function QuickRequestCreateNew({
                       )}>
                         {isCompleted ? <FiCheck className="h-6 w-6 text-emerald-400" /> : <Icon className="h-6 w-6" />}
                       </div>
+<<<<<<< HEAD
                       <span className={cn("text-xs mt-2 text-center max-w-[100px]", t.text.secondary)}>{section.title}</span>
+=======
+                      <span className={cn(
+                        "text-xs mt-2 text-center max-w-[100px]", 
+                        t.text.secondary,
+                        // Highlight order form step when it appears
+                        section.title === 'Order Form Review' && "font-semibold"
+                      )}>{section.title}</span>
+>>>>>>> origin/provider-side
                     </div>
                     {index < sections.length - 1 && (
                       <div className={cn(
@@ -1172,6 +1327,10 @@ function QuickRequestCreateNew({
                 updateFormData={updateFormData as any}
                 errors={errors}
                 currentUser={currentUser}
+<<<<<<< HEAD
+=======
+                roleRestrictions={roleRestrictions}
+>>>>>>> origin/provider-side
               />
             )}
 
@@ -1186,7 +1345,26 @@ function QuickRequestCreateNew({
               />
             )}
 
+<<<<<<< HEAD
             {currentSection === 4 && (
+=======
+            {/* Order Form Review Step (conditional) */}
+            {currentSection === 4 && hasManufacturerWithOrderForm() && (
+              <Step8OrderFormApproval
+                formData={formData as any}
+                updateFormData={updateFormData as any}
+                products={products}
+                providers={providers}
+                facilities={facilities}
+                errors={errors}
+                onNext={handleNext}
+                onSkip={() => setCurrentSection(prev => prev + 1)}
+              />
+            )}
+
+            {/* Review & Submit Step */}
+            {currentSection === (hasManufacturerWithOrderForm() ? 5 : 4) && (
+>>>>>>> origin/provider-side
               <Step6ReviewSubmit
                 formData={formData}
                 products={products}

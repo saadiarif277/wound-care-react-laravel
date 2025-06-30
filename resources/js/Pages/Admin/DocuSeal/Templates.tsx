@@ -9,8 +9,23 @@ import {
   Zap, Package, Users, TrendingUp, BarChart3, Eye,
   Download, Upload, Edit3, Trash2, Copy, Star,
   ChevronDown, ChevronRight, X, Calendar, Hash,
+<<<<<<< HEAD
   CheckSquare, AlertTriangle, Info, MapIcon
 } from 'lucide-react';
+=======
+  CheckSquare, AlertTriangle, Info, MapIcon,
+  MapPin, GitBranch, Wand2, FileCheck, ArrowLeftRight,
+  Layers, Target, Sparkles, ClipboardCheck, FileJson,
+  Activity, Shield, Brain, Workflow
+} from 'lucide-react';
+// import { FieldMappingInterface } from '@/Components/Admin/DocuSeal/FieldMappingInterface';
+import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsDashboard';
+import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
+import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
+import { ImportExportModal } from '@/Components/Admin/DocuSeal/ImportExportModal';
+import { AITemplateAnalyzer } from '@/Components/Admin/DocuSeal/AITemplateAnalyzer';
+import type { CanonicalField, MappingStatistics, ValidationResult } from '@/types/field-mapping';
+>>>>>>> origin/provider-side
 
 // Enhanced Types
 interface Template {
@@ -92,6 +107,24 @@ export default function Templates() {
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
+<<<<<<< HEAD
+=======
+  
+  // Mapping-specific state
+  const [mappingMode, setMappingMode] = useState<'view' | 'edit'>('view');
+  const [selectedTemplateForMapping, setSelectedTemplateForMapping] = useState<Template | null>(null);
+  const [showMappingModal, setShowMappingModal] = useState(false);
+  const [showBulkMappingModal, setShowBulkMappingModal] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [showImportExportModal, setShowImportExportModal] = useState(false);
+  const [mappingStats, setMappingStats] = useState<Record<string, MappingStatistics>>({});
+  const [canonicalFields, setCanonicalFields] = useState<CanonicalField[]>([]);
+  const [currentValidationResult, setCurrentValidationResult] = useState<ValidationResult | null>(null);
+  const [bulkMappingTemplateId, setBulkMappingTemplateId] = useState<string>('');
+  const [importExportTemplate, setImportExportTemplate] = useState<Template | null>(null);
+  const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
+  const [selectedTemplateForAI, setSelectedTemplateForAI] = useState<Template | null>(null);
+>>>>>>> origin/provider-side
 
   // Computed values
   const manufacturers = useMemo(() => {
@@ -220,10 +253,99 @@ export default function Templates() {
     });
   };
 
+<<<<<<< HEAD
   useEffect(() => {
     fetchTemplates();
   }, []);
 
+=======
+  // Mapping-related functions
+  const fetchCanonicalFields = async () => {
+    try {
+      const response = await axios.get('/api/v1/admin/docuseal/canonical-fields');
+      setCanonicalFields(response.data.fields || []);
+    } catch (error) {
+      console.error('Failed to load canonical fields:', error);
+    }
+  };
+
+  const fetchMappingStats = async (templateIds: string[]) => {
+    try {
+      const stats: Record<string, MappingStatistics> = {};
+      await Promise.all(
+        templateIds.map(async (id) => {
+          try {
+            const response = await axios.get(`/api/v1/admin/docuseal/templates/${id}/mapping-stats`);
+            stats[id] = response.data;
+          } catch (err) {
+            // Handle individual template errors without failing all
+            console.warn(`Failed to load mapping stats for template ${id}:`, err);
+            stats[id] = {
+              totalFields: 0,
+              mappedFields: 0,
+              unmappedFields: 0,
+              activeFields: 0,
+              requiredFieldsMapped: 0,
+              totalRequiredFields: 0,
+              optionalFieldsMapped: 0,
+              coveragePercentage: 0,
+              requiredCoveragePercentage: 0,
+              highConfidenceCount: 0,
+              validationStatus: {
+                valid: 0,
+                warning: 0,
+                error: 0
+              },
+              lastUpdated: null,
+              lastUpdatedBy: null
+            };
+          }
+        })
+      );
+      setMappingStats(stats);
+    } catch (error) {
+      console.error('Failed to load mapping statistics:', error);
+    }
+  };
+
+  const openMappingInterface = (template: Template) => {
+    setSelectedTemplateForMapping(template);
+    setShowMappingModal(true);
+    setMappingMode('edit');
+  };
+
+  const handleMappingUpdate = async (templateId: string) => {
+    // Refresh stats after mapping changes
+    await fetchMappingStats([templateId]);
+    await fetchTemplates();
+  };
+
+  const validateTemplate = async (template: Template) => {
+    try {
+      const response = await axios.post(
+        `/api/v1/admin/docuseal/templates/${template.id}/field-mappings/validate`
+      );
+      setCurrentValidationResult(response.data);
+      setSelectedTemplateForMapping(template);
+      setShowValidationModal(true);
+    } catch (error) {
+      console.error('Failed to validate template:', error);
+    }
+  };
+
+  useEffect(() => {
+    fetchTemplates();
+    fetchCanonicalFields();
+  }, []);
+
+  useEffect(() => {
+    if (templates.length > 0 && mappingMode === 'edit') {
+      const templateIds = templates.map(t => t.id);
+      fetchMappingStats(templateIds);
+    }
+  }, [templates, mappingMode]);
+
+>>>>>>> origin/provider-side
   return (
     <MainLayout>
       <Head title="DocuSeal Templates" />
@@ -275,6 +397,60 @@ export default function Templates() {
                       </>
                     )}
                   </button>
+<<<<<<< HEAD
+=======
+                  
+                  {/* Mapping Controls */}
+                  <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300">
+                    <button
+                      onClick={() => setMappingMode(mappingMode === 'view' ? 'edit' : 'view')}
+                      className="px-4 py-2 bg-purple-100 text-purple-700 rounded-lg hover:bg-purple-200 transition-colors flex items-center gap-2"
+                    >
+                      <MapIcon className="w-4 h-4" />
+                      {mappingMode === 'view' ? 'Edit Mappings' : 'View Mode'}
+                    </button>
+                    
+                    {mappingMode === 'edit' && (
+                      <>
+                        <button
+                          onClick={() => {
+                            if (filteredTemplates.length > 0) {
+                              setBulkMappingTemplateId(filteredTemplates[0].id);
+                              setShowBulkMappingModal(true);
+                            }
+                          }}
+                          className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg hover:bg-indigo-200 transition-colors flex items-center gap-2"
+                        >
+                          <Layers className="w-4 h-4" />
+                          Bulk Operations
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            if (filteredTemplates.length > 0) {
+                              setImportExportTemplate(filteredTemplates[0]);
+                              setShowImportExportModal(true);
+                            }
+                          }}
+                          className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center gap-2"
+                        >
+                          <FileJson className="w-4 h-4" />
+                          Import/Export
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setShowAIAnalyzer(true);
+                          }}
+                          className="px-4 py-2 bg-gradient-to-r from-purple-100 to-blue-100 text-purple-700 rounded-lg hover:from-purple-200 hover:to-blue-200 transition-colors flex items-center gap-2"
+                        >
+                          <Brain className="w-4 h-4" />
+                          AI Analyzer
+                        </button>
+                      </>
+                    )}
+                  </div>
+>>>>>>> origin/provider-side
                 </div>
               </div>
 
@@ -342,6 +518,18 @@ export default function Templates() {
                   </div>
                 </div>
               )}
+<<<<<<< HEAD
+=======
+              
+              {/* Mapping Stats Dashboard */}
+              {mappingMode === 'edit' && stats && (
+                <MappingStatsDashboard 
+                  templates={templates}
+                  mappingStats={mappingStats}
+                  canonicalFields={canonicalFields}
+                />
+              )}
+>>>>>>> origin/provider-side
             </div>
           </div>
         </div>
@@ -552,6 +740,74 @@ export default function Templates() {
                                 </span>
                               </div>
                             </div>
+<<<<<<< HEAD
+=======
+                            
+                            {/* Mapping Section */}
+                            {mappingMode === 'edit' && (
+                              <div className="mt-3 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-gray-700">Field Mapping</span>
+                                  <span className={`text-sm font-bold ${
+                                    (mappingStats[template.id]?.coveragePercentage || 0) >= 80 ? 'text-green-600' : 'text-orange-600'
+                                  }`}>
+                                    {mappingStats[template.id]?.coveragePercentage || 0}%
+                                  </span>
+                                </div>
+                                
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 text-xs text-gray-600">
+                                    <Target className="w-3 h-3" />
+                                    <span>{mappingStats[template.id]?.mappedFields || 0} / {mappingStats[template.id]?.totalFields || 0} fields mapped</span>
+                                  </div>
+                                  
+                                  {mappingStats[template.id]?.validationStatus?.error > 0 && (
+                                    <div className="flex items-center gap-2 text-xs text-red-600">
+                                      <AlertCircle className="w-3 h-3" />
+                                      <span>{mappingStats[template.id]?.validationStatus.error} validation errors</span>
+                                    </div>
+                                  )}
+                                  
+                                  <div className="flex gap-2">
+                                    {/* Configure button temporarily disabled after cleanup */}
+                                    {/* <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        openMappingInterface(template);
+                                      }}
+                                      className="flex-1 px-3 py-1.5 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center gap-2"
+                                    >
+                                      <MapPin className="w-3 h-3" />
+                                      Configure
+                                    </button> */}
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        validateTemplate(template);
+                                      }}
+                                      className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                                      title="Validate Mappings"
+                                    >
+                                      <Shield className="w-3 h-3" />
+                                    </button>
+                                    
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedTemplateForAI(template);
+                                        setShowAIAnalyzer(true);
+                                      }}
+                                      className="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-blue-600 text-white text-sm rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors"
+                                      title="AI Analysis"
+                                    >
+                                      <Brain className="w-3 h-3" />
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+>>>>>>> origin/provider-side
                           </div>
                         ))}
                       </div>
@@ -650,6 +906,38 @@ export default function Templates() {
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
+<<<<<<< HEAD
+=======
+                                {mappingMode === 'edit' && (
+                                  <>
+                                    {/* Configure Mappings button temporarily disabled after cleanup */}
+                                    {/* <button
+                                      onClick={() => openMappingInterface(template)}
+                                      className="text-purple-600 hover:text-purple-900"
+                                      title="Configure Mappings"
+                                    >
+                                      <MapPin className="w-4 h-4" />
+                                    </button> */}
+                                    <button
+                                      onClick={() => validateTemplate(template)}
+                                      className="text-indigo-600 hover:text-indigo-900"
+                                      title="Validate Mappings"
+                                    >
+                                      <Shield className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        setSelectedTemplateForAI(template);
+                                        setShowAIAnalyzer(true);
+                                      }}
+                                      className="text-purple-600 hover:text-purple-900"
+                                      title="AI Analysis"
+                                    >
+                                      <Brain className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
+>>>>>>> origin/provider-side
                                 <button
                                   onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
                                   className="text-green-600 hover:text-green-900"
@@ -933,6 +1221,81 @@ export default function Templates() {
           </div>
         </Dialog>
       </Transition>
+<<<<<<< HEAD
+=======
+
+      {/* Field Mapping Interface Modal - Temporarily disabled after cleanup */}
+      {/* {selectedTemplateForMapping && showMappingModal && (
+        <FieldMappingInterface
+          show={showMappingModal}
+          onClose={() => {
+            setShowMappingModal(false);
+            setSelectedTemplateForMapping(null);
+          }}
+          templateId={selectedTemplateForMapping.id}
+          templateName={selectedTemplateForMapping.template_name}
+          onUpdate={() => handleMappingUpdate(selectedTemplateForMapping.id)}
+        />
+      )} */}
+
+      {/* Bulk Mapping Modal */}
+      {showBulkMappingModal && bulkMappingTemplateId && (
+        <BulkMappingModal
+          show={showBulkMappingModal}
+          onClose={() => setShowBulkMappingModal(false)}
+          templateId={bulkMappingTemplateId}
+          onComplete={() => {
+            handleMappingUpdate(bulkMappingTemplateId);
+            setShowBulkMappingModal(false);
+          }}
+        />
+      )}
+
+      {/* Validation Report Modal */}
+      {showValidationModal && selectedTemplateForMapping && (
+        <ValidationReportModal
+          show={showValidationModal}
+          onClose={() => {
+            setShowValidationModal(false);
+            setCurrentValidationResult(null);
+          }}
+          validationResult={currentValidationResult}
+          templateName={selectedTemplateForMapping.template_name}
+        />
+      )}
+
+      {/* Import/Export Modal */}
+      {showImportExportModal && importExportTemplate && (
+        <ImportExportModal
+          show={showImportExportModal}
+          onClose={() => setShowImportExportModal(false)}
+          templateId={importExportTemplate.id}
+          templateName={importExportTemplate.template_name}
+          onImportComplete={() => {
+            handleMappingUpdate(importExportTemplate.id);
+          }}
+        />
+      )}
+      
+      {/* AI Template Analyzer Modal */}
+      <AITemplateAnalyzer
+        show={showAIAnalyzer}
+        onClose={() => {
+          setShowAIAnalyzer(false);
+          setSelectedTemplateForAI(null);
+        }}
+        templateId={selectedTemplateForAI?.id}
+        onAnalysisComplete={(analysis) => {
+          console.log('AI Analysis completed:', analysis);
+          // Handle the analysis results - could auto-apply mappings, etc.
+          if (selectedTemplateForAI && analysis.auto_mappings) {
+            // You could automatically apply the mappings here
+            // or just close the modal and refresh
+            fetchTemplates();
+          }
+        }}
+      />
+>>>>>>> origin/provider-side
     </MainLayout>
   );
 }

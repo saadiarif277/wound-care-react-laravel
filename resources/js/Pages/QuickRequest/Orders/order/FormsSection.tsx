@@ -32,11 +32,19 @@ export const FormsSection: React.FC<FormsSectionProps> = ({
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-sm">Status:</span>
+<<<<<<< HEAD
             <span className="text-sm">{orderData.ivrForm.status}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm">Submission Date:</span>
             <span className="text-sm">{orderData.ivrForm.submissionDate}</span>
+=======
+            <span className="text-sm">{orderData.ivrForm?.status || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm">Submission Date:</span>
+            <span className="text-sm">{orderData.ivrForm?.submissionDate || 'N/A'}</span>
+>>>>>>> origin/provider-side
           </div>
           <div className="flex gap-2 mt-3">
             <Button variant="outline" size="sm" className="flex-1">
@@ -55,11 +63,19 @@ export const FormsSection: React.FC<FormsSectionProps> = ({
         <div className="space-y-2">
           <div className="flex justify-between">
             <span className="text-sm">Status:</span>
+<<<<<<< HEAD
             <span className="text-sm">{orderData.orderForm.status}</span>
           </div>
           <div className="flex justify-between">
             <span className="text-sm">Submission Date:</span>
             <span className="text-sm">{orderData.orderForm.submissionDate}</span>
+=======
+            <span className="text-sm">{orderData.orderForm?.status || 'N/A'}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-sm">Submission Date:</span>
+            <span className="text-sm">{orderData.orderForm?.submissionDate || 'N/A'}</span>
+>>>>>>> origin/provider-side
           </div>
           <div className="flex gap-2 mt-3">
             <Button variant="outline" size="sm" className="flex-1">

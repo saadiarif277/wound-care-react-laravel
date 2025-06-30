@@ -2,6 +2,10 @@ import { useState, useRef } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
+<<<<<<< HEAD
+=======
+import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAutocompleteWithFallback';
+>>>>>>> origin/provider-side
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
@@ -45,7 +49,10 @@ function Step2PatientInsurance({
   const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
   const [saveToPatientResource, setSaveToPatientResource] = useState(false);
 
+<<<<<<< HEAD
   const fileInputRef = useRef<HTMLInputElement>(null);
+=======
+>>>>>>> origin/provider-side
 
   const states = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -259,6 +266,7 @@ function Step2PatientInsurance({
           </div>
         </div>
 
+<<<<<<< HEAD
         {/* Single upload area for both front and back */}
         <div className="mt-4">
           <div
@@ -313,6 +321,105 @@ function Step2PatientInsurance({
               });
             }}
           />
+=======
+        {/* Separate upload areas for front and back */}
+        <div className="mt-4 grid grid-cols-2 gap-4">
+          {/* Front Card Upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Front of Card</label>
+            {!formData.insurance_card_front ? (
+              <div
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*,application/pdf';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handleInsuranceCardUpload(file, 'front');
+                  };
+                  input.click();
+                }}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <FiCreditCard className="mx-auto h-8 w-8 mb-2 text-gray-400" />
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Click to upload front
+                </p>
+              </div>
+            ) : (
+              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {formData.insurance_card_front.name || 'Front uploaded'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateFormData({ insurance_card_front: null });
+                      setCardFrontPreview(null);
+                    }}
+                    className="ml-2 text-red-500 hover:text-red-700"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Back Card Upload */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Back of Card</label>
+            {!formData.insurance_card_back ? (
+              <div
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*,application/pdf';
+                  input.onchange = (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) handleInsuranceCardUpload(file, 'back');
+                  };
+                  input.click();
+                }}
+                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <FiCreditCard className="mx-auto h-8 w-8 mb-2 text-gray-400" />
+                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
+                  Click to upload back
+                </p>
+              </div>
+            ) : (
+              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2 flex-1 min-w-0">
+                    <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
+                      {formData.insurance_card_back.name || 'Back uploaded'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      updateFormData({ insurance_card_back: null });
+                      setCardBackPreview(null);
+                    }}
+                    className="ml-2 text-red-500 hover:text-red-700"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+>>>>>>> origin/provider-side
         </div>
 
         {/* Save to patient resource checkbox */}
@@ -406,8 +513,15 @@ function Step2PatientInsurance({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Address Line 1
             </label>
+<<<<<<< HEAD
             <GoogleAddressAutocompleteSimple
               onPlaceSelect={handleAddressSelect}
+=======
+            <GoogleAddressAutocompleteWithFallback
+              onPlaceSelect={handleAddressSelect}
+              value={formData.patient_address_line1}
+              onChange={(value) => updateFormData({ patient_address_line1: value })}
+>>>>>>> origin/provider-side
               defaultValue={formData.patient_address_line1}
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               placeholder="Start typing address..."

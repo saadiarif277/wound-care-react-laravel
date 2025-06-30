@@ -27,6 +27,7 @@ export const ProductSection: React.FC<ProductSectionProps> = ({
   >
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-1">
+<<<<<<< HEAD
         <InfoRow label="Product Name" value={orderData.product.name} />
         <InfoRow label="Size" value={orderData.product.sizes.join(', ')} />
         <InfoRow label="Quantity" value={orderData.product.quantity.toString()} />
@@ -40,6 +41,21 @@ export const ProductSection: React.FC<ProductSectionProps> = ({
           />
         )}
       </div>
+=======
+        <InfoRow label="Product Name" value={orderData.product?.name || 'N/A'} />
+        <InfoRow label="Size" value={orderData.product?.sizes?.join(', ') || 'N/A'} />
+        <InfoRow label="Quantity" value={orderData.product?.quantity?.toString() || '0'} />
+      </div>
+      {userRole !== 'OM' && (
+        <div className="space-y-1">
+          <InfoRow label="ASP Total Price" value={`$${orderData.product?.aspPrice?.toFixed(2) || '0.00'}`} />
+          <InfoRow 
+            label="Amount to be Billed" 
+            value={`$${orderData.product?.discountedPrice?.toFixed(2) || '0.00'}`} 
+          />
+        </div>
+      )}
+>>>>>>> origin/provider-side
     </div>
   </SectionCard>
 );

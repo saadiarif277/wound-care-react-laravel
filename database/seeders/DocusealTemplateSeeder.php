@@ -33,7 +33,11 @@ class DocusealTemplateSeeder extends Seeder
                         'name' => 'MedLife Order Form',
                         'docuseal_template_id' => '1234279',
                         'document_type' => 'OrderForm',
+<<<<<<< HEAD
                         'is_default' => false,
+=======
+                        'is_default' => true,
+>>>>>>> origin/provider-side
                     ]
                 ]
             ],
@@ -96,6 +100,15 @@ class DocusealTemplateSeeder extends Seeder
                         'docuseal_template_id' => '1254774',
                         'document_type' => 'IVR',
                         'is_default' => true,
+<<<<<<< HEAD
+=======
+                    ],
+                    [
+                        'name' => 'BioWound Order Form',
+                        'docuseal_template_id' => '1299495',
+                        'document_type' => 'OrderForm',
+                        'is_default' => false,
+>>>>>>> origin/provider-side
                     ]
                 ]
             ],

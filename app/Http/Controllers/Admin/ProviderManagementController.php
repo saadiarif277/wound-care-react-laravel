@@ -753,9 +753,15 @@ class ProviderManagementController extends Controller
         $validated = $request->validate([
             'first_name' => 'required|string|max:255',
             'last_name' => 'required|string|max:255',
+<<<<<<< HEAD
             'email' => 'required|email|unique:users,email,' . $provider->id,
             'npi_number' => 'nullable|string|max:20',
             'dea_number' => 'nullable|string|max:20',
+=======
+            'credentials' => 'nullable|string|max:50',
+            'email' => 'required|email|unique:users,email,' . $provider->id,
+            'npi_number' => 'nullable|string|max:20',
+>>>>>>> origin/provider-side
             'license_number' => 'nullable|string|max:50',
             'license_state' => 'nullable|string|max:2',
             'license_expiry' => 'nullable|date',
@@ -774,9 +780,15 @@ class ProviderManagementController extends Controller
         $provider->update([
             'first_name' => $validated['first_name'],
             'last_name' => $validated['last_name'],
+<<<<<<< HEAD
             'email' => $validated['email'],
             'npi_number' => $validated['npi_number'],
             'dea_number' => $validated['dea_number'],
+=======
+            'credentials' => $validated['credentials'],
+            'email' => $validated['email'],
+            'npi_number' => $validated['npi_number'],
+>>>>>>> origin/provider-side
             'license_number' => $validated['license_number'],
             'license_state' => $validated['license_state'],
             'license_expiry' => $validated['license_expiry'],

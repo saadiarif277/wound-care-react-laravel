@@ -1,5 +1,6 @@
 
 export type OrderStatus = 
+<<<<<<< HEAD
   | 'Pending IVR'
   | 'IVR Sent'
   | 'IVR Verified'
@@ -15,6 +16,20 @@ export type IVRStatus =
   | 'Sent'
   | 'Results Received'
   | 'Verified';
+=======
+  | 'Pending'
+  | 'Submitted to Manufacturer'
+  | 'Confirmed by Manufacturer'
+  | 'Rejected'
+  | 'Canceled';
+
+export type IVRStatus = 
+  | 'N/A'
+  | 'Pending'
+  | 'Sent'
+  | 'Verified'
+  | 'Rejected';
+>>>>>>> origin/provider-side
 
 export type OrderFormStatus = 
   | 'Draft'

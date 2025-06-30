@@ -96,6 +96,7 @@ class DocuSealWebhookController extends Controller
         $episode = $this->findEpisodeByPatientInfo($patientInfo, $data);
 
         if ($episode) {
+<<<<<<< HEAD
             // Store the completed IVR document in the episode
             $this->storeIVRDocument($episode, $data);
 
@@ -112,6 +113,46 @@ class DocuSealWebhookController extends Controller
                     'episode_id' => $episode->id,
                     'submission_id' => $submissionId,
                 ]);
+=======
+            // Determine if this is an IVR or order form based on template name/type
+            $templateName = $data['template']['name'] ?? '';
+            $isOrderForm = $this->isOrderFormTemplate($templateName, $data);
+
+            if ($isOrderForm) {
+                // Handle order form completion
+                $this->storeOrderFormDocument($episode, $data);
+                
+                // Update order form status
+                $episode->update([
+                    'order_form_status' => 'completed',
+                    'order_form_submission_id' => $submissionId,
+                    'order_form_completed_at' => now(),
+                ]);
+
+                Log::info('Episode order form status updated', [
+                    'episode_id' => $episode->id,
+                    'submission_id' => $submissionId,
+                    'template_name' => $templateName,
+                ]);
+            } else {
+                // Handle IVR completion (existing logic)
+                $this->storeIVRDocument($episode, $data);
+
+                // Update episode status if it's waiting for IVR
+                if ($episode->status === 'ready_for_review' && $episode->ivr_status !== 'provider_completed') {
+                    $episode->update([
+                        'ivr_status' => 'provider_completed',
+                        'docuseal_submission_id' => $submissionId,
+                        'docuseal_status' => 'completed',
+                        'docuseal_signed_at' => now(),
+                    ]);
+
+                    Log::info('Episode IVR status updated', [
+                        'episode_id' => $episode->id,
+                        'submission_id' => $submissionId,
+                    ]);
+                }
+>>>>>>> origin/provider-side
             }
         } else {
             Log::warning('Could not find episode for completed IVR', [
@@ -252,6 +293,95 @@ class DocuSealWebhookController extends Controller
     }
 
     /**
+<<<<<<< HEAD
+=======
+     * Store order form document in episode metadata
+     */
+    private function storeOrderFormDocument(PatientManufacturerIVREpisode $episode, array $webhookData): void
+    {
+        $documents = $webhookData['documents'] ?? [];
+        $metadata = $episode->forms_metadata ?? [];
+
+        // Initialize order_forms array if not exists
+        if (!isset($metadata['order_forms'])) {
+            $metadata['order_forms'] = [];
+        }
+
+        // Add order form documents
+        foreach ($documents as $doc) {
+            $documentRecord = [
+                'id' => \Illuminate\Support\Str::uuid()->toString(),
+                'type' => 'order_form',
+                'name' => $doc['name'] ?? 'Order Form Document',
+                'url' => $doc['url'] ?? '',
+                'docuseal_submission_id' => $webhookData['submission']['id'] ?? null,
+                'uploaded_at' => now()->toISOString(),
+                'uploaded_by' => 'DocuSeal Webhook',
+                'file_size' => null,
+                'mime_type' => 'application/pdf',
+            ];
+
+            $metadata['order_forms'][] = $documentRecord;
+        }
+
+        // Add audit log URL if available
+        if (!empty($webhookData['audit_log_url'])) {
+            $metadata['order_form_audit_log_url'] = $webhookData['audit_log_url'];
+        }
+
+        // Store form values for reference
+        if (!empty($webhookData['values'])) {
+            $metadata['order_form_values'] = $webhookData['values'];
+        }
+
+        $episode->update(['forms_metadata' => $metadata]);
+
+        Log::info('Order form document stored in episode', [
+            'episode_id' => $episode->id,
+            'document_count' => count($documents),
+        ]);
+    }
+
+    /**
+     * Determine if the completed template is an order form
+     */
+    private function isOrderFormTemplate(string $templateName, array $webhookData): bool
+    {
+        // Check template name patterns that indicate order forms
+        $orderFormPatterns = [
+            'order form',
+            'order_form',
+            'orderform',
+            'purchase order',
+            'product order',
+        ];
+
+        $lowerTemplateName = strtolower($templateName);
+        
+        foreach ($orderFormPatterns as $pattern) {
+            if (strpos($lowerTemplateName, $pattern) !== false) {
+                return true;
+            }
+        }
+
+        // Check if template has specific order form fields
+        $values = $webhookData['values'] ?? [];
+        $orderFormFields = ['product_quantity', 'shipping_address', 'order_total', 'delivery_date'];
+        
+        foreach ($values as $field) {
+            $fieldName = strtolower($field['field'] ?? '');
+            foreach ($orderFormFields as $orderField) {
+                if (strpos($fieldName, $orderField) !== false) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+>>>>>>> origin/provider-side
      * Handle submission completed event (legacy format)
      */
     private function handleSubmissionCompleted(array $data)

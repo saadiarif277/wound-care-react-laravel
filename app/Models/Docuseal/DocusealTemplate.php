@@ -102,4 +102,96 @@ class DocusealTemplate extends Model
             ->default()
             ->first();
     }
+<<<<<<< HEAD
+=======
+
+    /**
+     * Get the field mappings for this template
+     */
+    public function fieldMappings(): HasMany
+    {
+        return $this->hasMany(\App\Models\TemplateFieldMapping::class, 'template_id');
+    }
+
+    /**
+     * Get the mapping audit logs for this template
+     */
+    public function mappingAuditLogs(): HasMany
+    {
+        return $this->hasMany(\App\Models\MappingAuditLog::class, 'template_id');
+    }
+
+    /**
+     * Get the user who last mapped this template
+     */
+    public function lastMappedBy(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\User::class, 'last_mapped_by');
+    }
+
+    /**
+     * Get active field mappings
+     */
+    public function activeFieldMappings(): HasMany
+    {
+        return $this->fieldMappings()->active();
+    }
+
+    /**
+     * Get field mappings with errors
+     */
+    public function fieldMappingsWithErrors(): HasMany
+    {
+        return $this->fieldMappings()->withErrors();
+    }
+
+    /**
+     * Get field mappings with warnings
+     */
+    public function fieldMappingsWithWarnings(): HasMany
+    {
+        return $this->fieldMappings()->withWarnings();
+    }
+
+    /**
+     * Get mapping coverage percentage
+     */
+    public function getMappingCoverageAttribute(): float
+    {
+        return $this->mapping_coverage ?? 0;
+    }
+
+    /**
+     * Check if template has complete required field mappings
+     */
+    public function hasCompleteRequiredMappings(): bool
+    {
+        $requiredCanonicalFields = \App\Models\CanonicalField::required()->count();
+        return $this->required_fields_mapped >= $requiredCanonicalFields;
+    }
+
+    /**
+     * Update mapping statistics
+     */
+    public function updateMappingStatistics(): void
+    {
+        $totalFields = $this->fieldMappings()->count();
+        $mappedFields = $this->fieldMappings()->whereNotNull('canonical_field_id')->count();
+        $requiredFieldsMapped = $this->fieldMappings()
+            ->whereHas('canonicalField', function ($query) {
+                $query->where('is_required', true);
+            })
+            ->count();
+        $validationErrors = $this->fieldMappings()->withErrors()->count();
+
+        $this->update([
+            'total_mapped_fields' => $mappedFields,
+            'mapping_coverage' => $totalFields > 0 ? ($mappedFields / $totalFields) * 100 : 0,
+            'required_fields_mapped' => $requiredFieldsMapped,
+            'validation_errors_count' => $validationErrors,
+            'last_mapping_update' => now(),
+            'last_mapped_by' => auth()->id(),
+        ]);
+    }
+>>>>>>> origin/provider-side
 }

@@ -2,18 +2,31 @@
 
 namespace App\Services\Insurance;
 
+<<<<<<< HEAD
 use App\Services\Templates\UnifiedTemplateMappingEngine;
+=======
+use App\Services\UnifiedFieldMappingService;
+>>>>>>> origin/provider-side
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 
 class InsuranceDataNormalizer
 {
+<<<<<<< HEAD
     private UnifiedTemplateMappingEngine $mappingEngine;
     private array $normalizationRules;
     
     public function __construct(UnifiedTemplateMappingEngine $mappingEngine)
     {
         $this->mappingEngine = $mappingEngine;
+=======
+    private UnifiedFieldMappingService $fieldMappingService;
+    private array $normalizationRules;
+    
+    public function __construct(UnifiedFieldMappingService $fieldMappingService)
+    {
+        $this->fieldMappingService = $fieldMappingService;
+>>>>>>> origin/provider-side
         $this->loadNormalizationRules();
     }
     
@@ -123,6 +136,7 @@ class InsuranceDataNormalizer
         // DocuSeal returns data in a nested structure
         $fields = data_get($data, 'submission.fields', []);
         
+<<<<<<< HEAD
         $normalized = [];
         foreach ($fields as $field) {
             $fieldName = $this->mapDocuSealFieldToNormalized($field['name']);
@@ -132,6 +146,16 @@ class InsuranceDataNormalizer
         }
         
         return $normalized;
+=======
+        // Convert to flat array for mapping
+        $flatData = [];
+        foreach ($fields as $field) {
+            $flatData[$field['name']] = $field['value'];
+        }
+        
+        // Use UnifiedFieldMappingService to map to canonical fields
+        return $this->fieldMappingService->mapToCanonicalFields($flatData);
+>>>>>>> origin/provider-side
     }
     
     /**
@@ -439,6 +463,7 @@ class InsuranceDataNormalizer
         return $value ? (float) $value : null;
     }
     
+<<<<<<< HEAD
     /**
      * Map DocuSeal field names to normalized names
      */
@@ -456,6 +481,8 @@ class InsuranceDataNormalizer
         
         return $mappings[$fieldName] ?? null;
     }
+=======
+>>>>>>> origin/provider-side
     
     /**
      * Determine MAC jurisdiction from state

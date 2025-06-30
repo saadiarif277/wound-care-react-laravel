@@ -40,6 +40,14 @@ return new class extends Migration
             if (!Schema::hasColumn('facilities', 'fax')) {
                 $table->string('fax', 20)->nullable()->after('phone');
             }
+<<<<<<< HEAD
+=======
+            
+            // Add facility medicaid number
+            if (!Schema::hasColumn('facilities', 'medicaid_number')) {
+                $table->string('medicaid_number', 50)->nullable()->after('ptan');
+            }
+>>>>>>> origin/provider-side
         });
         
         // Optionally migrate existing address data to address_line1
@@ -58,7 +66,11 @@ return new class extends Migration
         });
         
         Schema::table('facilities', function (Blueprint $table) {
+<<<<<<< HEAD
             $table->dropColumn(['address_line1', 'address_line2', 'fax']);
+=======
+            $table->dropColumn(['address_line1', 'address_line2', 'fax', 'medicaid_number']);
+>>>>>>> origin/provider-side
         });
     }
 };

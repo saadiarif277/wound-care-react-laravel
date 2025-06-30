@@ -32,13 +32,27 @@ class PatientManufacturerIVREpisode extends Model
         'docuseal_submission_url',
         'metadata',
         'completed_at',
+<<<<<<< HEAD
+=======
+        // Order Form fields
+        'order_form_status',
+        'order_form_submission_id',
+        'order_form_completed_at',
+        'forms_metadata',
+>>>>>>> origin/provider-side
     ];
 
     protected $casts = [
         'verification_date' => 'datetime',
         'expiration_date' => 'datetime',
         'completed_at' => 'datetime',
+<<<<<<< HEAD
         'metadata' => 'array',
+=======
+        'order_form_completed_at' => 'datetime',
+        'metadata' => 'array',
+        'forms_metadata' => 'array',
+>>>>>>> origin/provider-side
     ];
 
     /**
@@ -52,12 +66,22 @@ class PatientManufacturerIVREpisode extends Model
     const STATUS_COMPLETED = 'completed';
 
     /**
+<<<<<<< HEAD
      * IVR Status constants
      */
     const IVR_STATUS_PROVIDER_COMPLETED = 'provider_completed';
     const IVR_STATUS_ADMIN_REVIEWED = 'admin_reviewed';
     const IVR_STATUS_VERIFIED = 'verified';
     const IVR_STATUS_EXPIRED = 'expired';
+=======
+     * IVR Status constants - matches PRD requirements
+     */
+    const IVR_STATUS_NA = 'N/A';
+    const IVR_STATUS_PENDING = 'pending';
+    const IVR_STATUS_SENT = 'sent';
+    const IVR_STATUS_VERIFIED = 'verified';
+    const IVR_STATUS_REJECTED = 'rejected';
+>>>>>>> origin/provider-side
 
     /**
      * Get the manufacturer for this episode
@@ -139,7 +163,11 @@ class PatientManufacturerIVREpisode extends Model
         return in_array($this->status, [
             self::STATUS_READY_FOR_REVIEW,
             self::STATUS_IVR_SENT,
+<<<<<<< HEAD
         ]) || $this->ivr_status === self::IVR_STATUS_EXPIRED;
+=======
+        ]) || $this->ivr_status === self::IVR_STATUS_REJECTED;
+>>>>>>> origin/provider-side
     }
 
     /**

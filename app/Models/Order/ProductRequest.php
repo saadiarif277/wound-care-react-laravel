@@ -15,6 +15,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Docuseal\DocusealSubmission;
+<<<<<<< HEAD
+=======
+use App\Constants\DocuSealFields;
+use Illuminate\Support\Arr;
+>>>>>>> origin/provider-side
 
 class ProductRequest extends Model
 {
@@ -102,6 +107,18 @@ class ProductRequest extends Model
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
     ];
+<<<<<<< HEAD
+=======
+    
+    /**
+     * Order Status constants - matches PRD requirements
+     */
+    const ORDER_STATUS_PENDING = 'pending';
+    const ORDER_STATUS_SUBMITTED_TO_MANUFACTURER = 'submitted_to_manufacturer';
+    const ORDER_STATUS_CONFIRMED_BY_MANUFACTURER = 'confirmed_by_manufacturer';
+    const ORDER_STATUS_REJECTED = 'rejected';
+    const ORDER_STATUS_CANCELED = 'canceled';
+>>>>>>> origin/provider-side
 
     /**
      * Place of service codes and descriptions.
@@ -552,6 +569,207 @@ class ProductRequest extends Model
     }
 
     /**
+<<<<<<< HEAD
+=======
+     * Get a normalized field value using DocuSeal canonical keys.
+     * This provides a single interface for accessing form data regardless of storage method.
+     * 
+     * @param string $key Canonical DocuSeal field key
+     * @param mixed $default Default value if not found
+     * @return mixed
+     */
+    public function getValue(string $key, $default = null)
+    {
+        // First check if we have DocuSeal submission data
+        if ($submission = $this->getDocuSealSubmissionData()) {
+            $value = Arr::get($submission, $key, null);
+            if ($value !== null) {
+                return $value;
+            }
+        }
+
+        // Fall back to direct model attributes with field mapping
+        return $this->getValueFromModel($key, $default);
+    }
+
+    /**
+     * Get DocuSeal submission form data if available.
+     */
+    protected function getDocuSealSubmissionData(): ?array
+    {
+        if (!$this->docuseal_submission_id) {
+            return null;
+        }
+
+        try {
+            $submission = $this->docusealSubmissions()->first();
+            if ($submission && isset($submission->response_data)) {
+                return is_array($submission->response_data) 
+                    ? $submission->response_data 
+                    : json_decode($submission->response_data, true);
+            }
+        } catch (\Exception $e) {
+            Log::error('Failed to get DocuSeal submission data', [
+                'product_request_id' => $this->id,
+                'submission_id' => $this->docuseal_submission_id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return null;
+    }
+
+    /**
+     * Map canonical DocuSeal field keys to ProductRequest model attributes.
+     */
+    protected function getValueFromModel(string $key, $default = null)
+    {
+        $fieldMapping = [
+            // Patient Information (from FHIR when available)
+            DocuSealFields::PATIENT_NAME => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['name'] ?? null) : $this->patient_display_id;
+            },
+            DocuSealFields::PATIENT_DOB => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['birthDate'] ?? null) : null;
+            },
+            DocuSealFields::PATIENT_GENDER => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['gender'] ?? null) : null;
+            },
+            DocuSealFields::PATIENT_ADDRESS => function() {
+                $patient = $this->getPatientAttribute();
+                return $patient ? ($patient['address'] ?? null) : null;
+            },
+
+            // Provider Information
+            DocuSealFields::PROVIDER_NAME => function() {
+                return $this->provider ? $this->provider->first_name . ' ' . $this->provider->last_name : null;
+            },
+            DocuSealFields::PROVIDER_NPI => function() {
+                return $this->provider ? $this->provider->npi : null;
+            },
+
+            // Facility Information
+            DocuSealFields::FACILITY_NAME => function() {
+                return $this->facility ? $this->facility->name : null;
+            },
+            DocuSealFields::FACILITY_NPI => function() {
+                return $this->facility ? $this->facility->npi : null;
+            },
+            DocuSealFields::FACILITY_CONTACT_PHONE => function() {
+                return $this->facility ? $this->facility->phone : null;
+            },
+            DocuSealFields::FACILITY_CONTACT_EMAIL => function() {
+                return $this->facility ? $this->facility->email : null;
+            },
+
+            // Insurance Information
+            DocuSealFields::PRIMARY_INS_NAME => 'payer_name_submitted',
+
+            // Service Information
+            DocuSealFields::PLACE_OF_SERVICE => 'place_of_service',
+            DocuSealFields::ANTICIPATED_APPLICATION_DATE => 'expected_service_date',
+
+            // Product Information
+            DocuSealFields::PRODUCT_CODE => function() {
+                $product = $this->products()->first();
+                return $product ? $product->q_code : null;
+            },
+            DocuSealFields::PRODUCT_SIZE => function() {
+                $product = $this->products()->first();
+                return $product ? $product->pivot->size ?? null : null;
+            },
+
+            // Clinical Information
+            DocuSealFields::WOUND_TYPE => 'wound_type',
+            DocuSealFields::ICD10_PRIMARY => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['primary_diagnosis'] ?? null) : null;
+            },
+            DocuSealFields::ICD10_SECONDARY => function() {
+                $clinical = $this->clinical_summary;
+                return is_array($clinical) ? ($clinical['secondary_diagnosis'] ?? null) : null;
+            },
+        ];
+
+        if (isset($fieldMapping[$key])) {
+            $mapping = $fieldMapping[$key];
+            
+            if (is_callable($mapping)) {
+                return $mapping() ?? $default;
+            } else {
+                return $this->getAttribute($mapping) ?? $default;
+            }
+        }
+
+        return $default;
+    }
+
+    /**
+     * Get form values formatted for DocuSeal templates.
+     * This builds the payload that gets sent to DocuSeal for form population.
+     */
+    public function getDocuSealFormValues(): array
+    {
+        $values = [];
+        
+        foreach (DocuSealFields::getAllFields() as $field) {
+            $value = $this->getValue($field);
+            if ($value !== null) {
+                $values[$field] = $value;
+            }
+        }
+
+        return $values;
+    }
+
+    /**
+     * Get form values grouped by category for display.
+     */
+    public function getFormValuesByCategory(): array
+    {
+        $categorized = [];
+        $categories = DocuSealFields::getFieldsByCategory();
+        
+        foreach ($categories as $category => $fields) {
+            $categoryData = [];
+            foreach ($fields as $field) {
+                $value = $this->getValue($field);
+                if ($value !== null) {
+                    $categoryData[$field] = [
+                        'label' => DocuSealFields::getFieldLabel($field),
+                        'value' => $value,
+                        'type' => DocuSealFields::getFieldType($field)
+                    ];
+                }
+            }
+            if (!empty($categoryData)) {
+                $categorized[$category] = $categoryData;
+            }
+        }
+        
+        return $categorized;
+    }
+
+    /**
+     * Generate reference number for orders (REQ-YYYYMMDD-ABC123 format).
+     */
+    public function generateReferenceNumber(): string
+    {
+        if ($this->request_number) {
+            return $this->request_number;
+        }
+
+        $date = now()->format('Ymd');
+        $count = static::whereDate('created_at', today())->count() + 1;
+        
+        return sprintf('REQ-%s-%s%03d', $date, strtoupper(substr(md5($this->id), 0, 3)), $count);
+    }
+
+    /**
+>>>>>>> origin/provider-side
      * Get the route key for the model.
      */
     public function getRouteKeyName()

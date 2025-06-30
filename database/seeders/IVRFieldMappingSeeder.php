@@ -164,8 +164,11 @@ class IVRFieldMappingSeeder extends Seeder
             ]
         ];
 
+<<<<<<< HEAD
         DB::beginTransaction();
 
+=======
+>>>>>>> origin/provider-side
         try {
             // Check if we should clear existing mappings
             $existingCount = IVRFieldMapping::count();
@@ -173,7 +176,12 @@ class IVRFieldMappingSeeder extends Seeder
                 $this->command->info('No existing IVR field mappings found, creating...');
             } else {
                 $this->command->info("Found {$existingCount} existing IVR field mappings, clearing and recreating...");
+<<<<<<< HEAD
                 IVRFieldMapping::truncate();
+=======
+                // Use delete instead of truncate to avoid transaction issues
+                DB::table('ivr_field_mappings')->delete();
+>>>>>>> origin/provider-side
             }
 
             $totalFields = 0;
@@ -230,8 +238,11 @@ class IVRFieldMappingSeeder extends Seeder
                 $this->command->info("  ✅ Imported {$fieldCount} fields for {$manufacturerName}");
             }
 
+<<<<<<< HEAD
             DB::commit();
 
+=======
+>>>>>>> origin/provider-side
             $this->command->info('🎉 IVR Field Mappings seeded successfully!');
             $this->command->table(['Metric', 'Value'], [
                 ['Total Templates', count($ivrFieldData)],
@@ -241,7 +252,10 @@ class IVRFieldMappingSeeder extends Seeder
             ]);
 
         } catch (\Exception $e) {
+<<<<<<< HEAD
             DB::rollback();
+=======
+>>>>>>> origin/provider-side
             $this->command->error("❌ Seeding failed: " . $e->getMessage());
             throw $e;
         }

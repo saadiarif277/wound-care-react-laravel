@@ -83,18 +83,31 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
         {/* Sidebar Navigation */}
         <div
           className={cn(
+<<<<<<< HEAD
             "fixed md:relative inset-y-0 left-0 z-50",
             "transition-all duration-300 ease-in-out transform",
             "m-4 md:m-4 md:my-4 md:ml-4 md:mr-0",
             isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
             "md:translate-x-0",
+=======
+            "fixed md:sticky inset-y-0 left-0 z-50",
+            "transition-all duration-300 ease-in-out transform",
+            "m-4 md:m-4 md:my-4 md:ml-4 md:mr-0",
+            "h-screen md:h-[calc(100vh-2rem)]", // Fixed height that accounts for margin
+            isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
+            "md:translate-x-0 md:top-4", // Add top positioning for sticky
+>>>>>>> origin/provider-side
             isCollapsed ? 'md:w-20' : 'md:w-72',
             theme === 'dark'
               ? `${t.glass.card} ${t.glass.border} ${t.shadows.glass}`
               : `${t.glass.card} ${t.glass.border} ${t.shadows.glass}`
           )}
         >
+<<<<<<< HEAD
           <div className="flex flex-col h-full">
+=======
+          <div className="flex flex-col h-full max-h-full overflow-hidden">
+>>>>>>> origin/provider-side
             {/* Brand Logo */}
             <div
               className={cn(
@@ -159,6 +172,7 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
               </button>
             </div>
 
+<<<<<<< HEAD
             {/* Navigation Menu */}
             <RoleBasedNavigation
               userRole={currentUserRole}
@@ -170,6 +184,21 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
             {/* User Profile and Logout */}
             <div className={cn(
               "p-4 border-t",
+=======
+            {/* Navigation Menu - Scrollable middle section */}
+            <div className="flex-1 overflow-y-auto custom-scrollbar">
+              <RoleBasedNavigation
+                userRole={currentUserRole}
+                currentPath={currentPath}
+                isCollapsed={isCollapsed}
+                theme={theme}
+              />
+            </div>
+
+            {/* User Profile and Logout - Always visible at bottom */}
+            <div className={cn(
+              "flex-shrink-0 p-4 border-t mt-auto", // Added flex-shrink-0 and mt-auto
+>>>>>>> origin/provider-side
               theme === 'dark' ? 'border-white/10' : 'border-gray-200'
             )}>
               {!isCollapsed ? (

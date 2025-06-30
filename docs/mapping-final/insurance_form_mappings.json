@@ -1,0 +1,563 @@
+{
+  "standardFieldMappings": {
+    "physicianInformation": {
+      "canonicalFields": {
+        "physicianName": {
+          "description": "Full name of the treating physician",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "PHYSICIAN NAME",
+            "form2_IVR": "Physician Name",
+            "form3_Centurion": "*Provider Name",
+            "form4_BioWound": "Physician Name",
+            "form5_AdvancedSolution": "Physician Name",
+            "form6_ImbedBio": "Name",
+            "form7_ExtremityCare_FT": "*Provider Name",
+            "form8_ExtremityCare_RO": "*Provider Name"
+            }
+          }
+        },
+        "physicianNPI": {
+          "description": "National Provider Identifier",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "NPI",
+            "form2_IVR": "Physician NPI",
+            "form3_Centurion": "*Provider ID #s: NPI",
+            "form4_BioWound": "NPI",
+            "form5_AdvancedSolution": "NPI",
+            "form6_ImbedBio": "NPI",
+            "form7_ExtremityCare_FT": "*Provider ID #'s NPI",
+            "form8_ExtremityCare_RO": "*Provider ID #'s NPI"
+          }
+        },
+        "physicianSpecialty": {
+          "description": "Medical specialty of the physician",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "PHYSICIAN SPECIALTY",
+            "form2_IVR": null,
+            "form3_Centurion": "Specialty",
+            "form4_BioWound": "Physician Specialty",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "taxId": {
+          "description": "Tax identification number",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "TAX ID",
+            "form2_IVR": "TAX ID#",
+            "form3_Centurion": "Tax ID",
+            "form4_BioWound": "Tax ID",
+            "form5_AdvancedSolution": "TIN",
+            "form6_ImbedBio": "Tax ID",
+            "form7_ExtremityCare_FT": "Tax ID#",
+            "form8_ExtremityCare_RO": "Tax ID#"
+          }
+        },
+        "ptanNumber": {
+          "description": "Provider Transaction Access Number (Medicare)",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "PTAN",
+            "form2_IVR": "Physician PTAN",
+            "form3_Centurion": "PTAN #",
+            "form4_BioWound": "PTAN (Medicare #)",
+            "form5_AdvancedSolution": "PTAN",
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "medicaidNumber": {
+          "description": "Medicaid provider number",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "MEDICAID #",
+            "form2_IVR": null,
+            "form3_Centurion": "Medicaid Provider #",
+            "form4_BioWound": "Medicaid #",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "Medicare Provider #",
+            "form8_ExtremityCare_RO": "Medicare Provider #"
+          }
+        },
+        "practiceName": {
+          "description": "Name of the medical practice",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": "Practice Name",
+            "form3_Centurion": null,
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": "Practice Name",
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "practicePTAN": {
+          "description": "Practice PTAN number",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": "Practice PTAN",
+            "form3_Centurion": null,
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "practiceNPI": {
+          "description": "Practice NPI number",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": "Practice NPI",
+            "form3_Centurion": null,
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "practiceAddress": {
+          "description": "Practice street address",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": null,
+            "form3_Centurion": null,
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": "Practice Address",
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        }
+      }
+    },
+    "facilityInformation": {
+      "canonicalFields": {
+        "facilityName": {
+          "description": "Name of the medical facility",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "FACILITY NAME",
+            "form2_IVR": "Practice Name",
+            "form3_Centurion": "*Facility Name",
+            "form4_BioWound": "Facility Name",
+            "form5_AdvancedSolution": "Facility Name",
+            "form6_ImbedBio": "Facility Name",
+            "form7_ExtremityCare_FT": "*Facility Name",
+            "form8_ExtremityCare_RO": "*Facility Name"
+          }
+        },
+        "facilityAddress": {
+          "description": "Street address of the facility",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "FACILITY ADDRESS",
+            "form2_IVR": null,
+            "form3_Centurion": "Address",
+            "form4_BioWound": "Facility Address",
+            "form5_AdvancedSolution": "Address",
+            "form6_ImbedBio": "Facility Address",
+            "form7_ExtremityCare_FT": "Address",
+            "form8_ExtremityCare_RO": "Address"
+          }
+        },
+        "facilityCity": {
+          "description": "City where facility is located",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "City",
+            "form4_BioWound": "City, State, Zip",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "City",
+            "form8_ExtremityCare_RO": "City"
+          }
+        },
+        "facilityState": {
+          "description": "State where facility is located",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "State",
+            "form4_BioWound": "City, State, Zip",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "State",
+            "form8_ExtremityCare_RO": "State"
+          }
+        },
+        "facilityZip": {
+          "description": "Zip code where facility is located",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "Zip",
+            "form4_BioWound": "City, State, Zip",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "Zip",
+            "form8_ExtremityCare_RO": "Zip"
+          }
+        },
+        "facilityNPI": {
+          "description": "Facility National Provider Identifier",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": "Practice NPI",
+            "form3_Centurion": "*Facility ID #s: NPI",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": "NPI",
+            "form6_ImbedBio": "NPI",
+            "form7_ExtremityCare_FT": "*Facility ID #'s NPI",
+            "form8_ExtremityCare_RO": "*Facility ID #'s NPI"
+          }
+        },
+        "facilityTaxId": {
+          "description": "Facility Tax ID",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": null,
+            "form3_Centurion": "*Facility ID #s: Tax ID",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": "Tax ID",
+            "form7_ExtremityCare_FT": "*Facility ID #'s Tax ID#",
+            "form8_ExtremityCare_RO": "*Facility ID #'s Tax ID#"
+          }
+        },
+        "facilityType": {
+          "description": "Type of facility",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": null,
+            "form2_IVR": null,
+            "form3_Centurion": null,
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": "Facility Type",
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "contactName": {
+          "description": "Primary contact person at facility",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CONTACT NAME",
+            "form2_IVR": "Office Contact Name",
+            "form3_Centurion": "*Facility Contact",
+            "form4_BioWound": "Contact Name",
+            "form5_AdvancedSolution": "Contact Name",
+            "form6_ImbedBio": "Point of Contact",
+            "form7_ExtremityCare_FT": "*Facility Contact",
+            "form8_ExtremityCare_RO": "*Facility Contact"
+          }
+        },
+        "contactPhone": {
+          "description": "Contact phone number",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "PHONE #",
+            "form2_IVR": null,
+            "form3_Centurion": "Phone #",
+            "form4_BioWound": "Phone #",
+            "form5_AdvancedSolution": "Phone",
+            "form6_ImbedBio": "Phone",
+            "form7_ExtremityCare_FT": "Phone#",
+            "form8_ExtremityCare_RO": "Phone#"
+          }
+        },
+        "contactFax": {
+          "description": "Contact fax number",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "FAX #",
+            "form2_IVR": null,
+            "form3_Centurion": "Fax #",
+            "form4_BioWound": "Fax #",
+            "form5_AdvancedSolution": "Fax",
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "Fax#",
+            "form8_ExtremityCare_RO": "Fax#"
+          }
+        },
+        "contactEmail": {
+          "description": "Contact email address",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "CONTACT PH/EMAIL",
+            "form2_IVR": "Office Contact Email",
+            "form3_Centurion": "Email Address",
+            "form4_BioWound": "Contact Email",
+            "form5_AdvancedSolution": null,
+            "form6_ImbedBio": "Email",
+            "form7_ExtremityCare_FT": "*Facility Contact Email",
+            "form8_ExtremityCare_RO": "*Facility Contact Email"
+          }
+        }
+      }
+    },
+    "patientInformation": {
+      "canonicalFields": {
+        "patientName": {
+          "description": "Full name of the patient",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "PATIENT NAME",
+            "form2_IVR": "Patient Name",
+            "form3_Centurion": "*Patient Name",
+            "form4_BioWound": "Patient Name",
+            "form5_AdvancedSolution": "Patient Name",
+            "form6_ImbedBio": "Name",
+            "form7_ExtremityCare_FT": "*Patient Name",
+            "form8_ExtremityCare_RO": "*Patient Name"
+          }
+        },
+        "patientDOB": {
+          "description": "Patient date of birth",
+          "dataType": "date",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "PATIENT DOB",
+            "form2_IVR": "Patient DOB",
+            "form3_Centurion": "*DOB",
+            "form4_BioWound": "Patient Date of Birth",
+            "form5_AdvancedSolution": "Date of Birth",
+            "form6_ImbedBio": "Date of Birth",
+            "form7_ExtremityCare_FT": "*DOB",
+            "form8_ExtremityCare_RO": "*DOB"
+          }
+        },
+        "patientAddress": {
+          "description": "Patient street address",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "PATIENT ADDRESS",
+            "form2_IVR": null,
+            "form3_Centurion": "Address",
+            "form4_BioWound": "Patient Address",
+            "form5_AdvancedSolution": "Address",
+            "form6_ImbedBio": "Address",
+            "form7_ExtremityCare_FT": "Address",
+            "form8_ExtremityCare_RO": "Address"
+          }
+        },
+        "patientCity": {
+          "description": "Patient city",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "City",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": "[City / State / Zip]",
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "City",
+            "form8_ExtremityCare_RO": "City"
+          }
+        },
+        "patientState": {
+          "description": "Patient state",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "State",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": "[City / State / Zip]",
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "State",
+            "form8_ExtremityCare_RO": "State"
+          }
+        },
+        "patientZip": {
+          "description": "Patient zip code",
+          "dataType": "string",
+          "required": true,
+          "formMappings": {
+            "form1_ACZ": "CITY, STATE, ZIP",
+            "form2_IVR": null,
+            "form3_Centurion": "Zip",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": "[City / State / Zip]",
+            "form6_ImbedBio": null,
+            "form7_ExtremityCare_FT": "Zip",
+            "form8_ExtremityCare_RO": "Zip"
+          }
+        },
+        "patientPhone": {
+          "description": "Patient phone number",
+          "dataType": "string",
+          "required": false,
+          "formMappings": {
+            "form1_ACZ": "PATIENT PHONE",
+            "form2_IVR": null,
+            "form3_Centurion": "Home Phone #",
+            "form4_BioWound": null,
+            "form5_AdvancedSolution": "Phone",
+            "form6_ImbedBio": "Phone",
+            "form7_ExtremityCare_FT": null,
+            "form8_ExtremityCare_RO": null
+          }
+        },
+        "patientGenderMale": {
+          "description": "Patient Gender - Male checkbox",
+          "dataType": "boolean",
+          "values": [true, false],
+          "notes": "Only one of patientGenderMale or patientGenderFemale should be true at a time to ensure mutual exclusivity.",
+          "formMappings": {
+            "form2_IVR": "Male",
+            "form3_Centurion": "Male",
+            "form4_BioWound": "Male",
+            "form5_AdvancedSolution": "Male",
+            "form6_ImbedBio": "Male",
+            "form7_ExtremityCare_FT": "Male",
+            "form8_ExtremityCare_RO": "Male"
+          }
+        },
+        "patientGenderFemale": {
+          "description": "Patient Gender - Female checkbox",
+          "dataType": "boolean",
+          "values": [true, false],
+          "notes": "Only one of patientGenderMale or patientGenderFemale should be true at a time to ensure mutual exclusivity.",
+          "formMappings": {
+            "form2_IVR": "Female",
+            "form3_Centurion": "Female",
+            "form4_BioWound": "Female",
+            "form5_AdvancedSolution": "Female",
+            "form6_ImbedBio": "Female",
+            "form7_ExtremityCare_FT": "Female",
+            "form8_ExtremityCare_RO": "Female"
+          }
+        }
+        }
+    },
+"insuranceInformation": {
+  "primaryInsurance": {
+    "canonicalFields": {
+          "insuranceName": {
+            "description": "Name of primary insurance company",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "INSURANCE NAME",
+              "form2_IVR": "Primary Insurance",
+              "form3_Centurion": "Primary Insurance",
+              "form4_BioWound": "Payer Name",
+              "form5_AdvancedSolution": "Primary Insurance",
+              "form6_ImbedBio": "Primary",
+              "form7_ExtremityCare_FT": "Primary Insurance",
+              "form8_ExtremityCare_RO": "Primary Insurance"
+            }
+          },
+          "policyNumber": {
+            "description": "Primary insurance policy number",
+            "dataType": "string",
+            "required": true,
+            "formMappings": {
+              "form1_ACZ": "POLICY NUMBER",
+              "form2_IVR": "Member ID",
+              "form3_Centurion": "Policy Number",
+              "form4_BioWound": "Policy #",
+              "form5_AdvancedSolution": "Policy Number",
+              "form6_ImbedBio": null,
+              "form7_ExtremityCare_FT": "Policy Number",
+              "form8_ExtremityCare_RO": "Policy Number"
+            }
+          },
+          "payerPhone": {
+            "description": "Insurance company phone number",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "PAYER PHONE",
+              "form2_IVR": null,
+              "form3_Centurion": "Payer Phone #",
+              "form4_BioWound": "Payer Phone #",
+              "form5_AdvancedSolution": "Insurance Phone Number",
+              "form6_ImbedBio": null,
+              "form7_ExtremityCare_FT": "Payer Phone #",
+              "form8_ExtremityCare_RO": "Payer Phone #"
+            }
+          },
+          "subscriberName": {
+            "description": "Name of insurance subscriber",
+            "dataType": "string",
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": null,
+              "form2_IVR": null,
+              "form3_Centurion": "Subscriber Name",
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Subscriber Name",
+              "form6_ImbedBio": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          },
+          "providerStatus": {
+            "description": "Provider network status",
+            "dataType": "enum",
+            "values": ["IN-NETWORK", "OUT-OF-NETWORK"],
+            "required": false,
+            "formMappings": {
+              "form1_ACZ": "PROVIDER STATUS",
+              "form2_IVR": null,
+              "form3_Centurion": null,
+              "form4_BioWound": null,
+              "form5_AdvancedSolution": "Does Provider Participate with Network?",
+              "form6_ImbedBio": null,
+              "form7_ExtremityCare_FT": null,
+              "form8_ExtremityCare_RO": null
+            }
+          }
+        }
+      }
+    }
+  }

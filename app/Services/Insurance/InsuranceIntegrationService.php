@@ -3,7 +3,11 @@
 namespace App\Services\Insurance;
 
 use App\Services\Eligibility\UnifiedEligibilityService;
+<<<<<<< HEAD
 use App\Services\Templates\UnifiedTemplateMappingEngine;
+=======
+use App\Services\UnifiedFieldMappingService;
+>>>>>>> origin/provider-side
 use App\Services\FhirDataLake\FhirAuditEventService;
 use App\Services\FhirDataLake\InsuranceAnalyticsService;
 use Illuminate\Support\Facades\Cache;
@@ -12,20 +16,32 @@ use Illuminate\Support\Facades\Log;
 class InsuranceIntegrationService
 {
     private InsuranceDataNormalizer $normalizer;
+<<<<<<< HEAD
     private UnifiedTemplateMappingEngine $mappingEngine;
+=======
+    private UnifiedFieldMappingService $fieldMappingService;
+>>>>>>> origin/provider-side
     private UnifiedEligibilityService $eligibilityService;
     private FhirAuditEventService $auditService;
     private InsuranceAnalyticsService $analyticsService;
     
     public function __construct(
         InsuranceDataNormalizer $normalizer,
+<<<<<<< HEAD
         UnifiedTemplateMappingEngine $mappingEngine,
+=======
+        UnifiedFieldMappingService $fieldMappingService,
+>>>>>>> origin/provider-side
         UnifiedEligibilityService $eligibilityService,
         FhirAuditEventService $auditService,
         InsuranceAnalyticsService $analyticsService
     ) {
         $this->normalizer = $normalizer;
+<<<<<<< HEAD
         $this->mappingEngine = $mappingEngine;
+=======
+        $this->fieldMappingService = $fieldMappingService;
+>>>>>>> origin/provider-side
         $this->eligibilityService = $eligibilityService;
         $this->auditService = $auditService;
         $this->analyticsService = $analyticsService;
@@ -48,8 +64,13 @@ class InsuranceIntegrationService
             $normalized['eligibility'] = $eligibilityResult;
         }
         
+<<<<<<< HEAD
         // Map to template fields if needed
         $templateData = $this->mappingEngine->mapInsuranceData($normalized, 'ivr_template');
+=======
+        // Map to canonical fields using UnifiedFieldMappingService
+        $templateData = $this->fieldMappingService->mapToCanonicalFields($normalized);
+>>>>>>> origin/provider-side
         
         return [
             'normalized_data' => $normalized,

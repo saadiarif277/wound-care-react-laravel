@@ -1,0 +1,3900 @@
+{
+  "metadata": {
+    "scanDate": "2025-06-29T14:49:32.350Z",
+    "totalIssues": 257,
+    "severityBreakdown": {
+      "critical": 111,
+      "warning": 146,
+      "info": 0
+    },
+    "typeBreakdown": {
+      "unsafe-theme-access": 111,
+      "missing-theme-import": 59,
+      "missing-glass-theme-import": 38,
+      "responsive-theme-without-context": 19,
+      "missing-main-layout": 30
+    },
+    "componentsAnalyzed": 366
+  },
+  "results": [
+    {
+      "filePath": "resources\\js\\Layouts\\MainLayout.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 43,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.095Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\SimpleAddressInput.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 1,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.099Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\SimpleAddressInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 29,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.099Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Select.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 5,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.099Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Select.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 32,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.099Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\PayerSearchInput.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "darkModeClasses": 3,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 13,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.100Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\PayerSearchInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 36,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.100Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\PayerSearchInput.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 3,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.100Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\PageHeader.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 2,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.100Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\PageHeader.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 31,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.100Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Modal.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 2,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Modal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 21,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Input.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 5,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Input.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 30,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocompleteWithFallback.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 1,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocompleteWithFallback.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 41,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocompleteSimple.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.102Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocompleteSimple.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 35,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.102Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocomplete.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "darkModeClasses": 1,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 5,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.103Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocomplete.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 51,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.103Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GoogleAddressAutocomplete.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.103Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ConfirmationModal.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 8,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.103Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Card.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 8,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 4,
+          "themesUsage": 1,
+          "conditionalTheme": 6
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.104Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Card.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 37,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.104Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 5,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.104Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 29,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.104Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\AddressAutocomplete.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 58,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.105Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\SubRepDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 25,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.108Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\Dashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 7,
+          "darkModeClasses": 29,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 41,
+          "themesUsage": 1,
+          "conditionalTheme": 7
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.109Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\Dashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 41,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.109Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\Dashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 36,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.109Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\Dashboard.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 29,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.109Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\CreateNew.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 232,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.116Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Create.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 9,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 6,
+          "themesUsage": 1,
+          "conditionalTheme": 7
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.117Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Create.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 6,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.117Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Create.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 118,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.117Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Show.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 66,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.123Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Manage.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1,
+          "glassThemeUsage": 83,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.124Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Manage.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 83,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.124Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Manage.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 77,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.124Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 67,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.126Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Edit.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1,
+          "glassThemeUsage": 107,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.128Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Edit.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 107,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.128Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Edit.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 58,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.128Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Create.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 28,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.131Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\ProductRequest\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 74,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.133Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\ProductRequest\\Create.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 158,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 832,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.136Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\Tracking.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 25
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.137Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\Tracking.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 25,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.137Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\CreateOrder.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.140Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\CreateOrder.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.140Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Notifications\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 47,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.144Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Errors\\NoAccess.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 22,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.151Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 85,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.155Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Table\\Table.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 29,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.163Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\VoiceInterface.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.164Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\StatCard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 36,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Select.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 1,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 3,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Select.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 3,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Select.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 20,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Select.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\ResponsiveGrid.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.165Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\progress.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 28,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.166Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Panel.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.166Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\OrganizationModal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 44,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.167Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\MetricCard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 41,
+          "glassThemeImport": 1,
+          "conditionalTheme": 36
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.168Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\MetricCard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 141,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.168Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Heading.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 26,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.168Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\GlassTable.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 7,
+        "themesUsage": 5,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.169Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\GlassTable.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 21,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 56,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 90,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 120,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 155,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 192,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 227,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.169Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\GlassCard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 9,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 2,
+          "themesUsage": 1,
+          "conditionalTheme": 7
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.169Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\GlassCard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 40,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.169Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\FormInputWithIndicator.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.170Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\FormInputWithIndicator.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 31,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.170Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\ExtractedFieldIndicator.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 19,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.170Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\Button.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 71,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.171Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\badge.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 8,
+          "glassThemeImport": 1,
+          "themesUsage": 1,
+          "conditionalTheme": 6
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.171Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\badge.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 0,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.171Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\badge.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 22,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.171Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddProviderModal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 62,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.173Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddProviderFacilityModal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 28,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.173Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddProductModal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 35,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.174Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddFacilityModal.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 5,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 80,
+          "themesUsage": 1,
+          "conditionalTheme": 3
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.175Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddFacilityModal.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 80,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.175Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AddFacilityModal.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 45,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.175Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\ActionButton.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 31,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.176Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ui\\AccessibilityEnhanced.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.177Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Shared\\SearchableMultiSelect.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 53,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.177Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductRequest\\RealDataStatusDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 35,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.181Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductRequest\\ProductRequestStatusBadge.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 112,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.182Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductRequest\\CleanStatusDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 9,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 6,
+          "themesUsage": 2,
+          "conditionalTheme": 9
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.182Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductRequest\\CleanStatusDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 35,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          },
+          {
+            "lineNumber": 158,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.182Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductCatalog\\ProductSelectorQuickRequest.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 183,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.185Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Pagination\\Pagination.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 42,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 80,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.189Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Order\\TrackingInfo.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 20
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.190Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Order\\TrackingInfo.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 20,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.190Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Order\\OrderStatusBadge.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 107,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.190Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Navigation\\RoleBasedNavigation.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 5,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 1,
+          "themesUsage": 1,
+          "conditionalTheme": 4
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.193Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\IVR\\IvrFieldPreview.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 34,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.194Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\TextInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 25,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.195Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\TextAreaInput.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 6,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.195Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\TextAreaInput.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 6,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.195Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\TextAreaInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 32,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.195Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\SelectInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 28,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.195Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\NumberInput.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 6,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\NumberInput.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 6,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\NumberInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 36,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\FileInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 27,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\FieldGroup.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 3,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\FieldGroup.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 3,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\FieldGroup.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 25,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.196Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\DateInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 32,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.197Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\CheckboxInput.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 4,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 2,
+          "themesUsage": 1,
+          "conditionalTheme": 2
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.197Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\CheckboxInput.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 2,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.197Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Form\\CheckboxInput.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 23,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.197Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\VoiceAssistant.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 146,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.198Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\FilterBar\\FilterBar.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 25,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.200Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\MacValidationPanel.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 20,
+          "glassThemeImport": 2,
+          "glassThemeUsage": 15,
+          "themesUsage": 1,
+          "conditionalTheme": 18
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.201Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\MacValidationPanel.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 15,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.201Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\MacValidationPanel.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 76,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.201Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\IVREpisodeStatus.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 51,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.202Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeTimeline.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 15,
+          "glassThemeImport": 2,
+          "glassThemeUsage": 4,
+          "themesUsage": 1,
+          "conditionalTheme": 14
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.202Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeTimeline.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 4,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.202Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeQuickActions.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 30,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.203Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeCardMobile.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 4,
+          "darkModeClasses": 2,
+          "glassThemeImport": 1,
+          "conditionalTheme": 2
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.204Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeCardMobile.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 37,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.204Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeCardMobile.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 2,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.204Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Episodes\\EpisodeCard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 44,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.205Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\DiagnosisCode\\DiagnosisCodeSelector.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 129,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          },
+          {
+            "lineNumber": 284,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.207Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\DiagnosisCode\\DiagnosisCodeSelector.test.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.208Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button\\LoadingButton.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 24,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.208Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button\\DeleteButton.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 3,
+          "glassThemeImport": 1,
+          "conditionalTheme": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.209Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button\\DeleteButton.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 15,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.209Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Button\\CloseButton.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 17,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.209Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Alert\\Alert.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 28,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.209Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\TrackingManager.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 29,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.210Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\TrackingManager.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 46,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.210Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\SendToManufacturer.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "darkModeClasses": 1,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 26,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.210Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\SendToManufacturer.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 39,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.210Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\SendToManufacturer.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.210Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\IVRExpirationWarning.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 15
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.211Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\IVRExpirationWarning.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 15,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.211Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\IVREpisodeStatus.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 69,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.212Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\ConfirmationDocuments.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "darkModeClasses": 10,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 23,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.213Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\ConfirmationDocuments.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 23,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.213Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\ConfirmationDocuments.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 55,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.213Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\ConfirmationDocuments.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 10,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.213Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\AuditLog.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 74,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.214Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step8OrderFormApproval.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 132,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.216Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 23,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.218Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 23,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.218Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 122,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.218Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 216,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.220Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 87,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.221Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 87,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.221Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 42,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.221Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step5ProductSelection.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 71,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.221Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 9,
+          "darkModeClasses": 1,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 49,
+          "themesUsage": 1,
+          "conditionalTheme": 7
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.222Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 42,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.222Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.222Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4ClinicalBilling.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 33,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.224Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4ClinicalBilling.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 72,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.224Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step3Documentation.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 6,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 48,
+          "themesUsage": 1,
+          "conditionalTheme": 4
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.225Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step3Documentation.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 35,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.225Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2ProductSelection.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 0,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.226Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2ProductSelection.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 95,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.226Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2PatientInsurance.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 113,
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.228Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2PatientInsurance.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 113,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.228Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step1PatientInfoNew.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 38,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          },
+          {
+            "lineNumber": 69,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.229Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Provider\\Episodes\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 133,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.234Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Provider\\Orders\\Dashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 124,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.237Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\ProductRequest\\Components\\PatientInformationStep.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 69,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.243Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Sales\\MscSubrepDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 121,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.246Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Sales\\MscRepDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 6,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 2,
+          "themesUsage": 1,
+          "conditionalTheme": 4
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.247Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Sales\\MscRepDashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 2,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.247Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Sales\\MscRepDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 161,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.247Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Provider\\ProviderDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 83,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.248Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\OfficeManager\\OfficeManagerDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 12,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 51,
+          "themesUsage": 1,
+          "conditionalTheme": 10
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.249Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\OfficeManager\\OfficeManagerDashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 51,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.249Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\OfficeManager\\OfficeManagerDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 137,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.249Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Admin\\SuperAdminDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 70,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.250Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Admin\\MscAdminDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 31,
+          "darkModeClasses": 15,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 40,
+          "themesUsage": 1,
+          "conditionalTheme": 29
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.252Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Admin\\MscAdminDashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 40,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.252Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Admin\\MscAdminDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 86,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.252Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Dashboard\\Admin\\MscAdminDashboard.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 15,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.252Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Users\\Index.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 73,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.253Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Show.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 14,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 21,
+          "themesUsage": 1,
+          "conditionalTheme": 14
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.255Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Show.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 21,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.255Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Show.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 171,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.255Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Edit.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 21,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.258Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Create.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1,
+          "glassThemeUsage": 54,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.258Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Create.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 54,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.258Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Create.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 18,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.258Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Patients\\IVRStatus.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 51
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.261Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Patients\\IVRStatus.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 51,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.261Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Patients\\IVRManagement.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 121,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.262Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Edit.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 38,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.265Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Create.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1,
+          "glassThemeUsage": 66,
+          "themesUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.266Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Create.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 66,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.266Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Create.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 19,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.266Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\ShowEpisode.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 162,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.269Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\Show.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 5,
+          "darkModeClasses": 6,
+          "glassThemeImport": 1,
+          "glassThemeUsage": 34,
+          "themesUsage": 1,
+          "conditionalTheme": 3,
+          "classNameInterpolation": 3
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.271Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\Show.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 34,
+        "themesUsage": 1,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.271Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\Show.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 160,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.271Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\Show.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 6,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.271Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\EnhancedDashboard.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 183,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.273Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Facilities\\Form.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 41,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.275Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 4
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.277Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 4,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.277Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\ProductRequest\\Steps\\ReviewAndSubmitStep.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 24,
+            "pattern": "unsafe-property-access",
+            "line": "theme = themeContext.theme;"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.283Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\table.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.288Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\sonner.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1,
+          "glassThemeImport": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.288Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1,
+          "darkModeClasses": 1,
+          "lightModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.296Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 70,
+            "pattern": "unsafe-property-access",
+            "line": "([_, config]) => config.theme || config.color"
+          },
+          {
+            "lineNumber": 87,
+            "pattern": "unsafe-property-access",
+            "line": "itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.296Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 1,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.296Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\alert.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.299Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\alert.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.299Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.301Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.301Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.303Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.303Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\sonner.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.308Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1,
+          "darkModeClasses": 1,
+          "lightModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.318Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 70,
+            "pattern": "unsafe-property-access",
+            "line": "([_, config]) => config.theme || config.color"
+          },
+          {
+            "lineNumber": 87,
+            "pattern": "unsafe-property-access",
+            "line": "itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:49:32.318Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 1,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.318Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\alert.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:49:32.320Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\alert.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:49:32.320Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Team\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.331Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SystemAdmin\\Integrations.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.331Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SystemAdmin\\Audit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.332Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Roles\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.332Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\OrderSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.333Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\Analytics.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.335Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Notifications\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.336Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Errors\\NoAccess.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.336Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Engines\\Commission.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.337Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\RequestAccess.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.338Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitationRefactored.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.338Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.338Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\Login.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.338Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step8OrderFormApproval.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.338Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step5ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4ClinicalBilling.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step3Documentation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.339Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step1PatientInfoNew.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.340Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\OrderReviewSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.340Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\ProviderInvitations\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.342Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Show.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.343Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Edit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.343Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\EnhancedDashboard.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.343Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationEdit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.344Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationDetail.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:49:32.344Z"
+    }
+  ],
+  "componentSummary": {
+    "totalComponents": 366,
+    "componentsWithThemeImports": 77,
+    "componentsWithGlassThemeImports": 78,
+    "componentsWithThemeUsage": 135
+  }
+}

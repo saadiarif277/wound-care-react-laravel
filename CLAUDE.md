@@ -1,9 +1,13 @@
+<<<<<<< HEAD
 Looking at the new workflow documentation and the database change, I'll update the Claude.md to reflect these significant architectural changes:
 
+=======
+>>>>>>> origin/provider-side
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+<<<<<<< HEAD
 # MSC Wound Portal - Codebase Guide for Claude
 
 ## Project Overview
@@ -486,3 +490,369 @@ By adhering to these principles, you'll ensure your Laravel application is robus
 This guide reflects the current state of the MSC Wound Portal with the Quick Request workflow and Azure SQL implementation. Reference this when implementing new features to ensure consistency with established patterns and compliance requirements.
 
 ---
+=======
+## AI Operating Instructions
+
+VERSION: 2025-06-28-hash-abc123
+
+1. Always load and parse both files:
+   - `docs/ai/myrules.md` - Full governance rules (source of truth)
+   - `docs/ai/myrules_pipe.md` - Quick reference index
+
+2. Usage:
+   - Use pipe format to quickly identify applicable rule categories
+   - Reference full rules for implementation details
+   - When in doubt, full rules supersede pipe format
+
+3. Validation:
+   - Check both files are present before proceeding
+   - Verify pipe format matches full rules version
+
+## Important Notes
+
+- **Database Migration**: This project recently migrated from Supabase PostgreSQL to Azure SQL. The README may still reference Supabase, but the actual implementation uses Azure SQL.
+- **Laravel Version**: Using Laravel 11 (not 10) - Note that Laravel 11+ does not have Console\Kernel.php
+- **No Mock Data**: NEVER use mock data in production or as a fallback - this is a strict requirement for healthcare compliance
+
+## Development Commands
+
+### Initial Setup
+
+```bash
+# Install PHP dependencies
+composer install
+
+# Install Node dependencies
+npm install
+
+# Copy environment file and generate app key
+cp .env.example .env
+php artisan key:generate
+
+# Run database migrations and seeders
+php artisan migrate
+php artisan db:seed
+```
+
+### Daily Development
+
+```bash
+# Start Laravel development server
+php artisan serve
+
+# Start Vite development server (in separate terminal)
+npm run dev
+
+# Run both frontend and backend tests
+npm run test:all
+
+# Run Laravel tests only
+php artisan test
+php artisan test --filter=SpecificTest
+
+# Run React/Jest tests only
+npm test
+npm run test:watch
+
+# Lint and type-check frontend code
+npm run lint
+npm run lint:fix
+npm run type-check
+
+# Build for production
+npm run prod
+```
+
+### Database Commands
+
+```bash
+# Refresh database with fresh migrations and seeders
+php artisan migrate:fresh --seed
+
+# Run specific seeder
+php artisan db:seed --class=DiagnosisCodesFromCsvSeeder
+
+# Create new migration
+php artisan make:migration create_table_name
+```
+
+### Common Artisan Commands
+
+```bash
+# Clear all caches
+php artisan cache:clear
+php artisan config:clear
+php artisan route:clear
+php artisan view:clear
+
+# List routes
+php artisan route:list
+php artisan route:list --path=api
+
+# Create new controller
+php artisan make:controller Api/ControllerName --resource
+
+# Create new service
+php artisan make:service ServiceName
+```
+
+## Architecture Overview
+
+### Technology Stack
+
+- **Backend**: Laravel 11 with PHP 8.2+
+- **Frontend**: React 18 with TypeScript, Inertia.js
+- **Databases**:
+  - Azure mySQL (non-PHI operational data)
+  - Azure Health Data Services FHIR (PHI/clinical data)
+- **Authentication**: Laravel Sanctum
+- **State Management**: React Context API
+- **Document Processing**: DocuSeal, Azure Document Intelligence
+
+### Data Architecture (HIPAA Compliance)
+
+**Critical**: This application maintains strict PHI/non-PHI data separation for HIPAA compliance.
+
+**Non-PHI Data (Azure mySQL)**:
+
+- User accounts, organizations, facilities
+- Product catalogs, pricing, inventory
+- Commission structures and calculations
+- Order metadata (without clinical details)
+- System configuration and settings
+
+**PHI Data (Azure FHIR)**:
+
+- Patient demographics and identifiers
+- Clinical documentation and wound assessments
+- Insurance information
+- Medical images and clinical notes
+- Diagnosis codes and treatment plans
+
+**Data Flow Example**:
+
+Patient Registration → Create FHIR Patient Resource → Store Patient ID in local DB
+                    ↓
+                    Azure FHIR (PHI)
+                    ↓
+                    Reference by FHIR ID only in local database
+
+### Service Layer Architecture
+
+The application uses a service-oriented architecture with key services:
+
+1. **FhirService** (`app/Services/FhirService.php`)
+   - Manages all Azure FHIR interactions
+   - Implements circuit breaker pattern for resilience
+   - Handles PHI data operations
+
+2. **DocusealService** (`app/Services/DocusealService.php`)
+   - Manages insurance verification form generation
+   - Handles webhook processing for completed forms
+   - JWT authentication for secure webhooks
+
+3. **QuickRequestOrchestrator** (`app/Services/QuickRequestOrchestrator.php`)
+   - Coordinates multi-step episode creation workflow
+   - Manages state transitions and validations
+   - Integrates multiple services for complex operations
+
+4. **ValidationBuilderEngine** (`app/Services/ValidationBuilderEngine.php`)
+   - CMS coverage determination logic
+   - Medicare LCD/NCD validation
+   - Clinical criteria evaluation
+
+5. **ImprovedOcrFieldDetectionService** (`app/Services/ImprovedOcrFieldDetectionService.php`)
+   - Azure Document Intelligence integration
+   - Insurance card OCR processing
+   - Field extraction and validation
+
+6. **UnifiedFieldMappingService** (`app/Services/UnifiedFieldMappingService.php`)
+   - Centralized field mapping for all manufacturers
+   - Dynamic form field transformation
+   - Manufacturer-specific configuration loading
+
+### API Structure
+
+**API Routes** (`routes/api.php`):
+
+- `/api/v1/` - Versioned API endpoints
+- `/api/fhir/` - FHIR server REST API
+- `/api/docuseal/webhook` - DocuSeal webhook endpoint
+
+**Key API Groups**:
+
+- Quick Request workflow: `/api/v1/quick-request/*`
+- Medicare validation: `/api/v1/medicare-validation/*`
+- Eligibility checking: `/api/v1/eligibility/*`
+- Clinical opportunities: `/api/v1/clinical-opportunities/*`
+
+### Frontend Architecture
+
+**Inertia.js Pages** (`resources/js/Pages/`):
+
+- Server-side rendered React components
+- Automatic prop injection from Laravel controllers
+- No separate API layer needed for page navigation
+
+**Component Structure**:
+
+- Glassmorphic design system components
+- Reusable form components with react-hook-form
+- TypeScript for type safety
+
+**State Management**:
+
+- React Context for theme and global state
+- Local component state for forms
+- Server state via Inertia props
+
+### Testing Strategy
+
+**Backend Testing**:
+
+- Feature tests for API endpoints
+- Unit tests for services and models
+- Database tests with transactions
+- FHIR integration tests with mocks
+
+**Frontend Testing**:
+
+- Jest with React Testing Library
+- Component unit tests
+- Integration tests for workflows
+- 80% coverage threshold (Note: governance rules specify 85% but jest.config.js uses 80%)
+
+### Security Considerations
+
+1. **PHI Access Auditing**: All PHI access is logged via PhiAuditService
+2. **Log Sanitization**: PhiSafeLogger prevents PHI in application logs
+3. **Role-Based Access**: Granular permissions system
+4. **API Authentication**: Sanctum tokens with CSRF protection
+5. **Webhook Security**: JWT validation for external webhooks
+
+### Common Development Patterns
+
+**Creating New Features**:
+
+1. Start with database migration if needed
+2. Create service class for business logic
+3. Add controller with dependency injection
+4. Create Inertia page component
+5. Add feature and unit tests
+6. Update API documentation
+
+**Working with PHI Data**:
+
+1. Always use FhirService for PHI operations
+2. Never store PHI in local database
+3. Use FHIR resource IDs as references
+4. Implement audit logging for access
+5. Test with PHI-safe mock data
+
+**DocuSeal Integration Flow**:
+
+1. Generate template with patient/order data
+2. Embed DocuSeal component in React
+3. Handle completion webhook
+4. Process OCR enhancement if needed
+5. Update order status
+
+### Performance Considerations
+
+1. **Caching**: Use Laravel cache for CMS rules and eligibility responses
+2. **Queue Jobs**: Long-running tasks should use queued jobs
+3. **Database Queries**: Use eager loading to prevent N+1 queries
+4. **API Responses**: Implement pagination for large datasets
+5. **Circuit Breakers**: External API calls use circuit breaker pattern
+
+### System Memories
+
+- Remember our platform is permissions based
+- Never use mock data or even have it as a fall back
+
+## RBAC System Implementation
+
+### Role Structure (Database Slugs)
+
+All roles use hyphenated slugs in the database:
+- `provider` - Healthcare Provider
+- `office-manager` - Office Manager  
+- `msc-rep` - MSC Sales Representative
+- `msc-subrep` - MSC Sub-Representative
+- `msc-admin` - MSC Administrator
+- `super-admin` - Super Administrator
+
+### Permission System
+
+The system uses 19 granular permissions:
+- User management: `view-users`, `edit-users`, `delete-users`
+- Financial access: `view-financials`, `view-msc-pricing`, `view-discounts`, `view-order-totals`
+- Order operations: `create-orders`, `approve-orders`, `process-orders`
+- System management: `manage-products`, `manage-commission`, `manage-settings`, `manage-system`
+- Viewing permissions: `view-commission`, `view-reports`, `view-phi`
+- Admin access: `super-admin-access`, `msc-admin-access`
+
+### Implementation Guidelines
+
+- **Backend**: Always use `$user->hasPermission('permission-name')` for checks
+- **Frontend**: Use permission-based visibility, not role checks
+- **Middleware**: Apply `permission:permission-name` middleware to routes
+- **Legacy**: The old UserRole.php model is removed - use Role.php with permissions
+
+### Commission Access Levels
+
+- Provider/Office Manager: `commission_access_level: 'none'`
+- MSC SubRep: `commission_access_level: 'limited'`
+- MSC Rep/Admin/Super Admin: `commission_access_level: 'full'`
+
+## IVR Tips
+
+### Exact Field Name Matching
+
+- DocuSeal requires character-perfect field name matches
+- Even extra spaces or punctuation differences cause "Unknown field" errors
+
+### String vs Numeric Comparisons
+
+- Form values are stored as strings ('31', '32') not numbers (31, 32)
+- Computed field logic must use proper string comparisons: == "31"
+
+### Field Separation Strategy
+
+- Physician fields: Individual provider data (Physician NPI, Physician PTAN)
+- Facility fields: Practice/clinic data (Practice NPI, Practice PTAN)
+- Clear naming prevents PTAN confusion
+
+### Default Value Handling
+
+- Boolean-style fields should default to explicit "No" unless conditions are met
+- Place of Service checkboxes now properly activate based on selected option
+
+## Manufacturer Configuration
+
+The system supports multiple wound care manufacturers with custom field mappings:
+
+### Configuration Files (`config/manufacturers/`)
+
+- Each manufacturer has its own configuration file
+- Field mappings define how data transforms between systems
+- Supports both IVR forms and standard order forms
+- Examples: `advanced-solution.php`, `biowound-solutions.php`, `centurion-therapeutics.php`
+
+### Field Mapping Structure
+
+```php
+'field_mappings' => [
+    'source_field' => 'destination_field',
+    'patient.first_name' => 'Patient First Name',
+    // Complex mappings with transformations
+]
+```
+
+### Dynamic Loading
+
+The UnifiedFieldMappingService automatically loads the correct configuration based on:
+- Manufacturer selection in the product
+- Form type (IVR vs standard)
+- Organization-specific overrides
+>>>>>>> origin/provider-side

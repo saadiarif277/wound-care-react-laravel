@@ -3,6 +3,10 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+<<<<<<< HEAD
+=======
+use Illuminate\Support\Facades\Validator;
+>>>>>>> origin/provider-side
 use App\Services\QuickRequest\QuickRequestOrchestrator;
 use App\Services\QuickRequest\Handlers\PatientHandler;
 use App\Services\QuickRequest\Handlers\ProviderHandler;
@@ -25,7 +29,11 @@ class QuickRequestServiceProvider extends ServiceProvider
         $this->app->singleton(InsuranceHandler::class);
         $this->app->singleton(OrderHandler::class);
         $this->app->singleton(NotificationHandler::class);
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> origin/provider-side
         // Register the orchestrator
         $this->app->singleton(QuickRequestOrchestrator::class, function ($app) {
             return new QuickRequestOrchestrator(
@@ -38,7 +46,11 @@ class QuickRequestServiceProvider extends ServiceProvider
                 $app->make(\App\Logging\PhiSafeLogger::class)
             );
         });
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> origin/provider-side
         // Register facade accessor
         $this->app->alias(QuickRequestOrchestrator::class, 'quickrequest');
     }
@@ -50,7 +62,11 @@ class QuickRequestServiceProvider extends ServiceProvider
     {
         // Register event listeners for Quick Request workflow
         $this->registerEventListeners();
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> origin/provider-side
         // Register custom validation rules
         $this->registerValidationRules();
     }
@@ -63,7 +79,11 @@ class QuickRequestServiceProvider extends ServiceProvider
         // TODO: Implement observers when needed
         // Episode status changes
         // \App\Models\Episode::observe(\App\Observers\EpisodeObserver::class);
+<<<<<<< HEAD
         
+=======
+
+>>>>>>> origin/provider-side
         // Order status changes
         // \App\Models\Order::observe(\App\Observers\OrderObserver::class);
     }
@@ -74,6 +94,7 @@ class QuickRequestServiceProvider extends ServiceProvider
     protected function registerValidationRules(): void
     {
         // NPI validation
+<<<<<<< HEAD
         \Validator::extend('npi', function ($attribute, $value, $parameters, $validator) {
             return preg_match('/^\d{10}$/', $value) && $this->validateNpiChecksum($value);
         }, 'The :attribute must be a valid NPI number.');
@@ -90,6 +111,24 @@ class QuickRequestServiceProvider extends ServiceProvider
         
         // Patient display ID validation
         \Validator::extend('patient_display_id', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('npi', function ($attribute, $value, $parameters, $validator) {
+            return preg_match('/^\d{10}$/', $value) && $this->validateNpiChecksum($value);
+        }, 'The :attribute must be a valid NPI number.');
+
+        // ICD-10 validation
+        Validator::extend('icd10', function ($attribute, $value, $parameters, $validator) {
+            return preg_match('/^[A-Z]\d{2}(\.\d{1,4})?$/', $value);
+        }, 'The :attribute must be a valid ICD-10 code.');
+
+        // FHIR ID validation
+        Validator::extend('fhir_id', function ($attribute, $value, $parameters, $validator) {
+            return preg_match('/^[A-Za-z0-9\-\.]{1,64}$/', $value);
+        }, 'The :attribute must be a valid FHIR resource ID.');
+
+        // Patient display ID validation
+        Validator::extend('patient_display_id', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             return preg_match('/^[A-Z]{4}\d{3}$/', $value);
         }, 'The :attribute must be in format XXXX###.');
     }
@@ -117,4 +156,8 @@ class QuickRequestServiceProvider extends ServiceProvider
 
         return ($sum % 10) == 0;
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/provider-side

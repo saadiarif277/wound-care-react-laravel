@@ -1,0 +1,792 @@
+{
+  "metadata": {
+    "scanDate": "2025-06-29T14:16:22.110Z",
+    "totalIssues": 63,
+    "severityBreakdown": {
+      "critical": 3,
+      "warning": 60,
+      "info": 0
+    },
+    "typeBreakdown": {
+      "missing-theme-import": 14,
+      "responsive-theme-without-context": 8,
+      "missing-glass-theme-import": 4,
+      "unsafe-theme-access": 3,
+      "missing-main-layout": 34
+    },
+    "componentsAnalyzed": 247
+  },
+  "results": [
+    {
+      "filePath": "resources\\js\\Pages\\Order\\Tracking.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 25
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.864Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\Tracking.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 25,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:21.865Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\CreateOrder.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.869Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Order\\CreateOrder.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.869Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Order\\TrackingInfo.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 20
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.935Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Order\\TrackingInfo.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 20,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:21.935Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\VoiceAssistant.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 146,
+            "pattern": "unsafe-destructuring",
+            "line": "const { theme } = useTheme();"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:16:21.950Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\DiagnosisCode\\DiagnosisCodeSelector.test.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.966Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\IVRExpirationWarning.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 15
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:21.970Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\IVRExpirationWarning.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 15,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:21.970Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Patients\\IVRStatus.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 51
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.003Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Patients\\IVRStatus.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 51,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:22.003Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 4
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.012Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 4,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.012Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1,
+          "darkModeClasses": 1,
+          "lightModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.041Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 70,
+            "pattern": "unsafe-property-access",
+            "line": "([_, config]) => config.theme || config.color"
+          },
+          {
+            "lineNumber": 87,
+            "pattern": "unsafe-property-access",
+            "line": "itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:16:22.041Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\chart.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 1,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:22.041Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\alert.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.044Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\GhostAiUi\\ui\\alert.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:22.044Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.047Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.047Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "glassThemeUsage": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.051Z"
+    },
+    {
+      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "type": "missing-glass-theme-import",
+      "severity": "warning",
+      "message": "Component uses glass theme utilities but does not import them",
+      "details": {
+        "glassThemeUsage": 1,
+        "themesUsage": 0,
+        "suggestion": "Add: import { themes, cn } from \"@/theme/glass-theme\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.051Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\sonner.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 2
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.057Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "themeProps": 1,
+          "darkModeClasses": 1,
+          "lightModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.071Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "unsafe-theme-access",
+      "severity": "critical",
+      "message": "Component has unsafe theme access patterns",
+      "details": {
+        "unsafePatterns": [
+          {
+            "lineNumber": 70,
+            "pattern": "unsafe-property-access",
+            "line": "([_, config]) => config.theme || config.color"
+          },
+          {
+            "lineNumber": 87,
+            "pattern": "unsafe-property-access",
+            "line": "itemConfig.theme?.[theme as keyof typeof itemConfig.theme] ||"
+          }
+        ],
+        "suggestion": "Use safe destructuring: const { theme = \"dark\" } = useTheme() ?? {};"
+      },
+      "timestamp": "2025-06-29T14:16:22.072Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\chart.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 1,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:22.072Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\alert.tsx",
+      "type": "missing-theme-import",
+      "severity": "warning",
+      "message": "Component uses theme-related patterns but does not import useTheme",
+      "details": {
+        "themeUsageFound": {
+          "darkModeClasses": 1
+        },
+        "suggestion": "Add: import { useTheme } from \"@/contexts/ThemeContext\";"
+      },
+      "timestamp": "2025-06-29T14:16:22.074Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Orders\\ui\\alert.tsx",
+      "type": "responsive-theme-without-context",
+      "severity": "warning",
+      "message": "Component uses dark:/light: classes but may not have proper theme context",
+      "details": {
+        "darkModeClasses": 1,
+        "lightModeClasses": 0,
+        "suggestion": "Ensure component is wrapped in ThemeProvider or import useTheme"
+      },
+      "timestamp": "2025-06-29T14:16:22.074Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SystemAdmin\\Integrations.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.088Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SystemAdmin\\Audit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.089Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Settings\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.089Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\SalesRep\\SubRepDashboard.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.089Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\OrderSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.090Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Show.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.091Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Products\\Create.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.091Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\PreAuthorization\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.092Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Engines\\RecommendationRules.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.093Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Engines\\ClinicalRules.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.093Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Errors\\NoAccess.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.094Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\RequestAccess.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.094Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitationRefactored.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.094Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\ProviderInvitation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.094Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Auth\\Login.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.094Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step8OrderFormApproval.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.095Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7FinalSubmission.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.095Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.095Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step6ReviewSubmit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.096Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step5ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.096Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4Confirmation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.096Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step4ClinicalBilling.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.096Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step3Documentation.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.096Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step2ProductSelection.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.097Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step1PatientInfoNew.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.097Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\OrderReviewSummary.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.097Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\ProviderInvitations\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Index.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Providers\\Create.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.101Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Show.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.102Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\Organizations\\Edit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.102Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\OrderCenter\\EnhancedDashboard.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.103Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationEdit.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.104Z"
+    },
+    {
+      "filePath": "resources\\js\\Pages\\Admin\\CustomerManagement\\OrganizationDetail.tsx",
+      "type": "missing-main-layout",
+      "severity": "warning",
+      "message": "Page component does not import or use MainLayout",
+      "details": {
+        "suggestion": "Wrap page content with MainLayout or import MainLayout",
+        "isPageFile": true
+      },
+      "timestamp": "2025-06-29T14:16:22.104Z"
+    }
+  ],
+  "componentSummary": {
+    "totalComponents": 247,
+    "componentsWithThemeImports": 3,
+    "componentsWithGlassThemeImports": 0,
+    "componentsWithThemeUsage": 16
+  }
+}

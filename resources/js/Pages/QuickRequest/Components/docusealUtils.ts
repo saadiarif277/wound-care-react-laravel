@@ -94,6 +94,12 @@ export function prepareDocuSealData({
   return {
     ...formData,
     
+<<<<<<< HEAD
+=======
+    // Include facility_id to ensure proper facility data loading
+    facility_id: formData.facility_id || null,
+    
+>>>>>>> origin/provider-side
     // Patient Information - ensure all variations are included
     patient_name: patientName,
     patient_first_name: formData.patient_first_name || '',

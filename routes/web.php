@@ -140,7 +140,69 @@ Route::delete('logout', [LoginController::class, 'destroy'])
 
 // Access Request routes removed - feature deprecated
 
+<<<<<<< HEAD
 // Provider Invitation Routes
+=======
+// Organization invitation and unified onboarding
+Route::get('auth/organization-invitation/{token}', function ($token) {
+    $invitation = \App\Models\Users\Provider\ProviderInvitation::where('invitation_token', $token)
+        ->where('invitation_type', 'organization')
+        ->where('expires_at', '>', now())
+        ->firstOrFail();
+
+    $states = [
+        ['code' => 'AL', 'name' => 'Alabama'], ['code' => 'AK', 'name' => 'Alaska'], 
+        ['code' => 'AZ', 'name' => 'Arizona'], ['code' => 'AR', 'name' => 'Arkansas'], 
+        ['code' => 'CA', 'name' => 'California'], ['code' => 'CO', 'name' => 'Colorado'], 
+        ['code' => 'CT', 'name' => 'Connecticut'], ['code' => 'DE', 'name' => 'Delaware'], 
+        ['code' => 'FL', 'name' => 'Florida'], ['code' => 'GA', 'name' => 'Georgia'],
+        ['code' => 'HI', 'name' => 'Hawaii'], ['code' => 'ID', 'name' => 'Idaho'], 
+        ['code' => 'IL', 'name' => 'Illinois'], ['code' => 'IN', 'name' => 'Indiana'], 
+        ['code' => 'IA', 'name' => 'Iowa'], ['code' => 'KS', 'name' => 'Kansas'], 
+        ['code' => 'KY', 'name' => 'Kentucky'], ['code' => 'LA', 'name' => 'Louisiana'], 
+        ['code' => 'ME', 'name' => 'Maine'], ['code' => 'MD', 'name' => 'Maryland'],
+        ['code' => 'MA', 'name' => 'Massachusetts'], ['code' => 'MI', 'name' => 'Michigan'], 
+        ['code' => 'MN', 'name' => 'Minnesota'], ['code' => 'MS', 'name' => 'Mississippi'], 
+        ['code' => 'MO', 'name' => 'Missouri'], ['code' => 'MT', 'name' => 'Montana'], 
+        ['code' => 'NE', 'name' => 'Nebraska'], ['code' => 'NV', 'name' => 'Nevada'], 
+        ['code' => 'NH', 'name' => 'New Hampshire'], ['code' => 'NJ', 'name' => 'New Jersey'],
+        ['code' => 'NM', 'name' => 'New Mexico'], ['code' => 'NY', 'name' => 'New York'], 
+        ['code' => 'NC', 'name' => 'North Carolina'], ['code' => 'ND', 'name' => 'North Dakota'], 
+        ['code' => 'OH', 'name' => 'Ohio'], ['code' => 'OK', 'name' => 'Oklahoma'], 
+        ['code' => 'OR', 'name' => 'Oregon'], ['code' => 'PA', 'name' => 'Pennsylvania'], 
+        ['code' => 'RI', 'name' => 'Rhode Island'], ['code' => 'SC', 'name' => 'South Carolina'],
+        ['code' => 'SD', 'name' => 'South Dakota'], ['code' => 'TN', 'name' => 'Tennessee'], 
+        ['code' => 'TX', 'name' => 'Texas'], ['code' => 'UT', 'name' => 'Utah'], 
+        ['code' => 'VT', 'name' => 'Vermont'], ['code' => 'VA', 'name' => 'Virginia'], 
+        ['code' => 'WA', 'name' => 'Washington'], ['code' => 'WV', 'name' => 'West Virginia'], 
+        ['code' => 'WI', 'name' => 'Wisconsin'], ['code' => 'WY', 'name' => 'Wyoming']
+    ];
+
+    return Inertia::render('Auth/UnifiedOnboardingWizard', [
+        'invitation' => [
+            'id' => $invitation->id,
+            'email' => $invitation->email,
+            'organization_name' => $invitation->organization_name,
+            'token' => $token,
+        ],
+        'states' => $states,
+    ]);
+})->name('auth.organization-invitation.show')->middleware('guest');
+
+Route::post('auth/unified-onboarding/{token}/complete', function ($token, Request $request) {
+    $onboardingService = app(\App\Services\OnboardingService::class);
+
+    $result = $onboardingService->processUnifiedOnboarding($token, $request->all());
+
+    if ($result['success']) {
+        return redirect()->route('login')->with('success', 'Organization created successfully. Please log in.');
+    } else {
+        return back()->withErrors(['error' => $result['message']]);
+    }
+})->name('auth.unified-onboarding.complete')->middleware('guest');
+
+// Provider invitation (existing route)
+>>>>>>> origin/provider-side
 Route::get('auth/provider-invitation/{token}', function ($token) {
     // Get invitation data and render the invitation page
     $invitation = App\Models\Users\Provider\ProviderInvitation::where('invitation_token', $token)
@@ -494,6 +556,13 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-new');
 
+<<<<<<< HEAD
+=======
+        // Order Review and Submission Routes
+        Route::get('/review', [\App\Http\Controllers\QuickRequestController::class, 'reviewOrder'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.review');
+>>>>>>> origin/provider-side
         Route::post('/submit-order', [\App\Http\Controllers\QuickRequestController::class, 'submitOrder'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.submit-order');
@@ -508,6 +577,14 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocuSealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
+<<<<<<< HEAD
+=======
+            
+        // Order Summary Route
+        Route::get('/order-summary/{order_id}', [\App\Http\Controllers\QuickRequestController::class, 'showOrderSummary'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.order-summary');
+>>>>>>> origin/provider-side
 
         // DocuSeal Builder Token Generation (web auth)
         Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
@@ -536,6 +613,14 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-episode-with-documents');
+<<<<<<< HEAD
+=======
+            
+        // My Orders Page - Provider order tracking
+        Route::get('/my-orders', [\App\Http\Controllers\QuickRequestController::class, 'myOrders'])
+            ->middleware('permission:view-product-requests')
+            ->name('quick-requests.my-orders');
+>>>>>>> origin/provider-side
 
         // Test route - disabled in production
         // Route::get('/test-azure', function() {
@@ -552,6 +637,26 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('api.insurance-card.status');
     });
 
+<<<<<<< HEAD
+=======
+    // Session storage for form data
+    Route::prefix('api/session')->group(function () {
+        Route::post('/store-form-data', function (Request $request) {
+            $validated = $request->validate([
+                'quick_request_form_data' => 'required|array',
+                'validated_episode_data' => 'sometimes|array'
+            ]);
+
+            $request->session()->put('quick_request_form_data', $validated['quick_request_form_data']);
+            if (isset($validated['validated_episode_data'])) {
+                $request->session()->put('validated_episode_data', $validated['validated_episode_data']);
+            }
+
+            return response()->json(['success' => true]);
+        })->middleware('auth')->name('api.session.store-form-data');
+    });
+
+>>>>>>> origin/provider-side
     // Product Request API Routes
     Route::prefix('api/product-requests')->group(function () {
         Route::post('/search-patients', [ProductRequestController::class, 'searchPatients'])->name('api.product-requests.search-patients');
@@ -840,6 +945,11 @@ Route::middleware(['web', 'auth'])->group(function () {
     });
 
     // DocuSeal API endpoints (within web middleware for session auth)
+<<<<<<< HEAD
+=======
+    // NOTE: DocuSealTemplateController needs to be created
+    /*
+>>>>>>> origin/provider-side
     Route::prefix('api/v1/docuseal/templates')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
         Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
@@ -851,6 +961,10 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'applyBulkPatterns']);
         Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncFields']);
     });
+<<<<<<< HEAD
+=======
+    */
+>>>>>>> origin/provider-side
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {
@@ -976,6 +1090,11 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 // DocuSeal Routes
 Route::middleware(['auth'])->group(function () {
+<<<<<<< HEAD
+=======
+    // NOTE: DocuSealController needs to be created
+    /*
+>>>>>>> origin/provider-side
     // Create DocuSeal submission with pre-filled data
     Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createSubmission'])
         ->name('docuseal.create-submission')
@@ -984,6 +1103,10 @@ Route::middleware(['auth'])->group(function () {
     // Demo-specific DocuSeal submission (only requires authentication, not manage-orders permission)
     Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createDemoSubmission'])
         ->name('docuseal.demo.create-submission');
+<<<<<<< HEAD
+=======
+    */
+>>>>>>> origin/provider-side
 });
 
 // QuickRequest DocuSeal Routes (Consolidated)
@@ -1086,8 +1209,12 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
 Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
     Route::get('/test', [\App\Http\Controllers\DocuSealDebugController::class, 'debug'])
         ->name('docuseal.debug');
+<<<<<<< HEAD
     Route::get('/test-submission', [\App\Http\Controllers\DocuSealDebugController::class, 'testSubmission'])
         ->name('docuseal.test-submission');
+=======
+    // Debug routes removed - functionality moved to main services
+>>>>>>> origin/provider-side
 });
 
 // DocuSeal API Test Route (remove in production)
@@ -1144,7 +1271,10 @@ Route::get('/docuseal-templates', function () {
         return 'Error: ' . $e->getMessage();
     }
 })->middleware('auth');
+<<<<<<< HEAD
 
 
 
 
+=======
+>>>>>>> origin/provider-side

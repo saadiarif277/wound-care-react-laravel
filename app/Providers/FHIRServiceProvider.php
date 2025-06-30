@@ -15,6 +15,10 @@ use App\Services\Fhir\FhirErrorHandler;
 use App\Services\Fhir\FhirSearchBuilder;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Cache;
+<<<<<<< HEAD
+=======
+use Illuminate\Support\Facades\Validator;
+>>>>>>> origin/provider-side
 
 class FhirServiceProvider extends ServiceProvider
 {
@@ -44,12 +48,21 @@ class FhirServiceProvider extends ServiceProvider
             );
         });
 
+<<<<<<< HEAD
         // Register transaction manager
         $this->app->singleton(FhirTransactionManager::class, function ($app) {
             return new FhirTransactionManager(
                 $app->make(FhirService::class)
             );
         });
+=======
+        // Register transaction manager - commented out until class is created
+        // $this->app->singleton(FhirTransactionManager::class, function ($app) {
+        //     return new FhirTransactionManager(
+        //         $app->make(FhirService::class)
+        //     );
+        // });
+>>>>>>> origin/provider-side
 
         // Register resource validator
         $this->app->singleton(FhirResourceValidator::class, function ($app) {
@@ -124,9 +137,15 @@ class FhirServiceProvider extends ServiceProvider
         // Register custom validation rules
         $this->registerFhirValidationRules();
 
+<<<<<<< HEAD
         // Register middleware
         $this->app['router']->aliasMiddleware('fhir.validate', \App\Http\Middleware\ValidateFhirRequest::class);
         $this->app['router']->aliasMiddleware('fhir.transform', \App\Http\Middleware\TransformFhirResponse::class);
+=======
+        // Register middleware - commented out until classes are created
+        // $this->app['router']->aliasMiddleware('fhir.validate', ValidateFhirRequest::class);
+        // $this->app['router']->aliasMiddleware('fhir.transform', TransformFhirResponse::class);
+>>>>>>> origin/provider-side
     }
 
     /**
@@ -220,22 +239,38 @@ class FhirServiceProvider extends ServiceProvider
     protected function registerFhirValidationRules(): void
     {
         // FHIR date validation
+<<<<<<< HEAD
         \Validator::extend('fhir_date', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('fhir_date', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             return preg_match('/^\d{4}(-\d{2}(-\d{2})?)?$/', $value);
         }, 'The :attribute must be a valid FHIR date format (YYYY, YYYY-MM, or YYYY-MM-DD).');
 
         // FHIR datetime validation
+<<<<<<< HEAD
         \Validator::extend('fhir_datetime', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('fhir_datetime', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             return preg_match('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{3})?(Z|[+-]\d{2}:\d{2})$/', $value);
         }, 'The :attribute must be a valid FHIR datetime format.');
 
         // FHIR reference validation
+<<<<<<< HEAD
         \Validator::extend('fhir_reference', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('fhir_reference', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             return preg_match('/^(https?:\/\/[^\s\/]+\/)?[A-Z][a-zA-Z]+\/[A-Za-z0-9\-\.]{1,64}$/', $value);
         }, 'The :attribute must be a valid FHIR reference.');
 
         // FHIR resource type validation
+<<<<<<< HEAD
         \Validator::extend('fhir_resource_type', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('fhir_resource_type', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             $validTypes = [
                 'Patient', 'Practitioner', 'Organization', 'Condition',
                 'EpisodeOfCare', 'Coverage', 'Encounter', 'QuestionnaireResponse',
@@ -246,7 +281,11 @@ class FhirServiceProvider extends ServiceProvider
         }, 'The :attribute must be a valid FHIR resource type.');
 
         // FHIR identifier validation
+<<<<<<< HEAD
         \Validator::extend('fhir_identifier', function ($attribute, $value, $parameters, $validator) {
+=======
+        Validator::extend('fhir_identifier', function ($attribute, $value, $parameters, $validator) {
+>>>>>>> origin/provider-side
             if (!is_array($value)) {
                 return false;
             }
@@ -257,4 +296,8 @@ class FhirServiceProvider extends ServiceProvider
                    is_string($value['value']);
         }, 'The :attribute must be a valid FHIR identifier with system and value.');
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/provider-side

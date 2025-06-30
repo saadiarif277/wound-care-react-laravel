@@ -1,10 +1,13 @@
 import React, { useEffect, useState } from 'react';
+<<<<<<< HEAD
 import {
   SuperinterfaceProvider,
   AudioThreadDialog,
   AssistantProvider,
   WebrtcAudioRuntimeProvider,
 } from '@superinterface/react';
+=======
+>>>>>>> origin/provider-side
 import { Theme } from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import {

@@ -12,6 +12,7 @@ declare module '@/Layouts/AuthenticatedLayout' {
     export default AuthenticatedLayout;
 }
 
+<<<<<<< HEAD
 declare module '@/Components/Button' {
     import { ButtonHTMLAttributes, ReactNode } from 'react';
 
@@ -57,6 +58,8 @@ declare module '@/Components/Select' {
 
     export const Select: React.FC<Props>;
 }
+=======
+>>>>>>> origin/provider-side
 
 declare module '@/Components/Form/NumberInput' {
     import { InputHTMLAttributes, ReactNode } from 'react';

@@ -28,6 +28,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+<<<<<<< HEAD
     | DocuSeal Template IDs by Manufacturer
     |--------------------------------------------------------------------------
     |
@@ -48,6 +49,15 @@ return [
         'biovance' => env('DOCUSEAL_BIOVANCE_TEMPLATE_ID', '113461'),
         'biovance_advanced' => env('DOCUSEAL_BIOVANCE_ADVANCED_TEMPLATE_ID', '113461'),
     ],
+=======
+    | DocuSeal Template Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Template IDs are now managed via the database (docuseal_templates table)
+    | This provides better flexibility and avoids hardcoded values
+    |
+    */
+>>>>>>> origin/provider-side
 
     /*
     |--------------------------------------------------------------------------

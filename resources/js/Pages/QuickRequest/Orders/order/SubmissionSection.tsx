@@ -40,7 +40,11 @@ export const SubmissionSection: React.FC<SubmissionSectionProps> = ({
               <div className="flex-1">
                 <div className="text-sm font-medium">Order Created</div>
                 <div className="text-xs text-muted-foreground">
+<<<<<<< HEAD
                   {orderData.createdDate} by {orderData.createdBy}
+=======
+                  {orderData?.createdDate || 'N/A'} by {orderData?.createdBy || 'N/A'}
+>>>>>>> origin/provider-side
                 </div>
               </div>
             </div>
@@ -49,7 +53,11 @@ export const SubmissionSection: React.FC<SubmissionSectionProps> = ({
               <div className="flex-1">
                 <div className="text-sm font-medium">IVR Form Completed</div>
                 <div className="text-xs text-muted-foreground">
+<<<<<<< HEAD
                   {orderData.ivrForm.submissionDate}
+=======
+                  {orderData?.ivrForm?.submissionDate || 'N/A'}
+>>>>>>> origin/provider-side
                 </div>
               </div>
             </div>
@@ -58,7 +66,11 @@ export const SubmissionSection: React.FC<SubmissionSectionProps> = ({
               <div className="flex-1">
                 <div className="text-sm font-medium">Order Form Completed</div>
                 <div className="text-xs text-muted-foreground">
+<<<<<<< HEAD
                   {orderData.orderForm.submissionDate}
+=======
+                  {orderData?.orderForm?.submissionDate || 'N/A'}
+>>>>>>> origin/provider-side
                 </div>
               </div>
             </div>
@@ -68,7 +80,11 @@ export const SubmissionSection: React.FC<SubmissionSectionProps> = ({
                 <div className="flex-1">
                   <div className="text-sm font-medium">Order Submitted for Review</div>
                   <div className="text-xs text-muted-foreground">
+<<<<<<< HEAD
                     {new Date().toLocaleDateString()} by {orderData.createdBy}
+=======
+                    {new Date().toLocaleDateString()} by {orderData?.createdBy || 'N/A'}
+>>>>>>> origin/provider-side
                   </div>
                 </div>
               </div>

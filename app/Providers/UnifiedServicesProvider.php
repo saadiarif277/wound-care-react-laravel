@@ -21,6 +21,7 @@ class UnifiedServicesProvider extends ServiceProvider
     {
         // Register Unified Eligibility Service
         $this->app->singleton(UnifiedEligibilityService::class, function ($app) {
+<<<<<<< HEAD
             return new UnifiedEligibilityService();
         });
         
@@ -47,11 +48,23 @@ class UnifiedServicesProvider extends ServiceProvider
             );
         });
         
+=======
+            return new UnifiedEligibilityService(
+                $app->make(FhirAuditEventService::class)
+            );
+        });
+
+
+>>>>>>> origin/provider-side
         // Register FHIR Data Lake Services
         $this->app->singleton(FhirAuditEventService::class);
         $this->app->singleton(InsuranceAnalyticsService::class);
     }
+<<<<<<< HEAD
     
+=======
+
+>>>>>>> origin/provider-side
     /**
      * Bootstrap services.
      */

@@ -161,6 +161,7 @@ export default function MacValidationPanel({
       className
     )}>
       {/* Header with Risk Score */}
+<<<<<<< HEAD
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center space-x-2">
           <Shield className={cn("w-5 h-5", getRiskColor(validationData.risk_level))} />
@@ -170,6 +171,17 @@ export default function MacValidationPanel({
         </div>
         <div className={cn(
           "px-3 py-1 rounded-full text-sm font-semibold",
+=======
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center space-x-2">
+          <Shield className={cn("w-4 h-4", getRiskColor(validationData.risk_level))} />
+          <h4 className={cn("font-medium text-sm", t.text.primary)}>
+            MAC Validation
+          </h4>
+        </div>
+        <div className={cn(
+          "px-2 py-1 rounded-full text-xs font-semibold",
+>>>>>>> origin/provider-side
           getRiskBg(validationData.risk_level),
           getRiskColor(validationData.risk_level)
         )}>
@@ -178,6 +190,7 @@ export default function MacValidationPanel({
       </div>
 
       {/* Coverage Status */}
+<<<<<<< HEAD
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className={cn(
           "p-3 rounded-lg",
@@ -186,6 +199,16 @@ export default function MacValidationPanel({
           <div className="flex items-center space-x-2 mb-1">
             <CoverageIcon className={cn(
               "w-4 h-4",
+=======
+      <div className="grid grid-cols-2 gap-2 mb-3">
+        <div className={cn(
+          "p-2 rounded-lg",
+          theme === 'dark' ? 'bg-white/10' : 'bg-white/80'
+        )}>
+          <div className="flex items-center space-x-1 mb-1">
+            <CoverageIcon className={cn(
+              "w-3 h-3",
+>>>>>>> origin/provider-side
               validationData.coverage_status === 'covered' 
                 ? 'text-green-500' 
                 : validationData.coverage_status === 'conditional'
@@ -193,15 +216,23 @@ export default function MacValidationPanel({
                 : 'text-red-500'
             )} />
             <span className={cn("text-xs font-medium", t.text.secondary)}>
+<<<<<<< HEAD
               Coverage Status
             </span>
           </div>
           <p className={cn("text-sm font-semibold capitalize", t.text.primary)}>
+=======
+              Coverage
+            </span>
+          </div>
+          <p className={cn("text-xs font-semibold capitalize", t.text.primary)}>
+>>>>>>> origin/provider-side
             {validationData.coverage_status.replace('_', ' ')}
           </p>
         </div>
 
         <div className={cn(
+<<<<<<< HEAD
           "p-3 rounded-lg",
           theme === 'dark' ? 'bg-white/10' : 'bg-white/80'
         )}>
@@ -212,6 +243,18 @@ export default function MacValidationPanel({
             </span>
           </div>
           <p className={cn("text-sm font-semibold", t.text.primary)}>
+=======
+          "p-2 rounded-lg",
+          theme === 'dark' ? 'bg-white/10' : 'bg-white/80'
+        )}>
+          <div className="flex items-center space-x-1 mb-1">
+            <TrendingUp className="w-3 h-3 text-green-500" />
+            <span className={cn("text-xs font-medium", t.text.secondary)}>
+              Approval
+            </span>
+          </div>
+          <p className={cn("text-xs font-semibold", t.text.primary)}>
+>>>>>>> origin/provider-side
             {validationData.financial_impact.approval_confidence}%
           </p>
         </div>
@@ -219,11 +262,19 @@ export default function MacValidationPanel({
 
       {/* MAC Contractor Info */}
       <div className={cn(
+<<<<<<< HEAD
         "p-3 rounded-lg mb-3",
         theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'
       )}>
         <p className={cn("text-xs", t.text.secondary)}>MAC Contractor</p>
         <p className={cn("text-sm font-medium", t.text.primary)}>
+=======
+        "p-2 rounded-lg mb-2",
+        theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'
+      )}>
+        <p className={cn("text-xs", t.text.secondary)}>MAC Contractor</p>
+        <p className={cn("text-xs font-medium", t.text.primary)}>
+>>>>>>> origin/provider-side
           {validationData.contractor.name} ({validationData.contractor.jurisdiction})
         </p>
       </div>
@@ -281,19 +332,32 @@ export default function MacValidationPanel({
 
       {/* Financial Impact */}
       <div className={cn(
+<<<<<<< HEAD
         "p-3 rounded-lg",
+=======
+        "p-2 rounded-lg",
+>>>>>>> origin/provider-side
         theme === 'dark' ? 'bg-white/5' : 'bg-gray-50'
       )}>
         <div className="flex items-center justify-between">
           <div>
+<<<<<<< HEAD
             <p className={cn("text-xs", t.text.secondary)}>Potential Denial Amount</p>
             <p className={cn("text-lg font-semibold", 'text-red-500')}>
+=======
+            <p className={cn("text-xs", t.text.secondary)}>Potential Denial</p>
+            <p className={cn("text-sm font-semibold", 'text-red-500')}>
+>>>>>>> origin/provider-side
               ${validationData.financial_impact.potential_denial_amount.toLocaleString()}
             </p>
           </div>
           <div className="text-right">
             <p className={cn("text-xs", t.text.secondary)}>Est. Reimbursement</p>
+<<<<<<< HEAD
             <p className={cn("text-lg font-semibold", 'text-green-500')}>
+=======
+            <p className={cn("text-sm font-semibold", 'text-green-500')}>
+>>>>>>> origin/provider-side
               ${validationData.financial_impact.estimated_reimbursement.toLocaleString()}
             </p>
           </div>

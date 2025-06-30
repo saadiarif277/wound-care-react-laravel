@@ -27,7 +27,13 @@ interface BaseProviderData {
   password: string;
   password_confirmation: string;
   phone: string;
+<<<<<<< HEAD
   title: string;
+=======
+  fax?: string;
+  title: string;
+  credentials?: string;
+>>>>>>> origin/provider-side
 
   // Professional Credentials
   individual_npi: string;
@@ -35,6 +41,11 @@ interface BaseProviderData {
   license_number: string;
   license_state: string;
   ptan?: string;
+<<<<<<< HEAD
+=======
+  tax_id?: string;
+  medicaid_number?: string;
+>>>>>>> origin/provider-side
 
   // Terms
   accept_terms: boolean;

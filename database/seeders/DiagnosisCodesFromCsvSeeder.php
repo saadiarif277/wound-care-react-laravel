@@ -13,6 +13,7 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
      */
     public function run(): void
     {
+<<<<<<< HEAD
         // Disable foreign key checks temporarily
         DB::statement('SET FOREIGN_KEY_CHECKS=0');
 
@@ -20,6 +21,48 @@ class DiagnosisCodesFromCsvSeeder extends Seeder
         DB::statement('DROP TABLE IF EXISTS `wound_type_diagnosis_codes`');
         DB::statement('DROP TABLE IF EXISTS `diagnosis_codes`');
         DB::statement(<<<SQL
+=======
+        // Handle the table operations outside of a transaction
+        $this->recreateTables();
+        
+        // Then do the data insertion in a transaction
+        DB::transaction(function () {
+            // First ensure wound types exist
+            $this->ensureWoundTypesExist();
+
+            // Clear existing diagnosis codes and relationships
+            DB::table('wound_type_diagnosis_codes')->delete();
+            DB::table('diagnosis_codes')->delete();
+
+            // Import Diabetic Foot Ulcer codes
+            $this->importDiabeticFootUlcerCodes();
+
+            // Import Venous Leg Ulcer codes
+            $this->importVenousLegUlcerCodes();
+
+            // Import Pressure Ulcer codes
+            $this->importPressureUlcerCodes();
+
+            // Import generic L97 chronic ulcer codes first
+            $this->importGenericChronicUlcerCodes();
+
+            // Import Chronic Skin Subs codes
+            $this->importChronicSkinSubsCodes();
+        });
+    }
+    
+    private function recreateTables(): void
+    {
+        // Use unprepared statements to avoid transaction issues
+        DB::unprepared('SET FOREIGN_KEY_CHECKS=0');
+        
+        try {
+            // Drop dependent table first, then main table
+            DB::unprepared('DROP TABLE IF EXISTS `wound_type_diagnosis_codes`');
+            DB::unprepared('DROP TABLE IF EXISTS `diagnosis_codes`');
+            
+            DB::unprepared(<<<SQL
+>>>>>>> origin/provider-side
 CREATE TABLE `diagnosis_codes` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `code` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -38,8 +81,13 @@ CREATE TABLE `diagnosis_codes` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL);
 
+<<<<<<< HEAD
         // Recreate wound_type_diagnosis_codes table
         DB::statement(<<<SQL
+=======
+            // Recreate wound_type_diagnosis_codes table
+            DB::unprepared(<<<SQL
+>>>>>>> origin/provider-side
 CREATE TABLE `wound_type_diagnosis_codes` (
   `id` char(36) COLLATE utf8mb4_unicode_ci NOT NULL,
   `wound_type_code` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
@@ -56,6 +104,7 @@ CREATE TABLE `wound_type_diagnosis_codes` (
   CONSTRAINT `wound_type_diagnosis_codes_wound_type_code_foreign` FOREIGN KEY (`wound_type_code`) REFERENCES `wound_types` (`code`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 SQL);
+<<<<<<< HEAD
 
         // Re-enable foreign key checks
         DB::statement('SET FOREIGN_KEY_CHECKS=1');
@@ -81,6 +130,12 @@ SQL);
 
         // Import Chronic Skin Subs codes
         $this->importChronicSkinSubsCodes();
+=======
+        } finally {
+            // Always re-enable foreign key checks
+            DB::unprepared('SET FOREIGN_KEY_CHECKS=1');
+        }
+>>>>>>> origin/provider-side
     }
 
     private function importDiabeticFootUlcerCodes(): void
@@ -129,8 +184,11 @@ SQL);
                     ];
                 }
             }
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> origin/provider-side
         }
 
         fclose($file);
@@ -412,8 +470,11 @@ SQL);
             DB::table('diagnosis_codes')->insert(array_values($diagnosisCodes));
             $this->command->info('Imported ' . count($diagnosisCodes) . ' generic chronic ulcer codes.');
         }
+<<<<<<< HEAD
 
 
+=======
+>>>>>>> origin/provider-side
     }
 
     private function ensureWoundTypesExist(): void
@@ -447,4 +508,8 @@ SQL);
             }
         }
     }
+<<<<<<< HEAD
 }
+=======
+}
+>>>>>>> origin/provider-side

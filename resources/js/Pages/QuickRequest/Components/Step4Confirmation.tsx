@@ -3,7 +3,11 @@ import { useState, useEffect } from 'react';
 import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+<<<<<<< HEAD
 import { getManufacturerConfig } from './manufacturerFields';
+=======
+import { useManufacturers } from '@/hooks/useManufacturers';
+>>>>>>> origin/provider-side
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
 
 interface Step4Props {
@@ -45,6 +49,12 @@ export default function Step4Confirmation({
     // Fallback to dark theme if outside ThemeProvider
   }
 
+<<<<<<< HEAD
+=======
+  // Use manufacturers hook
+  const { getManufacturerByName } = useManufacturers();
+
+>>>>>>> origin/provider-side
   const [showIVRFrame, setShowIVRFrame] = useState(false);
   const [ivrSigned, setIvrSigned] = useState(false);
   // ASHLEY'S REQUIREMENT: ALL orders require IVR completion
@@ -54,7 +64,11 @@ export default function Step4Confirmation({
 
   const selectedProduct = products.find(p => p.id === formData.product_id);
   const selectedFacility = facilities.find(f => f.id === formData.facility_id);
+<<<<<<< HEAD
   const manufacturerConfig = selectedProduct ? getManufacturerConfig(selectedProduct.manufacturer) : null;
+=======
+  const manufacturerConfig = selectedProduct ? getManufacturerByName(selectedProduct.manufacturer) : null;
+>>>>>>> origin/provider-side
 
   // Debug logging
   console.log('Step4Confirmation Debug:', {
@@ -71,6 +85,7 @@ export default function Step4Confirmation({
   });
 
   const getTemplateId = () => {
+<<<<<<< HEAD
     // Get template ID from manufacturer config
     if (manufacturerConfig?.docusealTemplateId) {
       return manufacturerConfig.docusealTemplateId;
@@ -84,6 +99,16 @@ export default function Step4Confirmation({
     };
 
     return templateMap[selectedProduct?.manufacturer || ''] || '1234567'; // Default template
+=======
+    // Get template ID from manufacturer config (API data)
+    if (manufacturerConfig?.docuseal_template_id) {
+      return manufacturerConfig.docuseal_template_id;
+    }
+
+    // No fallback - template IDs should come from database
+    console.error('No DocuSeal template ID found for manufacturer:', selectedProduct?.manufacturer);
+    return null;
+>>>>>>> origin/provider-side
   };
 
   useEffect(() => {

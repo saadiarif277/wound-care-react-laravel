@@ -16,7 +16,10 @@ final class QuickRequestService
     public function __construct(
         private FhirService $fhirClient,
         private DocuSealService $docuSealService,
+<<<<<<< HEAD
         private Templates\DocuSealBuilder $builder,
+=======
+>>>>>>> origin/provider-side
     ) {}
 
     /**
@@ -118,6 +121,7 @@ final class QuickRequestService
             $manufacturerId = $data['manufacturer_id'];
             $productCode = $data['order_details']['product'] ?? null;
 
+<<<<<<< HEAD
             try {
                 $template = $this->builder->getTemplate($manufacturerId, $productCode);
                 $dataWithTemplate = $data;
@@ -130,6 +134,11 @@ final class QuickRequestService
                 ]);
                 $dataWithTemplate = $data;
             }
+=======
+            // Note: DocuSealBuilder service not implemented yet
+            // For now, use basic data without template lookup
+            $dataWithTemplate = $data;
+>>>>>>> origin/provider-side
             $submission = $this->docuSealService->createIVRSubmission(
                 $dataWithTemplate,
                 $episode

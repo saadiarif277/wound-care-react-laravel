@@ -25,17 +25,30 @@ export const ClinicalSection: React.FC<ClinicalSectionProps> = ({
   >
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-1">
+<<<<<<< HEAD
         <InfoRow label="Wound Type" value={orderData.clinical.woundType} />
         <InfoRow label="Wound Size" value={orderData.clinical.woundSize} />
         <InfoRow label="Procedure" value={orderData.clinical.procedureInfo} />
         <InfoRow label="Prior Applications" value={orderData.clinical.priorApplications.toString()} />
         <InfoRow label="Anticipated Applications" value={orderData.clinical.anticipatedApplications.toString()} />
         <InfoRow label="Facility" value={orderData.clinical.facilityInfo} />
+=======
+        <InfoRow label="Wound Type" value={orderData.clinical?.woundType || 'N/A'} />
+        <InfoRow label="Wound Size" value={orderData.clinical?.woundSize || 'N/A'} />
+        <InfoRow label="Procedure" value={orderData.clinical?.procedureInfo || 'N/A'} />
+        <InfoRow label="Prior Applications" value={orderData.clinical?.priorApplications?.toString() || '0'} />
+        <InfoRow label="Anticipated Applications" value={orderData.clinical?.anticipatedApplications?.toString() || '0'} />
+        <InfoRow label="Facility" value={orderData.clinical?.facilityInfo || 'N/A'} />
+>>>>>>> origin/provider-side
       </div>
       <div className="space-y-3">
         <div>
           <h4 className="font-medium text-sm mb-2">Diagnosis Codes:</h4>
+<<<<<<< HEAD
           {orderData.clinical.diagnosisCodes.map((code, index) => (
+=======
+          {(orderData.clinical?.diagnosisCodes || []).map((code, index) => (
+>>>>>>> origin/provider-side
             <div key={index} className="text-sm bg-muted/50 p-2 rounded mb-1">
               <div className="font-medium">{code.code}</div>
               <div className="text-muted-foreground">{code.description}</div>
@@ -44,7 +57,11 @@ export const ClinicalSection: React.FC<ClinicalSectionProps> = ({
         </div>
         <div>
           <h4 className="font-medium text-sm mb-2">ICD-10 Codes:</h4>
+<<<<<<< HEAD
           {orderData.clinical.icd10Codes.map((code, index) => (
+=======
+          {(orderData.clinical?.icd10Codes || []).map((code, index) => (
+>>>>>>> origin/provider-side
             <div key={index} className="text-sm bg-muted/50 p-2 rounded mb-1">
               <div className="font-medium">{code.code}</div>
               <div className="text-muted-foreground">{code.description}</div>
