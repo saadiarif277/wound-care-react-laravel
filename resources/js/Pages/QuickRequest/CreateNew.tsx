@@ -214,6 +214,14 @@ interface Props {
     };
   };
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
+  roleRestrictions?: {
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    pricing_access_level: string;
+    commission_access_level: string;
+  };
 }
 
 function QuickRequestCreateNew({
@@ -222,6 +230,7 @@ function QuickRequestCreateNew({
   products = [],
   diagnosisCodes,
   currentUser,
+  roleRestrictions,
 }: Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -1173,6 +1182,7 @@ function QuickRequestCreateNew({
                 updateFormData={updateFormData as any}
                 errors={errors}
                 currentUser={currentUser}
+                roleRestrictions={roleRestrictions}
               />
             )}
 

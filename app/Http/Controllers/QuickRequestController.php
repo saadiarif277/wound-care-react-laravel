@@ -74,19 +74,23 @@ final class QuickRequestController extends Controller
         // Determine if we should filter products by provider
         $providerId = null;
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        $roleRestrictions = $this->getRoleRestrictions($userRole);
+        
         if ($userRole === 'provider') {
             $providerId = $user->id;
         }
+        // Office managers don't see products initially - they select a provider first
         
         return Inertia::render('QuickRequest/CreateNew', [
             'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
             'providers' => $this->getProvidersForUser($user, $currentOrg),
-            'products' => $this->getActiveProducts($providerId),
+            'products' => $userRole === 'office-manager' ? [] : $this->getActiveProducts($providerId),
             'woundTypes' => $this->getWoundTypes(),
             'insuranceCarriers' => $this->getInsuranceCarriers(),
             'diagnosisCodes' => $this->getDiagnosisCodes(),
             'currentUser' => $this->getCurrentUserData($user, $currentOrg),
             'providerProducts' => [],
+            'roleRestrictions' => $roleRestrictions,
         ]);
     }
 
@@ -112,6 +116,8 @@ final class QuickRequestController extends Controller
         // Determine if we should filter products by provider
         $providerId = null;
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        $roleRestrictions = $this->getRoleRestrictions($userRole);
+        
         if ($userRole === 'provider') {
             $providerId = $user->id;
         }
@@ -121,8 +127,9 @@ final class QuickRequestController extends Controller
             'validatedEpisodeData' => $validatedEpisodeData,
             'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
             'providers' => $this->getProvidersForUser($user, $currentOrg),
-            'products' => $this->getActiveProducts($providerId),
+            'products' => $userRole === 'office-manager' ? [] : $this->getActiveProducts($providerId),
             'currentUser' => $this->getCurrentUserData($user, $currentOrg),
+            'roleRestrictions' => $roleRestrictions,
         ]);
     }
 
@@ -1402,6 +1409,24 @@ final class QuickRequestController extends Controller
      */
     private function getFacilitiesForUser(User $user, $currentOrg): \Illuminate\Support\Collection
     {
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+        
+        // Office managers should only see their assigned facility
+        if ($userRole === 'office-manager') {
+            $userFacilities = $user->facilities->map(function($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->full_address,
+                    'source' => 'user_relationship'
+                ];
+            });
+            
+            // Office managers should have exactly one facility
+            return $userFacilities;
+        }
+        
+        // Providers can select from multiple facilities
         $userFacilities = $user->facilities->map(function($facility) {
             return [
                 'id' => $facility->id,
@@ -1571,6 +1596,62 @@ final class QuickRequestController extends Controller
                 'phone' => $currentOrg->phone,
             ] : null,
         ];
+    }
+    
+    /**
+     * Get role-based restrictions for pricing and data visibility
+     */
+    private function getRoleRestrictions(string $role): array
+    {
+        switch ($role) {
+            case 'office-manager':
+                return [
+                    'can_view_financials' => true,
+                    'can_see_discounts' => false,
+                    'can_see_msc_pricing' => false,
+                    'can_see_order_totals' => false,
+                    'pricing_access_level' => 'national_asp_only',
+                    'commission_access_level' => 'none'
+                ];
+            case 'provider':
+                return [
+                    'can_view_financials' => true,
+                    'can_see_discounts' => false,
+                    'can_see_msc_pricing' => false,
+                    'can_see_order_totals' => false,
+                    'pricing_access_level' => 'national_asp_only',
+                    'commission_access_level' => 'none'
+                ];
+            case 'msc-subrep':
+                return [
+                    'can_view_financials' => true,
+                    'can_see_discounts' => true,
+                    'can_see_msc_pricing' => true,
+                    'can_see_order_totals' => true,
+                    'pricing_access_level' => 'full',
+                    'commission_access_level' => 'limited'
+                ];
+            case 'msc-rep':
+            case 'msc-admin':
+            case 'super-admin':
+                return [
+                    'can_view_financials' => true,
+                    'can_see_discounts' => true,
+                    'can_see_msc_pricing' => true,
+                    'can_see_order_totals' => true,
+                    'pricing_access_level' => 'full',
+                    'commission_access_level' => 'full'
+                ];
+            default:
+                return [
+                    'can_view_financials' => false,
+                    'can_see_discounts' => false,
+                    'can_see_msc_pricing' => false,
+                    'can_see_order_totals' => false,
+                    'pricing_access_level' => 'none',
+                    'commission_access_level' => 'none'
+                ];
+        }
     }
 
     /**

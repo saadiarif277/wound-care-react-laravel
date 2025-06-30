@@ -59,12 +59,13 @@ class PatientManufacturerIVREpisode extends Model
     const STATUS_COMPLETED = 'completed';
 
     /**
-     * IVR Status constants
+     * IVR Status constants - matches PRD requirements
      */
-    const IVR_STATUS_PROVIDER_COMPLETED = 'provider_completed';
-    const IVR_STATUS_ADMIN_REVIEWED = 'admin_reviewed';
+    const IVR_STATUS_NA = 'N/A';
+    const IVR_STATUS_PENDING = 'pending';
+    const IVR_STATUS_SENT = 'sent';
     const IVR_STATUS_VERIFIED = 'verified';
-    const IVR_STATUS_EXPIRED = 'expired';
+    const IVR_STATUS_REJECTED = 'rejected';
 
     /**
      * Get the manufacturer for this episode
@@ -146,7 +147,7 @@ class PatientManufacturerIVREpisode extends Model
         return in_array($this->status, [
             self::STATUS_READY_FOR_REVIEW,
             self::STATUS_IVR_SENT,
-        ]) || $this->ivr_status === self::IVR_STATUS_EXPIRED;
+        ]) || $this->ivr_status === self::IVR_STATUS_REJECTED;
     }
 
     /**

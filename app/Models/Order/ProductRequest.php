@@ -104,6 +104,15 @@ class ProductRequest extends Model
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
     ];
+    
+    /**
+     * Order Status constants - matches PRD requirements
+     */
+    const ORDER_STATUS_PENDING = 'pending';
+    const ORDER_STATUS_SUBMITTED_TO_MANUFACTURER = 'submitted_to_manufacturer';
+    const ORDER_STATUS_CONFIRMED_BY_MANUFACTURER = 'confirmed_by_manufacturer';
+    const ORDER_STATUS_REJECTED = 'rejected';
+    const ORDER_STATUS_CANCELED = 'canceled';
 
     /**
      * Place of service codes and descriptions.

@@ -1,20 +1,17 @@
 
 export type OrderStatus = 
-  | 'Pending IVR'
-  | 'IVR Sent'
-  | 'IVR Verified'
-  | 'Approved'
-  | 'Send Back'
-  | 'Denied'
+  | 'Pending'
   | 'Submitted to Manufacturer'
-  | 'Confirmed & Shipped';
+  | 'Confirmed by Manufacturer'
+  | 'Rejected'
+  | 'Canceled';
 
 export type IVRStatus = 
-  | 'Not Required'
+  | 'N/A'
   | 'Pending'
   | 'Sent'
-  | 'Results Received'
-  | 'Verified';
+  | 'Verified'
+  | 'Rejected';
 
 export type OrderFormStatus = 
   | 'Draft'
