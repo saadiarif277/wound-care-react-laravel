@@ -530,7 +530,7 @@ export default function Step7DocuSealIVR({
       });
 
       // Since the DocuSeal form is completed successfully,
-      // proceed to the next step instead of redirecting
+      // mark as completed but don't auto-redirect
       console.log('✅ DocuSeal submission completed successfully:', submissionId);
 
       setIsCompleted(true);
@@ -538,13 +538,7 @@ export default function Step7DocuSealIVR({
       // Show success message
       setSubmissionError(''); // Clear any previous errors
 
-      // Go to next step after a short delay
-      const timeout = setTimeout(() => {
-        // Call the onNext function to proceed to the next step
-        if (onNext) {
-          onNext();
-        }
-      }, 2000);
+      // Don't auto-redirect - let user click next manually
 
     } catch (error) {
       console.error('Error processing DocuSeal completion:', error);
