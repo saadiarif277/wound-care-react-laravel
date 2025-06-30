@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { router } from '@inertiajs/react';
 import axios from 'axios';
@@ -79,8 +78,31 @@ export const useOrderState = (formData: any, validatedEpisodeData: any) => {
             } else {
                 toast({ title: "Submission Failed", description: response.data.message, variant: "destructive" });
             }
-        } catch (error) {
-            toast({ title: "Error", description: "An unexpected error occurred.", variant: "destructive" });
+        } catch (error: any) {
+            console.error('Order submission error:', error);
+
+            let errorMessage = "An unexpected error occurred.";
+
+            if (error.response?.status === 422) {
+                // Validation errors
+                const errors = error.response.data.errors;
+                if (errors && typeof errors === 'object') {
+                    const errorList = Object.values(errors).flat().join(', ');
+                    errorMessage = `Validation errors: ${errorList}`;
+                } else {
+                    errorMessage = error.response.data.message || "Please check your form data and try again.";
+                }
+            } else if (error.response?.data?.message) {
+                errorMessage = error.response.data.message;
+            } else if (error.message) {
+                errorMessage = error.message;
+            }
+
+            toast({
+                title: "Submission Failed",
+                description: errorMessage,
+                variant: "destructive"
+            });
         }
     };
 

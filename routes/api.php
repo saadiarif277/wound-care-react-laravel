@@ -204,6 +204,15 @@ Route::prefix('v1')->middleware(['throttle:public', 'api.rate.limit:public'])->g
 
 // Clinical Opportunities Engine Routes
 Route::prefix('v1')->group(function () {
+    Route::prefix('manufacturers')->group(function () {
+        Route::get('/', [ManufacturerController::class, 'index'])
+            ->name('api.manufacturers.index');
+        Route::get('/{manufacturerIdOrName}', [ManufacturerController::class, 'show'])
+            ->name('api.manufacturers.show');
+        Route::post('/clear-cache', [ManufacturerController::class, 'clearCache'])
+            ->name('api.manufacturers.clear-cache');
+    });
+
     Route::prefix('clinical-opportunities')->name('clinical_opportunities.')->group(function () {
         // Scan for opportunities based on clinical data
         Route::post('scan', [ClinicalOpportunitiesController::class, 'scanOpportunities'])->name('scan');

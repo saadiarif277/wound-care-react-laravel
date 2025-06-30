@@ -529,8 +529,40 @@ function QuickRequestCreateNew({
         break;
 
       case 2: // Product Selection
-        if (!formData.selected_products || formData.selected_products.length === 0) {
-          errors.products = 'Product selection is required';
+        console.log('=== Product Selection Validation Debug ===');
+        console.log('formData.selected_products:', formData.selected_products);
+        console.log('formData.selected_products length:', formData.selected_products?.length);
+        console.log('formData.selected_products type:', typeof formData.selected_products);
+
+        // More robust validation
+        const hasValidProducts = formData.selected_products &&
+          Array.isArray(formData.selected_products) &&
+          formData.selected_products.length > 0 &&
+          formData.selected_products.every(product =>
+            product &&
+            typeof product === 'object' &&
+            product.product_id &&
+            product.quantity &&
+            product.quantity > 0
+          );
+
+        if (!hasValidProducts) {
+          console.log('❌ Product validation failed - no valid products selected');
+          console.log('Validation details:', {
+            exists: !!formData.selected_products,
+            isArray: Array.isArray(formData.selected_products),
+            length: formData.selected_products?.length,
+            validProducts: formData.selected_products?.filter(product =>
+              product &&
+              typeof product === 'object' &&
+              product.product_id &&
+              product.quantity &&
+              product.quantity > 0
+            ).length
+          });
+          errors.products = 'Please select at least one product with valid quantity';
+        } else {
+          console.log('✅ Product validation passed - valid products found:', formData.selected_products);
         }
         break;
 
@@ -1020,9 +1052,25 @@ function QuickRequestCreateNew({
         throw new Error('Failed to store form data in session');
       }
 
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error preparing order for review:', error);
-      alert('An error occurred while preparing the order for review');
+
+      // Provide more specific error messages
+      let errorMessage = 'An error occurred while preparing the order for review';
+
+      if (error.response?.status === 422) {
+        errorMessage = 'Please check your form data and try again';
+      } else if (error.response?.status === 419) {
+        errorMessage = 'Session expired. Please refresh the page and try again';
+        window.location.reload();
+        return;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      alert(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -1194,6 +1242,7 @@ function QuickRequestCreateNew({
                 providers={providers}
                 facilities={facilities}
                 errors={errors}
+                onNext={handleNext}
               />
             )}
 

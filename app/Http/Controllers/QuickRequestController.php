@@ -24,6 +24,7 @@ use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use App\Jobs\QuickRequest\SendManufacturerNotification;
 use App\Jobs\QuickRequest\CreateApprovalTask;
+use App\Jobs\QuickRequest\GenerateDocuSealPdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -144,13 +145,38 @@ final class QuickRequestController extends Controller
             'adminNote' => 'sometimes|string|max:1000'
         ]);
 
+        // Validate the formData using StoreRequest rules
+        $storeRequest = new \App\Http\Requests\QuickRequest\StoreRequest();
+        $storeRequest->merge($validated['formData']);
+
+        if (!$storeRequest->authorize()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Unauthorized to submit this order.'
+            ], 403);
+        }
+
+        $validator = \Illuminate\Support\Facades\Validator::make(
+            $validated['formData'],
+            $storeRequest->rules(),
+            $storeRequest->messages()
+        );
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Validation failed',
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        $formData = $validator->validated();
+        $episodeData = $validated['episodeData'] ?? [];
+        $adminNote = $validated['adminNote'] ?? '';
+
         DB::beginTransaction();
 
         try {
-            $formData = $validated['formData'];
-            $episodeData = $validated['episodeData'] ?? [];
-            $adminNote = $validated['adminNote'] ?? '';
-
             // Create episode using orchestrator
             $episode = $this->orchestrator->startEpisode([
                 'patient' => $this->extractPatientData($formData),
@@ -175,6 +201,9 @@ final class QuickRequestController extends Controller
 
             // Save product request
             $productRequest->save();
+
+            // Create product relationships
+            $this->createProductRelationships($productRequest, $formData['selected_products']);
 
             // Dispatch background jobs
             $this->dispatchQuickRequestJobs($episode, $productRequest, $formData);
@@ -245,6 +274,9 @@ final class QuickRequestController extends Controller
 
             // Save product request
             $productRequest->save();
+
+            // Create product relationships
+            $this->createProductRelationships($productRequest, $validated['selected_products']);
 
             // Dispatch background jobs
             $this->dispatchQuickRequestJobs($episode, $productRequest, $validated);
@@ -1815,8 +1847,6 @@ final class QuickRequestController extends Controller
      */
     private function createProductRequest(array $validated, PatientManufacturerIVREpisode $episode): ProductRequest
     {
-        $firstProduct = Product::find($validated['selected_products'][0]['product_id']);
-
         $productRequest = new ProductRequest();
         $productRequest->id = Str::uuid();
         $productRequest->request_number = $this->generateRequestNumber();
@@ -1824,21 +1854,15 @@ final class QuickRequestController extends Controller
         $productRequest->provider_id = $validated['provider_id'];
         $productRequest->facility_id = $validated['facility_id'];
         $productRequest->request_type = $validated['request_type'];
-        $productRequest->order_status = 'ready_for_review';
+        $productRequest->order_status = ProductRequest::ORDER_STATUS_PENDING;
         $productRequest->submission_type = 'quick_request';
+        $productRequest->submitted_at = now();
         $productRequest->patient_fhir_id = $episode->patient_fhir_id;
-        $productRequest->payer_name = $validated['primary_insurance_name'];
+        $productRequest->payer_name_submitted = $validated['primary_insurance_name'];
         $productRequest->payer_id = $validated['primary_member_id'];
-        $productRequest->insurance_type = $validated['primary_plan_type'];
         $productRequest->expected_service_date = $validated['expected_service_date'];
         $productRequest->wound_type = $validated['wound_type'];
         $productRequest->place_of_service = $validated['place_of_service'];
-        $productRequest->product_id = $firstProduct->id;
-        $productRequest->product_name = $firstProduct->name;
-        $productRequest->product_code = $firstProduct->q_code;
-        $productRequest->manufacturer = $firstProduct->manufacturer;
-        $productRequest->size = $validated['selected_products'][0]['size'] ?? '';
-        $productRequest->quantity = $validated['selected_products'][0]['quantity'];
         $productRequest->metadata = $this->buildProductRequestMetadata($validated);
 
         return $productRequest;
@@ -2626,5 +2650,39 @@ final class QuickRequestController extends Controller
                 'total' => $orders->total(),
             ]
         ]);
+    }
+
+    /**
+     * Create product relationships for the product request
+     */
+    private function createProductRelationships(ProductRequest $productRequest, array $selectedProducts): void
+    {
+        foreach ($selectedProducts as $productData) {
+            $product = Product::find($productData['product_id']);
+            if (!$product) {
+                Log::warning('Product not found for product request', [
+                    'product_id' => $productData['product_id'],
+                    'product_request_id' => $productRequest->id
+                ]);
+                continue;
+            }
+
+            // Calculate pricing
+            $unitPrice = $product->price ?? 0;
+            $quantity = $productData['quantity'] ?? 1;
+            $totalPrice = $unitPrice * $quantity;
+
+            // Create the pivot record
+            DB::table('product_request_products')->insert([
+                'product_request_id' => $productRequest->id,
+                'product_id' => $product->id,
+                'quantity' => $quantity,
+                'size' => $productData['size'] ?? null,
+                'unit_price' => $unitPrice,
+                'total_price' => $totalPrice,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+        }
     }
 }

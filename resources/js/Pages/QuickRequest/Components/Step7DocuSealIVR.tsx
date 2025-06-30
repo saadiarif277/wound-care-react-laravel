@@ -183,6 +183,7 @@ interface Step7Props {
     address?: string;
   }>;
   errors: Record<string, string>;
+  onNext?: () => void;
 }
 
 // Direct product-to-template mapping
@@ -206,7 +207,8 @@ export default function Step7DocuSealIVR({
   products,
   providers = [],
   facilities = [],
-  errors
+  errors,
+  onNext
 }: Step7Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -221,10 +223,9 @@ export default function Step7DocuSealIVR({
   }
 
   const [isCompleted, setIsCompleted] = useState(false);
-  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [submissionError, setSubmissionError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [enhancedSubmission, setEnhancedSubmission] = useState<any>(null);
-  const [redirectTimeout, setRedirectTimeout] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
@@ -240,16 +241,39 @@ export default function Step7DocuSealIVR({
 
   // Get the selected product
   const getSelectedProduct = () => {
+    console.log('=== IVR Step getSelectedProduct Debug ===');
+    console.log('formData.selected_products:', formData.selected_products);
+    console.log('formData.selected_products length:', formData.selected_products?.length);
+    console.log('products array length:', products.length);
+
     if (!formData.selected_products || formData.selected_products.length === 0) {
+      console.log('❌ No selected products found in IVR step');
       return null;
     }
 
     const firstProduct = formData.selected_products[0];
+    console.log('First selected product:', firstProduct);
+
     if (!firstProduct?.product_id) {
+      console.log('❌ First product missing product_id');
       return null;
     }
 
-    return products.find(p => p.id === firstProduct.product_id);
+    // First try to find the product in the products array
+    let foundProduct = products.find(p => p.id === firstProduct.product_id);
+
+    // If not found in products array, use the product data from selected_products
+    if (!foundProduct && firstProduct.product) {
+      console.log('✅ Using product data from selected_products[0].product');
+      foundProduct = firstProduct.product;
+    } else if (foundProduct) {
+      console.log('✅ Product found in products array');
+    } else {
+      console.log('❌ Product not found in products array and no product data in selected_products');
+      console.log('Available product IDs:', products.map(p => p.id));
+    }
+
+    return foundProduct;
   };
 
   const selectedProduct = getSelectedProduct();
@@ -312,7 +336,14 @@ export default function Step7DocuSealIVR({
 
   // Build extended payload for DocuSeal
   const productDetails = formData.selected_products?.map((item: any) => {
-    const prod = products.find(p => p.id === item.product_id);
+    // First try to find the product in the products array
+    let prod = products.find(p => p.id === item.product_id);
+
+    // If not found in products array, use the product data from selected_products
+    if (!prod && item.product) {
+      prod = item.product;
+    }
+
     return {
       name: prod?.name || '',
       code: prod?.code || '',
@@ -498,34 +529,22 @@ export default function Step7DocuSealIVR({
         ivr_completed_at: new Date().toISOString()
       });
 
-      // Call our enhanced service to finalize the submission
-      const response = await axios.post('/api/v1/enhanced-docuseal/finalize-submission', {
-        submission_id: submissionId,
-        episode_id: formData.episode_id,
-        form_data: formData,
-        completion_data: submissionData
-      });
+      // Since the DocuSeal form is completed successfully,
+      // proceed to the next step instead of redirecting
+      console.log('✅ DocuSeal submission completed successfully:', submissionId);
 
-      if (response.data.success) {
-        setEnhancedSubmission(response.data);
-        setIsCompleted(true);
+      setIsCompleted(true);
 
-        // Redirect to order summary after 3 seconds
-        const timeout = setTimeout(() => {
-          router.visit(`/quick-request/order-summary/${response.data.order_id}`, {
-            method: 'get',
-            data: {
-              submission_id: submissionId,
-              episode_id: formData.episode_id
-            }
-          });
-        }, 3000);
+      // Show success message
+      setSubmissionError(''); // Clear any previous errors
 
-        setRedirectTimeout(timeout as unknown as number);
-      } else {
-        console.error('Enhanced submission processing failed:', response.data.error);
-        setIsCompleted(true); // Still mark as completed, but show warning
-      }
+      // Go to next step after a short delay
+      const timeout = setTimeout(() => {
+        // Call the onNext function to proceed to the next step
+        if (onNext) {
+          onNext();
+        }
+      }, 2000);
 
     } catch (error) {
       console.error('Error processing DocuSeal completion:', error);
@@ -536,33 +555,10 @@ export default function Step7DocuSealIVR({
   };
 
   const handleDocuSealError = (error: string) => {
+    console.error('DocuSeal error:', error);
     setSubmissionError(error);
     setIsProcessing(false);
   };
-
-  const handleManualRedirect = () => {
-    if (redirectTimeout) {
-      clearTimeout(redirectTimeout);
-    }
-
-    const orderId = enhancedSubmission?.order_id || formData.episode_id || 'unknown';
-    router.visit(`/quick-request/order-summary/${orderId}`, {
-      method: 'get',
-      data: {
-        submission_id: formData.docuseal_submission_id,
-        episode_id: formData.episode_id
-      }
-    });
-  };
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (redirectTimeout) {
-        clearTimeout(redirectTimeout);
-      }
-    };
-  }, [redirectTimeout]);
 
   // Set NO_IVR_REQUIRED when manufacturer doesn't require signature
   useEffect(() => {
@@ -841,16 +837,16 @@ export default function Step7DocuSealIVR({
               <p className={cn("text-sm font-medium mb-2",
                 theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
               )}>
-                Redirecting to Order Summary...
+                Proceeding to Final Review...
               </p>
               <p className={cn("text-xs",
                 theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
               )}>
-                You will be automatically redirected to view your complete order details.
+                You will be automatically taken to the final review step to complete your order.
               </p>
 
               <button
-                onClick={handleManualRedirect}
+                onClick={() => onNext && onNext()}
                 className={cn(
                   "mt-3 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                   theme === 'dark'
@@ -858,7 +854,7 @@ export default function Step7DocuSealIVR({
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 )}
               >
-                View Order Summary Now
+                Continue to Final Review
                 <FiArrowRight className="ml-2 h-4 w-4" />
               </button>
             </div>
@@ -891,7 +887,7 @@ export default function Step7DocuSealIVR({
                   </p>
                   <button
                     onClick={() => {
-                      setSubmissionError(null);
+                      setSubmissionError('');
                       setIsCompleted(false);
                     }}
                     className={cn(

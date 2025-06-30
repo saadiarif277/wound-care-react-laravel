@@ -115,15 +115,25 @@ export default function Step5ProductSelection({
   }, [formData.provider_id]);
 
   const handleProductsChange = (selectedProducts: SelectedProduct[]) => {
+    console.log('=== Product Selection Change Debug ===');
+    console.log('Incoming selectedProducts:', selectedProducts);
+    console.log('Current formData.selected_products:', formData.selected_products);
+
     // Store provider-product mapping in formData, format size as '2 x 2'
+    const updatedProducts = selectedProducts.map((item) => ({
+      ...item,
+      provider_id: formData.provider_id,
+      // Ensure product size is formatted as '2 x 2'
+      size: item.size ? String(item.size).replace(/\s*([xX×^])\s*/g, ' x ') : undefined,
+    }));
+
+    console.log('Updated products to save:', updatedProducts);
+
     updateFormData({
-      selected_products: selectedProducts.map((item) => ({
-        ...item,
-        provider_id: formData.provider_id,
-        // Ensure product size is formatted as '2 x 2'
-        size: item.size ? String(item.size).replace(/\s*([xX×^])\s*/g, ' x ') : undefined,
-      }))
+      selected_products: updatedProducts
     });
+
+    console.log('Product selection updated successfully');
   };
 
   return (

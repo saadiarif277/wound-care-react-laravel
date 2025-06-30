@@ -25,6 +25,8 @@ export interface ManufacturerData {
   // Order form properties
   has_order_form?: boolean;
   order_form_template_id?: string;
+  // IVR properties
+  supports_insurance_upload_in_ivr?: boolean;
 }
 
 interface UseManufacturersResult {
@@ -46,7 +48,7 @@ export function useManufacturers(): UseManufacturersResult {
       setLoading(true);
       setError(null);
       const response = await axios.get('/api/v1/manufacturers');
-      
+
       // Validate response structure
       if (response.data && response.data.data && Array.isArray(response.data.data)) {
         setManufacturers(response.data.data);
@@ -57,7 +59,7 @@ export function useManufacturers(): UseManufacturersResult {
       }
     } catch (err: any) {
       console.error('Error fetching manufacturers:', err);
-      
+
       // Enhanced error handling
       if (err.response?.status === 401) {
         setError('Authentication required. Please log in.');

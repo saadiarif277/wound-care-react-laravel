@@ -53,6 +53,11 @@ class ProductRequest extends Model
         'approved_at',
         'total_order_value',
         'acquiring_rep_id',
+        // Additional fields needed for QuickRequest
+        'requester_id',
+        'request_type',
+        'submission_type',
+        'metadata',
         // IVR fields
         'ivr_required',
         'ivr_bypass_reason',
@@ -92,6 +97,8 @@ class ProductRequest extends Model
         'pre_auth_denied_at' => 'datetime',
         'total_order_value' => 'decimal:2',
         'medicare_part_b_authorized' => 'boolean',
+        // Additional casts for QuickRequest fields
+        'metadata' => 'array',
         // IVR casts
         'ivr_required' => 'boolean',
         'ivr_bypassed_at' => 'datetime',
