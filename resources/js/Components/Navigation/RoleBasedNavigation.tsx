@@ -96,8 +96,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/product-requests/create',
               icon: FiPlus,
               roles: ['provider']
-<<<<<<< HEAD
-=======
             },
             {
               name: 'My Orders',
@@ -105,7 +103,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               icon: FiShoppingCart,
               roles: ['provider'],
               description: 'Track your submitted orders'
->>>>>>> origin/provider-side
             }
           ]
         },
@@ -201,8 +198,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               href: '/product-requests/facility',
               icon: FiMapPin,
               roles: ['office-manager']
-<<<<<<< HEAD
-=======
             },
             {
               name: 'My Orders',
@@ -210,7 +205,6 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
               icon: FiShoppingCart,
               roles: ['office-manager'],
               description: 'Track submitted orders'
->>>>>>> origin/provider-side
             }
           ]
         },

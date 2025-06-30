@@ -96,24 +96,6 @@ class DocuSealWebhookController extends Controller
         $episode = $this->findEpisodeByPatientInfo($patientInfo, $data);
 
         if ($episode) {
-<<<<<<< HEAD
-            // Store the completed IVR document in the episode
-            $this->storeIVRDocument($episode, $data);
-
-            // Update episode status if it's waiting for IVR
-            if ($episode->status === 'ready_for_review' && $episode->ivr_status !== 'provider_completed') {
-                $episode->update([
-                    'ivr_status' => 'provider_completed',
-                    'docuseal_submission_id' => $submissionId,
-                    'docuseal_status' => 'completed',
-                    'docuseal_signed_at' => now(),
-                ]);
-
-                Log::info('Episode IVR status updated', [
-                    'episode_id' => $episode->id,
-                    'submission_id' => $submissionId,
-                ]);
-=======
             // Determine if this is an IVR or order form based on template name/type
             $templateName = $data['template']['name'] ?? '';
             $isOrderForm = $this->isOrderFormTemplate($templateName, $data);
@@ -121,7 +103,7 @@ class DocuSealWebhookController extends Controller
             if ($isOrderForm) {
                 // Handle order form completion
                 $this->storeOrderFormDocument($episode, $data);
-                
+
                 // Update order form status
                 $episode->update([
                     'order_form_status' => 'completed',
@@ -152,7 +134,6 @@ class DocuSealWebhookController extends Controller
                         'submission_id' => $submissionId,
                     ]);
                 }
->>>>>>> origin/provider-side
             }
         } else {
             Log::warning('Could not find episode for completed IVR', [
@@ -293,8 +274,6 @@ class DocuSealWebhookController extends Controller
     }
 
     /**
-<<<<<<< HEAD
-=======
      * Store order form document in episode metadata
      */
     private function storeOrderFormDocument(PatientManufacturerIVREpisode $episode, array $webhookData): void
@@ -357,7 +336,7 @@ class DocuSealWebhookController extends Controller
         ];
 
         $lowerTemplateName = strtolower($templateName);
-        
+
         foreach ($orderFormPatterns as $pattern) {
             if (strpos($lowerTemplateName, $pattern) !== false) {
                 return true;
@@ -367,7 +346,7 @@ class DocuSealWebhookController extends Controller
         // Check if template has specific order form fields
         $values = $webhookData['values'] ?? [];
         $orderFormFields = ['product_quantity', 'shipping_address', 'order_total', 'delivery_date'];
-        
+
         foreach ($values as $field) {
             $fieldName = strtolower($field['field'] ?? '');
             foreach ($orderFormFields as $orderField) {
@@ -381,7 +360,6 @@ class DocuSealWebhookController extends Controller
     }
 
     /**
->>>>>>> origin/provider-side
      * Handle submission completed event (legacy format)
      */
     private function handleSubmissionCompleted(array $data)

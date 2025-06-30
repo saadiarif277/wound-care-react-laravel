@@ -23,10 +23,6 @@ use App\Models\Docuseal\DocusealTemplate;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use App\Jobs\QuickRequest\SendManufacturerNotification;
-<<<<<<< HEAD
-use App\Jobs\QuickRequest\GenerateDocuSealPdf;
-=======
->>>>>>> origin/provider-side
 use App\Jobs\QuickRequest\CreateApprovalTask;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
@@ -43,10 +39,7 @@ use Inertia\Response;
 use Illuminate\Support\Facades\Http;
 use App\Models\Episode;
 use App\Services\FhirDocuSealIntegrationService;
-<<<<<<< HEAD
-=======
 use App\Services\UnifiedFieldMappingService;
->>>>>>> origin/provider-side
 
 /**
  * QuickRequestController
@@ -62,12 +55,8 @@ final class QuickRequestController extends Controller
         protected PatientService $patientService,
         protected PayerService $payerService,
         protected CurrentOrganization $currentOrganization,
-<<<<<<< HEAD
-        protected DocuSealService $docuSealService
-=======
         protected DocuSealService $docuSealService,
         protected UnifiedFieldMappingService $fieldMappingService
->>>>>>> origin/provider-side
     ) {}
 
     /**
@@ -82,42 +71,30 @@ final class QuickRequestController extends Controller
             $this->currentOrganization->setId($currentOrg->id);
         }
 
-<<<<<<< HEAD
-        return Inertia::render('QuickRequest/CreateNew', [
-            'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
-            'providers' => $this->getProvidersForUser($user, $currentOrg),
-            'products' => $this->getActiveProducts(),
-=======
         // Determine if we should filter products by provider
         $providerId = null;
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
         $roleRestrictions = $this->getRoleRestrictions($userRole);
-        
+
         if ($userRole === 'provider') {
             $providerId = $user->id;
         }
         // Office managers don't see products initially - they select a provider first
-        
+
         return Inertia::render('QuickRequest/CreateNew', [
             'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
             'providers' => $this->getProvidersForUser($user, $currentOrg),
             'products' => $userRole === 'office-manager' ? [] : $this->getActiveProducts($providerId),
->>>>>>> origin/provider-side
             'woundTypes' => $this->getWoundTypes(),
             'insuranceCarriers' => $this->getInsuranceCarriers(),
             'diagnosisCodes' => $this->getDiagnosisCodes(),
             'currentUser' => $this->getCurrentUserData($user, $currentOrg),
             'providerProducts' => [],
-<<<<<<< HEAD
-=======
             'roleRestrictions' => $roleRestrictions,
->>>>>>> origin/provider-side
         ]);
     }
 
     /**
-<<<<<<< HEAD
-=======
      * Display the order review page
      */
     public function reviewOrder(Request $request): Response|RedirectResponse
@@ -135,12 +112,12 @@ final class QuickRequestController extends Controller
         // Load necessary data for the review page
         $user = $this->loadUserWithRelations();
         $currentOrg = $user->organizations->first();
-        
+
         // Determine if we should filter products by provider
         $providerId = null;
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
         $roleRestrictions = $this->getRoleRestrictions($userRole);
-        
+
         if ($userRole === 'provider') {
             $providerId = $user->id;
         }
@@ -239,7 +216,6 @@ final class QuickRequestController extends Controller
     }
 
     /**
->>>>>>> origin/provider-side
      * Store a new quick request
      */
     public function store(StoreRequest $request): RedirectResponse
@@ -393,31 +369,17 @@ final class QuickRequestController extends Controller
 
             // Load authenticated user's profile data
             $userProfileData = $this->loadUserProfileDataForDocuSeal();
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
             }
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             // Map fields if we have prefill data and manufacturer
             $mappedFields = [];
             if (!empty($data['prefill_data']) && $manufacturerId) {
                 try {
                     $template = $this->getTemplateForManufacturer($manufacturerId);
                     if ($template) {
-<<<<<<< HEAD
-                        $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
-=======
                         $mappedFields = $this->docuSealService->mapFieldsWithAI(
->>>>>>> origin/provider-side
                             $data['prefill_data'],
                             $template
                         );
@@ -509,17 +471,10 @@ final class QuickRequestController extends Controller
             ]);
 
             $prefillData = $data['prefill_data'];
-<<<<<<< HEAD
-            
-            // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
-            
-=======
 
             // Load authenticated user's profile data
             $userProfileData = $this->loadUserProfileDataForDocuSeal();
 
->>>>>>> origin/provider-side
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
                 $prefillData = array_merge($userProfileData, $prefillData);
@@ -567,11 +522,7 @@ final class QuickRequestController extends Controller
             return response()->json([
                 'success' => true,
                 'submission_id' => $response['submission_id'],
-<<<<<<< HEAD
-                'embed_url' => "https://api.docuseal.com/s/{$response['submission_id']}",
-=======
                 'embed_url' => "https://docuseal.com/s/{$response['submission_id']}",
->>>>>>> origin/provider-side
                 'template_id' => $template->docuseal_template_id,
                 'manufacturer' => $template->manufacturer->name,
                 'manufacturer_id' => $manufacturerId
@@ -626,17 +577,10 @@ final class QuickRequestController extends Controller
             if (!$template) {
                 throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
             }
-<<<<<<< HEAD
-            
-            // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
-            
-=======
 
             // Load authenticated user's profile data
             $userProfileData = $this->loadUserProfileDataForDocuSeal();
 
->>>>>>> origin/provider-side
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
@@ -646,11 +590,7 @@ final class QuickRequestController extends Controller
             $mappedFields = [];
             if (!empty($data['prefill_data'])) {
                 try {
-<<<<<<< HEAD
-                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
-=======
                     $mappedFields = $this->docuSealService->mapFieldsWithAI(
->>>>>>> origin/provider-side
                         $data['prefill_data'],
                         $template
                     );
@@ -741,13 +681,9 @@ final class QuickRequestController extends Controller
                 'integration_email' => 'nullable|email',
                 'prefill_data' => 'nullable|array',
                 'manufacturerId' => 'nullable|numeric', // Accept both string and integer
-<<<<<<< HEAD
-                'productCode' => 'nullable|string',
-=======
                 'templateId' => 'nullable|string',
                 'productCode' => 'nullable|string',
                 'documentType' => 'nullable|string|in:IVR,OrderForm',
->>>>>>> origin/provider-side
                 'episode_id' => 'nullable|integer',
             ]);
 
@@ -756,10 +692,7 @@ final class QuickRequestController extends Controller
                 'form_data_count' => count($data['prefill_data'] ?? []),
                 'manufacturer_id' => $data['manufacturerId'] ?? 'not_provided',
                 'product_code' => $data['productCode'] ?? 'not_provided',
-<<<<<<< HEAD
-=======
                 'document_type' => $data['documentType'] ?? 'IVR',
->>>>>>> origin/provider-side
                 'episode_id' => $data['episode_id'] ?? 'not_provided',
                 'sample_form_data' => array_slice($data['prefill_data'] ?? [], 0, 10)
             ]);
@@ -810,11 +743,7 @@ final class QuickRequestController extends Controller
             // Step 3: Episode and FHIR Integration (if available)
             $episode = null;
             if (!empty($data['episode_id'])) {
-<<<<<<< HEAD
-                $episode = \App\Models\Episode::find($data['episode_id']);
-=======
                 $episode = Episode::find($data['episode_id']);
->>>>>>> origin/provider-side
                 if ($episode) {
                     Log::info('🔍 Episode found for FHIR integration', [
                         'episode_id' => $episode->id,
@@ -827,16 +756,6 @@ final class QuickRequestController extends Controller
                     ]);
                 }
             }
-<<<<<<< HEAD
-            
-            // Step 3a: Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
-            
-            // Merge user profile data with prefill data
-            if (!empty($userProfileData)) {
-                $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
-                
-=======
 
             // Step 3a: Load authenticated user's profile data
             // Extract facility_id from prefill_data if available
@@ -847,7 +766,6 @@ final class QuickRequestController extends Controller
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
 
->>>>>>> origin/provider-side
                 Log::info('✅ User profile data loaded for DocuSeal', [
                     'user_id' => Auth::id(),
                     'profile_fields_added' => array_keys($userProfileData),
@@ -865,11 +783,7 @@ final class QuickRequestController extends Controller
                         'manufacturer_id' => $manufacturerId
                     ]);
 
-<<<<<<< HEAD
-                    $fhirIntegrationService = app(\App\Services\FhirDocuSealIntegrationService::class);
-=======
                     $fhirIntegrationService = app(FhirDocuSealIntegrationService::class);
->>>>>>> origin/provider-side
                     $result = $fhirIntegrationService->createProviderOrderSubmission($episode, $data['prefill_data'] ?? []);
 
                     if ($result['success']) {
@@ -908,19 +822,6 @@ final class QuickRequestController extends Controller
             }
 
             // Step 4: Template Resolution (CRITICAL STEP)
-<<<<<<< HEAD
-            Log::info('🔍 Starting template resolution', [
-                'manufacturer_id' => $manufacturerId,
-                'product_code' => $data['productCode'] ?? 'none'
-            ]);
-
-            $template = $this->getTemplateForManufacturer($manufacturerId);
-
-            if (!$template) {
-                $availableTemplates = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturerId)
-                    ->pluck('template_name', 'id')->toArray();
-                $allTemplates = \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
-=======
             $documentType = $data['documentType'] ?? 'IVR';
             Log::info('🔍 Starting template resolution', [
                 'manufacturer_id' => $manufacturerId,
@@ -934,7 +835,7 @@ final class QuickRequestController extends Controller
                 $template = DocusealTemplate::where('docuseal_template_id', $data['templateId'])
                     ->where('is_active', true)
                     ->first();
-                    
+
                 if ($template) {
                     Log::info('✅ Template found by direct ID', [
                         'docuseal_template_id' => $data['templateId']
@@ -949,7 +850,6 @@ final class QuickRequestController extends Controller
                 $availableTemplates = DocusealTemplate::where('manufacturer_id', $manufacturerId)
                     ->pluck('template_name', 'id')->toArray();
                 $allTemplates = DocusealTemplate::with('manufacturer')
->>>>>>> origin/provider-side
                     ->get()
                     ->mapWithKeys(function ($t) {
                         return [$t->id => ($t->manufacturer->name ?? 'Unknown') . ' - ' . $t->template_name];
@@ -970,40 +870,9 @@ final class QuickRequestController extends Controller
                 'field_mappings_count' => is_array($template->field_mappings) ? count($template->field_mappings) : 0
             ]);
 
-<<<<<<< HEAD
-            // Step 5: Field Mapping with Enhanced Error Handling
-            $mappedFields = [];
-            if (!empty($data['prefill_data'])) {
-                Log::info('🗂️ Starting field mapping', [
-                    'input_fields_count' => count($data['prefill_data']),
-                    'template_mappings_available' => !empty($template->field_mappings),
-                    'first_10_input_fields' => array_slice(array_keys($data['prefill_data']), 0, 10)
-                ]);
-
-                try {
-                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate(
-                        $data['prefill_data'],
-                        $template
-                    );
-
-                    Log::info('✅ Field mapping SUCCESSFUL', [
-                        'original_fields' => count($data['prefill_data']),
-                        'mapped_fields' => count($mappedFields),
-                        'sample_mapped_fields' => array_slice($mappedFields, 0, 5),
-                        'mapping_success_rate' => count($data['prefill_data']) > 0 ?
-                            round((count($mappedFields) / count($data['prefill_data'])) * 100, 2) . '%' : '0%'
-                    ]);
-                } catch (\Exception $e) {
-                    Log::error('❌ Field mapping FAILED', [
-                        'error' => $e->getMessage(),
-                        'input_field_count' => count($data['prefill_data'])
-                    ]);
-                    // Continue with empty mapped fields rather than failing
-                    $mappedFields = [];
-=======
             // Step 5: SIMPLIFIED Field Mapping - Using UnifiedFieldMappingService exclusively
             $docuSealFields = [];
-            
+
             if (!empty($data['prefill_data'])) {
                 Log::info('🗂️ Starting unified field mapping', [
                     'input_fields_count' => count($data['prefill_data']),
@@ -1014,17 +883,17 @@ final class QuickRequestController extends Controller
                 try {
                     // Get manufacturer configuration based on document type
                     $manufacturerConfig = $this->fieldMappingService->getManufacturerConfig($manufacturer->name, $documentType);
-                    
+
                     if (!$manufacturerConfig) {
                         throw new \Exception("No field mapping configuration found for manufacturer: {$manufacturer->name} and document type: {$documentType}");
                     }
-                    
+
                     Log::info('📋 Manufacturer config loaded', [
                         'manufacturer' => $manufacturer->name,
                         'has_docuseal_field_names' => isset($manufacturerConfig['docuseal_field_names']),
                         'field_count' => count($manufacturerConfig['fields'] ?? [])
                     ]);
-                    
+
                     // Map the data using the unified service
                     $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
                         $episode ? $episode->id : null,
@@ -1032,28 +901,28 @@ final class QuickRequestController extends Controller
                         $data['prefill_data'] ?? [],
                         $documentType
                     );
-                    
+
                     Log::info('🔄 Field mapping completed', [
                         'canonical_fields_mapped' => count($mappingResult['data'] ?? []),
                         'validation_valid' => $mappingResult['validation']['valid'] ?? false,
                         'completeness_percentage' => $mappingResult['completeness']['percentage'] ?? 0
                     ]);
-                    
+
                     // Convert to DocuSeal format
                     $docuSealFields = $this->fieldMappingService->convertToDocuSealFields(
-                        $mappingResult['data'], 
+                        $mappingResult['data'],
                         $manufacturerConfig,
                         $documentType
                     );
-                    
+
                     Log::info('✅ DocuSeal field conversion completed', [
                         'docuseal_fields_count' => count($docuSealFields),
                         'sample_fields' => array_slice($docuSealFields, 0, 5),
-                        'all_field_names' => array_map(function($f) { 
-                            return $f['name'] ?? 'unnamed'; 
+                        'all_field_names' => array_map(function($f) {
+                            return $f['name'] ?? 'unnamed';
                         }, $docuSealFields)
                     ]);
-                    
+
                 } catch (\Exception $e) {
                     Log::error('❌ Unified field mapping FAILED', [
                         'error' => $e->getMessage(),
@@ -1061,7 +930,6 @@ final class QuickRequestController extends Controller
                     ]);
                     // Continue with empty fields rather than failing completely
                     $docuSealFields = [];
->>>>>>> origin/provider-side
                 }
             }
 
@@ -1092,11 +960,7 @@ final class QuickRequestController extends Controller
                     [
                         'email' => $data['integration_email'] ?? $data['user_email'],
                         'role' => $templateRole,
-<<<<<<< HEAD
-                        'fields' => $mappedFields
-=======
                         'fields' => $docuSealFields
->>>>>>> origin/provider-side
                     ]
                 ]
             ];
@@ -1110,25 +974,16 @@ final class QuickRequestController extends Controller
                 throw new \Exception('Submitter email is invalid: ' . $submissionData['submitters'][0]['email']);
             }
 
-<<<<<<< HEAD
-            Log::info('📤 Sending DocuSeal API request', [
-                'template_id' => $submissionData['template_id'],
-                'submitter_email' => $submissionData['submitters'][0]['email'],
-                'submitter_role' => $submissionData['submitters'][0]['role'],
-                'fields_count' => count($submissionData['submitters'][0]['fields']),
-                'api_endpoint' => "{$apiUrl}/submissions"
-=======
             // Log the submission data being sent
             Log::info('📤 Sending DocuSeal submission request', [
                 'template_id' => $submissionData['template_id'],
                 'submitter_email' => $submissionData['submitters'][0]['email'],
                 'submitter_role' => $submissionData['submitters'][0]['role'],
                 'field_count' => count($docuSealFields),
-                'field_names' => array_map(function($f) { 
-                    return $f['name'] ?? 'unnamed'; 
+                'field_names' => array_map(function($f) {
+                    return $f['name'] ?? 'unnamed';
                 }, $docuSealFields),
                 'api_url' => $apiUrl . '/submissions'
->>>>>>> origin/provider-side
             ]);
 
             // Step 8: Make API Call with Enhanced Error Handling
@@ -1227,14 +1082,9 @@ final class QuickRequestController extends Controller
                 'submission_id' => $submissionId,
                 'slug' => $slug,
                 'submitter_email' => $submitters[0]['email'] ?? null,
-<<<<<<< HEAD
-                'mapped_fields_count' => count($mappedFields),
-                'manufacturer' => $manufacturer->name,
-=======
                 'fields_mapped' => count($docuSealFields),
                 'manufacturer' => $manufacturer->name,
                 'document_type' => $documentType,
->>>>>>> origin/provider-side
                 'integration_type' => 'standard'
             ]);
 
@@ -1245,14 +1095,6 @@ final class QuickRequestController extends Controller
                 'template_id' => $template->docuseal_template_id,
                 'template_name' => $template->template_name,
                 'manufacturer' => $manufacturer->name,
-<<<<<<< HEAD
-                'mapped_fields_count' => count($mappedFields),
-                'embed_url' => "https://docuseal.com/s/{$slug}",
-                'integration_type' => 'standard'
-            ]);
-
-        } catch (\Illuminate\Validation\ValidationException $e) {
-=======
                 'fields_mapped' => count($docuSealFields),
                 'embed_url' => "https://docuseal.com/s/{$slug}",
                 'integration_type' => 'standard',
@@ -1260,7 +1102,6 @@ final class QuickRequestController extends Controller
             ]);
 
         } catch (ValidationException $e) {
->>>>>>> origin/provider-side
             Log::error('❌ Validation failed', [
                 'errors' => $e->errors(),
                 'request_data' => $request->all()
@@ -1306,306 +1147,6 @@ final class QuickRequestController extends Controller
     public function debugDocuSealIntegration(Request $request): JsonResponse
     {
         try {
-<<<<<<< HEAD
-            $manufacturerId = $request->get('manufacturerId', 32); // Default to your Amnio AMP manufacturer
-            $productCode = $request->get('productCode', 'Q4250');
-
-            $debugInfo = [
-                'timestamp' => now()->toISOString(),
-                'system_info' => [
-                    'php_version' => PHP_VERSION,
-                    'laravel_version' => app()->version(),
-                    'user_id' => Auth::id(),
-                    'environment' => app()->environment()
-                ],
-                'configuration' => [
-                    'api_key_configured' => !empty(config('docuseal.api_key')),
-                    'api_key_length' => strlen(config('docuseal.api_key') ?? ''),
-                    'api_key_prefix' => substr(config('docuseal.api_key') ?? '', 0, 8) . '...',
-                    'api_url' => config('docuseal.api_url', 'https://api.docuseal.com'),
-                    'timeout' => config('docuseal.timeout', 30)
-                ],
-                'manufacturer_info' => [],
-                'template_info' => [],
-                'api_connectivity' => [],
-                'field_mapping_test' => [],
-                'role_detection_test' => []
-            ];
-
-            // Test 1: Manufacturer lookup
-            $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
-            if ($manufacturer) {
-                $debugInfo['manufacturer_info'] = [
-                    'found' => true,
-                    'id' => $manufacturer->id,
-                    'name' => $manufacturer->name,
-                    'templates_count' => $manufacturer->docusealTemplates()->count(),
-                    'templates' => $manufacturer->docusealTemplates()->pluck('template_name', 'id')->toArray()
-                ];
-            } else {
-                $debugInfo['manufacturer_info'] = [
-                    'found' => false,
-                    'searched_id' => $manufacturerId,
-                    'available_manufacturers' => \App\Models\Order\Manufacturer::pluck('name', 'id')->toArray()
-                ];
-            }
-
-            // Test 2: Template lookup
-            $template = $this->getTemplateForManufacturer($manufacturerId);
-            if ($template) {
-                $debugInfo['template_info'] = [
-                    'found' => true,
-                    'id' => $template->id,
-                    'docuseal_template_id' => $template->docuseal_template_id,
-                    'template_name' => $template->template_name,
-                    'manufacturer_name' => $template->manufacturer->name ?? 'unknown',
-                    'field_mappings_count' => is_array($template->field_mappings) ? count($template->field_mappings) : 0,
-                    'has_field_mappings' => !empty($template->field_mappings),
-                    'sample_field_mappings' => is_array($template->field_mappings) ?
-                        array_slice($template->field_mappings, 0, 5) : []
-                ];
-            } else {
-                $debugInfo['template_info'] = [
-                    'found' => false,
-                    'searched_manufacturer_id' => $manufacturerId,
-                    'all_templates' => \App\Models\Docuseal\DocusealTemplate::with('manufacturer')
-                        ->get()
-                        ->map(function ($t) {
-                            return [
-                                'id' => $t->id,
-                                'docuseal_template_id' => $t->docuseal_template_id,
-                                'name' => $t->template_name,
-                                'manufacturer' => $t->manufacturer->name ?? 'Unknown',
-                                'manufacturer_id' => $t->manufacturer_id
-                            ];
-                        })->toArray()
-                ];
-            }
-
-            // Test 3: DocuSeal API connectivity and template discovery
-            $apiKey = config('docuseal.api_key');
-            $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
-
-            if ($apiKey) {
-                try {
-                    Log::info('🧪 Testing DocuSeal API connectivity with enhanced discovery', [
-                        'api_url' => $apiUrl,
-                        'api_key_length' => strlen($apiKey)
-                    ]);
-
-                    // Test 1: Basic connectivity with pagination
-                    $allTemplates = [];
-                    $page = 1;
-                    $totalPages = 0;
-
-                    while ($page <= 5) { // Limit to first 5 pages for debug
-                        $response = Http::withHeaders([
-                            'X-Auth-Token' => $apiKey,
-                            'User-Agent' => 'MSC-WoundCare/1.0'
-                        ])->timeout(15)->get("{$apiUrl}/templates", [
-                            'page' => $page,
-                            'per_page' => 50
-                        ]);
-
-                        if (!$response->successful()) {
-                            break;
-                        }
-
-                        $responseData = $response->json();
-                        $templates = $responseData['data'] ?? $responseData;
-
-                        if (empty($templates)) {
-                            break;
-                        }
-
-                        $allTemplates = array_merge($allTemplates, $templates);
-                        $totalPages = $page;
-                        $page++;
-
-                        // Stop if we got fewer templates than requested (last page)
-                        if (count($templates) < 50) {
-                            break;
-                        }
-                    }
-
-                    // Analyze templates by folder
-                    $folderAnalysis = [];
-                    $manufacturerMatches = [];
-
-                    foreach ($allTemplates as $template) {
-                        $folderName = $template['folder_name'] ?? 'No Folder';
-
-                        if (!isset($folderAnalysis[$folderName])) {
-                            $folderAnalysis[$folderName] = [
-                                'count' => 0,
-                                'templates' => []
-                            ];
-                        }
-
-                        $folderAnalysis[$folderName]['count']++;
-                        $folderAnalysis[$folderName]['templates'][] = [
-                            'id' => $template['id'],
-                            'name' => $template['name'],
-                            'created_at' => $template['created_at'] ?? null
-                        ];
-
-                        // Check if this template matches any known manufacturers
-                        $templateName = strtolower($template['name']);
-                        $folderNameLower = strtolower($folderName);
-
-                        $knownManufacturers = [
-                            'ACZ Distribution' => ['acz'],
-                            'MiMedx' => ['mimedx', 'mimx', 'amnio'],
-                            'BioWound' => ['biowound', 'bio wound'],
-                            'Skye Biologics' => ['skye'],
-                            'MSC' => ['msc'],
-                            'Advanced Health' => ['advanced health', 'advanced'],
-                            'Integra' => ['integra'],
-                            'Organogenesis' => ['organogenesis']
-                        ];
-
-                        foreach ($knownManufacturers as $mfgName => $patterns) {
-                            foreach ($patterns as $pattern) {
-                                if (str_contains($templateName, $pattern) || str_contains($folderNameLower, $pattern)) {
-                                    if (!isset($manufacturerMatches[$mfgName])) {
-                                        $manufacturerMatches[$mfgName] = [];
-                                    }
-                                    $manufacturerMatches[$mfgName][] = [
-                                        'template_id' => $template['id'],
-                                        'template_name' => $template['name'],
-                                        'folder' => $folderName,
-                                        'matched_pattern' => $pattern
-                                    ];
-                                    break 2; // Break both loops
-                                }
-                            }
-                        }
-                    }
-
-                    $debugInfo['api_connectivity'] = [
-                        'status' => 'success',
-                        'total_templates_found' => count($allTemplates),
-                        'pages_scanned' => $totalPages,
-                        'folder_analysis' => $folderAnalysis,
-                        'manufacturer_matches' => $manufacturerMatches,
-                        'summary' => [
-                            'total_folders' => count($folderAnalysis),
-                            'templates_with_folders' => count($allTemplates) - ($folderAnalysis['No Folder']['count'] ?? 0),
-                            'templates_without_folders' => $folderAnalysis['No Folder']['count'] ?? 0,
-                            'manufacturer_templates_found' => count($manufacturerMatches)
-                        ]
-                    ];
-
-                } catch (\Exception $e) {
-                    $debugInfo['api_connectivity'] = [
-                        'status' => 'exception',
-                        'error' => $e->getMessage(),
-                        'error_type' => get_class($e)
-                    ];
-                }
-            } else {
-                $debugInfo['api_connectivity'] = [
-                    'status' => 'no_api_key',
-                    'message' => 'DocuSeal API key not configured'
-                ];
-            }
-
-            // Test 4: Role detection test (if template found)
-            if ($template && $apiKey) {
-                try {
-                    Log::info('🧪 Testing role detection', [
-                        'template_id' => $template->docuseal_template_id
-                    ]);
-
-                    $role = $this->getTemplateRole($template->docuseal_template_id, $apiKey);
-                    $debugInfo['role_detection_test'] = [
-                        'status' => 'success',
-                        'detected_role' => $role,
-                        'template_id' => $template->docuseal_template_id
-                    ];
-                } catch (\Exception $e) {
-                    $debugInfo['role_detection_test'] = [
-                        'status' => 'failed',
-                        'error' => $e->getMessage(),
-                        'template_id' => $template->docuseal_template_id,
-                        'fallback_role' => 'First Party'
-                    ];
-                }
-            }
-
-            // Test 5: Field mapping test
-            if ($template) {
-                $sampleData = [
-                    'patient_first_name' => 'John',
-                    'patient_last_name' => 'Doe',
-                    'patient_dob' => '1990-01-01',
-                    'provider_name' => 'Dr. Smith',
-                    'provider_npi' => '1234567890'
-                ];
-
-                try {
-                    Log::info('🧪 Testing field mapping', [
-                        'template_id' => $template->id,
-                        'sample_data_count' => count($sampleData)
-                    ]);
-
-                    $mappedFields = $this->docuSealService->mapFieldsUsingTemplate($sampleData, $template);
-                    $debugInfo['field_mapping_test'] = [
-                        'status' => 'success',
-                        'input_fields' => count($sampleData),
-                        'mapped_fields' => count($mappedFields),
-                        'mapping_success_rate' => count($sampleData) > 0 ?
-                            round((count($mappedFields) / count($sampleData)) * 100, 2) . '%' : '0%',
-                        'sample_mappings' => array_slice($mappedFields, 0, 5)
-                    ];
-                } catch (\Exception $e) {
-                    $debugInfo['field_mapping_test'] = [
-                        'status' => 'failed',
-                        'error' => $e->getMessage(),
-                        'input_fields' => count($sampleData)
-                    ];
-                }
-            }
-
-            // Test 6: Full submission test (dry run)
-            if ($template && $apiKey && $debugInfo['api_connectivity']['status'] === 'success') {
-                try {
-                    Log::info('🧪 Testing full submission creation (dry run)', [
-                        'template_id' => $template->docuseal_template_id
-                    ]);
-
-                    // Create a test submission to see if it would work
-                    $testSubmissionData = [
-                        'template_id' => (int) $template->docuseal_template_id,
-                        'send_email' => false,
-                        'submitters' => [
-                            [
-                                'email' => 'test@mscwoundcare.com',
-                                'role' => $debugInfo['role_detection_test']['detected_role'] ?? 'First Party',
-                                'fields' => $debugInfo['field_mapping_test']['sample_mappings'] ?? []
-                            ]
-                        ]
-                    ];
-
-                    // Just validate the structure, don't actually create
-                    $debugInfo['submission_test'] = [
-                        'status' => 'validated',
-                        'submission_data' => $testSubmissionData,
-                        'validation' => [
-                            'template_id_valid' => is_int($testSubmissionData['template_id']),
-                            'email_valid' => filter_var($testSubmissionData['submitters'][0]['email'], FILTER_VALIDATE_EMAIL),
-                            'role_present' => !empty($testSubmissionData['submitters'][0]['role']),
-                            'fields_present' => is_array($testSubmissionData['submitters'][0]['fields'])
-                        ]
-                    ];
-
-                } catch (\Exception $e) {
-                    $debugInfo['submission_test'] = [
-                        'status' => 'failed',
-                        'error' => $e->getMessage()
-                    ];
-                }
-=======
             $manufacturerId = $request->get('manufacturerId', 32);
             $productCode = $request->get('productCode', 'Q4250');
 
@@ -1617,24 +1158,13 @@ final class QuickRequestController extends Controller
             if ($template = $this->getTemplateForManufacturer($manufacturerId)) {
                 $debugInfo['role_detection_test'] = $this->testRoleDetection($template);
                 $debugInfo['field_mapping_test'] = $this->testFieldMapping($template);
->>>>>>> origin/provider-side
             }
 
             return response()->json([
                 'success' => true,
                 'debug_info' => $debugInfo,
                 'recommendations' => $this->generateDebugRecommendations($debugInfo),
-<<<<<<< HEAD
-                'next_steps' => [
-                    'If API connectivity failed: Check your DocuSeal API key and network connectivity',
-                    'If template not found: Verify manufacturer has associated DocuSeal templates',
-                    'If role detection failed: Check template configuration in DocuSeal',
-                    'If field mapping failed: Review template field mappings in database',
-                    'Test with: POST /quick-requests/docuseal/generate-submission-slug'
-                ]
-=======
                 'next_steps' => $this->getDebugNextSteps()
->>>>>>> origin/provider-side
             ]);
 
         } catch (\Exception $e) {
@@ -1648,23 +1178,13 @@ final class QuickRequestController extends Controller
                 'error' => 'Debug endpoint failed: ' . $e->getMessage(),
                 'basic_checks' => [
                     'api_key_configured' => !empty(config('docuseal.api_key')),
-<<<<<<< HEAD
-                    'manufacturer_exists' => \App\Models\Order\Manufacturer::find($manufacturerId) !== null,
-                    'templates_exist' => \App\Models\Docuseal\DocusealTemplate::count() > 0
-=======
                     'manufacturer_exists' => \App\Models\Order\Manufacturer::find($request->get('manufacturerId', 32)) !== null,
                     'templates_exist' => DocusealTemplate::count() > 0
->>>>>>> origin/provider-side
                 ]
             ], 500);
         }
     }
 
-<<<<<<< HEAD
-    /**
-     * Generate recommendations based on debug results
-     */
-=======
     private function buildBaseDebugInfo(): array
     {
         return [
@@ -1841,7 +1361,6 @@ final class QuickRequestController extends Controller
         ];
     }
 
->>>>>>> origin/provider-side
     private function generateDebugRecommendations(array $debugInfo): array
     {
         $recommendations = [];
@@ -1862,17 +1381,6 @@ final class QuickRequestController extends Controller
             $recommendations[] = '❌ DocuSeal API connectivity failed - check API key and network';
         }
 
-<<<<<<< HEAD
-        if (isset($debugInfo['role_detection_test']['status']) && $debugInfo['role_detection_test']['status'] === 'failed') {
-            $recommendations[] = '⚠️ Role detection failed - will use fallback role "First Party"';
-        }
-
-        if (isset($debugInfo['field_mapping_test']['status']) && $debugInfo['field_mapping_test']['status'] === 'failed') {
-            $recommendations[] = '⚠️ Field mapping failed - check template field mappings configuration';
-        }
-
-=======
->>>>>>> origin/provider-side
         if (empty($recommendations)) {
             $recommendations[] = '✅ All checks passed - DocuSeal integration should work properly';
         }
@@ -1899,10 +1407,8 @@ final class QuickRequestController extends Controller
      */
     private function getFacilitiesForUser(User $user, $currentOrg): \Illuminate\Support\Collection
     {
-<<<<<<< HEAD
-=======
         $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
-        
+
         // Office managers should only see their assigned facility
         if ($userRole === 'office-manager') {
             $userFacilities = $user->facilities->map(function($facility) {
@@ -1913,13 +1419,12 @@ final class QuickRequestController extends Controller
                     'source' => 'user_relationship'
                 ];
             });
-            
+
             // Office managers should have exactly one facility
             return $userFacilities;
         }
-        
+
         // Providers can select from multiple facilities
->>>>>>> origin/provider-side
         $userFacilities = $user->facilities->map(function($facility) {
             return [
                 'id' => $facility->id,
@@ -1993,25 +1498,18 @@ final class QuickRequestController extends Controller
     /**
      * Get active products
      */
-<<<<<<< HEAD
-    private function getActiveProducts(): \Illuminate\Support\Collection
-    {
-        return Product::where('is_active', true)
-            ->get()
-=======
     private function getActiveProducts(?int $providerId = null): \Illuminate\Support\Collection
     {
         $query = Product::where('is_active', true);
-        
+
         // If a provider ID is specified, filter to only products they're onboarded with
         if ($providerId) {
             $query->whereHas('activeProviders', function($q) use ($providerId) {
                 $q->where('users.id', $providerId);
             });
         }
-        
+
         return $query->get()
->>>>>>> origin/provider-side
             ->map(function($product) {
                 $sizes = $product->available_sizes;
                 if (is_string($sizes)) {
@@ -2097,9 +1595,7 @@ final class QuickRequestController extends Controller
             ] : null,
         ];
     }
-<<<<<<< HEAD
-=======
-    
+
     /**
      * Get role-based restrictions for pricing and data visibility
      */
@@ -2155,7 +1651,6 @@ final class QuickRequestController extends Controller
                 ];
         }
     }
->>>>>>> origin/provider-side
 
     /**
      * Extract patient data from validated request
@@ -2292,15 +1787,11 @@ final class QuickRequestController extends Controller
             $selectedProducts = $prefillData['selected_products'];
             if (!empty($selectedProducts[0]['product_id'])) {
                 $product = Product::find($selectedProducts[0]['product_id']);
-<<<<<<< HEAD
-                return $product?->manufacturer_id;
-=======
                 if ($product && $product->manufacturer) {
                     // Look up manufacturer by name (case-insensitive) since Product stores manufacturer as a string
                     $manufacturer = \App\Models\Order\Manufacturer::whereRaw('LOWER(name) = ?', [strtolower($product->manufacturer)])->first();
                     return $manufacturer?->id;
                 }
->>>>>>> origin/provider-side
             }
         }
 
@@ -2310,21 +1801,13 @@ final class QuickRequestController extends Controller
     /**
      * Get template for manufacturer
      */
-<<<<<<< HEAD
-    private function getTemplateForManufacturer(?int $manufacturerId): ?DocusealTemplate
-=======
     private function getTemplateForManufacturer(?int $manufacturerId, string $documentType = 'IVR'): ?DocusealTemplate
->>>>>>> origin/provider-side
     {
         if (!$manufacturerId) {
             return null;
         }
 
-<<<<<<< HEAD
-        return DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
-=======
         return DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, $documentType);
->>>>>>> origin/provider-side
     }
 
     /**
@@ -2397,11 +1880,7 @@ final class QuickRequestController extends Controller
     /**
      * Handle file uploads
      */
-<<<<<<< HEAD
-    private function handleFileUploads(\Illuminate\Http\Request $request, ProductRequest $productRequest, PatientManufacturerIVREpisode $episode): void
-=======
     private function handleFileUploads(Request $request, ProductRequest $productRequest, PatientManufacturerIVREpisode $episode): void
->>>>>>> origin/provider-side
     {
         $documentMetadata = [];
         $documentTypes = [
@@ -2538,24 +2017,22 @@ final class QuickRequestController extends Controller
     }
 
     /**
-<<<<<<< HEAD
-=======
      * Show order summary page
      */
     public function showOrderSummary(Request $request, string $orderId): Response
     {
         try {
             $productRequest = ProductRequest::findOrFail($orderId);
-            
+
             // Load relationships
             $productRequest->load(['provider', 'facility', 'products']);
-            
+
             // Get episode if available
             $episode = null;
             if ($productRequest->patient_fhir_id) {
                 $episode = Episode::where('patient_fhir_id', $productRequest->patient_fhir_id)->first();
             }
-            
+
             // Build comprehensive order data
             $orderData = [
                 'order' => $productRequest,
@@ -2582,7 +2059,7 @@ final class QuickRequestController extends Controller
                 'submission' => [
                     'docuseal_submission_id' => $productRequest->docuseal_submission_id,
                     'completed_at' => $productRequest->ivr_completed_at,
-                    'pdf_url' => $productRequest->docuseal_submission_id 
+                    'pdf_url' => $productRequest->docuseal_submission_id
                         ? config('services.docuseal.api_url', 'https://api.docuseal.com') . "/submissions/{$productRequest->docuseal_submission_id}/download"
                         : null,
                 ],
@@ -2592,24 +2069,24 @@ final class QuickRequestController extends Controller
                     'ivr_completed' => !empty($productRequest->ivr_completed_at),
                 ],
             ];
-            
+
             return Inertia::render('QuickRequest/OrderSummary', [
                 'orderData' => $orderData,
                 'submissionId' => $request->get('submission_id'),
                 'episodeId' => $request->get('episode_id'),
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to load order summary', [
                 'order_id' => $orderId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return redirect()->route('quick-requests.create')
                 ->with('error', 'Order not found or unable to load order summary.');
         }
     }
-    
+
     /**
      * Get order status via API
      */
@@ -2617,7 +2094,7 @@ final class QuickRequestController extends Controller
     {
         try {
             $productRequest = ProductRequest::findOrFail($orderId);
-            
+
             return response()->json([
                 'success' => true,
                 'order_id' => $orderId,
@@ -2626,17 +2103,17 @@ final class QuickRequestController extends Controller
                 'ivr_completed' => !empty($productRequest->ivr_completed_at),
                 'ivr_completed_at' => $productRequest->ivr_completed_at?->format('Y-m-d H:i:s'),
                 'docuseal_submission_id' => $productRequest->docuseal_submission_id,
-                'pdf_url' => $productRequest->docuseal_submission_id 
+                'pdf_url' => $productRequest->docuseal_submission_id
                     ? config('services.docuseal.api_url', 'https://api.docuseal.com') . "/submissions/{$productRequest->docuseal_submission_id}/download"
                     : null,
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to get order status', [
                 'order_id' => $orderId,
                 'error' => $e->getMessage(),
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'error' => 'Order not found'
@@ -2645,7 +2122,6 @@ final class QuickRequestController extends Controller
     }
 
     /**
->>>>>>> origin/provider-side
      * Get the correct role name from DocuSeal template with enhanced error handling
      */
     private function getTemplateRole(string $templateId, string $apiKey): string
@@ -2662,11 +2138,7 @@ final class QuickRequestController extends Controller
             ])
             ->timeout(15) // Shorter timeout for template fetching
             ->retry(2, 500) // Retry twice with 500ms delay
-<<<<<<< HEAD
-            ->get("https://api.docuseal.com/templates/{$templateId}");
-=======
             ->get(config('services.docuseal.api_url', 'https://api.docuseal.com') . "/templates/{$templateId}");
->>>>>>> origin/provider-side
 
             if ($response->successful()) {
                 $templateData = $response->json();
@@ -2869,31 +2341,18 @@ final class QuickRequestController extends Controller
             ], 500);
         }
     }
-<<<<<<< HEAD
-    
-    /**
-     * Load authenticated user's profile data for DocuSeal forms
-     */
-    private function loadUserProfileDataForDocuSeal(): array
-=======
 
     /**
      * Load authenticated user's profile data for DocuSeal forms
      * @param int|null $facilityId Optional facility ID to use instead of primary facility
      */
     private function loadUserProfileDataForDocuSeal(?int $facilityId = null): array
->>>>>>> origin/provider-side
     {
         try {
             $user = Auth::user();
             if (!$user) {
                 return [];
             }
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             // Load user with relationships
             $user->load([
                 'providerProfile',
@@ -2902,37 +2361,21 @@ final class QuickRequestController extends Controller
                 'organizations',
                 'currentOrganization'
             ]);
-<<<<<<< HEAD
-            
-            $profileData = [];
-            
-=======
 
             $profileData = [];
 
->>>>>>> origin/provider-side
             // Provider Information
             $profileData['provider_name'] = $user->first_name . ' ' . $user->last_name;
             $profileData['provider_first_name'] = $user->first_name;
             $profileData['provider_last_name'] = $user->last_name;
             $profileData['provider_email'] = $user->email;
             $profileData['provider_phone'] = $user->phone ?? '';
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             // Provider NPI and credentials
             if ($user->npi_number) {
                 $profileData['provider_npi'] = $user->npi_number;
             } elseif ($npiCredential = $user->providerCredentials->where('credential_type', 'npi_number')->first()) {
                 $profileData['provider_npi'] = $npiCredential->credential_number;
             }
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             // Provider profile details
             if ($providerProfile = $user->providerProfile) {
                 $profileData['provider_specialty'] = $providerProfile->primary_specialty ?? '';
@@ -2940,37 +2383,7 @@ final class QuickRequestController extends Controller
                 $profileData['provider_dea'] = $providerProfile->dea_number ?? '';
                 $profileData['provider_practice_name'] = $providerProfile->practice_name ?? '';
                 $profileData['provider_tax_id'] = $providerProfile->tax_id ?? '';
-                
-<<<<<<< HEAD
-                if ($providerProfile->credentials) {
-                    $profileData['provider_credentials'] = $providerProfile->credentials;
-                }
-            }
-            
-            // Primary Facility Information
-            $primaryFacility = $user->facilities()->wherePivot('is_primary', true)->first();
-            if (!$primaryFacility && $user->facilities->count() > 0) {
-                $primaryFacility = $user->facilities->first();
-            }
-            
-            if ($primaryFacility) {
-                $profileData['facility_name'] = $primaryFacility->name;
-                $profileData['facility_npi'] = $primaryFacility->npi ?? '';
-                $profileData['facility_phone'] = $primaryFacility->phone ?? '';
-                $profileData['facility_fax'] = $primaryFacility->fax ?? '';
-                $profileData['facility_address'] = $primaryFacility->address_line1 ?? '';
-                $profileData['facility_address_line2'] = $primaryFacility->address_line2 ?? '';
-                $profileData['facility_city'] = $primaryFacility->city ?? '';
-                $profileData['facility_state'] = $primaryFacility->state ?? '';
-                $profileData['facility_zip'] = $primaryFacility->zip ?? '';
-                
-                // Full facility address
-                if ($primaryFacility->full_address) {
-                    $profileData['facility_full_address'] = $primaryFacility->full_address;
-                }
-            }
-            
-=======
+
                 // Additional provider credentials
                 $profileData['practice_name'] = $providerProfile->practice_name ?? '';
                 $profileData['practice_npi'] = $providerProfile->practice_npi ?? '';
@@ -2981,7 +2394,7 @@ final class QuickRequestController extends Controller
                 if ($providerProfile->credentials) {
                     $profileData['provider_credentials'] = $providerProfile->credentials;
                 }
-                
+
                 // Provider contact information
                 $profileData['physician_name'] = $user->first_name . ' ' . $user->last_name;
                 $profileData['physician_npi'] = $profileData['provider_npi'] ?? '';
@@ -2990,7 +2403,7 @@ final class QuickRequestController extends Controller
 
             // Facility Information - Use specified facility or fallback to primary
             $facility = null;
-            
+
             if ($facilityId) {
                 // Use the facility specified in the request
                 $facility = $user->facilities()->where('facilities.id', $facilityId)->first();
@@ -2999,7 +2412,7 @@ final class QuickRequestController extends Controller
                     $facility = \App\Models\Fhir\Facility::find($facilityId);
                 }
             }
-            
+
             // Fallback to primary facility if no specific facility was requested or found
             if (!$facility) {
                 $facility = $user->facilities()->wherePivot('is_primary', true)->first();
@@ -3019,20 +2432,20 @@ final class QuickRequestController extends Controller
                 $profileData['facility_city'] = $facility->city ?? '';
                 $profileData['facility_state'] = $facility->state ?? '';
                 $profileData['facility_zip'] = $facility->zip_code ?? $facility->zip ?? '';
-                
+
                 // Additional facility fields
                 $profileData['facility_group_npi'] = $facility->group_npi ?? '';
                 $profileData['facility_ptan'] = $facility->ptan ?? '';
                 $profileData['facility_tax_id'] = $facility->tax_id ?? '';
                 $profileData['facility_type'] = $facility->facility_type ?? '';
                 $profileData['place_of_service'] = $facility->default_place_of_service ?? '';
-                
+
                 // Contact information
                 $profileData['facility_contact_name'] = $facility->contact_name ?? '';
                 $profileData['facility_contact_phone'] = $facility->contact_phone ?? '';
                 $profileData['facility_contact_email'] = $facility->contact_email ?? '';
                 $profileData['facility_contact_fax'] = $facility->contact_fax ?? '';
-                
+
                 // Common contact mappings
                 $profileData['contact_name'] = $facility->contact_name ?? $user->first_name . ' ' . $user->last_name;
                 $profileData['contact_email'] = $facility->contact_email ?? $user->email;
@@ -3046,17 +2459,11 @@ final class QuickRequestController extends Controller
                 }
             }
 
->>>>>>> origin/provider-side
             // Organization Information
             $currentOrg = $user->currentOrganization ?? $user->primaryOrganization();
             if (!$currentOrg && $user->organizations->count() > 0) {
                 $currentOrg = $user->organizations->first();
             }
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             if ($currentOrg) {
                 $profileData['organization_name'] = $currentOrg->name;
                 $profileData['organization_phone'] = $currentOrg->phone ?? '';
@@ -3066,11 +2473,6 @@ final class QuickRequestController extends Controller
                 $profileData['organization_state'] = $currentOrg->billing_state ?? '';
                 $profileData['organization_zip'] = $currentOrg->billing_zip ?? '';
                 $profileData['organization_tax_id'] = $currentOrg->tax_id ?? '';
-<<<<<<< HEAD
-                
-=======
-
->>>>>>> origin/provider-side
                 // Sales rep information
                 if ($currentOrg->salesRep) {
                     $profileData['sales_rep_name'] = $currentOrg->salesRep->first_name . ' ' . $currentOrg->salesRep->last_name;
@@ -3078,40 +2480,19 @@ final class QuickRequestController extends Controller
                     $profileData['sales_rep_phone'] = $currentOrg->salesRep->phone ?? '';
                 }
             }
-<<<<<<< HEAD
-            
-            // Add current date/time for form
-            $profileData['request_date'] = date('m/d/Y');
-            $profileData['request_time'] = date('h:i A');
-            
-=======
 
             // Add current date/time for form
             $profileData['request_date'] = date('m/d/Y');
             $profileData['request_time'] = date('h:i A');
 
->>>>>>> origin/provider-side
             // Remove any null values
             $profileData = array_filter($profileData, function($value) {
                 return $value !== null && $value !== '';
             });
-<<<<<<< HEAD
-            
-=======
-
->>>>>>> origin/provider-side
             Log::info('User profile data loaded for DocuSeal', [
                 'user_id' => $user->id,
                 'fields_loaded' => count($profileData),
                 'has_provider_profile' => isset($providerProfile),
-<<<<<<< HEAD
-                'has_facility' => isset($primaryFacility),
-                'has_organization' => isset($currentOrg)
-            ]);
-            
-            return $profileData;
-            
-=======
                 'has_facility' => isset($facility),
                 'facility_id' => $facility->id ?? null,
                 'facility_name' => $facility->name ?? null,
@@ -3121,18 +2502,11 @@ final class QuickRequestController extends Controller
 
             return $profileData;
 
->>>>>>> origin/provider-side
         } catch (\Exception $e) {
             Log::error('Failed to load user profile data for DocuSeal', [
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id()
             ]);
-<<<<<<< HEAD
-            
-            return [];
-        }
-    }
-=======
 
             return [];
         }
@@ -3147,7 +2521,7 @@ final class QuickRequestController extends Controller
     public function myOrders(Request $request): Response
     {
         $user = Auth::user();
-        
+
         // Build the query for orders based on user role
         $query = PatientManufacturerIVREpisode::query()
             ->with(['patient', 'manufacturer', 'product', 'facility', 'provider']);
@@ -3213,8 +2587,8 @@ final class QuickRequestController extends Controller
                 $orderData = [
                     'id' => $episode->id,
                     'order_number' => $episode->episode_id,
-                    'patient_name' => $episode->patient ? 
-                        "{$episode->patient->first_name} {$episode->patient->last_name}" : 
+                    'patient_name' => $episode->patient ?
+                        "{$episode->patient->first_name} {$episode->patient->last_name}" :
                         'Unknown Patient',
                     'product_name' => $episode->product->name ?? 'Unknown Product',
                     'product_code' => $episode->product->product_code ?? 'N/A',
@@ -3253,5 +2627,4 @@ final class QuickRequestController extends Controller
             ]
         ]);
     }
->>>>>>> origin/provider-side
 }

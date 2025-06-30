@@ -2,10 +2,7 @@ import { useState, useRef } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import GoogleAddressAutocompleteSimple from '@/Components/GoogleAddressAutocompleteSimple';
-<<<<<<< HEAD
-=======
 import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAutocompleteWithFallback';
->>>>>>> origin/provider-side
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
@@ -49,10 +46,6 @@ function Step2PatientInsurance({
   const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
   const [saveToPatientResource, setSaveToPatientResource] = useState(false);
 
-<<<<<<< HEAD
-  const fileInputRef = useRef<HTMLInputElement>(null);
-=======
->>>>>>> origin/provider-side
 
   const states = [
     'AL', 'AK', 'AZ', 'AR', 'CA', 'CO', 'CT', 'DE', 'FL', 'GA',
@@ -207,7 +200,7 @@ function Step2PatientInsurance({
       {/* Provider & Facility Selection */}
       <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-orange-900 dark:text-orange-300 mb-2">Provider & Facility Information</h3>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Select
@@ -266,62 +259,6 @@ function Step2PatientInsurance({
           </div>
         </div>
 
-<<<<<<< HEAD
-        {/* Single upload area for both front and back */}
-        <div className="mt-4">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-          >
-            <FiCreditCard className="mx-auto h-10 w-10 mb-2 text-gray-400" />
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Upload Insurance Card
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
-              You can upload front and back images or a single PDF
-            </p>
-            
-            {/* Show uploaded files */}
-            {(cardFrontPreview || cardBackPreview) && (
-              <div className="mt-4 space-y-2">
-                {cardFrontPreview && (
-                  <div className="flex items-center justify-center space-x-2 text-sm">
-                    <FiCheck className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Front uploaded</span>
-                  </div>
-                )}
-                {cardBackPreview && (
-                  <div className="flex items-center justify-center space-x-2 text-sm">
-                    <FiCheck className="h-4 w-4 text-green-500" />
-                    <span className="text-gray-600 dark:text-gray-400">Back uploaded</span>
-                  </div>
-                )}
-              </div>
-            )}
-            
-            <button
-              type="button"
-              className="mt-3 inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <FiUpload className="h-4 w-4 mr-2" />
-              Choose Files
-            </button>
-          </div>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,application/pdf"
-            className="hidden"
-            multiple
-            onChange={(e) => {
-              const files = Array.from(e.target.files || []);
-              files.forEach((file, index) => {
-                // First file is front, second is back
-                handleInsuranceCardUpload(file, index === 0 ? 'front' : 'back');
-              });
-            }}
-          />
-=======
         {/* Separate upload areas for front and back */}
         <div className="mt-4 grid grid-cols-2 gap-4">
           {/* Front Card Upload */}
@@ -419,7 +356,6 @@ function Step2PatientInsurance({
               </div>
             )}
           </div>
->>>>>>> origin/provider-side
         </div>
 
         {/* Save to patient resource checkbox */}
@@ -513,15 +449,10 @@ function Step2PatientInsurance({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
               Address Line 1
             </label>
-<<<<<<< HEAD
-            <GoogleAddressAutocompleteSimple
-              onPlaceSelect={handleAddressSelect}
-=======
             <GoogleAddressAutocompleteWithFallback
               onPlaceSelect={handleAddressSelect}
               value={formData.patient_address_line1}
               onChange={(value) => updateFormData({ patient_address_line1: value })}
->>>>>>> origin/provider-side
               defaultValue={formData.patient_address_line1}
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               placeholder="Start typing address..."

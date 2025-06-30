@@ -1,13 +1,4 @@
 import React, { useEffect, useState } from 'react';
-<<<<<<< HEAD
-import {
-  SuperinterfaceProvider,
-  AudioThreadDialog,
-  AssistantProvider,
-  WebrtcAudioRuntimeProvider,
-} from '@superinterface/react';
-=======
->>>>>>> origin/provider-side
 import { Theme } from '@radix-ui/themes';
 import '@radix-ui/themes/styles.css';
 import {
@@ -60,7 +51,7 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
         className="fixed inset-0 z-40 bg-black/60 backdrop-blur-md animate-fade-in"
         onClick={onClose}
       />
-      
+
       {/* Custom positioning wrapper */}
       <div className="fixed inset-0 z-50 flex items-center justify-center">
         <div className="bg-gray-900 text-white rounded-lg p-8 shadow-xl min-w-[400px]">
@@ -88,7 +79,7 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
               </div>
             )}
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="mt-4 px-4 py-2 bg-blue-600 rounded hover:bg-blue-700 w-full"
           >
@@ -106,28 +97,28 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
           border: 1px solid rgba(255, 255, 255, 0.1) !important;
           box-shadow: 0 8px 40px 0 rgba(0,0,0,.18) !important;
         }
-        
+
         /* Style the audio dialog content */
         .rt-DialogContent {
           background: transparent !important;
         }
-        
+
         /* Override button styles */
         .rt-Button {
           transition: all 0.2s !important;
         }
-        
+
         .rt-Button:hover {
           transform: translateY(-1px) !important;
           box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
         }
-        
+
         /* Animation classes */
         @keyframes fade-in {
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        
+
         @keyframes scale-in {
           from {
             opacity: 0;
@@ -138,11 +129,11 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
             transform: scale(1);
           }
         }
-        
+
         .animate-fade-in {
           animation: fade-in 0.2s ease-out;
         }
-        
+
         .animate-scale-in {
           animation: scale-in 0.2s ease-out;
         }
@@ -153,7 +144,7 @@ const VoiceAssistantContent: React.FC<VoiceAssistantProps> = ({ isVisible, onClo
 
 const VoiceAssistant: React.FC<VoiceAssistantProps> = (props) => {
   const { theme } = useTheme();
-  
+
   return (
     <QueryClientProvider client={queryClient}>
       <Theme

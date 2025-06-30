@@ -1,18 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-<<<<<<< HEAD
-import GlassCard from '@/Components/UI/GlassCard';
-import Heading from '@/Components/UI/Heading';
-=======
-import GlassCard from '@/Components/ui/GlassCard';
-import Heading from '@/Components/ui/Heading';
->>>>>>> origin/provider-side
-
-interface IvrFieldPreviewProps {
     formData: any;
     manufacturer: string;
-    className?: string;
 }
 
 interface FieldCoverage {
@@ -29,7 +19,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
     const [coverage, setCoverage] = useState<FieldCoverage | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Theme context with fallback
     let theme: 'dark' | 'light' = 'dark';
     let t = themes.dark;
@@ -41,13 +31,13 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
     } catch (e) {
         // Fallback to dark theme if outside ThemeProvider
     }
-    
+
     useEffect(() => {
         const fetchFieldsAndCoverage = async () => {
             try {
                 setLoading(true);
                 setError(null);
-                
+
                 // Get manufacturer fields
                 const fieldsResponse = await fetch(`/api/v1/ivr/manufacturers/${manufacturer}/fields`);
                 if (!fieldsResponse.ok) {
@@ -55,7 +45,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                 }
                 const fieldsData = await fieldsResponse.json();
                 setFields(fieldsData.fields || []);
-                
+
                 // Calculate coverage
                 const coverageResponse = await fetch('/api/v1/ivr/calculate-coverage', {
                     method: 'POST',
@@ -69,11 +59,11 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                         patient_data: formData.patient_fhir_data || {}
                     })
                 });
-                
+
                 if (!coverageResponse.ok) {
                     throw new Error('Failed to calculate coverage');
                 }
-                
+
                 const coverageData = await coverageResponse.json();
                 setCoverage(coverageData.coverage);
             } catch (error) {
@@ -83,12 +73,12 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                 setLoading(false);
             }
         };
-        
+
         if (manufacturer) {
             fetchFieldsAndCoverage();
         }
     }, [manufacturer, formData]);
-    
+
     if (loading) {
         return (
             <GlassCard variant="primary" className={cn("p-6", className)}>
@@ -103,19 +93,15 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
             </GlassCard>
         );
     }
-    
+
     if (error) {
         return (
             <GlassCard variant="danger" className={cn("p-6", className)}>
-<<<<<<< HEAD
-                <p className={t.text.danger}>Error loading IVR preview: {error}</p>
-=======
                 <p className="text-red-400">Error loading IVR preview: {error}</p>
->>>>>>> origin/provider-side
             </GlassCard>
         );
     }
-    
+
     const getCoverageColor = (level: string) => {
         switch (level) {
             case 'excellent': return 'text-green-400';
@@ -125,22 +111,18 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
             default: return t.text.muted;
         }
     };
-    
+
     const getCoverageBarColor = (percentage: number) => {
         if (percentage >= 90) return 'bg-green-500';
         if (percentage >= 75) return 'bg-blue-500';
         if (percentage >= 50) return 'bg-yellow-500';
         return 'bg-red-500';
     };
-    
+
     return (
         <GlassCard variant="primary" className={cn("p-6", className)}>
-<<<<<<< HEAD
-            <Heading size="md" className="mb-6">IVR Field Coverage Preview</Heading>
-=======
             <Heading level={3} className="mb-6">IVR Field Coverage Preview</Heading>
->>>>>>> origin/provider-side
-            
+
             {coverage && (
                 <>
                     {/* Coverage Summary */}
@@ -154,17 +136,17 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                                 {coverage.coverage_level} Coverage
                             </span>
                         </div>
-                        
+
                         <p className={cn("text-sm mb-3", t.text.muted)}>
                             {coverage.filled_fields} of {coverage.total_fields} fields will be auto-filled
                         </p>
-                        
+
                         {/* Progress bar */}
                         <div className={cn(
                             "rounded-full h-3 overflow-hidden",
                             theme === 'dark' ? 'bg-gray-800' : 'bg-gray-200'
                         )}>
-                            <div 
+                            <div
                                 className={cn(
                                     "h-full rounded-full transition-all duration-500",
                                     getCoverageBarColor(coverage.percentage)
@@ -173,7 +155,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                             />
                         </div>
                     </div>
-            
+
                     {/* Field Status Lists */}
                     <div className="space-y-6">
                         {coverage.extracted_fields.length > 0 && (
@@ -187,12 +169,12 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {coverage.extracted_fields.map((field, idx) => (
-                                        <div 
-                                            key={idx} 
+                                        <div
+                                            key={idx}
                                             className={cn(
                                                 "px-3 py-2 rounded-lg text-sm",
-                                                theme === 'dark' 
-                                                    ? 'bg-green-900/20 text-green-300' 
+                                                theme === 'dark'
+                                                    ? 'bg-green-900/20 text-green-300'
                                                     : 'bg-green-50 text-green-700'
                                             )}
                                         >
@@ -202,7 +184,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                                 </div>
                             </div>
                         )}
-                        
+
                         {coverage.missing_fields.length > 0 && (
                             <div>
                                 <h4 className={cn(
@@ -214,12 +196,12 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                                 </h4>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                     {coverage.missing_fields.map((field, idx) => (
-                                        <div 
-                                            key={idx} 
+                                        <div
+                                            key={idx}
                                             className={cn(
                                                 "px-3 py-2 rounded-lg text-sm",
-                                                theme === 'dark' 
-                                                    ? 'bg-amber-900/20 text-amber-300' 
+                                                theme === 'dark'
+                                                    ? 'bg-amber-900/20 text-amber-300'
                                                     : 'bg-amber-50 text-amber-700'
                                             )}
                                         >
@@ -230,7 +212,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                             </div>
                         )}
                     </div>
-                    
+
                     {/* Coverage Insights */}
                     <div className={cn(
                         "mt-6 p-4 rounded-lg",

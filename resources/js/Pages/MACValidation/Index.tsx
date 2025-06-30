@@ -8,10 +8,7 @@ import {
 } from 'react-icons/fi';
 import { toast } from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
-<<<<<<< HEAD
-=======
 import WoundCareMACTool from './WoundCareMACTool';
->>>>>>> origin/provider-side
 
 interface QuickValidationResult {
     success: boolean;
@@ -1744,8 +1741,6 @@ const MACValidationPage = () => {
                             </div>
                         </form>
                     )}
-<<<<<<< HEAD
-=======
 
                     {/* Wound Care MAC Requirements Tool */}
                     <div className="mt-12">
@@ -1757,7 +1752,6 @@ const MACValidationPage = () => {
                             <WoundCareMACTool />
                         </div>
                     </div>
->>>>>>> origin/provider-side
                 </div>
             </div>
         </MainLayout>

@@ -192,19 +192,12 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   const [showSizeManager, setShowSizeManager] = useState(false);
   const [consultationModalOpen, setConsultationModalOpen] = useState(false);
   const [warnings, setWarnings] = useState<string[]>([]);
-<<<<<<< HEAD
-=======
   const [providerMessage, setProviderMessage] = useState<string | null>(null);
->>>>>>> origin/provider-side
 
   // Memoize selectedProducts to prevent infinite loops
   const selectedProductsMemo = useMemo(() => selectedProducts, [JSON.stringify(selectedProducts)]);
 
-<<<<<<< HEAD
-  // Fetch products on mount and when dependencies change
-=======
   // Fetch products only when we have provider onboarded products
->>>>>>> origin/provider-side
   useEffect(() => {
     fetchProducts();
   }, [JSON.stringify(providerOnboardedProducts), insuranceType, patientState, woundSize]);
@@ -229,22 +222,12 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
 
-<<<<<<< HEAD
-      // Add provider onboarded products for primary filtering
-      if (providerOnboardedProducts.length > 0) {
-        params.append('onboarded_q_codes', providerOnboardedProducts.join(','));
-      } else if (allowedQCodes.length > 0) {
-        // If no onboarded products but we have insurance-allowed products, fetch those
-        params.append('onboarded_q_codes', allowedQCodes.join(','));
-      }
-=======
       // Allow fetching even with empty provider products to get proper messaging
       // The backend will handle the filtering and provide appropriate response
 
       // Add provider onboarded products for primary filtering
       const qCodesString = providerOnboardedProducts.filter(code => code && code.trim()).join(',');
       params.append('onboarded_q_codes', qCodesString);
->>>>>>> origin/provider-side
 
       // Add insurance context for additional filtering
       if (insuranceType) {
@@ -258,49 +241,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       }
 
       const url = `/api/products/search?${params.toString()}`;
-<<<<<<< HEAD
-      console.log('ProductSelectorQuickRequest: Fetching filtered products from', url);
-
-      const response = await fetch(url);
-      const data = await response.json();
-      console.log('ProductSelectorQuickRequest: Response received:', data);
-      console.log('ProductSelectorQuickRequest: Products count:', data.products?.length || 0);
-
-      if (data.products && data.products.length > 0) {
-        console.log('ProductSelectorQuickRequest: First product example:', data.products[0]);
-        // Debug size data specifically
-        const firstProduct = data.products[0];
-        console.log('ProductSelectorQuickRequest: First product size data:', {
-          available_sizes: firstProduct.available_sizes,
-          size_options: firstProduct.size_options,
-          size_pricing: firstProduct.size_pricing,
-          size_unit: firstProduct.size_unit
-        });
-      }
-
-      // Temporary fix: Add sample size data to products that don't have any
-      const productsWithSizes = (data.products || []).map((product: Product) => {
-        const hasNewSizes = product.size_options && product.size_options.length > 0;
-        const hasLegacySizes = product.available_sizes && product.available_sizes.length > 0;
-
-        if (!hasNewSizes && !hasLegacySizes) {
-          console.log(`Adding sample sizes to ${product.name} (${product.q_code})`);
-          // Add actual dimensional sizes for each product based on their typical offerings
-          const sampleSizes = [
-            '2x2', '2x3', '3x3', '3x4', '4x4', '4x5', '5x5', '5x6', '6x6'
-          ];
-          return {
-            ...product,
-            size_options: sampleSizes,
-            size_unit: 'cm'
-          };
-        }
-
-        return product;
-      });
-
-      setProducts(productsWithSizes);
-=======
 
       const response = await fetch(url);
       const data = await response.json();
@@ -311,7 +251,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
         setProducts([]);
       } else {
         setProviderMessage(null);
-        
+
         // Temporary fix: Add sample size data to products that don't have any
         const productsWithSizes = (data.products || []).map((product: Product) => {
           const hasNewSizes = product.size_options && product.size_options.length > 0;
@@ -334,7 +274,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
         setProducts(productsWithSizes);
       }
->>>>>>> origin/provider-side
     } catch (error) {
       console.error('ProductSelectorQuickRequest: Error fetching products:', error);
     } finally {
@@ -391,28 +330,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Memoize last24HourOrders to prevent infinite loops
   const last24HourOrdersMemo = useMemo(() => last24HourOrders, [JSON.stringify(last24HourOrders)]);
 
-<<<<<<< HEAD
-  // Since we're doing server-side filtering, we can use products directly
-  // But we still need to handle the case where insurance restricts certain products
-  const filteredProducts = useMemo(() => {
-    // If we have provider onboarded products, server already filtered by those
-    // Now we just need to apply insurance-based filtering if needed
-    if (allowedQCodes.length > 0) {
-      const insuranceAllowedProducts = products.filter(product => allowedQCodes.includes(product.q_code));
-
-      // If we have insurance restrictions but no matching products, show all products
-      // This handles cases where insurance Q-codes don't match our product catalog
-      if (insuranceAllowedProducts.length === 0) {
-        console.log('No products found matching insurance Q-codes, showing server-filtered products as fallback');
-        return products;
-      }
-
-      return insuranceAllowedProducts;
-    }
-
-    // No insurance restrictions, return server-filtered products
-    return products;
-=======
   // Show all provider onboarded products but mark which ones are insurance-preferred
   // Insurance filtering is informational only, not restrictive
   const filteredProducts = useMemo(() => {
@@ -424,7 +341,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
       insuranceCovered: allowedQCodes.length === 0 || allowedQCodes.includes(product.q_code),
       insuranceRecommended: allowedQCodes.includes(product.q_code)
     }));
->>>>>>> origin/provider-side
   }, [products, allowedQCodes]);
 
     // Since we're simplifying the display, just use filtered products directly
@@ -558,12 +474,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   };
 
   if (loading) {
-<<<<<<< HEAD
-    return (
-      <div className={`flex items-center justify-center py-12 ${t.glass.card} rounded-lg ${className}`}>
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className={`ml-2 ${t.text.secondary}`}>Loading product catalog...</span>
-=======
     // Show different loading messages based on what we're waiting for
     const loadingMessage = providerOnboardedProducts.length === 0
       ? 'Loading provider onboarded products...'
@@ -596,7 +506,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
             <li>• Onboarding typically includes training and agreement signatures</li>
           </ul>
         </div>
->>>>>>> origin/provider-side
       </div>
     );
   }
@@ -913,18 +822,6 @@ const QuickRequestProductCard: React.FC<{
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
-<<<<<<< HEAD
-  // Debug size data for this product
-  console.log(`ProductCard for ${product.name} (${product.q_code}):`, {
-    available_sizes: product.available_sizes,
-    size_options: product.size_options,
-    size_pricing: product.size_pricing,
-    size_unit: product.size_unit,
-    hasNewSizes: product.size_options && product.size_options.length > 0,
-    hasLegacySizes: product.available_sizes && product.available_sizes.length > 0
-  });
-=======
->>>>>>> origin/provider-side
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {

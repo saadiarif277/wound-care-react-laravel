@@ -45,13 +45,8 @@ return new class extends Migration
             ['product_name' => 'Coll-e-Derm', 'product_code' => 'CED-001', 'q_code' => 'Q4193', 'manufacturer_id' => 4],
 
             // Centurion products
-<<<<<<< HEAD
-            ['product_name' => 'AmnioBand', 'product_code' => 'AMB-001', 'q_code' => 'Q4168', 'manufacturer_id' => 16],
-            ['product_name' => 'Allopatch', 'product_code' => 'ALP-001', 'q_code' => 'Q4169', 'manufacturer_id' => 16],
-=======
             ['product_name' => 'AmnioBand', 'product_code' => 'AMB-001', 'q_code' => 'Q4151', 'manufacturer_id' => 10],
             ['product_name' => 'Allopatch', 'product_code' => 'ALP-001', 'q_code' => 'Q4128', 'manufacturer_id' => 10],
->>>>>>> origin/provider-side
         ];
 
         // Only insert products whose manufacturers exist

@@ -75,17 +75,6 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-<<<<<<< HEAD
-        // Register DocusealService
-        $this->app->singleton(DocusealService::class, function ($app) {
-            return new DocusealService();
-        });
-
-        // Register FhirToIvrFieldExtractor
-        $this->app->singleton(\App\Services\FhirToIvrFieldExtractor::class, function ($app) {
-            return new \App\Services\FhirToIvrFieldExtractor(
-                $app->make(FhirService::class)
-=======
         // Register Unified Field Mapping Services
         $this->app->singleton(\App\Services\FieldMapping\DataExtractor::class, function ($app) {
             return new \App\Services\FieldMapping\DataExtractor(
@@ -113,7 +102,6 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(\App\Services\DocuSealService::class, function ($app) {
             return new \App\Services\DocuSealService(
                 $app->make(\App\Services\UnifiedFieldMappingService::class)
->>>>>>> origin/provider-side
             );
         });
 

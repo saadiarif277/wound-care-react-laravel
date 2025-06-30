@@ -16,27 +16,19 @@ export const ProviderSection: React.FC<ProviderSectionProps> = ({
   isOpen,
   onToggle
 }) => (
-  <SectionCard 
-    title="Provider Information" 
-    icon={Shield} 
+  <SectionCard
+    title="Provider Information"
+    icon={Shield}
     sectionKey="provider"
     isOpen={isOpen}
     onToggle={onToggle}
   >
     <div className="space-y-1">
-<<<<<<< HEAD
-      <InfoRow label="Provider Name" value={orderData.provider.name} />
-      <InfoRow label="Facility Name" value={orderData.provider.facilityName} />
-      <InfoRow label="Facility Address" value={orderData.provider.facilityAddress} />
-      <InfoRow label="Organization" value={orderData.provider.organization} />
-      <InfoRow label="NPI" value={orderData.provider.npi} />
-=======
       <InfoRow label="Provider Name" value={orderData.provider?.name || 'N/A'} />
       <InfoRow label="Facility Name" value={orderData.provider?.facilityName || 'N/A'} />
       <InfoRow label="Facility Address" value={orderData.provider?.facilityAddress || 'N/A'} />
       <InfoRow label="Organization" value={orderData.provider?.organization || 'N/A'} />
       <InfoRow label="NPI" value={orderData.provider?.npi || 'N/A'} />
->>>>>>> origin/provider-side
     </div>
   </SectionCard>
 );

@@ -43,15 +43,12 @@ return [
             'vault_url' => env('AZURE_KEY_VAULT_URL'),
             'use_managed_identity' => env('AZURE_USE_MANAGED_IDENTITY', false),
         ],
-<<<<<<< HEAD
-=======
         'document_intelligence' => [
             'endpoint' => env('AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT', env('AZURE_DI_ENDPOINT')),
             'key' => env('AZURE_DOCUMENT_INTELLIGENCE_KEY', env('AZURE_DI_KEY')),
             'resource_id' => env('AZURE_DOCUMENT_INTELLIGENCE_RESOURCE_ID'),
             'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2023-07-31'),
         ],
->>>>>>> origin/provider-side
     ],
 
     'cms' => [
@@ -84,14 +81,6 @@ return [
         'retry_delay' => env('DOCUSEAL_RETRY_DELAY', 1000),
     ],
 
-<<<<<<< HEAD
-    'azure_di' => [
-        'endpoint' => env('AZURE_DI_ENDPOINT'),
-        'key' => env('AZURE_DI_KEY'),
-        'api_version' => env('AZURE_DI_API_VERSION', '2023-07-31'),
-    ],
-=======
->>>>>>> origin/provider-side
 
     'google' => [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),

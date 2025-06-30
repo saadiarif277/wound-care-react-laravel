@@ -1,11 +1,5 @@
-<<<<<<< HEAD
-import { useReducer, useCallback, useContext, createContext, useEffect, ReactNode } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { usePage } from '@inertiajs/react';
-=======
 import { useReducer, useCallback, useContext, createContext, useEffect, ReactNode, useState } from 'react';
 import { router, usePage } from '@inertiajs/react';
->>>>>>> origin/provider-side
 import axios from 'axios';
 import {
   QuickRequestState,
@@ -13,14 +7,6 @@ import {
   QuickRequestAction,
   QuickRequestContextValue,
   ValidationResult,
-<<<<<<< HEAD
-  ValidationError,
-  Warning,
-  Episode,
-  UseQuickRequestReturn,
-} from '@/types/quickRequest';
-
-=======
   UseQuickRequestReturn,
   PatientInsuranceData,
   ClinicalBillingData,
@@ -38,7 +24,6 @@ const stepToDataKey = {
   'review-submit': 'reviewSubmit',
 } as const;
 
->>>>>>> origin/provider-side
 // Initial state
 const initialState: QuickRequestState = {
   currentStep: 'patient-insurance',
@@ -58,21 +43,14 @@ const initialState: QuickRequestState = {
   },
 };
 
-<<<<<<< HEAD
-// Reducer
-function quickRequestReducer(
-  state: QuickRequestState,
-  action: QuickRequestAction
-=======
 // Extended action types to include UPDATE_DATA
-type ExtendedQuickRequestAction = QuickRequestAction | 
+type ExtendedQuickRequestAction = QuickRequestAction |
   { type: 'UPDATE_DATA'; payload: Partial<QuickRequestState['data']> };
 
 // Reducer
 function quickRequestReducer(
   state: QuickRequestState,
   action: ExtendedQuickRequestAction
->>>>>>> origin/provider-side
 ): QuickRequestState {
   switch (action.type) {
     case 'SET_STEP':
@@ -92,17 +70,11 @@ function quickRequestReducer(
       };
 
     case 'SET_STEP_DATA':
-<<<<<<< HEAD
-=======
       const dataKey = stepToDataKey[action.payload.step];
->>>>>>> origin/provider-side
       return {
         ...state,
         data: {
           ...state.data,
-<<<<<<< HEAD
-          [action.payload.step]: action.payload.data,
-=======
           [dataKey]: {
             ...state.data[dataKey as keyof typeof state.data],
             ...action.payload.data,
@@ -120,7 +92,6 @@ function quickRequestReducer(
         data: {
           ...state.data,
           ...action.payload,
->>>>>>> origin/provider-side
         },
         metadata: {
           ...state.metadata,
@@ -141,7 +112,7 @@ function quickRequestReducer(
       const completedSteps = state.navigation.completedSteps.includes(action.payload)
         ? state.navigation.completedSteps
         : [...state.navigation.completedSteps, action.payload];
-      
+
       return {
         ...state,
         navigation: {
@@ -169,10 +140,6 @@ function quickRequestReducer(
   }
 }
 
-<<<<<<< HEAD
-// Context
-const QuickRequestContext = createContext<QuickRequestContextValue | null>(null);
-=======
 // Extended context value
 interface ExtendedQuickRequestContextValue extends Omit<QuickRequestContextValue, 'dispatch'> {
   dispatch: React.Dispatch<ExtendedQuickRequestAction>;
@@ -180,25 +147,10 @@ interface ExtendedQuickRequestContextValue extends Omit<QuickRequestContextValue
 
 // Context
 const QuickRequestContext = createContext<ExtendedQuickRequestContextValue | null>(null);
->>>>>>> origin/provider-side
 
 // Provider component
 export function QuickRequestProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(quickRequestReducer, initialState);
-<<<<<<< HEAD
-  const { props } = usePage();
-  const navigate = useNavigate();
-
-  // Set user ID on mount
-  useEffect(() => {
-    if (props.auth?.user?.id) {
-      dispatch({
-        type: 'SET_STEP_DATA',
-        payload: {
-          step: 'patient-insurance',
-          data: { ...state.data['patient-insurance'], userId: props.auth.user.id },
-        },
-=======
   const { props } = usePage<{ auth?: { user?: { id?: string } } }>();
 
   // Set user ID on mount
@@ -207,39 +159,22 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
       dispatch({
         type: 'UPDATE_DATA',
         payload: { userId: props.auth.user.id } as any,
->>>>>>> origin/provider-side
       });
     }
   }, [props.auth?.user?.id]);
 
   // Auto-save progress
   useEffect(() => {
-<<<<<<< HEAD
-    const saveTimer = setTimeout(() => {
-      if (state.data && Object.keys(state.data).length > 0) {
-        saveProgress(state.currentStep, state.data[state.currentStep]);
-=======
     const dataKey = stepToDataKey[state.currentStep];
     const currentData = state.data[dataKey as keyof typeof state.data];
-    
+
     const saveTimer = setTimeout(() => {
       if (currentData && Object.keys(currentData).length > 0) {
         saveProgress(state.metadata.sessionId, state.currentStep, currentData);
->>>>>>> origin/provider-side
       }
     }, 5000); // Auto-save every 5 seconds
 
     return () => clearTimeout(saveTimer);
-<<<<<<< HEAD
-  }, [state.data, state.currentStep]);
-
-  // API methods
-  const saveProgress = useCallback(
-    async (step: QuickRequestStep, data: any) => {
-      try {
-        await axios.post('/api/v1/quick-request/save-progress', {
-          sessionId: state.metadata.sessionId,
-=======
   }, [state.data, state.currentStep, state.metadata.sessionId]);
 
   // API methods
@@ -248,7 +183,6 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
       try {
         await axios.post('/api/v1/quick-request/save-progress', {
           sessionId,
->>>>>>> origin/provider-side
           step,
           data,
         });
@@ -256,25 +190,17 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
         console.error('Failed to save progress:', error);
       }
     },
-<<<<<<< HEAD
-    [state.metadata.sessionId]
-=======
     []
->>>>>>> origin/provider-side
   );
 
   const loadProgress = useCallback(async (sessionId: string) => {
     try {
       const response = await axios.get(`/api/v1/quick-request/load-progress/${sessionId}`);
-<<<<<<< HEAD
-      return response.data.data;
-=======
       if (response.data.success && response.data.data) {
         dispatch({ type: 'LOAD_STATE', payload: response.data.data });
         return response.data.data;
       }
       return null;
->>>>>>> origin/provider-side
     } catch (error) {
       console.error('Failed to load progress:', error);
       return null;
@@ -282,14 +208,9 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const createEpisode = useCallback(async (data: QuickRequestState['data']) => {
-<<<<<<< HEAD
-    const response = await axios.post('/api/v1/quick-request/episodes', data);
-    return response.data.data;
-  }, []);
-=======
     try {
       // Ensure we have the required DocuSeal submission ID
-      if (!data.docuSealIVR?.documents?.length && 
+      if (!data.docuSealIVR?.documents?.length &&
           data.productSelection?.products?.length) {
         console.warn('DocuSeal submission may be required for this product');
       }
@@ -298,30 +219,18 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
         ...data,
         sessionId: state.metadata.sessionId,
       });
-      
+
       return response.data.data;
     } catch (error) {
       console.error('Failed to create episode:', error);
       throw error;
     }
   }, [state.metadata.sessionId]);
->>>>>>> origin/provider-side
 
   const validateStep = useCallback(
     async (step: QuickRequestStep, data: any): Promise<ValidationResult[]> => {
       try {
         const response = await axios.post(`/api/v1/quick-request/validate/${step}`, data);
-<<<<<<< HEAD
-        return response.data.data;
-      } catch (error: any) {
-        if (error.response?.status === 422) {
-          return error.response.data.errors.map((err: any) => ({
-            field: err.field,
-            rule: err.code,
-            passed: false,
-            message: err.message,
-            severity: 'error',
-=======
         return response.data.data || [];
       } catch (error: any) {
         if (error.response?.status === 422) {
@@ -331,7 +240,6 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
             passed: false,
             message: err.message || 'Validation failed',
             severity: 'error' as const,
->>>>>>> origin/provider-side
           }));
         }
         throw error;
@@ -340,11 +248,7 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
     []
   );
 
-<<<<<<< HEAD
-  const contextValue: QuickRequestContextValue = {
-=======
   const contextValue: ExtendedQuickRequestContextValue = {
->>>>>>> origin/provider-side
     state,
     dispatch,
     api: {
@@ -362,10 +266,6 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
   );
 }
 
-<<<<<<< HEAD
-// Main hook
-export function useQuickRequest(): UseQuickRequestReturn {
-=======
 // Extended return type to include missing properties
 interface ExtendedUseQuickRequestReturn extends UseQuickRequestReturn {
   formData: QuickRequestState['data'];
@@ -377,18 +277,13 @@ interface ExtendedUseQuickRequestReturn extends UseQuickRequestReturn {
 
 // Main hook
 export function useQuickRequest(): ExtendedUseQuickRequestReturn {
->>>>>>> origin/provider-side
   const context = useContext(QuickRequestContext);
   if (!context) {
     throw new Error('useQuickRequest must be used within QuickRequestProvider');
   }
 
   const { state, dispatch, api } = context;
-<<<<<<< HEAD
-  const navigate = useNavigate();
-=======
   const [isLoading, setIsLoading] = useState(false);
->>>>>>> origin/provider-side
 
   const steps: QuickRequestStep[] = [
     'patient-insurance',
@@ -402,11 +297,6 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
 
   const goToStep = useCallback(
     (step: QuickRequestStep) => {
-<<<<<<< HEAD
-      dispatch({ type: 'SET_STEP', payload: step });
-    },
-    [dispatch]
-=======
       // Don't allow jumping to DocuSeal step if product selection not complete
       if (step === 'docuseal-ivr' && !state.data.productSelection?.products?.length) {
         console.warn('Cannot proceed to DocuSeal without product selection');
@@ -415,47 +305,30 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       dispatch({ type: 'SET_STEP', payload: step });
     },
     [dispatch, state.data]
->>>>>>> origin/provider-side
   );
 
   const goNext = useCallback(async () => {
     if (currentStepIndex < steps.length - 1) {
-<<<<<<< HEAD
-      const nextStep = steps[currentStepIndex + 1];
-      
-      // Validate current step before proceeding
-      const validationResults = await api.validateStep(
-        state.currentStep,
-        state.data[state.currentStep]
-      );
-      
-      if (validationResults.some(r => !r.passed && r.severity === 'error')) {
-        throw new Error('Please fix validation errors before proceeding');
-      }
-      
-      dispatch({ type: 'COMPLETE_STEP', payload: state.currentStep });
-      dispatch({ type: 'SET_STEP', payload: nextStep });
-=======
       const nextStep = steps[currentStepIndex + 1]!; // We know it exists due to the bounds check
       setIsLoading(true);
       try {
         // Get current step data
         const dataKey = stepToDataKey[state.currentStep];
         const currentData = state.data[dataKey as keyof typeof state.data];
-        
+
         // Validate current step before proceeding (only if there's data)
-        const validationResults = currentData 
+        const validationResults = currentData
           ? await api.validateStep(state.currentStep, currentData)
           : [];
-        
+
         if (validationResults.some(r => !r.passed && r.severity === 'error')) {
-          dispatch({ type: 'SET_VALIDATION', payload: { 
-            step: state.currentStep, 
-            results: validationResults 
+          dispatch({ type: 'SET_VALIDATION', payload: {
+            step: state.currentStep,
+            results: validationResults
           }});
           throw new Error('Please fix validation errors before proceeding');
         }
-        
+
         dispatch({ type: 'COMPLETE_STEP', payload: state.currentStep });
         dispatch({ type: 'SET_STEP', payload: nextStep });
       } catch (error) {
@@ -464,70 +337,18 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       } finally {
         setIsLoading(false);
       }
->>>>>>> origin/provider-side
     }
   }, [currentStepIndex, state.currentStep, state.data, api, dispatch]);
 
   const goBack = useCallback(() => {
     if (currentStepIndex > 0) {
-<<<<<<< HEAD
-      const prevStep = steps[currentStepIndex - 1];
-=======
       const prevStep = steps[currentStepIndex - 1]!; // We know it exists due to the bounds check
->>>>>>> origin/provider-side
       dispatch({ type: 'SET_STEP', payload: prevStep });
     }
   }, [currentStepIndex, dispatch]);
 
   const saveStep = useCallback(
     async (data: any) => {
-<<<<<<< HEAD
-      dispatch({ type: 'SET_STEP_DATA', payload: { step: state.currentStep, data } });
-      await api.saveProgress(state.currentStep, data);
-    },
-    [state.currentStep, api, dispatch]
-  );
-
-  const submitEpisode = useCallback(async () => {
-    // Validate all steps
-    for (const step of steps) {
-      const stepData = state.data[step];
-      if (!stepData) {
-        throw new Error(`Missing data for step: ${step}`);
-      }
-      
-      const validationResults = await api.validateStep(step, stepData);
-      if (validationResults.some(r => !r.passed && r.severity === 'error')) {
-        throw new Error(`Validation failed for step: ${step}`);
-      }
-    }
-
-    // Create episode
-    const episode = await api.createEpisode(state.data);
-    
-    // Reset workflow
-    dispatch({ type: 'RESET_WORKFLOW' });
-    
-    // Navigate to success page
-    navigate(`/quick-request/success/${episode.id}`);
-    
-    return episode;
-  }, [state.data, api, dispatch, navigate]);
-
-  const validateCurrentStep = useCallback(
-    async (step?: QuickRequestStep) => {
-      const stepToValidate = step || state.currentStep;
-      const data = state.data[stepToValidate];
-      
-      if (!data) {
-        return [];
-      }
-      
-      const results = await api.validateStep(stepToValidate, data);
-      dispatch({ type: 'SET_VALIDATION', payload: { step: stepToValidate, results } });
-      
-      return results;
-=======
       setIsLoading(true);
       try {
         dispatch({ type: 'SET_STEP_DATA', payload: { step: state.currentStep, data } });
@@ -544,7 +365,7 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
     (data: any) => {
       // Map the flat data to the correct step structure
       const mappedData: Partial<QuickRequestState['data']> = {};
-      
+
       // Determine which step data this belongs to based on the fields
       if (data.patient_first_name || data.patient_last_name || data.insurance_name) {
         mappedData.patientInsurance = { ...state.data.patientInsurance, ...data } as PatientInsuranceData;
@@ -555,7 +376,7 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       } else if (data.docuseal_submission_id) {
         mappedData.docuSealIVR = { ...state.data.docuSealIVR, ...data } as DocuSealIVRData;
       }
-      
+
       dispatch({ type: 'UPDATE_DATA', payload: mappedData });
     },
     [dispatch, state.data]
@@ -568,7 +389,7 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       for (const step of steps) {
         const dataKey = stepToDataKey[step];
         const stepData = state.data[dataKey as keyof typeof state.data];
-        
+
         if (stepData) {
           const results = await api.validateStep(step, stepData);
           if (results.some(r => !r.passed && r.severity === 'error')) {
@@ -579,23 +400,23 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
 
       // Create episode
       const episode = await api.createEpisode(state.data);
-      
+
       if (!episode?.id) {
         throw new Error('Failed to create episode');
       }
 
       // Reset workflow
       dispatch({ type: 'RESET_WORKFLOW' });
-      
+
       // Navigate to success page using Inertia
       router.visit(`/quick-request/success/${episode.id}`, {
         method: 'get',
-        data: { 
+        data: {
           episode_id: episode.id,
           submission_id: state.data.docuSealIVR?.documents?.[0]?.id
         }
       });
-      
+
       return episode;
     } catch (error) {
       console.error('Failed to submit episode:', error);
@@ -612,19 +433,18 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
         const stepToValidate: QuickRequestStep = step || state.currentStep;
         const dataKey = stepToDataKey[stepToValidate];
         const data = state.data[dataKey as keyof typeof state.data];
-        
+
         if (!data) {
           return [];
         }
-        
+
         const results = await api.validateStep(stepToValidate, data);
         dispatch({ type: 'SET_VALIDATION', payload: { step: stepToValidate, results } });
-        
+
         return results;
       } finally {
         setIsLoading(false);
       }
->>>>>>> origin/provider-side
     },
     [state.currentStep, state.data, api, dispatch]
   );
@@ -633,13 +453,10 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
     dispatch({ type: 'RESET_WORKFLOW' });
   }, [dispatch]);
 
-<<<<<<< HEAD
-=======
   // Get current step data
   const currentDataKey = stepToDataKey[state.currentStep];
   const currentStepData = state.data[currentDataKey as keyof typeof state.data];
 
->>>>>>> origin/provider-side
   // Extract errors and warnings from validation
   const currentValidation = state.validation[state.currentStep] || [];
   const errors = currentValidation
@@ -649,7 +466,7 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       code: v.rule,
       message: v.message || 'Validation failed',
     }));
-    
+
   const warnings = currentValidation
     .filter(v => v.severity === 'warning')
     .map(v => ({
@@ -660,27 +477,15 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
 
   return {
     state,
-<<<<<<< HEAD
-    currentStepData: state.data[state.currentStep],
-    isLoading: false, // TODO: Implement loading state
-=======
     currentStepData,
     formData: state.data,
     isLoading,
->>>>>>> origin/provider-side
     errors,
     warnings,
     goToStep,
     goNext,
     goBack,
     saveStep,
-<<<<<<< HEAD
-    submitEpisode,
-    validateStep: validateCurrentStep,
-    resetWorkflow,
-  };
-}
-=======
     updateFormData,
     submitEpisode,
     validateStep: validateCurrentStep,
@@ -690,4 +495,3 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
     progress: ((currentStepIndex + 1) / steps.length) * 100,
   };
 }
->>>>>>> origin/provider-side

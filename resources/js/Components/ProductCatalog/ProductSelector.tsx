@@ -230,15 +230,11 @@ const ProductSelector: React.FC<Props> = ({
 
   const fetchProducts = async () => {
     try {
-<<<<<<< HEAD
-      const response = await fetch('/api/products/search');
-=======
       // For providers, respect their onboarded products only
       // For admins and other roles, allow showing all products
       const showAll = userRole !== 'provider' && !currentRoleRestrictions.pricing_access_level.includes('limited');
 
       const response = await fetch(`/api/products/search${showAll ? '?show_all=true' : ''}`);
->>>>>>> origin/provider-side
       const data = await response.json();
       const productsData = data.products || [];
       setProducts(productsData);
@@ -249,14 +245,11 @@ const ProductSelector: React.FC<Props> = ({
       const uniqueManufacturers = [...new Set(productsData.map((p: Product) => p.manufacturer))];
       setCategories(uniqueCategories as string[]);
       setManufacturers(uniqueManufacturers as string[]);
-<<<<<<< HEAD
-=======
 
       console.log(`ProductSelector: Loaded ${productsData.length} products for ${userRole}`, {
         showAll,
         roleRestrictions: currentRoleRestrictions
       });
->>>>>>> origin/provider-side
     } catch (error) {
       console.error('Error fetching products:', error);
     } finally {
@@ -675,11 +668,6 @@ const ProductSelector: React.FC<Props> = ({
                     }
 
                     const totalPrice = unitPrice * item.quantity;
-<<<<<<< HEAD
-                    
-=======
-
->>>>>>> origin/provider-side
                     return (
                       <div key={`${item.product_id}-${item.size || 'no-size'}`} className="border border-gray-200 rounded-md p-3">
                         <div className="flex items-start justify-between mb-2">
@@ -714,17 +702,10 @@ const ProductSelector: React.FC<Props> = ({
                             <X className="w-4 h-4" />
                           </button>
                         </div>
-<<<<<<< HEAD
-                    
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-2">
-                    
-=======
 
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
 
->>>>>>> origin/provider-side
                             <button
                               type="button"
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity - 1)}
@@ -737,11 +718,6 @@ const ProductSelector: React.FC<Props> = ({
                             <span className="text-sm font-medium w-8 text-center">
                               {item.quantity}
                             </span>
-<<<<<<< HEAD
-                    
-=======
-
->>>>>>> origin/provider-side
                             <button
                               onClick={() => updateProductQuantity(item.product_id, item.size, item.quantity + 1)}
                               className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50"

@@ -102,8 +102,6 @@ class DocusealTemplate extends Model
             ->default()
             ->first();
     }
-<<<<<<< HEAD
-=======
 
     /**
      * Get the field mappings for this template
@@ -193,5 +191,4 @@ class DocusealTemplate extends Model
             'last_mapped_by' => auth()->id(),
         ]);
     }
->>>>>>> origin/provider-side
 }

@@ -3,16 +3,12 @@ import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Dialog, Transition } from '@headlessui/react';
 import axios from 'axios';
-import { 
-  RefreshCw, Search, Filter, Plus, Settings, ExternalLink, 
+import {
+  RefreshCw, Search, Filter, Plus, Settings, ExternalLink,
   FileText, Database, CheckCircle2, AlertCircle, Clock,
   Zap, Package, Users, TrendingUp, BarChart3, Eye,
   Download, Upload, Edit3, Trash2, Copy, Star,
   ChevronDown, ChevronRight, X, Calendar, Hash,
-<<<<<<< HEAD
-  CheckSquare, AlertTriangle, Info, MapIcon
-} from 'lucide-react';
-=======
   CheckSquare, AlertTriangle, Info, MapIcon,
   MapPin, GitBranch, Wand2, FileCheck, ArrowLeftRight,
   Layers, Target, Sparkles, ClipboardCheck, FileJson,
@@ -25,7 +21,6 @@ import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationRep
 import { ImportExportModal } from '@/Components/Admin/DocuSeal/ImportExportModal';
 import { AITemplateAnalyzer } from '@/Components/Admin/DocuSeal/AITemplateAnalyzer';
 import type { CanonicalField, MappingStatistics, ValidationResult } from '@/types/field-mapping';
->>>>>>> origin/provider-side
 
 // Enhanced Types
 interface Template {
@@ -86,7 +81,7 @@ export default function Templates() {
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Sync state
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     is_syncing: false,
@@ -95,21 +90,19 @@ export default function Templates() {
     templates_updated: 0,
     errors: 0
   });
-  
+
   // UI state
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState<string>('all');
   const [selectedDocType, setSelectedDocType] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  
+
   // Modal state
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showSyncModal, setShowSyncModal] = useState(false);
-<<<<<<< HEAD
-=======
-  
+
   // Mapping-specific state
   const [mappingMode, setMappingMode] = useState<'view' | 'edit'>('view');
   const [selectedTemplateForMapping, setSelectedTemplateForMapping] = useState<Template | null>(null);
@@ -124,7 +117,6 @@ export default function Templates() {
   const [importExportTemplate, setImportExportTemplate] = useState<Template | null>(null);
   const [showAIAnalyzer, setShowAIAnalyzer] = useState(false);
   const [selectedTemplateForAI, setSelectedTemplateForAI] = useState<Template | null>(null);
->>>>>>> origin/provider-side
 
   // Computed values
   const manufacturers = useMemo(() => {
@@ -139,16 +131,16 @@ export default function Templates() {
 
   const filteredTemplates = useMemo(() => {
     return templates.filter(template => {
-      const matchesSearch = !searchTerm || 
+      const matchesSearch = !searchTerm ||
         template.template_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         template.manufacturer?.name?.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      const matchesManufacturer = selectedManufacturer === 'all' || 
+
+      const matchesManufacturer = selectedManufacturer === 'all' ||
         template.manufacturer?.name === selectedManufacturer;
-      
-      const matchesDocType = selectedDocType === 'all' || 
+
+      const matchesDocType = selectedDocType === 'all' ||
         template.document_type === selectedDocType;
-      
+
       return matchesSearch && matchesManufacturer && matchesDocType;
     });
   }, [templates, searchTerm, selectedManufacturer, selectedDocType]);
@@ -172,7 +164,7 @@ export default function Templates() {
       const response = await axios.get('/api/v1/admin/docuseal/templates');
       setTemplates(response.data.templates || []);
       setStats(response.data.stats);
-      
+
       // Update sync status if available
       if (response.data.sync_status) {
         setSyncStatus(response.data.sync_status);
@@ -187,13 +179,13 @@ export default function Templates() {
   const syncTemplates = async (force = false) => {
     setSyncStatus(prev => ({ ...prev, is_syncing: true }));
     setError(null);
-    
+
     try {
       const response = await axios.post('/api/v1/admin/docuseal/sync', {
         force,
         queue: true // Use queue for large syncs
       });
-      
+
       if (response.data.success) {
         setSyncStatus({
           is_syncing: false,
@@ -202,7 +194,7 @@ export default function Templates() {
           templates_updated: response.data.templates_updated || 0,
           errors: response.data.errors || 0
         });
-        
+
         // Refresh templates after sync
         await fetchTemplates();
       }
@@ -232,10 +224,10 @@ export default function Templates() {
 
   const getTemplateStatusText = (template: Template) => {
     if (!template.is_active) return 'Inactive';
-    
+
     const coverage = template.field_coverage_percentage || 0;
     const fieldCount = Object.keys(template.field_mappings || {}).length;
-    
+
     if (fieldCount === 0) return 'Not Configured';
     if (coverage >= 90) return 'Excellent';
     if (coverage >= 70) return 'Good';
@@ -253,12 +245,6 @@ export default function Templates() {
     });
   };
 
-<<<<<<< HEAD
-  useEffect(() => {
-    fetchTemplates();
-  }, []);
-
-=======
   // Mapping-related functions
   const fetchCanonicalFields = async () => {
     try {
@@ -345,7 +331,6 @@ export default function Templates() {
     }
   }, [templates, mappingMode]);
 
->>>>>>> origin/provider-side
   return (
     <MainLayout>
       <Head title="DocuSeal Templates" />
@@ -362,7 +347,7 @@ export default function Templates() {
                     Manage manufacturer IVR forms and automation templates
                   </p>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => setShowSyncModal(true)}
@@ -371,7 +356,7 @@ export default function Templates() {
                     <Settings className="w-4 h-4" />
                     Sync Options
                   </button>
-                  
+
                   <button
                     onClick={testSync}
                     className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-2"
@@ -379,7 +364,7 @@ export default function Templates() {
                     <Zap className="w-4 h-4" />
                     Test Sync
                   </button>
-                  
+
                   <button
                     onClick={() => syncTemplates(false)}
                     disabled={syncStatus.is_syncing}
@@ -397,9 +382,7 @@ export default function Templates() {
                       </>
                     )}
                   </button>
-<<<<<<< HEAD
-=======
-                  
+
                   {/* Mapping Controls */}
                   <div className="flex items-center gap-2 ml-4 pl-4 border-l border-gray-300">
                     <button
@@ -409,7 +392,7 @@ export default function Templates() {
                       <MapIcon className="w-4 h-4" />
                       {mappingMode === 'view' ? 'Edit Mappings' : 'View Mode'}
                     </button>
-                    
+
                     {mappingMode === 'edit' && (
                       <>
                         <button
@@ -424,7 +407,7 @@ export default function Templates() {
                           <Layers className="w-4 h-4" />
                           Bulk Operations
                         </button>
-                        
+
                         <button
                           onClick={() => {
                             if (filteredTemplates.length > 0) {
@@ -437,7 +420,7 @@ export default function Templates() {
                           <FileJson className="w-4 h-4" />
                           Import/Export
                         </button>
-                        
+
                         <button
                           onClick={() => {
                             setShowAIAnalyzer(true);
@@ -450,7 +433,6 @@ export default function Templates() {
                       </>
                     )}
                   </div>
->>>>>>> origin/provider-side
                 </div>
               </div>
 
@@ -518,18 +500,15 @@ export default function Templates() {
                   </div>
                 </div>
               )}
-<<<<<<< HEAD
-=======
-              
+
               {/* Mapping Stats Dashboard */}
               {mappingMode === 'edit' && stats && (
-                <MappingStatsDashboard 
+                <MappingStatsDashboard
                   templates={templates}
                   mappingStats={mappingStats}
                   canonicalFields={canonicalFields}
                 />
               )}
->>>>>>> origin/provider-side
             </div>
           </div>
         </div>
@@ -653,7 +632,7 @@ export default function Templates() {
                   <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No templates found</h3>
                   <p className="text-gray-500 mb-4">
-                    {templates.length === 0 
+                    {templates.length === 0
                       ? "No templates have been synced yet. Click 'Sync Templates' to get started."
                       : "No templates match your current filters. Try adjusting your search criteria."
                     }
@@ -684,7 +663,7 @@ export default function Templates() {
                             </p>
                           </div>
                         </div>
-                        
+
                         <div className="text-right">
                           <div className="text-sm text-gray-500">Avg Coverage</div>
                           <div className="text-lg font-bold text-gray-900">
@@ -693,7 +672,7 @@ export default function Templates() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="p-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         {manufacturerTemplates.map(template => (
@@ -718,7 +697,7 @@ export default function Templates() {
                                 <Star className="w-4 h-4 text-yellow-500 flex-shrink-0 ml-2" />
                               )}
                             </div>
-                            
+
                             <div className="space-y-2">
                               <div className="flex items-center justify-between text-sm">
                                 <span className="text-gray-600">Field Coverage</span>
@@ -732,7 +711,7 @@ export default function Templates() {
                                   style={{ width: `${template.field_coverage_percentage || 0}%` }}
                                 />
                               </div>
-                              
+
                               <div className="flex items-center justify-between text-xs text-gray-500">
                                 <span>{Object.keys(template.field_mappings || {}).length} fields</span>
                                 <span className={`px-2 py-1 rounded-full border ${getTemplateStatusColor(template)}`}>
@@ -740,9 +719,7 @@ export default function Templates() {
                                 </span>
                               </div>
                             </div>
-<<<<<<< HEAD
-=======
-                            
+
                             {/* Mapping Section */}
                             {mappingMode === 'edit' && (
                               <div className="mt-3 pt-3 border-t border-gray-200" onClick={(e) => e.stopPropagation()}>
@@ -754,20 +731,20 @@ export default function Templates() {
                                     {mappingStats[template.id]?.coveragePercentage || 0}%
                                   </span>
                                 </div>
-                                
+
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2 text-xs text-gray-600">
                                     <Target className="w-3 h-3" />
                                     <span>{mappingStats[template.id]?.mappedFields || 0} / {mappingStats[template.id]?.totalFields || 0} fields mapped</span>
                                   </div>
-                                  
+
                                   {mappingStats[template.id]?.validationStatus?.error > 0 && (
                                     <div className="flex items-center gap-2 text-xs text-red-600">
                                       <AlertCircle className="w-3 h-3" />
                                       <span>{mappingStats[template.id]?.validationStatus.error} validation errors</span>
                                     </div>
                                   )}
-                                  
+
                                   <div className="flex gap-2">
                                     {/* Configure button temporarily disabled after cleanup */}
                                     {/* <button
@@ -780,7 +757,7 @@ export default function Templates() {
                                       <MapPin className="w-3 h-3" />
                                       Configure
                                     </button> */}
-                                    
+
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -791,7 +768,7 @@ export default function Templates() {
                                     >
                                       <Shield className="w-3 h-3" />
                                     </button>
-                                    
+
                                     <button
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -807,7 +784,6 @@ export default function Templates() {
                                 </div>
                               </div>
                             )}
->>>>>>> origin/provider-side
                           </div>
                         ))}
                       </div>
@@ -906,8 +882,6 @@ export default function Templates() {
                                 >
                                   <Eye className="w-4 h-4" />
                                 </button>
-<<<<<<< HEAD
-=======
                                 {mappingMode === 'edit' && (
                                   <>
                                     {/* Configure Mappings button temporarily disabled after cleanup */}
@@ -937,7 +911,6 @@ export default function Templates() {
                                     </button>
                                   </>
                                 )}
->>>>>>> origin/provider-side
                                 <button
                                   onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
                                   className="text-green-600 hover:text-green-900"
@@ -1190,7 +1163,7 @@ export default function Templates() {
                         <RefreshCw className="w-4 h-4" />
                         Regular Sync
                       </button>
-                      
+
                       <button
                         onClick={() => {
                           syncTemplates(true);
@@ -1202,7 +1175,7 @@ export default function Templates() {
                         <RefreshCw className="w-4 h-4" />
                         Force Sync (Update All)
                       </button>
-                      
+
                       <button
                         onClick={() => {
                           testSync();
@@ -1221,8 +1194,6 @@ export default function Templates() {
           </div>
         </Dialog>
       </Transition>
-<<<<<<< HEAD
-=======
 
       {/* Field Mapping Interface Modal - Temporarily disabled after cleanup */}
       {/* {selectedTemplateForMapping && showMappingModal && (
@@ -1276,7 +1247,7 @@ export default function Templates() {
           }}
         />
       )}
-      
+
       {/* AI Template Analyzer Modal */}
       <AITemplateAnalyzer
         show={showAIAnalyzer}
@@ -1295,7 +1266,6 @@ export default function Templates() {
           }
         }}
       />
->>>>>>> origin/provider-side
     </MainLayout>
   );
 }

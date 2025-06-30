@@ -51,8 +51,6 @@ interface Step5Props {
   currentUser?: {
     role?: string;
   };
-<<<<<<< HEAD
-=======
   roleRestrictions?: {
     can_view_financials: boolean;
     can_see_discounts: boolean;
@@ -61,7 +59,6 @@ interface Step5Props {
     pricing_access_level: string;
     commission_access_level: string;
   };
->>>>>>> origin/provider-side
 }
 
 
@@ -69,9 +66,6 @@ export default function Step5ProductSelection({
   formData,
   updateFormData,
   errors,
-<<<<<<< HEAD
-  currentUser
-=======
   currentUser,
   roleRestrictions = {
     can_view_financials: true,
@@ -81,11 +75,10 @@ export default function Step5ProductSelection({
     pricing_access_level: 'full',
     commission_access_level: 'full'
   }
->>>>>>> origin/provider-side
 }: Step5Props) {
   const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
 
@@ -117,7 +110,7 @@ export default function Step5ProductSelection({
         }
       }
     };
-    
+
     fetchProviderProducts();
   }, [formData.provider_id]);
 
@@ -153,18 +146,7 @@ export default function Step5ProductSelection({
           insuranceType={(formData.primary_insurance_name?.toLowerCase().includes('medicare')) ? 'medicare' : (formData.primary_insurance_name?.toLowerCase().includes('medicaid')) ? 'medicaid' : (formData.primary_plan_type?.toLowerCase() === 'ppo' || formData.primary_plan_type?.toLowerCase() === 'commercial') ? 'ppo' : 'commercial'}
           woundSize={parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')}
           patientState={formData.patient_state}
-<<<<<<< HEAD
-          roleRestrictions={{
-            can_view_financials: true,
-            can_see_discounts: true,
-            can_see_msc_pricing: true,
-            can_see_order_totals: true,
-            pricing_access_level: 'full',
-            commission_access_level: 'full'
-          }}
-=======
           roleRestrictions={roleRestrictions}
->>>>>>> origin/provider-side
           last24HourOrders={formData.last_24_hour_orders || []}
           selectedProducts={formData.selected_products as any || []}
           onProductsChange={handleProductsChange}

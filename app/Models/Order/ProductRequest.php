@@ -15,11 +15,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Docuseal\DocusealSubmission;
-<<<<<<< HEAD
-=======
 use App\Constants\DocuSealFields;
 use Illuminate\Support\Arr;
->>>>>>> origin/provider-side
 
 class ProductRequest extends Model
 {
@@ -107,9 +104,7 @@ class ProductRequest extends Model
         'shipped_at' => 'datetime',
         'delivered_at' => 'datetime',
     ];
-<<<<<<< HEAD
-=======
-    
+
     /**
      * Order Status constants - matches PRD requirements
      */
@@ -118,7 +113,6 @@ class ProductRequest extends Model
     const ORDER_STATUS_CONFIRMED_BY_MANUFACTURER = 'confirmed_by_manufacturer';
     const ORDER_STATUS_REJECTED = 'rejected';
     const ORDER_STATUS_CANCELED = 'canceled';
->>>>>>> origin/provider-side
 
     /**
      * Place of service codes and descriptions.
@@ -171,13 +165,13 @@ class ProductRequest extends Model
         if (!$this->patient_fhir_id) {
             return null;
         }
-        
+
         // Extract just the ID part from "Patient/uuid" format if needed
         $fhirId = $this->patient_fhir_id;
         if (str_starts_with($fhirId, 'Patient/')) {
             $fhirId = substr($fhirId, 8);
         }
-        
+
         try {
             $fhirService = app(\App\Services\FhirService::class);
             return $fhirService->getPatientById($fhirId);
@@ -569,11 +563,9 @@ class ProductRequest extends Model
     }
 
     /**
-<<<<<<< HEAD
-=======
      * Get a normalized field value using DocuSeal canonical keys.
      * This provides a single interface for accessing form data regardless of storage method.
-     * 
+     *
      * @param string $key Canonical DocuSeal field key
      * @param mixed $default Default value if not found
      * @return mixed
@@ -604,8 +596,8 @@ class ProductRequest extends Model
         try {
             $submission = $this->docusealSubmissions()->first();
             if ($submission && isset($submission->response_data)) {
-                return is_array($submission->response_data) 
-                    ? $submission->response_data 
+                return is_array($submission->response_data)
+                    ? $submission->response_data
                     : json_decode($submission->response_data, true);
             }
         } catch (\Exception $e) {
@@ -696,7 +688,7 @@ class ProductRequest extends Model
 
         if (isset($fieldMapping[$key])) {
             $mapping = $fieldMapping[$key];
-            
+
             if (is_callable($mapping)) {
                 return $mapping() ?? $default;
             } else {
@@ -714,7 +706,7 @@ class ProductRequest extends Model
     public function getDocuSealFormValues(): array
     {
         $values = [];
-        
+
         foreach (DocuSealFields::getAllFields() as $field) {
             $value = $this->getValue($field);
             if ($value !== null) {
@@ -732,7 +724,7 @@ class ProductRequest extends Model
     {
         $categorized = [];
         $categories = DocuSealFields::getFieldsByCategory();
-        
+
         foreach ($categories as $category => $fields) {
             $categoryData = [];
             foreach ($fields as $field) {
@@ -749,7 +741,7 @@ class ProductRequest extends Model
                 $categorized[$category] = $categoryData;
             }
         }
-        
+
         return $categorized;
     }
 
@@ -764,12 +756,11 @@ class ProductRequest extends Model
 
         $date = now()->format('Ymd');
         $count = static::whereDate('created_at', today())->count() + 1;
-        
+
         return sprintf('REQ-%s-%s%03d', $date, strtoupper(substr(md5($this->id), 0, 3)), $count);
     }
 
     /**
->>>>>>> origin/provider-side
      * Get the route key for the model.
      */
     public function getRouteKeyName()

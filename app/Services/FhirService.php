@@ -207,11 +207,7 @@ class FhirService
     /**
      * Get patient by FHIR ID (alias for getPatientById to match expected interface)
      */
-<<<<<<< HEAD
-    public function getPatient(string $patientFhirId, $productRequest = null): array
-=======
     public function getPatient(string $patientFhirId, mixed $productRequest = null): array
->>>>>>> origin/provider-side
     {
         // Use the existing getPatientById method
         $fhirPatient = $this->getPatientById($patientFhirId);
@@ -258,11 +254,7 @@ class FhirService
     /**
      * Get practitioner by FHIR ID (alias for getPractitionerById)
      */
-<<<<<<< HEAD
-    public function getPractitioner(string $practitionerFhirId, $productRequest = null): array
-=======
     public function getPractitioner(string $practitionerFhirId, mixed $productRequest = null): array
->>>>>>> origin/provider-side
     {
         $fhirPractitioner = $this->getPractitionerById($practitionerFhirId);
         if (!$fhirPractitioner) {
@@ -297,14 +289,12 @@ class FhirService
     }
 
     /**
-<<<<<<< HEAD
-=======
      * Get Organization resource by ID from FHIR server
      */
     public function getOrganization(string $organizationId): ?array
     {
         $this->ensureAzureConfigured();
-        
+
         try {
             $response = Http::withHeaders([
                 'Authorization' => "Bearer {$this->azureAccessToken}",
@@ -331,7 +321,6 @@ class FhirService
     }
 
     /**
->>>>>>> origin/provider-side
      * Create a new organization
      */
     public function createOrganization(array $organizationData): ?array

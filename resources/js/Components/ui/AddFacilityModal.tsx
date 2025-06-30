@@ -16,10 +16,7 @@ interface FormData {
     name: string;
     facility_type: string;
     group_npi: string;
-<<<<<<< HEAD
-=======
     facility_ptan: string;
->>>>>>> origin/provider-side
     status: string;
     address: string;
     city: string;
@@ -27,10 +24,7 @@ interface FormData {
     zip_code: string;
     phone: string;
     email: string;
-<<<<<<< HEAD
-=======
     contact_name: string;
->>>>>>> origin/provider-side
     business_hours: string;
     active: boolean;
 }
@@ -59,10 +53,7 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
         name: '',
         facility_type: '',
         group_npi: '',
-<<<<<<< HEAD
-=======
         facility_ptan: '',
->>>>>>> origin/provider-side
         status: 'active',
         address: '',
         city: '',
@@ -70,10 +61,7 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
         zip_code: '',
         phone: '',
         email: '',
-<<<<<<< HEAD
-=======
         contact_name: '',
->>>>>>> origin/provider-side
         business_hours: '',
         active: true,
     });
@@ -158,10 +146,7 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                 name: '',
                 facility_type: '',
                 group_npi: '',
-<<<<<<< HEAD
-=======
                 facility_ptan: '',
->>>>>>> origin/provider-side
                 status: 'active',
                 address: '',
                 city: '',
@@ -169,10 +154,7 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                 zip_code: '',
                 phone: '',
                 email: '',
-<<<<<<< HEAD
-=======
                 contact_name: '',
->>>>>>> origin/provider-side
                 business_hours: '',
                 active: true,
             });
@@ -379,17 +361,10 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                 </select>
                             </div>
 
-<<<<<<< HEAD
-                            {/* Group NPI */}
-                            <div>
-                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    Group NPI
-=======
                             {/* Facility/Practice NPI */}
                             <div>
                                 <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
                                     Facility/Practice NPI
->>>>>>> origin/provider-side
                                 </label>
                                 <input
                                     type="text"
@@ -408,8 +383,6 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                 )}
                             </div>
 
-<<<<<<< HEAD
-=======
                             {/* Practice PTAN */}
                             {formData.facility_type === 'Clinic' && (
                                 <div>
@@ -433,7 +406,6 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                 </div>
                             )}
 
->>>>>>> origin/provider-side
                             {/* Active Toggle */}
                             <div className="flex items-center">
                                 <input
@@ -458,57 +430,6 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                     <div className="space-y-4">
                         <h3 className={cn("text-lg font-medium", t.text.primary)}>Contact Information</h3>
 
-<<<<<<< HEAD
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {/* Email */}
-                            <div>
-                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    Email
-                                </label>
-                                <div className="relative">
-                                    <Mail className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
-                                    <input
-                                        type="email"
-                                        value={formData.email}
-                                        onChange={(e) => handleInputChange('email', e.target.value)}
-                                        className={cn(
-                                            "pl-10 pr-3",
-                                            t.input.base,
-                                            t.input.focus,
-                                            errors.email ? t.input.error : ''
-                                        )}
-                                        placeholder="Enter email address"
-                                    />
-                                </div>
-                                {errors.email && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.email}</p>
-                                )}
-                            </div>
-
-                            {/* Phone */}
-                            <div>
-                                <label className={cn("block text-sm font-medium mb-1", t.text.secondary)}>
-                                    Phone
-                                </label>
-                                <div className="relative">
-                                    <Phone className={cn("absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4", t.text.muted)} />
-                                    <input
-                                        type="tel"
-                                        value={formData.phone}
-                                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                                        className={cn(
-                                            "pl-10 pr-3",
-                                            t.input.base,
-                                            t.input.focus,
-                                            errors.phone ? t.input.error : ''
-                                        )}
-                                        placeholder="Enter phone number"
-                                    />
-                                </div>
-                                {errors.phone && (
-                                    <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.phone}</p>
-                                )}
-=======
                         <div className="space-y-4">
                             {/* Contact Name */}
                             <div>
@@ -584,7 +505,6 @@ const AddFacilityModal: React.FC<AddFacilityModalProps> = ({
                                         <p className={cn("mt-1 text-sm", t.status.error.split(' ')[0])}>{errors.phone}</p>
                                     )}
                                 </div>
->>>>>>> origin/provider-side
                             </div>
                         </div>
                     </div>

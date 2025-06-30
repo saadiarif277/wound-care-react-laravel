@@ -175,21 +175,13 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
   return (
     <div
       className={cn(
-<<<<<<< HEAD
-        "group relative overflow-hidden rounded-xl transition-all duration-300",
-=======
         "group relative rounded-xl transition-all duration-300",
->>>>>>> origin/provider-side
         theme === 'dark' ? t.glass.card : 'bg-white shadow-sm',
         "border",
         status.border,
         "hover:shadow-lg hover:scale-[1.01]",
-<<<<<<< HEAD
-        viewMode === 'expanded' && "col-span-full"
-=======
         viewMode === 'expanded' && "col-span-full",
         isExpanded && "z-[100]" // Ensure expanded card is above all others
->>>>>>> origin/provider-side
       )}
     >
       {/* Status pulse animation */}
@@ -306,47 +298,21 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
           onRefresh={onRefresh}
         />
 
-<<<<<<< HEAD
-        {/* Expandable Section */}
-        {isExpanded && (
-          <div className={cn(
-            "mt-4 pt-4 border-t",
-            theme === 'dark' ? 'border-white/10' : 'border-gray-200'
-          )}>
-            <div className="space-y-4">
-              {/* MAC Validation Section */}
-              {showMacValidation && (
-                <MacValidationPanel
-                  episodeId={episode.id}
-                  orders={episode.orders}
-                  facilityState={episode.orders?.[0]?.facility?.state}
-                  className="mb-4"
-                />
-              )}
-              
-              {/* Timeline Section */}
-              <EpisodeTimeline
-                episode={episode}
-                theme={theme}
-              />
-            </div>
-          </div>
-=======
         {/* Expandable Section - Absolutely positioned to avoid layout shift */}
         {isExpanded && (
           <>
             {/* Backdrop overlay */}
-            <div 
-              className="fixed inset-0 bg-black/20 z-40" 
+            <div
+              className="fixed inset-0 bg-black/20 z-40"
               onClick={() => setIsExpanded(false)}
             />
-            
+
             {/* Dropdown content */}
             <div className={cn(
               "absolute top-full left-0 right-0 z-50 mt-2",
               "rounded-xl shadow-xl border backdrop-blur-md",
-              theme === 'dark' 
-                ? 'bg-gray-900/95 border-gray-700' 
+              theme === 'dark'
+                ? 'bg-gray-900/95 border-gray-700'
                 : 'bg-white/95 border-gray-200'
             )}>
               <div className="p-4 space-y-3 max-h-[70vh] overflow-y-auto">
@@ -359,7 +325,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
                     className="mb-3"
                   />
                 )}
-                
+
                 {/* Timeline Section */}
                 <EpisodeTimeline
                   episode={episode}
@@ -368,7 +334,6 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
               </div>
             </div>
           </>
->>>>>>> origin/provider-side
         )}
 
         {/* Expand/Collapse Button */}
@@ -381,11 +346,7 @@ const EpisodeCard: React.FC<EpisodeCardProps> = ({
           )}
         >
           <span className="text-sm">
-<<<<<<< HEAD
-            {isExpanded ? 'Show Less' : showMacValidation ? 'Show MAC Validation & Timeline' : 'Show Timeline'}
-=======
             {isExpanded ? 'Hide Details' : showMacValidation ? 'Show MAC Validation & Timeline' : 'Show Timeline'}
->>>>>>> origin/provider-side
           </span>
           {isExpanded ? (
             <ChevronUp className="w-4 h-4" />

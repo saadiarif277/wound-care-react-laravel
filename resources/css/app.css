@@ -129,35 +129,19 @@
     }
   }
 
-<<<<<<< HEAD
-  /* Scrollbar styling for glassmorphic theme */
-=======
   /* Enhanced scrollbar styling for glassmorphic theme */
->>>>>>> origin/provider-side
   .custom-scrollbar {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
   }
 
   .custom-scrollbar::-webkit-scrollbar {
-<<<<<<< HEAD
-    width: 8px;
-    height: 8px;
-=======
     width: 6px;
     height: 6px;
->>>>>>> origin/provider-side
   }
 
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
-<<<<<<< HEAD
-  }
-
-  .custom-scrollbar::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.2);
-    border-radius: 4px;
-=======
     border-radius: 3px;
   }
 
@@ -165,14 +149,11 @@
     background-color: rgba(255, 255, 255, 0.15);
     border-radius: 3px;
     transition: all 0.2s ease-in-out;
->>>>>>> origin/provider-side
   }
 
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: rgba(255, 255, 255, 0.3);
   }
-<<<<<<< HEAD
-=======
 
   /* Light theme scrollbar variations */
   .light-theme .custom-scrollbar {
@@ -186,7 +167,6 @@
   .light-theme .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background-color: rgba(156, 163, 175, 0.6);
   }
->>>>>>> origin/provider-side
 }
 
 /* Keyframe animations */

@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-import React, { useState } from 'react';
-import { prepareDocuSealData } from './docusealUtils';
-import { FiCheckCircle, FiAlertCircle, FiFileText } from 'react-icons/fi';
-import { useTheme } from '@/contexts/ThemeContext';
-import { themes, cn } from '@/theme/glass-theme';
-import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
-import { getManufacturerByProduct, getManufacturerConfig } from '../manufacturerFields';
-
-=======
 import React, { useState, useEffect } from 'react';
 import { router } from '@inertiajs/react';
 import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShield, FiHeart, FiClock, FiStar, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
@@ -44,7 +34,7 @@ const prepareDocuSealData = ({ formData, products, providers, facilities }: any)
     patient_last_name: formData.patient_last_name || '',
     patient_dob: formData.patient_dob || '',
     patient_gender: formData.patient_gender || '',
-    
+
     // Provider Information (structured for field mapping)
     provider_name: provider?.name || formData.provider_name || '',
     provider_npi: provider?.npi || formData.provider_npi || '',
@@ -57,7 +47,7 @@ const prepareDocuSealData = ({ formData, products, providers, facilities }: any)
       credentials: provider?.credentials || formData.provider_credentials || '',
       email: formData.provider_email || '',
     },
-    
+
     // Facility Information (structured for field mapping)
     facility_name: facility?.name || formData.facility_name || '',
     facility_address: facility?.address || '',
@@ -70,33 +60,32 @@ const prepareDocuSealData = ({ formData, products, providers, facilities }: any)
       npi: facility?.npi || facility?.group_npi || '',
       ptan: facility?.ptan || facility?.facility_ptan || '',
     },
-    
+
     // Product Information
     product_name: product?.name || '',
     product_code: product?.code || product?.q_code || '',
     product_manufacturer: product?.manufacturer || '',
     manufacturer_id: product?.manufacturer_id || null,
-    
+
     // Product Selection Arrays (for field mapping computations)
     selected_product_codes: selectedProductCodes,
     selected_product_names: selectedProductNames,
-    
+
     // Insurance Information
     primary_insurance_name: formData.primary_insurance_name || '',
     primary_member_id: formData.primary_member_id || '',
-    
+
     // Clinical Information
     wound_type: formData.wound_type || '',
     wound_location: formData.wound_location || '',
     wound_size_length: formData.wound_size_length || '',
     wound_size_width: formData.wound_size_width || '',
     wound_size_depth: formData.wound_size_depth || '',
-    
+
     // Other fields
     ...formData
   };
 };
->>>>>>> origin/provider-side
 
 interface SelectedProduct {
   product_id: number;
@@ -175,10 +164,7 @@ interface Step7Props {
   products: Array<{
     id: number;
     code: string;
-<<<<<<< HEAD
-=======
     q_code?: string;
->>>>>>> origin/provider-side
     name: string;
     manufacturer: string;
     manufacturer_id?: number;
@@ -199,8 +185,6 @@ interface Step7Props {
   errors: Record<string, string>;
 }
 
-<<<<<<< HEAD
-=======
 // Direct product-to-template mapping
 // This eliminates the complex manufacturer lookup
 const PRODUCT_TEMPLATE_MAP: Record<number, string> = {
@@ -216,7 +200,6 @@ const Q_CODE_TEMPLATE_MAP: Record<string, string> = {
   'Q4128': '1233918',  // Centurion Allopatch
 };
 
->>>>>>> origin/provider-side
 export default function Step7DocuSealIVR({
   formData,
   updateFormData,
@@ -239,8 +222,6 @@ export default function Step7DocuSealIVR({
 
   const [isCompleted, setIsCompleted] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
-<<<<<<< HEAD
-=======
   const [isProcessing, setIsProcessing] = useState(false);
   const [enhancedSubmission, setEnhancedSubmission] = useState<any>(null);
   const [redirectTimeout, setRedirectTimeout] = useState<number | null>(null);
@@ -248,7 +229,7 @@ export default function Step7DocuSealIVR({
   const [error, setError] = useState<string | null>(null);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const [debugMode, setDebugMode] = useState(true); // Enable debug mode
-  
+
   // Insurance card re-upload states
   const [showInsuranceUpload, setShowInsuranceUpload] = useState(false);
   const [isProcessingInsuranceCard, setIsProcessingInsuranceCard] = useState(false);
@@ -256,7 +237,6 @@ export default function Step7DocuSealIVR({
 
   // Use the manufacturers hook
   const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
->>>>>>> origin/provider-side
 
   // Get the selected product
   const getSelectedProduct = () => {
@@ -273,61 +253,44 @@ export default function Step7DocuSealIVR({
   };
 
   const selectedProduct = getSelectedProduct();
-<<<<<<< HEAD
-  let manufacturerConfig = selectedProduct ? getManufacturerByProduct(selectedProduct.name) : null;
 
-  // If no config found by product name, try by manufacturer name
-  if (!manufacturerConfig && selectedProduct?.manufacturer) {
-    manufacturerConfig = getManufacturerConfig(selectedProduct.manufacturer);
-  }
-=======
-  
   // Get DocuSeal template ID - prefer direct mapping, fallback to Q code, then manufacturer config
   const getTemplateId = (): string | undefined => {
     if (!selectedProduct) return undefined;
-    
+
     // First check our direct product mapping
     if (selectedProduct.id && PRODUCT_TEMPLATE_MAP[selectedProduct.id]) {
       console.log('Using direct product template mapping');
       return PRODUCT_TEMPLATE_MAP[selectedProduct.id];
     }
-    
+
     // Second, check Q code mapping
     if (selectedProduct.q_code && Q_CODE_TEMPLATE_MAP[selectedProduct.q_code]) {
       console.log('Using Q code template mapping for:', selectedProduct.q_code);
       return Q_CODE_TEMPLATE_MAP[selectedProduct.q_code];
     }
-    
+
     // Fallback to manufacturer config
     const config = selectedProduct.manufacturer ? getManufacturerByName(selectedProduct.manufacturer) : null;
     if (config?.docuseal_template_id) {
       console.log('Using manufacturer template mapping');
       return config.docuseal_template_id;
     }
-    
+
     return undefined;
   };
-  
+
   const templateId = getTemplateId();
-  const manufacturerConfig = selectedProduct?.manufacturer 
+  const manufacturerConfig = selectedProduct?.manufacturer
     ? getManufacturerByName(selectedProduct.manufacturer)
     : null;
-  
+
   // Check if manufacturer supports insurance upload in IVR
   const supportsInsuranceUpload = manufacturerConfig?.supports_insurance_upload_in_ivr === true;
->>>>>>> origin/provider-side
 
   // Debug logging
   console.log('Selected Product:', {
     name: selectedProduct?.name,
-<<<<<<< HEAD
-    manufacturer: selectedProduct?.manufacturer,
-    manufacturer_id: selectedProduct?.manufacturer_id,
-    code: selectedProduct?.code
-  });
-  console.log('Manufacturer Config found:', manufacturerConfig);
-  console.log('Signature Required:', manufacturerConfig?.signatureRequired);
-=======
     id: selectedProduct?.id,
     manufacturer: selectedProduct?.manufacturer,
     templateId: templateId,
@@ -339,7 +302,6 @@ export default function Step7DocuSealIVR({
   console.log('Looking for manufacturer:', selectedProduct?.manufacturer);
   console.log('Manufacturer Config found:', manufacturerConfig);
   console.log('Signature Required:', manufacturerConfig?.signature_required);
->>>>>>> origin/provider-side
 
   // Get provider and facility details
   const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
@@ -407,11 +369,7 @@ export default function Step7DocuSealIVR({
     ).join('\n'),
 
     // Clinical Information
-<<<<<<< HEAD
-    total_wound_size: `${totalWoundSize} sq cm`,
-=======
     wound_size_total: totalWoundSize, // Send as number, not string with units
->>>>>>> origin/provider-side
     wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
     wound_duration: woundDuration,
     wound_duration_days: formData.wound_duration_days || '',
@@ -451,19 +409,7 @@ export default function Step7DocuSealIVR({
 
   // Override preparedDocuSealData with the extended version
   Object.assign(preparedDocuSealData, extendedDocuSealData);
-<<<<<<< HEAD
 
-  // Local handlers
-  const handleDocuSealComplete = (submissionId: string) => {
-    setIsCompleted(true);
-    updateFormData({ docuseal_submission_id: submissionId });
-  };
-
-  const handleDocuSealError = (error: string) => {
-    setSubmissionError(error);
-  };
-=======
-  
   // Log the final data being sent to DocuSeal
   console.log('📊 DocuSeal Form Data Prepared:', {
     fields: Object.keys(preparedDocuSealData).length,
@@ -519,7 +465,7 @@ export default function Step7DocuSealIVR({
             // Update insurance information
             if (result.data.payer_name) updates.primary_insurance_name = result.data.payer_name;
             if (result.data.payer_id) updates.primary_member_id = result.data.payer_id;
-            
+
             updates.insurance_card_auto_filled = true;
             updateFormData(updates);
             setInsuranceCardSuccess(true);
@@ -540,18 +486,18 @@ export default function Step7DocuSealIVR({
   // Enhanced completion handler with FHIR integration and redirect
   const handleDocuSealComplete = async (submissionData: any) => {
     setIsProcessing(true);
-    
+
     try {
       console.log('🎉 DocuSeal form completed:', submissionData);
-      
+
       const submissionId = submissionData.submission_id || submissionData.id || 'unknown';
-      
+
       // Update form data immediately
-      updateFormData({ 
+      updateFormData({
         docuseal_submission_id: submissionId,
-        ivr_completed_at: new Date().toISOString() 
+        ivr_completed_at: new Date().toISOString()
       });
-      
+
       // Call our enhanced service to finalize the submission
       const response = await axios.post('/api/v1/enhanced-docuseal/finalize-submission', {
         submission_id: submissionId,
@@ -559,11 +505,11 @@ export default function Step7DocuSealIVR({
         form_data: formData,
         completion_data: submissionData
       });
-      
+
       if (response.data.success) {
         setEnhancedSubmission(response.data);
         setIsCompleted(true);
-        
+
         // Redirect to order summary after 3 seconds
         const timeout = setTimeout(() => {
           router.visit(`/quick-request/order-summary/${response.data.order_id}`, {
@@ -574,13 +520,13 @@ export default function Step7DocuSealIVR({
             }
           });
         }, 3000);
-        
+
         setRedirectTimeout(timeout as unknown as number);
       } else {
         console.error('Enhanced submission processing failed:', response.data.error);
         setIsCompleted(true); // Still mark as completed, but show warning
       }
-      
+
     } catch (error) {
       console.error('Error processing DocuSeal completion:', error);
       setSubmissionError('Form completed but there was an error processing the submission.');
@@ -588,17 +534,17 @@ export default function Step7DocuSealIVR({
       setIsProcessing(false);
     }
   };
-  
+
   const handleDocuSealError = (error: string) => {
     setSubmissionError(error);
     setIsProcessing(false);
   };
-  
+
   const handleManualRedirect = () => {
     if (redirectTimeout) {
       clearTimeout(redirectTimeout);
     }
-    
+
     const orderId = enhancedSubmission?.order_id || formData.episode_id || 'unknown';
     router.visit(`/quick-request/order-summary/${orderId}`, {
       method: 'get',
@@ -608,7 +554,7 @@ export default function Step7DocuSealIVR({
       }
     });
   };
-  
+
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
@@ -628,7 +574,6 @@ export default function Step7DocuSealIVR({
       }
     }
   }, [manufacturersLoading, manufacturerConfig, formData.docuseal_submission_id, updateFormData]);
->>>>>>> origin/provider-side
 
   // No product selected
   if (!selectedProduct) {
@@ -639,17 +584,6 @@ export default function Step7DocuSealIVR({
     );
   }
 
-<<<<<<< HEAD
-  // No IVR required for this manufacturer
-  if (!manufacturerConfig || !manufacturerConfig?.signatureRequired) {
-    // Set a placeholder submission ID when IVR is not required
-    React.useEffect(() => {
-      if (!formData.docuseal_submission_id) {
-        updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
-      }
-    }, []);
-
-=======
   // Show loading state while manufacturers are being fetched
   if (manufacturersLoading) {
     return (
@@ -664,7 +598,6 @@ export default function Step7DocuSealIVR({
 
   // No IVR required if no template ID found
   if (!templateId) {
->>>>>>> origin/provider-side
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
         <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
@@ -683,52 +616,6 @@ export default function Step7DocuSealIVR({
 
   return (
     <div className="space-y-6">
-<<<<<<< HEAD
-      {/* Header */}
-      <div className={cn("p-4 rounded-lg", t.glass.card)}>
-        <div className="flex items-start">
-          <FiFileText className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", t.text.secondary)} />
-          <div>
-            <h3 className={cn("text-lg font-medium", t.text.primary)}>
-              Independent Verification Request (IVR)
-            </h3>
-            <p className={cn("text-sm mt-1", t.text.secondary)}>
-              {manufacturerConfig?.name} requires an electronic signature on their IVR form
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Instructions */}
-      {!isCompleted && !submissionError && (
-        <div className={cn(
-          "p-4 rounded-lg border",
-          theme === 'dark'
-            ? 'bg-blue-900/20 border-blue-800'
-            : 'bg-blue-50 border-blue-200'
-        )}>
-          <div className="flex items-start">
-            <FiAlertCircle className={cn(
-              "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
-              theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
-            )} />
-            <div>
-              <h4 className={cn(
-                "text-sm font-medium",
-                theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
-              )}>
-                Please Review and Sign
-              </h4>
-              <ul className={cn(
-                "mt-2 space-y-1 text-sm",
-                theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
-              )}>
-                <li>• All order details have been pre-filled in the form</li>
-                <li>• Review the information for accuracy</li>
-                <li>• Sign electronically where indicated</li>
-                <li>• Click "Complete" when finished</li>
-              </ul>
-=======
       {/* Simple Title */}
       <div className="mb-6">
         <h2 className={cn("text-xl font-semibold", t.text.primary)}>
@@ -753,15 +640,15 @@ export default function Step7DocuSealIVR({
               <p className={cn("text-sm mb-3", t.text.secondary)}>
                 Upload your insurance card now to have it attached to the IVR form
               </p>
-              
+
               {!showInsuranceUpload ? (
                 <button
                   type="button"
                   onClick={() => setShowInsuranceUpload(true)}
                   className={cn(
                     "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                    theme === 'dark' 
-                      ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+                    theme === 'dark'
+                      ? 'bg-blue-700 hover:bg-blue-600 text-white'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   )}
                 >
@@ -900,16 +787,11 @@ export default function Step7DocuSealIVR({
                   )}
                 </div>
               )}
->>>>>>> origin/provider-side
             </div>
           </div>
         </div>
       )}
 
-<<<<<<< HEAD
-      {/* DocuSeal Form or Completion Status */}
-      <div className={cn("rounded-lg", t.glass.card)}>
-=======
       {/* Simple Instructions */}
       {!isCompleted && !submissionError && (
         <div className={cn("mb-4 text-sm", t.text.secondary)}>
@@ -919,7 +801,6 @@ export default function Step7DocuSealIVR({
 
       {/* DocuSeal Form or Completion Status */}
       <div className={cn("rounded-lg", t.glass.card, "w-full max-w-full")}>
->>>>>>> origin/provider-side
         {isCompleted ? (
           <div className="p-8 text-center">
             <FiCheckCircle className={cn("h-16 w-16 mx-auto mb-4 text-green-500")} />
@@ -929,15 +810,10 @@ export default function Step7DocuSealIVR({
             <p className={cn("text-sm", t.text.secondary)}>
               The IVR form has been signed and submitted.
             </p>
-<<<<<<< HEAD
-            <p className={cn("text-sm mt-2", t.text.secondary)}>
-              Submission ID: <span className="font-mono">{formData.docuseal_submission_id}</span>
-            </p>
-=======
-            
+
             {/* Enhanced submission info */}
             {enhancedSubmission && (
-              <div className={cn("mt-4 p-3 rounded-lg", 
+              <div className={cn("mt-4 p-3 rounded-lg",
                 theme === 'dark' ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'
               )}>
                 <div className="text-sm space-y-1">
@@ -953,32 +829,32 @@ export default function Step7DocuSealIVR({
                 </div>
               </div>
             )}
-            
+
             <p className={cn("text-sm mt-3", t.text.secondary)}>
               Submission ID: <span className="font-mono">{formData.docuseal_submission_id}</span>
             </p>
-            
+
             {/* Redirect countdown */}
-            <div className={cn("mt-6 p-4 rounded-lg border", 
+            <div className={cn("mt-6 p-4 rounded-lg border",
               theme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'
             )}>
-              <p className={cn("text-sm font-medium mb-2", 
+              <p className={cn("text-sm font-medium mb-2",
                 theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
               )}>
                 Redirecting to Order Summary...
               </p>
-              <p className={cn("text-xs", 
+              <p className={cn("text-xs",
                 theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
               )}>
                 You will be automatically redirected to view your complete order details.
               </p>
-              
+
               <button
                 onClick={handleManualRedirect}
                 className={cn(
                   "mt-3 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                  theme === 'dark' 
-                    ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+                  theme === 'dark'
+                    ? 'bg-blue-700 hover:bg-blue-600 text-white'
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 )}
               >
@@ -986,7 +862,6 @@ export default function Step7DocuSealIVR({
                 <FiArrowRight className="ml-2 h-4 w-4" />
               </button>
             </div>
->>>>>>> origin/provider-side
           </div>
         ) : submissionError ? (
           <div className="p-8">
@@ -1031,17 +906,6 @@ export default function Step7DocuSealIVR({
             </div>
           </div>
         ) : (
-<<<<<<< HEAD
-          <DocuSealEmbed
-            manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
-            productCode={selectedProduct?.code || ''}
-            formData={preparedDocuSealData}
-            episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
-            onComplete={handleDocuSealComplete}
-            onError={handleDocuSealError}
-            className="w-full h-full min-h-[600px]"
-          />
-=======
           <div className="relative">
             {/* Processing overlay */}
             {isProcessing && (
@@ -1053,7 +917,7 @@ export default function Step7DocuSealIVR({
                 </div>
               </div>
             )}
-            
+
             <DocuSealEmbed
               manufacturerId={manufacturerConfig?.id?.toString() || selectedProduct?.manufacturer_id?.toString() || '1'}
               templateId={templateId}
@@ -1065,7 +929,6 @@ export default function Step7DocuSealIVR({
               className="w-full h-full min-h-[600px]"
             />
           </div>
->>>>>>> origin/provider-side
         )}
       </div>
 
@@ -1086,46 +949,6 @@ export default function Step7DocuSealIVR({
         </div>
       )}
 
-<<<<<<< HEAD
-      {/* Order Summary */}
-      <div className={cn(
-        "p-4 rounded-lg border",
-        theme === 'dark'
-          ? 'bg-gray-800 border-gray-700'
-          : 'bg-gray-50 border-gray-200'
-      )}>
-        <h4 className={cn("text-sm font-medium mb-3", t.text.primary)}>
-          Order Summary
-        </h4>
-        <div className="space-y-2 text-sm">
-          <div className="flex justify-between">
-            <span className={t.text.secondary}>Patient:</span>
-            <span className={t.text.primary}>
-              {formData.patient_first_name} {formData.patient_last_name}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className={t.text.secondary}>Product:</span>
-            <span className={t.text.primary}>
-              {selectedProduct?.name} ({selectedProduct?.code})
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className={t.text.secondary}>Provider:</span>
-            <span className={t.text.primary}>
-              {provider?.name || 'Not specified'}
-            </span>
-          </div>
-          <div className="flex justify-between">
-            <span className={t.text.secondary}>Service Date:</span>
-            <span className={t.text.primary}>
-              {formData.expected_service_date || 'Not specified'}
-            </span>
-          </div>
-        </div>
-      </div>
-=======
->>>>>>> origin/provider-side
     </div>
   );
 }

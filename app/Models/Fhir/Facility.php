@@ -30,10 +30,7 @@ class Facility extends Model
         'group_npi',
         'tax_id',
         'ptan',
-<<<<<<< HEAD
-=======
         'medicaid_number',
->>>>>>> origin/provider-side
         'medicare_admin_contractor',
         'default_place_of_service',
         'status',
@@ -43,10 +40,7 @@ class Facility extends Model
         'state',
         'zip_code',
         'phone',
-<<<<<<< HEAD
-=======
         'fax',
->>>>>>> origin/provider-side
         'email',
         'contact_name',
         'contact_phone',

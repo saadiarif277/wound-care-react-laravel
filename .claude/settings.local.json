@@ -18,9 +18,6 @@
       "Bash(composer:*)",
       "Bash(npm run:*)",
       "mcp__sequential-thinking__sequentialthinking",
-<<<<<<< HEAD
-      "Bash(mkdir:*)"
-=======
       "Bash(mkdir:*)",
       "WebFetch(domain:www.docuseal.com)",
       "Bash(source:*)",
@@ -31,7 +28,6 @@
       "Bash(git rm:*)",
       "Bash(true)",
       "Bash(rm:*)"
->>>>>>> origin/provider-side
     ],
     "deny": []
   }

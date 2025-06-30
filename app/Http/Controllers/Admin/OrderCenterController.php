@@ -21,74 +21,6 @@ class OrderCenterController extends Controller
      */
     public function index(Request $request)
     {
-<<<<<<< HEAD
-        // Dummy orders for demonstration
-        $dummyOrders = [
-            [
-                'id' => '1',
-                'order_number' => 'ORD-1001',
-                'patient_name' => 'John Doe',
-                'patient_display_id' => 'PAT-001',
-                'provider_name' => 'Dr. Alice Smith',
-                'facility_name' => 'Sunrise Clinic',
-                'manufacturer_name' => 'BioWound Technologies',
-                'product_name' => 'BioWound Matrix',
-                'order_status' => 'Pending',
-                'total_order_value' => 1200.00,
-                'created_at' => now()->subDays(2)->toDateTimeString(),
-                'action_required' => true,
-            ],
-            [
-                'id' => '2',
-                'order_number' => 'ORD-1002',
-                'patient_name' => 'Jane Smith',
-                'patient_display_id' => 'PAT-002',
-                'provider_name' => 'Dr. Bob Lee',
-                'facility_name' => 'Downtown Medical',
-                'manufacturer_name' => 'ACZ & Associates',
-                'product_name' => 'ACZ Advanced Matrix',
-                'order_status' => 'Approved',
-                'total_order_value' => 950.00,
-                'created_at' => now()->subDays(1)->toDateTimeString(),
-                'action_required' => false,
-            ],
-            [
-                'id' => '3',
-                'order_number' => 'ORD-1003',
-                'patient_name' => 'Carlos Rivera',
-                'patient_display_id' => 'PAT-003',
-                'provider_name' => 'Dr. Emily Wong',
-                'facility_name' => 'Westside Health',
-                'manufacturer_name' => 'Advanced Solutions',
-                'product_name' => 'Advanced Wound Matrix',
-                'order_status' => 'Completed',
-                'total_order_value' => 1500.00,
-                'created_at' => now()->toDateTimeString(),
-                'action_required' => false,
-            ],
-        ];
-
-        // Dummy status counts
-        $statusCounts = [
-            'pending' => 1,
-            'approved' => 1,
-            'completed' => 1,
-            'action_required' => 1,
-        ];
-
-        // Simulate pagination
-        $orders = [
-            'data' => $dummyOrders,
-            'current_page' => 1,
-            'last_page' => 1,
-            'total' => count($dummyOrders),
-        ];
-
-        return Inertia::render('Admin/OrderCenter/Index', [
-            'orders' => $orders,
-            'statusCounts' => $statusCounts,
-            'filters' => $request->only(['search']),
-=======
         // Get episodes with related product requests (not orders)
         $query = PatientManufacturerIVREpisode::with(['manufacturer']);
 
@@ -222,7 +154,6 @@ class OrderCenterController extends Controller
                 'current_page' => $transformedEpisodes->currentPage(),
                 'last_page' => $transformedEpisodes->lastPage(),
             ],
->>>>>>> origin/provider-side
         ]);
     }
 

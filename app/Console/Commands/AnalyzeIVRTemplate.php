@@ -3,11 +3,8 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-<<<<<<< HEAD
 use App\Services\FuzzyMapping\IVRMappingOrchestrator;
-=======
 use App\Services\UnifiedFieldMappingService;
->>>>>>> origin/provider-side
 use App\Models\Order\Manufacturer;
 use App\Models\IVRTemplateField;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +17,7 @@ class AnalyzeIVRTemplate extends Command
      *
      * @var string
      */
-    protected $signature = 'ivr:analyze-template 
+    protected $signature = 'ivr:analyze-template
                             {manufacturer : Manufacturer name or ID}
                             {--template=insurance-verification : Template name}
                             {--csv= : Path to CSV file with field names}
@@ -34,21 +31,12 @@ class AnalyzeIVRTemplate extends Command
      */
     protected $description = 'Analyze IVR template compatibility and field mappings';
 
-<<<<<<< HEAD
-    protected IVRMappingOrchestrator $orchestrator;
-
-    public function __construct(IVRMappingOrchestrator $orchestrator)
-    {
-        parent::__construct();
-        $this->orchestrator = $orchestrator;
-=======
     protected UnifiedFieldMappingService $fieldMappingService;
 
     public function __construct(UnifiedFieldMappingService $fieldMappingService)
     {
         parent::__construct();
         $this->fieldMappingService = $fieldMappingService;
->>>>>>> origin/provider-side
     }
 
     /**
@@ -58,75 +46,75 @@ class AnalyzeIVRTemplate extends Command
     {
         $manufacturerInput = $this->argument('manufacturer');
         $templateName = $this->option('template');
-        
+
         // Find manufacturer
-        $manufacturer = is_numeric($manufacturerInput) 
+        $manufacturer = is_numeric($manufacturerInput)
             ? Manufacturer::find($manufacturerInput)
             : Manufacturer::where('name', 'like', '%' . $manufacturerInput . '%')->first();
-            
+
         if (!$manufacturer) {
             $this->error("Manufacturer '{$manufacturerInput}' not found.");
             return 1;
         }
-        
+
         $this->info("Analyzing template for: {$manufacturer->name}");
         $this->info("Template: {$templateName}");
         $this->newLine();
-        
+
         // Import CSV fields if requested
         if ($this->option('import') && $this->option('csv')) {
             $this->importFieldsFromCsv($manufacturer->id, $templateName);
             $this->newLine();
         }
-        
+
         // Analyze template
         $analysis = $this->orchestrator->analyzeTemplateCompatibility($manufacturer->id, $templateName);
-        
+
         // Display results
         $this->displayAnalysisResults($analysis);
-        
+
         // Test mapping if requested
         if ($this->option('test')) {
             $this->newLine();
             $this->testMapping($manufacturer->id, $templateName);
         }
-        
+
         return 0;
     }
-    
+
     protected function importFieldsFromCsv(int $manufacturerId, string $templateName): void
     {
         $csvPath = $this->option('csv');
-        
+
         if (!file_exists($csvPath)) {
             $this->error("CSV file not found: {$csvPath}");
             return;
         }
-        
+
         $this->info("Importing fields from CSV...");
-        
+
         $handle = fopen($csvPath, 'r');
         $headers = fgetcsv($handle);
-        
+
         if (!$headers) {
             $this->error("Could not read CSV headers");
             fclose($handle);
             return;
         }
-        
+
         $fieldsImported = 0;
         $fieldOrder = 0;
-        
+
         // Import each column as a field
         foreach ($headers as $header) {
             $fieldName = trim($header);
             if (empty($fieldName)) continue;
-            
+
             $existingField = IVRTemplateField::where('manufacturer_id', $manufacturerId)
                 ->where('template_name', $templateName)
                 ->where('field_name', $fieldName)
                 ->first();
-                
+
             if (!$existingField) {
                 IVRTemplateField::create([
                     'manufacturer_id' => $manufacturerId,
@@ -143,16 +131,16 @@ class AnalyzeIVRTemplate extends Command
                 $this->line("  - Skipped (exists): {$fieldName}");
             }
         }
-        
+
         fclose($handle);
-        
+
         $this->info("Imported {$fieldsImported} new fields");
     }
-    
+
     protected function detectFieldType(string $fieldName): string
     {
         $fieldName = strtolower($fieldName);
-        
+
         if (strpos($fieldName, 'date') !== false || strpos($fieldName, 'dob') !== false) {
             return 'date';
         }
@@ -168,41 +156,41 @@ class AnalyzeIVRTemplate extends Command
         if (strpos($fieldName, 'checkbox') !== false || strpos($fieldName, 'yes/no') !== false) {
             return 'checkbox';
         }
-        
+
         return 'text';
     }
-    
+
     protected function isLikelyRequired(string $fieldName): bool
     {
         $requiredPatterns = [
             'patient_name', 'patient_dob', 'provider_name', 'provider_npi',
             'insurance_id', 'diagnosis', 'signature', 'date'
         ];
-        
+
         $fieldName = strtolower($fieldName);
         foreach ($requiredPatterns as $pattern) {
             if (strpos($fieldName, $pattern) !== false) {
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     protected function detectSection(string $fieldName): string
     {
         $fieldName = strtolower($fieldName);
-        
+
         if (strpos($fieldName, 'patient') !== false) return 'patient_information';
         if (strpos($fieldName, 'provider') !== false || strpos($fieldName, 'physician') !== false) return 'provider_information';
         if (strpos($fieldName, 'insurance') !== false || strpos($fieldName, 'policy') !== false) return 'insurance_information';
         if (strpos($fieldName, 'wound') !== false || strpos($fieldName, 'diagnosis') !== false) return 'clinical_information';
         if (strpos($fieldName, 'facility') !== false || strpos($fieldName, 'organization') !== false) return 'facility_information';
         if (strpos($fieldName, 'signature') !== false || strpos($fieldName, 'consent') !== false) return 'authorization';
-        
+
         return 'other';
     }
-    
+
     protected function displayAnalysisResults(array $analysis): void
     {
         $this->table(
@@ -216,7 +204,7 @@ class AnalyzeIVRTemplate extends Command
                 ['Compatibility Score', $analysis['compatibility_score'] . '%'],
             ]
         );
-        
+
         if (!empty($analysis['unmapped_fields'])) {
             $this->newLine();
             $this->warn('Unmapped Fields:');
@@ -224,7 +212,7 @@ class AnalyzeIVRTemplate extends Command
                 $this->line("  - {$field}");
             }
         }
-        
+
         if ($this->option('verbose')) {
             $this->newLine();
             $this->info('Field Analysis Details:');
@@ -242,11 +230,11 @@ class AnalyzeIVRTemplate extends Command
             );
         }
     }
-    
+
     protected function testMapping(int $manufacturerId, string $templateName): void
     {
         $this->info('Testing mapping with sample data...');
-        
+
         // Sample FHIR data - properly formatted for the fuzzy mapper
         $sampleFhirData = [
             'patient' => [
@@ -376,7 +364,7 @@ class AnalyzeIVRTemplate extends Command
                 ],
             ],
         ];
-        
+
         $additionalData = [
             'metadata' => [
                 'salesRep' => 'John Sales Rep',
@@ -401,14 +389,14 @@ class AnalyzeIVRTemplate extends Command
                 ],
             ],
         ];
-        
+
         $result = $this->orchestrator->mapDataForIVR(
             $sampleFhirData,
             $additionalData,
             $manufacturerId,
             $templateName
         );
-        
+
         // Always show statistics
         $this->newLine();
         $this->info('Mapping Statistics:');
@@ -418,15 +406,15 @@ class AnalyzeIVRTemplate extends Command
                 return [Str::title(str_replace('_', ' ', $key)), $value];
             })->toArray()
         );
-        
+
         if ($result['success']) {
             $this->info('✓ Mapping successful!');
-            
+
             // Use detailed fields if available
-            $mappedFields = isset($result['mapped_fields_detailed']) 
-                ? $result['mapped_fields_detailed'] 
+            $mappedFields = isset($result['mapped_fields_detailed'])
+                ? $result['mapped_fields_detailed']
                 : $result['mapped_fields'];
-            
+
             $tableData = [];
             foreach ($mappedFields as $field => $data) {
                 if (is_array($data) && isset($data['value'])) {
@@ -447,13 +435,13 @@ class AnalyzeIVRTemplate extends Command
                     ];
                 }
             }
-            
+
             if (!empty($tableData)) {
                 $this->table(['Field', 'Value', 'Strategy', 'Confidence'], $tableData);
             } else {
                 $this->warn('No fields were mapped.');
             }
-            
+
             if (!empty($result['validation']['errors'])) {
                 $this->newLine();
                 $this->warn('Validation Errors:');
@@ -467,7 +455,7 @@ class AnalyzeIVRTemplate extends Command
         } else {
             $this->error('✗ Mapping failed!');
             $this->error($result['error'] ?? 'Unknown error');
-            
+
             if (isset($result['validation']['errors'])) {
                 $this->newLine();
                 $this->warn('Errors:');

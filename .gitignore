@@ -78,9 +78,7 @@ test-*.log
   debug-*.php
   /storage/app/scripts/temp/
   /storage/app/debug/
-<<<<<<< HEAD
-=======
-  
+
   # Python virtual environments (shouldn't be in Laravel project)
   venv/
   venv_*/
@@ -97,7 +95,6 @@ test-*.log
   pip-delete-this-directory.txt
   requirements.txt
   *.egg-info/
->>>>>>> origin/provider-side
 
   # Product documentation (should be in wiki/docs repo)
   product-*.md

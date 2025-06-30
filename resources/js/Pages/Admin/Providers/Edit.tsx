@@ -28,22 +28,15 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     // Basic Info
     first_name: provider.first_name || '',
     last_name: provider.last_name || '',
-<<<<<<< HEAD
-=======
     credentials: provider.credentials || '',
->>>>>>> origin/provider-side
     email: provider.email || '',
-    
+
     // Professional Info
     npi_number: provider.npi_number || '',
-<<<<<<< HEAD
-    dea_number: provider.dea_number || '',
-=======
->>>>>>> origin/provider-side
     license_number: provider.license_number || '',
     license_state: provider.license_state || '',
     license_expiry: provider.license_expiry || '',
-    
+
     // Provider Profile Info (including new fields)
     specialty: provider.provider_profile?.specialty || '',
     tax_id: provider.provider_profile?.tax_id || '',
@@ -51,7 +44,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     medicaid_number: provider.provider_profile?.medicaid_number || '',
     phone: provider.provider_profile?.phone || '',
     fax: provider.provider_profile?.fax || '',
-    
+
     // Organization
     current_organization_id: provider.current_organization_id || '',
     is_verified: provider.is_verified || false,
@@ -137,8 +130,6 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 )}
               </div>
 
-<<<<<<< HEAD
-=======
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Credentials
@@ -163,7 +154,6 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                 </p>
               </div>
 
->>>>>>> origin/provider-side
               <div className="md:col-span-2">
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
                   Email Address *
@@ -182,11 +172,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="provider@example.com"
                 />
                 {errors.email && (
-<<<<<<< HEAD
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.email}</p>
-=======
                   <p className={cn("mt-1 text-sm", t.status.error)}>{errors.email}</p>
->>>>>>> origin/provider-side
                 )}
               </div>
             </div>
@@ -282,11 +268,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-<<<<<<< HEAD
-                  NPI Number
-=======
                   Physician NPI
->>>>>>> origin/provider-side
                 </label>
                 <input
                   type="text"
@@ -301,11 +283,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="1234567890"
                 />
                 {errors.npi_number && (
-<<<<<<< HEAD
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.npi_number}</p>
-=======
                   <p className={cn("mt-1 text-sm", t.status.error)}>{errors.npi_number}</p>
->>>>>>> origin/provider-side
                 )}
                 <p className={cn("mt-1 text-xs", t.text.secondary)}>
                   10-digit National Provider Identifier
@@ -314,33 +292,6 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-<<<<<<< HEAD
-                  DEA Number
-                </label>
-                <input
-                  type="text"
-                  value={data.dea_number}
-                  onChange={(e) => setData('dea_number', e.target.value)}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-lg",
-                    t.input.base,
-                    t.input.border,
-                    errors.dea_number && t.input.error
-                  )}
-                  placeholder="AB1234567"
-                />
-                {errors.dea_number && (
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.dea_number}</p>
-                )}
-                <p className={cn("mt-1 text-xs", t.text.secondary)}>
-                  Drug Enforcement Administration registration
-                </p>
-              </div>
-
-              <div>
-                <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-=======
->>>>>>> origin/provider-side
                   Medical License Number
                 </label>
                 <input
@@ -440,11 +391,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
 
               <div>
                 <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-<<<<<<< HEAD
-                  PTAN
-=======
                   Physician PTAN
->>>>>>> origin/provider-side
                 </label>
                 <input
                   type="text"
@@ -459,11 +406,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                   placeholder="A12345"
                 />
                 {errors.ptan && (
-<<<<<<< HEAD
-                  <p className={cn("mt-1 text-sm", t.text.error)}>{errors.ptan}</p>
-=======
                   <p className={cn("mt-1 text-sm", t.status.error)}>{errors.ptan}</p>
->>>>>>> origin/provider-side
                 )}
                 <p className={cn("mt-1 text-xs", t.text.secondary)}>
                   Provider Transaction Access Number for Medicare
@@ -540,8 +483,8 @@ export default function EditProvider({ provider, organizations, states }: EditPr
                     t.checkbox.checked
                   )}
                 />
-                <label 
-                  htmlFor="is_verified" 
+                <label
+                  htmlFor="is_verified"
                   className={cn("ml-2 text-sm", t.text.primary)}
                 >
                   Mark as verified provider

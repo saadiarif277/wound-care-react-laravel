@@ -25,7 +25,7 @@ return new class extends Migration
                 $table->string('medicaid_number', 50)->nullable()->after('ptan');
             }
         });
-        
+
         // Add missing facility fields
         Schema::table('facilities', function (Blueprint $table) {
             // Split address into two lines for better DocuSeal compatibility
@@ -35,21 +35,18 @@ return new class extends Migration
             if (!Schema::hasColumn('facilities', 'address_line2')) {
                 $table->string('address_line2')->nullable()->after('address_line1');
             }
-            
+
             // Add general facility fax (separate from contact_fax)
             if (!Schema::hasColumn('facilities', 'fax')) {
                 $table->string('fax', 20)->nullable()->after('phone');
             }
-<<<<<<< HEAD
-=======
-            
+
             // Add facility medicaid number
             if (!Schema::hasColumn('facilities', 'medicaid_number')) {
                 $table->string('medicaid_number', 50)->nullable()->after('ptan');
             }
->>>>>>> origin/provider-side
         });
-        
+
         // Optionally migrate existing address data to address_line1
         if (Schema::hasColumn('facilities', 'address_line1')) {
             DB::statement('UPDATE facilities SET address_line1 = address WHERE address_line1 IS NULL');
@@ -64,13 +61,9 @@ return new class extends Migration
         Schema::table('provider_profiles', function (Blueprint $table) {
             $table->dropColumn(['phone', 'fax', 'medicaid_number']);
         });
-        
+
         Schema::table('facilities', function (Blueprint $table) {
-<<<<<<< HEAD
-            $table->dropColumn(['address_line1', 'address_line2', 'fax']);
-=======
             $table->dropColumn(['address_line1', 'address_line2', 'fax', 'medicaid_number']);
->>>>>>> origin/provider-side
         });
     }
 };

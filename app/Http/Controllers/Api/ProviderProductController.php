@@ -98,12 +98,10 @@ class ProviderProductController extends Controller
             ], 500);
         }
     }
-<<<<<<< HEAD
-=======
 
     /**
      * Debug endpoint to check provider products with detailed information
-     * 
+     *
      * @param int $providerId
      * @return \Illuminate\Http\JsonResponse
      */
@@ -134,7 +132,7 @@ class ProviderProductController extends Controller
                     'onboarding_status' => $product->pivot->onboarding_status,
                     'onboarded_at' => $product->pivot->onboarded_at,
                     'expiration_date' => $product->pivot->expiration_date,
-                    'is_active' => $product->pivot->onboarding_status === 'active' && 
+                    'is_active' => $product->pivot->onboarding_status === 'active' &&
                                  (!$product->pivot->expiration_date || $product->pivot->expiration_date > now()),
                     'notes' => $product->pivot->notes,
                 ];
@@ -188,5 +186,4 @@ class ProviderProductController extends Controller
             ], 500);
         }
     }
->>>>>>> origin/provider-side
 }

@@ -15,17 +15,11 @@ export type EpisodeStatus =
   | 'completed';
 
 export type IVRStatus =
-<<<<<<< HEAD
-  | 'pending'
-  | 'verified'
-  | 'expired';
-=======
   | 'N/A'
   | 'pending'
   | 'sent'
   | 'verified'
   | 'rejected';
->>>>>>> origin/provider-side
 
 // Episode Status Configuration
 export interface EpisodeStatusConfig {

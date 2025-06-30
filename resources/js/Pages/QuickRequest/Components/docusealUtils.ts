@@ -93,13 +93,10 @@ export function prepareDocuSealData({
 
   return {
     ...formData,
-    
-<<<<<<< HEAD
-=======
+
     // Include facility_id to ensure proper facility data loading
     facility_id: formData.facility_id || null,
-    
->>>>>>> origin/provider-side
+
     // Patient Information - ensure all variations are included
     patient_name: patientName,
     patient_first_name: formData.patient_first_name || '',
@@ -116,25 +113,25 @@ export function prepareDocuSealData({
     patient_zip: formData.patient_zip || '',
     patient_gender: formData.patient_gender || '',
     patient_address: patientAddress,
-    
+
     // Insurance Information
     primary_insurance_name: formData.primary_insurance_name || formData.payer_name || '',
     primary_member_id: formData.primary_member_id || formData.patient_member_id || '',
     primary_plan_type: formData.primary_plan_type || '',
     group_number: formData.group_number || '',
     payer_phone: formData.payer_phone || '',
-    
+
     // Provider Information
     provider_name: provider?.name || formData.provider_name || '',
     provider_credentials: provider?.credentials || formData.provider_credentials || '',
     provider_npi: provider?.npi || formData.provider_npi || '',
     provider_email: formData.provider_email || provider?.email || '',
     provider_tax_id: formData.provider_tax_id || '',
-    
+
     // Facility Information
     facility_name: facility?.name || formData.facility_name || '',
     facility_address: facility?.address || formData.facility_address || '',
-    
+
     // Product Information
     product_name: selectedProduct?.name || formData.product_name || '',
     product_code: selectedProduct?.code || formData.product_code || '',
@@ -142,13 +139,13 @@ export function prepareDocuSealData({
     manufacturer_id: selectedProduct?.manufacturer_id || selectedProduct?.id,
     product_details: productDetails,
     product_details_text: productDetails.map((p: any) => `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`).join('\n'),
-    
+
     // Clinical Information
     wound_type: formData.wound_type || woundTypesDisplay,
     wound_types_display: woundTypesDisplay,
     wound_location: formData.wound_location || '',
     wound_size_length: formData.wound_size_length || '0',
-    wound_size_width: formData.wound_size_width || '0', 
+    wound_size_width: formData.wound_size_width || '0',
     wound_size_depth: formData.wound_size_depth || '0',
     total_wound_size: `${totalWoundSize} sq cm`,
     wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} cm`,
@@ -157,38 +154,38 @@ export function prepareDocuSealData({
     wound_duration_weeks: formData.wound_duration_weeks || '',
     wound_duration_months: formData.wound_duration_months || '',
     wound_duration_years: formData.wound_duration_years || '',
-    
+
     // Diagnosis codes
     diagnosis_code_display: diagnosisCodeDisplay,
     diagnosis_codes_display: diagnosisCodeDisplay,
     primary_diagnosis_code: formData.primary_diagnosis_code || '',
     secondary_diagnosis_code: formData.secondary_diagnosis_code || '',
     diagnosis_code: formData.diagnosis_code || diagnosisCodeDisplay,
-    
+
     // Prior applications
     prior_applications: formData.prior_applications || '0',
     number_of_prior_applications: formData.prior_applications || '0',
     prior_application_product: formData.prior_application_product || '',
     prior_application_within_12_months: formatBooleanForDisplay(formData.prior_application_within_12_months),
-    
+
     // Hospice information
     hospice_status: formatBooleanForDisplay(formData.hospice_status),
     patient_in_hospice: formatBooleanForDisplay(formData.hospice_status),
     hospice_family_consent: formatBooleanForDisplay(formData.hospice_family_consent),
     hospice_clinically_necessary: formatBooleanForDisplay(formData.hospice_clinically_necessary),
-    
+
     // Date fields
     service_date: formData.expected_service_date || formData.service_date || new Date().toISOString().split('T')[0],
     expected_service_date: formData.expected_service_date || new Date().toISOString().split('T')[0],
     signature_date: new Date().toISOString().split('T')[0],
-    
+
     // Sales Rep Information
     sales_rep_name: formData.sales_rep_name || '',
-    
+
     // Signature fields (for DocuSeal template)
     provider_signature_required: true,
     physician_attestation: formatBooleanForDisplay(formData.physician_attestation || formData.manufacturer_fields?.physician_attestation),
-    
+
     // Manufacturer-specific fields (ensure boolean conversion)
     ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
       acc[key] = typeof value === 'boolean' ? formatBooleanForDisplay(value) : value;

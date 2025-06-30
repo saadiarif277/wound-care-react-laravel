@@ -27,13 +27,9 @@ interface BaseProviderData {
   password: string;
   password_confirmation: string;
   phone: string;
-<<<<<<< HEAD
-  title: string;
-=======
   fax?: string;
   title: string;
   credentials?: string;
->>>>>>> origin/provider-side
 
   // Professional Credentials
   individual_npi: string;
@@ -41,22 +37,19 @@ interface BaseProviderData {
   license_number: string;
   license_state: string;
   ptan?: string;
-<<<<<<< HEAD
-=======
   tax_id?: string;
   medicaid_number?: string;
->>>>>>> origin/provider-side
 
   // Terms
   accept_terms: boolean;
-  
+
   practice_type: PracticeType;
 }
 
 // Solo practitioner needs full organization setup
 export interface SoloPractitionerData extends BaseProviderData {
   practice_type: 'solo_practitioner';
-  
+
   // Organization Information
   organization_name: string;
   organization_tax_id: string;
@@ -101,9 +94,9 @@ export interface ExistingOrganizationData extends BaseProviderData {
 }
 
 // Union type for all provider registration data
-export type ProviderRegistrationData = 
-  | SoloPractitionerData 
-  | GroupPracticeData 
+export type ProviderRegistrationData =
+  | SoloPractitionerData
+  | GroupPracticeData
   | ExistingOrganizationData;
 
 // Step definitions for the wizard

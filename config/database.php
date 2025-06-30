@@ -3,29 +3,9 @@
 use Illuminate\Support\Str;
 
 return [
-<<<<<<< HEAD
-    'default' => env('DB_CONNECTION', 'supabase'),
-
-    'connections' => [
-        'supabase' => [
-            'driver' => 'pgsql',
-            'host' => env('SUPABASE_DB_HOST'),
-            'port' => env('SUPABASE_DB_PORT', '5432'),
-            'database' => env('SUPABASE_DB_DATABASE', 'postgres'),
-            'username' => env('SUPABASE_DB_USERNAME'),
-            'password' => env('SUPABASE_DB_PASSWORD'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'schema' => 'public',
-            'sslmode' => env('SUPABASE_DB_SSL_MODE', 'require'),
-        ],
-
-=======
     'default' => env('DB_CONNECTION', 'mysql'),
 
     'connections' => [
->>>>>>> origin/provider-side
         'mysql' => [
             'driver' => 'mysql',
             'url' => env('DATABASE_URL'),
@@ -41,33 +21,10 @@ return [
             'prefix_indexes' => true,
             'strict' => true,
             'engine' => null,
-<<<<<<< HEAD
             'options' => extension_loaded('pdo_mysql') ? array_filter([
                 #PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
                 PDO::MYSQL_ATTR_SSL_KEY => env('DB_SSL_KEY'),
             ]) : [],
-=======
-            'sslmode' => 'require',
-            'options' => extension_loaded('pdo_mysql') ? [
-                // For Azure MySQL - skip certificate verification
-                PDO::MYSQL_ATTR_SSL_CIPHER => 'AES256-SHA',
-                1014 => false, // PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT
-            ] : [],
-        ],
-
-        'supabase' => [
-            'driver' => 'pgsql',
-            'host' => env('SUPABASE_DB_HOST'),
-            'port' => env('SUPABASE_DB_PORT', '5432'),
-            'database' => env('SUPABASE_DB_DATABASE', 'postgres'),
-            'username' => env('SUPABASE_DB_USERNAME'),
-            'password' => env('SUPABASE_DB_PASSWORD'),
-            'charset' => 'utf8',
-            'prefix' => '',
-            'prefix_indexes' => true,
-            'schema' => 'public',
-            'sslmode' => env('SUPABASE_DB_SSL_MODE', 'require'),
->>>>>>> origin/provider-side
         ],
 
         'pgsql' => [
@@ -100,7 +57,6 @@ return [
 
     ],
 
-<<<<<<< HEAD
     /*
     |--------------------------------------------------------------------------
     | Migration Repository Table
@@ -125,10 +81,6 @@ return [
     |
     */
 
-=======
-    'migrations' => 'migrations',
-
->>>>>>> origin/provider-side
     'redis' => [
 
         'client' => env('REDIS_CLIENT', 'phpredis'),

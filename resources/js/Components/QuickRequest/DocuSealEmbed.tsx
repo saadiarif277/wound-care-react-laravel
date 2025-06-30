@@ -1,9 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-<<<<<<< HEAD
-=======
 import { AlertCircle, Bug, CheckCircle2, ExternalLink, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
->>>>>>> origin/provider-side
 
 // Better TypeScript interfaces
 interface FormData {
@@ -31,72 +28,48 @@ interface DocuSealResponse {
   fields_mapped?: number;
   template_name?: string;
   manufacturer?: string;
-<<<<<<< HEAD
-=======
   ai_mapping_used?: boolean;
   ai_confidence?: number;
   mapping_method?: 'ai' | 'static' | 'hybrid';
->>>>>>> origin/provider-side
 }
 
 interface DocuSealEmbedProps {
   manufacturerId: string;
-<<<<<<< HEAD
-  productCode: string;
-=======
   templateId?: string; // Direct template ID mapping
   productCode: string;
   documentType?: 'IVR' | 'OrderForm'; // NEW: Document type parameter
->>>>>>> origin/provider-side
   formData?: FormData;
   episodeId?: number;
   onComplete?: (data: any) => void;
   onSave?: (data: any) => void;
   onError?: (error: string) => void;
   className?: string;
-<<<<<<< HEAD
-=======
   debug?: boolean;
->>>>>>> origin/provider-side
 }
 
 export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
   manufacturerId,
-<<<<<<< HEAD
-  productCode,
-=======
   templateId,
   productCode,
   documentType = 'IVR', // Default to IVR for backward compatibility
->>>>>>> origin/provider-side
   formData = {}, // Default to empty object
   episodeId, // Episode ID for enhanced FHIR integration
   onComplete,
   onSave,
   onError,
   className = '',
-<<<<<<< HEAD
-=======
   debug = true // Enable debug mode by default for now
->>>>>>> origin/provider-side
 }) => {
   const [token, setToken] = useState<string | null>(null);
   const [, setTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-<<<<<<< HEAD
-  const [useDirectUrl, setUseDirectUrl] = useState(true); // Default to direct URL, but allow embedded option
-  const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
-  const isMountedRef = useRef(true);
-  const requestInProgressRef = useRef(false);
-=======
   const [useDirectUrl, setUseDirectUrl] = useState(false); // Default to embedded for better UX
   const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
->>>>>>> origin/provider-side
 
   // Memoized token fetch function
   const fetchToken = useCallback(async () => {
@@ -113,8 +86,6 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
       setIsLoading(true);
       setError(null);
-<<<<<<< HEAD
-=======
       setMappingProgress('Initializing form...');
 
       // Comprehensive logging of formData
@@ -126,53 +97,53 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         console.log('Episode ID:', episodeId);
         console.log('Form Data Keys:', Object.keys(formData));
         console.log('Form Data Keys Count:', Object.keys(formData).length);
-        
+
         // Log all fields grouped by category
         console.group('📋 Patient Information');
-        const patientFields = Object.entries(formData).filter(([key]) => 
+        const patientFields = Object.entries(formData).filter(([key]) =>
             key.includes('patient') || key === 'patient_name'
         );
         patientFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('👨‍⚕️ Provider Information');
-        const providerFields = Object.entries(formData).filter(([key]) => 
+        const providerFields = Object.entries(formData).filter(([key]) =>
             key.includes('provider') || key.includes('physician') || key.includes('doctor')
         );
         providerFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('🏥 Facility Information');
-        const facilityFields = Object.entries(formData).filter(([key]) => 
+        const facilityFields = Object.entries(formData).filter(([key]) =>
             key.includes('facility') || key.includes('practice') || key.includes('office')
         );
         facilityFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('🩹 Clinical Information');
-        const clinicalFields = Object.entries(formData).filter(([key]) => 
-            key.includes('wound') || key.includes('diagnosis') || key.includes('icd') || 
+        const clinicalFields = Object.entries(formData).filter(([key]) =>
+            key.includes('wound') || key.includes('diagnosis') || key.includes('icd') ||
             key.includes('cpt') || key.includes('procedure')
         );
         clinicalFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('🏥 Insurance Information');
-        const insuranceFields = Object.entries(formData).filter(([key]) => 
+        const insuranceFields = Object.entries(formData).filter(([key]) =>
             key.includes('insurance') || key.includes('member')
         );
         insuranceFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('📦 Product Information');
-        const productFields = Object.entries(formData).filter(([key]) => 
+        const productFields = Object.entries(formData).filter(([key]) =>
             key.includes('product') || key.includes('manufacturer')
         );
         productFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.group('📄 All Other Fields');
-        const otherFields = Object.entries(formData).filter(([key]) => 
+        const otherFields = Object.entries(formData).filter(([key]) =>
             !key.includes('patient') && !key.includes('provider') && !key.includes('physician') &&
             !key.includes('facility') && !key.includes('practice') && !key.includes('wound') &&
             !key.includes('diagnosis') && !key.includes('insurance') && !key.includes('product') &&
@@ -180,11 +151,10 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         );
         otherFields.forEach(([key, value]) => console.log(`  ${key}:`, value));
         console.groupEnd();
-        
+
         console.log('Full Form Data:', formData);
         console.groupEnd();
       }
->>>>>>> origin/provider-side
 
       // Enhanced request with FHIR integration support
       const requestData = {
@@ -192,22 +162,15 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
         prefill_data: formData,
         manufacturerId,
-<<<<<<< HEAD
-        productCode,
-=======
         templateId, // Direct template ID if provided
         productCode,
         documentType, // NEW: Include document type in request
->>>>>>> origin/provider-side
         ...(episodeId && { episode_id: episodeId })
       };
 
       console.log('Sending enhanced DocuSeal request with FHIR support:', {
         manufacturerId,
-<<<<<<< HEAD
-=======
         templateId,
->>>>>>> origin/provider-side
         productCode,
         episodeId,
         formDataKeys: Object.keys(formData || {}),
@@ -215,16 +178,13 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         hasEpisode: !!episodeId,
         sampleData: Object.keys(formData || {}).slice(0, 5)
       });
-<<<<<<< HEAD
-=======
-      
+
       // Update progress
       if (episodeId) {
         setMappingProgress('Loading FHIR data...');
       } else if (Object.keys(formData || {}).length > 0) {
         setMappingProgress('Mapping form fields with AI...');
       }
->>>>>>> origin/provider-side
 
       const response = await axios.post<DocuSealResponse>(
         '/quick-requests/docuseal/generate-submission-slug',
@@ -238,11 +198,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         }
       );
 
-<<<<<<< HEAD
-      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer } = response.data;
-=======
       const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response.data;
->>>>>>> origin/provider-side
 
       if (!slug) {
         throw new Error('No slug received from server');
@@ -258,12 +214,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         templateName: template_name,
         manufacturer: manufacturer
       });
-<<<<<<< HEAD
 
-      setTemplateId(template_id);
-      setToken(slug);
-=======
-      
       // Update progress based on AI usage
       if (ai_mapping_used) {
         setMappingProgress(`AI mapping complete! (${Math.round((ai_confidence || 0) * 100)}% confidence)`);
@@ -283,7 +234,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
         console.log('Mapping Method:', response.data.mapping_method);
         console.log('Integration Type:', response.data.integration_type);
         console.groupEnd();
-        
+
         // Store debug info for display
         setDebugInfo({
           request: {
@@ -301,7 +252,6 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
           response: response.data
         });
       }
->>>>>>> origin/provider-side
     } catch (err: any) {
       console.error('DocuSeal token fetch error:', {
         error: err,
@@ -337,11 +287,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
       }
       requestInProgressRef.current = false;
     }
-<<<<<<< HEAD
-  }, [manufacturerId, productCode, formData, episodeId, onError]);
-=======
   }, [manufacturerId, productCode, documentType, formData, episodeId, onError, debug]);
->>>>>>> origin/provider-side
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -395,28 +341,23 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
 
   if (error) {
     return (
-<<<<<<< HEAD
-      <div className={`bg-red-50 border border-red-200 rounded-lg p-4 text-center ${className}`}>
-        <p className="text-red-800 font-medium">Error loading form</p>
-        <p className="text-red-600 text-sm mt-1">{error}</p>
-=======
       <div className={`relative overflow-hidden ${className}`}>
         {/* Error Background Pattern */}
         <div className="absolute inset-0 bg-gradient-to-br from-red-50 to-red-100 opacity-50" />
         <div className="absolute inset-0" style={{
           backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ef4444' fill-opacity='0.05' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='3'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
         }} />
-        
+
         <div className="relative z-10 bg-white/90 backdrop-blur-sm border border-red-200 rounded-2xl p-8 text-center shadow-lg">
           <div className="flex justify-center mb-4">
             <div className="p-3 bg-red-100 rounded-full">
               <AlertCircle className="h-8 w-8 text-red-600" />
             </div>
           </div>
-          
+
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Unable to Load Form</h3>
           <p className="text-red-700 font-medium mb-4">{error}</p>
-          
+
           <div className="space-y-3">
             <button
               onClick={() => {
@@ -428,7 +369,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               <Zap className="h-4 w-4" />
               Try Again
             </button>
-            
+
             <div className="flex gap-2">
               <button
                 onClick={() => window.location.reload()}
@@ -447,7 +388,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               </button>
             </div>
           </div>
-          
+
           <div className="mt-6 p-4 bg-red-50 rounded-lg border border-red-200">
             <p className="text-sm text-red-800">
               <strong>Need help?</strong> Contact our support team at{' '}
@@ -457,21 +398,12 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
             </p>
           </div>
         </div>
->>>>>>> origin/provider-side
       </div>
     );
   }
 
   if (isLoading) {
     return (
-<<<<<<< HEAD
-      <div className={`flex items-center justify-center ${className}`} style={{ minHeight: '600px' }}>
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mx-auto" />
-          <p className="mt-3 text-sm text-gray-600">
-            {episodeId ? 'Loading form with FHIR data...' : 'Loading form...'}
-          </p>
-=======
       <div className={`relative overflow-hidden ${className}`} style={{ minHeight: '600px' }}>
         {/* Animated Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
@@ -479,7 +411,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
             backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%233b82f6' fill-opacity='0.03' fill-rule='nonzero'%3E%3Ccircle cx='30' cy='30' r='4'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E")`,
           }} />
         </div>
-        
+
         <div className="relative z-10 flex items-center justify-center h-full">
           <div className="text-center p-8 max-w-md">
             {/* Enhanced Loading Animation */}
@@ -500,22 +432,22 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                 </div>
               </div>
             </div>
-            
+
             {/* Dynamic Loading Messages */}
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
-              {episodeId ? 'Preparing Your Smart Form' : 
-               documentType === 'OrderForm' ? 'Loading Order Form' : 
+              {episodeId ? 'Preparing Your Smart Form' :
+               documentType === 'OrderForm' ? 'Loading Order Form' :
                'Setting Up Insurance Verification'}
             </h3>
-            
+
             <div className="space-y-2 text-sm text-gray-600">
               <p className="flex items-center justify-center gap-2">
                 <Clock className="h-4 w-4 animate-pulse" />
-                {mappingProgress || (episodeId ? 'Fetching your healthcare data...' : 
-                 documentType === 'OrderForm' ? 'Preparing manufacturer order form...' : 
+                {mappingProgress || (episodeId ? 'Fetching your healthcare data...' :
+                 documentType === 'OrderForm' ? 'Preparing manufacturer order form...' :
                  'Creating personalized IVR form...')}
               </p>
-              
+
               {episodeId && (
                 <div className="mt-4 p-3 bg-white/80 backdrop-blur rounded-lg border border-blue-200">
                   <div className="flex items-center gap-2 text-blue-700">
@@ -527,7 +459,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                   </p>
                 </div>
               )}
-              
+
               {/* AI Mapping Indicator */}
               {mappingProgress && (
                 <div className="mt-3 p-3 bg-purple-50 backdrop-blur rounded-lg border border-purple-200">
@@ -541,7 +473,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                 </div>
               )}
             </div>
-            
+
             {/* Progress Indicators */}
             <div className="mt-6">
               <div className="flex justify-center space-x-2">
@@ -550,7 +482,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
                 <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
               </div>
             </div>
-            
+
             {/* Security Assurance */}
             <div className="mt-6 p-3 bg-green-50 rounded-lg border border-green-200">
               <div className="flex items-center justify-center gap-2 text-green-700">
@@ -559,7 +491,6 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               </div>
             </div>
           </div>
->>>>>>> origin/provider-side
         </div>
       </div>
     );
@@ -652,11 +583,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
               }}
               className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
             >
-<<<<<<< HEAD
-              Open IVR Form
-=======
               Open {documentType === 'OrderForm' ? 'Order Form' : 'IVR Form'}
->>>>>>> origin/provider-side
             </button>
             <p className="text-sm text-gray-500 mt-4">
               The form will open in a new window with all your information pre-filled
@@ -667,32 +594,6 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
     );
   }
 
-<<<<<<< HEAD
-  // If not using direct URL, show embedded form
-  if (!useDirectUrl && token) {
-    return (
-      <div className={`w-full ${className}`}>
-        <div className="mb-4 flex justify-between items-center">
-          <h3 className="text-lg font-medium text-gray-900">Embedded DocuSeal Form</h3>
-          <button
-            onClick={() => setUseDirectUrl(true)}
-            className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
-          >
-            Switch to New Window
-          </button>
-        </div>
-        <div
-          id="docuseal-embed-container"
-          className="w-full bg-white border border-gray-200 rounded-lg"
-          style={{
-            minHeight: '600px',
-            height: '80vh',
-            width: '100%'
-          }}
-        >
-          {/* DocuSeal form will be inserted here */}
-        </div>
-=======
   // Show embedded form by default
   if (token) {
     return (
@@ -739,7 +640,7 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
             >
               {/* DocuSeal form will be inserted here */}
             </div>
-            
+
             {/* Loading overlay while form loads */}
             <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-500 pointer-events-none opacity-0" id="docuseal-loading-overlay">
               <div className="text-center">
@@ -776,7 +677,6 @@ export const DocuSealEmbed: React.FC<DocuSealEmbedProps> = ({
             </div>
           </div>
         )}
->>>>>>> origin/provider-side
       </div>
     );
   }

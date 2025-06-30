@@ -76,9 +76,7 @@ class Order extends Model
         'submitted_to_manufacturer_at' => 'datetime',
         'paid_at' => 'datetime',
     ];
-<<<<<<< HEAD
-=======
-    
+
     /**
      * Order Status constants - matches PRD requirements
      */
@@ -87,7 +85,6 @@ class Order extends Model
     const STATUS_CONFIRMED_BY_MANUFACTURER = 'Confirmed by Manufacturer';
     const STATUS_REJECTED = 'Rejected';
     const STATUS_CANCELED = 'Canceled';
->>>>>>> origin/provider-side
 
     /**
      * Get the name of the parent relationship that contains organization_id

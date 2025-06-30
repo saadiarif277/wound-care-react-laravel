@@ -246,7 +246,7 @@ export interface ReviewSubmitData {
   submittedBy?: string;
 }
 
-export type EpisodeStatus = 
+export type EpisodeStatus =
   | 'draft'
   | 'pending_review'
   | 'manufacturer_review'
@@ -311,7 +311,7 @@ export interface QuickRequestState {
   };
 }
 
-export type QuickRequestStep = 
+export type QuickRequestStep =
   | 'patient-insurance'
   | 'clinical-billing'
   | 'product-selection'
@@ -379,7 +379,7 @@ export interface Order {
   fulfilledAt?: string;
 }
 
-export type OrderStatus = 
+export type OrderStatus =
   | 'draft'
   | 'active'
   | 'on_hold'
@@ -402,10 +402,7 @@ export interface QuickRequestStepProps {
 export interface UseQuickRequestReturn {
   state: QuickRequestState;
   currentStepData: any;
-<<<<<<< HEAD
-=======
   formData: QuickRequestState['data'];
->>>>>>> origin/provider-side
   isLoading: boolean;
   errors: ValidationError[];
   warnings: Warning[];
@@ -413,11 +410,6 @@ export interface UseQuickRequestReturn {
   goNext: () => void;
   goBack: () => void;
   saveStep: (data: any) => Promise<void>;
-<<<<<<< HEAD
-  submitEpisode: () => Promise<Episode>;
-  validateStep: (step?: QuickRequestStep) => Promise<ValidationResult[]>;
-  resetWorkflow: () => void;
-=======
   updateFormData: (data: any) => void;
   submitEpisode: () => Promise<Episode>;
   validateStep: (step?: QuickRequestStep) => Promise<ValidationResult[]>;
@@ -425,7 +417,6 @@ export interface UseQuickRequestReturn {
   canGoBack: boolean;
   canGoNext: boolean;
   progress: number;
->>>>>>> origin/provider-side
 }
 
 // Context Types
@@ -433,13 +424,8 @@ export interface QuickRequestContextValue {
   state: QuickRequestState;
   dispatch: React.Dispatch<QuickRequestAction>;
   api: {
-<<<<<<< HEAD
-    saveProgress: (step: QuickRequestStep, data: any) => Promise<void>;
-    loadProgress: (sessionId: string) => Promise<QuickRequestState>;
-=======
     saveProgress: (sessionId: string, step: QuickRequestStep, data: any) => Promise<void>;
     loadProgress: (sessionId: string) => Promise<QuickRequestState | null>;
->>>>>>> origin/provider-side
     createEpisode: (data: QuickRequestState['data']) => Promise<Episode>;
     validateStep: (step: QuickRequestStep, data: any) => Promise<ValidationResult[]>;
   };
@@ -455,9 +441,5 @@ export type QuickRequestAction =
   | { type: 'LOAD_STATE'; payload: QuickRequestState }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERRORS'; payload: ValidationError[] }
-<<<<<<< HEAD
-  | { type: 'SET_WARNINGS'; payload: Warning[] };
-=======
   | { type: 'SET_WARNINGS'; payload: Warning[] }
   | { type: 'UPDATE_DATA'; payload: Partial<QuickRequestState['data']> };
->>>>>>> origin/provider-side

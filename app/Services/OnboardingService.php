@@ -904,8 +904,6 @@ class OnboardingService
             ]);
         }
     }
-<<<<<<< HEAD
-=======
 
     /**
      * Handle unified onboarding process for new organizations
@@ -964,7 +962,7 @@ class OnboardingService
             if ($adminRole) {
                 $user->assignRole($adminRole);
             }
-            
+
             // Associate with organization
             $user->organizations()->attach($organization->id, ['current' => true, 'is_owner' => true]);
 
@@ -1047,9 +1045,9 @@ class OnboardingService
             // 7. Mark BAA as signed if provided
             if ($data['baa_signed'] ?? false) {
                 $this->updateOnboardingProgress(
-                    self::ENTITY_TYPE_ORGANIZATION, 
-                    $organization->id, 
-                    'baa_agreement', 
+                    self::ENTITY_TYPE_ORGANIZATION,
+                    $organization->id,
+                    'baa_agreement',
                     true
                 );
             }
@@ -1160,5 +1158,4 @@ class OnboardingService
             ];
         }
     }
->>>>>>> origin/provider-side
 }

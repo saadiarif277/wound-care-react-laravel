@@ -1,37 +1,19 @@
 
-export type OrderStatus = 
-<<<<<<< HEAD
-  | 'Pending IVR'
-  | 'IVR Sent'
-  | 'IVR Verified'
-  | 'Approved'
-  | 'Send Back'
-  | 'Denied'
-  | 'Submitted to Manufacturer'
-  | 'Confirmed & Shipped';
-
-export type IVRStatus = 
-  | 'Not Required'
-  | 'Pending'
-  | 'Sent'
-  | 'Results Received'
-  | 'Verified';
-=======
+export type OrderStatus =
   | 'Pending'
   | 'Submitted to Manufacturer'
   | 'Confirmed by Manufacturer'
   | 'Rejected'
   | 'Canceled';
 
-export type IVRStatus = 
+export type IVRStatus =
   | 'N/A'
   | 'Pending'
   | 'Sent'
   | 'Verified'
   | 'Rejected';
->>>>>>> origin/provider-side
 
-export type OrderFormStatus = 
+export type OrderFormStatus =
   | 'Draft'
   | 'Submitted'
   | 'Under Review'

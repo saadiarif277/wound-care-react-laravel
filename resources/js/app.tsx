@@ -2,10 +2,6 @@ import '../css/app.css';
 import { createRoot } from 'react-dom/client';
 import { createInertiaApp } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
-<<<<<<< HEAD
-import { AIOverlay, FloatingAIButton } from './Components/GhostAiUi';
-=======
->>>>>>> origin/provider-side
 import { setupAxios } from './lib/axios-setup';
 import { ThemeProvider } from './contexts/ThemeContext';
 

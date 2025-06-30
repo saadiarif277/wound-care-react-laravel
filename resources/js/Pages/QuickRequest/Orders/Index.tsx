@@ -17,8 +17,6 @@ interface OrderReviewProps {
     validatedEpisodeData: any; // Replace 'any' with a more specific type if available
 }
 
-<<<<<<< HEAD
-=======
 // Permission helper functions
 const canViewFinancialData = (userRole: string): boolean => {
     return userRole !== 'OM'; // Office Managers cannot see financial data
@@ -28,7 +26,6 @@ const canViewAllOrders = (userRole: string): boolean => {
     return userRole === 'Admin' || userRole === 'Provider'; // Providers see their own, Admins see all
 };
 
->>>>>>> origin/provider-side
 const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) => {
     const {
         userRole,
@@ -53,61 +50,6 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
         finishSubmission
     } = useOrderState(formData, validatedEpisodeData);
 
-<<<<<<< HEAD
-    // Create a unified order data object from the props
-    const orderData = {
-        orderNumber: validatedEpisodeData?.episode_id || 'N/A',
-        createdDate: new Date().toLocaleDateString(),
-        createdBy: formData?.provider_name || 'N/A',
-        patient: {
-            name: `${formData.patient_first_name} ${formData.patient_last_name}`,
-            dob: formData.patient_dob,
-            gender: formData.patient_gender,
-            phone: 'N/A', // This data is not in formData
-            address: 'N/A', // This data is not in formData
-            insurance: {
-                primary: `${formData.primary_insurance_name} - ${formData.primary_member_id}`,
-                secondary: formData.has_secondary_insurance ? `${formData.secondary_insurance_name} - ${formData.secondary_member_id}` : 'N/A',
-            },
-        },
-        product: {
-            name: formData.selected_products?.[0]?.product?.name || 'N/A',
-            code: formData.selected_products?.[0]?.product?.code || 'N/A',
-            quantity: formData.selected_products?.[0]?.quantity || 0,
-            size: formData.selected_products?.[0]?.size || 'N/A',
-            category: 'N/A', // This data is not in formData
-            manufacturer: formData.selected_products?.[0]?.product?.manufacturer || 'N/A',
-            shippingInfo: {
-                speed: formData.shipping_speed,
-                address: 'N/A', // This data is not in formData
-            },
-        },
-        forms: {
-            consent: formData.prior_auth_permission,
-            assignmentOfBenefits: true, // Assuming true, not in form
-            medicalNecessity: formData.medical_necessity_established,
-        },
-        clinical: {
-            woundType: formData.wound_types.join(', '),
-            location: formData.wound_location,
-            size: `${formData.wound_size_length} x ${formData.wound_size_width}cm`,
-            cptCodes: formData.application_cpt_codes.join(', '),
-            placeOfService: formData.place_of_service,
-            failedConservativeTreatment: formData.failed_conservative_treatment,
-        },
-        provider: {
-            name: 'N/A', // This data is not in formData, should come from currentUser prop
-            npi: 'N/A',
-            facility: formData.facility_id ? 'Facility Name' : 'N/A', // Map ID to name
-        },
-        submission: {
-            informationAccurate: formData.information_accurate,
-            documentationMaintained: formData.maintain_documentation,
-            authorizePriorAuth: formData.authorize_prior_auth,
-        },
-    };
-
-=======
     // Helper function to safely map form data to order data structure
     const mapFormDataToOrderData = (formData: any, validatedEpisodeData: any): OrderData => {
         return {
@@ -142,14 +84,14 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
             },
             clinical: {
                 woundType: formData?.wound_type || 'N/A',
-                woundSize: formData?.wound_size_length && formData?.wound_size_width 
+                woundSize: formData?.wound_size_length && formData?.wound_size_width
                     ? `${formData.wound_size_length} x ${formData.wound_size_width}cm`
                     : 'N/A',
-                diagnosisCodes: Array.isArray(formData?.diagnosis_codes) 
+                diagnosisCodes: Array.isArray(formData?.diagnosis_codes)
                     ? formData.diagnosis_codes.map((code: any) => ({
                         code: typeof code === 'string' ? code : code?.code || 'N/A',
                         description: typeof code === 'object' ? code?.description || 'N/A' : 'N/A'
-                    })) 
+                    }))
                     : [],
                 icd10Codes: Array.isArray(formData?.icd10_codes)
                     ? formData.icd10_codes.map((code: any) => ({
@@ -167,7 +109,7 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
                 sizes: formData?.selected_products?.map((p: any) => p?.size || 'Standard') || ['N/A'],
                 quantity: parseInt(formData?.selected_products?.[0]?.quantity) || 1,
                 aspPrice: parseFloat(formData?.selected_products?.[0]?.product?.price) || 0,
-                discountedPrice: parseFloat(formData?.selected_products?.[0]?.product?.discounted_price) || 
+                discountedPrice: parseFloat(formData?.selected_products?.[0]?.product?.discounted_price) ||
                                 parseFloat(formData?.selected_products?.[0]?.product?.price) || 0,
                 coverageWarnings: formData?.coverage_warnings || [],
             },
@@ -187,7 +129,6 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
     // Create order data with proper error handling
     const orderData = mapFormDataToOrderData(formData, validatedEpisodeData);
 
->>>>>>> origin/provider-side
     // Show admin dashboard for Admin role
     if (userRole === 'Admin') {
         return <OrderDashboard />;

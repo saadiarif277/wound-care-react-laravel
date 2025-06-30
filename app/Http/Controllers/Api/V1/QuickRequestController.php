@@ -4,16 +4,10 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Manufacturer;
-<<<<<<< HEAD
-use App\Services\DocuSealService;
-use App\Services\Templates\DocuSealBuilder;
-use App\Services\QuickRequestService;
-=======
 use App\Models\Docuseal\DocusealTemplate;
 use App\Services\DocuSealService;
 use App\Services\QuickRequestService;
 use App\Services\AI\AzureFoundryService;
->>>>>>> origin/provider-side
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
@@ -111,82 +105,12 @@ class QuickRequestController extends Controller
         }
 
         try {
-<<<<<<< HEAD
-            // Get the appropriate template
-            $docuSealService = app(DocuSealService::class);
-            $builder = new DocuSealBuilder($docuSealService);
-            $template = $builder->getTemplate($manufacturerId, $productCode);
-
-            Log::info('DocuSeal template selection', [
-                'requested_manufacturer_id' => $manufacturerId,
-                'requested_product_code' => $productCode,
-                'found_template_id' => $template->id,
-                'found_docuseal_template_id' => $template->docuseal_template_id,
-                'template_name' => $template->template_name,
-                'is_manufacturer_specific' => $template->manufacturer_id == $manufacturerId,
-                'is_generic_fallback' => is_null($template->manufacturer_id),
-                'has_form_data' => !empty($formData),
-                'field_mappings_count' => count($template->field_mappings ?? [])
-            ]);
-
-                        // Map the quick request data to DocuSeal fields if form data is provided
-            $mappedFields = [];
-            if (!empty($formData)) {
-                Log::info('Form data received for mapping', [
-                    'field_count' => count($formData),
-                    'sample_fields' => array_slice(array_keys($formData), 0, 10),
-                    'patient_name' => $formData['patient_name'] ?? 'NOT SET',
-                    'patient_first_name' => $formData['patient_first_name'] ?? 'NOT SET',
-                    'has_field_mappings' => !empty($template->field_mappings)
-                ]);
-
-                $mappedFields = $docuSealService->mapFieldsUsingTemplate($formData, $template);
-
-                Log::info('Mapped fields for DocuSeal', [
-                    'original_field_count' => count($formData),
-                    'mapped_field_count' => count($mappedFields),
-                    'mapped_fields' => array_map(fn($field) => $field['name'] ?? 'unknown', $mappedFields),
-                    'sample_mapped_values' => array_slice($mappedFields, 0, 5)
-                ]);
-            }
-
-            // Generate a builder token using the DocuSeal builder approach
-            $user = Auth::user();
-            $submitterData = [
-                'email' => $user->email,
-                'name' => $user->name,
-                'external_id' => 'quickrequest_' . uniqid(),
-                'fields' => $mappedFields // Pre-filled fields from form data
-            ];
-
-            // Generate the builder token directly using the DocuSeal service
-            $builderToken = $docuSealService->generateBuilderToken(
-                $template->docuseal_template_id,
-                $submitterData
-            );
-
-            Log::info('DocuSeal builder token generated', [
-                'template_id' => $template->docuseal_template_id,
-                'field_count' => count($mappedFields),
-                'has_token' => !empty($builderToken)
-            ]);
-
-            return response()->json([
-                'success' => true,
-                'builderToken' => $builderToken,
-                'token' => $builderToken, // Alias for compatibility
-                'jwt' => $builderToken, // Another alias
-                'template_id' => $template->docuseal_template_id,
-                'mapped_fields_count' => count($mappedFields)
-            ]);
-
-=======
             // Get the appropriate template from DocuSeal service
             $docuSealService = app(DocuSealService::class);
-            
+
             // For now, return a basic response - proper template selection would be implemented later
             Log::warning('DocuSealBuilder class not implemented - using fallback response');
-            
+
             return response()->json([
                 'success' => true,
                 'builderToken' => 'fallback-token-' . uniqid(),
@@ -199,7 +123,6 @@ class QuickRequestController extends Controller
 
             // End of method - fallback response already returned above
 
->>>>>>> origin/provider-side
         } catch (\Exception $e) {
             Log::error('DocuSeal builder token generation failed', [
                 'error' => $e->getMessage(),
@@ -240,8 +163,6 @@ class QuickRequestController extends Controller
             ], 500);
         }
     }
-<<<<<<< HEAD
-=======
 
     /**
      * Test AI field mapping capabilities
@@ -322,7 +243,7 @@ class QuickRequestController extends Controller
                 try {
                     $azureAI = app(AzureFoundryService::class);
                     $templateFields = $docuSealService->getTemplateFields($manufacturer->name);
-                    
+
                     $suggestions = $azureAI->suggestFieldMappings(
                         array_keys($formData),
                         array_keys($templateFields),
@@ -373,5 +294,4 @@ class QuickRequestController extends Controller
             ], 500);
         }
     }
->>>>>>> origin/provider-side
 }

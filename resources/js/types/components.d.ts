@@ -12,54 +12,6 @@ declare module '@/Layouts/AuthenticatedLayout' {
     export default AuthenticatedLayout;
 }
 
-<<<<<<< HEAD
-declare module '@/Components/Button' {
-    import { ButtonHTMLAttributes, ReactNode } from 'react';
-
-    interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
-        children: ReactNode;
-        className?: string;
-    }
-
-    export const Button: React.FC<Props>;
-}
-
-declare module '@/Components/Modal' {
-    import { ReactNode } from 'react';
-
-    interface Props {
-        show: boolean;
-        onClose: () => void;
-        children: ReactNode;
-    }
-
-    export const Modal: React.FC<Props>;
-}
-
-declare module '@/Components/Input' {
-    import { InputHTMLAttributes, ReactNode } from 'react';
-
-    interface Props extends InputHTMLAttributes<HTMLInputElement> {
-        label: string;
-        error?: string;
-    }
-
-    export const Input: React.FC<Props>;
-}
-
-declare module '@/Components/Select' {
-    import { SelectHTMLAttributes, ReactNode } from 'react';
-
-    interface Props extends SelectHTMLAttributes<HTMLSelectElement> {
-        label: string;
-        error?: string;
-        children: ReactNode;
-    }
-
-    export const Select: React.FC<Props>;
-}
-=======
->>>>>>> origin/provider-side
 
 declare module '@/Components/Form/NumberInput' {
     import { InputHTMLAttributes, ReactNode } from 'react';

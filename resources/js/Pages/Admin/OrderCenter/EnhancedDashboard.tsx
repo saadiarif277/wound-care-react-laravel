@@ -547,16 +547,6 @@ export default function EnhancedDashboard({
 
             {/* Episodes View - Cards or List */}
             {episodeView === 'cards' ? (
-<<<<<<< HEAD
-              <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-                {filteredEpisodes.map((episode) => (
-                  <EpisodeCard
-                    key={episode.id}
-                    episode={episode}
-                    onRefresh={() => router.reload()}
-                    viewMode="compact"
-                  />
-=======
               <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
                 {filteredEpisodes.map((episode) => (
                   <div key={episode.id} className="relative pb-4">
@@ -566,7 +556,6 @@ export default function EnhancedDashboard({
                       viewMode="compact"
                     />
                   </div>
->>>>>>> origin/provider-side
                 ))}
               </div>
             ) : (
