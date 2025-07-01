@@ -21,139 +21,66 @@ class OrderCenterController extends Controller
      */
     public function index(Request $request)
     {
-        // Get episodes with related product requests (not orders)
-        $query = PatientManufacturerIVREpisode::with(['manufacturer']);
+        // Get product requests (orders) instead of episodes for the Index view
+        $query = ProductRequest::with(['provider', 'facility', 'products']);
 
         // Apply filters
         if ($request->has('search')) {
             $search = $request->input('search');
             $query->where(function($q) use ($search) {
-                $q->where('patient_display_id', 'like', "%{$search}%")
-                  ->orWhere('patient_name', 'like', "%{$search}%")
-                  ->orWhereHas('manufacturer', function($manufacturerQuery) use ($search) {
-                      $manufacturerQuery->where('name', 'like', "%{$search}%");
+                $q->where('request_number', 'like', "%{$search}%")
+                  ->orWhere('patient_display_id', 'like', "%{$search}%")
+                  ->orWhereHas('provider', function($providerQuery) use ($search) {
+                      $providerQuery->where('name', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('facility', function($facilityQuery) use ($search) {
+                      $facilityQuery->where('name', 'like', "%{$search}%");
                   });
             });
         }
 
         if ($request->has('status') && $request->input('status')) {
-            $query->where('status', $request->input('status'));
+            $query->where('order_status', $request->input('status'));
         }
 
-        if ($request->has('ivr_status') && $request->input('ivr_status')) {
-            $query->where('ivr_status', $request->input('ivr_status'));
-        }
-
-        if ($request->has('action_required') && $request->input('action_required') === 'true') {
-            $query->where('status', 'ready_for_review');
-        }
-
-        $episodes = $query->orderBy('created_at', 'desc')
+        $orders = $query->orderBy('created_at', 'desc')
             ->paginate(20);
 
-        // Get status counts
-        $statusCounts = PatientManufacturerIVREpisode::select('status', DB::raw('count(*) as count'))
-            ->groupBy('status')
-            ->pluck('count', 'status')
+        // Get status counts for orders
+        $statusCounts = ProductRequest::select('order_status', DB::raw('count(*) as count'))
+            ->groupBy('order_status')
+            ->pluck('count', 'order_status')
             ->toArray();
 
-        $ivrStatusCounts = PatientManufacturerIVREpisode::select('ivr_status', DB::raw('count(*) as count'))
-            ->groupBy('ivr_status')
-            ->pluck('count', 'ivr_status')
-            ->toArray();
-
-        // Transform episodes for display
-        $transformedEpisodes = $episodes->through(function ($episode) {
-            // Get product requests for this episode
-            $productRequests = ProductRequest::where('ivr_episode_id', $episode->id)
-                ->with(['provider', 'facility'])
-                ->get();
-
+        // Transform orders for display
+        $transformedOrders = $orders->through(function ($order) {
             return [
-                'id' => $episode->id,
-                'patient_id' => $episode->patient_id,
-                'patient_name' => $episode->patient_name ?? $this->getPatientName($episode->patient_id),
-                'patient_display_id' => $episode->patient_display_id,
-                'manufacturer' => [
-                    'id' => $episode->manufacturer_id,
-                    'name' => $episode->manufacturer->name ?? 'Unknown Manufacturer',
-                    'contact_email' => $episode->manufacturer->contact_email ?? null,
-                ],
-                'status' => $episode->status,
-                'ivr_status' => $episode->ivr_status,
-                'verification_date' => $episode->verification_date?->format('Y-m-d'),
-                'expiration_date' => $episode->expiration_date?->format('Y-m-d'),
-                'orders_count' => $productRequests->count(),
-                'total_order_value' => (float) ($productRequests->sum('total_order_value') ?? 0),
-                'latest_order_date' => $productRequests->max('created_at')?->toISOString() ?? $episode->created_at->toISOString(),
-                'action_required' => $episode->status === 'ready_for_review',
-                'orders' => $productRequests->map(function ($order) {
-                    return [
-                        'id' => $order->id,
-                        'order_number' => $order->order_number ?? $order->request_number,
-                        'order_status' => $order->order_status,
-                        'expected_service_date' => $order->expected_service_date?->format('Y-m-d'),
-                        'submitted_at' => $order->submitted_at?->toISOString() ?? $order->created_at->toISOString(),
-                    ];
-                }),
+                'id' => $order->id,
+                'order_number' => $order->request_number,
+                'patient_name' => $order->patient_display_id ?? 'Unknown Patient',
+                'patient_display_id' => $order->patient_display_id,
+                'provider_name' => $order->provider->name ?? 'Unknown Provider',
+                'facility_name' => $order->facility->name ?? 'Unknown Facility',
+                'manufacturer_name' => $order->manufacturer ?? 'Unknown Manufacturer',
+                'product_name' => $order->product_name ?? 'Unknown Product',
+                'order_status' => $order->order_status,
+                'ivr_status' => $order->ivr_status ?? 'N/A',
+                'order_form_status' => $order->order_form_status ?? 'Not Started',
+                'total_order_value' => (float) ($order->total_order_value ?? 0),
+                'created_at' => $order->created_at->toISOString(),
+                'action_required' => $order->order_status === 'pending',
             ];
         });
 
-        // Calculate stats for the enhanced dashboard
-        $stats = [
-            'total_episodes' => array_sum($statusCounts),
-            'pending_review' => $statusCounts['ready_for_review'] ?? 0,
-            'ivr_expiring_soon' => PatientManufacturerIVREpisode::where('expiration_date', '<=', now()->addDays(30))
-                ->where('expiration_date', '>', now())
-                ->count(),
-            'total_value' => $transformedEpisodes->sum('total_order_value'),
-            'episodes_this_week' => PatientManufacturerIVREpisode::where('created_at', '>=', now()->startOfWeek())->count(),
-            'completion_rate' => array_sum($statusCounts) > 0
-                ? round(($statusCounts['completed'] ?? 0) / array_sum($statusCounts) * 100, 1)
-                : 0,
-        ];
-
-        // AI Insights (simulated for now)
-        $aiInsights = [];
-        if (($statusCounts['ready_for_review'] ?? 0) > 5) {
-            $aiInsights[] = [
-                'id' => 'high-pending',
-                'type' => 'warning',
-                'title' => 'High Pending Reviews',
-                'description' => "{$statusCounts['ready_for_review']} episodes awaiting review - consider bulk processing",
-                'action' => [
-                    'label' => 'View Pending',
-                    'route' => route('admin.orders.index', ['status' => 'ready_for_review']),
-                ],
-                'confidence' => 0.95,
-            ];
-        }
-
-        // Recent activity
-        $recentActivity = collect([
-            ['id' => '1', 'type' => 'episode', 'description' => 'New episode created', 'timestamp' => now()->toISOString(), 'user' => 'System'],
-        ]);
-
-        // Performance data for charts
-        $performanceData = [
-            'labels' => ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-            'episodesCompleted' => [5, 8, 12, 7, 10, 6, 9],
-            'averageProcessingTime' => [2.5, 3.1, 2.8, 3.5, 2.9, 3.2, 3.0],
-        ];
-
-        return Inertia::render('Admin/OrderCenter/EnhancedDashboard', [
-            'episodes' => $transformedEpisodes->items(), // Extract just the data array from paginated results
-            'stats' => $stats,
-            'aiInsights' => $aiInsights,
-            'recentActivity' => $recentActivity,
-            'performanceData' => $performanceData,
-            'filters' => $request->only(['search', 'status', 'ivr_status', 'action_required']),
-            'pagination' => [
-                'total' => $transformedEpisodes->total(),
-                'per_page' => $transformedEpisodes->perPage(),
-                'current_page' => $transformedEpisodes->currentPage(),
-                'last_page' => $transformedEpisodes->lastPage(),
+        return Inertia::render('Admin/OrderCenter/Index', [
+            'orders' => [
+                'data' => $transformedOrders->items(),
+                'current_page' => $transformedOrders->currentPage(),
+                'last_page' => $transformedOrders->lastPage(),
+                'total' => $transformedOrders->total(),
             ],
+            'statusCounts' => $statusCounts,
+            'filters' => $request->only(['search', 'status']),
         ]);
     }
 
