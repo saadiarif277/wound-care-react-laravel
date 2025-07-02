@@ -65,7 +65,6 @@ return new class extends Migration
             // Order Meta
             $table->string('order_number')->nullable();
             $table->string('order_status')->nullable();
-            $table->timestamp('created_at')->nullable();
             $table->string('created_by')->nullable();
             $table->decimal('total_bill', 10, 2)->nullable();
             $table->timestamps();
