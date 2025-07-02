@@ -9,6 +9,7 @@ export interface OrderData {
     phone: string;
     email: string;
     address: string;
+    displayId: string; // Add patient display ID
     primaryInsurance: {
       payerName: string;
       planName: string;

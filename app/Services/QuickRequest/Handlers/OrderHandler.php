@@ -33,6 +33,11 @@ class OrderHandler
             // Create FHIR DeviceRequest
             $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails);
 
+            // Get facility and provider info from episode metadata
+            $metadata = $episode->metadata ?? [];
+            $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
+            $providerId = $metadata['provider_data']['id'] ?? Auth::id();
+
             // Create local order record
             $order = Order::create([
                 'order_number' => $this->generateOrderNumber(),
@@ -40,7 +45,10 @@ class OrderHandler
                 'type' => 'initial',
                 'status' => 'pending',
                 'patient_fhir_id' => $episode->patient_fhir_id,
-                'facility_id' => Auth::user()->facility_id ?? 1, // Default to facility 1 if not set
+                'patient_display_id' => $episode->patient_display_id,
+                'facility_id' => $facilityId,
+                'provider_id' => $providerId,
+                'manufacturer_id' => $episode->manufacturer_id,
                 'date_of_service' => now()->toDateString(),
                 'total_amount' => $this->calculateOrderTotals($orderDetails['products'] ?? [])['total'] ?? 0,
                 'notes' => json_encode([
@@ -89,6 +97,11 @@ class OrderHandler
                 ->latest()
                 ->first();
 
+            // Get facility and provider info from episode metadata
+            $metadata = $episode->metadata ?? [];
+            $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
+            $providerId = $metadata['provider_data']['id'] ?? Auth::id();
+
             // Create FHIR DeviceRequest
             $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails, $parentOrder);
 
@@ -100,7 +113,10 @@ class OrderHandler
                 'type' => 'follow_up',
                 'status' => 'pending',
                 'patient_fhir_id' => $episode->patient_fhir_id,
-                'facility_id' => Auth::user()->facility_id ?? 1, // Default to facility 1 if not set
+                'patient_display_id' => $episode->patient_display_id,
+                'facility_id' => $facilityId,
+                'provider_id' => $providerId,
+                'manufacturer_id' => $episode->manufacturer_id,
                 'date_of_service' => now()->toDateString(),
                 'total_amount' => $this->calculateOrderTotals($orderDetails['products'] ?? [])['total'] ?? 0,
                 'notes' => json_encode([

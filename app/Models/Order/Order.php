@@ -55,7 +55,7 @@ class Order extends Model
         'submitted_at',
         'episode_id',
         'parent_order_id',
-        'type',
+        'type', // 'initial' or 'follow_up'
         // NO PHI fields like patient name, DOB, etc.
     ];
 
@@ -75,6 +75,7 @@ class Order extends Model
         'sent_back_at' => 'datetime',
         'submitted_to_manufacturer_at' => 'datetime',
         'paid_at' => 'datetime',
+        'type' => 'string',
     ];
 
     /**

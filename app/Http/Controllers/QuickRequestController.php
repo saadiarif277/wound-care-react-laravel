@@ -1789,13 +1789,18 @@ final class QuickRequestController extends Controller
      */
     private function extractPatientData(array $validated): array
     {
+        // Generate patient display ID if not provided
+        $displayId = $validated['patient_display_id'] ?? $this->generateRandomPatientDisplayId($validated);
+
         return [
+            'id' => $validated['patient_id'] ?? uniqid('patient-'),
             'first_name' => $validated['patient_first_name'] ?? '',
             'last_name' => $validated['patient_last_name'] ?? '',
             'dob' => $validated['patient_dob'] ?? '',
             'date_of_birth' => $validated['patient_dob'] ?? '', // Keep both for compatibility
             'gender' => $validated['patient_gender'] ?? 'unknown',
             'member_id' => $validated['patient_member_id'] ?? '',
+            'display_id' => $displayId, // Add display_id for orchestrator
             'address_line1' => $validated['patient_address_line1'] ?? '',
             'address_line2' => $validated['patient_address_line2'] ?? '',
             'city' => $validated['patient_city'] ?? '',
@@ -2095,12 +2100,18 @@ final class QuickRequestController extends Controller
         $productRequest->submitted_at = now();
         $productRequest->patient_fhir_id = $episode->patient_fhir_id;
 
-        // Set patient_display_id with fallback to generate random if null
+        // Set patient_display_id with comprehensive fallback logic
         $patientDisplayId = $episode->patient_display_id;
+
+        // If episode doesn't have display_id, generate one
         if (empty($patientDisplayId)) {
             $patientDisplayId = $this->generateRandomPatientDisplayId($validated);
             // Update the episode with the generated display ID
             $episode->update(['patient_display_id' => $patientDisplayId]);
+            Log::info('Generated patient_display_id for episode', [
+                'episode_id' => $episode->id,
+                'patient_display_id' => $patientDisplayId
+            ]);
         }
 
         // FINAL SAFETY CHECK: If still empty, use hardcoded value
@@ -2110,6 +2121,11 @@ final class QuickRequestController extends Controller
                 'episode_id' => $episode->id,
                 'patient_display_id' => $patientDisplayId
             ]);
+        }
+
+        // Ensure patient_display_id is never null or empty
+        if (empty($patientDisplayId)) {
+            throw new \Exception('Failed to generate patient_display_id for episode: ' . $episode->id);
         }
 
         $productRequest->patient_display_id = $patientDisplayId;
