@@ -574,10 +574,28 @@ Route::middleware(['web', 'auth'])->group(function () {
                 'validated_episode_data' => 'sometimes|array'
             ]);
 
+            // Debug logging
+            \Log::info('Session storage - Storing form data', [
+                'form_data_keys' => array_keys($validated['quick_request_form_data']),
+                'form_data_count' => count($validated['quick_request_form_data']),
+                'episode_data_keys' => isset($validated['validated_episode_data']) ? array_keys($validated['validated_episode_data']) : [],
+                'episode_data_count' => isset($validated['validated_episode_data']) ? count($validated['validated_episode_data']) : 0,
+                'session_id' => $request->session()->getId(),
+                'user_id' => Auth::id(),
+            ]);
+
             $request->session()->put('quick_request_form_data', $validated['quick_request_form_data']);
             if (isset($validated['validated_episode_data'])) {
                 $request->session()->put('validated_episode_data', $validated['validated_episode_data']);
             }
+
+            // Verify data was stored
+            $storedFormData = $request->session()->get('quick_request_form_data', []);
+            \Log::info('Session storage - Data stored successfully', [
+                'stored_form_data_keys' => array_keys($storedFormData),
+                'stored_form_data_count' => count($storedFormData),
+                'session_id' => $request->session()->getId(),
+            ]);
 
             return response()->json(['success' => true]);
         })->middleware('auth')->name('api.session.store-form-data');

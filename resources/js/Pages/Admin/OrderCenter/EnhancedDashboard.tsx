@@ -86,7 +86,8 @@ ChartJS.register(
 
 import { EpisodeStatus, IVRStatus } from '@/types/episode';
 
-interface Episode {
+// Local interface for backend data structure
+interface DashboardEpisode {
   id: string;
   patient_id: string;
   patient_display_id: string;
@@ -134,7 +135,7 @@ interface AIInsight {
 }
 
 interface Props {
-  episodes: Episode[];
+  episodes: DashboardEpisode[];
   stats: DashboardStats;
   aiInsights: AIInsight[];
   recentActivity: Array<{
@@ -551,7 +552,17 @@ export default function EnhancedDashboard({
                 {filteredEpisodes.map((episode) => (
                   <div key={episode.id} className="relative pb-4">
                     <EpisodeCard
-                      episode={episode}
+                      episode={{
+                        ...episode,
+                        orders: episode.orders.map(order => ({
+                          id: order.id,
+                          order_number: order.order_number,
+                          order_status: order.status,
+                          expected_service_date: new Date().toISOString().split('T')[0], // Default to today
+                          submitted_at: new Date().toISOString(),
+                          provider: order.provider
+                        }))
+                      } as any}
                       onRefresh={() => router.reload()}
                       viewMode="compact"
                     />

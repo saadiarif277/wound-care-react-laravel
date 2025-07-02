@@ -2,7 +2,7 @@
 
 namespace App\Services\QuickRequest;
 
-use App\Models\Episode;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Order;
 use App\Services\QuickRequest\Handlers\PatientHandler;
 use App\Services\QuickRequest\Handlers\ProviderHandler;
@@ -30,7 +30,7 @@ class QuickRequestOrchestrator
         /**
      * Start a new episode with initial order
      */
-    public function startEpisode(array $data): Episode
+    public function startEpisode(array $data): PatientManufacturerIVREpisode
     {
         try {
             $this->logger->info('Starting new Quick Request episode');
@@ -53,23 +53,33 @@ class QuickRequestOrchestrator
                 'clinical' => $data['clinical']
             ]);
 
-            // Step 5: Create insurance coverage
-            $coverageId = $this->insuranceHandler->createCoverage([
-                'patient_id' => $patientFhirId,
-                'insurance' => $data['insurance']
-            ]);
+            // Step 5: Create insurance coverage(s)
+            $coverageIds = $this->insuranceHandler->createMultipleCoverages($data['insurance'], $patientFhirId);
+
+            // Get primary coverage ID for episode metadata
+            $primaryCoverageId = $coverageIds['primary'] ?? array_values($coverageIds)[0] ?? null;
 
             // Step 6: Create local episode record
-            $episode = Episode::create([
+            $episode = PatientManufacturerIVREpisode::create([
+                'patient_id' => $data['patient']['id'] ?? uniqid('patient-'),
                 'patient_fhir_id' => $patientFhirId,
-                'practitioner_fhir_id' => $providerFhirId,
-                'organization_fhir_id' => $organizationFhirId,
-                'episode_of_care_fhir_id' => $clinicalResources['episode_of_care_id'],
+                'patient_display_id' => $data['patient']['display_id'] ?? null,
                 'manufacturer_id' => $data['manufacturer_id'],
-                'status' => 'draft',
+                'status' => PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW,
+                'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_NA,
+                'created_by' => Auth::id(),
                 'metadata' => [
+                    'practitioner_fhir_id' => $providerFhirId,
+                    'organization_fhir_id' => $organizationFhirId,
+                    'episode_of_care_fhir_id' => $clinicalResources['episode_of_care_id'],
                     'condition_id' => $clinicalResources['condition_id'],
-                    'coverage_id' => $coverageId,
+                    'coverage_ids' => $coverageIds,
+                    'primary_coverage_id' => $primaryCoverageId,
+                    'clinical_data' => $data['clinical'],
+                    'provider_data' => $data['provider'],
+                    'facility_data' => $data['facility'],
+                    'insurance_data' => $data['insurance'],
+                    'order_details' => $data['order_details'],
                     'created_by' => Auth::id()
                 ]
             ]);
@@ -101,7 +111,7 @@ class QuickRequestOrchestrator
     /**
      * Add follow-up order to existing episode
      */
-    public function addFollowUpOrder(Episode $episode, array $orderData): Order
+    public function addFollowUpOrder(PatientManufacturerIVREpisode $episode, array $orderData): Order
     {
         $this->logger->info('Adding follow-up order to episode', [
             'episode_id' => $episode->id
@@ -111,7 +121,7 @@ class QuickRequestOrchestrator
 
         try {
             // Validate episode can accept new orders
-            if (!in_array($episode->status, ['draft', 'active'])) {
+            if (!in_array($episode->status, [PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW, PatientManufacturerIVREpisode::STATUS_IVR_SENT])) {
                 throw new Exception("Episode is not accepting new orders. Current status: {$episode->status}");
             }
 
@@ -119,8 +129,8 @@ class QuickRequestOrchestrator
             $order = $this->orderHandler->createFollowUpOrder($episode, $orderData);
 
             // Update episode status if needed
-            if ($episode->status === 'draft') {
-                $episode->update(['status' => 'pending_review']);
+            if ($episode->status === PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW) {
+                $episode->update(['status' => PatientManufacturerIVREpisode::STATUS_IVR_SENT]);
             }
 
             DB::commit();
@@ -147,7 +157,7 @@ class QuickRequestOrchestrator
     /**
      * Approve episode and notify manufacturer
      */
-    public function approveEpisode(Episode $episode): void
+    public function approveEpisode(PatientManufacturerIVREpisode $episode): void
     {
         $this->logger->info('Approving episode', [
             'episode_id' => $episode->id
@@ -158,15 +168,18 @@ class QuickRequestOrchestrator
         try {
             // Update episode status
             $episode->update([
-                'status' => 'manufacturer_review',
-                'reviewed_at' => now(),
-                'reviewed_by' => Auth::id()
+                'status' => PatientManufacturerIVREpisode::STATUS_SENT_TO_MANUFACTURER,
+                'metadata' => array_merge($episode->metadata ?? [], [
+                    'reviewed_at' => now()->toIso8601String(),
+                    'reviewed_by' => Auth::id()
+                ])
             ]);
 
             // Update FHIR Task status
-            if ($episode->task_fhir_id) {
+            $taskFhirId = $episode->metadata['task_fhir_id'] ?? null;
+            if ($taskFhirId) {
                 $this->clinicalHandler->updateTaskStatus(
-                    $episode->task_fhir_id,
+                    $taskFhirId,
                     'completed',
                     'Approved for manufacturer review'
                 );
@@ -197,7 +210,7 @@ class QuickRequestOrchestrator
     /**
      * Complete episode after manufacturer approval
      */
-    public function completeEpisode(Episode $episode, array $manufacturerResponse): void
+    public function completeEpisode(PatientManufacturerIVREpisode $episode, array $manufacturerResponse): void
     {
         $this->logger->info('Completing episode', [
             'episode_id' => $episode->id
@@ -208,9 +221,11 @@ class QuickRequestOrchestrator
         try {
             // Update episode with manufacturer response
             $episode->update([
-                'status' => 'completed',
+                'status' => PatientManufacturerIVREpisode::STATUS_COMPLETED,
                 'completed_at' => now(),
-                'manufacturer_response' => $manufacturerResponse
+                'metadata' => array_merge($episode->metadata ?? [], [
+                    'manufacturer_response' => $manufacturerResponse
+                ])
             ]);
 
             // Update all pending orders
@@ -219,7 +234,10 @@ class QuickRequestOrchestrator
                 ->update(['status' => 'approved']);
 
             // Update FHIR resources
-            $this->clinicalHandler->completeEpisodeOfCare($episode->episode_of_care_fhir_id);
+            $episodeOfCareFhirId = $episode->metadata['episode_of_care_fhir_id'] ?? null;
+            if ($episodeOfCareFhirId) {
+                $this->clinicalHandler->completeEpisodeOfCare($episodeOfCareFhirId);
+            }
 
             // Send completion notifications
             $this->notificationHandler->notifyEpisodeCompletion($episode);

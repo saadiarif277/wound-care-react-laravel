@@ -1,9 +1,8 @@
-
 import React from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Textarea } from '@/components/ui/textarea';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/ui/dialog';
+import { Button } from '@/Components/ui/Button';
+import { Checkbox } from '@/Components/ui/checkbox';
+import { Textarea } from '@/Components/ui/textarea';
 
 interface OrderModalsProps {
   showSubmitModal: boolean;
@@ -45,13 +44,13 @@ export const OrderModals: React.FC<OrderModalsProps> = ({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            By submitting this order, I consent to having the IVR form and Order form submitted to the 
-            manufacturer for review and approval. I understand that the order will not be placed with 
+            By submitting this order, I consent to having the IVR form and Order form submitted to the
+            manufacturer for review and approval. I understand that the order will not be placed with
             the manufacturer until IVR verification is completed and the order is fully approved.
           </p>
           <div className="flex items-center space-x-2">
-            <Checkbox 
-              id="confirmation" 
+            <Checkbox
+              id="confirmation"
               checked={confirmationChecked}
               onCheckedChange={(checked) => onConfirmationChange(!!checked)}
             />
@@ -61,7 +60,7 @@ export const OrderModals: React.FC<OrderModalsProps> = ({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onSubmitModalChange(false)}>
+          <Button variant="secondary" onClick={() => onSubmitModalChange(false)}>
             Go Back
           </Button>
           <Button onClick={onConfirmSubmission} disabled={!confirmationChecked}>
@@ -81,12 +80,12 @@ export const OrderModals: React.FC<OrderModalsProps> = ({
         </DialogHeader>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Your order has been submitted to Admin for review and processing. You will be 
+            Your order has been submitted to Admin for review and processing. You will be
             notified once the order is fully approved and sent to the manufacturer.
           </p>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onAddNote}>
+          <Button variant="secondary" onClick={onAddNote}>
             Add Note for Admin
           </Button>
           <Button onClick={onFinishSubmission}>
@@ -111,7 +110,7 @@ export const OrderModals: React.FC<OrderModalsProps> = ({
           />
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={onFinishSubmission}>
+          <Button variant="secondary" onClick={onFinishSubmission}>
             Skip
           </Button>
           <Button onClick={onFinishSubmission}>

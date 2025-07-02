@@ -2,8 +2,8 @@
 
 namespace App\Jobs\QuickRequest;
 
-use App\Models\Episode;
-use App\Models\Order;
+use App\Models\PatientManufacturerIVREpisode;
+use App\Models\Order\ProductRequest;
 use App\Mail\ManufacturerOrderNotification;
 use App\Services\DocusealService;
 use Illuminate\Bus\Queueable;
@@ -43,8 +43,8 @@ class SendManufacturerNotification implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        private Episode $episode,
-        private Order $order,
+        private PatientManufacturerIVREpisode $episode,
+        private ProductRequest $order,
         private string $notificationType = 'new_order'
     ) {
         $this->onQueue('notifications');
@@ -63,14 +63,14 @@ class SendManufacturerNotification implements ShouldQueue
 
         try {
             $manufacturer = $this->episode->manufacturer;
-            
+
             if (!$manufacturer) {
                 throw new \Exception('Manufacturer not found for episode');
             }
 
             // Get manufacturer contacts
             $contacts = $this->getManufacturerContacts($manufacturer);
-            
+
             if (empty($contacts)) {
                 Log::warning('No contacts found for manufacturer', [
                     'manufacturer_id' => $manufacturer->id,
@@ -213,7 +213,7 @@ class SendManufacturerNotification implements ShouldQueue
     private function prepareOrderDetails(): array
     {
         $products = $this->order->details['products'] ?? [];
-        
+
         return [
             'order_number' => $this->order->id,
             'order_type' => $this->order->type,
@@ -329,7 +329,7 @@ class SendManufacturerNotification implements ShouldQueue
     private function extractSpecialInstructions(): array
     {
         $instructions = [];
-        
+
         foreach ($this->order->details['products'] ?? [] as $product) {
             if (!empty($product['special_instructions'])) {
                 $instructions[] = $product['name'] . ': ' . $product['special_instructions'];
@@ -349,7 +349,7 @@ class SendManufacturerNotification implements ShouldQueue
     private function determinePriority(): string
     {
         $deliveryMethod = $this->order->details['delivery_info']['method'] ?? 'standard';
-        
+
         return match ($deliveryMethod) {
             'overnight' => 'urgent',
             'expedited' => 'high',

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Services\QuickRequest;
 
 use App\Services\QuickRequest\Handlers\PatientHandler;
-use App\Services\Fhir\FhirService;
+use App\Services\FhirService;
 use App\Services\Compliance\PhiAuditService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -20,10 +20,10 @@ class PatientHandlerTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->fhirService = $this->createMock(FhirService::class);
         $this->auditService = $this->createMock(PhiAuditService::class);
-        
+
         $this->handler = new PatientHandler($this->fhirService, $this->auditService);
     }
 
@@ -164,7 +164,7 @@ class PatientHandlerTest extends TestCase
             $this->fhirService->method('create')->willReturn(['id' => 'test-id']);
 
             $result = $this->handler->handle($patientData, 1);
-            
+
             $this->assertStringStartsWith($expectedPrefix, $result['patient_display']);
             $this->assertEquals(7, strlen($result['patient_display'])); // 4 letters + 3 digits
         }
@@ -265,7 +265,7 @@ class PatientHandlerTest extends TestCase
         ];
 
         $this->expectException(\InvalidArgumentException::class);
-        
+
         $this->handler->handle($invalidData, 1);
     }
 }

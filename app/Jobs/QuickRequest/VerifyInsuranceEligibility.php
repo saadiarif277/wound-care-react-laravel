@@ -2,10 +2,10 @@
 
 namespace App\Jobs\QuickRequest;
 
-use App\Models\Episode;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\InsuranceVerification;
 use App\Services\Insurance\InsuranceVerificationService;
-use App\Services\Fhir\FhirService;
+use App\Services\FhirService;
 use App\Notifications\InsuranceVerificationCompleted;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -43,7 +43,7 @@ class VerifyInsuranceEligibility implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        private Episode $episode,
+        private PatientManufacturerIVREpisode $episode,
         private array $insuranceData,
         private string $verificationType = 'primary'
     ) {
@@ -65,7 +65,7 @@ class VerifyInsuranceEligibility implements ShouldQueue
         try {
             // Get patient data from FHIR
             $patient = $fhirService->read('Patient', $this->episode->patient_fhir_id);
-            
+
             // Prepare verification request
             $verificationRequest = $this->prepareVerificationRequest($patient);
 
@@ -145,7 +145,7 @@ class VerifyInsuranceEligibility implements ShouldQueue
     private function prepareVerificationRequest(array $patient): array
     {
         $insurance = $this->insuranceData;
-        
+
         return [
             'member' => [
                 'first_name' => $patient['name'][0]['given'][0] ?? '',
@@ -236,11 +236,11 @@ class VerifyInsuranceEligibility implements ShouldQueue
     private function allInsurancesVerified(): bool
     {
         $requiredVerifications = ['primary'];
-        
+
         if (!empty($this->episode->insurance_data['secondary'])) {
             $requiredVerifications[] = 'secondary';
         }
-        
+
         if (!empty($this->episode->insurance_data['tertiary'])) {
             $requiredVerifications[] = 'tertiary';
         }

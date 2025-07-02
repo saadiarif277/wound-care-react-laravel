@@ -337,7 +337,7 @@ class ValidationBuilderController extends Controller
         $validator = Validator::make($request->all(), [
             'section' => 'required|string',
             'data' => 'required|array',
-            'wound_type' => 'required|string',
+            'wound_type' => 'required|string|wound_type',
             'assessment_type' => 'required|string',
         ]);
 
@@ -352,7 +352,7 @@ class ValidationBuilderController extends Controller
         try {
             $section = $request->input('section');
             $data = $request->input('data');
-            $woundType = $request->input('wound_type');
+            $woundType = \App\Services\WoundTypeService::normalizeToEnum($request->input('wound_type'));
             $assessmentType = $request->input('assessment_type');
 
             $validationResults = $this->validateClinicalSection($section, $data, $woundType, $assessmentType);
@@ -778,7 +778,7 @@ class ValidationBuilderController extends Controller
         }
 
         // DFU-specific validation
-        if ($woundType === 'diabetic_foot_ulcer') {
+        if ($woundType === 'DFU') {
             if (empty($data['wagner_grade'])) {
                 $errors[] = 'Wagner grade is required for diabetic foot ulcers';
             }
@@ -885,7 +885,7 @@ class ValidationBuilderController extends Controller
     {
         $warnings = [];
 
-        if ($woundType === 'diabetic_foot_ulcer') {
+        if ($woundType === 'DFU') {
             if (empty($data['hba1c'])) {
                 $warnings[] = 'HbA1c is recommended for diabetic foot ulcer patients';
             } elseif ($data['hba1c'] > 7) {

@@ -22,6 +22,23 @@ class ProviderHandler
         try {
             $this->logger->info('Creating or updating provider in FHIR');
 
+            // Check if NPI is provided
+            if (empty($providerData['npi'])) {
+                $this->logger->warning('No NPI provided for provider, creating new provider without NPI search');
+                // Create new provider without searching
+                $fhirPractitioner = $this->mapToFhirPractitioner($providerData);
+                $response = $this->fhirService->createPractitioner($fhirPractitioner);
+
+                $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
+
+                $this->logger->info('Provider created successfully in FHIR', [
+                    'practitioner_id' => $response['id'],
+                    'npi' => $providerData['npi'] ?? 'none'
+                ]);
+
+                return $response['id'];
+            }
+
             // Search for existing provider by NPI
             $existingProvider = $this->findProviderByNpi($providerData['npi']);
 
@@ -91,8 +108,12 @@ class ProviderHandler
     /**
      * Find provider by NPI
      */
-    private function findProviderByNpi(string $npi): ?array
+    private function findProviderByNpi(?string $npi): ?array
     {
+        if (empty($npi)) {
+            return null;
+        }
+
         $searchParams = [
             'identifier' => "http://hl7.org/fhir/sid/us-npi|{$npi}"
         ];
@@ -215,17 +236,17 @@ class ProviderHandler
                     'use' => 'work'
                 ] : null
             ]),
-            'address' => !empty($data['address']) ? [
+            'address' => !empty($data['address']) && is_array($data['address']) ? [
                 [
                     'use' => 'work',
                     'type' => 'physical',
                     'line' => array_filter([
-                        $data['address']['line1'],
+                        $data['address']['line1'] ?? null,
                         $data['address']['line2'] ?? null
                     ]),
-                    'city' => $data['address']['city'],
-                    'state' => $data['address']['state'],
-                    'postalCode' => $data['address']['postal_code'],
+                    'city' => $data['address']['city'] ?? null,
+                    'state' => $data['address']['state'] ?? null,
+                    'postalCode' => $data['address']['postal_code'] ?? null,
                     'country' => 'USA'
                 ]
             ] : []

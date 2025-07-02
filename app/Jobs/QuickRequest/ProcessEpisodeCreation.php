@@ -8,7 +8,7 @@ use App\Models\Episode;
 use App\Notifications\EpisodeCreatedNotification;
 use App\Notifications\EpisodeCreationFailedNotification;
 use App\Services\Compliance\PhiAuditService;
-use App\Services\Fhir\FhirService;
+use App\Services\FhirService;
 use App\Services\QuickRequestOrchestrator;
 use Exception;
 use Illuminate\Bus\Queueable;
@@ -76,7 +76,7 @@ class ProcessEpisodeCreation implements ShouldQueue
         ]);
 
         DB::beginTransaction();
-        
+
         try {
             // Update episode status
             $this->episode->update(['status' => 'processing']);
@@ -131,7 +131,7 @@ class ProcessEpisodeCreation implements ShouldQueue
 
         } catch (Exception $e) {
             DB::rollBack();
-            
+
             Log::error('Episode creation failed', [
                 'episode_id' => $this->episode->id,
                 'error' => $e->getMessage(),

@@ -76,6 +76,14 @@ class PatientManufacturerIVREpisode extends Model
     }
 
     /**
+     * Get the patient for this episode
+     */
+    public function patient(): BelongsTo
+    {
+        return $this->belongsTo(\App\Models\Fhir\Patient::class, 'patient_fhir_id', 'azure_fhir_id');
+    }
+
+    /**
      * Get the orders associated with this episode
      */
     public function orders(): HasMany

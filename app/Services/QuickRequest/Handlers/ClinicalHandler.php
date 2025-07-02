@@ -88,7 +88,7 @@ class ClinicalHandler
                     ]
                 ]
             ],
-            'code' => $this->mapDiagnosisCodes($data['clinical']['diagnosis_codes']),
+            'code' => $this->mapDiagnosisCodes($data['clinical']['diagnosis_codes'] ?? []),
             'subject' => [
                 'reference' => "Patient/{$data['patient_id']}"
             ],
@@ -325,6 +325,20 @@ class ClinicalHandler
      */
     private function mapDiagnosisCodes(array $diagnosisCodes): array
     {
+        // Handle empty diagnosis codes
+        if (empty($diagnosisCodes)) {
+            return [
+                'coding' => [
+                    [
+                        'system' => 'http://hl7.org/fhir/sid/icd-10-cm',
+                        'code' => 'L97.509', // Default wound code
+                        'display' => 'Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity'
+                    ]
+                ],
+                'text' => 'Wound diagnosis (default)'
+            ];
+        }
+
         return [
             'coding' => array_map(function ($code) {
                 return [

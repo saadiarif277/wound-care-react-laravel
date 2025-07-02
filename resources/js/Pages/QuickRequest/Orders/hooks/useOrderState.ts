@@ -65,10 +65,54 @@ export const useOrderState = (formData: any, validatedEpisodeData: any) => {
         }
 
         try {
+            // Clean and validate form data before submission
+            const cleanedFormData = { ...formData };
+
+            // Ensure all string fields are properly formatted
+            const stringFields = [
+                'patient_first_name', 'patient_last_name', 'patient_dob', 'patient_gender',
+                'patient_member_id', 'patient_address_line1', 'patient_address_line2',
+                'patient_city', 'patient_state', 'patient_zip', 'patient_phone', 'patient_email',
+                'provider_first_name', 'provider_last_name', 'provider_npi', 'provider_ptan',
+                'provider_credentials', 'facility_name', 'facility_npi', 'facility_ptan',
+                'facility_address_line1', 'facility_address_line2', 'facility_city',
+                'facility_state', 'facility_zip', 'facility_phone', 'wound_type',
+                'wound_size_length', 'wound_size_width', 'wound_size_depth',
+                'wound_duration', 'diagnosis_codes', 'place_of_service',
+                'primary_insurance_payer', 'primary_insurance_plan', 'primary_insurance_policy',
+                'secondary_insurance_payer', 'secondary_insurance_plan', 'secondary_insurance_policy',
+                'request_type', 'information_accurate', 'maintain_documentation', 'authorize_prior_auth'
+            ];
+
+            stringFields.forEach(field => {
+                if (cleanedFormData[field] !== undefined && cleanedFormData[field] !== null) {
+                    cleanedFormData[field] = String(cleanedFormData[field]).trim();
+                } else {
+                    cleanedFormData[field] = '';
+                }
+            });
+
+            // Ensure arrays are properly formatted
+            if (!Array.isArray(cleanedFormData.selected_products)) {
+                cleanedFormData.selected_products = [];
+            }
+
+            if (!Array.isArray(cleanedFormData.diagnosis_codes)) {
+                cleanedFormData.diagnosis_codes = [];
+            }
+
+            // Ensure adminNote is always a string
+            const safeAdminNote = adminNote ? String(adminNote).trim() : 'No admin note provided';
+
+            console.log('Submitting order with cleaned formData:', cleanedFormData);
+            console.log('Submitting order with episodeData:', validatedEpisodeData);
+            console.log('Admin note value:', adminNote);
+            console.log('Safe admin note:', safeAdminNote);
+
             const response = await axios.post('/quick-requests/submit-order', {
-                formData,
+                formData: cleanedFormData, // Send the cleaned form data
                 episodeData: validatedEpisodeData,
-                adminNote
+                adminNote: safeAdminNote // Use the safe admin note
             });
 
             if (response.data.success) {
@@ -80,6 +124,7 @@ export const useOrderState = (formData: any, validatedEpisodeData: any) => {
             }
         } catch (error: any) {
             console.error('Order submission error:', error);
+            console.error('Error response data:', error.response?.data);
 
             let errorMessage = "An unexpected error occurred.";
 
@@ -87,8 +132,10 @@ export const useOrderState = (formData: any, validatedEpisodeData: any) => {
                 // Validation errors
                 const errors = error.response.data.errors;
                 if (errors && typeof errors === 'object') {
-                    const errorList = Object.values(errors).flat().join(', ');
-                    errorMessage = `Validation errors: ${errorList}`;
+                    const errorList = Object.entries(errors)
+                        .map(([field, messages]) => `${field}: ${Array.isArray(messages) ? messages.join(', ') : messages}`)
+                        .join('\n');
+                    errorMessage = `Validation errors:\n${errorList}`;
                 } else {
                     errorMessage = error.response.data.message || "Please check your form data and try again.";
                 }

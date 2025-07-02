@@ -39,14 +39,14 @@ class QuickRequestEpisodeController extends Controller
             'patient.state' => 'required|string|size:2',
             'patient.zip' => 'required|string',
             'patient.member_id' => 'required|string',
-            
+
             // Provider data
             'provider' => 'required|array',
             'provider.name' => 'required|string',
             'provider.npi' => 'required|string|size:10',
             'provider.email' => 'required|email',
             'provider.credentials' => 'nullable|string',
-            
+
             // Facility data
             'facility' => 'required|array',
             'facility.name' => 'required|string',
@@ -56,26 +56,26 @@ class QuickRequestEpisodeController extends Controller
             'facility.zip' => 'required|string',
             'facility.phone' => 'nullable|string',
             'facility.npi' => 'nullable|string',
-            
+
             // Clinical data
             'clinical' => 'required|array',
             'clinical.diagnosis_code' => 'required|string',
             'clinical.diagnosis_description' => 'nullable|string',
-            'clinical.wound_type' => 'required|string',
+            'clinical.wound_type' => 'required|string|wound_type',
             'clinical.wound_location' => 'required|string',
             'clinical.wound_length' => 'required|numeric|min:0',
             'clinical.wound_width' => 'required|numeric|min:0',
             'clinical.wound_depth' => 'required|numeric|min:0',
             'clinical.onset_date' => 'nullable|date',
             'clinical.clinical_notes' => 'nullable|string',
-            
+
             // Insurance data
             'insurance' => 'required|array',
             'insurance.payer_name' => 'required|string',
             'insurance.member_id' => 'required|string',
             'insurance.type' => 'nullable|string',
             'insurance.group_number' => 'nullable|string',
-            
+
             // Product data
             'product' => 'required|array',
             'product.id' => 'required|exists:msc_products,id',
@@ -83,7 +83,7 @@ class QuickRequestEpisodeController extends Controller
             'product.name' => 'required|string',
             'product.quantity' => 'required|integer|min:1',
             'product.size' => 'nullable|string',
-            
+
             // Other required fields
             'manufacturer_id' => 'required|exists:manufacturers,id',
             'order_details' => 'required|array',
@@ -91,7 +91,7 @@ class QuickRequestEpisodeController extends Controller
 
         try {
             $episode = $this->quickRequestService->startEpisode($validated);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Episode created successfully',
@@ -107,13 +107,13 @@ class QuickRequestEpisodeController extends Controller
                     })
                 ]
             ], 201);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to create episode', [
                 'error' => $e->getMessage(),
                 'data' => $validated
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to create episode',
@@ -130,7 +130,7 @@ class QuickRequestEpisodeController extends Controller
     {
         try {
             $episode->load(['orders', 'manufacturer', 'docusealSubmission']);
-            
+
             return response()->json([
                 'success' => true,
                 'data' => [
@@ -159,13 +159,13 @@ class QuickRequestEpisodeController extends Controller
                     'docuseal' => $episode->docuseal
                 ]
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to retrieve episode', [
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to retrieve episode',
@@ -188,9 +188,9 @@ class QuickRequestEpisodeController extends Controller
                     'message' => 'Episode cannot be approved in current status: ' . $episode->status
                 ], 400);
             }
-            
+
             $this->quickRequestService->approve($episode);
-            
+
             return response()->json([
                 'success' => true,
                 'message' => 'Episode approved and sent to manufacturer',
@@ -199,13 +199,13 @@ class QuickRequestEpisodeController extends Controller
                     'status' => $episode->fresh()->status
                 ]
             ]);
-            
+
         } catch (\Exception $e) {
             Log::error('Failed to approve episode', [
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
-            
+
             return response()->json([
                 'success' => false,
                 'message' => 'Failed to approve episode',

@@ -175,7 +175,7 @@ class OrderStatusController extends Controller
             }
 
             $emailData = [
-                'subject' => "Order Update – {$order->id} {$type.toUpperCase()} Status: {$status}",
+                'subject' => "Order Update – {$order->id} " . strtoupper($type) . " Status: {$status}",
                 'recipientName' => $recipientName,
                 'orderId' => $order->id,
                 'updateType' => strtoupper($type),

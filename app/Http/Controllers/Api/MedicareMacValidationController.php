@@ -49,7 +49,7 @@ class MedicareMacValidationController extends Controller
                 'patient_zip' => 'required|string|size:5|regex:/^\d{5}$/',
                 'service_codes' => 'required|array|min:1|max:10',
                 'service_codes.*' => 'required|string|min:3|max:10|regex:/^[A-Z0-9]+$/',
-                'wound_type' => 'required|string|in:dfu,vlu,pressure,surgical,arterial',
+                'wound_type' => 'required|string|wound_type',
                 'service_date' => 'required|date|after_or_equal:2020-01-01|before:+1 year'
             ]);
 

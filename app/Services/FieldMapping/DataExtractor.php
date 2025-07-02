@@ -20,7 +20,7 @@ class DataExtractor
     public function extractEpisodeData(int $episodeId): array
     {
         $cacheKey = "episode_data_{$episodeId}";
-        
+
         return Cache::remember($cacheKey, 300, function() use ($episodeId) {
             try {
                 $episode = Episode::with([
@@ -46,16 +46,16 @@ class DataExtractor
                     'episode' => $this->extractEpisodeFields($episode),
                     'patient' => $this->extractPatientFields($episode->patient),
                     'product_request' => $this->extractProductRequestFields($productRequest),
-                    'provider' => $this->extractProviderFields($productRequest->provider),
-                    'facility' => $this->extractFacilityFields($productRequest->facility),
-                    'product' => $this->extractProductFields($productRequest->product),
+                    'provider' => $this->extractProviderFields($productRequest->provider ?? null),
+                    'facility' => $this->extractFacilityFields($productRequest->facility ?? null),
+                    'product' => $this->extractProductFields($productRequest->product ?? null),
                     'fhir' => $this->extractFhirData($episode, $productRequest),
                     'computed' => $this->computeDerivedFields($episode, $productRequest),
                 ];
 
                 // Flatten all data into a single array
                 return $this->flattenData($data);
-                
+
             } catch (\Exception $e) {
                 Log::error("Failed to extract episode data", [
                     'episode_id' => $episodeId,
@@ -91,9 +91,9 @@ class DataExtractor
 
         return [
             'patient_id' => $patient->id,
-            'patient_first_name' => $patient->first_name,
-            'patient_last_name' => $patient->last_name,
-            'patient_dob' => $patient->date_of_birth,
+            'patient_mrn' => $patient->mrn,
+            'patient_display_name' => $patient->display_name,
+            'patient_dob' => $patient->birth_date,
             'patient_gender' => $patient->gender,
             'patient_phone' => $patient->phone,
             'patient_email' => $patient->email,
@@ -101,9 +101,9 @@ class DataExtractor
             'patient_address_line2' => $patient->address_line2,
             'patient_city' => $patient->city,
             'patient_state' => $patient->state,
-            'patient_zip' => $patient->zip_code,
-            'patient_member_id' => $patient->primary_member_id,
-            'fhir_patient_id' => $patient->fhir_patient_id,
+            'patient_zip' => $patient->postal_code,
+            'patient_member_id' => $patient->member_id,
+            'fhir_patient_id' => $patient->azure_fhir_id,
         ];
     }
 
@@ -215,32 +215,32 @@ class DataExtractor
         $fhirData = [];
 
         // Extract Patient FHIR data
-        if ($episode->patient && $episode->patient->fhir_patient_id) {
+        if ($episode->patient && $episode->patient->azure_fhir_id) {
             try {
-                $patient = $this->fhirService->getPatient($episode->patient->fhir_patient_id);
+                $patient = $this->fhirService->getPatient($episode->patient->azure_fhir_id);
                 $fhirData['patient'] = $this->parseFhirPatient($patient);
             } catch (\Exception $e) {
                 Log::warning("Failed to fetch FHIR patient", [
-                    'patient_id' => $episode->patient->fhir_patient_id,
+                    'patient_id' => $episode->patient->azure_fhir_id,
                     'error' => $e->getMessage()
                 ]);
             }
         }
 
         // Extract Coverage FHIR data
-        if ($episode->patient && $episode->patient->fhir_patient_id) {
+        if ($episode->patient && $episode->patient->azure_fhir_id) {
             try {
                 $coverages = $this->fhirService->searchCoverage([
-                    'patient' => $episode->patient->fhir_patient_id,
+                    'patient' => $episode->patient->azure_fhir_id,
                     'status' => 'active'
                 ]);
-                
+
                 if (!empty($coverages['entry'])) {
                     $fhirData['coverage'] = $this->parseFhirCoverage($coverages['entry'][0]['resource']);
                 }
             } catch (\Exception $e) {
                 Log::warning("Failed to fetch FHIR coverage", [
-                    'patient_id' => $episode->patient->fhir_patient_id,
+                    'patient_id' => $episode->patient->azure_fhir_id,
                     'error' => $e->getMessage()
                 ]);
             }
@@ -281,10 +281,10 @@ class DataExtractor
     private function computeDerivedFields($episode, $productRequest): array
     {
         $computed = [];
-        
+
         // Calculate wound size
         if ($productRequest->wound_length && $productRequest->wound_width) {
-            $computed['wound_size_total'] = 
+            $computed['wound_size_total'] =
                 (float)$productRequest->wound_length * (float)$productRequest->wound_width;
         }
 
@@ -293,7 +293,7 @@ class DataExtractor
             $start = new \DateTime($productRequest->wound_start_date);
             $now = new \DateTime();
             $diff = $start->diff($now);
-            
+
             $computed['wound_duration_days'] = $diff->days;
             $computed['wound_duration_weeks'] = floor($diff->days / 7);
             $computed['wound_duration_months'] = $diff->m + ($diff->y * 12);
@@ -303,14 +303,14 @@ class DataExtractor
         // Full names
         if ($episode->patient) {
             $computed['patient_full_name'] = trim(
-                ($episode->patient->first_name ?? '') . ' ' . 
+                ($episode->patient->first_name ?? '') . ' ' .
                 ($episode->patient->last_name ?? '')
             );
         }
 
         if ($productRequest->provider) {
             $computed['provider_full_name'] = trim(
-                ($productRequest->provider->first_name ?? '') . ' ' . 
+                ($productRequest->provider->first_name ?? '') . ' ' .
                 ($productRequest->provider->last_name ?? '')
             );
         }
@@ -400,7 +400,7 @@ class DataExtractor
 
         // Parse plan info
         if (!empty($coverage['type']['coding'][0])) {
-            $data['plan_type'] = $coverage['type']['coding'][0]['display'] ?? 
+            $data['plan_type'] = $coverage['type']['coding'][0]['display'] ??
                                $coverage['type']['coding'][0]['code'] ?? null;
         }
 
@@ -505,10 +505,10 @@ class DataExtractor
     private function flattenData(array $data, string $prefix = ''): array
     {
         $result = [];
-        
+
         foreach ($data as $key => $value) {
             $newKey = $prefix ? "{$prefix}_{$key}" : $key;
-            
+
             if (is_array($value) && !isset($value[0])) {
                 // Recursively flatten nested arrays
                 $result = array_merge($result, $this->flattenData($value, $newKey));
@@ -517,7 +517,7 @@ class DataExtractor
                 $result[$newKey] = $value;
             }
         }
-        
+
         return $result;
     }
 

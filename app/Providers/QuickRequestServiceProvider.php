@@ -87,8 +87,14 @@ class QuickRequestServiceProvider extends ServiceProvider
 
         // Patient display ID validation
         Validator::extend('patient_display_id', function ($attribute, $value, $parameters, $validator) {
-            return preg_match('/^[A-Z]{4}\d{3}$/', $value);
-        }, 'The :attribute must be in format XXXX###.');
+            // Must be exactly 7 characters and contain only letters and numbers
+            return strlen($value) === 7 && preg_match('/^[A-Z0-9]{7}$/', $value);
+        }, 'The :attribute must be exactly 7 characters containing only letters and numbers.');
+
+        // Wound type validation
+        Validator::extend('wound_type', function ($attribute, $value, $parameters, $validator) {
+            return \App\Services\WoundTypeService::isValid($value);
+        }, 'The :attribute must be a valid wound type (DFU, VLU, PU, TW, AU, OTHER, or their legacy formats).');
     }
 
     /**

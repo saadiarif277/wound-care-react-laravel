@@ -600,6 +600,24 @@ export default function Step7DocuSealIVR({
         <p className={cn("text-sm mt-2", t.text.secondary)}>
           You can proceed to submit your order.
         </p>
+
+        {/* Manual next button for no IVR required case */}
+        <div className={cn("mt-6 p-4 rounded-lg border",
+          theme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'
+        )}>
+          <button
+            onClick={() => onNext && onNext()}
+            className={cn(
+              "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+              theme === 'dark'
+                ? 'bg-blue-700 hover:bg-blue-600 text-white'
+                : 'bg-blue-600 hover:bg-blue-700 text-white'
+            )}
+          >
+            Continue to Final Review
+            <FiArrowRight className="ml-2 h-4 w-4" />
+          </button>
+        </div>
       </div>
     );
   }
@@ -824,19 +842,19 @@ export default function Step7DocuSealIVR({
               Submission ID: <span className="font-mono">{formData.docuseal_submission_id}</span>
             </p>
 
-            {/* Redirect countdown */}
+            {/* Manual next button */}
             <div className={cn("mt-6 p-4 rounded-lg border",
               theme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'
             )}>
               <p className={cn("text-sm font-medium mb-2",
                 theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
               )}>
-                Proceeding to Final Review...
+                Ready for Final Review
               </p>
               <p className={cn("text-xs",
                 theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
               )}>
-                You will be automatically taken to the final review step to complete your order.
+                Click the button below to proceed to the final review step and complete your order.
               </p>
 
               <button

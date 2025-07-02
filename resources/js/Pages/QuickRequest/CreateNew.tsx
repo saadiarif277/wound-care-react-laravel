@@ -382,7 +382,7 @@ function QuickRequestCreateNew({
 
       // Selected Products (pick first product if available)
       selected_products: products.length > 0 && products[0] ? [{
-        product_id: products[0]?.id ?? 0,
+        product_id: products[0].id,
         quantity: 1,
         size: products[0]?.available_sizes?.[0]?.toString() || '4',
         product: products[0]
@@ -856,6 +856,14 @@ function QuickRequestCreateNew({
     }
     setErrors({});
 
+    // If this is the final step, submit the order directly
+    const isFinalStep = currentSection === (hasManufacturerWithOrderForm() ? 5 : 4);
+
+    if (isFinalStep) {
+      await handleSubmitOrder();
+      return;
+    }
+
     // Create FHIR patient when moving from section 0 to section 1
     if (currentSection === 0 && !formData.patient_fhir_id) {
       try {
@@ -981,63 +989,105 @@ function QuickRequestCreateNew({
     // Create DeviceRequest when moving from section 2 to 3 (after product selection)
     if (currentSection === 2) {
       await createFhirResources('DeviceRequest');
-
-      // Episode will be created during final submission (Step 7). Early creation removed to avoid duplicate calls and 500 errors.
     }
 
-    // Extract IVR fields when moving from section 3 to 4
-    if (currentSection === 3) {
-      await extractIvrFields();
-    }
+    // Extract IVR fields if available
+    await extractIvrFields();
 
-    setCurrentSection(prev => Math.min(prev + 1, sections.length - 1));
+    // Move to next section
+    setCurrentSection(prev => prev + 1);
   };
 
-  const handlePrevious = () => {
-    setCurrentSection(prev => Math.max(prev - 1, 0));
-    setErrors({});
-  };
-
-  const handleSubmit = async () => {
-    // Validate all sections (excluding the final review section)
-    let allErrors: Record<string, string> = {};
-    for (let i = 0; i < sections.length - 1; i++) {
-      const sectionErrors = validateSection(i);
-      allErrors = { ...allErrors, ...sectionErrors };
-    }
-
-    if (Object.keys(allErrors).length > 0) {
-      setErrors(allErrors);
-      alert('Please fix all errors before submitting');
-      return;
-    }
-
+  const handleSubmitOrder = async () => {
     setIsSubmitting(true);
+
     try {
       const csrfToken = await ensureValidCSRFToken();
       if (!csrfToken) {
-        alert('Unable to get security token. Please refresh the page and try again.');
-        window.location.reload();
+        setErrors({ submit: 'Unable to obtain security token. Please refresh the page.' });
         return;
       }
 
-      // Prepare final form data including IVR fields
+      // Extract IVR fields if available
+      await extractIvrFields();
+
+      // Clean and prepare the form data for submission
       const finalFormData = {
         ...formData,
-        manufacturer_fields: ivrFields || {}
+        manufacturer_fields: ivrFields || {},
+        // Ensure docuseal_submission_id is a string or null
+        docuseal_submission_id: formData.docuseal_submission_id ? String(formData.docuseal_submission_id) : null,
+        // Ensure selected_products have valid product_id values
+        selected_products: formData.selected_products?.map(product => ({
+          ...product,
+          product_id: Number(product.product_id)
+        })).filter(product => product.product_id && !isNaN(product.product_id)) || [],
+        // Ensure required fields have default values
+        request_type: formData.request_type || 'new_request',
+        patient_is_subscriber: Boolean(formData.patient_is_subscriber),
+        has_secondary_insurance: Boolean(formData.has_secondary_insurance),
+        prior_auth_permission: Boolean(formData.prior_auth_permission),
+        failed_conservative_treatment: Boolean(formData.failed_conservative_treatment),
+        information_accurate: Boolean(formData.information_accurate),
+        medical_necessity_established: Boolean(formData.medical_necessity_established),
+        maintain_documentation: Boolean(formData.maintain_documentation),
+        application_cpt_codes: Array.isArray(formData.application_cpt_codes) ? formData.application_cpt_codes : [],
+        // Ensure numeric fields are properly formatted
+        wound_size_length: Number(formData.wound_size_length) || 0,
+        wound_size_width: Number(formData.wound_size_width) || 0,
+        wound_size_depth: formData.wound_size_depth ? Number(formData.wound_size_depth) : null,
+        // Ensure provider and facility IDs are numbers
+        provider_id: Number(formData.provider_id),
+        facility_id: Number(formData.facility_id)
       };
 
-      // Store form data in session and redirect to review page
-      const response = await axios.post('/api/session/store-form-data', {
-        quick_request_form_data: finalFormData,
-        validated_episode_data: {
+      console.log('🚀 Submitting order directly:', {
+        formDataKeys: Object.keys(finalFormData),
+        formDataCount: Object.keys(finalFormData).length,
+        sampleData: {
+          patient_name: finalFormData.patient_name,
+          request_type: finalFormData.request_type,
+          provider_id: finalFormData.provider_id,
+          facility_id: finalFormData.facility_id,
+          selected_products: finalFormData.selected_products,
+          docuseal_submission_id: finalFormData.docuseal_submission_id,
+        }
+      });
+
+      // Debug: Check if we have valid product IDs
+      if (finalFormData.selected_products && finalFormData.selected_products.length > 0) {
+        console.log('🔍 Product validation check:', {
+          availableProductIds: products.map(p => p.id),
+          selectedProductIds: finalFormData.selected_products.map(p => p.product_id),
+          allValid: finalFormData.selected_products.every(p => products.some(prod => prod.id === p.product_id))
+        });
+      }
+
+      // Debug: Check provider and facility IDs
+      console.log('🔍 Provider and Facility check:', {
+        availableProviderIds: providers.map(p => p.id),
+        availableFacilityIds: facilities.map(f => f.id),
+        selectedProviderId: finalFormData.provider_id,
+        selectedFacilityId: finalFormData.facility_id,
+        providerValid: providers.some(p => p.id === finalFormData.provider_id),
+        facilityValid: facilities.some(f => f.id === finalFormData.facility_id)
+      });
+
+      console.log('🔍 Selected products details:', finalFormData.selected_products);
+      console.log('🔍 DocuSeal submission ID:', finalFormData.docuseal_submission_id, 'Type:', typeof finalFormData.docuseal_submission_id);
+
+      // Submit order directly
+      const response = await axios.post('/quick-requests/submit-order', {
+        formData: finalFormData,
+        episodeData: {
           episode_id: formData.episode_id,
           patient_fhir_id: formData.patient_fhir_id,
           fhir_episode_of_care_id: formData.fhir_episode_of_care_id,
           fhir_coverage_ids: formData.fhir_coverage_ids,
           fhir_questionnaire_response_id: formData.fhir_questionnaire_response_id,
           fhir_device_request_id: formData.fhir_device_request_id
-        }
+        },
+        adminNote: 'Order submitted directly from Quick Request form'
       }, {
         headers: {
           'X-CSRF-TOKEN': csrfToken,
@@ -1045,18 +1095,20 @@ function QuickRequestCreateNew({
         }
       });
 
-      if (response.data.success) {
-        // Redirect to review page
-        router.visit('/quick-requests/review');
-      } else {
-        throw new Error('Failed to store form data in session');
-      }
+      console.log('✅ Order submission response:', response.data);
 
+      if (response.data.success) {
+        // Show success message and redirect to episodes page
+        alert('Order submitted successfully! Your order is now being processed.');
+        router.visit(`/admin/episodes/${response.data.episode_id}`);
+      } else {
+        throw new Error(response.data.message || 'Failed to submit order');
+      }
     } catch (error: any) {
-      console.error('Error preparing order for review:', error);
+      console.error('❌ Error submitting order:', error);
 
       // Provide more specific error messages
-      let errorMessage = 'An error occurred while preparing the order for review';
+      let errorMessage = 'An error occurred while submitting the order';
 
       if (error.response?.status === 422) {
         errorMessage = 'Please check your form data and try again';
@@ -1073,6 +1125,13 @@ function QuickRequestCreateNew({
       alert(errorMessage);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handlePrevious = () => {
+    if (currentSection > 0) {
+      setCurrentSection(prev => prev - 1);
+      setErrors({});
     }
   };
 
@@ -1268,7 +1327,7 @@ function QuickRequestCreateNew({
                 providers={providers}
                 facilities={facilities}
                 errors={errors}
-                onSubmit={handleSubmit}
+                onSubmit={handleNext}
                 isSubmitting={isSubmitting}
               />
             )}

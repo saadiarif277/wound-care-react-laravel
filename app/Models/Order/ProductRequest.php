@@ -27,7 +27,6 @@ class ProductRequest extends Model
         'provider_id',
         'patient_fhir_id',
         'patient_display_id',
-        'ivr_episode_id',
         'facility_id',
         'place_of_service',
         'medicare_part_b_authorized',
@@ -53,35 +52,6 @@ class ProductRequest extends Model
         'approved_at',
         'total_order_value',
         'acquiring_rep_id',
-        // Additional fields needed for QuickRequest
-        'requester_id',
-        'request_type',
-        'submission_type',
-        'metadata',
-        // IVR fields
-        'ivr_required',
-        'ivr_bypass_reason',
-        'ivr_bypassed_at',
-        'ivr_bypassed_by',
-        'docuseal_submission_id',
-        'docuseal_template_id',
-        'ivr_sent_at',
-        'ivr_signed_at',
-        'ivr_document_url',
-        // Manufacturer approval fields
-        'manufacturer_sent_at',
-        'manufacturer_sent_by',
-        'manufacturer_approved',
-        'manufacturer_approved_at',
-        'manufacturer_approval_reference',
-        'manufacturer_notes',
-        // Order fulfillment fields
-        'order_number',
-        'order_submitted_at',
-        'manufacturer_order_id',
-        'tracking_number',
-        'shipped_at',
-        'delivered_at',
     ];
 
     protected $casts = [
@@ -97,19 +67,6 @@ class ProductRequest extends Model
         'pre_auth_denied_at' => 'datetime',
         'total_order_value' => 'decimal:2',
         'medicare_part_b_authorized' => 'boolean',
-        // Additional casts for QuickRequest fields
-        'metadata' => 'array',
-        // IVR casts
-        'ivr_required' => 'boolean',
-        'ivr_bypassed_at' => 'datetime',
-        'ivr_sent_at' => 'datetime',
-        'ivr_signed_at' => 'datetime',
-        'manufacturer_sent_at' => 'datetime',
-        'manufacturer_approved' => 'boolean',
-        'manufacturer_approved_at' => 'datetime',
-        'order_submitted_at' => 'datetime',
-        'shipped_at' => 'datetime',
-        'delivered_at' => 'datetime',
     ];
 
     /**
@@ -212,7 +169,9 @@ class ProductRequest extends Model
      */
     public function ivrBypassedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'ivr_bypassed_by');
+        // Since ivr_bypassed_by column doesn't exist,
+        // we can't establish a direct relationship
+        throw new \Exception('ivr_bypassed_by column does not exist in product_requests table');
     }
 
     /**
@@ -220,7 +179,9 @@ class ProductRequest extends Model
      */
     public function manufacturerSentBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'manufacturer_sent_by');
+        // Since manufacturer_sent_by column doesn't exist,
+        // we can't establish a direct relationship
+        throw new \Exception('manufacturer_sent_by column does not exist in product_requests table');
     }
 
     /**
@@ -236,7 +197,10 @@ class ProductRequest extends Model
      */
     public function ivrEpisode(): BelongsTo
     {
-        return $this->belongsTo(\App\Models\PatientManufacturerIVREpisode::class, 'ivr_episode_id');
+        // Since ivr_episode_id column doesn't exist,
+        // we can't establish a direct relationship
+        // This would need to be handled through a different mechanism
+        throw new \Exception('ivr_episode_id column does not exist in product_requests table');
     }
 
     /**
@@ -414,7 +378,9 @@ class ProductRequest extends Model
      */
     public function isIvrRequired(): bool
     {
-        return $this->ivr_required && !$this->ivr_bypass_reason;
+        // Since ivr_required column doesn't exist, assume IVR is required for all requests
+        // ivr_bypass_reason would be stored in clinical_summary if needed
+        return true;
     }
 
     /**
@@ -422,7 +388,9 @@ class ProductRequest extends Model
      */
     public function isIvrGenerated(): bool
     {
-        return !is_null($this->ivr_sent_at) && !is_null($this->ivr_document_url);
+        // Since ivr_sent_at and ivr_document_url columns don't exist,
+        // check if we have any DocuSeal submissions
+        return $this->docusealSubmissions()->exists();
     }
 
     /**
@@ -430,7 +398,9 @@ class ProductRequest extends Model
      */
     public function isIvrSentToManufacturer(): bool
     {
-        return !is_null($this->manufacturer_sent_at);
+        // Since manufacturer_sent_at column doesn't exist,
+        // check if order_status indicates it was sent
+        return in_array($this->order_status, ['submitted_to_manufacturer', 'approved', 'shipped', 'delivered']);
     }
 
     /**
@@ -438,7 +408,9 @@ class ProductRequest extends Model
      */
     public function isManufacturerApproved(): bool
     {
-        return $this->manufacturer_approved;
+        // Since manufacturer_approved column doesn't exist,
+        // check if order_status indicates approval
+        return in_array($this->order_status, ['approved', 'shipped', 'delivered']);
     }
 
     /**
@@ -459,21 +431,7 @@ class ProductRequest extends Model
      */
     public function determineIvrStatus(): string
     {
-        // If IVR is generated but not sent to manufacturer yet, we're still in "IVR Sent" phase
-        if ($this->order_status === 'ivr_sent' && !$this->isIvrSentToManufacturer()) {
-            return 'ivr_sent';
-        }
-
-        // If sent to manufacturer but not approved, still "IVR Sent"
-        if ($this->manufacturer_sent_at && !$this->isManufacturerApproved()) {
-            return 'ivr_sent';
-        }
-
-        // If manufacturer approved, move to "IVR Confirmed"
-        if ($this->isManufacturerApproved() && $this->order_status !== 'approved') {
-            return 'ivr_confirmed';
-        }
-
+        // Since manufacturer_sent_at column doesn't exist, use order_status directly
         return $this->order_status;
     }
 
@@ -495,10 +453,7 @@ class ProductRequest extends Model
      */
     public function generateOrderNumber(): string
     {
-        if ($this->order_number) {
-            return $this->order_number;
-        }
-
+        // Since order_number column doesn't exist, generate a new one
         // Format: ORD-YYYYMMDD-XXXX
         $date = now()->format('Ymd');
         $count = static::whereDate('created_at', today())->count() + 1;
@@ -596,10 +551,8 @@ class ProductRequest extends Model
      */
     protected function getDocuSealSubmissionData(): ?array
     {
-        if (!$this->docuseal_submission_id) {
-            return null;
-        }
-
+        // Since docuseal_submission_id column doesn't exist,
+        // try to get the first DocuSeal submission
         try {
             $submission = $this->docusealSubmissions()->first();
             if ($submission && isset($submission->response_data)) {

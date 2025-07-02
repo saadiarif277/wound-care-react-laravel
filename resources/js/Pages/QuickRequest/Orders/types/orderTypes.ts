@@ -1,4 +1,3 @@
-
 export interface OrderData {
   orderNumber: string;
   orderStatus: string;
@@ -15,7 +14,11 @@ export interface OrderData {
       planName: string;
       policyNumber: string;
     };
-    secondaryInsurance: null;
+    secondaryInsurance: {
+      payerName: string;
+      planName: string;
+      policyNumber: string;
+    } | null;
     insuranceCardUploaded: boolean;
   };
   provider: {

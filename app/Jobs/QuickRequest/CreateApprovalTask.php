@@ -2,8 +2,7 @@
 
 namespace App\Jobs\QuickRequest;
 
-use App\Models\Episode;
-use App\Models\Order\Order;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Task;
 use App\Services\FhirService;
 use App\Notifications\TaskAssignedNotification;
@@ -36,8 +35,8 @@ class CreateApprovalTask implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        private Episode $episode,
-        private Order $order
+        private PatientManufacturerIVREpisode $episode,
+        private array $taskData = []
     ) {
         $this->onQueue('default');
     }
@@ -49,7 +48,6 @@ class CreateApprovalTask implements ShouldQueue
     {
         Log::info('Creating approval task', [
             'episode_id' => $this->episode->id,
-            'order_id' => $this->order->id,
         ]);
 
         try {
@@ -62,7 +60,7 @@ class CreateApprovalTask implements ShouldQueue
 
             // Create local task
             $task = Task::create([
-                'taskable_type' => Episode::class,
+                'taskable_type' => PatientManufacturerIVREpisode::class,
                 'taskable_id' => $this->episode->id,
                 'fhir_task_id' => $fhirTask['id'] ?? null,
                 'type' => 'approval',
@@ -74,7 +72,7 @@ class CreateApprovalTask implements ShouldQueue
                 'assigned_role' => $assigneeRole,
                 'due_date' => $this->calculateDueDate(),
                 'metadata' => [
-                    'order_id' => $this->order->id,
+                    'episode_id' => $this->episode->id,
                     'manufacturer_id' => $this->episode->manufacturer_id,
                     'requires_medical_review' => $this->requiresMedicalReview(),
                 ],
@@ -110,7 +108,7 @@ class CreateApprovalTask implements ShouldQueue
     {
         // Check manufacturer requirements
         $manufacturer = $this->episode->manufacturer;
-        
+
         if ($manufacturer?->requires_medical_review) {
             return 'medical_director';
         }
@@ -132,19 +130,19 @@ class CreateApprovalTask implements ShouldQueue
                 return \App\Models\User::role('medical_director')
                     ->where('organization_id', $this->episode->organization_id)
                     ->first();
-                    
+
             case 'office_manager':
                 return \App\Models\User::role('office_manager')
                     ->whereHas('facilities', function ($query) {
                         $query->where('facilities.id', $this->episode->facility_id);
                     })
                     ->first();
-                    
+
             case 'manufacturer_representative':
                 return \App\Models\User::role('manufacturer_rep')
                     ->where('manufacturer_id', $this->episode->manufacturer_id)
                     ->first();
-                    
+
             default:
                 return null;
         }
@@ -196,11 +194,9 @@ class CreateApprovalTask implements ShouldQueue
      */
     private function determinePriority(): string
     {
-        // Urgent if patient needs supplies immediately
-        $orderDetails = $this->order->details;
-        
-        if ($orderDetails['delivery_info']['method'] ?? '' === 'overnight') {
-            return 'urgent';
+        // Use task data or default to routine
+        if (isset($this->taskData['priority'])) {
+            return $this->taskData['priority'];
         }
 
         if ($this->requiresMedicalReview()) {
@@ -215,15 +211,10 @@ class CreateApprovalTask implements ShouldQueue
      */
     private function generateTaskDescription(): string
     {
-        $products = $this->order->details['products'] ?? [];
-        $productCount = count($products);
-        
         return sprintf(
-            'Review and approve wound care order for patient %s. Order contains %d product%s from %s.',
-            $this->episode->patient_display,
-            $productCount,
-            $productCount === 1 ? '' : 's',
-            $this->episode->manufacturer->name
+            'Review and approve wound care order for patient %s from %s.',
+            $this->episode->patient_display_id ?? 'Unknown',
+            $this->episode->manufacturer->name ?? 'Unknown Manufacturer'
         );
     }
 
@@ -232,20 +223,18 @@ class CreateApprovalTask implements ShouldQueue
      */
     private function requiresMedicalReview(): bool
     {
-        // Check for high-risk diagnoses
-        $primaryDiagnosis = $this->order->details['clinical_info']['diagnosis']['primary']['code'] ?? '';
-        $highRiskDiagnoses = ['L89.', 'I70.', 'E11.'];
-        
-        foreach ($highRiskDiagnoses as $prefix) {
-            if (str_starts_with($primaryDiagnosis, $prefix)) {
-                return true;
-            }
+        // Check manufacturer requirements
+        $manufacturer = $this->episode->manufacturer;
+
+        if ($manufacturer?->requires_medical_review) {
+            return true;
         }
 
-        // Check for complex wound characteristics
-        $woundDetails = $this->order->details['clinical_info']['woundDetails'] ?? [];
-        if (($woundDetails['woundStage'] ?? '') === '4' || 
-            ($woundDetails['woundSize']['depth'] ?? 0) > 5) {
+        // Check for high-risk wound types
+        $woundType = $this->episode->wound_type ?? '';
+        $highRiskWoundTypes = ['DFU', 'PU']; // Diabetic Foot Ulcer, Pressure Ulcer
+
+        if (in_array($woundType, $highRiskWoundTypes)) {
             return true;
         }
 
@@ -258,7 +247,7 @@ class CreateApprovalTask implements ShouldQueue
     private function calculateDueDate(): \Carbon\Carbon
     {
         $priority = $this->determinePriority();
-        
+
         return match ($priority) {
             'urgent' => now()->addHours(4),
             'high' => now()->addDay(),
@@ -273,7 +262,6 @@ class CreateApprovalTask implements ShouldQueue
     {
         Log::error('Failed to create approval task', [
             'episode_id' => $this->episode->id,
-            'order_id' => $this->order->id,
             'error' => $exception->getMessage(),
         ]);
 

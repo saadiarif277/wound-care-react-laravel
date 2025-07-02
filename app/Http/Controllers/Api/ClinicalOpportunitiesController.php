@@ -18,13 +18,13 @@ class ClinicalOpportunitiesController extends Controller
         try {
             $request->validate([
                 'clinical_data' => 'required|array',
-                'wound_type' => 'required|string',
+                'wound_type' => 'required|string|wound_type',
                 'patient_data' => 'required|array',
                 'selected_products' => 'array'
             ]);
 
             $clinicalData = $request->input('clinical_data');
-            $woundType = $request->input('wound_type');
+            $woundType = \App\Services\WoundTypeService::normalizeToEnum($request->input('wound_type'));
             $patientData = $request->input('patient_data');
             $selectedProducts = $request->input('selected_products', []);
 
@@ -254,7 +254,7 @@ class ClinicalOpportunitiesController extends Controller
         $opportunities = [];
 
         // DFU-specific opportunities
-        if ($woundType === 'diabetic_foot_ulcer') {
+        if ($woundType === 'DFU') {
             $opportunities = array_merge($opportunities, $this->getDiabeticFootUlcerOpportunities($clinicalData));
         }
 

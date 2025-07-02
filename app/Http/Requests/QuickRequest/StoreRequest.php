@@ -72,31 +72,31 @@ class StoreRequest extends FormRequest
             'prior_auth_permission' => 'required|boolean',
 
             // Clinical Information
-            'wound_type' => 'required|string|max:100',
+            'wound_type' => 'required|string|wound_type',
             'wound_types' => 'nullable|array|min:1',
             'wound_other_specify' => 'nullable|string|max:255',
             'wound_location' => 'required|string|max:255',
             'wound_location_details' => 'nullable|string|max:255',
-            
+
             // Diagnosis codes
             'yellow_diagnosis_code' => 'nullable|string|max:20',
             'orange_diagnosis_code' => 'nullable|string|max:20',
             'primary_diagnosis_code' => 'nullable|string|max:20',
             'secondary_diagnosis_code' => 'nullable|string|max:20',
             'diagnosis_code' => 'nullable|string|max:20',
-            
+
             // Wound measurements
             'wound_size_length' => 'required|numeric|min:0.1|max:100',
             'wound_size_width' => 'required|numeric|min:0.1|max:100',
             'wound_size_depth' => 'nullable|numeric|min:0|max:100',
-            
+
             // Wound duration
             'wound_duration' => 'nullable|string|max:255',
             'wound_duration_days' => 'nullable|numeric|min:0|max:30',
             'wound_duration_weeks' => 'nullable|numeric|min:0|max:52',
             'wound_duration_months' => 'nullable|numeric|min:0|max:12',
             'wound_duration_years' => 'nullable|numeric|min:0|max:10',
-            
+
             'previous_treatments' => 'nullable|string|max:1000',
 
             // Procedure Information
@@ -120,7 +120,7 @@ class StoreRequest extends FormRequest
 
             // Product Selection
             'selected_products' => 'required|array|min:1',
-            'selected_products.*.product_id' => 'required|exists:products,id',
+            'selected_products.*.product_id' => 'required|exists:msc_products,id',
             'selected_products.*.quantity' => 'required|integer|min:1|max:100',
             'selected_products.*.size' => 'nullable|string|max:50',
 
@@ -178,12 +178,14 @@ class StoreRequest extends FormRequest
         });
     }
 
+
+
     /**
      * Validate wound duration fields
      */
     private function validateWoundDurationFields($validator): void
     {
-        $hasAnyDuration = 
+        $hasAnyDuration =
             !empty($this->wound_duration_days) ||
             !empty($this->wound_duration_weeks) ||
             !empty($this->wound_duration_months) ||
@@ -194,12 +196,14 @@ class StoreRequest extends FormRequest
         }
     }
 
-    /**
+        /**
      * Validate diagnosis codes based on wound type
      */
     private function validateDiagnosisCodes($validator): void
     {
-        if (in_array($this->wound_type, ['diabetic_foot_ulcer', 'venous_leg_ulcer'])) {
+        $woundType = \App\Services\WoundTypeService::normalizeToEnum($this->wound_type);
+
+        if (in_array($woundType, ['DFU', 'VLU'])) {
             if (empty($this->primary_diagnosis_code) || empty($this->secondary_diagnosis_code)) {
                 $validator->errors()->add('diagnosis_code', 'This wound type requires both a primary and secondary diagnosis code.');
             }

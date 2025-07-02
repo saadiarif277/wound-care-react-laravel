@@ -2,7 +2,7 @@
 
 namespace App\Jobs\QuickRequest;
 
-use App\Models\Episode;
+use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Document;
 use App\Services\DocusealService;
 use App\Services\FhirService;
@@ -38,7 +38,7 @@ class GenerateDocuSealPdf implements ShouldQueue
      * Create a new job instance.
      */
     public function __construct(
-        private Episode $episode,
+        private PatientManufacturerIVREpisode $episode,
         private string $templateId,
         private array $formData,
         private array $signatures,
@@ -82,7 +82,7 @@ class GenerateDocuSealPdf implements ShouldQueue
 
             // Create document record
             $document = Document::create([
-                'documentable_type' => Episode::class,
+                'documentable_type' => PatientManufacturerIVREpisode::class,
                 'documentable_id' => $this->episode->id,
                 'type' => $this->documentType,
                 'name' => $fileName,

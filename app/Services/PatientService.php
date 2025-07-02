@@ -68,14 +68,14 @@ class PatientService
             // Return a temporary ID as last resort
             $tempId = 'Patient/' . Str::uuid();
             $tempDisplayId = $this->generateEmergencyId($facilityId);
-            
+
             // Try to store the temporary mapping
             try {
                 $this->storePatientRecord($tempDisplayId, $tempId, $facilityId, $patientData);
             } catch (\Exception $storeError) {
                 Log::error('Failed to store temporary patient mapping', ['error' => $storeError->getMessage()]);
             }
-            
+
             return [
                 'patient_fhir_id' => $tempId,
                 'patient_display_id' => $tempDisplayId,
@@ -229,33 +229,33 @@ class PatientService
     private function generateDisplayId(string $firstName, string $lastName, int $facilityId): string
     {
         $initials = $this->getInitials($firstName, $lastName);
-        
+
         // Generate random 3-digit number
         $randomNumber = mt_rand(100, 999);
-        
+
         // Check if this combination already exists for the facility
         $attempts = 0;
         $maxAttempts = 10;
-        
+
         while ($attempts < $maxAttempts) {
             $displayId = $initials . $randomNumber;
-            
+
             // Check if this ID already exists
             $exists = DB::table('product_requests')
                 ->where('facility_id', $facilityId)
                 ->where('patient_display_id', $displayId)
                 ->exists();
-            
+
             if (!$exists) {
                 return $displayId;
             }
-            
+
             // Try a new random number
             $randomNumber = mt_rand(100, 999);
             $attempts++;
         }
-        
-        // If we couldn't find a unique ID after max attempts, 
+
+        // If we couldn't find a unique ID after max attempts,
         // fall back to sequential approach
         $sequence = $this->getSequence($facilityId, $initials);
         return $initials . str_pad($sequence, 3, '0', STR_PAD_LEFT);
@@ -263,21 +263,24 @@ class PatientService
 
     /**
      * Generate a fallback ID when sequence generation fails.
+     * Maximum length: 7 characters (database constraint)
      */
     private function generateFallbackId(array $patientData, int $facilityId): string
     {
         $initials = $this->getInitials($patientData['first_name'], $patientData['last_name']);
-        $timestamp = date('YmdHis');
-        $random = str_pad(mt_rand(1, 999), 3, '0', STR_PAD_LEFT);
-        return "TEMP-{$initials}-{$facilityId}-{$timestamp}-{$random}";
+        $random = str_pad(mt_rand(0, 999), 3, '0', STR_PAD_LEFT);
+        return $initials . $random; // 7 characters: 4+3
     }
 
     /**
      * Generate an emergency ID as last resort.
+     * Maximum length: 7 characters (database constraint)
      */
     private function generateEmergencyId(int $facilityId): string
     {
-        return "EMERG-" . Str::random(8) . "-{$facilityId}";
+        $facilityCode = str_pad((string)$facilityId, 2, '0', STR_PAD_LEFT);
+        $random = str_pad(mt_rand(0, 99999), 5, '0', STR_PAD_LEFT);
+        return $facilityCode . $random; // 7 characters: 2+5
     }
 
     /**

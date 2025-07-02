@@ -468,7 +468,7 @@ final class ProductRequestController extends Controller
         $validator = Validator::make($request->all(), [
             'patient_data' => 'required|array',
             'clinical_data' => 'required|array',
-            'wound_type' => 'required|string',
+            'wound_type' => 'required|string|wound_type',
             'facility_id' => 'required|integer|exists:facilities,id',
             'facility_state' => 'required|string|size:2',
             'expected_service_date' => 'required|date',

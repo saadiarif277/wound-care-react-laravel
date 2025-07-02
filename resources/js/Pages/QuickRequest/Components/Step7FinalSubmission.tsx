@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { prepareDocuSealData } from './docusealUtils';
-import { FiCheck, FiAlertCircle, FiUser, FiShoppingCart, FiShield } from 'react-icons/fi';
+import { FiCheck, FiAlertCircle, FiUser, FiShoppingCart, FiShield, FiEdit3, FiActivity, FiHome, FiCreditCard } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
@@ -132,6 +132,14 @@ export default function Step7FinalSubmission({
   const [isCreatingSubmission, setIsCreatingSubmission] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [openSections, setOpenSections] = useState({
+    patient: true,
+    insurance: true,
+    clinical: true,
+    product: true,
+    provider: true,
+    forms: true,
+  });
 
   // DocuSeal Builder state
   const [builderToken, setBuilderToken] = useState<string | null>(null);
@@ -141,6 +149,14 @@ export default function Step7FinalSubmission({
     integrationEmail?: string;
     templateName?: string;
   } | null>(null);
+
+  // Toggle section visibility
+  const toggleSection = (section: string) => {
+    setOpenSections(prev => ({
+      ...prev,
+      [section]: !prev[section as keyof typeof prev]
+    }));
+  };
 
   // Get selected product details
   const getSelectedProduct = () => {
@@ -167,6 +183,15 @@ export default function Step7FinalSubmission({
     }
 
     return foundProduct;
+  };
+
+  // Calculate total bill
+  const calculateTotalBill = () => {
+    if (!formData.selected_products) return 0;
+    return formData.selected_products.reduce((total, item) => {
+      const price = item.product?.price || 0;
+      return total + (price * item.quantity);
+    }, 0);
   };
 
   // Create episode before DocuSeal
@@ -199,418 +224,612 @@ export default function Step7FinalSubmission({
       // Use either the found product or the product from selection
       const productToUse = selectedProduct || formData.selected_products?.[0]?.product;
 
-      // Prepare comprehensive form data for episode creation
-      // Try to get manufacturer_id from multiple sources
-      let manufacturerId = productToUse?.manufacturer_id ||
-                          (products.find(p => p.id === productToUse?.id)?.manufacturer_id) ||
-                          formData.selected_products?.[0]?.product?.manufacturer_id;
-
-      // If still no manufacturer_id, try to fetch it from the selected product
-      if (!manufacturerId && formData.selected_products?.[0]?.product_id) {
-        console.warn('No manufacturer_id found, will need to fetch from backend');
-        // For now, we'll let the backend handle this by looking up the product
-        manufacturerId = null;
-      }
-
       const episodeData = {
-        patient_id: formData.patient_id || 'new-patient',
-        patient_fhir_id: formData.patient_fhir_id || 'pending-fhir-id',
-        patient_display_id: formData.patient_display_id || `${formData.patient_first_name?.substring(0, 2)}${formData.patient_last_name?.substring(0, 2)}${Math.floor(Math.random() * 10000)}`,
-        manufacturer_id: manufacturerId,
-        selected_product_id: productToUse?.id || formData.selected_products?.[0]?.product_id, // Include product ID for backend lookup
-        form_data: {
-          ...formData,
-          selected_product_id: productToUse?.id,
-          facility_id: formData.facility_id,
-          // Ensure product sizes are included
-          selected_products: formData.selected_products?.map((p: { product_id: number; quantity: number; size?: string; product?: any; }) => ({
-            ...p,
-            product_name: products.find(prod => prod.id === p.product_id)?.name || p.product?.name,
-            product_code: products.find(prod => prod.id === p.product_id)?.code || p.product?.code,
-            manufacturer: products.find(prod => prod.id === p.product_id)?.manufacturer || p.product?.manufacturer,
-          }))
+        patient_fhir_id: formData.patient_fhir_id,
+        patient_display_id: formData.patient_display_id,
+        manufacturer_id: productToUse.manufacturer_id,
+        status: 'ready_for_review',
+        ivr_status: 'pending',
+        metadata: {
+          wound_type: formData.wound_type,
+          wound_location: formData.wound_location,
+          expected_service_date: formData.expected_service_date,
+          primary_insurance: {
+            name: formData.primary_insurance_name,
+            member_id: formData.primary_member_id,
+            plan_type: formData.primary_plan_type,
+          },
+          secondary_insurance: formData.has_secondary_insurance ? {
+            name: formData.secondary_insurance_name,
+            member_id: formData.secondary_member_id,
+          } : null,
         }
       };
 
       console.log('Creating episode with data:', episodeData);
 
-      const response = await axios.post('/api/quick-request/create-episode', episodeData);
+      const response = await axios.post('/api/v1/quick-request/create-episode', episodeData);
 
       if (response.data.success) {
         setEpisodeId(response.data.episode_id);
-
-        // Update form data with episode info
-        updateFormData({
-          episode_id: response.data.episode_id,
-          manufacturer_id: response.data.manufacturer_id
-        });
-
-        console.log('Episode created successfully:', {
-          episode_id: response.data.episode_id,
-          manufacturer_id: response.data.manufacturer_id
-        });
-
-        return true;
+        console.log('Episode created successfully:', response.data.episode_id);
+        return response.data.episode_id;
       } else {
-        throw new Error(response.data.error || 'Failed to create episode');
+        throw new Error(response.data.message || 'Failed to create episode');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating episode:', error);
-      setError(error instanceof Error ? error.message : 'Failed to create episode');
-      return false;
+      setError(error.response?.data?.message || error.message || 'Failed to create episode');
+      throw error;
     } finally {
       setIsCreatingEpisode(false);
     }
   };
 
-  // Create DocuSeal submission with prepopulated data (final submission form)
+  // Create DocuSeal submission
   const createDocuSealSubmission = async () => {
-    if (isCreatingSubmission) return;
     setIsCreatingSubmission(true);
+    setError(null);
 
     try {
+      if (!episodeId) {
+        throw new Error('No episode ID available');
+      }
+
       const selectedProduct = getSelectedProduct();
       if (!selectedProduct) {
-        throw new Error('No product selected for DocuSeal submission');
+        throw new Error('No product selected');
       }
 
-      // Determine manufacturer ID for template resolution
-      const manufacturerId = selectedProduct.manufacturer_id ||
-                           products.find(p => p.id === selectedProduct.id)?.manufacturer_id;
+      const docuSealData = prepareDocuSealData(formData, selectedProduct, episodeId);
+      console.log('Prepared DocuSeal data:', docuSealData);
 
-      console.log('Creating DocuSeal submission for manufacturer:', {
-        manufacturer_id: manufacturerId,
-        manufacturer_name: selectedProduct.manufacturer,
-        product_name: selectedProduct.name
+      const response = await axios.post('/api/v1/quick-request/generate-form-token', {
+        episode_id: episodeId,
+        form_data: docuSealData,
+        template_id: selectedProduct.docuseal_template_id,
       });
 
-      const builderData = {
-        template_type: 'final_submission',
-        use_builder: true, // Force builder mode for better UX
-        prefill_data: prepareDocuSealData({
-          formData,
-          products,
-          providers,
-          facilities
-        })
-      };
-
-
-      console.log('Sending DocuSeal builder request with data:', {
-        template_type: builderData.template_type,
-        use_builder: builderData.use_builder,
-        manufacturer_id: manufacturerId,
-        episode_id: episodeId
-      });
-
-      const response = await axios.post('/quickrequest/docuseal/create-final-submission', builderData);
-      const data = response.data;
-
-      console.log('DocuSeal response:', data);
-
-      if (data.success && data.jwt_token) {
-        // Builder mode - store JWT token and builder props
-        setBuilderToken(data.jwt_token);
-
-        // Determine template ID - try multiple sources
-        let templateId = data.template_id;
-        if (!templateId || templateId === 'null' || templateId === null) {
-          // Fallback to a default template based on manufacturer
-          const manufacturerKey = selectedProduct.manufacturer?.replace(/\s+/g, '').toLowerCase();
-          console.warn('No template ID returned, using fallback for manufacturer:', manufacturerKey);
-          templateId = null; // Let DocuSeal create a blank template
-        }
-
-        setBuilderProps({
-          templateId: templateId,
-          userEmail: data.user_email || 'limitless@mscwoundcare.com',
-          integrationEmail: data.integration_email || data.user_email || 'limitless@mscwoundcare.com',
-          templateName: data.template_name || `MSC ${selectedProduct.manufacturer} IVR Form`
-        });
-
-        console.log('DocuSeal builder token generated:', {
-          template_id: templateId,
-          user_email: data.user_email,
-          template_name: data.template_name,
-          has_jwt_token: !!data.jwt_token
-        });
+      if (response.data.success) {
+        setSubmissionUrl(response.data.submission_url);
+        setSubmissionId(response.data.submission_id);
+        setBuilderToken(response.data.builder_token);
+        setBuilderProps(response.data.builder_props);
+        console.log('DocuSeal submission created successfully');
       } else {
-        // Legacy mode - use embed URL
-        if (data.embed_url) {
-          setSubmissionUrl(data.embed_url);
-          setSubmissionId(data.submission_id);
-
-          console.log('DocuSeal submission created:', {
-            template_id: data.template_id,
-            manufacturer: data.manufacturer,
-            submission_id: data.submission_id
-          });
-        } else {
-          throw new Error(data.error || 'Failed to create DocuSeal submission - no embed URL or JWT token returned');
-        }
+        throw new Error(response.data.message || 'Failed to create DocuSeal submission');
       }
-
-      // Update form data with submission info
-      updateFormData({
-        final_submission_id: data.submission_id || 'builder-mode',
-        docuseal_template_id: data.template_id,
-        docuseal_jwt_token: data.jwt_token
-      });
-
-        } catch (error: any) {
+    } catch (error: any) {
       console.error('Error creating DocuSeal submission:', error);
-      let errorMessage = 'Failed to create submission';
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-      } else if (error?.response?.data?.error) {
-        errorMessage = error.response.data.error;
-      } else if (error?.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      }
-
-      setError(errorMessage);
+      setError(error.response?.data?.message || error.message || 'Failed to create DocuSeal submission');
     } finally {
       setIsCreatingSubmission(false);
     }
   };
 
-  // Memoize createEpisode and createDocuSealSubmission to avoid unnecessary re-renders
-  const createEpisodeMemo = useCallback(createEpisode, [formData, products]);
-  const createDocuSealSubmissionMemo = useCallback(createDocuSealSubmission, [formData, products, providers, facilities, episodeId]);
-
-  // Initialize episode and DocuSeal submission on component mount
+  // Initialize submission process
   useEffect(() => {
     const initializeSubmission = async () => {
-      // First create episode if not already created
-      if (!episodeId && !isCreatingEpisode && !error) {
-        const episodeCreated = await createEpisodeMemo();
-        // If episode created successfully, proceed with DocuSeal submission
-        if (episodeCreated) {
-          await createDocuSealSubmissionMemo();
+      if (!episodeId && !isCreatingEpisode) {
+        try {
+          await createEpisode();
+        } catch (error) {
+          console.error('Failed to create episode:', error);
         }
-      } else if (episodeId && !submissionUrl && !builderToken && !isCreatingSubmission && !error) {
-        // Episode exists but DocuSeal submission not created yet
-        await createDocuSealSubmissionMemo();
       }
     };
+
     initializeSubmission();
-    // Add all referenced variables to the dependency array
-  }, [
-    episodeId,
-    isCreatingEpisode,
-    error,
-    submissionUrl,
-    builderToken,
-    isCreatingSubmission,
-    createEpisodeMemo,
-    createDocuSealSubmissionMemo
-  ]);
+  }, [episodeId, isCreatingEpisode]);
 
   const handleDocuSealComplete = (data: any) => {
-    console.log('Final DocuSeal submission completed:', data);
+    console.log('DocuSeal completed:', data);
     setIsCompleted(true);
-
-    // Update form data
-    updateFormData({
-      final_submission_completed: true,
-      final_submission_data: data
-    });
+    // Call the parent's onSubmit function
+    onSubmit();
   };
 
   const handleDocuSealError = (errorMessage: string) => {
+    console.error('DocuSeal error:', errorMessage);
     setError(errorMessage);
   };
 
   const handleDocuSealSave = (data: any) => {
-    console.log('DocuSeal template saved:', data);
-    // Template was saved but not yet sent
+    console.log('DocuSeal saved:', data);
   };
 
   const handleDocuSealSend = (data: any) => {
-    console.log('DocuSeal template sent for signing:', data);
-    setIsCompleted(true);
-
-    // Update form data
-    updateFormData({
-      final_submission_completed: true,
-      final_submission_data: data,
-      template_sent_for_signing: true
-    });
+    console.log('DocuSeal sent:', data);
   };
 
   const handleFinalSubmit = () => {
-    if (!isCompleted) {
-      alert('Please complete the submission form before proceeding.');
-      return;
+    if (!submissionUrl) {
+      createDocuSealSubmission();
     }
-
-    // Ensure episode ID is included in final submission
-    updateFormData({
-      episode_id: episodeId,
-      final_submission_completed: true
-    });
-
-    onSubmit();
   };
 
+  // Check if order is complete
+  const isOrderComplete = (): boolean => {
+    return !!(
+      formData?.patient_first_name &&
+      formData?.patient_last_name &&
+      formData?.patient_dob &&
+      formData?.primary_insurance_name &&
+      formData?.wound_type &&
+      formData?.wound_location &&
+      formData?.selected_products?.length > 0
+    );
+  };
+
+  // If there's an error, show error state
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className={cn("p-6 rounded-lg", t.status.error)}>
-          <div className="flex items-center">
-            <FiAlertCircle className="w-5 h-5 mr-2" />
-            <h3 className="text-lg font-semibold">Error Creating Submission</h3>
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <div className="flex items-center space-x-3 mb-4">
+            <FiAlertCircle className={cn("w-6 h-6", t.text.error)} />
+            <h3 className={cn("text-lg font-semibold", t.text.error)}>Error Creating Submission</h3>
           </div>
-          <p className="mt-2">{error}</p>
+          <p className={cn("mb-4", t.text.secondary)}>{error}</p>
           <button
-            onClick={async () => {
+            onClick={() => {
               setError(null);
-              if (!episodeId) {
-                await createEpisode();
-              } else {
-                await createDocuSealSubmission();
-              }
+              setEpisodeId(null);
+              setSubmissionUrl(null);
+              setSubmissionId(null);
             }}
-            disabled={isCreatingSubmission || isCreatingEpisode}
-            className={cn(
-              "mt-4 px-4 py-2 rounded-lg font-medium",
-              t.button.primary.base,
-              t.button.primary.hover
-            )}
+            className={cn("px-4 py-2 rounded-lg", t.button.primary.base, t.button.primary.hover)}
           >
-            {(isCreatingSubmission || isCreatingEpisode) ? 'Retrying...' : 'Retry'}
+            Try Again
           </button>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className={cn("p-6 rounded-lg", t.glass.card)}>
-        <h2 className={cn("text-xl font-semibold mb-4", t.text.primary)}>
-          Final Order Submission
-        </h2>
-        <p className={cn("text-sm", t.text.secondary)}>
-          Please review and submit your complete order request. This form has been prepopulated with all the information you provided.
-        </p>
-      </div>
-
-      {/* Quick Summary */}
-      <div className={cn("p-4 rounded-lg", t.glass.frost)}>
-        <h3 className={cn("text-lg font-semibold mb-3", t.text.primary)}>Order Summary</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          <div className="flex items-center">
-            <FiUser className={cn("w-4 h-4 mr-2", t.text.secondary)} />
-            <span className={t.text.secondary}>
-              {formData.patient_first_name} {formData.patient_last_name}
-            </span>
-          </div>
-          <div className="flex items-center">
-            <FiShield className={cn("w-4 h-4 mr-2", t.text.secondary)} />
-            <span className={t.text.secondary}>
-              {formData.primary_insurance_name}
-            </span>
-          </div>
-          <div className="flex items-center">
-            <FiShoppingCart className={cn("w-4 h-4 mr-2", t.text.secondary)} />
-            <span className={t.text.secondary}>
-              {getSelectedProduct()?.name}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* DocuSeal Form */}
-      {(isCreatingEpisode || isCreatingSubmission) ? (
-        <div className={cn("p-8 text-center", t.glass.card, "rounded-lg")}>
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h3 className={cn("text-lg font-semibold", t.text.primary)}>
-            {isCreatingEpisode ? 'Creating Episode & IVR' : 'Preparing DocuSeal Form Builder'}
-          </h3>
-          <p className={cn("text-sm", t.text.secondary)}>
-            {isCreatingEpisode
-              ? 'Creating episode record and preparing IVR form with your product selection...'
-              : 'Please wait while we prepare your interactive form builder...'}
-          </p>
-          {episodeId && (
-            <p className={cn("text-xs mt-2", t.text.secondary)}>
-              Episode ID: {episodeId}
-            </p>
-          )}
-        </div>
-      ) : builderToken && builderProps ? (
-        <div className="space-y-4">
-          {isCompleted && (
-            <div className={cn("p-4 rounded-lg flex items-center", t.status.success)}>
-              <FiCheck className="w-5 h-5 mr-2" />
-              <span>Form builder process completed successfully!</span>
+  // If creating episode or submission, show loading state
+  if (isCreatingEpisode || isCreatingSubmission) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <div className="flex items-center justify-center space-x-3">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+            <div>
+              <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+                {isCreatingEpisode ? 'Creating Episode...' : 'Creating DocuSeal Submission...'}
+              </h3>
+              <p className={cn("text-sm", t.text.secondary)}>Please wait while we prepare your submission.</p>
             </div>
-          )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // If DocuSeal is ready, show the embed
+  if (submissionUrl && builderToken) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className={cn("p-6 rounded-lg", t.glass.card)}>
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className={cn("text-2xl font-bold", t.text.primary)}>Complete Your Submission</h2>
+              <p className={cn("text-sm mt-1", t.text.secondary)}>
+                Please review and complete the DocuSeal form to finalize your order.
+              </p>
+            </div>
+            <div className={cn("text-sm px-3 py-1 rounded-md", t.glass.frost)}>
+              Episode #{episodeId}
+            </div>
+          </div>
 
           <DocuSealEmbed
-            Token={builderToken}
-            templateId={builderProps.templateId}
-            userEmail={builderProps.userEmail}
-            integrationEmail={builderProps.integrationEmail}
-            templateName={builderProps.templateName}
+            submissionUrl={submissionUrl}
+            builderToken={builderToken}
+            builderProps={builderProps}
             onComplete={handleDocuSealComplete}
             onError={handleDocuSealError}
             onSave={handleDocuSealSave}
             onSend={handleDocuSealSend}
-            className="min-h-[800px]"
           />
         </div>
-      ) : submissionUrl && submissionId ? (
-        <div className="space-y-4">
-          {isCompleted && (
-            <div className={cn("p-4 rounded-lg flex items-center", t.status.success)}>
-              <FiCheck className="w-5 h-5 mr-2" />
-              <span>Submission form completed successfully!</span>
+      </div>
+    );
+  }
+
+  // Main review display
+  return (
+    <div className="max-w-6xl mx-auto space-y-6">
+      {/* Header */}
+      <div className={cn("p-6 rounded-lg flex justify-between items-start", t.glass.card)}>
+        <div>
+          <h1 className={cn("text-2xl font-bold", t.text.primary)}>
+            Review & Final Submission
+          </h1>
+          <p className={cn("text-sm mt-1", t.text.secondary)}>
+            Please review all information before submitting your order
+          </p>
+        </div>
+
+        <div className="flex items-center space-x-3">
+          <button
+            onClick={handleFinalSubmit}
+            disabled={!isOrderComplete()}
+            className={cn(
+              "px-6 py-2 rounded-lg font-medium transition-all",
+              isOrderComplete()
+                ? `${t.button.primary.base} ${t.button.primary.hover}`
+                : "bg-gray-300 text-gray-500 cursor-not-allowed"
+            )}
+          >
+            Submit Order
+          </button>
+        </div>
+      </div>
+
+      {/* Patient & Insurance Section */}
+      <div className={cn("rounded-lg border p-6", t.glass.border, t.glass.base)}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("p-2 rounded-lg", t.glass.frost)}>
+              <FiUser />
             </div>
-          )}
-
-          <DocuSealEmbed
-            url={submissionUrl}
-            onComplete={handleDocuSealComplete}
-            onError={handleDocuSealError}
-            className="min-h-[800px]"
-          />
+            <h3 className={cn("font-medium", t.text.primary)}>Patient & Insurance</h3>
+          </div>
+          <button
+            onClick={() => toggleSection('patient')}
+            className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
+          >
+            <FiEdit3 className="w-4 h-4" />
+          </button>
         </div>
-      ) : null}
 
-      {/* Final Submit Button */}
-      <div className="flex justify-end space-x-4">
+        {openSections.patient && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Patient Demographics */}
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Patient Information</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Name:</dt>
+                  <dd className={t.text.primary}>
+                    {formData.patient_first_name || ''} {formData.patient_last_name || ''}
+                  </dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>DOB:</dt>
+                  <dd className={t.text.primary}>{formData.patient_dob || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Gender:</dt>
+                  <dd className={t.text.primary}>{formData.patient_gender || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Phone:</dt>
+                  <dd className={t.text.primary}>{formData.patient_phone || ''}</dd>
+                </div>
+                {formData.patient_email && (
+                  <div className="flex">
+                    <dt className={cn("font-medium w-24", t.text.secondary)}>Email:</dt>
+                    <dd className={t.text.primary}>{formData.patient_email}</dd>
+                  </div>
+                )}
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Address:</dt>
+                  <dd className={t.text.primary}>
+                    {formData.patient_address_line1 || ''}
+                    <br />
+                    {formData.patient_city || ''}, {formData.patient_state || ''} {formData.patient_zip || ''}
+                  </dd>
+                </div>
+              </dl>
+            </div>
+
+            {/* Insurance Information */}
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Insurance Coverage</h4>
+
+              {/* Primary Insurance */}
+              <div className="mb-4">
+                <h5 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Primary Insurance</h5>
+                <dl className="space-y-1 text-sm">
+                  <div className="flex">
+                    <dt className={cn("font-medium w-32", t.text.secondary)}>Payer:</dt>
+                    <dd className={t.text.primary}>{formData.primary_insurance_name || ''}</dd>
+                  </div>
+                  <div className="flex">
+                    <dt className={cn("font-medium w-32", t.text.secondary)}>Plan Type:</dt>
+                    <dd className={t.text.primary}>{formData.primary_plan_type || ''}</dd>
+                  </div>
+                  <div className="flex">
+                    <dt className={cn("font-medium w-32", t.text.secondary)}>Member ID:</dt>
+                    <dd className={t.text.primary}>{formData.primary_member_id || ''}</dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Secondary Insurance */}
+              {formData.has_secondary_insurance && (
+                <div>
+                  <h5 className={cn("text-sm font-medium mb-2", t.text.secondary)}>Secondary Insurance</h5>
+                  <dl className="space-y-1 text-sm">
+                    <div className="flex">
+                      <dt className={cn("font-medium w-32", t.text.secondary)}>Payer:</dt>
+                      <dd className={t.text.primary}>{formData.secondary_insurance_name || ''}</dd>
+                    </div>
+                    <div className="flex">
+                      <dt className={cn("font-medium w-32", t.text.secondary)}>Member ID:</dt>
+                      <dd className={t.text.primary}>{formData.secondary_member_id || ''}</dd>
+                    </div>
+                  </dl>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Clinical Information Section */}
+      <div className={cn("rounded-lg border p-6", t.glass.border, t.glass.base)}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("p-2 rounded-lg", t.glass.frost)}>
+              <FiActivity />
+            </div>
+            <h3 className={cn("font-medium", t.text.primary)}>Clinical Information</h3>
+          </div>
+          <button
+            onClick={() => toggleSection('clinical')}
+            className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
+          >
+            <FiEdit3 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {openSections.clinical && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Wound Details</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Wound Type:</dt>
+                  <dd className={t.text.primary}>{formData.wound_type || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Location:</dt>
+                  <dd className={t.text.primary}>{formData.wound_location || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Size:</dt>
+                  <dd className={t.text.primary}>
+                    {formData.wound_size_length && formData.wound_size_width
+                      ? `${formData.wound_size_length} x ${formData.wound_size_width}cm`
+                      : 'N/A'}
+                  </dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Onset Date:</dt>
+                  <dd className={t.text.primary}>{formData.wound_onset_date || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Expected Service:</dt>
+                  <dd className={t.text.primary}>{formData.expected_service_date || ''}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Treatment History</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Failed Conservative:</dt>
+                  <dd className={t.text.primary}>
+                    {formData.failed_conservative_treatment ? 'Yes' : 'No'}
+                  </dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Treatment Tried:</dt>
+                  <dd className={t.text.primary}>{formData.treatment_tried || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-32", t.text.secondary)}>Current Dressing:</dt>
+                  <dd className={t.text.primary}>{formData.current_dressing || ''}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Product Selection Section */}
+      <div className={cn("rounded-lg border p-6", t.glass.border, t.glass.base)}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("p-2 rounded-lg", t.glass.frost)}>
+              <FiShoppingCart />
+            </div>
+            <h3 className={cn("font-medium", t.text.primary)}>Product Selection</h3>
+          </div>
+          <button
+            onClick={() => toggleSection('product')}
+            className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
+          >
+            <FiEdit3 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {openSections.product && (
+          <div>
+            {formData.selected_products && formData.selected_products.length > 0 ? (
+              <div className="space-y-4">
+                {formData.selected_products.map((item, index) => {
+                  const product = getSelectedProduct();
+                  return (
+                    <div key={index} className={cn("p-4 rounded-lg", t.glass.frost)}>
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className={cn("font-medium", t.text.primary)}>
+                            {product?.name || 'Product'}
+                          </h4>
+                          <p className={cn("text-sm", t.text.secondary)}>
+                            Code: {product?.code || 'N/A'}
+                          </p>
+                          <p className={cn("text-sm", t.text.secondary)}>
+                            Manufacturer: {product?.manufacturer || 'N/A'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={cn("font-medium", t.text.primary)}>
+                            Qty: {item.quantity}
+                          </p>
+                          {item.size && (
+                            <p className={cn("text-sm", t.text.secondary)}>
+                              Size: {item.size}
+                            </p>
+                          )}
+                          <p className={cn("text-sm", t.text.secondary)}>
+                            ${product?.price || 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div className={cn("flex justify-between items-center pt-4 border-t", t.glass.border)}>
+                  <span className={cn("font-medium", t.text.primary)}>Total Bill:</span>
+                  <span className={cn("text-lg font-bold", t.text.primary)}>
+                    ${calculateTotalBill().toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className={cn("text-sm", t.text.secondary)}>No products selected</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Provider & Facility Section */}
+      <div className={cn("rounded-lg border p-6", t.glass.border, t.glass.base)}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("p-2 rounded-lg", t.glass.frost)}>
+              <FiHome />
+            </div>
+            <h3 className={cn("font-medium", t.text.primary)}>Provider & Facility</h3>
+          </div>
+          <button
+            onClick={() => toggleSection('provider')}
+            className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
+          >
+            <FiEdit3 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {openSections.provider && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Provider Information</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Name:</dt>
+                  <dd className={t.text.primary}>{formData.provider_name || ''}</dd>
+                </div>
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>NPI:</dt>
+                  <dd className={t.text.primary}>{formData.provider_npi || ''}</dd>
+                </div>
+              </dl>
+            </div>
+
+            <div>
+              <h4 className={cn("font-medium mb-3", t.text.primary)}>Facility Information</h4>
+              <dl className="space-y-2 text-sm">
+                <div className="flex">
+                  <dt className={cn("font-medium w-24", t.text.secondary)}>Name:</dt>
+                  <dd className={t.text.primary}>{formData.facility_name || ''}</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Forms Status Section */}
+      <div className={cn("rounded-lg border p-6", t.glass.border, t.glass.base)}>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <div className={cn("p-2 rounded-lg", t.glass.frost)}>
+              <FiShield />
+            </div>
+            <h3 className={cn("font-medium", t.text.primary)}>Forms Status</h3>
+          </div>
+          <button
+            onClick={() => toggleSection('forms')}
+            className={cn("p-2 rounded-lg hover:bg-white/10 transition-colors", t.glass.frost)}
+          >
+            <FiEdit3 className="w-4 h-4" />
+          </button>
+        </div>
+
+        {openSections.forms && (
+          <div className="space-y-4">
+            <div className={cn("p-4 rounded-lg", t.glass.frost)}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h4 className={cn("font-medium", t.text.primary)}>IVR Form</h4>
+                  <p className={cn("text-sm", t.text.secondary)}>Insurance Verification Request</p>
+                </div>
+                <div className={cn("text-sm px-3 py-1 rounded-md", t.glass.frost)}>
+                  Pending
+                </div>
+              </div>
+            </div>
+
+            <div className={cn("p-4 rounded-lg", t.glass.frost)}>
+              <div className="flex justify-between items-center">
+                <div>
+                  <h4 className={cn("font-medium", t.text.primary)}>Order Form</h4>
+                  <p className={cn("text-sm", t.text.secondary)}>Manufacturer Order Form</p>
+                </div>
+                <div className={cn("text-sm px-3 py-1 rounded-md", t.glass.frost)}>
+                  Not Started
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Submit Button */}
+      <div className="flex justify-center">
         <button
           onClick={handleFinalSubmit}
-          disabled={!isCompleted}
+          disabled={!isOrderComplete()}
           className={cn(
-            "px-6 py-3 rounded-lg font-medium transition-all duration-200",
-            isCompleted
+            "px-8 py-3 rounded-lg font-medium transition-all",
+            isOrderComplete()
               ? `${t.button.primary.base} ${t.button.primary.hover}`
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           )}
         >
-          {isCompleted ? 'Submit Order Request' : 'Complete Form to Continue'}
+          Submit Order
         </button>
       </div>
 
-      {/* Error Display */}
-      {Object.keys(errors).length > 0 && (
-        <div className={cn("p-4 rounded-lg", t.status.error)}>
-          <div className="flex items-start">
-            <FiAlertCircle className="w-5 h-5 mr-2 flex-shrink-0" />
-            <div>
-              <h4 className="font-medium">Please fix the following errors:</h4>
-              <ul className="mt-2 space-y-1 text-sm">
-                {Object.entries(errors).map(([field, error]) => (
-                  <li key={field}>• {error}</li>
-                ))}
-              </ul>
-            </div>
-          </div>
+      {/* Validation Errors */}
+      {!isOrderComplete() && (
+        <div className={cn("p-4 rounded-lg", t.glass.card)}>
+          <h4 className={cn("font-medium mb-2", t.text.error)}>Please complete the following:</h4>
+          <ul className={cn("mt-2 space-y-1 text-sm", t.text.secondary)}>
+            {!formData.patient_first_name && <li>• Patient first name</li>}
+            {!formData.patient_last_name && <li>• Patient last name</li>}
+            {!formData.patient_dob && <li>• Patient date of birth</li>}
+            {!formData.primary_insurance_name && <li>• Primary insurance name</li>}
+            {!formData.wound_type && <li>• Wound type</li>}
+            {!formData.wound_location && <li>• Wound location</li>}
+            {(!formData.selected_products || formData.selected_products.length === 0) && <li>• At least one product</li>}
+          </ul>
         </div>
       )}
     </div>

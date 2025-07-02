@@ -1,5 +1,3 @@
-
-
 import { Button } from '@/Components/Button';
 import { useOrderState } from './hooks/useOrderState';
 import { PatientInsuranceSection } from './order/PatientInsuranceSection';
@@ -10,6 +8,7 @@ import { ProviderSection } from './order/ProviderSection';
 import { SubmissionSection } from './order/SubmissionSection';
 import { OrderModals } from './order/OrderModals';
 import { OrderDashboard } from './admin/OrderDashboard';
+import { OrderData } from './types/orderTypes';
 
 // Define the structure of the props we expect from Inertia
 interface OrderReviewProps {
@@ -163,6 +162,96 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
                         </select>
                         <div className="text-sm px-3 py-1 border rounded-md bg-muted/50">
                             {orderSubmitted ? "Pending Review" : "Draft"}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Debug Section - Show All Raw Form Data */}
+                <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <h3 className="font-bold text-yellow-800 mb-2">🔍 Debug: Raw Quick Request Form Data</h3>
+                    <p className="text-sm text-yellow-700 mb-3">
+                        This shows all the data that will be sent to the backend when submitting the order.
+                    </p>
+                    <details className="text-sm">
+                        <summary className="cursor-pointer text-yellow-800 font-medium mb-2">
+                            Click to expand/collapse raw form data
+                        </summary>
+                        <div className="bg-white p-3 rounded border overflow-x-auto">
+                            <pre className="text-xs text-gray-800 whitespace-pre-wrap">
+                                {JSON.stringify(formData, null, 2)}
+                            </pre>
+                        </div>
+                    </details>
+
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                        <h4 className="font-medium text-blue-800 mb-2">📋 Key Validation Fields Check:</h4>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                            <div className={`p-2 rounded ${formData?.request_type ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                request_type: {formData?.request_type || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.provider_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                provider_id: {formData?.provider_id || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.facility_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                facility_id: {formData?.facility_id || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.patient_first_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                patient_first_name: {formData?.patient_first_name || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.patient_last_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                patient_last_name: {formData?.patient_last_name || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.patient_dob ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                patient_dob: {formData?.patient_dob || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.wound_type ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                wound_type: {formData?.wound_type || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.wound_location ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                wound_location: {formData?.wound_location || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.wound_size_length ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                wound_size_length: {formData?.wound_size_length || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.wound_size_width ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                wound_size_width: {formData?.wound_size_width || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.primary_insurance_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                primary_insurance_name: {formData?.primary_insurance_name || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.primary_member_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                primary_member_id: {formData?.primary_member_id || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.primary_plan_type ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                primary_plan_type: {formData?.primary_plan_type || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.application_cpt_codes ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                application_cpt_codes: {Array.isArray(formData?.application_cpt_codes) ? formData.application_cpt_codes.length + ' codes' : 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.place_of_service ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                place_of_service: {formData?.place_of_service || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.selected_products ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                selected_products: {Array.isArray(formData?.selected_products) ? formData.selected_products.length + ' products' : 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.expected_service_date ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                expected_service_date: {formData?.expected_service_date || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.shipping_speed ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                shipping_speed: {formData?.shipping_speed || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.failed_conservative_treatment !== undefined ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                failed_conservative_treatment: {formData?.failed_conservative_treatment !== undefined ? formData.failed_conservative_treatment.toString() : 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.information_accurate !== undefined ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                information_accurate: {formData?.information_accurate !== undefined ? formData.information_accurate.toString() : 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.medical_necessity_established !== undefined ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                medical_necessity_established: {formData?.medical_necessity_established !== undefined ? formData.medical_necessity_established.toString() : 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.maintain_documentation !== undefined ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                maintain_documentation: {formData?.maintain_documentation !== undefined ? formData.maintain_documentation.toString() : 'MISSING'}
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -22,6 +22,17 @@ class InsuranceHandler
         try {
             $this->logger->info('Creating insurance coverage in FHIR');
 
+            // Validate required fields
+            if (empty($data['insurance']['policy_type'])) {
+                throw new \Exception('Missing required field: policy_type');
+            }
+            if (empty($data['insurance']['payer_name'])) {
+                throw new \Exception('Missing required field: payer_name');
+            }
+            if (empty($data['patient_id'])) {
+                throw new \Exception('Missing required field: patient_id');
+            }
+
             $coverageData = $this->mapToFhirCoverage($data);
             $response = $this->fhirService->create('Coverage', $coverageData);
 
@@ -41,7 +52,8 @@ class InsuranceHandler
         } catch (\Exception $e) {
             $this->logger->error('Failed to create FHIR coverage', [
                 'error' => $e->getMessage(),
-                'payer' => $data['insurance']['payer_name'] ?? 'unknown'
+                'payer' => $data['insurance']['payer_name'] ?? 'unknown',
+                'policy_type' => $data['insurance']['policy_type'] ?? 'unknown'
             ]);
             throw new \Exception('Failed to create coverage: ' . $e->getMessage());
         }
@@ -54,13 +66,46 @@ class InsuranceHandler
     {
         $coverageIds = [];
 
-        foreach ($insuranceData as $insurance) {
-            $coverage = $this->createCoverage([
-                'patient_id' => $patientId,
-                'insurance' => $insurance
-            ]);
+        if (empty($insuranceData)) {
+            $this->logger->warning('No insurance data provided for coverage creation');
+            return $coverageIds;
+        }
 
-            $coverageIds[$insurance['policy_type']] = $coverage;
+        foreach ($insuranceData as $index => $insurance) {
+            try {
+                $this->logger->info('Creating coverage for insurance', [
+                    'index' => $index,
+                    'policy_type' => $insurance['policy_type'] ?? 'unknown',
+                    'payer_name' => $insurance['payer_name'] ?? 'unknown'
+                ]);
+
+                $coverage = $this->createCoverage([
+                    'patient_id' => $patientId,
+                    'insurance' => $insurance
+                ]);
+
+                $coverageIds[$insurance['policy_type']] = $coverage;
+
+                $this->logger->info('Coverage created successfully', [
+                    'policy_type' => $insurance['policy_type'],
+                    'coverage_id' => $coverage
+                ]);
+
+            } catch (\Exception $e) {
+                $this->logger->error('Failed to create coverage for insurance', [
+                    'index' => $index,
+                    'policy_type' => $insurance['policy_type'] ?? 'unknown',
+                    'payer_name' => $insurance['payer_name'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+
+                // Continue with other coverages instead of failing completely
+                continue;
+            }
+        }
+
+        if (empty($coverageIds)) {
+            throw new \Exception('Failed to create any insurance coverages');
         }
 
         return $coverageIds;
@@ -96,6 +141,12 @@ class InsuranceHandler
     {
         $insurance = $data['insurance'];
 
+        // Ensure required fields have defaults
+        $policyType = $insurance['policy_type'] ?? 'primary';
+        $payerName = $insurance['payer_name'] ?? 'Unknown Insurance';
+        $memberId = $insurance['member_id'] ?? '';
+        $patientId = $data['patient_id'] ?? '';
+
         $coverageData = [
             'resourceType' => 'Coverage',
             'status' => 'active',
@@ -103,17 +154,17 @@ class InsuranceHandler
                 'coding' => [
                     [
                         'system' => 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-                        'code' => $this->mapPolicyTypeToCode($insurance['policy_type']),
-                        'display' => ucfirst($insurance['policy_type'])
+                        'code' => $this->mapPolicyTypeToCode($policyType),
+                        'display' => ucfirst($policyType)
                     ]
                 ]
             ],
             'subscriber' => [
-                'reference' => "Patient/{$data['patient_id']}"
+                'reference' => "Patient/{$patientId}"
             ],
-            'subscriberId' => $insurance['member_id'],
+            'subscriberId' => $memberId,
             'beneficiary' => [
-                'reference' => "Patient/{$data['patient_id']}"
+                'reference' => "Patient/{$patientId}"
             ],
             'relationship' => [
                 'coding' => [
@@ -130,7 +181,7 @@ class InsuranceHandler
             ],
             'payor' => [
                 [
-                    'display' => $insurance['payer_name']
+                    'display' => $payerName
                 ]
             ],
             'class' => array_filter([

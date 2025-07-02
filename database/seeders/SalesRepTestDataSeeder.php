@@ -293,7 +293,7 @@ class SalesRepTestDataSeeder extends Seeder
                 'payer_name_submitted' => collect(['Medicare Part B', 'Blue Cross Blue Shield', 'Aetna', 'UnitedHealth'])->random(),
                 'payer_id' => 'INS' . rand(100, 999),
                 'expected_service_date' => Carbon::now()->addDays(rand(1, 30)),
-                'wound_type' => collect(['DFU', 'VLU', 'PU', 'SSI'])->random(),
+                'wound_type' => collect(['DFU', 'VLU', 'PU', 'TW', 'AU', 'OTHER'])->random(),
                 'clinical_summary' => json_encode([
                     'patient' => [
                         'firstName' => $patientName[0],
