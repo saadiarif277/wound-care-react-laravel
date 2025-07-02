@@ -27,12 +27,30 @@ interface Step6Props {
 }
 
 // Helper function to safely map form data to order data structure (same as Index.tsx)
-const mapFormDataToOrderData = (formData: any): any => {
+const mapFormDataToOrderData = (formData: any, providers: Array<any> = [], facilities: Array<any> = []): any => {
+  // Helper function to get provider details
+  const getProviderDetails = (providerId: any) => {
+    if (!providerId) return null;
+    return providers.find(provider => provider.id == providerId) ||
+           providers.find(provider => provider.id === providerId);
+  };
+
+  // Helper function to get facility details
+  const getFacilityDetails = (facilityId: any) => {
+    if (!facilityId) return null;
+    return facilities.find(facility => facility.id == facilityId) ||
+           facilities.find(facility => facility.id === facilityId);
+  };
+
+  // Get provider and facility details
+  const providerDetails = getProviderDetails(formData?.provider_id);
+  const facilityDetails = getFacilityDetails(formData?.facility_id);
+
   return {
     orderNumber: formData?.episode_id || 'N/A',
     orderStatus: formData?.order_status || 'draft',
     createdDate: formData?.created_at ? new Date(formData.created_at).toLocaleDateString() : new Date().toLocaleDateString(),
-    createdBy: formData?.provider_name || 'N/A',
+    createdBy: providerDetails?.name || formData?.provider_name || 'N/A',
     patient: {
       fullName: `${formData?.patient_first_name || ''} ${formData?.patient_last_name || ''}`.trim() || 'N/A',
       dateOfBirth: formData?.patient_dob || 'N/A',
@@ -52,11 +70,11 @@ const mapFormDataToOrderData = (formData: any): any => {
       insuranceCardUploaded: !!formData?.insurance_card_front,
     },
     provider: {
-      name: formData?.provider_name || 'N/A',
-      facilityName: formData?.facility_name || 'N/A',
-      facilityAddress: formData?.facility_address || formData?.service_address || 'N/A',
-      organization: formData?.organization_name || 'N/A',
-      npi: formData?.provider_npi || 'N/A',
+      name: providerDetails?.name || formData?.provider_name || 'N/A',
+      facilityName: facilityDetails?.name || formData?.facility_name || 'N/A',
+      facilityAddress: facilityDetails?.address || formData?.facility_address || formData?.service_address || 'N/A',
+      organization: providerDetails?.organization?.name || formData?.organization_name || 'N/A',
+      npi: providerDetails?.npi || formData?.provider_npi || 'N/A',
     },
     clinical: {
       woundType: formData?.wound_type || 'N/A',
@@ -78,7 +96,7 @@ const mapFormDataToOrderData = (formData: any): any => {
       procedureInfo: formData?.procedure_info || 'N/A',
       priorApplications: parseInt(formData?.prior_applications) || 0,
       anticipatedApplications: parseInt(formData?.anticipated_applications) || 0,
-      facilityInfo: formData?.facility_name || 'N/A',
+      facilityInfo: facilityDetails?.name || formData?.facility_name || 'N/A',
     },
     product: {
       name: formData?.selected_products?.[0]?.product?.name || 'N/A',
@@ -137,7 +155,7 @@ export default function Step6ReviewSubmit({
   }
 
   // Create order data with proper mapping
-  const orderData = mapFormDataToOrderData(formData);
+  const orderData = mapFormDataToOrderData(formData, providers, facilities);
 
   // Toggle section visibility
   const toggleSection = (section: string) => {
@@ -331,6 +349,57 @@ export default function Step6ReviewSubmit({
             </div>
             <div className={`p-2 rounded ${formData?.maintain_documentation !== undefined ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
               maintain_documentation: {formData?.maintain_documentation !== undefined ? formData.maintain_documentation.toString() : 'MISSING'}
+            </div>
+          </div>
+        </div>
+
+        {/* Provider & Facility Debug Section */}
+        <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded">
+          <h4 className="font-medium text-purple-800 mb-2">👨‍⚕️ Provider & Facility Debug:</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+            <div>
+              <h5 className="font-medium text-purple-700 mb-2">Form Data Provider/Facility Fields:</h5>
+              <div className="space-y-1">
+                <div className={`p-1 rounded ${formData?.provider_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  provider_id: {formData?.provider_id || 'MISSING'}
+                </div>
+                <div className={`p-1 rounded ${formData?.facility_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  facility_id: {formData?.facility_id || 'MISSING'}
+                </div>
+                <div className={`p-1 rounded ${formData?.provider_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  provider_name: {formData?.provider_name || 'MISSING'}
+                </div>
+                <div className={`p-1 rounded ${formData?.facility_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  facility_name: {formData?.facility_name || 'MISSING'}
+                </div>
+                <div className={`p-1 rounded ${formData?.provider_npi ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  provider_npi: {formData?.provider_npi || 'MISSING'}
+                </div>
+                <div className={`p-1 rounded ${formData?.facility_address ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  facility_address: {formData?.facility_address || 'MISSING'}
+                </div>
+              </div>
+            </div>
+            <div>
+              <h5 className="font-medium text-purple-700 mb-2">Available Providers/Facilities Arrays:</h5>
+              <div className="space-y-1">
+                <div className={`p-1 rounded ${providers.length > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  providers array: {providers.length} items
+                </div>
+                <div className={`p-1 rounded ${facilities.length > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                  facilities array: {facilities.length} items
+                </div>
+                {formData?.provider_id && (
+                  <div className="p-1 rounded bg-blue-100 text-blue-800">
+                    Found provider: {providers.find(p => p.id == formData.provider_id)?.name || 'NOT FOUND'}
+                  </div>
+                )}
+                {formData?.facility_id && (
+                  <div className="p-1 rounded bg-blue-100 text-blue-800">
+                    Found facility: {facilities.find(f => f.id == formData.facility_id)?.name || 'NOT FOUND'}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
