@@ -31,58 +31,58 @@ export default function MyOrders({ auth, orders, filter, search }: MyOrdersProps
   const { theme } = useTheme();
   const t = themes[theme];
   const permissions = useFinancialPermissions(auth.user.role);
-  
+
   const [searchTerm, setSearchTerm] = useState(search || '');
   const [statusFilter, setStatusFilter] = useState(filter || 'all');
 
   const getStatusBadge = (status: Order['status']) => {
     const statusConfig = {
-      draft: { 
+      draft: {
         color: theme === 'dark' ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700',
         icon: FiClock,
         label: 'Draft'
       },
-      submitted: { 
+      submitted: {
         color: theme === 'dark' ? 'bg-yellow-900/30 text-yellow-400' : 'bg-yellow-100 text-yellow-800',
         icon: FiClock,
         label: 'Submitted'
       },
-      ivr_pending: { 
+      ivr_pending: {
         color: theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-800',
         icon: FiClock,
         label: 'IVR Pending'
       },
-      ivr_approved: { 
+      ivr_approved: {
         color: theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800',
         icon: FiCheckCircle,
         label: 'IVR Approved'
       },
-      order_form_pending: { 
+      order_form_pending: {
         color: theme === 'dark' ? 'bg-orange-900/30 text-orange-400' : 'bg-orange-100 text-orange-800',
         icon: FiClock,
         label: 'Order Form Pending'
       },
-      order_form_signed: { 
+      order_form_signed: {
         color: theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800',
         icon: FiCheckCircle,
         label: 'Order Form Signed'
       },
-      approved: { 
+      approved: {
         color: theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800',
         icon: FiCheckCircle,
         label: 'Approved'
       },
-      shipped: { 
+      shipped: {
         color: theme === 'dark' ? 'bg-blue-900/30 text-blue-400' : 'bg-blue-100 text-blue-800',
         icon: FiPackage,
         label: 'Shipped'
       },
-      delivered: { 
+      delivered: {
         color: theme === 'dark' ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-800',
         icon: FiCheckCircle,
         label: 'Delivered'
       },
-      cancelled: { 
+      cancelled: {
         color: theme === 'dark' ? 'bg-red-900/30 text-red-400' : 'bg-red-100 text-red-800',
         icon: FiAlertCircle,
         label: 'Cancelled'
@@ -274,7 +274,7 @@ export default function MyOrders({ auth, orders, filter, search }: MyOrdersProps
                         </td>
                         {permissions.canViewPricing && (
                           <td className={cn("px-6 py-4 whitespace-nowrap text-sm", t.text.primary)}>
-                            ${order.asp_price?.toFixed(2) || '0.00'}
+                            ${(Number(order.asp_price) || 0).toFixed(2)}
                           </td>
                         )}
                         <td className="px-6 py-4 whitespace-nowrap">

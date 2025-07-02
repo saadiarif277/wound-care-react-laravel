@@ -387,7 +387,7 @@ final class QuickRequestController extends Controller
                 'user_id' => Auth::id(),
             ]);
 
-            return redirect()->route('admin.episodes.show', $episode->id)
+            return redirect()->route('quick-requests.my-orders')
                 ->with('success', 'Order submitted successfully! Your order is now being processed.')
                 ->with('episode_id', $episode->id);
 
@@ -2980,7 +2980,6 @@ final class QuickRequestController extends Controller
             $query->where(function($q) use ($search) {
                 $q->where('id', 'like', "%{$search}%")
                     ->orWhere('patient_display_id', 'like', "%{$search}%")
-
                     ->orWhereHas('manufacturer', function($q2) use ($search) {
                         $q2->where('name', 'like', "%{$search}%");
                     });
@@ -3006,12 +3005,60 @@ final class QuickRequestController extends Controller
                     default => 'submitted'
                 };
 
+                // Get product information from ProductRequest
+                $productName = 'N/A';
+                $productCode = 'N/A';
+                $aspPrice = 0;
+                $facilityName = 'N/A';
+
+                // Find ProductRequest by patient_fhir_id
+                $productRequest = \App\Models\Order\ProductRequest::where('patient_fhir_id', $episode->patient_fhir_id)
+                    ->with(['products'])
+                    ->first();
+
+                if ($productRequest) {
+                    // Get the first product from the relationship
+                    $product = $productRequest->products->first();
+                    if ($product) {
+                        $productName = $product->name ?? 'N/A';
+                        $productCode = $product->code ?? $product->q_code ?? 'N/A';
+
+                        // Get pricing from the pivot table
+                        $pivotData = $productRequest->products()->where('product_id', $product->id)->first();
+                        if ($pivotData && $pivotData->pivot) {
+                            $aspPrice = $pivotData->pivot->total_price ?? $pivotData->pivot->unit_price ?? 0;
+                        } else {
+                            $aspPrice = $product->price ?? 0;
+                        }
+                    }
+
+                    // Get facility name from metadata or direct field
+                    if ($productRequest->facility_id) {
+                        $facility = \App\Models\Fhir\Facility::find($productRequest->facility_id);
+                        if ($facility) {
+                            $facilityName = $facility->name;
+                        }
+                    } else {
+                        // Try to get from metadata
+                        $metadata = $productRequest->clinical_summary ?? [];
+                        if (isset($metadata['facility_id'])) {
+                            $facility = \App\Models\Fhir\Facility::find($metadata['facility_id']);
+                            if ($facility) {
+                                $facilityName = $facility->name;
+                            }
+                        }
+                    }
+                }
+
                 $orderData = [
                     'id' => $episode->id,
                     'order_number' => $episode->id, // Using episode ID as order number
                     'patient_name' => $episode->patient_display_id ?? 'Unknown Patient',
                     'patient_mrn' => 'N/A',
+                    'product_name' => $productName,
+                    'product_code' => $productCode,
                     'manufacturer_name' => $episode->manufacturer->name ?? 'Unknown Manufacturer',
+                    'facility_name' => $facilityName,
                     'status' => $orderStatus,
                     'created_at' => $episode->created_at->toIso8601String(),
                     'updated_at' => $episode->updated_at->toIso8601String(),
@@ -3020,7 +3067,7 @@ final class QuickRequestController extends Controller
 
                 // Add pricing info only if user has permission
                 if ($user->role !== 'OM') {
-                    $orderData['asp_price'] = 0; // TODO: Get from orders relationship when available
+                    $orderData['asp_price'] = $aspPrice;
                 }
 
                 return $orderData;
