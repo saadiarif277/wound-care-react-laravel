@@ -2272,6 +2272,14 @@ final class QuickRequestController extends Controller
                 'verbal_order' => $validated['verbal_order'] ?? null,
             ],
 
+            // Facility Information
+            'facility' => [
+                'id' => $validated['facility_id'] ?? null,
+                'name' => $validated['facility_name'] ?? null,
+                'address' => $validated['facility_address'] ?? null,
+                'service_address' => $validated['service_address'] ?? null,
+            ],
+
             // Manufacturer Fields
             'manufacturer_fields' => $validated['manufacturer_fields'] ?? [],
 
@@ -2469,7 +2477,7 @@ final class QuickRequestController extends Controller
                     'npi' => $productRequest->getValue('provider_npi'),
                 ],
                 'facility' => [
-                    'name' => $productRequest->getValue('facility_name'),
+                    'name' => $this->getFacilityName($productRequest),
                 ],
                 'product' => [
                     'name' => $productRequest->product_name,
@@ -3032,22 +3040,8 @@ final class QuickRequestController extends Controller
                         }
                     }
 
-                    // Get facility name from metadata or direct field
-                    if ($productRequest->facility_id) {
-                        $facility = \App\Models\Fhir\Facility::find($productRequest->facility_id);
-                        if ($facility) {
-                            $facilityName = $facility->name;
-                        }
-                    } else {
-                        // Try to get from metadata
-                        $metadata = $productRequest->clinical_summary ?? [];
-                        if (isset($metadata['facility_id'])) {
-                            $facility = \App\Models\Fhir\Facility::find($metadata['facility_id']);
-                            if ($facility) {
-                                $facilityName = $facility->name;
-                            }
-                        }
-                    }
+                                        // Get facility name using the helper method
+                    $facilityName = $this->getFacilityName($productRequest);
                 }
 
                 $orderData = [
@@ -3126,6 +3120,44 @@ final class QuickRequestController extends Controller
                 'updated_at' => now(),
             ]);
         }
+    }
+
+    /**
+     * Get facility name from product request with fallback logic
+     */
+    private function getFacilityName(ProductRequest $productRequest): string
+    {
+        // First try to get from direct facility relationship
+        if ($productRequest->facility_id) {
+            $facility = \App\Models\Fhir\Facility::find($productRequest->facility_id);
+            if ($facility && !empty($facility->name)) {
+                return $facility->name;
+            }
+        }
+
+        // Try to get from metadata
+        $metadata = $productRequest->clinical_summary ?? [];
+
+        // Check for facility name in metadata
+        if (isset($metadata['facility']['name']) && !empty($metadata['facility']['name'])) {
+            return $metadata['facility']['name'];
+        }
+
+        // Check for facility_id in metadata and look up the facility
+        if (isset($metadata['facility_id'])) {
+            $facility = \App\Models\Fhir\Facility::find($metadata['facility_id']);
+            if ($facility && !empty($facility->name)) {
+                return $facility->name;
+            }
+        }
+
+        // Try to get from getValue method as fallback
+        $facilityName = $productRequest->getValue('facility_name');
+        if (!empty($facilityName)) {
+            return $facilityName;
+        }
+
+        return 'N/A';
     }
 
     /**

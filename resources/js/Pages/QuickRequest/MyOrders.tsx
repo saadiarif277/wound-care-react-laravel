@@ -287,7 +287,7 @@ export default function MyOrders({ auth, orders, filter, search }: MyOrdersProps
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <Link
-                            href={`/quick-request/orders/${order.id}`}
+                            href={`/quick-requests/order-summary/${order.id}`}
                             className={cn(
                               "inline-flex items-center text-sm font-medium transition-colors",
                               theme === 'dark' ? 'text-blue-400 hover:text-blue-300' : 'text-blue-600 hover:text-blue-700'

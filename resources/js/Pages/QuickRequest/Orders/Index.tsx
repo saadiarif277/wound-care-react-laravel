@@ -76,8 +76,8 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
             },
             provider: {
                 name: formData?.provider_name || 'N/A',
-                facilityName: formData?.facility_name || 'N/A',
-                facilityAddress: formData?.facility_address || formData?.service_address || 'N/A',
+                facilityName: formData?.facility_name || formData?.facility?.name || 'N/A',
+                facilityAddress: formData?.facility_address || formData?.facility?.address?.line1 || formData?.service_address || 'N/A',
                 organization: formData?.organization_name || 'N/A',
                 npi: formData?.provider_npi || 'N/A',
             },
@@ -194,6 +194,9 @@ const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) =
                             </div>
                             <div className={`p-2 rounded ${formData?.facility_id ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 facility_id: {formData?.facility_id || 'MISSING'}
+                            </div>
+                            <div className={`p-2 rounded ${formData?.facility_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                facility_name: {formData?.facility_name || 'MISSING'}
                             </div>
                             <div className={`p-2 rounded ${formData?.patient_first_name ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                                 patient_first_name: {formData?.patient_first_name || 'MISSING'}
