@@ -76,9 +76,9 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
   const [useDirectUrl, setUseDirectUrl] = useState(false); // Default to embedded for better UX
   const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
+  const [debugInfo, setDebugInfo] = useState<any>(null); // Store debug info for display
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
-  const [ setDebugInfo ] = useState<any>(null);
 
   // Memoized token fetch function
   const fetchToken = useCallback(async () => {
@@ -692,3 +692,5 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
   return null;
 };
+
+
