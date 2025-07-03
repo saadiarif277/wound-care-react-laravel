@@ -98,7 +98,7 @@ interface OrderFormData {
 ### 1. Frontend Integration (React)
 
 ```jsx
-import OrderFormFuzzyMatcher from '@/components/OrderFormFuzzyMatcher';
+import OrderFormFuzzyMatcher from '@/Components/OrderFormFuzzyMatcher';
 
 function OrderProcessing() {
   const handleExtractedData = (data) => {

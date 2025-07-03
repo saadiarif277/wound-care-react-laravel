@@ -4,10 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowLeft, FiArrowRight, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import Step1PatientInfo from './Components/Step1PatientInfoNew';
-import Step2ProductSelection from './Components/Step2ProductSelection';
-import Step3Documentation from './Components/Step3Documentation';
-import Step4Confirmation from './Components/Step4Confirmation';
+
 
 interface QuickRequestFormData {
   // Step 1: Patient Information
@@ -335,50 +332,6 @@ function QuickRequestCreate({
             </div>
           )}
 
-          {/* Step Content */}
-          <div className={cn("shadow-xl rounded-2xl p-8", t.glass.card)}>
-            {currentStep === 1 && (
-              <Step1PatientInfo
-                formData={formData}
-                updateFormData={updateFormData}
-                facilities={facilitiesArray}
-                woundTypes={woundTypes}
-                errors={errors}
-                prefillData={prefillData}
-                providers={providers}
-                currentUser={currentUser}
-              />
-            )}
-
-            {currentStep === 2 && (
-              <Step2ProductSelection
-                formData={formData}
-                updateFormData={updateFormData}
-                errors={errors}
-              />
-            )}
-
-            {currentStep === 3 && (
-              <Step3Documentation
-                formData={formData}
-                updateFormData={updateFormData}
-                providers={providers}
-                currentUser={currentUser}
-                errors={errors}
-              />
-            )}
-
-            {currentStep === 4 && (
-              <Step4Confirmation
-                formData={formData}
-                updateFormData={updateFormData}
-                products={products}
-                facilities={facilitiesArray}
-                onSubmit={handleSubmit}
-                isSubmitting={isSubmitting}
-              />
-            )}
-          </div>
 
           {/* Navigation Buttons */}
           <div className="mt-8 flex justify-between">

@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '../ui/button';
 import { OrderTable } from './OrderTable';
 import { OrderDetailView } from './OrderDetailView';
-import { AdminOrderData, DashboardFilter, AdminViewMode } from '../../types/adminTypes';
+import { AdminOrderData, DashboardFilter, AdminViewMode } from '../types/adminTypes';
 import { mockAdminOrders } from '../data/mockAdminOrderData';
 import { Plus } from 'lucide-react';
 

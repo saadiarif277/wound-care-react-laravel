@@ -1,6 +1,6 @@
 import React from 'react';
 import { SectionCard } from '@/Pages/QuickRequest/Orders/order/SectionCard';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/Components/Button';
 import { ClipboardList, FileText, Eye } from 'lucide-react';
 
 interface OrderData {
@@ -57,7 +57,7 @@ const FormsSection: React.FC<FormsSectionProps> = ({
             <span className="text-sm text-green-600">✓ Established</span>
           </div>
           <div className="flex gap-2 mt-3">
-            <Button variant="outline" size="sm" className="flex-1">
+            <Button variant="secondary" size="sm" className="flex-1">
               <Eye className="h-3 w-3 mr-2" />
               View Forms
             </Button>
@@ -80,7 +80,7 @@ const FormsSection: React.FC<FormsSectionProps> = ({
             <span className="text-sm">{orderData.createdDate}</span>
           </div>
           <div className="flex gap-2 mt-3">
-            <Button variant="outline" size="sm" className="flex-1">
+            <Button variant="secondary" size="sm" className="flex-1">
               <Eye className="h-3 w-3 mr-2" />
               View IVR
             </Button>

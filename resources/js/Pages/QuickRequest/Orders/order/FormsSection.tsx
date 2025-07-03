@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { SectionCard } from './SectionCard';
-import { OrderData } from '../../types/orderTypes';
-import { Button } from '@/components/ui/button';
+import { OrderData } from '../types/orderTypes';
+import { Button } from '../ui/button';
 import { ClipboardList, FileText, Eye } from 'lucide-react';
 
 interface FormsSectionProps {

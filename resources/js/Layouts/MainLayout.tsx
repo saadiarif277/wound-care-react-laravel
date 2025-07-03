@@ -5,7 +5,7 @@ import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
 import { AIOverlay, FloatingAIButton } from '@/Components/GhostAiUi';
 import { Toaster } from '@/Components/GhostAiUi/ui/toaster';
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
   FiLogOut,
   FiMenu,
@@ -14,7 +14,7 @@ import {
   FiChevronLeft,
   FiChevronRight,
 } from 'react-icons/fi';
-import { ThemeProvider, useTheme } from '@/contexts/ThemeContext';
+import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { ThemeToggleCompact } from '@/Components/ThemeToggle';
 

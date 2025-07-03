@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { AdminOrderData, OrderStatus } from '../../types/adminTypes';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Badge } from '../ui/badge';
+import { AdminOrderData, OrderStatus } from '../types/adminTypes';
 
 interface OrderTableProps {
   orders: AdminOrderData[];

@@ -19,8 +19,6 @@ class ProfileAuditLog extends Model
     use HasFactory, BelongsToOrganization;
 
     protected $table = 'profile_audit_log';
-    protected $keyType = 'string';
-    public $incrementing = false;
     public $timestamps = false; // We only use created_at
 
     protected $fillable = [
@@ -69,10 +67,6 @@ class ProfileAuditLog extends Model
         parent::boot();
 
         static::creating(function ($auditLog) {
-            if (empty($auditLog->id)) {
-                $auditLog->id = (string) Str::uuid();
-            }
-
             // Auto-populate user context if not provided
             if (Auth::check() && !$auditLog->user_id) {
                 $user = Auth::user();

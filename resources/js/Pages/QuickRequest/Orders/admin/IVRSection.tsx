@@ -1,13 +1,13 @@
 
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { AdminOrderData, IVRStatus } from '../../types/adminTypes';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Textarea } from '../ui/textarea';
+import { Label } from '../ui/label';
+import { AdminOrderData, IVRStatus } from '../types/adminTypes';
 import { FileText, Upload, Eye } from 'lucide-react';
 
 interface IVRSectionProps {
@@ -31,12 +31,16 @@ export const IVRSection: React.FC<IVRSectionProps> = ({
 
   const getStatusColor = (status: IVRStatus): string => {
     switch (status) {
-      case 'Not Required': return 'bg-gray-100 text-gray-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Sent': return 'bg-blue-100 text-blue-800';
-      case 'Results Received': return 'bg-purple-100 text-purple-800';
-      case 'Verified': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case "Pending IVR": return 'bg-yellow-100 text-yellow-800';
+      case "IVR Sent": return 'bg-blue-100 text-blue-800';
+      case "IVR Verified": return 'bg-purple-100 text-purple-800';
+      // (Remove this line, as "Approved" is not a valid IVRStatus anymore)
+     // case "Denied": return 'bg-red-100 text-red-800';
+      // case "Send Back": return 'bg-orange-100 text-orange-800';
+    //  case "Submitted to Manufacturer": return 'bg-indigo-100 text-indigo-800';
+      case "N/A": return 'bg-gray-100 text-gray-800';
+      case "Rejected": return 'bg-red-100 text-red-800';
+      default: return '';
     }
   };
 
@@ -98,7 +102,7 @@ export const IVRSection: React.FC<IVRSectionProps> = ({
           )}
 
           <div className="flex gap-2 flex-wrap">
-            {order.ivrData.status === 'Pending' && (
+            {order.ivrData.status === ('Pending' as IVRStatus) && (
               <Button onClick={() => onGenerateIVR(order.orderNumber)} size="sm">
                 Generate IVR
               </Button>
@@ -108,7 +112,7 @@ export const IVRSection: React.FC<IVRSectionProps> = ({
               Update Status
             </Button>
 
-            {(order.ivrData.status === 'Sent' || order.ivrData.status === 'Results Received') && (
+            {(order.ivrData.status === ('Sent' as IVRStatus) || order.ivrData.status === ('Results Received' as IVRStatus)) && (
               <Button variant="outline" onClick={() => setShowUploadModal(true)} size="sm">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Results

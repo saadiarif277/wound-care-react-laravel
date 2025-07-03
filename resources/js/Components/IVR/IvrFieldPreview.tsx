@@ -1,8 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import GlassCard from '@/Components/ui/GlassCard';
+import Heading from '@/Components/ui/Heading';
+
+interface Props {
     formData: any;
     manufacturer: string;
+    className?: string;
 }
 
 interface FieldCoverage {
@@ -14,8 +19,7 @@ interface FieldCoverage {
     coverage_level: 'excellent' | 'good' | 'fair' | 'poor';
 }
 
-export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldPreviewProps) {
-    const [fields, setFields] = useState<any[]>([]);
+export function IvrFieldPreview({ formData, manufacturer, className }: Props) {
     const [coverage, setCoverage] = useState<FieldCoverage | null>(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ export function IvrFieldPreview({ formData, manufacturer, className }: IvrFieldP
                     throw new Error('Failed to fetch manufacturer fields');
                 }
                 const fieldsData = await fieldsResponse.json();
-                setFields(fieldsData.fields || []);
+                // Fields data is fetched but not currently used in the UI
 
                 // Calculate coverage
                 const coverageResponse = await fetch('/api/v1/ivr/calculate-coverage', {
