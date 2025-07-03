@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Card, CardContent, CardHeader, CardTitle } from '@/Pages/QuickRequest/Orders/ui/card';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/Pages/QuickRequest/Orders/ui/collapsible';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 
 interface SectionCardProps {

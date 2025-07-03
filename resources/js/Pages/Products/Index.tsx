@@ -33,21 +33,25 @@ interface Product {
   id: number;
   sku: string;
   name: string;
-  description: string;
+  description?: string;
   manufacturer: string;
   category: string;
-  price_per_sq_cm: number;
+  price_per_sq_cm?: number;
   national_asp?: number;
+  msc_price?: number;
+  display_price?: number;
+  price_label?: string;
   q_code: string;
   available_sizes: number[];
   size_options?: string[];
-  commission_rate: number;
+  commission_rate?: number;
   is_active: boolean;
+  is_onboarded?: boolean;
   image_url?: string;
   document_urls?: string[];
   created_at: string;
   updated_at: string;
-  mue_limit?: number;
+  mue?: number;
   graph_type?: string;
 }
 
@@ -61,9 +65,31 @@ interface Props {
     manufacturer?: string;
     active?: boolean;
   };
+  stats: {
+    total_products: number;
+    onboarded_products: number;
+  };
+  permissions: {
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    can_manage_products: boolean;
+    is_provider: boolean;
+    is_office_manager: boolean;
+    is_admin: boolean;
+  };
+  pagination?: {
+    current_page: number;
+    last_page: number;
+    per_page: number;
+    total: number;
+    from: number;
+    to: number;
+  };
 }
 
-export default function ProductsIndex({ products, categories, manufacturers, filters }: Props) {
+export default function ProductsIndex({ products, categories, manufacturers, filters, stats, permissions, pagination }: Props) {
   const { theme } = useTheme();
   const t = themes[theme];
 
@@ -179,17 +205,19 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
               </p>
             </div>
             <div className="flex items-center gap-3">
-              <Link
-                href="/products/create"
-                className={cn(
-                  "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
-                  t.button.primary.base,
-                  t.button.primary.hover
-                )}
-              >
-                <FiPlus className="w-4 h-4" />
-                Add Product
-              </Link>
+              {permissions.can_manage_products && (
+                <Link
+                  href="/products/create"
+                  className={cn(
+                    "flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all",
+                    t.button.primary.base,
+                    t.button.primary.hover
+                  )}
+                >
+                  <FiPlus className="w-4 h-4" />
+                  Add Product
+                </Link>
+              )}
             </div>
           </div>
 
@@ -199,22 +227,37 @@ export default function ProductsIndex({ products, categories, manufacturers, fil
               <div className="flex items-center justify-between">
                 <div>
                   <p className={cn("text-xs font-medium", t.text.secondary)}>Total Products</p>
-                  <p className={cn("text-2xl font-bold", t.text.primary)}>{products.length}</p>
+                  <p className={cn("text-2xl font-bold", t.text.primary)}>{stats.total_products}</p>
                 </div>
                 <FiPackage className={cn("w-8 h-8", t.text.secondary)} />
               </div>
             </div>
-            <div className={cn("p-4 rounded-xl", t.glass.frost)}>
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className={cn("text-xs font-medium", t.text.secondary)}>Active Products</p>
-                  <p className={cn("text-2xl font-bold text-green-500")}>
-                    {products.filter(p => p.is_active).length}
-                  </p>
+            {permissions.is_provider && (
+              <div className={cn("p-4 rounded-xl", t.glass.frost)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={cn("text-xs font-medium", t.text.secondary)}>Onboarded Products</p>
+                    <p className={cn("text-2xl font-bold text-green-500")}>
+                      {stats.onboarded_products}
+                    </p>
+                  </div>
+                  <FiActivity className="w-8 h-8 text-green-500" />
                 </div>
-                <FiActivity className="w-8 h-8 text-green-500" />
               </div>
-            </div>
+            )}
+            {!permissions.is_provider && (
+              <div className={cn("p-4 rounded-xl", t.glass.frost)}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className={cn("text-xs font-medium", t.text.secondary)}>Active Products</p>
+                    <p className={cn("text-2xl font-bold text-green-500")}>
+                      {products.filter(p => p.is_active).length}
+                    </p>
+                  </div>
+                  <FiActivity className="w-8 h-8 text-green-500" />
+                </div>
+              </div>
+            )}
             <div className={cn("p-4 rounded-xl", t.glass.frost)}>
               <div className="flex items-center justify-between">
                 <div>
@@ -558,24 +601,39 @@ const ProductCard: React.FC<{
         </div>
 
         <div className="space-y-2 mb-4">
-          <div className="flex justify-between items-center">
-            <span className={cn("text-xs", t.text.secondary)}>Price/cm²:</span>
-            <span className={cn("text-sm font-medium", t.text.primary)}>
-              ${product.price_per_sq_cm.toFixed(2)}
-            </span>
-          </div>
-          <div className="flex justify-between items-center">
-            <span className={cn("text-xs", t.text.secondary)}>Commission:</span>
-            <span className="text-sm font-medium text-green-500">
-              {product.commission_rate}%
-            </span>
-          </div>
+          {product.display_price !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className={cn("text-xs", t.text.secondary)}>{product.price_label || 'Price/cm²'}:</span>
+              <span className={cn("text-sm font-medium", t.text.primary)}>
+                ${product.display_price.toFixed(2)}
+              </span>
+            </div>
+          )}
+          {product.commission_rate !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className={cn("text-xs", t.text.secondary)}>Commission:</span>
+              <span className="text-sm font-medium text-green-500">
+                {product.commission_rate}%
+              </span>
+            </div>
+          )}
           <div className="flex justify-between items-center">
             <span className={cn("text-xs", t.text.secondary)}>Category:</span>
             <span className={cn("text-xs", t.text.secondary)}>
               {product.category}
             </span>
           </div>
+          {product.is_onboarded !== undefined && (
+            <div className="flex justify-between items-center">
+              <span className={cn("text-xs", t.text.secondary)}>Status:</span>
+              <span className={cn(
+                "text-xs font-medium",
+                product.is_onboarded ? "text-green-500" : "text-yellow-500"
+              )}>
+                {product.is_onboarded ? 'Onboarded' : 'Not Onboarded'}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Documents */}
@@ -714,12 +772,24 @@ const ProductListItem: React.FC<{
 
       {/* Price & Commission */}
       <div className="text-right flex-shrink-0">
-        <div className={cn("font-medium", t.text.primary)}>
-          ${product.price_per_sq_cm.toFixed(2)}/cm²
-        </div>
-        <div className="text-sm text-green-500">
-          {product.commission_rate}% commission
-        </div>
+        {product.display_price !== undefined && (
+          <div className={cn("font-medium", t.text.primary)}>
+            ${product.display_price.toFixed(2)}/cm²
+          </div>
+        )}
+        {product.commission_rate !== undefined && (
+          <div className="text-sm text-green-500">
+            {product.commission_rate}% commission
+          </div>
+        )}
+        {product.is_onboarded !== undefined && (
+          <div className={cn(
+            "text-xs mt-1",
+            product.is_onboarded ? "text-green-500" : "text-yellow-500"
+          )}>
+            {product.is_onboarded ? 'Onboarded' : 'Not Onboarded'}
+          </div>
+        )}
       </div>
 
       {/* Documents */}

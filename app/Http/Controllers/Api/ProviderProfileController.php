@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\ProviderProfile;
+use App\Models\Users\Provider\ProviderProfile;
 use App\Models\ProfileAuditLog;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -57,8 +57,6 @@ class ProviderProfileController extends Controller
             [
                 'entity_display_name' => $profile->provider->name ?? 'Provider Profile',
                 'action_description' => 'Provider profile viewed',
-                'compliance_category' => 'administrative',
-                'is_sensitive_data' => false,
             ]
         );
 
@@ -133,6 +131,46 @@ class ProviderProfileController extends Controller
     public function destroy(string $id)
     {
         //
+    }
+
+    /**
+     * Show the authenticated provider's own profile.
+     */
+    public function showOwn(Request $request)
+    {
+        $user = Auth::user();
+        
+        if (!$user) {
+            abort(401, 'Unauthenticated');
+        }
+
+        $profile = ProviderProfile::with(['provider', 'credentials.verifier'])
+            ->where('provider_id', $user->id)
+            ->first();
+
+        if (!$profile) {
+            // Create a default profile if it doesn't exist
+            $profile = $this->createDefaultProfile($user->id);
+        }
+
+        // Load credentials relationship
+        $profile->load('credentials');
+
+        // Log profile view for audit
+        ProfileAuditLog::logProfileChange(
+            'provider_profile',
+            (string) $user->id,
+            'view_sensitive',
+            [],
+            [
+                'entity_display_name' => $user->name ?? 'Provider Profile',
+                'action_description' => 'Provider viewed own profile',
+            ]
+        );
+
+        return \Inertia\Inertia::render('Provider/Profile/Index', [
+            'profile' => $this->formatProfileResponse($profile),
+        ]);
     }
 
     /**

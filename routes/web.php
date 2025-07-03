@@ -1066,6 +1066,10 @@ Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group
     Route::get('/episodes/{episode}', [ProviderDashboardController::class, 'showEpisode'])
         ->name('provider.episodes.show')
         ->middleware('permission:view-orders');
+    
+    // Provider Profile Route
+    Route::get('/profile', [\App\Http\Controllers\Api\ProviderProfileController::class, 'showOwn'])
+        ->name('provider.profile');
 });
 
 // Notifications Route - for all authenticated users

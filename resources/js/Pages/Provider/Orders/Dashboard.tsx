@@ -291,43 +291,6 @@ export default function ProviderOrdersDashboard({
           </div>
         </div>
 
-        {/* Mobile Quick Actions */}
-        <div className="lg:hidden">
-          <div className="flex overflow-x-auto space-x-3 p-4 -mt-2">
-            <button
-              onClick={() => {
-                triggerHaptic('medium');
-                router.visit(route('orders.create'));
-              }}
-              className={`${t.button.primary} px-4 py-2 flex items-center space-x-2 whitespace-nowrap`}
-            >
-              <Plus className="w-4 h-4" />
-              <span>New Order</span>
-            </button>
-            <button
-              onClick={() => {
-                triggerHaptic('light');
-                startQRScanner();
-              }}
-              className={`${t.button.secondary} px-4 py-2 flex items-center space-x-2 whitespace-nowrap`}
-            >
-              <QrCode className="w-4 h-4" />
-              <span>Scan QR</span>
-            </button>
-            <button
-              onClick={() => {
-                triggerHaptic('light');
-                setVoiceEnabled(!voiceEnabled);
-                if (!voiceEnabled) startVoiceCommand();
-              }}
-              className={`${t.button.secondary} px-4 py-2 flex items-center space-x-2 whitespace-nowrap`}
-            >
-              {voiceEnabled ? <Mic className="w-4 h-4" /> : <MicOff className="w-4 h-4" />}
-              <span>Voice</span>
-            </button>
-
-          </div>
-        </div>
 
         {/* AI Insights - Mobile Optimized - REMOVED */}
         <div className="p-4 lg:p-6">
@@ -480,44 +443,33 @@ export default function ProviderOrdersDashboard({
 
         {/* Mobile Bottom Navigation */}
         <div className={`lg:hidden fixed bottom-0 left-0 right-0 ${t.glass.card} border-t ${t.glass.border}`}>
-          <div className="flex items-center justify-around py-2">
-            <button
-              onClick={() => router.visit(route('dashboard'))}
-              className={`${t.button.ghost} p-3 flex flex-col items-center`}
-            >
-              <BarChart3 className="w-5 h-5" />
-              <span className="text-xs mt-1">Dashboard</span>
-            </button>
-            <button
-              onClick={() => router.visit(route('orders.index'))}
-              className={`${t.button.ghost} p-3 flex flex-col items-center text-blue-500`}
-            >
-              <Package className="w-5 h-5" />
-              <span className="text-xs mt-1">Orders</span>
-            </button>
-            <button
-              onClick={() => {
-                triggerHaptic('medium');
-                router.visit(route('orders.create'));
-              }}
-              className={`${t.button.primary} p-3 rounded-full -mt-4`}
-            >
-              <Plus className="w-6 h-6" />
-            </button>
-            <button
-              onClick={() => router.visit(route('patients.index'))}
-              className={`${t.button.ghost} p-3 flex flex-col items-center`}
-            >
-              <User className="w-5 h-5" />
-              <span className="text-xs mt-1">Patients</span>
-            </button>
-            <button
-              onClick={() => router.visit(route('profile'))}
-              className={`${t.button.ghost} p-3 flex flex-col items-center`}
-            >
-              <Shield className="w-5 h-5" />
-              <span className="text-xs mt-1">Profile</span>
-            </button>
+          <div className="flex items-center justify-center py-2">
+            <div className="flex items-center justify-center space-x-8">
+              <button
+                onClick={() => router.visit(route('dashboard'))}
+                className={`${t.button.ghost} p-3 flex flex-col items-center`}
+              >
+                <BarChart3 className="w-5 h-5" />
+                <span className="text-xs mt-1">Dashboard</span>
+              </button>
+              <button
+                onClick={() => {
+                  triggerHaptic('medium');
+                  router.visit(route('quick-requests.create-new'));
+                }}
+                className={`${t.button.primary} p-3 rounded-full -mt-4 flex flex-col items-center`}
+              >
+                <Plus className="w-6 h-6" />
+                <span className="text-xs mt-6">New Request</span>
+              </button>
+              <button
+                onClick={() => router.visit(route('products.index'))}
+                className={`${t.button.ghost} p-3 flex flex-col items-center`}
+              >
+                <Package className="w-5 h-5" />
+                <span className="text-xs mt-1">Products</span>
+              </button>
+            </div>
           </div>
         </div>
 

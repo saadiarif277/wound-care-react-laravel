@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { AdminOrderData, AdminActionProps, OrderStatus } from '../../types/adminTypes';
+import { Button } from '../ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { AdminOrderData, AdminActionProps, OrderStatus } from '../types/adminTypes';
 import { AdminActionModals } from './AdminActionModals';
 import { IVRSection } from './IVRSection';
 import { OrderFormSection } from './OrderFormSection';
@@ -63,7 +63,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const canSubmitToManufacturer = order.orderStatus === 'Approved';
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8 max-w-6xl">
         {/* Header */}
         <div className="flex justify-between items-start mb-8">
@@ -110,7 +110,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Patient & Insurance Information" 
           icon={User} 
           sectionKey="patient"
-          isOpen={openSections.patient}
+          isOpen={Boolean(openSections.patient)}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -132,7 +132,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Provider Information" 
           icon={Building2} 
           sectionKey="provider"
-          isOpen={openSections.provider}
+          isOpen={openSections.provider ?? false}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -154,7 +154,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Clinical Information" 
           icon={Stethoscope} 
           sectionKey="clinical"
-          isOpen={openSections.clinical}
+          isOpen={openSections.clinical ?? false}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -186,7 +186,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Product Information" 
           icon={Package} 
           sectionKey="product"
-          isOpen={openSections.product}
+          isOpen={openSections.product ?? false}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -230,7 +230,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="IVR Form & Order Form" 
           icon={ClipboardList} 
           sectionKey="forms"
-          isOpen={openSections.forms}
+          isOpen={openSections.forms ?? false}
           onToggle={toggleSection}
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -252,7 +252,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Supporting Documents" 
           icon={FileText} 
           sectionKey="documents"
-          isOpen={openSections.documents}
+          isOpen={openSections.documents ?? false}
           onToggle={toggleSection}
         >
           <div className="space-y-2">
@@ -276,7 +276,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           title="Action History" 
           icon={History} 
           sectionKey="history"
-          isOpen={openSections.history}
+          isOpen={openSections.history ?? false}
           onToggle={toggleSection}
         >
           <div className="space-y-4">

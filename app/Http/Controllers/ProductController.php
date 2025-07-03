@@ -23,6 +23,7 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
+        // Get all products without provider onboarding filtering
         $products = Product::query()
             ->when($request->filled('search'), function ($query) use ($request) {
                 $search = $request->get('search');
@@ -41,14 +42,13 @@ class ProductController extends Controller
             ->latest()
             ->paginate($request->get('per_page', 15))
             ->through(function ($product) use ($user) {
-                return [
+                $data = [
                     'id' => $product->id,
                     'name' => $product->name,
                     'sku' => $product->sku,
                     'q_code' => $product->q_code,
                     'manufacturer' => $product->manufacturer,
                     'category' => $product->category,
-                    'price_per_sq_cm' => $product->price_per_sq_cm,
                     'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
                     'size_options' => $product->size_options,
                     'size_pricing' => $product->size_pricing,
@@ -56,21 +56,82 @@ class ProductController extends Controller
                     'is_active' => $product->is_active,
                     'created_at' => $product->created_at,
                     'updated_at' => $product->updated_at,
-                    'msc_price' => $user->hasPermission('view-msc-pricing') ? $product->msc_price : null,
                 ];
+
+                // Include pricing based on user role
+                if ($user->hasRole('provider')) {
+                    // Providers see MSC price (price_per_sq_cm * 0.6)
+                    $data['msc_price'] = $product->price_per_sq_cm * 0.6;
+                    $data['display_price'] = $product->price_per_sq_cm * 0.6;
+                    $data['price_label'] = 'MSC Price';
+                } elseif ($user->hasRole('office_manager')) {
+                    // Office Managers see National ASP (price_per_sq_cm)
+                    $data['national_asp'] = $product->price_per_sq_cm;
+                    $data['display_price'] = $product->price_per_sq_cm;
+                    $data['price_label'] = 'National ASP';
+                } elseif ($user->hasRole('admin') || $user->hasRole('super_admin')) {
+                    // Admins see everything
+                    $data['price_per_sq_cm'] = $product->price_per_sq_cm;
+                    $data['national_asp'] = $product->price_per_sq_cm;
+                    $data['msc_price'] = $product->price_per_sq_cm * 0.6;
+                    $data['display_price'] = $product->price_per_sq_cm;
+                    $data['price_label'] = 'Price/cm²';
+                }
+
+                // Add commission rate only for authorized users
+                if ($user->hasAnyPermission(['view-financials', 'manage-financials'])) {
+                    $data['commission_rate'] = $product->commission_rate;
+                }
+
+                // Add MUE only for admins
+                if ($user->hasPermission('manage-products')) {
+                    $data['mue'] = $product->mue;
+                }
+
+                // Check if product is onboarded for providers
+                if ($user->hasRole('provider')) {
+                    $data['is_onboarded'] = $product->isAvailableForProvider($user->id);
+                }
+
+                return $data;
             });
+
+        // Calculate statistics
+        $totalProducts = Product::count();
+        $onboardedProductsCount = 0;
+        
+        if ($user->hasRole('provider')) {
+            $onboardedProductsCount = Product::whereHas('activeProviders', function ($q) use ($user) {
+                $q->where('users.id', $user->id);
+            })->count();
+        }
 
         return Inertia::render('Products/Index', [
             'products' => $products->items(), // Extract the data array from pagination
+            'pagination' => [
+                'current_page' => $products->currentPage(),
+                'last_page' => $products->lastPage(),
+                'per_page' => $products->perPage(),
+                'total' => $products->total(),
+                'from' => $products->firstItem(),
+                'to' => $products->lastItem(),
+            ],
             'filters' => $request->only(['search', 'category', 'manufacturer', 'sort', 'direction']),
             'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
             'manufacturers' => Product::distinct()->pluck('manufacturer')->filter()->sort()->values(),
+            'stats' => [
+                'total_products' => $totalProducts,
+                'onboarded_products' => $onboardedProductsCount,
+            ],
             'permissions' => [
                 'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
                 'can_see_discounts' => $user->hasPermission('view-discounts'),
                 'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
                 'can_see_order_totals' => $user->hasPermission('view-order-totals'),
                 'can_manage_products' => $user->hasPermission('manage-products'),
+                'is_provider' => $user->hasRole('provider'),
+                'is_office_manager' => $user->hasRole('office_manager'),
+                'is_admin' => $user->hasRole('admin') || $user->hasRole('super_admin'),
             ],
         ]);
     }

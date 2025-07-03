@@ -18,6 +18,7 @@ import {
   FiDatabase,
   FiTool,
   FiUserPlus,
+  FiUser,
   FiUserCheck,
   FiBarChart,
   FiPieChart,
@@ -79,78 +80,28 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['provider']
         },
         {
-          name: 'Product Requests',
-          href: '#',
+          name: 'Product Request',
+          href: '/quick-requests/create-new',
           icon: FiClipboard,
-          roles: ['provider'],
-          children: [
-            {
-              name: 'Quick Request',
-              href: '/quick-requests/create-new',
-              icon: FiLink,
-              roles: ['provider'],
-              description: 'Next-gen quick order form'
-            },
-            {
-              name: 'New Request',
-              href: '/product-requests/create',
-              icon: FiPlus,
-              roles: ['provider']
-            },
-            {
-              name: 'My Orders',
-              href: '/quick-requests/my-orders',
-              icon: FiShoppingCart,
-              roles: ['provider'],
-              description: 'Track your submitted orders'
-            }
-          ]
+          roles: ['provider']
         },
         {
-          name: 'Validations & Authorizations',
-          href: '#',
-          icon: FiCheckCircle,
-          roles: ['provider'],
-          children: [
-            {
-              name: 'MAC Validation',
-              href: '/mac-validation',
-              icon: FiShield,
-              roles: ['provider']
-            },
-            {
-              name: 'Eligibility Check',
-              href: '/eligibility',
-              icon: FiCheckCircle,
-              roles: ['provider']
-            },
-            {
-              name: 'Pre-Authorization',
-              href: '/pre-authorization',
-              icon: FiUserCheck,
-              roles: ['provider']
-            }
-          ]
+          name: 'MAC Validation',
+          href: '/mac-validation',
+          icon: FiShield,
+          roles: ['provider']
         },
         {
-          name: 'Resources',
-          href: '#',
-          icon: FiBookOpen,
-          roles: ['provider'],
-          children: [
-            {
-              name: 'Product Catalog',
-              href: '/products',
-              icon: FiPackage,
-              roles: ['provider']
-            },
-            {
-              name: 'My Facilities',
-              href: '/facilities',
-              icon: FiMapPin,
-              roles: ['provider']
-            }
-          ]
+          name: 'Product Catalog',
+          href: '/products',
+          icon: FiPackage,
+          roles: ['provider']
+        },
+        {
+          name: 'My Profile',
+          href: '/provider/profile',
+          icon: FiUser,
+          roles: ['provider']
         }
       ];
 
@@ -163,76 +114,16 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['office-manager']
         },
         {
-          name: 'Product Requests',
-          href: '#',
+          name: 'Product Request',
+          href: '/quick-requests/create-new',
           icon: FiClipboard,
-          roles: ['office-manager'],
-          children: [
-            {
-              name: 'Quick Request',
-              href: '/quick-requests/create-new',
-              icon: FiLink,
-              roles: ['office-manager'],
-              description: 'Next-gen quick order form'
-            },
-            {
-              name: 'New Request',
-              href: '/product-requests/create',
-              icon: FiPlus,
-              roles: ['office-manager']
-            },
-            {
-              name: 'All Requests',
-              href: '/product-requests',
-              icon: FiEye,
-              roles: ['office-manager']
-            },
-            {
-              name: 'By Provider',
-              href: '/product-requests/providers',
-              icon: FiUsers,
-              roles: ['office-manager']
-            },
-            {
-              name: 'By Facility',
-              href: '/product-requests/facility',
-              icon: FiMapPin,
-              roles: ['office-manager']
-            },
-            {
-              name: 'My Orders',
-              href: '/quick-requests/my-orders',
-              icon: FiShoppingCart,
-              roles: ['office-manager'],
-              description: 'Track submitted orders'
-            }
-          ]
+          roles: ['office-manager']
         },
         {
-          name: 'Validations & Authorizations',
-          href: '#',
-          icon: FiCheckCircle,
-          roles: ['office-manager'],
-          children: [
-            {
-              name: 'MAC Validation',
-              href: '/mac-validation',
-              icon: FiShield,
-              roles: ['office-manager']
-            },
-            {
-              name: 'Eligibility Check',
-              href: '/eligibility',
-              icon: FiCheckCircle,
-              roles: ['office-manager']
-            },
-            {
-              name: 'Pre-Authorization',
-              href: '/pre-authorization',
-              icon: FiUserCheck,
-              roles: ['office-manager']
-            }
-          ]
+          name: 'MAC Validation',
+          href: '/mac-validation',
+          icon: FiShield,
+          roles: ['office-manager']
         },
         {
           name: 'Management',
