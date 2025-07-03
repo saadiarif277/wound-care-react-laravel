@@ -413,7 +413,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
   if (isLoading) {
     return (
-      <div className={`relative overflow-hidden ${className}`} style={{ minHeight: '600px' }}>
+      <div className={`relative overflow-hidden ${className}`} style={{ minHeight: '800px' }}>
         {/* Animated Background */}
         <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50">
           <div className="absolute inset-0" style={{
@@ -640,9 +640,9 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
               id="docuseal-embed-container"
               className="w-full bg-white rounded-lg shadow-lg overflow-hidden"
               style={{
-                minHeight: '800px',
+                minHeight: '1000px',
                 height: '100vh',
-                maxHeight: '1200px',
+                maxHeight: '1600px',
                 width: '100%',
                 maxWidth: '100%'
               }}

@@ -43,67 +43,39 @@ interface DiagnosisCodeSelectorProps {
   };
 }
 
-// Wound type configurations
+// Wound type configurations based on CSV structure
 const WOUND_TYPES: WoundType[] = [
-  {
-    id: 'diabetic_foot_ulcer',
-    name: 'Diabetic Foot Ulcer',
-    requiresDualCoding: true,
-    primaryCategory: 'diabetes',
-    secondaryCategory: 'chronic_ulcer',
-    primaryLabel: 'Diabetes Diagnosis (E-codes)',
-    secondaryLabel: 'Chronic Ulcer Location (L97-codes)'
-  },
   {
     id: 'venous_leg_ulcer',
     name: 'Venous Leg Ulcer',
     requiresDualCoding: true,
-    primaryCategory: 'varicose',
-    secondaryCategory: 'chronic_ulcer',
-    primaryLabel: 'Varicose Vein Diagnosis (I83-codes)',
-    secondaryLabel: 'Chronic Ulcer Severity (L97-codes)'
+    primaryCategory: 'venous_ulcer_combined',
+    secondaryCategory: 'chronic_ulcer_l97',
+    primaryLabel: 'Venous Diagnosis (I83 or I87 codes)',
+    secondaryLabel: 'Chronic Ulcer (L97-codes)'
+  },
+  {
+    id: 'diabetic_foot_ulcer',
+    name: 'Diabetic Foot Ulcer',
+    requiresDualCoding: true,
+    primaryCategory: 'diabetes_mellitus',
+    secondaryCategory: 'chronic_ulcer_l97',
+    primaryLabel: 'Diabetes Mellitus (E-codes)',
+    secondaryLabel: 'Chronic Ulcer (L97-codes)'
   },
   {
     id: 'pressure_ulcer',
     name: 'Pressure Ulcer',
     requiresDualCoding: false,
-    primaryCategory: 'pressure',
-    primaryLabel: 'Pressure Ulcer with Stage (L89-codes)'
-  },
-  {
-    id: 'surgical_wound',
-    name: 'Surgical Wound',
-    requiresDualCoding: false,
-    primaryCategory: 'surgical',
-    primaryLabel: 'Post-procedural Complication'
-  },
-  {
-    id: 'traumatic_wound',
-    name: 'Traumatic Wound',
-    requiresDualCoding: false,
-    primaryCategory: 'trauma',
-    primaryLabel: 'Injury Diagnosis'
-  },
-  {
-    id: 'arterial_ulcer',
-    name: 'Arterial Ulcer',
-    requiresDualCoding: false,
-    primaryCategory: 'arterial',
-    primaryLabel: 'Atherosclerosis with Ulceration'
+    primaryCategory: 'pressure_ulcer_l89',
+    primaryLabel: 'Pressure Ulcer (L89-codes)'
   },
   {
     id: 'chronic_ulcer',
     name: 'Chronic Ulcer',
     requiresDualCoding: false,
-    primaryCategory: 'chronic_ulcer',
-    primaryLabel: 'Non-pressure Chronic Ulcer (L97-codes)'
-  },
-  {
-    id: 'other',
-    name: 'Other',
-    requiresDualCoding: false,
-    primaryCategory: 'other',
-    primaryLabel: 'Other Wound Diagnosis'
+    primaryCategory: 'chronic_ulcer_l97_single',
+    primaryLabel: 'Chronic Ulcer (L97-codes)'
   }
 ];
 
@@ -299,114 +271,160 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
       return;
     }
 
-    // Simulate fetching codes based on wound type
+    // Load diagnosis codes based on wound type category from CSV structure
     const mockPrimaryCodes: DiagnosisCode[] = [];
     const mockSecondaryCodes: DiagnosisCode[] = [];
 
-    // Use provided diagnosis codes if available for specific categories
-    if (currentWoundType.primaryCategory === 'diabetes' && diagnosisCodes?.yellow) {
-      mockPrimaryCodes.push(...diagnosisCodes.yellow.map(c => ({
-        ...c,
-        category: 'diabetes'
-      })));
-    } else if (currentWoundType.primaryCategory === 'varicose' && diagnosisCodes?.orange) {
-      // For venous leg ulcer primary codes
-      mockPrimaryCodes.push(...[
-        { code: 'I83.001', description: 'Varicose veins of unspecified lower extremity with ulcer of thigh', category: 'varicose' },
-        { code: 'I83.002', description: 'Varicose veins of unspecified lower extremity with ulcer of calf', category: 'varicose' },
-        { code: 'I83.003', description: 'Varicose veins of unspecified lower extremity with ulcer of ankle', category: 'varicose' },
-        { code: 'I83.004', description: 'Varicose veins of unspecified lower extremity with ulcer of heel and midfoot', category: 'varicose' },
-        { code: 'I83.005', description: 'Varicose veins of unspecified lower extremity with ulcer other part of foot', category: 'varicose' },
-        { code: 'I83.009', description: 'Varicose veins of unspecified lower extremity with ulcer of unspecified site', category: 'varicose' }
-      ]);
+    // Group 1 & 2 Combined - Venous Leg Ulcers (I83 + I87 codes combined)
+    if (currentWoundType.primaryCategory === 'venous_ulcer_combined') {
+      // I83 codes - Varicose veins with ulcer
+      mockPrimaryCodes.push(
+        { code: 'I83.001', description: 'Varicose veins of unspecified lower extremity with ulcer of thigh', category: 'venous_ulcer' },
+        { code: 'I83.002', description: 'Varicose veins of unspecified lower extremity with ulcer of calf', category: 'venous_ulcer' },
+        { code: 'I83.003', description: 'Varicose veins of unspecified lower extremity with ulcer of ankle', category: 'venous_ulcer' },
+        { code: 'I83.004', description: 'Varicose veins of unspecified lower extremity with ulcer of heel and midfoot', category: 'venous_ulcer' },
+        { code: 'I83.005', description: 'Varicose veins of unspecified lower extremity with ulcer other part of foot', category: 'venous_ulcer' },
+        { code: 'I83.008', description: 'Varicose veins of unspecified lower extremity with ulcer other part of lower leg', category: 'venous_ulcer' },
+        { code: 'I83.009', description: 'Varicose veins of unspecified lower extremity with ulcer of unspecified site', category: 'venous_ulcer' },
+        { code: 'I83.011', description: 'Varicose veins of right lower extremity with ulcer of thigh', category: 'venous_ulcer' },
+        { code: 'I83.012', description: 'Varicose veins of right lower extremity with ulcer of calf', category: 'venous_ulcer' },
+        { code: 'I83.013', description: 'Varicose veins of right lower extremity with ulcer of ankle', category: 'venous_ulcer' },
+        { code: 'I83.014', description: 'Varicose veins of right lower extremity with ulcer of heel and midfoot', category: 'venous_ulcer' },
+        { code: 'I83.015', description: 'Varicose veins of right lower extremity with ulcer other part of foot', category: 'venous_ulcer' },
+        { code: 'I83.018', description: 'Varicose veins of right lower extremity with ulcer other part of lower leg', category: 'venous_ulcer' },
+        { code: 'I83.019', description: 'Varicose veins of right lower extremity with ulcer of unspecified site', category: 'venous_ulcer' },
+        { code: 'I83.021', description: 'Varicose veins of left lower extremity with ulcer of thigh', category: 'venous_ulcer' },
+        { code: 'I83.022', description: 'Varicose veins of left lower extremity with ulcer of calf', category: 'venous_ulcer' },
+        { code: 'I83.023', description: 'Varicose veins of left lower extremity with ulcer of ankle', category: 'venous_ulcer' },
+        { code: 'I83.024', description: 'Varicose veins of left lower extremity with ulcer of heel and midfoot', category: 'venous_ulcer' },
+        { code: 'I83.025', description: 'Varicose veins of left lower extremity with ulcer other part of foot', category: 'venous_ulcer' },
+        { code: 'I83.028', description: 'Varicose veins of left lower extremity with ulcer other part of lower leg', category: 'venous_ulcer' },
+        { code: 'I83.029', description: 'Varicose veins of left lower extremity with ulcer of unspecified site', category: 'venous_ulcer' },
+        
+        // I87 codes - Venous insufficiency with ulcer
+        { code: 'I87.011', description: 'Postthrombotic syndrome with ulcer of right lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.012', description: 'Postthrombotic syndrome with ulcer of left lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.013', description: 'Postthrombotic syndrome with ulcer of bilateral lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.019', description: 'Postthrombotic syndrome with ulcer of unspecified lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.031', description: 'Postthrombotic syndrome with ulcer and inflammation of right lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.032', description: 'Postthrombotic syndrome with ulcer and inflammation of left lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.033', description: 'Postthrombotic syndrome with ulcer and inflammation of bilateral lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.039', description: 'Postthrombotic syndrome with ulcer and inflammation of unspecified lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.2', description: 'Venous insufficiency (chronic) (peripheral)', category: 'venous_ulcer' },
+        { code: 'I87.311', description: 'Chronic venous hypertension (idiopathic) with ulcer of right lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.312', description: 'Chronic venous hypertension (idiopathic) with ulcer of left lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.313', description: 'Chronic venous hypertension (idiopathic) with ulcer of bilateral lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.319', description: 'Chronic venous hypertension (idiopathic) with ulcer of unspecified lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.331', description: 'Chronic venous hypertension (idiopathic) with ulcer and inflammation of right lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.332', description: 'Chronic venous hypertension (idiopathic) with ulcer and inflammation of left lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.333', description: 'Chronic venous hypertension (idiopathic) with ulcer and inflammation of bilateral lower extremity', category: 'venous_ulcer' },
+        { code: 'I87.339', description: 'Chronic venous hypertension (idiopathic) with ulcer and inflammation of unspecified lower extremity', category: 'venous_ulcer' }
+      );
+    }
+    
+    // Group 3 - Diabetic Foot Ulcers (E-codes + L97)
+    else if (currentWoundType.primaryCategory === 'diabetes_mellitus') {
+      mockPrimaryCodes.push(
+        { code: 'E08.621', description: 'Diabetes mellitus due to underlying condition with foot ulcer', category: 'diabetes' },
+        { code: 'E08.622', description: 'Diabetes mellitus due to underlying condition with other skin ulcer', category: 'diabetes' },
+        { code: 'E09.621', description: 'Drug or chemical induced diabetes mellitus with foot ulcer', category: 'diabetes' },
+        { code: 'E09.622', description: 'Drug or chemical induced diabetes mellitus with other skin ulcer', category: 'diabetes' },
+        { code: 'E10.621', description: 'Type 1 diabetes mellitus with foot ulcer', category: 'diabetes' },
+        { code: 'E10.622', description: 'Type 1 diabetes mellitus with other skin ulcer', category: 'diabetes' },
+        { code: 'E11.621', description: 'Type 2 diabetes mellitus with foot ulcer', category: 'diabetes' },
+        { code: 'E11.622', description: 'Type 2 diabetes mellitus with other skin ulcer', category: 'diabetes' },
+        { code: 'E13.621', description: 'Other specified diabetes mellitus with foot ulcer', category: 'diabetes' },
+        { code: 'E13.622', description: 'Other specified diabetes mellitus with other skin ulcer', category: 'diabetes' },
+        { code: 'E11.42', description: 'Type 2 diabetes mellitus with diabetic polyneuropathy', category: 'diabetes' },
+        { code: 'E11.65', description: 'Type 2 diabetes mellitus with hyperglycemia', category: 'diabetes' },
+        { code: 'E11.4', description: 'Type 2 diabetes mellitus with neurological complications', category: 'diabetes' },
+        { code: 'E11.9', description: 'Type 2 diabetes mellitus without complications', category: 'diabetes' },
+        { code: 'E11.49', description: 'Type 2 diabetes mellitus with other diabetic neurological complication', category: 'diabetes' }
+      );
+    }
+    
+    // Group 4 - Pressure Ulcers (L89 - single coding)
+    else if (currentWoundType.primaryCategory === 'pressure_ulcer_l89') {
+      mockPrimaryCodes.push(
+        { code: 'L89.000', description: 'Pressure ulcer of unspecified elbow, unstageable', category: 'pressure_ulcer' },
+        { code: 'L89.002', description: 'Pressure ulcer of unspecified elbow, stage 2', category: 'pressure_ulcer' },
+        { code: 'L89.003', description: 'Pressure ulcer of unspecified elbow, stage 3', category: 'pressure_ulcer' },
+        { code: 'L89.004', description: 'Pressure ulcer of unspecified elbow, stage 4', category: 'pressure_ulcer' },
+        { code: 'L89.009', description: 'Pressure ulcer of unspecified elbow, unspecified stage', category: 'pressure_ulcer' },
+        { code: 'L89.010', description: 'Pressure ulcer of right elbow, unstageable', category: 'pressure_ulcer' },
+        { code: 'L89.011', description: 'Pressure ulcer of right elbow, stage 1', category: 'pressure_ulcer' },
+        { code: 'L89.012', description: 'Pressure ulcer of right elbow, stage 2', category: 'pressure_ulcer' },
+        { code: 'L89.013', description: 'Pressure ulcer of right elbow, stage 3', category: 'pressure_ulcer' },
+        { code: 'L89.014', description: 'Pressure ulcer of right elbow, stage 4', category: 'pressure_ulcer' },
+        { code: 'L89.150', description: 'Pressure ulcer of sacral region, unstageable', category: 'pressure_ulcer' },
+        { code: 'L89.151', description: 'Pressure ulcer of sacral region, stage 1', category: 'pressure_ulcer' },
+        { code: 'L89.152', description: 'Pressure ulcer of sacral region, stage 2', category: 'pressure_ulcer' },
+        { code: 'L89.153', description: 'Pressure ulcer of sacral region, stage 3', category: 'pressure_ulcer' },
+        { code: 'L89.154', description: 'Pressure ulcer of sacral region, stage 4', category: 'pressure_ulcer' },
+        { code: 'L89.600', description: 'Pressure ulcer of unspecified heel, unstageable', category: 'pressure_ulcer' },
+        { code: 'L89.601', description: 'Pressure ulcer of unspecified heel, stage 1', category: 'pressure_ulcer' },
+        { code: 'L89.602', description: 'Pressure ulcer of unspecified heel, stage 2', category: 'pressure_ulcer' },
+        { code: 'L89.603', description: 'Pressure ulcer of unspecified heel, stage 3', category: 'pressure_ulcer' },
+        { code: 'L89.604', description: 'Pressure ulcer of unspecified heel, stage 4', category: 'pressure_ulcer' }
+      );
+    }
+    
+    // Group 5 - Chronic Ulcers (L97 - single coding)
+    else if (currentWoundType.primaryCategory === 'chronic_ulcer_l97_single') {
+      mockPrimaryCodes.push(
+        { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.102', description: 'Non-pressure chronic ulcer of unspecified thigh with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.103', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle', category: 'chronic_ulcer' },
+        { code: 'L97.104', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of bone', category: 'chronic_ulcer' },
+        { code: 'L97.109', description: 'Non-pressure chronic ulcer of unspecified thigh with unspecified severity', category: 'chronic_ulcer' },
+        { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.202', description: 'Non-pressure chronic ulcer of unspecified calf with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.203', description: 'Non-pressure chronic ulcer of unspecified calf with necrosis of muscle', category: 'chronic_ulcer' },
+        { code: 'L97.204', description: 'Non-pressure chronic ulcer of unspecified calf with necrosis of bone', category: 'chronic_ulcer' },
+        { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.302', description: 'Non-pressure chronic ulcer of unspecified ankle with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.402', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.801', description: 'Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.411', description: 'Non-pressure chronic ulcer of buttock limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.421', description: 'Non-pressure chronic ulcer of back limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'chronic_ulcer' }
+      );
     }
 
-    // Secondary codes for dual-coding wound types
-    if (currentWoundType.secondaryCategory === 'chronic_ulcer' && diagnosisCodes?.orange) {
-      mockSecondaryCodes.push(...diagnosisCodes.orange.map(c => ({
-        ...c,
-        category: 'chronic_ulcer'
-      })));
-    }
-
-    // Add mock codes for specific wound types
-    if (currentWoundType.primaryCategory === 'pressure') {
-      mockPrimaryCodes.push(
-        { code: 'L89.000', description: 'Pressure ulcer of unspecified elbow, unstageable', category: 'pressure' },
-        { code: 'L89.001', description: 'Pressure ulcer of unspecified elbow, stage 1', category: 'pressure' },
-        { code: 'L89.002', description: 'Pressure ulcer of unspecified elbow, stage 2', category: 'pressure' },
-        { code: 'L89.003', description: 'Pressure ulcer of unspecified elbow, stage 3', category: 'pressure' },
-        { code: 'L89.004', description: 'Pressure ulcer of unspecified elbow, stage 4', category: 'pressure' },
-        { code: 'L89.100', description: 'Pressure ulcer of unspecified part of back, unstageable', category: 'pressure' },
-        { code: 'L89.101', description: 'Pressure ulcer of unspecified part of back, stage 1', category: 'pressure' },
-        { code: 'L89.102', description: 'Pressure ulcer of unspecified part of back, stage 2', category: 'pressure' },
-        { code: 'L89.103', description: 'Pressure ulcer of unspecified part of back, stage 3', category: 'pressure' },
-        { code: 'L89.104', description: 'Pressure ulcer of unspecified part of back, stage 4', category: 'pressure' }
+    // Secondary codes for dual-coding wound types (L97 codes)
+    if (currentWoundType.secondaryCategory === 'chronic_ulcer_l97') {
+      mockSecondaryCodes.push(
+        { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.102', description: 'Non-pressure chronic ulcer of unspecified thigh with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.103', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle', category: 'chronic_ulcer' },
+        { code: 'L97.104', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of bone', category: 'chronic_ulcer' },
+        { code: 'L97.109', description: 'Non-pressure chronic ulcer of unspecified thigh with unspecified severity', category: 'chronic_ulcer' },
+        { code: 'L97.111', description: 'Non-pressure chronic ulcer of right thigh limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.112', description: 'Non-pressure chronic ulcer of right thigh with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.121', description: 'Non-pressure chronic ulcer of left thigh limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.202', description: 'Non-pressure chronic ulcer of unspecified calf with fat layer exposed', category: 'chronic_ulcer' },
+        { code: 'L97.211', description: 'Non-pressure chronic ulcer of right calf limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.221', description: 'Non-pressure chronic ulcer of left calf limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.311', description: 'Non-pressure chronic ulcer of right ankle limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.321', description: 'Non-pressure chronic ulcer of left ankle limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.411', description: 'Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.421', description: 'Non-pressure chronic ulcer of left heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.511', description: 'Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.521', description: 'Non-pressure chronic ulcer of other part of left foot limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.801', description: 'Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.811', description: 'Non-pressure chronic ulcer of other part of right lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.821', description: 'Non-pressure chronic ulcer of other part of left lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L97.901', description: 'Non-pressure chronic ulcer of unspecified part of unspecified lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.411', description: 'Non-pressure chronic ulcer of buttock limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.421', description: 'Non-pressure chronic ulcer of back limited to breakdown of skin', category: 'chronic_ulcer' },
+        { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'chronic_ulcer' }
       );
-    } else if (currentWoundType.primaryCategory === 'surgical') {
-      mockPrimaryCodes.push(
-        { code: 'T81.31XA', description: 'Disruption of external operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
-        { code: 'T81.32XA', description: 'Disruption of internal operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
-        { code: 'T81.33XA', description: 'Disruption of traumatic injury wound repair, initial encounter', category: 'surgical' },
-        { code: 'T81.89XA', description: 'Other complications of procedures, not elsewhere classified, initial encounter', category: 'surgical' },
-        { code: 'T81.4XXA', description: 'Infection following a procedure, initial encounter', category: 'surgical' }
-      );
-    } else if (currentWoundType.primaryCategory === 'trauma') {
-      mockPrimaryCodes.push(
-        { code: 'S71.001A', description: 'Unspecified open wound, right hip, initial encounter', category: 'trauma' },
-        { code: 'S71.101A', description: 'Unspecified open wound, right thigh, initial encounter', category: 'trauma' },
-        { code: 'S81.001A', description: 'Unspecified open wound, right knee, initial encounter', category: 'trauma' },
-        { code: 'S81.801A', description: 'Unspecified open wound, right lower leg, initial encounter', category: 'trauma' },
-        { code: 'S91.001A', description: 'Unspecified open wound, right ankle, initial encounter', category: 'trauma' }
-      );
-    } else if (currentWoundType.primaryCategory === 'arterial') {
-      mockPrimaryCodes.push(
-        { code: 'I70.231', description: 'Atherosclerosis of native arteries of right leg with ulceration of thigh', category: 'arterial' },
-        { code: 'I70.232', description: 'Atherosclerosis of native arteries of right leg with ulceration of calf', category: 'arterial' },
-        { code: 'I70.233', description: 'Atherosclerosis of native arteries of right leg with ulceration of ankle', category: 'arterial' },
-        { code: 'I70.234', description: 'Atherosclerosis of native arteries of right leg with ulceration of heel and midfoot', category: 'arterial' },
-        { code: 'I70.235', description: 'Atherosclerosis of native arteries of right leg with ulceration of other part of foot', category: 'arterial' }
-      );
-    } else if (currentWoundType.primaryCategory === 'chronic_ulcer') {
-      // For non-specific chronic ulcers
-      mockPrimaryCodes.push(...(diagnosisCodes?.orange || []).map(c => ({
-        ...c,
-        category: 'chronic_ulcer'
-      })));
-      // Add additional chronic ulcer codes if needed
-      if (mockPrimaryCodes.length === 0) {
-        mockPrimaryCodes.push(
-          { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'chronic_ulcer' },
-          { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'chronic_ulcer' },
-          { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'chronic_ulcer' },
-          { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
-          { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'chronic_ulcer' }
-        );
-      }
-    } else if (currentWoundType.primaryCategory === 'other' || !mockPrimaryCodes.length) {
-      // For 'other' wound types or if no specific codes were added, show all available diagnosis codes
-      // Combine all available codes from the provided data
-      const allCodes: DiagnosisCode[] = [];
-
-      if (diagnosisCodes?.yellow) {
-        allCodes.push(...diagnosisCodes.yellow.map(c => ({ ...c, category: 'general' })));
-      }
-      if (diagnosisCodes?.orange) {
-        allCodes.push(...diagnosisCodes.orange.map(c => ({ ...c, category: 'general' })));
-      }
-
-      // Add some common wound-related codes as fallback
-      if (allCodes.length === 0) {
-        allCodes.push(
-          { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'other' },
-          { code: 'L98.492', description: 'Non-pressure chronic ulcer of skin of other sites with fat layer exposed', category: 'other' },
-          { code: 'L98.493', description: 'Non-pressure chronic ulcer of skin of other sites with necrosis of muscle', category: 'other' },
-          { code: 'L98.494', description: 'Non-pressure chronic ulcer of skin of other sites with necrosis of bone', category: 'other' },
-          { code: 'L98.499', description: 'Non-pressure chronic ulcer of skin of other sites with unspecified severity', category: 'other' }
-        );
-      }
-
-      mockPrimaryCodes.push(...allCodes);
     }
 
     setDynamicCodes({ primary: mockPrimaryCodes, secondary: mockSecondaryCodes });

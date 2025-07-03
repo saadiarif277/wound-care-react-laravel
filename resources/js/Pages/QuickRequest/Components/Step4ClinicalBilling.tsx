@@ -77,7 +77,6 @@ export default function Step4ClinicalBilling({
 
   // Wound location options
   const woundLocations = [
-    { value: '', label: 'Select wound location...', disabled: true, hidden: true },
     { value: 'trunk_arms_legs_small', label: 'Legs/Arms/Trunk ≤ 100 sq cm' },
     { value: 'trunk_arms_legs_large', label: 'Legs/Arms/Trunk > 100 sq cm' },
     { value: 'hands_feet_head_small', label: 'Feet/Hands/Head ≤ 100 sq cm' },
@@ -116,14 +115,14 @@ export default function Step4ClinicalBilling({
   };
 
   const cptOptions = [
-    { value: '15271', label: '15271 - First 25 sq cm trunk/arms/legs', group: 'trunk' },
-    { value: '15272', label: '15272 - Each additional 25 sq cm trunk/arms/legs', group: 'trunk' },
-    { value: '15273', label: '15273 - First 100 sq cm trunk/arms/legs', group: 'trunk' },
-    { value: '15274', label: '15274 - Each additional 100 sq cm trunk/arms/legs', group: 'trunk' },
-    { value: '15275', label: '15275 - First 25 sq cm feet/hands/head', group: 'extremity' },
-    { value: '15276', label: '15276 - Each additional 25 sq cm feet/hands/head', group: 'extremity' },
-    { value: '15277', label: '15277 - First 100 sq cm feet/hands/head', group: 'extremity' },
-    { value: '15278', label: '15278 - Each additional 100 sq cm feet/hands/head', group: 'extremity' },
+    { code: '15271', label: '15271' },
+    { code: '15272', label: '15272' },
+    { code: '15273', label: '15273' },
+    { code: '15274', label: '15274' },
+    { code: '15275', label: '15275' },
+    { code: '15276', label: '15276' },
+    { code: '15277', label: '15277' },
+    { code: '15278', label: '15278' },
   ];
 
 
@@ -181,6 +180,7 @@ export default function Step4ClinicalBilling({
               options={woundLocations}
               value={formData.wound_location || ''}
               onChange={(e: React.ChangeEvent<HTMLSelectElement>) => updateFormData({ wound_location: e.target.value })}
+              placeholder="Please Select Wound Location"
               error={errors.wound_location}
               required
             />
@@ -284,59 +284,56 @@ export default function Step4ClinicalBilling({
             </p>
           </div>
 
-          {/* CPT Codes Multi-Select - Moved here for better flow */}
+          {/* CPT Codes Selection - Redesigned as checkboxes */}
           <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
-              Procedure (CPT) Codes <span className="text-red-500">*</span>
+            <label className={cn("block text-sm font-medium mb-3", t.text.primary)}>
+              Application CPT(s) <span className="text-red-500">*</span>
             </label>
-            {/* Suggested CPT Chips */}
-            <div className="flex flex-wrap gap-2 mb-2">
-              {getSuggestedCPTCodes().map(code => {
-                const option = cptOptions.find(opt => opt.value === code);
-                const selected = (formData.application_cpt_codes || []).includes(code);
+            <div className="grid grid-cols-4 gap-3 mb-3">
+              {cptOptions.map(option => {
+                const isSelected = (formData.application_cpt_codes || []).includes(option.code);
                 return (
-                  <button
-                    key={code}
-                    type="button"
-                    className={cn(
-                      "px-2 py-1 rounded-full border text-xs font-semibold transition-all",
-                      selected
-                        ? 'bg-blue-600 text-white border-blue-600 shadow'
-                        : theme === 'dark'
-                          ? 'bg-gray-800 text-blue-300 border-blue-500 hover:bg-blue-800 hover:text-white'
-                          : 'bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100',
-                      "focus:outline-none"
-                    )}
-                    onClick={() => {
-                      const current = formData.application_cpt_codes || [];
-                      if (selected) {
-                        updateFormData({ application_cpt_codes: current.filter((c: string) => c !== code) });
-                      } else {
-                        updateFormData({ application_cpt_codes: [...current, code] });
-                      }
-                    }}
-                  >
-                    {option ? option.label : code}
-                  </button>
+                  <label key={option.code} className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-blue-600 rounded"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        const current = formData.application_cpt_codes || [];
+                        if (e.target.checked) {
+                          updateFormData({ application_cpt_codes: [...current, option.code] });
+                        } else {
+                          updateFormData({ application_cpt_codes: current.filter((c: string) => c !== option.code) });
+                        }
+                      }}
+                    />
+                    <span className={cn("text-sm", t.text.primary)}>{option.label}</span>
+                  </label>
                 );
               })}
             </div>
-            <Select
-              multiple
-              options={cptOptions}
-              value={formData.application_cpt_codes || []}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                const selected = Array.from(e.target.selectedOptions).map(o => o.value);
-                updateFormData({ application_cpt_codes: selected });
-              }}
-              error={errors.application_cpt_codes}
-              required
-            />
-            <p className={cn("text-xs mt-1", t.text.secondary)}>
-              Select all CPT codes that apply for this wound application. Suggested codes are shown above.
-            </p>
-            {errors.application_cpt_codes && (
-              <p className="mt-1 text-sm text-red-500">{errors.application_cpt_codes}</p>
+            
+            {/* Other CPT codes text input */}
+            <div className="mt-3">
+              <label className={cn("block text-sm font-medium mb-2", t.text.primary)}>
+                Additional CPT Codes
+              </label>
+              <input
+                type="text"
+                className={cn(
+                  "w-full p-2 rounded border transition-all",
+                  theme === 'dark'
+                    ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                    : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
+                )}
+                value={formData.application_cpt_codes_other || ''}
+                onChange={(e) => updateFormData({ application_cpt_codes_other: e.target.value })}
+                placeholder="Enter additional CPT codes..."
+              />
+            </div>
+            
+            {errors.cpt_codes && (
+              <p className="mt-1 text-sm text-red-500">{errors.cpt_codes}</p>
             )}
           </div>
 
@@ -347,11 +344,11 @@ export default function Step4ClinicalBilling({
             </label>
             <div className="grid grid-cols-4 gap-3">
               <div>
-                <label className={cn("block text-xs mb-1", t.text.secondary)}>Days</label>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Years</label>
                 <input
                   type="number"
                   min="0"
-                  max="30"
+                  max="10"
                   className={cn(
                     "w-full p-2 rounded border transition-all",
                     theme === 'dark'
@@ -359,26 +356,8 @@ export default function Step4ClinicalBilling({
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                     !isDurationValid() && errors.wound_duration && 'border-red-500'
                   )}
-                  value={formData.wound_duration_days || ''}
-                  onChange={(e) => updateFormData({ wound_duration_days: e.target.value })}
-                  placeholder="0"
-                />
-              </div>
-              <div>
-                <label className={cn("block text-xs mb-1", t.text.secondary)}>Weeks</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="52"
-                  className={cn(
-                    "w-full p-2 rounded border transition-all",
-                    theme === 'dark'
-                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
-                    !isDurationValid() && errors.wound_duration && 'border-red-500'
-                  )}
-                  value={formData.wound_duration_weeks || ''}
-                  onChange={(e) => updateFormData({ wound_duration_weeks: e.target.value })}
+                  value={formData.wound_duration_years || ''}
+                  onChange={(e) => updateFormData({ wound_duration_years: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -401,11 +380,11 @@ export default function Step4ClinicalBilling({
                 />
               </div>
               <div>
-                <label className={cn("block text-xs mb-1", t.text.secondary)}>Years</label>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Weeks</label>
                 <input
                   type="number"
                   min="0"
-                  max="10"
+                  max="52"
                   className={cn(
                     "w-full p-2 rounded border transition-all",
                     theme === 'dark'
@@ -413,8 +392,26 @@ export default function Step4ClinicalBilling({
                       : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
                     !isDurationValid() && errors.wound_duration && 'border-red-500'
                   )}
-                  value={formData.wound_duration_years || ''}
-                  onChange={(e) => updateFormData({ wound_duration_years: e.target.value })}
+                  value={formData.wound_duration_weeks || ''}
+                  onChange={(e) => updateFormData({ wound_duration_weeks: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label className={cn("block text-xs mb-1", t.text.secondary)}>Days</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="30"
+                  className={cn(
+                    "w-full p-2 rounded border transition-all",
+                    theme === 'dark'
+                      ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
+                      : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500',
+                    !isDurationValid() && errors.wound_duration && 'border-red-500'
+                  )}
+                  value={formData.wound_duration_days || ''}
+                  onChange={(e) => updateFormData({ wound_duration_days: e.target.value })}
                   placeholder="0"
                 />
               </div>
@@ -428,21 +425,44 @@ export default function Step4ClinicalBilling({
           </div>
 
           <div>
-            <label className={cn("block text-sm font-medium mb-1", t.text.primary)}>
+            <label className={cn("block text-sm font-medium mb-3", t.text.primary)}>
               Previously Used Therapies
             </label>
-            <textarea
-              className={cn(
-                "w-full p-2 rounded border transition-all",
-                theme === 'dark'
-                  ? 'bg-gray-800 border-gray-700 text-white focus:border-blue-500'
-                  : 'bg-white border-gray-300 text-gray-900 focus:border-blue-500'
-              )}
-              rows={3}
-              value={formData.previous_treatments || ''}
-              onChange={(e) => updateFormData({ previous_treatments: e.target.value })}
-              placeholder="List previous treatments attempted..."
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                'Wound Bed Preparation (WBP)',
+                'Infection Control',
+                'Moisture Balance (Dressings)',
+                'Offloading / Pressure Redistribution',
+                'Edema and Circulation Management',
+                'Nutritional Optimization',
+                'Blood Glucose & Comorbidity Control',
+                'Negative Pressure Wound Therapy (NPWT)',
+                'Adjunctive Modalities'
+              ].map(treatment => {
+                const treatmentKey = treatment.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                const isSelected = formData.previous_treatments_selected?.[treatmentKey] || false;
+                return (
+                  <label key={treatmentKey} className="flex items-start space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="form-checkbox h-4 w-4 text-blue-600 rounded mt-0.5 flex-shrink-0"
+                      checked={isSelected}
+                      onChange={(e) => {
+                        const currentSelections = formData.previous_treatments_selected || {};
+                        updateFormData({
+                          previous_treatments_selected: {
+                            ...currentSelections,
+                            [treatmentKey]: e.target.checked
+                          }
+                        });
+                      }}
+                    />
+                    <span className={cn("text-sm leading-tight", t.text.primary)}>{treatment}</span>
+                  </label>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
@@ -558,6 +578,7 @@ export default function Step4ClinicalBilling({
               value={formData.place_of_service || '11'}
               onChange={(e) => updateFormData({ place_of_service: e.target.value })}
               options={placeOfServiceOptions}
+              placeholder="Please Select Place of Service"
               error={errors.place_of_service}
               required
             />

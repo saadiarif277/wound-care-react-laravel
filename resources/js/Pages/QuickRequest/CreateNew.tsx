@@ -93,9 +93,11 @@ interface QuickRequestFormData {
   wound_duration_months?: string;
   wound_duration_years?: string;
   previous_treatments?: string;
+  previous_treatments_selected?: Record<string, boolean>; // NEW - for checkbox selections
 
   // Procedure Information
   application_cpt_codes: string[];
+  application_cpt_codes_other?: string; // NEW - for "Other" CPT codes
   prior_applications?: string;
   prior_application_product?: string; // NEW
   prior_application_within_12_months?: boolean; // NEW
@@ -146,6 +148,12 @@ interface QuickRequestFormData {
 
   // Manufacturer Fields
   manufacturer_fields?: Record<string, any>;
+
+  // Documents
+  additional_documents?: Array<{
+    file: File;
+    type: 'insurance_card_front' | 'insurance_card_back' | 'insurance_card_combined' | 'clinical_notes' | 'demographics_page';
+  }>; // NEW - for additional IVR documents with types
 
   // Episode tracking
   episode_id?: string;
@@ -274,7 +282,7 @@ function QuickRequestCreateNew({
     patient_is_subscriber: true,
     primary_insurance_name: '',
     primary_member_id: '',
-    primary_plan_type: 'ffs',
+    primary_plan_type: '',
     has_secondary_insurance: false,
     prior_auth_permission: true,
     wound_type: '', // Changed from array to single string
@@ -490,6 +498,11 @@ function QuickRequestCreateNew({
           }
         }
         if (!formData.shipping_speed) errors.shipping_speed = 'Shipping speed is required';
+        
+        // Validate delivery date for choose_delivery_date option
+        if (formData.shipping_speed === 'choose_delivery_date' && !formData.delivery_date) {
+          errors.delivery_date = 'Please select a delivery date';
+        }
 
         // Insurance validation
         if (!formData.primary_insurance_name) errors.primary_insurance_name = 'Primary insurance is required';
@@ -510,7 +523,10 @@ function QuickRequestCreateNew({
         if (!formData.wound_location) errors.wound_location = 'Wound location is required';
         if (!formData.wound_size_length) errors.wound_size = 'Wound length is required';
         if (!formData.wound_size_width) errors.wound_size = 'Wound width is required';
-        if (!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) errors.cpt_codes = 'At least one CPT code must be selected';
+        if ((!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) && 
+            !formData.application_cpt_codes_other) {
+          errors.cpt_codes = 'At least one CPT code must be selected';
+        }
         if (!formData.place_of_service) errors.place_of_service = 'Place of service is required';
 
         // Validate diagnosis codes based on wound type
@@ -1100,7 +1116,7 @@ function QuickRequestCreateNew({
       if (response.data.success) {
         // Show success message and redirect to episodes page
         alert('Order submitted successfully! Your order is now being processed.');
-        router.visit(`/admin/episodes/${response.data.episode_id}`);
+        router.visit(`/provider/episodes/${response.data.episode_id}`);
       } else {
         throw new Error(response.data.message || 'Failed to submit order');
       }

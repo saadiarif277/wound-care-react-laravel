@@ -1,4 +1,4 @@
-export type DocumentType = 'demographics' | 'insurance_card' | 'chart_notes';
+export type DocumentType = 'demographics' | 'insurance_card' | 'chart_notes' | 'diagonal_clinical_notes';
 
 export interface UploadedFile {
   name: string;
@@ -49,5 +49,11 @@ export const DOCUMENT_TYPE_CONFIGS: Record<DocumentType, DocumentTypeConfig> = {
     accept: '.pdf,.doc,.docx',
     maxFiles: 1,
     description: 'Clinical notes and documentation'
+  },
+  diagonal_clinical_notes: {
+    label: 'Diagonal Clinical Notes',
+    accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png',
+    maxFiles: 1,
+    description: 'Diagonal clinical notes and specialized documentation'
   }
 };

@@ -403,5 +403,27 @@ return [
             'required' => false,
             'type' => 'boolean'
         ],
+        
+        // Clinical Attestations - Convert boolean to Yes/No
+        'failed_conservative_treatment' => [
+            'source' => 'previous_treatments || (failed_conservative_treatment ? "Yes" : "No")',
+            'required' => true,
+            'type' => 'string'
+        ],
+        'information_accurate' => [
+            'source' => 'information_accurate ? "Yes" : "No"',
+            'required' => true,
+            'type' => 'string'
+        ],
+        'medical_necessity_established' => [
+            'source' => 'medical_necessity_established ? "Yes" : "No"',
+            'required' => true,
+            'type' => 'string'
+        ],
+        'maintain_documentation' => [
+            'source' => 'maintain_documentation ? "Yes" : "No"',
+            'required' => true,
+            'type' => 'string'
+        ],
     ],
 ]; 

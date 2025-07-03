@@ -234,8 +234,9 @@ class ProductController extends Controller
             if (!empty($qCodes)) {
                 $query->whereIn('q_code', $qCodes);
             } else {
-                // Provider has no onboarded products
+                // Provider has no onboarded products - ensure query returns no results
                 $providerHasNoProducts = true;
+                $query->whereRaw('1 = 0'); // Impossible condition to return no products
             }
         }
         // Fallback to original provider filtering if no specific Q-codes provided

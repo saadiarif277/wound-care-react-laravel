@@ -14,11 +14,23 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   options: SelectOption[];
+  placeholder?: string;
 }
 
-const Select: React.FC<SelectProps> = ({ label, error, options, ...props }) => {
+const Select: React.FC<SelectProps> = ({ label, error, options, placeholder, ...props }) => {
   const { theme } = useTheme();
   const t = themes[theme];
+
+  // Ensure we have a placeholder option if no value is selected and placeholder is provided
+  const selectOptions = [...options];
+  if (placeholder && !selectOptions.some(opt => opt.value === '' || opt.value === undefined)) {
+    selectOptions.unshift({
+      value: '',
+      label: placeholder,
+      disabled: true,
+      hidden: false
+    });
+  }
 
   return (
     <div>
@@ -37,7 +49,7 @@ const Select: React.FC<SelectProps> = ({ label, error, options, ...props }) => {
             error ? "border-red-500" : t.glass.border
           )}
         >
-          {options.map(option => (
+          {selectOptions.map(option => (
             <option
               key={option.value}
               value={option.value}

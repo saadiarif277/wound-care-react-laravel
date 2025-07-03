@@ -44,7 +44,6 @@ function Step2PatientInsurance({
   const [autoFillSuccess, setAutoFillSuccess] = useState(false);
   const [showCaregiver, setShowCaregiver] = useState(!formData.patient_is_subscriber);
   const [showSecondaryCaregiver, setShowSecondaryCaregiver] = useState(!formData.secondary_patient_is_subscriber);
-  const [saveToPatientResource, setSaveToPatientResource] = useState(false);
 
 
   const states = [
@@ -57,14 +56,17 @@ function Step2PatientInsurance({
 
   // Shipping speed options
   const shippingOptions = [
+    { value: '', label: 'Please Select' },
     { value: '1st_am', label: '1st AM (before 9AM) - Next business day' },
     { value: 'early_next_day', label: 'Early Next Day (9AM-12PM)' },
     { value: 'standard_next_day', label: 'Standard Next Day' },
     { value: 'standard_2_day', label: 'Standard 2 Day' },
+    { value: 'choose_delivery_date', label: 'Choose Delivery Date' },
   ];
 
   // Plan type options
   const planTypes = [
+    { value: '', label: 'Please Select' },
     { value: 'ffs', label: 'FFS (Fee for Service)' },
     { value: 'hmo', label: 'HMO' },
     { value: 'ppo', label: 'PPO' },
@@ -208,13 +210,11 @@ function Step2PatientInsurance({
               value={formData.provider_id || ''}
               onChange={(e) => updateFormData({ provider_id: parseInt(e.target.value) })}
               disabled={currentUser?.role === 'provider'}
-              options={[
-                { value: '', label: 'Select a provider...' },
-                ...providers.map(p => ({
-                  value: p.id,
-                  label: `${p.name}${p.credentials ? `, ${p.credentials}` : ''} ${p.npi ? `(NPI: ${p.npi})` : ''}`
-                }))
-              ]}
+              options={providers.map(p => ({
+                value: p.id,
+                label: `${p.name}${p.credentials ? `, ${p.credentials}` : ''} ${p.npi ? `(NPI: ${p.npi})` : ''}`
+              }))}
+              placeholder="Please Select Provider"
               error={errors.provider_id}
               required
             />
@@ -228,13 +228,11 @@ function Step2PatientInsurance({
               label="Facility"
               value={formData.facility_id || ''}
               onChange={(e) => updateFormData({ facility_id: parseInt(e.target.value) })}
-              options={[
-                { value: '', label: 'Select a facility...' },
-                ...facilities.map(f => ({
-                  value: f.id,
-                  label: `${f.name} ${f.address ? `(${f.address})` : ''}`
-                }))
-              ]}
+              options={facilities.map(f => ({
+                value: f.id,
+                label: `${f.name} ${f.address ? `(${f.address})` : ''}`
+              }))}
+              placeholder="Please Select Facility"
               error={errors.facility_id}
               required
             />
@@ -358,22 +356,6 @@ function Step2PatientInsurance({
           </div>
         </div>
 
-        {/* Save to patient resource checkbox */}
-        <div className="mt-4 flex items-center">
-          <input
-            type="checkbox"
-            id="saveToPatientResource"
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-            checked={saveToPatientResource}
-            onChange={(e) => {
-              setSaveToPatientResource(e.target.checked);
-              updateFormData({ save_card_to_patient_resource: e.target.checked });
-            }}
-          />
-          <label htmlFor="saveToPatientResource" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
-            Save insurance card to patient resource for future use
-          </label>
-        </div>
 
         {/* Processing status */}
         {isProcessingCard && (
@@ -439,6 +421,7 @@ function Step2PatientInsurance({
                 { value: 'other', label: 'Other' },
                 { value: 'unknown', label: 'Prefer not to say' }
               ]}
+              placeholder="Please Select"
             />
           </div>
         </div>
@@ -490,10 +473,8 @@ function Step2PatientInsurance({
                 label="State"
                 value={formData.patient_state || ''}
                 onChange={(e) => updateFormData({ patient_state: e.target.value })}
-                options={[
-                  { value: '', label: 'Select...' },
-                  ...states.map(state => ({ value: state, label: state }))
-                ]}
+                options={states.map(state => ({ value: state, label: state }))}
+                placeholder="Please Select"
               />
             </div>
 
@@ -578,15 +559,63 @@ function Step2PatientInsurance({
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Delivery Date (Auto-calculated)
+              Delivery Date
             </label>
-            <input
-              type="date"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-              value={formData.delivery_date || ''}
-              readOnly
-            />
+            {formData.shipping_speed === 'choose_delivery_date' ? (
+              <input
+                type="date"
+                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
+                value={formData.delivery_date || ''}
+                onChange={(e) => updateFormData({ delivery_date: e.target.value })}
+                min={new Date().toISOString().split('T')[0]}
+              />
+            ) : (
+              <input
+                type="date"
+                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                value={formData.delivery_date || ''}
+                readOnly
+              />
+            )}
           </div>
+
+          {/* Time-based validation warning */}
+          {(() => {
+            const today = new Date();
+            const serviceDate = new Date(formData.expected_service_date || '');
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            
+            // Check if service date is tomorrow and current time is after 2 PM CST
+            const isTomorrow = serviceDate.toDateString() === tomorrow.toDateString();
+            const currentHourCST = new Date().toLocaleString("en-US", {timeZone: "America/Chicago"});
+            const currentTimeCST = new Date(currentHourCST);
+            const cutoffTime = new Date(currentTimeCST);
+            cutoffTime.setHours(14, 0, 0, 0); // 2 PM CST
+            
+            const isPastCutoff = currentTimeCST > cutoffTime;
+            
+            if (isTomorrow && isPastCutoff) {
+              return (
+                <div className="p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg">
+                  <div className="flex items-start">
+                    <svg className="h-5 w-5 text-amber-600 dark:text-amber-400 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                    <div>
+                      <h4 className="text-sm font-medium text-amber-800 dark:text-amber-300">
+                        Late Order Warning
+                      </h4>
+                      <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                        Service date is tomorrow and it's after 2 PM CST. Contact us via Support@mscwoundcare.com or call to see if possible.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            }
+            return null;
+          })()}
         </div>
       </div>
 
@@ -752,7 +781,8 @@ function Step2PatientInsurance({
               label="Plan Type"
               value={formData.primary_plan_type || ''}
               onChange={(e) => updateFormData({ primary_plan_type: e.target.value })}
-              options={planTypes}
+              options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+              placeholder="Please Select Plan Type"
               error={errors.primary_plan_type}
               required
             />
@@ -797,10 +827,9 @@ function Step2PatientInsurance({
                       className="form-radio text-blue-600"
                       name="secondary_subscriber"
                       value="yes"
-                      checked={formData.secondary_patient_is_subscriber === true}
+                      checked={formData.secondary_patient_is_subscriber === true || formData.secondary_patient_is_subscriber === undefined}
                       onChange={() => {
                         updateFormData({ secondary_patient_is_subscriber: true });
-                        setShowSecondaryCaregiver(false);
                       }}
                     />
                     <span className="ml-2 text-gray-700 dark:text-gray-300">Yes</span>
@@ -814,7 +843,6 @@ function Step2PatientInsurance({
                       checked={formData.secondary_patient_is_subscriber === false}
                       onChange={() => {
                         updateFormData({ secondary_patient_is_subscriber: false });
-                        setShowSecondaryCaregiver(true);
                       }}
                     />
                     <span className="ml-2 text-gray-700 dark:text-gray-300">No</span>
@@ -823,7 +851,7 @@ function Step2PatientInsurance({
               </div>
 
               {/* Secondary Subscriber Information - Only show if patient is not subscriber */}
-              {showSecondaryCaregiver && (
+              {formData.secondary_patient_is_subscriber === false && (
                 <div className="p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
                   <h4 className="text-sm font-medium text-yellow-900 dark:text-yellow-300 mb-2">
                     Secondary Insurance Subscriber Information
@@ -911,10 +939,8 @@ function Step2PatientInsurance({
                   label="Plan Type"
                   value={formData.secondary_plan_type || ''}
                   onChange={(e) => updateFormData({ secondary_plan_type: e.target.value })}
-                  options={[
-                    { value: '', label: 'Select plan type...' },
-                    ...planTypes
-                  ]}
+                  options={planTypes.slice(1)} // Remove the placeholder from options since we'll use the placeholder prop
+                  placeholder="Please Select Plan Type"
                 />
               </div>
             </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import { Button } from '@/Components/Button';
 import { SectionCard } from './Orders/order/SectionCard';
@@ -150,7 +150,7 @@ export default function OrderSummary({
             icon={FileText}
             sectionKey="summary"
             isOpen={openSections.summary}
-            onToggle={(section) => toggleSection(section as keyof typeof openSections)}
+            onToggle={(section: string) => toggleSection(section as keyof typeof openSections)}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Patient Column */}
@@ -185,7 +185,7 @@ export default function OrderSummary({
             icon={Building}
             sectionKey="provider"
             isOpen={openSections.provider}
-            onToggle={(section) => toggleSection(section as keyof typeof openSections)}
+            onToggle={(section: string) => toggleSection(section as keyof typeof openSections)}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Provider Column */}
@@ -215,7 +215,7 @@ export default function OrderSummary({
             icon={Paperclip}
             sectionKey="attachments"
             isOpen={openSections.attachments}
-            onToggle={(section) => toggleSection(section as keyof typeof openSections)}
+            onToggle={(section: string) => toggleSection(section as keyof typeof openSections)}
           >
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -253,13 +253,14 @@ export default function OrderSummary({
             </div>
           </SectionCard>
 
+
           {/* Next Steps */}
           <SectionCard
             title="What happens next?"
             icon={Clock}
             sectionKey="nextSteps"
             isOpen={openSections.nextSteps}
-            onToggle={(section) => toggleSection(section as keyof typeof openSections)}
+            onToggle={(section: string) => toggleSection(section as keyof typeof openSections)}
           >
             <div className="space-y-3">
               <div className="flex items-start">

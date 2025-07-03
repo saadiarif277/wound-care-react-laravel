@@ -807,6 +807,286 @@ export default function Step7DocusealIVR({
         </div>
       )}
 
+      {/* Document Upload Section */}
+      {!isCompleted && !submissionError && (
+        <div className={cn("mb-6 p-4 rounded-lg border", t.glass.card, theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
+          <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
+            Additional Documents
+          </h3>
+          <p className={cn("text-sm mb-4", t.text.secondary)}>
+            Upload any additional documents that support your order (optional but recommended):
+          </p>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Face Sheet / Demographics */}
+            <div className="space-y-2">
+              <label className={cn("text-sm font-medium", t.text.primary)}>Face Sheet / Demographics</label>
+              {!formData.face_sheet ? (
+                <div
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) updateFormData({ face_sheet: file });
+                    };
+                    input.click();
+                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                    theme === 'dark'
+                      ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
+                      : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+                  )}
+                >
+                  <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>
+                    Click to upload
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(
+                  "p-3 rounded border flex items-center justify-between",
+                  theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
+                )}>
+                  <div className="flex items-center space-x-2">
+                    <FiCheck className="h-4 w-4 text-green-500" />
+                    <span className={cn("text-sm", t.text.primary)}>
+                      {formData.face_sheet.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => updateFormData({ face_sheet: null })}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Clinical Notes */}
+            <div className="space-y-2">
+              <label className={cn("text-sm font-medium", t.text.primary)}>Clinical Notes</label>
+              {!formData.clinical_notes ? (
+                <div
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.pdf,.doc,.docx,.jpg,.jpeg,.png';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) updateFormData({ clinical_notes: file });
+                    };
+                    input.click();
+                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                    theme === 'dark'
+                      ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
+                      : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+                  )}
+                >
+                  <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>
+                    Click to upload
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(
+                  "p-3 rounded border flex items-center justify-between",
+                  theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
+                )}>
+                  <div className="flex items-center space-x-2">
+                    <FiCheck className="h-4 w-4 text-green-500" />
+                    <span className={cn("text-sm", t.text.primary)}>
+                      {formData.clinical_notes.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => updateFormData({ clinical_notes: null })}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Wound Photo */}
+            <div className="space-y-2">
+              <label className={cn("text-sm font-medium", t.text.primary)}>Wound Photo</label>
+              {!formData.wound_photo ? (
+                <div
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = '.jpg,.jpeg,.png';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) updateFormData({ wound_photo: file });
+                    };
+                    input.click();
+                  }}
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                    theme === 'dark'
+                      ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
+                      : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+                  )}
+                >
+                  <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
+                  <p className={cn("text-xs font-medium", t.text.secondary)}>
+                    Click to upload photo
+                  </p>
+                </div>
+              ) : (
+                <div className={cn(
+                  "p-3 rounded border flex items-center justify-between",
+                  theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
+                )}>
+                  <div className="flex items-center space-x-2">
+                    <FiCheck className="h-4 w-4 text-green-500" />
+                    <span className={cn("text-sm", t.text.primary)}>
+                      {formData.wound_photo.name}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => updateFormData({ wound_photo: null })}
+                    className="text-red-500 hover:text-red-700"
+                  >
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <div className={cn("mt-4 p-3 rounded-lg", theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50')}>
+            <p className={cn("text-xs", theme === 'dark' ? 'text-blue-300' : 'text-blue-700')}>
+              💡 These documents will be attached to your order for review by the manufacturer and help expedite processing.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Clinical Attestations - Required for validation */}
+      {!isCompleted && !submissionError && (
+        <div className={cn("mb-6 p-4 rounded-lg border", t.glass.card, theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
+          <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
+            Clinical Attestations
+          </h3>
+          <p className={cn("text-sm mb-4", t.text.secondary)}>
+            Please confirm the following clinical attestations before completing the IVR form:
+          </p>
+          
+          <div className="space-y-4">
+            {/* Failed Conservative Treatment */}
+            <div className="space-y-3">
+              <label className="flex items-start space-x-3">
+                <input
+                  type="checkbox"
+                  checked={formData.failed_conservative_treatment || false}
+                  onChange={(e) => updateFormData({ failed_conservative_treatment: e.target.checked })}
+                  className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                />
+                <div className="flex-1">
+                  <span className={cn("text-sm font-medium", t.text.primary)}>
+                    Failed Conservative Treatment
+                  </span>
+                  <p className={cn("text-xs mt-1", t.text.secondary)}>
+                    Patient has failed conservative treatment or conservative treatment is not medically appropriate
+                  </p>
+                </div>
+              </label>
+              
+              {/* Optional text field for treatment details */}
+              {formData.failed_conservative_treatment && (
+                <div className="ml-7">
+                  <label className={cn("block text-xs font-medium mb-1", t.text.primary)}>
+                    Previous Treatments Attempted (Optional)
+                  </label>
+                  <textarea
+                    value={formData.previous_treatments || ''}
+                    onChange={(e) => updateFormData({ previous_treatments: e.target.value })}
+                    placeholder="Describe the conservative treatments that were attempted..."
+                    className={cn(
+                      "w-full p-2 text-sm border rounded",
+                      theme === 'dark'
+                        ? 'bg-gray-800 border-gray-600 text-white placeholder-gray-400'
+                        : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500',
+                      "focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    )}
+                    rows={3}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Information Accurate */}
+            <label className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                checked={formData.information_accurate || false}
+                onChange={(e) => updateFormData({ information_accurate: e.target.checked })}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <div className="flex-1">
+                <span className={cn("text-sm font-medium", t.text.primary)}>
+                  Information Accurate
+                </span>
+                <p className={cn("text-xs mt-1", t.text.secondary)}>
+                  I attest that the information provided is accurate and complete
+                </p>
+              </div>
+            </label>
+
+            {/* Medical Necessity Established */}
+            <label className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                checked={formData.medical_necessity_established || false}
+                onChange={(e) => updateFormData({ medical_necessity_established: e.target.checked })}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <div className="flex-1">
+                <span className={cn("text-sm font-medium", t.text.primary)}>
+                  Medical Necessity Established
+                </span>
+                <p className={cn("text-xs mt-1", t.text.secondary)}>
+                  Medical necessity has been established for this patient and treatment
+                </p>
+              </div>
+            </label>
+
+            {/* Maintain Documentation */}
+            <label className="flex items-start space-x-3">
+              <input
+                type="checkbox"
+                checked={formData.maintain_documentation || false}
+                onChange={(e) => updateFormData({ maintain_documentation: e.target.checked })}
+                className="mt-1 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+              <div className="flex-1">
+                <span className={cn("text-sm font-medium", t.text.primary)}>
+                  Maintain Documentation
+                </span>
+                <p className={cn("text-xs mt-1", t.text.secondary)}>
+                  I will maintain appropriate documentation to support this order
+                </p>
+              </div>
+            </label>
+          </div>
+        </div>
+      )}
+
       {/* Docuseal Form or Completion Status */}
       <div className={cn("rounded-lg", t.glass.card, "w-full max-w-full")}>
         {isCompleted ? (
@@ -934,8 +1214,55 @@ export default function Step7DocusealIVR({
               episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
               onComplete={handleDocusealComplete}
               onError={handleDocusealError}
-              className="w-full h-full min-h-[600px]"
+              className="w-full h-full min-h-[800px]"
             />
+            
+            {/* Documents Section for IVR */}
+            <div className={cn("mt-6 p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
+              <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
+                Documents for IVR
+              </h3>
+              
+              {/* Auto-attached Insurance Cards */}
+              {(formData.insurance_card_front || formData.insurance_card_back) && (
+                <div className="mb-4">
+                  <h4 className={cn("text-sm font-medium mb-2", t.text.primary)}>
+                    Insurance Cards (Auto-attached)
+                  </h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    {formData.insurance_card_front && (
+                      <div className={cn(
+                        "p-3 rounded border",
+                        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                      )}>
+                        <div className="flex items-center space-x-2">
+                          <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <span className={cn("text-sm", t.text.primary)}>Front Card</span>
+                        </div>
+                        <p className={cn("text-xs mt-1", t.text.secondary)}>
+                          {formData.insurance_card_front.name || 'Insurance card front'}
+                        </p>
+                      </div>
+                    )}
+                    {formData.insurance_card_back && (
+                      <div className={cn(
+                        "p-3 rounded border",
+                        theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'
+                      )}>
+                        <div className="flex items-center space-x-2">
+                          <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          <span className={cn("text-sm", t.text.primary)}>Back Card</span>
+                        </div>
+                        <p className={cn("text-xs mt-1", t.text.secondary)}>
+                          {formData.insurance_card_back.name || 'Insurance card back'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+              
+            </div>
           </div>
         )}
       </div>
