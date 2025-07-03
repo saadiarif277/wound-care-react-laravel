@@ -3,6 +3,7 @@ import { Head, useForm, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
+import axios from 'axios';
 import {
   FiSave,
   FiX,
@@ -39,7 +40,7 @@ interface Product {
   available_sizes: number[];
   size_options?: string[];
   size_unit?: string;
-  mue_limit?: number;
+  mue?: number;
   graph_type?: string;
   is_active: boolean;
   image_url?: string;
@@ -58,9 +59,11 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
   const { theme } = useTheme();
   const t = themes[theme];
 
-  const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'sizes' | 'documents'>('basic');
+  const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'sizes' | 'documents' | 'history'>('basic');
   const [uploadingFiles, setUploadingFiles] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
+  const [pricingHistory, setPricingHistory] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const { data, setData, put, processing, errors, reset } = useForm({
     sku: product.sku || '',
@@ -75,7 +78,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     available_sizes: product.available_sizes || [],
     size_options: product.size_options || [],
     size_unit: product.size_unit || 'cm',
-    mue_limit: product.mue_limit || 0,
+    mue: product.mue || 0,
     graph_type: product.graph_type || '',
     is_active: product.is_active ?? true,
     image_url: product.image_url || '',
@@ -171,11 +174,29 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     setData('size_options', data.size_options.filter((_, i) => i !== index));
   };
 
+  // Fetch pricing history when history tab is active
+  useEffect(() => {
+    if (activeTab === 'history' && pricingHistory.length === 0) {
+      setLoadingHistory(true);
+      axios.get(`/products/${product.id}/pricing-history`)
+        .then(response => {
+          setPricingHistory(response.data.history || []);
+        })
+        .catch(error => {
+          console.error('Failed to fetch pricing history:', error);
+        })
+        .finally(() => {
+          setLoadingHistory(false);
+        });
+    }
+  }, [activeTab, product.id, pricingHistory.length]);
+
   const tabs = [
     { id: 'basic', label: 'Basic Info', icon: FiPackage },
     { id: 'pricing', label: 'Pricing', icon: FiDollarSign },
     { id: 'sizes', label: 'Sizes', icon: FiTag },
-    { id: 'documents', label: 'Documents', icon: FiFileText }
+    { id: 'documents', label: 'Documents', icon: FiFileText },
+    { id: 'history', label: 'Pricing History', icon: FiCopy }
   ];
 
   return (
@@ -573,8 +594,8 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     <input
                       type="number"
                       min="0"
-                      value={data.mue_limit}
-                      onChange={(e) => setData('mue_limit', parseInt(e.target.value) || 0)}
+                      value={data.mue}
+                      onChange={(e) => setData('mue', parseInt(e.target.value) || 0)}
                       className={cn(
                         "w-full px-4 py-3 rounded-xl",
                         t.input.base,
@@ -937,6 +958,148 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                         <li>• Supported formats: PDF, DOC, DOCX, JPG, PNG, GIF</li>
                         <li>• Maximum file size: 10MB per file</li>
                         <li>• Documents will be available to authorized users</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* History Tab */}
+            {activeTab === 'history' && (
+              <div className="space-y-6">
+                <div>
+                  <h3 className={cn("text-lg font-medium mb-4", t.text.primary)}>
+                    Pricing History
+                  </h3>
+                  <p className={cn("text-sm mb-6", t.text.secondary)}>
+                    Track changes to National ASP, MUE, and other pricing fields over time.
+                  </p>
+
+                  {loadingHistory ? (
+                    <div className="flex items-center justify-center py-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                    </div>
+                  ) : pricingHistory.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full">
+                        <thead className={cn(t.table.header)}>
+                          <tr>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Date
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Changed By
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Field
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Old Value
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              New Value
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Change
+                            </th>
+                            <th className={cn("px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider", t.table.headerText)}>
+                              Reason
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-white/10">
+                          {pricingHistory.map((record, index) => (
+                            <React.Fragment key={record.id}>
+                              {record.changed_fields?.map((field: string, fieldIndex: number) => (
+                                <tr key={`${record.id}-${field}`} className={cn(
+                                  t.table.rowHover,
+                                  index % 2 === 0 ? t.table.evenRow : ''
+                                )}>
+                                  {fieldIndex === 0 && (
+                                    <>
+                                      <td rowSpan={record.changed_fields.length} className="px-4 py-3 text-sm">
+                                        {new Date(record.effective_date).toLocaleDateString()}
+                                      </td>
+                                      <td rowSpan={record.changed_fields.length} className="px-4 py-3 text-sm">
+                                        {record.changed_by ? (
+                                          <div>
+                                            <div className={t.text.primary}>{record.changed_by.name}</div>
+                                            <div className={cn("text-xs", t.text.secondary)}>{record.changed_by.email}</div>
+                                          </div>
+                                        ) : (
+                                          <span className={t.text.secondary}>System</span>
+                                        )}
+                                      </td>
+                                    </>
+                                  )}
+                                  <td className="px-4 py-3 text-sm">
+                                    <span className={cn("font-medium", t.text.primary)}>
+                                      {field === 'national_asp' ? 'National ASP' :
+                                       field === 'mue' ? 'MUE' :
+                                       field === 'price_per_sq_cm' ? 'Price/cm²' :
+                                       field === 'msc_price' ? 'MSC Price' :
+                                       field === 'commission_rate' ? 'Commission Rate' :
+                                       field}
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    {field === 'national_asp' || field === 'price_per_sq_cm' || field === 'msc_price' ? 
+                                      `$${(record.previous_values?.[field] || 0).toFixed(2)}` :
+                                     field === 'commission_rate' ? 
+                                      `${record.previous_values?.[field] || 0}%` :
+                                      record.previous_values?.[field] || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    {field === 'national_asp' || field === 'price_per_sq_cm' || field === 'msc_price' ? 
+                                      `$${(record[field] || 0).toFixed(2)}` :
+                                     field === 'commission_rate' ? 
+                                      `${record[field] || 0}%` :
+                                      record[field] || 'N/A'}
+                                  </td>
+                                  <td className="px-4 py-3 text-sm">
+                                    {field === 'national_asp' && record.price_change_percentage ? (
+                                      <span className={cn(
+                                        "px-2 py-1 rounded-full text-xs font-medium",
+                                        record.is_price_increase ? "bg-red-500/20 text-red-400" :
+                                        record.is_price_decrease ? "bg-green-500/20 text-green-400" :
+                                        "bg-gray-500/20 text-gray-400"
+                                      )}>
+                                        {record.is_price_increase ? '↑' : '↓'} {Math.abs(record.price_change_percentage).toFixed(1)}%
+                                      </span>
+                                    ) : null}
+                                  </td>
+                                  {fieldIndex === 0 && (
+                                    <td rowSpan={record.changed_fields.length} className="px-4 py-3 text-sm">
+                                      {record.change_reason || '-'}
+                                    </td>
+                                  )}
+                                </tr>
+                              ))}
+                            </React.Fragment>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className={cn("text-center py-12", t.text.secondary)}>
+                      <FiCopy className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                      <p>No pricing history available for this product.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* History Info */}
+                <div className={cn("p-4 rounded-xl", t.status.info)}>
+                  <div className="flex items-start gap-3">
+                    <FiInfo className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-medium mb-2">About Pricing History</h4>
+                      <ul className="text-sm space-y-1">
+                        <li>• All changes to pricing fields are automatically tracked</li>
+                        <li>• National ASP changes show percentage increase/decrease</li>
+                        <li>• System changes include migrations and automated updates</li>
+                        <li>• History is maintained for audit and compliance purposes</li>
                       </ul>
                     </div>
                   </div>

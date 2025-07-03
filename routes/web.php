@@ -413,6 +413,9 @@ Route::middleware(['permission:manage-products'])->group(function () {
 
     // MUE validation route (for order validation)
     Route::post('products/{product}/validate-quantity', [ProductController::class, 'validateQuantity'])->name('products.validate-quantity');
+    
+    // Pricing history route
+    Route::get('products/{product}/pricing-history', [ProductController::class, 'getPricingHistory'])->name('products.pricing-history');
 });
 
 // Product view routes (AFTER specific management routes)

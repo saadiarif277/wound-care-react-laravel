@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { AlertCircle, Bug, CheckCircle2, ExternalLink, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
+import { AlertCircle, Bug, CheckCircle2, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
 
 // Better TypeScript interfaces
 interface FormData {
@@ -73,7 +73,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
   const [, setTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [useDirectUrl, setUseDirectUrl] = useState(false); // Default to embedded for better UX
+  const useDirectUrl = false; // Always use embedded mode
   const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
   const [debugInfo, setDebugInfo] = useState<any>(null); // Store debug info for display
@@ -319,7 +319,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
     script.onload = () => {
       const container = document.getElementById('docuseal-embed-container');
       if (container) {
-        container.innerHTML = `<docuseal-form data-src="https://docuseal.com/s/${token}"></docuseal-form>`;
+        container.innerHTML = `<docuseal-form data-src="https://docuseal.com/s/${token}" data-minimize="true"></docuseal-form>`;
 
         // Add event listeners for form completion
         const docusealForm = container.querySelector('docuseal-form');
@@ -505,103 +505,6 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
     );
   }
 
-  // If using direct URL, show a button to open Docuseal in new window
-  if (useDirectUrl && token) {
-    return (
-      <div className={`w-full ${className}`}>
-        {/* Integration Info Banner */}
-        {integrationInfo && (
-          <div className={`mb-4 p-3 rounded-lg text-sm ${
-            integrationInfo.type === 'fhir_enhanced'
-              ? 'bg-green-50 border border-green-200 text-green-800'
-              : 'bg-blue-50 border border-blue-200 text-blue-800'
-          }`}>
-            <div className="flex items-center gap-2">
-              {integrationInfo.type === 'fhir_enhanced' ? (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                </svg>
-              ) : (
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-              )}
-              <span className="font-medium">
-                {integrationInfo.type === 'fhir_enhanced'
-                  ? 'FHIR-Enhanced Integration'
-                  : 'Standard Integration'
-                }
-              </span>
-            </div>
-            <div className="mt-1 text-xs">
-              {integrationInfo.type === 'fhir_enhanced' ? (
-                <>
-                  Using FHIR patient data • {integrationInfo.fhirDataUsed} fields from healthcare records •
-                  {integrationInfo.fieldsMapped} total fields mapped
-                </>
-              ) : (
-                <>
-                  Using form data only • {integrationInfo.fieldsMapped} fields mapped
-                </>
-              )}
-            </div>
-            {integrationInfo.templateName && (
-              <div className="mt-1 text-xs opacity-75">
-                Template: {integrationInfo.templateName} ({integrationInfo.manufacturer})
-              </div>
-            )}
-          </div>
-        )}
-
-        <div className="w-full min-h-[600px] bg-white border border-gray-200 rounded-lg flex items-center justify-center">
-          <div className="text-center p-8">
-            <div className="mb-4">
-              <svg className="w-16 h-16 mx-auto text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Docuseal Form Ready</h3>
-            <p className="text-gray-600 mb-4">
-              {integrationInfo?.type === 'fhir_enhanced'
-                ? 'Your form has been pre-populated with FHIR patient data'
-                : 'Choose how you\'d like to access the IVR form'
-              }
-            </p>
-
-            <div className="mb-6 flex gap-2">
-              <button
-                onClick={() => setUseDirectUrl(false)}
-                className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
-              >
-                Try Embedded
-              </button>
-              <button
-                onClick={() => setUseDirectUrl(true)}
-                className="px-3 py-1 text-sm rounded border border-gray-300 hover:bg-gray-50"
-              >
-                Use New Window
-              </button>
-            </div>
-            <button
-              onClick={() => {
-                const url = `https://docuseal.com/s/${token}`;
-                console.log('Opening Docuseal URL:', url);
-                console.log('Slug length:', token.length);
-                console.log('Slug preview:', token.substring(0, 20) + '...');
-                window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 rounded-lg transition-colors"
-            >
-              Open {documentType === 'OrderForm' ? 'Order Form' : 'IVR Form'}
-            </button>
-            <p className="text-sm text-gray-500 mt-4">
-              The form will open in a new window with all your information pre-filled
-            </p>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Show embedded form by default
   if (token) {
@@ -609,7 +512,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
       <div className={`w-full ${className}`}>
         {/* Compact Status Bar */}
         {integrationInfo && integrationInfo.fieldsMapped > 0 && (
-          <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between">
+          <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded-lg flex items-center">
             <div className="flex items-center gap-2 text-sm">
               <CheckCircle2 className="w-4 h-4 text-green-600" />
               <span className="text-green-800">
@@ -621,71 +524,31 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
                 </span>
               )}
             </div>
-            <button
-              onClick={() => {
-                const url = `https://docuseal.com/s/${token}`;
-                window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-              }}
-              className="text-sm text-blue-600 hover:text-blue-800 underline"
-            >
-              Open in new tab
-            </button>
           </div>
         )}
 
         {/* Embedded Form Container */}
-        {!useDirectUrl ? (
-          <div className="relative">
-            <div
-              id="docuseal-embed-container"
-              className="w-full bg-white rounded-lg shadow-lg overflow-hidden"
-              style={{
-                minHeight: '1000px',
-                height: '100vh',
-                maxHeight: '1600px',
-                width: '100%',
-                maxWidth: '100%'
-              }}
-            >
-              {/* Docuseal form will be inserted here */}
-            </div>
+        <div className="relative">
+          <div
+            id="docuseal-embed-container"
+            className="w-full bg-white rounded-lg shadow-lg overflow-auto"
+            style={{
+              height: '1200px',
+              width: '100%',
+              maxWidth: '100%'
+            }}
+          >
+            {/* Docuseal form will be inserted here */}
+          </div>
 
-            {/* Loading overlay while form loads */}
-            <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-500 pointer-events-none opacity-0" id="docuseal-loading-overlay">
-              <div className="text-center">
-                <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-sm text-gray-600">Loading form...</p>
-              </div>
+          {/* Loading overlay while form loads */}
+          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-500 pointer-events-none opacity-0" id="docuseal-loading-overlay">
+            <div className="text-center">
+              <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
+              <p className="text-sm text-gray-600">Loading form...</p>
             </div>
           </div>
-        ) : (
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <div className="max-w-md mx-auto">
-              <FileText className="w-16 h-16 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Form Ready</h3>
-              <p className="text-gray-600 mb-6">
-                Your {documentType === 'OrderForm' ? 'order' : 'insurance verification'} form has been prepared
-                {integrationInfo && integrationInfo.fieldsMapped > 0 && ` with ${integrationInfo.fieldsMapped} pre-filled fields`}.
-              </p>
-              <button
-                onClick={() => {
-                  const url = `https://docuseal.com/s/${token}`;
-                  window.open(url, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
-                }}
-                className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
-              >
-                <ExternalLink className="w-4 h-4" />
-                Open Form in New Window
-              </button>
-              <button
-                onClick={() => setUseDirectUrl(false)}
-                className="mt-3 text-sm text-gray-600 hover:text-gray-800 underline"
-              >
-                or embed it here instead
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     );
   }

@@ -44,7 +44,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
     available_sizes: [] as number[],
     size_options: [] as string[],
     size_unit: 'cm',
-    mue_limit: 0,
+    mue: 0,
     graph_type: '',
     is_active: true,
     image_url: '',
@@ -518,8 +518,8 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                     <input
                       type="number"
                       min="0"
-                      value={data.mue_limit}
-                      onChange={(e) => setData('mue_limit', parseInt(e.target.value) || 0)}
+                      value={data.mue}
+                      onChange={(e) => setData('mue', parseInt(e.target.value) || 0)}
                       className={cn(
                         "w-full px-4 py-3 rounded-xl",
                         t.input.base,

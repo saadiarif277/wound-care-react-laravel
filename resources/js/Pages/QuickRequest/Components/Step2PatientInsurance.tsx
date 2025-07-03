@@ -557,11 +557,11 @@ function Step2PatientInsurance({
             )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Delivery Date
-            </label>
-            {formData.shipping_speed === 'choose_delivery_date' ? (
+          {formData.shipping_speed === 'choose_delivery_date' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Delivery Date
+              </label>
               <input
                 type="date"
                 className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
@@ -569,15 +569,8 @@ function Step2PatientInsurance({
                 onChange={(e) => updateFormData({ delivery_date: e.target.value })}
                 min={new Date().toISOString().split('T')[0]}
               />
-            ) : (
-              <input
-                type="date"
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                value={formData.delivery_date || ''}
-                readOnly
-              />
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Time-based validation warning */}
           {(() => {

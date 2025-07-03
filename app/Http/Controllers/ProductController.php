@@ -61,7 +61,7 @@ class ProductController extends Controller
             });
 
         return Inertia::render('Products/Index', [
-            'products' => $products,
+            'products' => $products->items(), // Extract the data array from pagination
             'filters' => $request->only(['search', 'category', 'manufacturer', 'sort', 'direction']),
             'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
             'manufacturers' => Product::distinct()->pluck('manufacturer')->filter()->sort()->values(),
@@ -124,6 +124,7 @@ class ProductController extends Controller
             'national_asp' => 'nullable|numeric|min:0',
             'price_per_sq_cm' => 'nullable|numeric|min:0',
             'q_code' => 'nullable|string|max:10',
+            'mue' => 'nullable|integer|min:0',
             'available_sizes' => 'nullable|array',
             'available_sizes.*' => 'string|max:20',
             'size_options' => 'nullable|array',
@@ -170,6 +171,7 @@ class ProductController extends Controller
             'national_asp' => 'nullable|numeric|min:0',
             'price_per_sq_cm' => 'nullable|numeric|min:0',
             'q_code' => 'nullable|string|max:10',
+            'mue' => 'nullable|integer|min:0',
             'available_sizes' => 'nullable|array',
             'available_sizes.*' => 'string|max:20',
             'size_options' => 'nullable|array',
@@ -269,18 +271,18 @@ class ProductController extends Controller
 
         $products = $query
             ->with(['activeSizes']) // Load active sizes
-            ->select(['msc_products.id', 'msc_products.name', 'msc_products.sku', 'msc_products.q_code', 'msc_products.manufacturer', 'msc_products.manufacturer_id', 'msc_products.category', 'msc_products.price_per_sq_cm', 'msc_products.available_sizes', 'msc_products.size_options', 'msc_products.size_pricing', 'msc_products.size_unit'])
+            ->select(['msc_products.id', 'msc_products.name', 'msc_products.sku', 'msc_products.q_code', 'msc_products.manufacturer', 'msc_products.manufacturer_id', 'msc_products.category', 'msc_products.price_per_sq_cm', 'msc_products.available_sizes', 'msc_products.size_options', 'msc_products.size_pricing', 'msc_products.size_unit', 'msc_products.mue'])
             ->get();
 
         // Transform products for response
-        $transformedProducts = $products->map(function ($product) {
+        $transformedProducts = $products->map(function ($product) use ($user) {
             // Get sizes from new system or fall back to old
             $availableSizes = $product->size_options ?? $product->available_sizes ?? [];
 
             // Get manufacturer info
             $manufacturer = Manufacturer::find($product->manufacturer_id);
 
-            return [
+            $data = [
                 'id' => $product->id,
                 'name' => $product->name,
                 'sku' => $product->sku ?? '',
@@ -300,6 +302,14 @@ class ProductController extends Controller
                 'signature_required' => $manufacturer?->signature_required ?? false,
                 'docuseal_template_id' => $manufacturer?->docuseal_order_form_template_id,
             ];
+
+            // Only include MUE for admin users, not providers
+            // MUE is sensitive CMS data that should only be used for validation
+            if ($user->hasPermission('manage-products')) {
+                $data['mue'] = $product->mue;
+            }
+
+            return $data;
         });
 
 
@@ -627,14 +637,24 @@ class ProductController extends Controller
             unset($productArray['national_asp']);
         }
 
-        // Never expose raw MUE values directly - handle enforcement behind the scenes
-        unset($productArray['mue']);
-        unset($productArray['cms_last_updated']);
+        // Handle MUE visibility - only show raw value to admins
+        if (!$user->hasPermission('manage-products')) {
+            // For non-admins, remove raw MUE value
+            unset($productArray['mue']);
+        }
+        
+        // Always remove cms_last_updated for non-admins
+        if (!$user->hasPermission('manage-products')) {
+            unset($productArray['cms_last_updated']);
+        }
 
-        // Add processed MUE information for frontend
+        // Add processed MUE information for frontend (for validation purposes)
         if ($product->hasMueEnforcement()) {
             $productArray['has_quantity_limits'] = true;
-            $productArray['max_allowed_quantity'] = $product->getMaxAllowedQuantity();
+            // Don't expose the actual limit value to non-admins
+            if (!$user->hasPermission('manage-products')) {
+                $productArray['max_allowed_quantity'] = null; // Frontend will know there's a limit but not the value
+            }
         } else {
             $productArray['has_quantity_limits'] = false;
         }
@@ -763,14 +783,23 @@ class ProductController extends Controller
         ]);
 
         $validation = $product->validateOrderQuantity($validated['quantity']);
-
-        return response()->json([
+        
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+        
+        $response = [
             'valid' => $validation['valid'],
             'warnings' => $validation['warnings'],
             'errors' => $validation['errors'],
-            'max_allowed' => $product->getMaxAllowedQuantity(),
             'has_limits' => $product->hasMueEnforcement()
-        ]);
+        ];
+        
+        // Only expose the actual MUE limit to admin users
+        if ($user && $user->hasPermission('manage-products')) {
+            $response['max_allowed'] = $product->getMaxAllowedQuantity();
+        }
+
+        return response()->json($response);
     }
 
     /**
@@ -840,6 +869,60 @@ class ProductController extends Controller
             'needs_update_products' => $needsUpdateProducts,
             'last_sync' => $lastSync ? \Carbon\Carbon::parse($lastSync)->format('Y-m-d H:i:s') : null,
             'sync_coverage_percentage' => $totalProducts > 0 ? round(($syncedProducts / $totalProducts) * 100, 1) : 0
+        ]);
+    }
+
+    /**
+     * Get pricing history for a product
+     */
+    public function getPricingHistory(Product $product)
+    {
+        /** @var \App\Models\User $user */
+        $user = Auth::user();
+
+        if (!$user->hasAnyPermission(['manage-products', 'view-financials'])) {
+            abort(403, 'Unauthorized');
+        }
+
+        $history = \App\Models\ProductPricingHistory::forProduct($product->id)
+            ->with('changedBy:id,first_name,last_name,email')
+            ->orderBy('effective_date', 'desc')
+            ->limit(50)
+            ->get()
+            ->map(function ($record) {
+                return [
+                    'id' => $record->id,
+                    'effective_date' => $record->effective_date->format('Y-m-d H:i:s'),
+                    'national_asp' => $record->national_asp,
+                    'price_per_sq_cm' => $record->price_per_sq_cm,
+                    'msc_price' => $record->msc_price,
+                    'commission_rate' => $record->commission_rate,
+                    'mue' => $record->mue,
+                    'change_type' => $record->change_type,
+                    'changed_by' => $record->changedBy ? [
+                        'name' => $record->changedBy->first_name . ' ' . $record->changedBy->last_name,
+                        'email' => $record->changedBy->email
+                    ] : null,
+                    'changed_fields' => $record->changed_fields,
+                    'previous_values' => $record->previous_values,
+                    'change_reason' => $record->change_reason,
+                    'source' => $record->source,
+                    'price_change_percentage' => $record->getPriceChangePercentage(),
+                    'is_price_increase' => $record->isPriceIncrease(),
+                    'is_price_decrease' => $record->isPriceDecrease(),
+                ];
+            });
+
+        return response()->json([
+            'product' => [
+                'id' => $product->id,
+                'name' => $product->name,
+                'q_code' => $product->q_code,
+                'current_asp' => $product->national_asp,
+                'current_mue' => $product->mue,
+            ],
+            'history' => $history,
+            'total_records' => $history->count()
         ]);
     }
 }

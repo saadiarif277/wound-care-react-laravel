@@ -1,12 +1,9 @@
 import { useState, useEffect } from 'react';
-import { router } from '@inertiajs/core';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShield, FiHeart, FiClock, FiStar, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useManufacturers } from '@/Hooks/useManufacturers';
-import axios from 'axios';
-import { Button } from '@/Components/ui/Button';
 
 // Prepare Docuseal data function (moved from deleted docusealUtils.ts)
 const prepareDocusealData = ({ formData, products, providers, facilities }: any) => {
@@ -225,11 +222,7 @@ export default function Step7DocusealIVR({
   const [isCompleted, setIsCompleted] = useState(false);
   const [submissionError, setSubmissionError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [enhancedSubmission, setEnhancedSubmission] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
-  const [debugMode, setDebugMode] = useState(true); // Enable debug mode
+  const [enhancedSubmission] = useState<any>(null);
 
   // Insurance card re-upload states
   const [showInsuranceUpload, setShowInsuranceUpload] = useState(false);
@@ -1214,7 +1207,7 @@ export default function Step7DocusealIVR({
               episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
               onComplete={handleDocusealComplete}
               onError={handleDocusealError}
-              className="w-full h-full min-h-[800px]"
+              className="w-full"
               submissionUrl="/api/docuseal/submission"
               builderToken={process.env.DOCUSEAL_BUILDER_TOKEN || ''}
               builderProps={{

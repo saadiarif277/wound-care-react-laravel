@@ -120,10 +120,18 @@ class ConfigurationController extends Controller
     }
     
     /**
-     * Get product MUE limits
+     * Get product MUE limits (restricted to admins only)
      */
     public function getProductMueLimits()
     {
+        // MUE is sensitive CMS data - only accessible to admins
+        $user = auth()->user();
+        if (!$user || !$user->hasPermission('manage-products')) {
+            return response()->json([
+                'message' => 'Unauthorized. MUE data is restricted to administrators.'
+            ], 403);
+        }
+
         return Cache::remember('product_mue_limits', 3600, function () {
             return DB::table('msc_products')
                 ->whereNotNull('mue')
@@ -162,11 +170,18 @@ class ConfigurationController extends Controller
      */
     public function getQuickRequestConfig()
     {
-        return response()->json([
+        $user = auth()->user();
+        $config = [
             'wound_types' => $this->getWoundTypes(),
-            'mue_limits' => $this->getProductMueLimits(),
             'docuseal_templates' => config('docuseal.templates'),
             'docuseal_account_email' => config('docuseal.account_email'),
-        ]);
+        ];
+
+        // Only include MUE limits for admin users
+        if ($user && $user->hasPermission('manage-products')) {
+            $config['mue_limits'] = $this->getProductMueLimits();
+        }
+
+        return response()->json($config);
     }
 }

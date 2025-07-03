@@ -1154,6 +1154,11 @@ function QuickRequestCreateNew({
   // Calculate delivery date based on shipping speed
   useEffect(() => {
     if (formData.expected_service_date && formData.shipping_speed) {
+      if (formData.shipping_speed === 'choose_delivery_date') {
+        // Don't auto-calculate for 'choose_delivery_date', user will input manually
+        return;
+      }
+      
       const today = new Date();
       const daysToAdd = formData.shipping_speed === 'standard_2_day' ? 2 : 1;
 
@@ -1161,6 +1166,9 @@ function QuickRequestCreateNew({
       deliveryDate.setDate(deliveryDate.getDate() + daysToAdd);
 
       updateFormData({ delivery_date: deliveryDate.toISOString().split('T')[0] });
+    } else if (!formData.shipping_speed || formData.shipping_speed !== 'choose_delivery_date') {
+      // Clear delivery date when no shipping speed selected or not 'choose_delivery_date'
+      updateFormData({ delivery_date: '' });
     }
   }, [formData.expected_service_date, formData.shipping_speed]);
 
