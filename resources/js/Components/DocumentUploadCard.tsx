@@ -55,7 +55,7 @@ export default function DocumentUploadCard({
     removeUpload,
     formatFileSize,
   } = useDocumentUpload({
-    onUploadComplete: (upload) => {
+    onUploadComplete: () => {
       onDocumentsChange?.(uploads);
     },
     onInsuranceProcessed: onInsuranceDataExtracted,

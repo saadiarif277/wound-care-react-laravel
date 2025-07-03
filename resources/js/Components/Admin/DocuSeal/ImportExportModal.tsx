@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import axios from 'axios';
 import {
   X, Download, Upload, FileJson, AlertTriangle,
-  CheckCircle, FileText, RefreshCw, Calendar, User
+  CheckCircle, FileText, RefreshCw
 } from 'lucide-react';
 import { MappingExportData } from '@/types/field-mapping';
 

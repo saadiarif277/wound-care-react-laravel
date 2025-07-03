@@ -1,20 +1,15 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import {
   FiUsers,
   FiShield,
   FiLock,
-  FiSettings,
   FiPlus,
   FiEdit3,
   FiTrash2,
   FiEye,
-  FiToggleLeft,
-  FiToggleRight,
-  FiCheck,
-  FiX,
-  FiAlertTriangle
+  FiX
 } from 'react-icons/fi';
 
 interface Permission {

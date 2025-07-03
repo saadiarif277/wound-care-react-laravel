@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -12,12 +12,10 @@ import {
   FiUsers,
   FiAlertTriangle,
   FiCalendar,
-  FiFilter,
   FiDownload,
   FiRefreshCw,
   FiEye,
-  FiChevronRight,
-  FiCheckCircle
+  FiChevronRight
 } from 'react-icons/fi';
 import {
   CommissionSummary,

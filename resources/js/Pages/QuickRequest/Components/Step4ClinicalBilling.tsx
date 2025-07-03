@@ -3,6 +3,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import DiagnosisCodeSelector from '@/Components/DiagnosisCode/DiagnosisCodeSelector';
 import Select from '@/Components/ui/Select';
+import DocumentUploadCard from '@/Components/DocumentUploadCard';
 
 interface FormData {
   // Clinical Information
@@ -292,6 +293,9 @@ export default function Step4ClinicalBilling({
             <div className="grid grid-cols-4 gap-3 mb-3">
               {cptOptions.map(option => {
                 const isSelected = (formData.application_cpt_codes || []).includes(option.code);
+                const suggestedCodes = getSuggestedCPTCodes();
+                const isSuggested = suggestedCodes.includes(option.code);
+                
                 return (
                   <label key={option.code} className="flex items-center space-x-2 cursor-pointer">
                     <input
@@ -307,7 +311,19 @@ export default function Step4ClinicalBilling({
                         }
                       }}
                     />
-                    <span className={cn("text-sm", t.text.primary)}>{option.label}</span>
+                    <span className={cn("text-sm flex items-center gap-2", t.text.primary)}>
+                      {option.label}
+                      {isSuggested && (
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full font-medium",
+                          theme === 'dark' 
+                            ? 'bg-blue-900/50 text-blue-300' 
+                            : 'bg-blue-100 text-blue-700'
+                        )}>
+                          suggested
+                        </span>
+                      )}
+                    </span>
                   </label>
                 );
               })}
@@ -778,6 +794,38 @@ export default function Step4ClinicalBilling({
             )}
           </div>
         </div>
+      </div>
+
+      {/* Document Upload Section */}
+      <div className="mt-6">
+        <DocumentUploadCard
+          title="Clinical Documentation"
+          description="Upload supporting clinical documents for this order"
+          onDocumentsChange={(documents) => {
+            // Handle document uploads
+            const updates: any = {};
+            documents.forEach(doc => {
+              if (doc.type === 'demographics') {
+                updates.face_sheet = doc.files.primary;
+              } else if (doc.type === 'clinical_notes') {
+                updates.clinical_notes = doc.files.primary;
+              } else if (doc.type === 'wound_photo') {
+                updates.wound_photo = doc.files.primary;
+              }
+            });
+            updateFormData(updates);
+          }}
+          onInsuranceDataExtracted={(data) => {
+            // Handle extracted insurance data if needed
+            if (data) {
+              updateFormData({
+                primary_insurance_name: data.payer_name,
+                primary_member_id: data.payer_id
+              });
+            }
+          }}
+          className="mb-6"
+        />
       </div>
     </div>
   );

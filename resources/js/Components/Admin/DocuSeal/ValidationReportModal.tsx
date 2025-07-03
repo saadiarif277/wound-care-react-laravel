@@ -3,7 +3,7 @@ import { Dialog, Transition } from '@headlessui/react';
 import { Fragment } from 'react';
 import {
   X, AlertTriangle, CheckCircle, Info, AlertCircle,
-  FileText, Target, Shield, TrendingUp
+  Target, Shield
 } from 'lucide-react';
 import { ValidationResult } from '@/types/field-mapping';
 

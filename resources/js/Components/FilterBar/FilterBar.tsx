@@ -7,7 +7,6 @@ import { ChevronDown, Search } from 'lucide-react';
 import FieldGroup from '@/Components/Form/FieldGroup';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { Button } from '@/Components/Button';
 
 export default function FilterBar() {
   const { filters } = usePage<{

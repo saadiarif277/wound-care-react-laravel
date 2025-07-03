@@ -2,7 +2,7 @@ import React from 'react';
 import { CanonicalField, MappingStatistics } from '@/types/field-mapping';
 import {
   Target, CheckCircle, AlertTriangle, TrendingUp,
-  BarChart3, PieChart, Activity, Zap, Layers
+  BarChart3, PieChart, Activity, Layers
 } from 'lucide-react';
 
 interface Template {
