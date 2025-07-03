@@ -15,11 +15,11 @@ import {
   Activity, Shield, Brain, Workflow
 } from 'lucide-react';
 // import { FieldMappingInterface } from '@/Components/Admin/Docuseal/FieldMappingInterface';
-import { MappingStatsDashboard } from '/home/rvalen/Projects/MSC/wound-care-react-laravel/resources/js/Components/Admin/DocuSeal/MappingStatsDashboard';
-import { BulkMappingModal } from '/home/rvalen/Projects/MSC/wound-care-react-laravel/resources/js/Components/Admin/DocuSeal/BulkMappingModal';
-import { ValidationReportModal } from '/home/rvalen/Projects/MSC/wound-care-react-laravel/resources/js/Components/Admin/DocuSeal/ValidationReportModal';
-import { ImportExportModal } from '/home/rvalen/Projects/MSC/wound-care-react-laravel/resources/js/Components/Admin/DocuSeal/ImportExportModal';
-import { AITemplateAnalyzer } from '/home/rvalen/Projects/MSC/wound-care-react-laravel/resources/js/Components/Admin/DocuSeal/AITemplateAnalyzer';
+import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsDashboard';
+import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
+import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
+import { ImportExportModal } from '@/Components/Admin/DocuSeal/ImportExportModal';
+import { AITemplateAnalyzer } from '@/Components/Admin/DocuSeal/AITemplateAnalyzer';
 import type { CanonicalField, MappingStatistics, ValidationResult } from '@/types/field-mapping';
 
 // Enhanced Types
