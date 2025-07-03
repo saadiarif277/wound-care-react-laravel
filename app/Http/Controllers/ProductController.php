@@ -7,6 +7,7 @@ use App\Models\Order\ProductRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\Order\Manufacturer;
@@ -220,14 +221,16 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
+
         $query = Product::active();
 
         // Add a flag to indicate if provider has no products
         $providerHasNoProducts = false;
 
         // Filter by specific onboarded Q-codes if provided (for performance optimization)
-        if ($request->filled('onboarded_q_codes')) {
-            $qCodes = explode(',', $request->get('onboarded_q_codes'));
+        if ($request->has('onboarded_q_codes') && $request->get('onboarded_q_codes') !== null) {
+            $qCodesParam = $request->get('onboarded_q_codes');
+            $qCodes = explode(',', $qCodesParam);
             $qCodes = array_map('trim', $qCodes);
             $qCodes = array_filter($qCodes); // Remove empty values
 
@@ -266,7 +269,7 @@ class ProductController extends Controller
 
         $products = $query
             ->with(['activeSizes']) // Load active sizes
-            ->select(['id', 'name', 'sku', 'q_code', 'manufacturer', 'category', 'price_per_sq_cm', 'available_sizes', 'size_options', 'size_pricing', 'size_unit'])
+            ->select(['msc_products.id', 'msc_products.name', 'msc_products.sku', 'msc_products.q_code', 'msc_products.manufacturer', 'msc_products.manufacturer_id', 'msc_products.category', 'msc_products.price_per_sq_cm', 'msc_products.available_sizes', 'msc_products.size_options', 'msc_products.size_pricing', 'msc_products.size_unit'])
             ->get();
 
         // Transform products for response
@@ -299,9 +302,11 @@ class ProductController extends Controller
             ];
         });
 
+
         // Also get categories and manufacturers for filtering
-        $categories = $query->distinct()->pluck('category')->filter()->sort()->values();
-        $manufacturers = $query->distinct()->pluck('manufacturer')->filter()->sort()->values();
+        // Use the already fetched products to avoid running the query again
+        $categories = $products->pluck('category')->unique()->filter()->sort()->values();
+        $manufacturers = $products->pluck('manufacturer')->unique()->filter()->sort()->values();
 
         return response()->json([
             'products' => $transformedProducts,

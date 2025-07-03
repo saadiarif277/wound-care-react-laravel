@@ -70,56 +70,213 @@ interface Props {
   className?: string;
 }
 
-// TODO: Move to database configuration or API endpoint
-// These rules should be managed by MSC admin staff
-const INSURANCE_PRODUCT_RULES = {
-  'ppo': {
-    allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
-    sizeRestrictions: null,
-    message: 'Coverage available for BioVance'
-  },
-  'commercial': {
-    allowedProducts: ['Q4154'], // BioVance - TODO: Fetch from insurance_product_rules table
-    sizeRestrictions: null,
-    message: 'Coverage available for BioVance'
-  },
-  'medicare': {
-    '0-250': {
-      allowedProducts: ['Q4250', 'Q4290'], // TODO: Fetch from insurance_product_rules table
-      message: 'Medicare covers Amnio AMP or Membrane Wrap Hydro for wounds 0-250 sq cm'
-    },
-    '251-450': {
-      allowedProducts: ['Q4290'], // TODO: Fetch from insurance_product_rules table
-      message: 'Medicare covers only Membrane Wrap Hydro for wounds 251-450 sq cm'
-    },
-    '>450': {
-      allowedProducts: [],
-      message: 'Wounds larger than 450 sq cm require consultation with MSC Admin',
-      requiresConsultation: true
-    }
-  },
-  'medicaid': {
-    // TODO: Move state lists to database or configuration
-    // States that cover Membrane Wrap / Membrane Wrap Hydro
-    membraneWrapStates: ['TX', 'FL', 'GA', 'TN', 'NC', 'AL', 'OH', 'MI', 'IN', 'KY', 'MO', 'OK', 'SC', 'LA', 'MS',
-                        'WA', 'OR', 'MT', 'SD', 'UT', 'AZ', 'CA', 'CO'],
-    // States that cover Restorigen
-    restorigenStates: ['TX', 'CA', 'LA', 'MD'],
-    // Default products for other states
-    defaultProducts: ['Q4271', 'Q4154', 'Q4238'] // TODO: Fetch from insurance_product_rules table
-  }
-};
-
-// TODO: Move to product configuration or fetch from products table
-// Maximum Units of Eligibility (MUE) limits by product
+// MUE Limits for Medicare
 const MUE_LIMITS: Record<string, number> = {
-  'Q4154': 4000, // BioVance - TODO: Get from product.mue_limit field
-  'Q4271': 4000, // Complete FT - TODO: Get from product.mue_limit field
-  'Q4238': 4000, // Derm-maxx - TODO: Get from product.mue_limit field
-  'Q4250': 4000, // Amnio AMP - TODO: Get from product.mue_limit field
-  'Q4290': 4000, // Membrane Wrap Hydro - TODO: Get from product.mue_limit field
-  'Q4205': 4000, // Membrane Wrap - TODO: Get from product.mue_limit field
-  'Q4191': 4000  // Restorigin - TODO: Get from product.mue_limit field
+  'Q4100': 1100,
+  'Q4101': 1100,
+  'Q4102': 1100,
+  'Q4103': 1100,
+  'Q4104': 1100,
+  'Q4105': 1100,
+  'Q4106': 1100,
+  'Q4107': 100,
+  'Q4108': 100,
+  'Q4110': 100,
+  'Q4111': 100,
+  'Q4112': 100,
+  'Q4113': 100,
+  'Q4114': 100,
+  'Q4115': 100,
+  'Q4116': 100,
+  'Q4117': 100,
+  'Q4118': 100,
+  'Q4119': 100,
+  'Q4120': 100,
+  'Q4121': 18,
+  'Q4122': 1100,
+  'Q4123': 100,
+  'Q4124': 100,
+  'Q4125': 100,
+  'Q4126': 1100,
+  'Q4127': 100,
+  'Q4128': 100,
+  'Q4129': 1100,
+  'Q4130': 100,
+  'Q4131': 1100,
+  'Q4132': 100,
+  'Q4133': 100,
+  'Q4134': 100,
+  'Q4135': 100,
+  'Q4136': 100,
+  'Q4137': 100,
+  'Q4138': 100,
+  'Q4139': 1100,
+  'Q4140': 100,
+  'Q4141': 1100,
+  'Q4142': 100,
+  'Q4143': 100,
+  'Q4145': 100,
+  'Q4146': 100,
+  'Q4147': 100,
+  'Q4148': 16,
+  'Q4149': 100,
+  'Q4150': 50,
+  'Q4151': 1100,
+  'Q4152': 1100,
+  'Q4153': 100,
+  'Q4154': 100,
+  'Q4155': 100,
+  'Q4156': 100,
+  'Q4157': 100,
+  'Q4158': 100,
+  'Q4159': 100,
+  'Q4160': 100,
+  'Q4161': 100,
+  'Q4162': 1100,
+  'Q4163': 100,
+  'Q4164': 100,
+  'Q4165': 100,
+  'Q4166': 100,
+  'Q4167': 100,
+  'Q4168': 100,
+  'Q4169': 100,
+  'Q4170': 100,
+  'Q4171': 25,
+  'Q4172': 1100,
+  'Q4173': 100,
+  'Q4174': 450,
+  'Q4175': 100,
+  'Q4176': 64,
+  'Q4177': 100,
+  'Q4178': 100,
+  'Q4179': 100,
+  'Q4180': 100,
+  'Q4181': 100,
+  'Q4182': 100,
+  'Q4183': 48,
+  'Q4184': 1100,
+  'Q4185': 25,
+  'Q4186': 36,
+  'Q4187': 100,
+  'Q4188': 100,
+  'Q4189': 100,
+  'Q4190': 100,
+  'Q4191': 1100,
+  'Q4192': 1100,
+  'Q4193': 100,
+  'Q4194': 100,
+  'Q4195': 100,
+  'Q4196': 100,
+  'Q4197': 100,
+  'Q4198': 100,
+  'Q4199': 100,
+  'Q4200': 100,
+  'Q4201': 3600,
+  'Q4202': 1100,
+  'Q4203': 100,
+  'Q4204': 48,
+  'Q4205': 540,
+  'Q4206': 100,
+  'Q4208': 100,
+  'Q4209': 80,
+  'Q4210': 100,
+  'Q4211': 100,
+  'Q4212': 100,
+  'Q4213': 100,
+  'Q4214': 100,
+  'Q4215': 100,
+  'Q4216': 100,
+  'Q4217': 100,
+  'Q4218': 100,
+  'Q4219': 540,
+  'Q4220': 100,
+  'Q4221': 100,
+  'Q4222': 100,
+  'Q4224': 1,
+  'Q4225': 1,
+  'Q4226': 48,
+  'Q4227': 48,
+  'Q4229': 48,
+  'Q4230': 48,
+  'Q4231': 100,
+  'Q4232': 500,
+  'Q4233': 50,
+  'Q4234': 100,
+  'Q4235': 100,
+  'Q4236': 100,
+  'Q4237': 100,
+  'Q4238': 100,
+  'Q4239': 100,
+  'Q4240': 100,
+  'Q4241': 100,
+  'Q4242': 100,
+  'Q4244': 540,
+  'Q4245': 1000,
+  'Q4246': 400,
+  'Q4247': 48,
+  'Q4248': 48,
+  'Q4249': 100,
+  'Q4250': 100,
+  'Q4251': 100,
+  'Q4252': 100,
+  'Q4253': 100,
+  'Q4254': 100,
+  'Q4255': 810,
+  'Q4256': 810,
+  'Q4257': 1100,
+  'Q4258': 540,
+  'Q4259': 100,
+  'Q4260': 100,
+  'Q4261': 100,
+  'Q4262': 100,
+  'Q4263': 100,
+  'Q4264': 100,
+  'Q4265': 100,
+  'Q4266': 100,
+  'Q4267': 100,
+  'Q4268': 100,
+  'Q4269': 100,
+  'Q4270': 480,
+  'Q4271': 100,
+  'Q4272': 100,
+  'Q4273': 100,
+  'Q4274': 100,
+  'Q4275': 100,
+  'Q4276': 100,
+  'Q4277': 100,
+  'Q4278': 100,
+  'Q4279': 100,
+  'Q4280': 100,
+  'Q4281': 100,
+  'Q4282': 100,
+  'Q4283': 100,
+  'Q4284': 100,
+  'Q4285': 100,
+  'Q4286': 100,
+  'Q4287': 100,
+  'Q4288': 100,
+  'Q4289': 810,
+  'Q4290': 100,
+  'Q4291': 1100,
+  'Q4292': 100,
+  'Q4293': 100,
+  'Q4294': 100,
+  'Q4295': 100,
+  'Q4296': 100,
+  'Q4297': 100,
+  'Q4298': 100,
+  'Q4299': 100,
+  'Q4300': 100,
+  'Q4301': 32,
+  'Q4302': 100,
+  'Q4303': 1100,
+  'Q4304': 100,
+  'Q4305': 100,
+  'Q4306': 100,
+  'Q4307': 100,
+  'Q4308': 100,
+  'Q4309': 100,
+  'Q4310': 100
 };
 
 // Helper function to parse size string to get dimensions and area
@@ -128,31 +285,12 @@ const parseSizeString = (sizeStr: string): { dimensions: string; area: number } 
   const dimensionMatch = sizeStr.match(/(\d+\.?\d*)\s*[xX×]\s*(\d+\.?\d*)/);
 
   if (dimensionMatch) {
-    const width = parseFloat(dimensionMatch[1]);
-    const height = parseFloat(dimensionMatch[2]);
+    const width = parseFloat(dimensionMatch[1] || '0');
+    const height = parseFloat(dimensionMatch[2] || '0');
     const area = width * height;
     return {
       dimensions: `${width} x ${height} cm`,
       area: area
-    };
-  }
-
-  // Handle single number (assume square or just area)
-  const numberMatch = sizeStr.match(/(\d+\.?\d*)/);
-  if (numberMatch) {
-    const value = parseFloat(numberMatch[1]);
-    // If it's a reasonable square root, treat as square dimensions
-    const sqrtValue = Math.sqrt(value);
-    if (Number.isInteger(sqrtValue) && sqrtValue >= 1 && sqrtValue <= 20) {
-      return {
-        dimensions: `${sqrtValue} x ${sqrtValue} cm`,
-        area: value
-      };
-    }
-    // Otherwise, treat as area only
-    return {
-      dimensions: `${value} cm²`,
-      area: value
     };
   }
 
@@ -197,6 +335,9 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Memoize selectedProducts to prevent infinite loops
   const selectedProductsMemo = useMemo(() => selectedProducts, [JSON.stringify(selectedProducts)]);
 
+  // Memoize last 24 hour orders
+  const last24HourOrdersMemo = useMemo(() => last24HourOrders, [JSON.stringify(last24HourOrders)]);
+
   // Fetch products only when we have provider onboarded products
   useEffect(() => {
     fetchProducts();
@@ -217,32 +358,27 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
     }
   }, [selectedProductsMemo, products]);
 
+  // Determine if consultation is required based on insurance type and wound size
+  const getAllowedProducts = useMemo(() => {
+    const requiresConsultation = insuranceType === 'medicare' && woundSize > 450;
+    return {
+      requiresConsultation,
+      allowedQCodes: providerOnboardedProducts
+    };
+  }, [insuranceType, woundSize, providerOnboardedProducts]);
+
   const fetchProducts = async () => {
     try {
+      setLoading(true);
+      
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
-
-      // Allow fetching even with empty provider products to get proper messaging
-      // The backend will handle the filtering and provide appropriate response
 
       // Add provider onboarded products for primary filtering
       const qCodesString = providerOnboardedProducts.filter(code => code && code.trim()).join(',');
       params.append('onboarded_q_codes', qCodesString);
 
-      // Add insurance context for additional filtering
-      if (insuranceType) {
-        params.append('insurance_type', insuranceType);
-      }
-      if (patientState) {
-        params.append('patient_state', patientState);
-      }
-      if (woundSize > 0) {
-        params.append('wound_size', woundSize.toString());
-      }
-
-      const url = `/api/products/search?${params.toString()}`;
-
-      const response = await fetch(url);
+      const response = await fetch(`/api/products/search?${params.toString()}`);
       const data = await response.json();
 
       // Check if provider has no products
@@ -251,130 +387,67 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
         setProducts([]);
       } else {
         setProviderMessage(null);
-
-        // Temporary fix: Add sample size data to products that don't have any
-        const productsWithSizes = (data.products || []).map((product: Product) => {
-          const hasNewSizes = product.size_options && product.size_options.length > 0;
-          const hasLegacySizes = product.available_sizes && product.available_sizes.length > 0;
-
-          if (!hasNewSizes && !hasLegacySizes) {
-            // Add actual dimensional sizes for each product based on their typical offerings
-            const sampleSizes = [
-              '2x2', '2x3', '3x3', '3x4', '4x4', '4x5', '5x5', '5x6', '6x6'
-            ];
-            return {
-              ...product,
-              size_options: sampleSizes,
-              size_unit: 'cm'
-            };
-          }
-
-          return product;
-        });
-
-        setProducts(productsWithSizes);
+        setProducts(data.products || []);
       }
     } catch (error) {
-      console.error('ProductSelectorQuickRequest: Error fetching products:', error);
+      console.error('Error fetching products:', error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Get allowed products based on insurance rules
-  const getAllowedProducts = useMemo(() => {
-    let allowedQCodes: string[] = [];
-    let message = '';
-    let requiresConsultation = false;
-
-    const normalizedInsuranceType = insuranceType.toLowerCase();
-
-    if (normalizedInsuranceType === 'ppo' || normalizedInsuranceType === 'commercial') {
-      allowedQCodes = [...INSURANCE_PRODUCT_RULES.ppo.allowedProducts];
-      message = INSURANCE_PRODUCT_RULES.ppo.message;
-    } else if (normalizedInsuranceType === 'medicare') {
-      if (woundSize <= 250) {
-        allowedQCodes = [...INSURANCE_PRODUCT_RULES.medicare['0-250'].allowedProducts];
-        message = INSURANCE_PRODUCT_RULES.medicare['0-250'].message;
-      } else if (woundSize <= 450) {
-        allowedQCodes = [...INSURANCE_PRODUCT_RULES.medicare['251-450'].allowedProducts];
-        message = INSURANCE_PRODUCT_RULES.medicare['251-450'].message;
-      } else {
-        allowedQCodes = [...INSURANCE_PRODUCT_RULES.medicare['>450'].allowedProducts];
-        message = INSURANCE_PRODUCT_RULES.medicare['>450'].message;
-        requiresConsultation = INSURANCE_PRODUCT_RULES.medicare['>450'].requiresConsultation || false;
-      }
-    } else if (normalizedInsuranceType === 'medicaid' && patientState) {
-      const rules = INSURANCE_PRODUCT_RULES.medicaid;
-      const upperState = patientState.toUpperCase();
-
-      if (rules.membraneWrapStates.includes(upperState)) {
-        allowedQCodes = ['Q4290', 'Q4205']; // Membrane Wrap Hydro, Membrane Wrap - updated from Q5231, Q5232
-        message = `Medicaid in ${patientState} covers Membrane Wrap products`;
-      } else if (rules.restorigenStates.includes(upperState)) {
-        allowedQCodes = ['Q4191']; // Restorigin - updated from Q5233
-        message = `Medicaid in ${patientState} covers Restorigen`;
-      } else {
-        allowedQCodes = [...rules.defaultProducts];
-        message = `Medicaid in ${patientState} covers Complete FT, BioVance, or Derm-maxx`;
-      }
-    }
-
-    return { allowedQCodes, message, requiresConsultation };
-  }, [insuranceType, woundSize, patientState]);
-
-  // Memoize the allowed Q-codes separately to prevent infinite loops
-  const allowedQCodes = useMemo(() => getAllowedProducts.allowedQCodes, [getAllowedProducts.allowedQCodes]);
-  const providerOnboardedProductsMemo = useMemo(() => providerOnboardedProducts, [JSON.stringify(providerOnboardedProducts)]);
-
-  // Memoize last24HourOrders to prevent infinite loops
-  const last24HourOrdersMemo = useMemo(() => last24HourOrders, [JSON.stringify(last24HourOrders)]);
-
-  // Show all provider onboarded products but mark which ones are insurance-preferred
-  // Insurance filtering is informational only, not restrictive
+  // Filter products based on allowed Q-codes
   const filteredProducts = useMemo(() => {
-    // Always show all products the provider is onboarded with
-    // Insurance rules are just for guidance and warnings
-    return products.map(product => ({
-      ...product,
-      // Add insurance coverage info for display purposes
-      insuranceCovered: allowedQCodes.length === 0 || allowedQCodes.includes(product.q_code),
-      insuranceRecommended: allowedQCodes.includes(product.q_code)
-    }));
-  }, [products, allowedQCodes]);
+    if (!products || products.length === 0) return [];
+    
+    // If provider has no onboarded products, return empty array
+    if (providerOnboardedProducts.length === 0) return [];
+    
+    // Filter products by onboarded Q-codes
+    return products.filter(product => 
+      providerOnboardedProducts.includes(product.q_code)
+    );
+  }, [products, providerOnboardedProducts]);
 
-    // Since we're simplifying the display, just use filtered products directly
-  const availableProducts = filteredProducts;
+  // Further filter for available products (not restricted by other conditions)
+  const availableProducts = useMemo(() => {
+    return filteredProducts.filter(() => {
+      // Add any additional filtering logic here if needed
+      // For now, all filtered products are available
+      return true;
+    });
+  }, [filteredProducts]);
 
-  // Check for warnings (24-hour rule, MUE limits)
+  // Check for warnings
   useEffect(() => {
     const newWarnings: string[] = [];
 
-    // Check 24-hour rule for selected products
+    // Check for repeated orders in last 24 hours
     selectedProductsMemo.forEach(item => {
-      const product = item.product || products.find(p => p.id === item.product_id);
-      if (product) {
-        const recentOrder = last24HourOrdersMemo.find(order =>
-          order.productCode === product.q_code &&
-          new Date(order.orderDate).getTime() > Date.now() - 24 * 60 * 60 * 1000
+      const recent = last24HourOrdersMemo.find(order => 
+        order.productCode === item.product?.q_code
+      );
+      
+      if (recent) {
+        newWarnings.push(
+          `Warning: ${item.product?.name} (${item.product?.q_code}) was ordered within the last 24 hours. Please verify this is not a duplicate order.`
         );
+      }
+    });
 
-        if (recentOrder) {
-          newWarnings.push(`Warning: ${product.name} (Q${product.q_code}) was ordered within the last 24 hours. This may affect reimbursement.`);
-        }
+    // Check MUE limits
+    products.forEach(product => {
+      const totalSize = selectedProductsMemo
+        .filter(p => p.product_id === product.id)
+        .reduce((sum, p) => {
+          const size = p.size ? parseFloat(p.size) : 0;
+          return sum + (size * p.quantity);
+        }, 0);
 
-        // Check MUE limits
-        const totalSize = selectedProductsMemo
-          .filter(p => p.product_id === product.id)
-          .reduce((sum, p) => {
-            const size = p.size ? parseFloat(p.size) : 0;
-            return sum + (size * p.quantity);
-          }, 0);
-
-        const mueLimit = MUE_LIMITS[product.q_code];
-        if (mueLimit && totalSize > mueLimit) {
-          newWarnings.push(`Warning: Total size for ${product.name} (${totalSize} sq cm) exceeds Maximum Units of Eligibility (${mueLimit} sq cm). This may require additional documentation.`);
-        }
+      const mueLimit = MUE_LIMITS[product.q_code];
+      if (mueLimit && totalSize > mueLimit) {
+        newWarnings.push(`Warning: Total size for ${product.name} (${totalSize} sq cm) exceeds Maximum Units of Eligibility (${mueLimit} sq cm). This may require additional documentation.`);
       }
     });
 
@@ -700,13 +773,12 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                     const totalPrice = unitPrice * item.quantity;
 
                     return (
-                                              <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
+                      <div key={`${item.product_id}-${item.size || 'no-size'}`} className={`border ${theme === 'dark' ? 'border-white/10' : 'border-gray-200'} rounded-md p-3`}>
                         <div className="flex items-start justify-between mb-2">
                           <div className="flex-1">
                             {item.size ? (
                               <div>
                                 {(() => {
-                                  const sizeNum = parseFloat(item.size);
                                   const sizeInfo = parseSizeString(item.size);
                                   return (
                                     <>
@@ -751,8 +823,9 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                             >
                               <Minus className="w-3 h-3" />
                             </button>
+                            <span className={`text-sm font-medium ${t.text.primary} px-2`}>
                               {item.quantity}
-
+                            </span>
                             <button
                               title="Increase quantity"
                               aria-label="Increase quantity"

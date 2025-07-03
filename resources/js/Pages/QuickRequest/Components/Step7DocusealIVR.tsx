@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
+import { useState, useEffect } from 'react';
+import { router } from '@inertiajs/core';
 import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiUser, FiShield, FiHeart, FiClock, FiStar, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -1215,6 +1215,10 @@ export default function Step7DocusealIVR({
               onComplete={handleDocusealComplete}
               onError={handleDocusealError}
               className="w-full h-full min-h-[800px]"
+              submissionUrl="/api/docuseal/submission"
+              builderToken={process.env.DOCUSEAL_BUILDER_TOKEN || ''}
+              builderProps={{
+              }}
             />
             
             {/* Documents Section for IVR */}

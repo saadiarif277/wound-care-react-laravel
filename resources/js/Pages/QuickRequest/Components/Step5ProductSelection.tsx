@@ -89,16 +89,24 @@ export default function Step5ProductSelection({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Fetch provider's onboarded products when provider_id changes
+  // Fetch provider's onboarded products when provider_id changes or if current user is a provider
   useEffect(() => {
     // Only show products for selected provider
     // providerOnboardedProducts is an array of product codes or IDs
 
     const fetchProviderProducts = async () => {
-      if (formData.provider_id) {
+      // Determine which provider ID to use
+      let providerId = formData.provider_id;
+      
+      // If no provider is explicitly selected and current user is a provider, use their ID
+      if (!providerId && currentUser?.role === 'provider' && currentUser?.id) {
+        providerId = currentUser.id;
+      }
+      
+      if (providerId) {
         setLoading(true);
         try {
-          const response = await fetch(`/api/v1/providers/${formData.provider_id}/onboarded-products`);
+          const response = await fetch(`/api/v1/providers/${providerId}/onboarded-products`);
           const data = await response.json();
           if (data.success) {
             setProviderOnboardedProducts(data.q_codes || []);
@@ -112,12 +120,9 @@ export default function Step5ProductSelection({
     };
 
     fetchProviderProducts();
-  }, [formData.provider_id]);
+  }, [formData.provider_id, currentUser?.id, currentUser?.role]);
 
   const handleProductsChange = (selectedProducts: SelectedProduct[]) => {
-    console.log('=== Product Selection Change Debug ===');
-    console.log('Incoming selectedProducts:', selectedProducts);
-    console.log('Current formData.selected_products:', formData.selected_products);
 
     // Store provider-product mapping in formData, format size as '2 x 2'
     const updatedProducts = selectedProducts.map((item) => ({
@@ -127,13 +132,9 @@ export default function Step5ProductSelection({
       size: item.size ? String(item.size).replace(/\s*([xX×^])\s*/g, ' x ') : undefined,
     }));
 
-    console.log('Updated products to save:', updatedProducts);
-
     updateFormData({
       selected_products: updatedProducts
     });
-
-    console.log('Product selection updated successfully');
   };
 
   return (
