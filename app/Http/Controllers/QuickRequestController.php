@@ -18,13 +18,13 @@ use App\Services\PatientService;
 use App\Services\PayerService;
 use App\Services\PhiAuditService;
 use App\Services\CurrentOrganization;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Jobs\QuickRequest\ProcessEpisodeCreation;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use App\Jobs\QuickRequest\SendManufacturerNotification;
 use App\Jobs\QuickRequest\CreateApprovalTask;
-use App\Jobs\QuickRequest\GenerateDocuSealPdf;
+use App\Jobs\QuickRequest\GenerateDocusealPdf;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -39,14 +39,14 @@ use Inertia\Inertia;
 use Inertia\Response;
 use Illuminate\Support\Facades\Http;
 use App\Models\Episode;
-use App\Services\FhirDocuSealIntegrationService;
+use App\Services\FhirDocusealIntegrationService;
 use App\Services\UnifiedFieldMappingService;
 
 /**
  * QuickRequestController
  *
  * Handles the complete Quick Request workflow for wound care product orders.
- * Integrates with FHIR services, DocuSeal, and manufacturer notifications.
+ * Integrates with FHIR services, Docuseal, and manufacturer notifications.
  */
 final class QuickRequestController extends Controller
 {
@@ -56,7 +56,7 @@ final class QuickRequestController extends Controller
         protected PatientService $patientService,
         protected PayerService $payerService,
         protected CurrentOrganization $currentOrganization,
-        protected DocuSealService $docuSealService,
+        protected DocusealService $docuSealService,
         protected UnifiedFieldMappingService $fieldMappingService,
         protected \App\Services\QuickRequestSubmissionService $submissionService
     ) {}
@@ -409,9 +409,9 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Create episode for DocuSeal integration
+     * Create episode for Docuseal integration
      */
-    public function createEpisodeForDocuSeal(Request $request): JsonResponse
+    public function createEpisodeForDocuseal(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'patient_id' => 'required|string',
@@ -461,7 +461,7 @@ final class QuickRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to create episode for DocuSeal', [
+            Log::error('Failed to create episode for Docuseal', [
                 'error' => $e->getMessage(),
                 'patient_display_id' => $validated['patient_display_id'],
                 'manufacturer_id' => $validated['manufacturer_id'] ?? null,
@@ -475,7 +475,7 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Generate JWT token for DocuSeal builder
+     * Generate JWT token for Docuseal builder
      */
     public function generateBuilderToken(Request $request): JsonResponse
     {
@@ -493,14 +493,14 @@ final class QuickRequestController extends Controller
 
             $apiKey = config('docuseal.api_key');
             if (!$apiKey) {
-                throw new \Exception('DocuSeal API key not configured');
+                throw new \Exception('Docuseal API key not configured');
             }
 
             // Get manufacturer ID from request
             $manufacturerId = $data['manufacturerId'] ?? $this->getManufacturerIdFromPrefillData($data['prefill_data'] ?? []);
 
             // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            $userProfileData = $this->loadUserProfileDataForDocuseal();
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
@@ -516,7 +516,7 @@ final class QuickRequestController extends Controller
                             $template
                         );
 
-                        Log::info('DocuSeal fields mapped for JWT', [
+                        Log::info('Docuseal fields mapped for JWT', [
                             'manufacturer_id' => $manufacturerId,
                             'template_id' => $template->docuseal_template_id,
                             'original_fields' => count($data['prefill_data']),
@@ -526,7 +526,7 @@ final class QuickRequestController extends Controller
                         ]);
                     }
                 } catch (\Exception $e) {
-                    Log::warning('Could not map fields for DocuSeal', [
+                    Log::warning('Could not map fields for Docuseal', [
                         'error' => $e->getMessage(),
                         'manufacturer_id' => $manufacturerId
                     ]);
@@ -578,7 +578,7 @@ final class QuickRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error generating DocuSeal builder token', [
+            Log::error('Error generating Docuseal builder token', [
                 'error' => $e->getMessage(),
                 'request_data' => $request->all()
             ]);
@@ -591,7 +591,7 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Create final DocuSeal submission
+     * Create final Docuseal submission
      */
     public function createFinalSubmission(Request $request): JsonResponse
     {
@@ -605,7 +605,7 @@ final class QuickRequestController extends Controller
             $prefillData = $data['prefill_data'];
 
             // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            $userProfileData = $this->loadUserProfileDataForDocuseal();
 
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
@@ -617,7 +617,7 @@ final class QuickRequestController extends Controller
             $template = $this->getTemplateForManufacturer($manufacturerId);
 
             if (!$template) {
-                throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
+                throw new \Exception("No Docuseal template found for manufacturer ID: {$manufacturerId}");
             }
 
             // Use builder mode if requested
@@ -674,7 +674,7 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Generate DocuSeal form token for filling existing templates.
+     * Generate Docuseal form token for filling existing templates.
      */
     public function generateFormToken(Request $request): JsonResponse
     {
@@ -689,7 +689,7 @@ final class QuickRequestController extends Controller
 
             $apiKey = config('docuseal.api_key');
             if (!$apiKey) {
-                throw new \Exception('DocuSeal API key not configured');
+                throw new \Exception('Docuseal API key not configured');
             }
 
             // Get manufacturer ID from request
@@ -707,11 +707,11 @@ final class QuickRequestController extends Controller
             // Get the template
             $template = $this->getTemplateForManufacturer($manufacturerId);
             if (!$template) {
-                throw new \Exception("No DocuSeal template found for manufacturer ID: {$manufacturerId}");
+                throw new \Exception("No Docuseal template found for manufacturer ID: {$manufacturerId}");
             }
 
             // Load authenticated user's profile data
-            $userProfileData = $this->loadUserProfileDataForDocuSeal();
+            $userProfileData = $this->loadUserProfileDataForDocuseal();
 
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
@@ -727,7 +727,7 @@ final class QuickRequestController extends Controller
                         $template
                     );
 
-                    Log::info('DocuSeal fields mapped for form', [
+                    Log::info('Docuseal fields mapped for form', [
                         'manufacturer_id' => $manufacturerId,
                         'template_id' => $template->docuseal_template_id,
                         'original_fields' => count($data['prefill_data']),
@@ -736,7 +736,7 @@ final class QuickRequestController extends Controller
                         'user_profile_fields_included' => count($userProfileData)
                     ]);
                 } catch (\Exception $e) {
-                    Log::warning('Could not map fields for DocuSeal form', [
+                    Log::warning('Could not map fields for Docuseal form', [
                         'error' => $e->getMessage(),
                         'manufacturer_id' => $manufacturerId
                     ]);
@@ -757,7 +757,7 @@ final class QuickRequestController extends Controller
                 'exp' => time() + (60 * 60), // 1 hour expiration
             ];
 
-            Log::info('Generating DocuSeal form token', [
+            Log::info('Generating Docuseal form token', [
                 'template_id' => $template->docuseal_template_id,
                 'has_fields' => !empty($mappedFields),
                 'field_count' => count($mappedFields),
@@ -780,7 +780,7 @@ final class QuickRequestController extends Controller
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Error generating DocuSeal form token', [
+            Log::error('Error generating Docuseal form token', [
                 'error' => $e->getMessage(),
                 'request_data' => $request->all()
             ]);
@@ -793,12 +793,12 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Generate DocuSeal submission slug with enhanced FHIR integration
+     * Generate Docuseal submission slug with enhanced FHIR integration
      */
     public function generateSubmissionSlug(Request $request): JsonResponse
     {
         // Log the start of the process with all incoming data
-        Log::info('🔵 DocuSeal submission generation STARTED', [
+        Log::info('🔵 Docuseal submission generation STARTED', [
             'request_data' => $request->all(),
             'user_id' => Auth::id(),
             'timestamp' => now()->toISOString(),
@@ -829,19 +829,19 @@ final class QuickRequestController extends Controller
                 'sample_form_data' => array_slice($data['prefill_data'] ?? [], 0, 10)
             ]);
 
-            // Step 1: Validate DocuSeal Configuration
+            // Step 1: Validate Docuseal Configuration
             $apiKey = config('docuseal.api_key');
             $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
 
             if (!$apiKey) {
-                throw new \Exception('DocuSeal API key not configured. Please check DOCUSEAL_API_KEY environment variable.');
+                throw new \Exception('Docuseal API key not configured. Please check DOCUSEAL_API_KEY environment variable.');
             }
 
             if (strlen($apiKey) < 10) {
-                throw new \Exception('DocuSeal API key appears invalid (too short). Please verify your API key.');
+                throw new \Exception('Docuseal API key appears invalid (too short). Please verify your API key.');
             }
 
-            Log::info('✅ DocuSeal configuration validated', [
+            Log::info('✅ Docuseal configuration validated', [
                 'api_url' => $apiUrl,
                 'api_key_length' => strlen($apiKey),
                 'api_key_prefix' => substr($apiKey, 0, 8) . '...'
@@ -892,13 +892,13 @@ final class QuickRequestController extends Controller
             // Step 3a: Load authenticated user's profile data
             // Extract facility_id from prefill_data if available
             $facilityId = $data['prefill_data']['facility_id'] ?? null;
-            $userProfileData = $this->loadUserProfileDataForDocuSeal($facilityId);
+            $userProfileData = $this->loadUserProfileDataForDocuseal($facilityId);
 
             // Merge user profile data with prefill data (prefill data takes precedence)
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
 
-                Log::info('✅ User profile data loaded for DocuSeal', [
+                Log::info('✅ User profile data loaded for Docuseal', [
                     'user_id' => Auth::id(),
                     'profile_fields_added' => array_keys($userProfileData),
                     'has_provider_data' => !empty($userProfileData['provider_name']),
@@ -907,19 +907,19 @@ final class QuickRequestController extends Controller
                 ]);
             }
 
-            // Use FHIR-DocuSeal integration service if episode is available
+            // Use FHIR-Docuseal integration service if episode is available
             if ($episode) {
                 try {
-                    Log::info('🎯 Attempting FHIR-DocuSeal Integration', [
+                    Log::info('🎯 Attempting FHIR-Docuseal Integration', [
                         'episode_id' => $episode->id,
                         'manufacturer_id' => $manufacturerId
                     ]);
 
-                    $fhirIntegrationService = app(FhirDocuSealIntegrationService::class);
+                    $fhirIntegrationService = app(FhirDocusealIntegrationService::class);
                     $result = $fhirIntegrationService->createProviderOrderSubmission($episode, $data['prefill_data'] ?? []);
 
                     if ($result['success']) {
-                        Log::info('✅ FHIR-DocuSeal integration SUCCESSFUL', [
+                        Log::info('✅ FHIR-Docuseal integration SUCCESSFUL', [
                             'episode_id' => $episode->id,
                             'submission_id' => $result['submission_id'],
                             'slug' => $result['slug'],
@@ -988,7 +988,7 @@ final class QuickRequestController extends Controller
                     })->toArray();
 
                 throw new \Exception(
-                    "No DocuSeal template found for manufacturer '{$manufacturer->name}' (ID: {$manufacturerId}). " .
+                    "No Docuseal template found for manufacturer '{$manufacturer->name}' (ID: {$manufacturerId}). " .
                     "Available templates for this manufacturer: " . (empty($availableTemplates) ? 'None' : implode(', ', $availableTemplates)) . ". " .
                     "All available templates: " . implode(', ', $allTemplates)
                 );
@@ -1040,14 +1040,14 @@ final class QuickRequestController extends Controller
                         'completeness_percentage' => $mappingResult['completeness']['percentage'] ?? 0
                     ]);
 
-                    // Convert to DocuSeal format
-                    $docuSealFields = $this->fieldMappingService->convertToDocuSealFields(
+                    // Convert to Docuseal format
+                    $docuSealFields = $this->fieldMappingService->convertToDocusealFields(
                         $mappingResult['data'],
                         $manufacturerConfig,
                         $documentType
                     );
 
-                    Log::info('✅ DocuSeal field conversion completed', [
+                    Log::info('✅ Docuseal field conversion completed', [
                         'docuseal_fields_count' => count($docuSealFields),
                         'sample_fields' => array_slice($docuSealFields, 0, 5),
                         'all_field_names' => array_map(function($f) {
@@ -1107,7 +1107,7 @@ final class QuickRequestController extends Controller
             }
 
             // Log the submission data being sent
-            Log::info('📤 Sending DocuSeal submission request', [
+            Log::info('📤 Sending Docuseal submission request', [
                 'template_id' => $submissionData['template_id'],
                 'submitter_email' => $submissionData['submitters'][0]['email'],
                 'submitter_role' => $submissionData['submitters'][0]['role'],
@@ -1134,7 +1134,7 @@ final class QuickRequestController extends Controller
                 $responseBody = $response->body();
                 $responseData = $response->json() ?? [];
 
-                Log::error('❌ DocuSeal API error', [
+                Log::error('❌ Docuseal API error', [
                     'status' => $statusCode,
                     'body' => $responseBody,
                     'response_data' => $responseData,
@@ -1145,19 +1145,19 @@ final class QuickRequestController extends Controller
                 // Provide specific error messages based on status code
                 $errorMessage = match($statusCode) {
                     401 => 'Authentication failed - check API key and permissions. API Key: ' . substr($apiKey, 0, 8) . '...',
-                    404 => "Template not found - verify template ID {$template->docuseal_template_id} exists in DocuSeal",
+                    404 => "Template not found - verify template ID {$template->docuseal_template_id} exists in Docuseal",
                     422 => 'Validation failed - ' . ($responseData['error'] ?? 'check role name and field mappings'),
                     429 => 'Rate limit exceeded - please try again in a moment',
-                    500 => 'DocuSeal server error - please try again later',
+                    500 => 'Docuseal server error - please try again later',
                     default => $responseData['error'] ?? $responseBody ?: 'Unknown error'
                 };
 
-                throw new \Exception("DocuSeal API error ({$statusCode}): {$errorMessage}");
+                throw new \Exception("Docuseal API error ({$statusCode}): {$errorMessage}");
             }
 
             $submissionResponse = $response->json();
 
-            Log::info('🔍 DocuSeal API Response Analysis', [
+            Log::info('🔍 Docuseal API Response Analysis', [
                 'response_structure' => array_keys($submissionResponse),
                 'is_array' => is_array($submissionResponse),
                 'response_type' => gettype($submissionResponse),
@@ -1198,18 +1198,18 @@ final class QuickRequestController extends Controller
                     'full_response' => $submissionResponse,
                     'response_keys' => array_keys($submissionResponse)
                 ]);
-                throw new \Exception('No slug returned from DocuSeal API. Response format: ' . json_encode(array_keys($submissionResponse)));
+                throw new \Exception('No slug returned from Docuseal API. Response format: ' . json_encode(array_keys($submissionResponse)));
             }
 
             if (empty($submitters)) {
                 Log::error('❌ No submitters found in response', [
                     'full_response' => $submissionResponse
                 ]);
-                throw new \Exception('No submitters returned from DocuSeal API.');
+                throw new \Exception('No submitters returned from Docuseal API.');
             }
 
             // Step 11: Success Response
-            Log::info('🎉 DocuSeal submission created successfully', [
+            Log::info('🎉 Docuseal submission created successfully', [
                 'template_id' => $template->docuseal_template_id,
                 'submission_id' => $submissionId,
                 'slug' => $slug,
@@ -1246,7 +1246,7 @@ final class QuickRequestController extends Controller
             ], 422);
 
         } catch (\Exception $e) {
-            Log::error('❌ DocuSeal submission generation FAILED', [
+            Log::error('❌ Docuseal submission generation FAILED', [
                 'error' => $e->getMessage(),
                 'error_type' => get_class($e),
                 'error_line' => $e->getLine(),
@@ -1274,9 +1274,9 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Debug endpoint for DocuSeal integration issues - Enhanced diagnostics
+     * Debug endpoint for Docuseal integration issues - Enhanced diagnostics
      */
-    public function debugDocuSealIntegration(Request $request): JsonResponse
+    public function debugDocusealIntegration(Request $request): JsonResponse
     {
         try {
             $manufacturerId = $request->get('manufacturerId', 32);
@@ -1397,7 +1397,7 @@ final class QuickRequestController extends Controller
         if (!$apiKey) {
             return [
                 'status' => 'no_api_key',
-                'message' => 'DocuSeal API key not configured'
+                'message' => 'Docuseal API key not configured'
             ];
         }
 
@@ -1485,9 +1485,9 @@ final class QuickRequestController extends Controller
     private function getDebugNextSteps(): array
     {
         return [
-            'If API connectivity failed: Check your DocuSeal API key and network connectivity',
-            'If template not found: Verify manufacturer has associated DocuSeal templates',
-            'If role detection failed: Check template configuration in DocuSeal',
+            'If API connectivity failed: Check your Docuseal API key and network connectivity',
+            'If template not found: Verify manufacturer has associated Docuseal templates',
+            'If role detection failed: Check template configuration in Docuseal',
             'If field mapping failed: Review template field mappings in database',
             'Test with: POST /quick-requests/docuseal/generate-submission-slug'
         ];
@@ -1498,7 +1498,7 @@ final class QuickRequestController extends Controller
         $recommendations = [];
 
         if (!$debugInfo['configuration']['api_key_configured']) {
-            $recommendations[] = '❌ Configure DocuSeal API key in DOCUSEAL_API_KEY environment variable';
+            $recommendations[] = '❌ Configure Docuseal API key in DOCUSEAL_API_KEY environment variable';
         }
 
         if (!$debugInfo['manufacturer_info']['found']) {
@@ -1506,15 +1506,15 @@ final class QuickRequestController extends Controller
         }
 
         if (!$debugInfo['template_info']['found']) {
-            $recommendations[] = '❌ No template found for manufacturer - create DocuSeal template association';
+            $recommendations[] = '❌ No template found for manufacturer - create Docuseal template association';
         }
 
         if (isset($debugInfo['api_connectivity']['status']) && $debugInfo['api_connectivity']['status'] !== 'success') {
-            $recommendations[] = '❌ DocuSeal API connectivity failed - check API key and network';
+            $recommendations[] = '❌ Docuseal API connectivity failed - check API key and network';
         }
 
         if (empty($recommendations)) {
-            $recommendations[] = '✅ All checks passed - DocuSeal integration should work properly';
+            $recommendations[] = '✅ All checks passed - Docuseal integration should work properly';
         }
 
         return $recommendations;
@@ -2299,7 +2299,7 @@ final class QuickRequestController extends Controller
             // Manufacturer Fields
             'manufacturer_fields' => $validated['manufacturer_fields'] ?? [],
 
-            // DocuSeal Integration
+            // Docuseal Integration
             'docuseal' => [
                 'submission_id' => $validated['docuseal_submission_id'] ?? null,
                 'episode_id' => $validated['episode_id'] ?? null,
@@ -2374,8 +2374,8 @@ final class QuickRequestController extends Controller
         //     'plan_type' => $validated['primary_plan_type'],
         // ]);
 
-        // Generate DocuSeal PDF - DISABLED
-        // GenerateDocuSealPdf::dispatch($episode, [
+        // Generate Docuseal PDF - DISABLED
+        // GenerateDocusealPdf::dispatch($episode, [
         //     'manufacturer_id' => $this->getManufacturerIdFromProducts($validated['selected_products']),
         //     'form_data' => $validated,
         // ]);
@@ -2409,7 +2409,7 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Format prefill values for DocuSeal
+     * Format prefill values for Docuseal
      */
     private function formatPrefillValues(array $prefillData): array
     {
@@ -2568,12 +2568,12 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Get the correct role name from DocuSeal template with enhanced error handling
+     * Get the correct role name from Docuseal template with enhanced error handling
      */
     private function getTemplateRole(string $templateId, string $apiKey): string
     {
         try {
-            Log::info('🔍 Fetching template role from DocuSeal API', [
+            Log::info('🔍 Fetching template role from Docuseal API', [
                 'template_id' => $templateId,
                 'api_key_length' => strlen($apiKey)
             ]);
@@ -2617,7 +2617,7 @@ final class QuickRequestController extends Controller
                 $statusCode = $response->status();
                 $responseBody = $response->body();
 
-                Log::warning('⚠️ DocuSeal template API error', [
+                Log::warning('⚠️ Docuseal template API error', [
                     'template_id' => $templateId,
                     'status' => $statusCode,
                     'response' => $responseBody
@@ -2625,7 +2625,7 @@ final class QuickRequestController extends Controller
 
                 // If it's a 404, the template might not exist
                 if ($statusCode === 404) {
-                    throw new \Exception("Template {$templateId} not found in DocuSeal");
+                    throw new \Exception("Template {$templateId} not found in Docuseal");
                 }
 
                 // If it's 401, there might be an API key issue
@@ -2648,7 +2648,7 @@ final class QuickRequestController extends Controller
             }
         }
 
-        // Enhanced fallback logic based on common DocuSeal role patterns
+        // Enhanced fallback logic based on common Docuseal role patterns
         $commonRoles = [
             'First Party',      // Most common in healthcare forms
             'Signer',          // Generic signer role
@@ -2740,7 +2740,7 @@ final class QuickRequestController extends Controller
             if (!$apiKey) {
                 return response()->json([
                     'success' => false,
-                    'error' => 'DocuSeal API key not configured'
+                    'error' => 'Docuseal API key not configured'
                 ], 500);
             }
 
@@ -2789,10 +2789,10 @@ final class QuickRequestController extends Controller
     }
 
     /**
-     * Load authenticated user's profile data for DocuSeal forms
+     * Load authenticated user's profile data for Docuseal forms
      * @param int|null $facilityId Optional facility ID to use instead of primary facility
      */
-    private function loadUserProfileDataForDocuSeal(?int $facilityId = null): array
+    private function loadUserProfileDataForDocuseal(?int $facilityId = null): array
     {
         try {
             $user = Auth::user();
@@ -2935,7 +2935,7 @@ final class QuickRequestController extends Controller
             $profileData = array_filter($profileData, function($value) {
                 return $value !== null && $value !== '';
             });
-            Log::info('User profile data loaded for DocuSeal', [
+            Log::info('User profile data loaded for Docuseal', [
                 'user_id' => $user->id,
                 'fields_loaded' => count($profileData),
                 'has_provider_profile' => isset($providerProfile),
@@ -2949,7 +2949,7 @@ final class QuickRequestController extends Controller
             return $profileData;
 
         } catch (\Exception $e) {
-            Log::error('Failed to load user profile data for DocuSeal', [
+            Log::error('Failed to load user profile data for Docuseal', [
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id()
             ]);

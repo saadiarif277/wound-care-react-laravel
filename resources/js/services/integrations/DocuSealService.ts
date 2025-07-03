@@ -1,5 +1,5 @@
 // Placeholder types
-interface DocuSealSessionData {
+interface DocusealSessionData {
   templateId?: string; // Template ID might be determined by backend based on other data
   orderId: string;      // Crucial for backend to know which order this is for
   documentType: string; // e.g., 'InsuranceVerification', 'OrderForm', 'OnboardingForm'
@@ -7,8 +7,8 @@ interface DocuSealSessionData {
   [key: string]: any;
 }
 
-interface DocuSealSession {
-  sessionId: string; // This would be the DocuSeal Submission ID
+interface DocusealSession {
+  sessionId: string; // This would be the Docuseal Submission ID
   signingUrl?: string; // If admin/provider needs to sign directly via a URL
   // other relevant session properties
   [key: string]: any;
@@ -21,17 +21,17 @@ interface SignedDocument {
   [key: string]: any;
 }
 
-type SignatureStatus = 'pending' | 'viewed' | 'signed' | 'completed' | 'declined' | 'error' | 'admin_approved' | 'pending_provider_signature'; // Expanded based on DocuSeal Integration.md
+type SignatureStatus = 'pending' | 'viewed' | 'signed' | 'completed' | 'declined' | 'error' | 'admin_approved' | 'pending_provider_signature'; // Expanded based on Docuseal Integration.md
 type StatusChangeCallback = (status: SignatureStatus) => void;
 
 const LARAVEL_API_BASE_URL = '/api/v1'; // Adjust if your API routes have a different prefix
 
-export class DocuSealService {
+export class DocusealService {
   constructor() {}
 
   // Maps to initializeDocumentWorkflow in Create.tsx
-  // Corresponds to POST /api/v1/docuseal/generate on the backend (DocuSealController@generateDocument)
-  async createSession(sessionData: DocuSealSessionData): Promise<DocuSealSession> {
+  // Corresponds to POST /api/v1/docuseal/generate on the backend (DocusealController@generateDocument)
+  async createSession(sessionData: DocusealSessionData): Promise<DocusealSession> {
 
     const response = await fetch(`${LARAVEL_API_BASE_URL}/docuseal/generate`, {
       method: 'POST',
@@ -45,7 +45,7 @@ export class DocuSealService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`API error creating DocuSeal session: ${errorData.message || response.statusText}`);
+      throw new Error(`API error creating Docuseal session: ${errorData.message || response.statusText}`);
     }
 
     const result = await response.json();
@@ -59,7 +59,7 @@ export class DocuSealService {
 
   // For SignatureWorkflow.tsx: onStatusChange
   // This needs a robust backend implementation. Laravel should have a webhook endpoint
-  // to receive updates from DocuSeal. This frontend method would then either poll
+  // to receive updates from Docuseal. This frontend method would then either poll
   // for status or connect via WebSockets/SSE if implemented.
   onStatusChange(sessionId: string, callback: StatusChangeCallback): () => void {
 
@@ -117,7 +117,7 @@ export class DocuSealService {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({ message: response.statusText }));
-      throw new Error(`API error fetching signed DocuSeal document: ${errorData.message || response.statusText}`);
+      throw new Error(`API error fetching signed Docuseal document: ${errorData.message || response.statusText}`);
     }
 
     const docDetails = await response.json();

@@ -31,7 +31,7 @@ class RedirectController extends Controller
     }
 
     /**
-     * Redirect legacy DocuSeal routes to consolidated order management
+     * Redirect legacy Docuseal routes to consolidated order management
      */
     public function docusealRedirect()
     {

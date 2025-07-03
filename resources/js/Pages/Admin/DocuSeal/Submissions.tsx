@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiFileText, FiCheckCircle, FiClock, FiAlertCircle, FiDownload, FiEye } from 'react-icons/fi';
 import { api, handleApiResponse } from '@/lib/api';
 
-interface DocuSealSubmission {
+interface DocusealSubmission {
   id: string;
   order_number: string;
   document_type: string;
@@ -17,14 +17,14 @@ interface DocuSealSubmission {
   download_url?: string;
 }
 
-interface DocuSealSubmissionsProps {
+interface DocusealSubmissionsProps {
   auth: {
     user: any;
   };
 }
 
-export default function DocuSealSubmissions({ auth }: DocuSealSubmissionsProps) {
-  const [submissions, setSubmissions] = useState<DocuSealSubmission[]>([]);
+export default function DocusealSubmissions({ auth }: DocusealSubmissionsProps) {
+  const [submissions, setSubmissions] = useState<DocusealSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [stats, setStats] = useState({
@@ -43,7 +43,7 @@ export default function DocuSealSubmissions({ auth }: DocuSealSubmissionsProps) 
       const response = await api.docuseal.getSubmissions();
 
       // Transform the data to match our interface
-      const transformedSubmissions: DocuSealSubmission[] = response.data.map((submission: any) => ({
+      const transformedSubmissions: DocusealSubmission[] = response.data.map((submission: any) => ({
         id: submission.id,
         order_number: submission.order?.order_number || 'Unknown Order',
         document_type: submission.document_type,
@@ -78,7 +78,7 @@ export default function DocuSealSubmissions({ auth }: DocuSealSubmissionsProps) 
 
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch submissions');
-      console.error('Error fetching DocuSeal submissions:', err);
+      console.error('Error fetching Docuseal submissions:', err);
     } finally {
       setLoading(false);
     }

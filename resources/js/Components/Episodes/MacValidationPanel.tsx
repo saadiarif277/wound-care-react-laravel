@@ -304,7 +304,7 @@ export default function MacValidationPanel({
       {validationData.recommendations.length > 0 && (
         <div className={cn(
           "mt-3 p-3 rounded-lg",
-          validationData.recommendations[0].priority === 'critical'
+          validationData.recommendations[0]?.priority === 'critical'
             ? theme === 'dark' ? 'bg-red-500/20' : 'bg-red-50'
             : theme === 'dark' ? 'bg-blue-500/20' : 'bg-blue-50'
         )}>
@@ -312,7 +312,7 @@ export default function MacValidationPanel({
             Recommended Action
           </p>
           <p className={cn("text-xs", t.text.primary)}>
-            {validationData.recommendations[0].action}
+            {validationData.recommendations[0]?.action}
           </p>
         </div>
       )}

@@ -89,9 +89,9 @@ final class AzureFoundryService
     }
 
     /**
-     * Intelligently map fields between FHIR data and DocuSeal templates
+     * Intelligently map fields between FHIR data and Docuseal templates
      */
-    public function mapFhirToDocuSeal(
+    public function mapFhirToDocuseal(
         array $fhirData,
         array $docuSealFields,
         string $manufacturerName = '',
@@ -119,7 +119,7 @@ final class AzureFoundryService
             return $this->parseMappingResponse($response);
 
         } catch (Exception $e) {
-            Log::error('FHIR to DocuSeal mapping failed', [
+            Log::error('FHIR to Docuseal mapping failed', [
                 'error' => $e->getMessage(),
                 'manufacturer' => $manufacturerName,
                 'fhir_resources' => array_keys($fhirData),
@@ -289,7 +289,7 @@ final class AzureFoundryService
         $prompts = [
             'form_translator' => "You are an expert medical form translator specializing in wound care and medical device orders. Your task is to intelligently map data between different form formats while preserving medical accuracy and context. Always maintain HIPAA compliance and never expose PHI unnecessarily. Return only valid JSON.",
 
-            'fhir_mapper' => "You are a FHIR R4 expert specializing in mapping FHIR healthcare data to DocuSeal form fields for wound care documentation. You understand medical terminology, insurance verification requirements, and manufacturer-specific form variations. Map data accurately while maintaining clinical context. Return only valid JSON.",
+            'fhir_mapper' => "You are a FHIR R4 expert specializing in mapping FHIR healthcare data to Docuseal form fields for wound care documentation. You understand medical terminology, insurance verification requirements, and manufacturer-specific form variations. Map data accurately while maintaining clinical context. Return only valid JSON.",
 
             'data_extractor' => "You are a medical data extraction specialist. Extract structured information from unstructured medical text while maintaining accuracy and context. Focus on wound care, patient information, insurance details, and clinical assessments. Return only valid JSON.",
 
@@ -367,7 +367,7 @@ RESPONSE FORMAT:
         $contextJson = json_encode($context, JSON_PRETTY_PRINT);
         
         return "
-TASK: Map FHIR R4 healthcare data to DocuSeal form fields for {$manufacturerName}.
+TASK: Map FHIR R4 healthcare data to Docuseal form fields for {$manufacturerName}.
 
 FHIR DATA:
 {$fhirJson}
@@ -380,7 +380,7 @@ CONTEXT:
 
 INSTRUCTIONS:
 1. Extract relevant data from FHIR resources
-2. Map to DocuSeal field names accurately
+2. Map to Docuseal field names accurately
 3. Format data appropriately for form fields
 4. Handle FHIR arrays and nested objects
 5. Maintain medical accuracy and context

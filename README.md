@@ -9,8 +9,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 - PHP 8.1+
 - Composer
 - Node.js 22 (LTS recommended for production)
-- Supabase account
--  Azure SQL
+- Azure SQL
 - Azure Health Data Services (for PHI)
 
 ### Setup
@@ -31,9 +30,9 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 
    **Note**: This project requires Node.js 22 (LTS). See [`docs/NODE_VERSION_STRATEGY.md`](./docs/NODE_VERSION_STRATEGY.md) for detailed version requirements and setup instructions.
 
-3. **Configure Supabase for Non-PHI Data**
+3. **Configure Azure SQL for Non-PHI Data**
    
-   **For detailed setup instructions, see [`SUPABASE_SETUP.md`](./SUPABASE_SETUP.md)**
+   **For detailed setup instructions**
 
    Quick setup using our automated script:
 
@@ -46,7 +45,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
    ```
 
 4. **Environment Configuration**
-   - Copy the environment template from `SUPABASE_SETUP.md`
+   - Copy the environment template
    - Create your `.env` file with Supabase and Azure FHIR credentials
    - Generate app key: `php artisan key:generate`
 
@@ -60,8 +59,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 6. **Test Your Setup**
 
    ```bash
-   # Test Supabase connection
-   php test-supabase-connection.php
+   # Test Azure mysql connection
    
    # Run Laravel tests
    php artisan test
@@ -78,7 +76,7 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 
 ### Data Separation (HIPAA Compliance)
 
-- **Supabase PostgreSQL**: Non-PHI operational data
+- **Azure mySQL**: Non-PHI operational data
   - User accounts and authentication
   - Organizations, facilities, providers (business info only)
   - Product catalogs and pricing
@@ -95,9 +93,9 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 
 - **Backend**: Laravel 10, PHP 8.1+
 - **Frontend**: React 18, TypeScript, Inertia.js
-- **Database**: Supabase PostgreSQL (non-PHI), Azure FHIR (PHI)
+- **Database**: Azure mySQL (non-PHI), Azure FHIR (PHI)
 - **Authentication**: Laravel Sanctum
-- **UI**: Tailwind CSS, Shadcn UI
+- **UI**: Tailwind CSS, headlessui, glass-theme
 - **State Management**: Zustand
 - **File Storage**: AWS S3
 
@@ -114,16 +112,6 @@ The MSC Wound Portal is a healthcare platform for wound care management with str
 
 ### File Structure
 
-```
-wound-care-stage/
-├── app/                    # Laravel application code
-├── resources/js/           # React frontend code
-├── database/migrations/    # Database migrations
-├── SUPABASE_SETUP.md      # Detailed Supabase setup guide
-├── setup-supabase.ps1     # Windows setup script
-├── setup-supabase.sh      # Linux/Mac setup script
-└── test-supabase-connection.php  # Connection test utility
-```
 
 ### Available Scripts
 
@@ -163,8 +151,8 @@ This application follows strict HIPAA compliance requirements:
 
 For setup issues:
 
-1. Check `SUPABASE_SETUP.md` for detailed instructions
-2. Run `php test-supabase-connection.php` to diagnose connection issues
+1. Check for detailed instructions
+2. Run to diagnose connection issues
 3. Verify environment configuration matches the template
 
 ## License

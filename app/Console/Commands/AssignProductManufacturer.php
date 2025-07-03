@@ -54,8 +54,8 @@ class AssignProductManufacturer extends Command
         
         $this->info("✅ Successfully assigned {$product->name} to {$manufacturer->name}");
         
-        // Test DocuSeal integration
-        $this->info("🧪 Testing DocuSeal integration...");
+        // Test Docuseal integration
+        $this->info("🧪 Testing Docuseal integration...");
         $this->call('docuseal:debug', ['--product' => $productCode]);
         
         return 0;

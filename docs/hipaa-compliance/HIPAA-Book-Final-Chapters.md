@@ -19,7 +19,7 @@
         return $mapping;
     }
     
-    private function createDocuSealSubmission(string $templateId, array $data): array
+    private function createDocusealSubmission(string $templateId, array $data): array
     {
         $client = new Client([
             'base_uri' => $this->config['docuseal_api_url'],
@@ -279,7 +279,7 @@ Integration patterns for FHIR services require:
 
 1. **Abstraction Layer**: Base integration service for common functionality
 2. **EHR Integration**: Bidirectional sync with Epic, Cerner, etc.
-3. **Document Management**: Integration with DocuSeal for forms and documents
+3. **Document Management**: Integration with Docuseal for forms and documents
 4. **Insurance Verification**: Real-time eligibility checking
 5. **Message Queuing**: Event-driven architecture for asynchronous processing
 6. **Security**: Encryption and audit logging for all integrations
@@ -1182,11 +1182,11 @@ class EpisodeService
 namespace App\Services;
 
 use App\Models\PatientManufacturerIVREpisode;
-use App\Services\Integration\DocuSealIntegrationService;
+use App\Services\Integration\DocusealIntegrationService;
 
 class IVRGenerationService
 {
-    private DocuSealIntegrationService $docuSeal;
+    private DocusealIntegrationService $docuSeal;
     private FhirService $fhirService;
     private EpisodeService $episodeService;
     
@@ -1204,13 +1204,13 @@ class IVRGenerationService
             // Prepare IVR data
             $ivrData = $this->prepareIVRData($episode, $clinicalData);
             
-            // Generate DocuSeal submission
+            // Generate Docuseal submission
             $submission = $this->docuSeal->createSubmission(
                 $template['docuseal_template_id'],
                 $ivrData
             );
             
-            // Update episode with DocuSeal info
+            // Update episode with Docuseal info
             $episode->update([
                 'docuseal_submission_id' => $submission['id'],
                 'ivr_status' => 'pending',

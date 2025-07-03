@@ -709,7 +709,7 @@ class FhirToIvrFieldExtractor
     
     protected function extractSignature(): ?string
     {
-        // For DocuSeal, this would be a signature field tag
+        // For Docuseal, this would be a signature field tag
         return '{{signature}}';
     }
     

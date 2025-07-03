@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class DocuSealWebhookController extends Controller
+class DocusealWebhookController extends Controller
 {
     public function __construct()
     {
@@ -16,19 +16,19 @@ class DocuSealWebhookController extends Controller
     }
 
     /**
-     * Handle DocuSeal webhook events
+     * Handle Docuseal webhook events
      */
     public function handle(Request $request)
     {
         // Log the webhook for debugging
-        Log::info('DocuSeal webhook received', [
+        Log::info('Docuseal webhook received', [
             'event_type' => $request->input('event_type'),
             'data' => $request->all()
         ]);
 
         // Verify webhook signature if provided
         if (!$this->verifyWebhookSignature($request)) {
-            Log::warning('Invalid DocuSeal webhook signature');
+            Log::warning('Invalid Docuseal webhook signature');
             return response()->json(['error' => 'Invalid signature'], 401);
         }
 
@@ -54,13 +54,13 @@ class DocuSealWebhookController extends Controller
                     break;
 
                 default:
-                    Log::info('Unhandled DocuSeal webhook event', ['event' => $eventType]);
+                    Log::info('Unhandled Docuseal webhook event', ['event' => $eventType]);
             }
 
             return response()->json(['success' => true]);
 
         } catch (\Exception $e) {
-            Log::error('DocuSeal webhook processing failed', [
+            Log::error('Docuseal webhook processing failed', [
                 'event' => $eventType,
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -247,7 +247,7 @@ class DocuSealWebhookController extends Controller
                 'url' => $doc['url'] ?? '',
                 'docuseal_submission_id' => $webhookData['submission']['id'] ?? null,
                 'uploaded_at' => now()->toISOString(),
-                'uploaded_by' => 'DocuSeal Webhook',
+                'uploaded_by' => 'Docuseal Webhook',
                 'file_size' => null,
                 'mime_type' => 'application/pdf',
             ];
@@ -295,7 +295,7 @@ class DocuSealWebhookController extends Controller
                 'url' => $doc['url'] ?? '',
                 'docuseal_submission_id' => $webhookData['submission']['id'] ?? null,
                 'uploaded_at' => now()->toISOString(),
-                'uploaded_by' => 'DocuSeal Webhook',
+                'uploaded_by' => 'Docuseal Webhook',
                 'file_size' => null,
                 'mime_type' => 'application/pdf',
             ];
@@ -383,7 +383,7 @@ class DocuSealWebhookController extends Controller
      */
     private function handleSubmissionCreated(array $data)
     {
-        Log::info('DocuSeal submission created', [
+        Log::info('Docuseal submission created', [
             'submission_id' => $data['id'] ?? null,
             'template_id' => $data['template_id'] ?? null
         ]);
@@ -394,7 +394,7 @@ class DocuSealWebhookController extends Controller
      */
     private function handleSubmissionUpdated(array $data)
     {
-        Log::info('DocuSeal submission updated', [
+        Log::info('Docuseal submission updated', [
             'submission_id' => $data['id'] ?? null,
             'status' => $data['status'] ?? null
         ]);
@@ -409,16 +409,16 @@ class DocuSealWebhookController extends Controller
 
         // If no secret is configured, skip verification (not recommended for production)
         if (empty($webhookSecret)) {
-            Log::warning('DocuSeal webhook secret not configured');
+            Log::warning('Docuseal webhook secret not configured');
             return true; // Allow for development, but log warning
         }
 
-        $signature = $request->header('X-DocuSeal-Signature');
+        $signature = $request->header('X-Docuseal-Signature');
         if (!$signature) {
             return false;
         }
 
-        // DocuSeal uses HMAC-SHA256 for webhook signatures
+        // Docuseal uses HMAC-SHA256 for webhook signatures
         $payload = $request->getContent();
         $expectedSignature = hash_hmac('sha256', $payload, $webhookSecret);
 

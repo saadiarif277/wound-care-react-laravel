@@ -12,7 +12,7 @@ use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
-class SyncDocuSealTemplateJob implements ShouldQueue
+class SyncDocusealTemplateJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -71,7 +71,7 @@ class SyncDocuSealTemplateJob implements ShouldQueue
                 ]
             );
 
-            Log::info('DocuSeal template synced via queue', [
+            Log::info('Docuseal template synced via queue', [
                 'template_id' => $templateId,
                 'template_name' => $templateName,
                 'manufacturer' => $this->manufacturer?->name,
@@ -81,7 +81,7 @@ class SyncDocuSealTemplateJob implements ShouldQueue
             ]);
 
         } catch (\Exception $e) {
-            Log::error('DocuSeal template sync job failed', [
+            Log::error('Docuseal template sync job failed', [
                 'template_id' => $this->templateData['id'] ?? 'unknown',
                 'template_name' => $this->templateData['name'] ?? 'unknown',
                 'error' => $e->getMessage(),
@@ -95,7 +95,7 @@ class SyncDocuSealTemplateJob implements ShouldQueue
     }
 
     /**
-     * Extract field mappings from DocuSeal template structure
+     * Extract field mappings from Docuseal template structure
      */
     private function extractFieldMappings(array $detailedTemplate): array
     {
@@ -125,7 +125,7 @@ class SyncDocuSealTemplateJob implements ShouldQueue
     }
 
     /**
-     * Map DocuSeal field name to local system field
+     * Map Docuseal field name to local system field
      */
     private function mapToLocalField(string $docusealFieldName): string
     {
@@ -259,7 +259,7 @@ class SyncDocuSealTemplateJob implements ShouldQueue
      */
     public function failed(\Throwable $exception): void
     {
-        Log::error('DocuSeal template sync job failed permanently', [
+        Log::error('Docuseal template sync job failed permanently', [
             'template_id' => $this->templateData['id'] ?? 'unknown',
             'template_name' => $this->templateData['name'] ?? 'unknown',
             'manufacturer' => $this->manufacturer?->name,

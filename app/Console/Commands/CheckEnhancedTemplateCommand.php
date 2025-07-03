@@ -62,7 +62,7 @@ class CheckEnhancedTemplateCommand extends Command
                 $this->line("  📊 Comparison Summary:");
                 $this->line("    - Matched Fields: " . ($summary['matched_fields'] ?? 'N/A'));
                 $this->line("    - OCR Only: " . ($summary['ocr_only_fields'] ?? 'N/A'));
-                $this->line("    - DocuSeal Only: " . ($summary['docuseal_only_fields'] ?? 'N/A'));
+                $this->line("    - Docuseal Only: " . ($summary['docuseal_only_fields'] ?? 'N/A'));
                 $this->line("    - Mapping Suggestions: " . ($summary['mapping_suggestions'] ?? 'N/A'));
             }
         } else {

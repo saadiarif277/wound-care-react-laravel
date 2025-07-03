@@ -13,7 +13,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        echo "🔧 Fixing unmapped DocuSeal templates...\n";
+        echo "🔧 Fixing unmapped Docuseal templates...\n";
 
         // 1. Fix ACZ & ASSOCIATES (ID: 1)
         $this->fixAczAssociates();

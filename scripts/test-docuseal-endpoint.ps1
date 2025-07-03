@@ -1,5 +1,5 @@
-# Test DocuSeal Endpoint Fix
-Write-Host "Testing DocuSeal Endpoint Fix" -ForegroundColor Green
+# Test Docuseal Endpoint Fix
+Write-Host "Testing Docuseal Endpoint Fix" -ForegroundColor Green
 Write-Host "================================" -ForegroundColor Green
 
 # Test data that matches what the frontend sends
@@ -61,4 +61,4 @@ Write-Host "`n🔍 Next Steps:" -ForegroundColor Cyan
 Write-Host "1. Check Laravel logs: storage/logs/laravel.log" -ForegroundColor White
 Write-Host "2. Verify you are logged in to the application" -ForegroundColor White
 Write-Host "3. Ensure you have create-product-requests permission" -ForegroundColor White
-Write-Host "4. Check DocuSeal API key configuration" -ForegroundColor White
+Write-Host "4. Check Docuseal API key configuration" -ForegroundColor White

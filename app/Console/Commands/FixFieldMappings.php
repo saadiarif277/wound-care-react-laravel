@@ -11,14 +11,14 @@ class FixFieldMappings extends Command
                             {--manufacturer= : Fix mappings for specific manufacturer ID}
                             {--dry-run : Show what would be changed without making changes}';
 
-    protected $description = 'Fix field mapping structure for DocuSeal templates';
+    protected $description = 'Fix field mapping structure for Docuseal templates';
 
     public function handle()
     {
         $manufacturerId = $this->option('manufacturer');
         $isDryRun = $this->option('dry-run');
 
-        $this->info("🔧 Fixing DocuSeal Field Mappings");
+        $this->info("🔧 Fixing Docuseal Field Mappings");
         $this->info("================================");
         $this->info("Mode: " . ($isDryRun ? "DRY RUN" : "LIVE FIX"));
 

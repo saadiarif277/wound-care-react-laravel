@@ -117,7 +117,7 @@ php artisan make:service ServiceName
   - Azure Health Data Services FHIR (PHI/clinical data)
 - **Authentication**: Laravel Sanctum
 - **State Management**: React Context API
-- **Document Processing**: DocuSeal, Azure Document Intelligence
+- **Document Processing**: Docuseal, Azure Document Intelligence
 
 ### Data Architecture (HIPAA Compliance)
 
@@ -182,7 +182,7 @@ The application uses a service-oriented architecture with key services:
 
 - `/api/v1/` - Versioned API endpoints
 - `/api/fhir/` - FHIR server REST API
-- `/api/docuseal/webhook` - DocuSeal webhook endpoint
+- `/api/docuseal/webhook` - Docuseal webhook endpoint
 
 **Key API Groups**:
 
@@ -254,10 +254,10 @@ The application uses a service-oriented architecture with key services:
 4. Implement audit logging for access
 5. Test with PHI-safe mock data
 
-**DocuSeal Integration Flow**:
+**Docuseal Integration Flow**:
 
 1. Generate template with patient/order data
-2. Embed DocuSeal component in React
+2. Embed Docuseal component in React
 3. Handle completion webhook
 4. Process OCR enhancement if needed
 5. Update order status

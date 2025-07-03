@@ -141,12 +141,6 @@ Mail::to($invitation->email)->send(new ProviderInvitationEmail($invitation));
 8. **Support Information**: Contact details for help
 9. **Footer**: Legal and company information
 
-### Template Variables
-The email template uses the following variables:
-- `$invitationUrl`: Secure invitation link
-- `$inviterName`: Name of the person sending the invitation
-- `$expiresAt`: Expiration date formatted for display
-
 ## Email Flow Process
 
 ### 1. Invitation Creation
@@ -178,64 +172,6 @@ $invitation->update([
     'sent_at' => now()
 ]);
 ```
-
-## Error Handling
-
-The system includes comprehensive error handling:
-
-### Email Sending Errors
-- Logs detailed error information
-- Includes stack traces for debugging
-- Re-throws exceptions for upstream handling
-
-### Validation Errors
-- Validates email format
-- Checks for duplicate invitations
-- Ensures required fields are present
-
-### Database Errors
-- Uses database transactions
-- Rolls back on failure
-- Logs database-specific errors
-
-## Monitoring and Logging
-
-### Email Logs
-All email activities are logged with:
-- Email address
-- Invitation ID
-- Success/failure status
-- Error details (if applicable)
-- Timestamp
-
-### Log Locations
-- Laravel logs: `storage/logs/laravel.log`
-- Mailtrap dashboard: Real-time email monitoring
-
-## Production Deployment
-
-When deploying to production:
-
-1. **Update Mail Configuration**:
-   ```env
-   MAIL_MAILER=smtp
-   MAIL_HOST=your-production-smtp-host
-   MAIL_PORT=587
-   MAIL_ENCRYPTION=tls
-   MAIL_USERNAME=your-production-username
-   MAIL_PASSWORD=your-production-password
-   ```
-
-2. **Update From Address**:
-   ```env
-   MAIL_FROM_ADDRESS=noreply@mscwoundcare.com
-   MAIL_FROM_NAME="MSC Wound Care"
-   ```
-
-3. **Test Email Flow**:
-   - Send test invitations
-   - Verify email delivery
-   - Check email formatting
 
 ## Troubleshooting
 

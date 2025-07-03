@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
  * 
  * Uses Azure Document Intelligence and advanced pattern matching
  * to automatically detect manufacturers, document types, and field mappings
- * from DocuSeal template content.
+ * from Docuseal template content.
  */
 class TemplateIntelligenceService
 {
@@ -285,12 +285,12 @@ class TemplateIntelligenceService
     }
 
     /**
-     * Get PDF URL for template (if available from DocuSeal)
+     * Get PDF URL for template (if available from Docuseal)
      */
     private function getTemplatePdfUrl(string $templateId): ?string
     {
         try {
-            // Try to get template PDF URL from DocuSeal API
+            // Try to get template PDF URL from Docuseal API
             $response = Http::withHeaders([
                 'X-Auth-Token' => config('docuseal.api_key'),
             ])->get(config('docuseal.api_url') . "/templates/{$templateId}/pdf");

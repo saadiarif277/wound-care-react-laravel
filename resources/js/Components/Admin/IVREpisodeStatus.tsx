@@ -185,12 +185,12 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
               </div>
             </div>
 
-            {/* DocuSeal Status Badge */}
+            {/* Docuseal Status Badge */}
             {docuseal.status && (
               <div className="text-right">
                 <div className="flex items-center gap-2 mb-1">
                   <DocumentIcon className="w-4 h-4 text-purple-500" />
-                  <span className={`${t.text.muted} text-sm`}>DocuSeal</span>
+                  <span className={`${t.text.muted} text-sm`}>Docuseal</span>
                 </div>
                 <motion.span
                   initial={{ scale: 0.9 }}

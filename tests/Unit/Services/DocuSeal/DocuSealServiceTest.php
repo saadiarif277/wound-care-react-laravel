@@ -1,8 +1,8 @@
 <?php
 
-namespace Tests\Unit\Services\DocuSeal;
+namespace Tests\Unit\Services\Docuseal;
 
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Services\UnifiedFieldMappingService;
 use App\Models\PatientManufacturerIVREpisode;
 use Tests\TestCase;
@@ -10,11 +10,11 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 
-class DocuSealServiceTest extends TestCase
+class DocusealServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    private DocuSealService $service;
+    private DocusealService $service;
     private UnifiedFieldMappingService $fieldMappingService;
 
     protected function setUp(): void
@@ -22,7 +22,7 @@ class DocuSealServiceTest extends TestCase
         parent::setUp();
         
         $this->fieldMappingService = $this->createMock(UnifiedFieldMappingService::class);
-        $this->service = new DocuSealService($this->fieldMappingService);
+        $this->service = new DocusealService($this->fieldMappingService);
 
         // Set up config
         Config::set('services.docuseal.api_key', 'test-api-key');
@@ -62,7 +62,7 @@ class DocuSealServiceTest extends TestCase
             ->with($episodeId, $manufacturer, [])
             ->willReturn($mappingResult);
 
-        // Mock HTTP response for DocuSeal API
+        // Mock HTTP response for Docuseal API
         Http::fake([
             'api.docuseal.co/submissions' => Http::response([
                 'id' => 'submission-123',
@@ -401,7 +401,7 @@ class DocuSealServiceTest extends TestCase
         ]);
 
         $this->expectException(\Exception::class);
-        $this->expectExceptionMessage('Failed to create DocuSeal submission');
+        $this->expectExceptionMessage('Failed to create Docuseal submission');
 
         $this->service->createOrUpdateSubmission($episodeId, $manufacturer);
     }

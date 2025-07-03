@@ -1,5 +1,5 @@
 ---
-description: Step7DocuSealIVR.tsx to be used when working with pre-fill for IVR forms.
+description: Step7DocusealIVR.tsx to be used when working with pre-fill for IVR forms.
 globs: 
 alwaysApply: false
 ---
@@ -7,7 +7,7 @@ alwaysApply: false
 
 ## Exact Field Name Matching
 
-DocuSeal requires character-perfect field name matches
+Docuseal requires character-perfect field name matches
 Even extra spaces or punctuation differences cause "Unknown field" errors
 
 ## String vs Numeric Comparisons

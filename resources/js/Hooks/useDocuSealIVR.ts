@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import axios from 'axios';
 import {
-  DocuSealIVRData,
+  DocusealIVRData,
   SignatureData,
   GeneratedDocument,
   PatientInsuranceData,
@@ -9,15 +9,15 @@ import {
   ProductSelectionData,
 } from '@/types/quickRequest';
 
-interface UseDocuSealIVRProps {
+interface UseDocusealIVRProps {
   patientData?: PatientInsuranceData;
   clinicalData?: ClinicalBillingData;
   productData?: ProductSelectionData;
-  onSave?: (data: DocuSealIVRData) => void;
-  onNext?: (data: DocuSealIVRData) => void;
+  onSave?: (data: DocusealIVRData) => void;
+  onNext?: (data: DocusealIVRData) => void;
 }
 
-interface DocuSealTemplate {
+interface DocusealTemplate {
   id: string;
   name: string;
   manufacturer: string;
@@ -32,14 +32,14 @@ interface SignatureCapture {
   context: CanvasRenderingContext2D | null;
 }
 
-export function useDocuSealIVR({
+export function useDocusealIVR({
   patientData,
   clinicalData,
   productData,
   onSave,
   onNext,
-}: UseDocuSealIVRProps) {
-  const [template, setTemplate] = useState<DocuSealTemplate | null>(null);
+}: UseDocusealIVRProps) {
+  const [template, setTemplate] = useState<DocusealTemplate | null>(null);
   const [isLoadingTemplate, setIsLoadingTemplate] = useState(false);
   
   const [formFields, setFormFields] = useState<Record<string, any>>({});
@@ -89,7 +89,7 @@ export function useDocuSealIVR({
         }
       })
       .catch(error => {
-        console.error('Failed to load DocuSeal template:', error);
+        console.error('Failed to load Docuseal template:', error);
       })
       .finally(() => {
         setIsLoadingTemplate(false);
@@ -97,7 +97,7 @@ export function useDocuSealIVR({
   }, [productData?.manufacturer?.id]);
 
   // Initialize form fields with data from previous steps
-  const initializeFormFields = useCallback((template: DocuSealTemplate) => {
+  const initializeFormFields = useCallback((template: DocusealTemplate) => {
     const fields: Record<string, any> = {};
 
     // Map patient data
@@ -379,7 +379,7 @@ export function useDocuSealIVR({
       const document = await generateDocument();
       if (!document) return;
 
-      const ivrData: DocuSealIVRData = {
+      const ivrData: DocusealIVRData = {
         template: template!,
         fields: formFields,
         signatures,

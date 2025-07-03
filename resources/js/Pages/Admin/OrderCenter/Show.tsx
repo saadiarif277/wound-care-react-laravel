@@ -752,10 +752,10 @@ const OrderShow: React.FC<OrderShowProps> = ({
             {/* Audit Log Display (admin, editable) */}
             <AuditLog entries={order.audit_log || []} readOnly={false} />
 
-            {/* Order DocuSeal Status Section */}
+            {/* Order Docuseal Status Section */}
             {order.docuseal && (
               <section className="mb-6 p-4 border rounded bg-gray-50">
-                <h2 className="text-lg font-bold mb-2">Order DocuSeal Status</h2>
+                <h2 className="text-lg font-bold mb-2">Order Docuseal Status</h2>
                 <div>Status: <span className={order.docuseal.status === 'completed' ? 'bg-green-100 text-green-800 px-2 py-1 rounded' : order.docuseal.status === 'pending' ? 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded' : 'bg-gray-100 text-gray-800 px-2 py-1 rounded'}>{order.docuseal.status || 'N/A'}</span></div>
                 {/* Signed Documents */}
                 {order.docuseal.signed_documents && order.docuseal.signed_documents.length > 0 && (

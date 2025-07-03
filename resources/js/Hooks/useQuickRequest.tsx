@@ -11,7 +11,7 @@ import {
   PatientInsuranceData,
   ClinicalBillingData,
   ProductSelectionData,
-  DocuSealIVRData,
+  DocusealIVRData,
   ReviewSubmitData,
 } from '@/types/quickRequest';
 
@@ -209,10 +209,10 @@ export function QuickRequestProvider({ children }: { children: ReactNode }) {
 
   const createEpisode = useCallback(async (data: QuickRequestState['data']) => {
     try {
-      // Ensure we have the required DocuSeal submission ID
+      // Ensure we have the required Docuseal submission ID
       if (!data.docuSealIVR?.documents?.length &&
           data.productSelection?.products?.length) {
-        console.warn('DocuSeal submission may be required for this product');
+        console.warn('Docuseal submission may be required for this product');
       }
 
       const response = await axios.post('/api/v1/quick-request/episodes', {
@@ -297,9 +297,9 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
 
   const goToStep = useCallback(
     (step: QuickRequestStep) => {
-      // Don't allow jumping to DocuSeal step if product selection not complete
+      // Don't allow jumping to Docuseal step if product selection not complete
       if (step === 'docuseal-ivr' && !state.data.productSelection?.products?.length) {
-        console.warn('Cannot proceed to DocuSeal without product selection');
+        console.warn('Cannot proceed to Docuseal without product selection');
         return;
       }
       dispatch({ type: 'SET_STEP', payload: step });
@@ -374,7 +374,7 @@ export function useQuickRequest(): ExtendedUseQuickRequestReturn {
       } else if (data.selected_products || data.manufacturer_id) {
         mappedData.productSelection = { ...state.data.productSelection, ...data } as ProductSelectionData;
       } else if (data.docuseal_submission_id) {
-        mappedData.docuSealIVR = { ...state.data.docuSealIVR, ...data } as DocuSealIVRData;
+        mappedData.docuSealIVR = { ...state.data.docuSealIVR, ...data } as DocusealIVRData;
       }
 
       dispatch({ type: 'UPDATE_DATA', payload: mappedData });

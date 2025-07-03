@@ -2,21 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 
-class DocuSealDebugController extends Controller
+class DocusealDebugController extends Controller
 {
     protected $docuSealService;
 
-    public function __construct(DocuSealService $docuSealService)
+    public function __construct(DocusealService $docuSealService)
     {
         $this->docuSealService = $docuSealService;
     }
 
     /**
-     * Debug DocuSeal connection and list templates
+     * Debug Docuseal connection and list templates
      */
     public function debug()
     {
@@ -25,7 +25,7 @@ class DocuSealDebugController extends Controller
 
         if (!$apiKey) {
             return response()->json([
-                'error' => 'DocuSeal API key is not configured',
+                'error' => 'Docuseal API key is not configured',
                 'help' => 'Add DOCUSEAL_API_KEY to your .env file'
             ], 500);
         }
@@ -57,7 +57,7 @@ class DocuSealDebugController extends Controller
             }
 
             return response()->json([
-                'error' => 'DocuSeal API returned error',
+                'error' => 'Docuseal API returned error',
                 'status' => $response->status(),
                 'body' => $response->body(),
                 'help' => 'Check if your API key is valid'
@@ -65,10 +65,10 @@ class DocuSealDebugController extends Controller
 
         } catch (\Exception $e) {
             return response()->json([
-                'error' => 'Failed to connect to DocuSeal',
+                'error' => 'Failed to connect to Docuseal',
                 'message' => $e->getMessage(),
                 'api_url' => $apiUrl,
-                'help' => 'Check your DocuSeal configuration'
+                'help' => 'Check your Docuseal configuration'
             ], 500);
         }
     }

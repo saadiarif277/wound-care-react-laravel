@@ -25,7 +25,7 @@ class InsuranceDataNormalizer
         // Apply source-specific normalization
         $normalized = match($source) {
             'insurance_card' => $this->normalizeFromInsuranceCard($data),
-            'docuseal_ivr' => $this->normalizeFromDocuSeal($data),
+            'docuseal_ivr' => $this->normalizeFromDocuseal($data),
             'quick_request' => $this->normalizeFromQuickRequest($data),
             'eligibility_response' => $this->normalizeFromEligibilityResponse($data),
             'manual_entry' => $this->normalizeFromManualEntry($data),
@@ -116,11 +116,11 @@ class InsuranceDataNormalizer
     }
 
     /**
-     * Normalize data from DocuSeal IVR response
+     * Normalize data from Docuseal IVR response
      */
-    private function normalizeFromDocuSeal(array $data): array
+    private function normalizeFromDocuseal(array $data): array
     {
-        // DocuSeal returns data in a nested structure
+        // Docuseal returns data in a nested structure
         $fields = data_get($data, 'submission.fields', []);
 
         // Convert to flat array for mapping

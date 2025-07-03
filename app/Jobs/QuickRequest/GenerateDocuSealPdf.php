@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-class GenerateDocuSealPdf implements ShouldQueue
+class GenerateDocusealPdf implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -54,7 +54,7 @@ class GenerateDocuSealPdf implements ShouldQueue
         DocusealService $docusealService,
         FhirService $fhirService
     ): void {
-        Log::info('Generating DocuSeal PDF', [
+        Log::info('Generating Docuseal PDF', [
             'episode_id' => $this->episode->id,
             'template_id' => $this->templateId,
             'document_type' => $this->documentType,
@@ -112,7 +112,7 @@ class GenerateDocuSealPdf implements ShouldQueue
                 ]),
             ]);
 
-            Log::info('DocuSeal PDF generated successfully', [
+            Log::info('Docuseal PDF generated successfully', [
                 'episode_id' => $this->episode->id,
                 'document_id' => $document->id,
                 'path' => $path,
@@ -128,7 +128,7 @@ class GenerateDocuSealPdf implements ShouldQueue
             }
 
         } catch (\Exception $e) {
-            Log::error('Failed to generate DocuSeal PDF', [
+            Log::error('Failed to generate Docuseal PDF', [
                 'episode_id' => $this->episode->id,
                 'template_id' => $this->templateId,
                 'error' => $e->getMessage(),
@@ -322,7 +322,7 @@ class GenerateDocuSealPdf implements ShouldQueue
      */
     public function failed(\Exception $exception): void
     {
-        Log::error('DocuSeal PDF generation job failed', [
+        Log::error('Docuseal PDF generation job failed', [
             'episode_id' => $this->episode->id,
             'template_id' => $this->templateId,
             'document_type' => $this->documentType,

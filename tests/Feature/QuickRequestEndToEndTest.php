@@ -23,7 +23,7 @@ use App\Models\Docuseal\DocusealTemplate;
 use App\Services\DocusealService;
 use App\Services\PatientService;
 use App\Services\FhirService;
-use App\Jobs\QuickRequest\GenerateDocuSealPdf;
+use App\Jobs\QuickRequest\GenerateDocusealPdf;
 use App\Jobs\QuickRequest\VerifyInsuranceEligibility;
 use Mockery;
 
@@ -90,7 +90,7 @@ class QuickRequestEndToEndTest extends TestCase
             'is_active' => true,
         ]);
 
-        // Create test DocuSeal template
+        // Create test Docuseal template
         $this->testTemplate = DocusealTemplate::factory()->create([
             'template_name' => 'BioWound IVR Form',
             'docuseal_template_id' => 'tpl_biowound_123',
@@ -193,7 +193,7 @@ class QuickRequestEndToEndTest extends TestCase
 
     private function setupMocks(): void
     {
-        // Mock DocuSeal Service
+        // Mock Docuseal Service
         $this->mockDocusealService = Mockery::mock(DocusealService::class);
         $this->mockDocusealService->shouldReceive('generatePdf')
             ->andReturn([
@@ -226,7 +226,7 @@ class QuickRequestEndToEndTest extends TestCase
     {
         $this->actingAs($this->testUser);
 
-        // Step 1: Create episode for DocuSeal integration
+        // Step 1: Create episode for Docuseal integration
         $episodeResponse = $this->postJson('/api/quick-request/create-episode', [
             'patient_id' => 'temp-patient-123',
             'patient_fhir_id' => 'Patient/test-123',
@@ -433,7 +433,7 @@ class QuickRequestEndToEndTest extends TestCase
         $mappedFields = 0;
         $fieldMappings = $this->testTemplate->field_mappings;
 
-        // Count how many form fields have corresponding DocuSeal mappings
+        // Count how many form fields have corresponding Docuseal mappings
         foreach ($formData as $fieldName => $value) {
             if (isset($fieldMappings[$fieldName]) || $this->hasIndirectMapping($fieldName, $fieldMappings)) {
                 $mappedFields++;
@@ -483,8 +483,8 @@ class QuickRequestEndToEndTest extends TestCase
 
     private function assertJobsDispatched(string $episodeId): void
     {
-        // Verify that the GenerateDocuSealPdf job was dispatched
-        Queue::assertPushed(GenerateDocuSealPdf::class, function ($job) use ($episodeId) {
+        // Verify that the GenerateDocusealPdf job was dispatched
+        Queue::assertPushed(GenerateDocusealPdf::class, function ($job) use ($episodeId) {
             return $job->episode->id === $episodeId;
         });
 

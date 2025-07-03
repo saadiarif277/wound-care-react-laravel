@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Cache;
 class ManufacturerController extends Controller
 {
     /**
-     * Get all manufacturers with their DocuSeal template configurations
+     * Get all manufacturers with their Docuseal template configurations
      */
     public function index(): JsonResponse
     {

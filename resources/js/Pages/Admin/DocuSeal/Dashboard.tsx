@@ -3,13 +3,13 @@ import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiFileText, FiCheckCircle, FiClock, FiAlertCircle } from 'react-icons/fi';
 
-interface DocuSealDashboardProps {
+interface DocusealDashboardProps {
   auth: {
     user: any;
   };
 }
 
-export default function DocuSealDashboard({ auth }: DocuSealDashboardProps) {
+export default function DocusealDashboard({ auth }: DocusealDashboardProps) {
   // Mock data - in production, this would come from the backend
   const stats = {
     totalSubmissions: 156,
@@ -73,8 +73,8 @@ export default function DocuSealDashboard({ auth }: DocuSealDashboardProps) {
   };
 
   return (
-    <MainLayout title="DocuSeal Dashboard">
-      <Head title="DocuSeal Dashboard" />
+    <MainLayout title="Docuseal Dashboard">
+      <Head title="Docuseal Dashboard" />
 
       {/* Header */}
       <div className="mb-8">

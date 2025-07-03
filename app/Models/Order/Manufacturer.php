@@ -67,7 +67,7 @@ class Manufacturer extends Model
     }
 
     /**
-     * Get the DocuSeal folder for this manufacturer
+     * Get the Docuseal folder for this manufacturer
      */
     public function docusealFolder(): HasOne
     {
@@ -75,7 +75,7 @@ class Manufacturer extends Model
     }
 
     /**
-     * Get the DocuSeal templates for this manufacturer
+     * Get the Docuseal templates for this manufacturer
      */
     public function docusealTemplates(): HasMany
     {

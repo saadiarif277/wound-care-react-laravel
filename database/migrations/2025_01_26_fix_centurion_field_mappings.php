@@ -3,7 +3,7 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
 use App\Models\Order\Manufacturer;
-use App\Models\DocuSeal\DocuSealTemplate;
+use App\Models\Docuseal\DocusealTemplate;
 
 return new class extends Migration
 {
@@ -24,7 +24,7 @@ return new class extends Migration
         );
 
         // Update the Centurion template to use the correct manufacturer
-        $template = DocuSealTemplate::where('template_name', 'Centurion Therapeutics AmnioBand/Allopatch IVR')
+        $template = DocusealTemplate::where('template_name', 'Centurion Therapeutics AmnioBand/Allopatch IVR')
             ->first();
 
         if ($template) {
@@ -124,7 +124,7 @@ return new class extends Migration
         $advancedSolution = Manufacturer::where('name', 'like', '%Advanced%')->first();
         
         if ($advancedSolution) {
-            $advancedTemplate = DocuSealTemplate::firstOrCreate(
+            $advancedTemplate = DocusealTemplate::firstOrCreate(
                 [
                     'template_name' => 'Advanced Solution IVR',
                     'manufacturer_id' => $advancedSolution->id,
@@ -160,7 +160,7 @@ return new class extends Migration
     public function down(): void
     {
         // Revert the manufacturer association if needed
-        $template = DocuSealTemplate::where('template_name', 'Centurion Therapeutics AmnioBand/Allopatch IVR')
+        $template = DocusealTemplate::where('template_name', 'Centurion Therapeutics AmnioBand/Allopatch IVR')
             ->first();
             
         if ($template) {

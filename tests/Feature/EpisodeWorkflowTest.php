@@ -163,8 +163,8 @@ class EpisodeWorkflowTest extends TestCase
 
         $response = $this->postJson(route('admin.episodes.generate-ivr', $episode->id));
 
-        // Note: This will fail in tests due to DocuSeal service dependencies
-        // In a real test, we would mock the DocuSeal service
+        // Note: This will fail in tests due to Docuseal service dependencies
+        // In a real test, we would mock the Docuseal service
         $response->assertStatus(500); // Expected due to service dependencies
     }
 

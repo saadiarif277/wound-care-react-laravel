@@ -871,7 +871,7 @@ export const api = {
         }
     },
 
-    // DocuSeal API
+    // Docuseal API
     docuseal: {
         async getSubmissions(params?: {
             status?: string;

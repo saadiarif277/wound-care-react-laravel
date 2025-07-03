@@ -26,7 +26,7 @@ This migration ensures all tables are created in the correct order with proper d
      - `msc_price` (MSC pricing)
      - `code` (product code)
    
-   - **product_requests table** (IVR/DocuSeal fields):
+   - **product_requests table** (IVR/Docuseal fields):
      - `ivr_required` (boolean)
      - `ivr_bypass_reason` (text)
      - `ivr_sent_at` (timestamp)
@@ -62,7 +62,7 @@ This migration ensures all tables are created in the correct order with proper d
 4. Product Tables:
    - msc_products (depends on: manufacturers, categories)
 
-5. DocuSeal Tables:
+5. Docuseal Tables:
    - docuseal_folders
    - docuseal_templates (depends on: docuseal_folders)
    - docuseal_submissions (depends on: docuseal_folders)

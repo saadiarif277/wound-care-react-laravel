@@ -64,7 +64,7 @@ class DocusealController extends Controller
             ]);
 
         } catch (Exception $e) {
-            Log::error('DocuSeal document generation failed', [
+            Log::error('Docuseal document generation failed', [
                 'order_id' => $request->order_id,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage()
@@ -93,7 +93,7 @@ class DocusealController extends Controller
                 ], 403);
             }
 
-            // Get latest status from DocuSeal API
+            // Get latest status from Docuseal API
             $docusealStatus = $this->docusealService->getSubmissionStatus($submission->docuseal_submission_id);
 
             // Update local status if different
@@ -115,7 +115,7 @@ class DocusealController extends Controller
             ]);
 
         } catch (Exception $e) {
-            Log::error('Failed to get DocuSeal submission status', [
+            Log::error('Failed to get Docuseal submission status', [
                 'submission_id' => $submissionId,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage()
@@ -151,7 +151,7 @@ class DocusealController extends Controller
                 ], 400);
             }
 
-            // Get document URL from DocuSeal
+            // Get document URL from Docuseal
             $documentUrl = $this->docusealService->downloadDocument($submission->docuseal_submission_id);
 
             if (!$documentUrl) {
@@ -164,7 +164,7 @@ class DocusealController extends Controller
             return redirect($documentUrl);
 
         } catch (Exception $e) {
-            Log::error('Failed to download DocuSeal document', [
+            Log::error('Failed to download Docuseal document', [
                 'submission_id' => $submissionId,
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage()
@@ -178,7 +178,7 @@ class DocusealController extends Controller
     }
 
     /**
-     * Generate JWT token for DocuSeal form embedding
+     * Generate JWT token for Docuseal form embedding
      * POST /api/v1/admin/docuseal/generate-token
      */
     public function generateToken(Request $request): JsonResponse
@@ -194,7 +194,7 @@ class DocusealController extends Controller
             $apiKey = config('services.docuseal.api_key');
 
             if (empty($apiKey)) {
-                throw new Exception('DocuSeal API key is not configured');
+                throw new Exception('Docuseal API key is not configured');
             }
 
             // If order_id is provided, check access
@@ -228,7 +228,7 @@ class DocusealController extends Controller
             // Generate JWT token
             $token = JWT::encode($payload, $apiKey, 'HS256');
 
-            Log::info('DocuSeal JWT token generated', [
+            Log::info('Docuseal JWT token generated', [
                 'user_id' => $user->id,
                 'template_id' => $request->template_id,
                 'order_id' => $request->order_id ?? null,
@@ -240,7 +240,7 @@ class DocusealController extends Controller
             ]);
 
         } catch (Exception $e) {
-            Log::error('Failed to generate DocuSeal JWT token', [
+            Log::error('Failed to generate Docuseal JWT token', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
                 'template_id' => $request->template_id ?? null,
@@ -254,13 +254,13 @@ class DocusealController extends Controller
     }
 
     /**
-     * Create DocuSeal submission with pre-filled data
+     * Create Docuseal submission with pre-filled data
      * POST /docuseal/create-submission
      */
     public function createSubmission(Request $request): JsonResponse
     {
         // Debug logging
-        Log::info('DocuSeal createSubmission called', [
+        Log::info('Docuseal createSubmission called', [
             'user' => Auth::user()?->email,
             'authenticated' => Auth::check(),
             'has_permission' => Auth::user()?->hasPermission('manage-orders'),
@@ -288,29 +288,29 @@ class DocusealController extends Controller
                 }
             }
 
-            // Call DocuSeal API to create submission
+            // Call Docuseal API to create submission
             $apiKey = config('services.docuseal.api_key');
             $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
 
             if (empty($apiKey)) {
-                throw new Exception('DocuSeal API key is not configured');
+                throw new Exception('Docuseal API key is not configured');
             }
 
             // Build submitter values for pre-filled data
             $submitterValues = [];
             if ($request->fields) {
                 foreach ($request->fields as $fieldName => $fieldValue) {
-                    // Convert boolean values to strings for DocuSeal
+                    // Convert boolean values to strings for Docuseal
                     if (is_bool($fieldValue)) {
                         $fieldValue = $fieldValue ? 'true' : 'false';
                     }
 
-                    // DocuSeal expects values as a key-value object
+                    // Docuseal expects values as a key-value object
                     $submitterValues[$fieldName] = (string) $fieldValue;
                 }
             }
 
-            Log::info('DocuSeal submission attempt', [
+            Log::info('Docuseal submission attempt', [
                 'template_id' => $request->template_id,
                 'email' => $request->email,
                 'field_count' => count($submitterValues),
@@ -330,7 +330,7 @@ class DocusealController extends Controller
                 ],
             ];
 
-            Log::info('DocuSeal API request', [
+            Log::info('Docuseal API request', [
                 'url' => $apiUrl . '/submissions',
                 'template_id' => $requestData['template_id'],
                 'submitter_email' => $request->email,
@@ -338,11 +338,11 @@ class DocusealController extends Controller
                 'full_request' => $requestData, // Log the full request to debug
             ]);
 
-            // Make API request to DocuSeal
+            // Make API request to Docuseal
             $client = new \GuzzleHttp\Client();
             $response = $client->post($apiUrl . '/submissions', [
                 'headers' => [
-                    'X-Auth-Token' => $apiKey,  // DocuSeal uses X-Auth-Token, not X-Api-Key
+                    'X-Auth-Token' => $apiKey,  // Docuseal uses X-Auth-Token, not X-Api-Key
                     'Content-Type' => 'application/json',
                 ],
                 'json' => $requestData,
@@ -351,7 +351,7 @@ class DocusealController extends Controller
             $data = json_decode($response->getBody()->getContents(), true);
 
             // Log the full response to debug
-            Log::info('DocuSeal API response', [
+            Log::info('Docuseal API response', [
                 'data' => $data,
                 'is_array' => is_array($data),
                 'first_item' => $data[0] ?? null,
@@ -362,7 +362,7 @@ class DocusealController extends Controller
             $submitterSlug = null;
             $submissionId = null;
 
-            // DocuSeal returns an array of submitters directly
+            // Docuseal returns an array of submitters directly
             if (is_array($data) && isset($data[0])) {
                 $submitter = $data[0];
 
@@ -383,7 +383,7 @@ class DocusealController extends Controller
                 }
             }
 
-            Log::info('DocuSeal submission created', [
+            Log::info('Docuseal submission created', [
                 'user_id' => $user->id,
                 'template_id' => $request->template_id,
                 'submission_id' => $submissionId,
@@ -401,19 +401,19 @@ class DocusealController extends Controller
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $errorBody = $e->getResponse()->getBody()->getContents();
-            Log::error('DocuSeal API client error', [
+            Log::error('Docuseal API client error', [
                 'user_id' => Auth::id(),
                 'error' => $errorBody,
                 'status_code' => $e->getResponse()->getStatusCode(),
             ]);
 
             return response()->json([
-                'error' => 'DocuSeal API error',
+                'error' => 'Docuseal API error',
                 'message' => json_decode($errorBody, true)['error'] ?? 'Unknown error',
             ], $e->getResponse()->getStatusCode());
 
         } catch (Exception $e) {
-            Log::error('Failed to create DocuSeal submission', [
+            Log::error('Failed to create Docuseal submission', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
@@ -427,7 +427,7 @@ class DocusealController extends Controller
     }
 
     /**
-     * Create DocuSeal submission for demo purposes
+     * Create Docuseal submission for demo purposes
      * POST /docuseal/demo/create-submission
      */
     public function createDemoSubmission(Request $request): JsonResponse
@@ -446,29 +446,29 @@ class DocusealController extends Controller
         try {
             $user = Auth::user();
 
-            // Call DocuSeal API to create submission
+            // Call Docuseal API to create submission
             $apiKey = config('services.docuseal.api_key');
             $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
 
             if (empty($apiKey)) {
-                throw new Exception('DocuSeal API key is not configured');
+                throw new Exception('Docuseal API key is not configured');
             }
 
             // Build submitter values for pre-filled data
             $submitterValues = [];
             if ($request->fields) {
                 foreach ($request->fields as $fieldName => $fieldValue) {
-                    // Convert boolean values to strings for DocuSeal
+                    // Convert boolean values to strings for Docuseal
                     if (is_bool($fieldValue)) {
                         $fieldValue = $fieldValue ? 'true' : 'false';
                     }
 
-                    // DocuSeal expects values as a key-value object
+                    // Docuseal expects values as a key-value object
                     $submitterValues[$fieldName] = (string) $fieldValue;
                 }
             }
 
-            Log::info('DocuSeal demo submission attempt', [
+            Log::info('Docuseal demo submission attempt', [
                 'template_id' => $request->template_id,
                 'email' => $request->email,
                 'field_count' => count($submitterValues),
@@ -488,7 +488,7 @@ class DocusealController extends Controller
                 ],
             ];
 
-            // Make API request to DocuSeal
+            // Make API request to Docuseal
             $client = new \GuzzleHttp\Client();
             $response = $client->post($apiUrl . '/submissions', [
                 'headers' => [
@@ -505,7 +505,7 @@ class DocusealController extends Controller
             $submitterSlug = null;
             $submissionId = null;
 
-            // DocuSeal returns an array of submitters directly
+            // Docuseal returns an array of submitters directly
             if (is_array($data) && isset($data[0])) {
                 $submitter = $data[0];
 
@@ -526,7 +526,7 @@ class DocusealController extends Controller
                 }
             }
 
-            Log::info('DocuSeal demo submission created', [
+            Log::info('Docuseal demo submission created', [
                 'user_id' => $user->id,
                 'template_id' => $request->template_id,
                 'submission_id' => $submissionId,
@@ -543,19 +543,19 @@ class DocusealController extends Controller
 
         } catch (\GuzzleHttp\Exception\ClientException $e) {
             $errorBody = $e->getResponse()->getBody()->getContents();
-            Log::error('DocuSeal API client error (demo)', [
+            Log::error('Docuseal API client error (demo)', [
                 'user_id' => Auth::id(),
                 'error' => $errorBody,
                 'status_code' => $e->getResponse()->getStatusCode(),
             ]);
 
             return response()->json([
-                'error' => 'DocuSeal API error',
+                'error' => 'Docuseal API error',
                 'message' => json_decode($errorBody, true)['error'] ?? 'Unknown error',
             ], $e->getResponse()->getStatusCode());
 
         } catch (Exception $e) {
-            Log::error('Failed to create DocuSeal demo submission', [
+            Log::error('Failed to create Docuseal demo submission', [
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
             ]);

@@ -1945,10 +1945,10 @@
             ],
             "authors": [
                 {
-                    "name": "DocuSeal"
+                    "name": "Docuseal"
                 }
             ],
-            "description": "PHP bindings for DocuSeal API",
+            "description": "PHP bindings for Docuseal API",
             "support": {
                 "issues": "https://github.com/docusealco/docuseal-php/issues",
                 "source": "https://github.com/docusealco/docuseal-php/tree/1.0.4"

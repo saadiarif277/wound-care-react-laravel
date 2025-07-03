@@ -1,7 +1,7 @@
-# Test DocuSeal Integration Fix
-# This script tests the enhanced DocuSeal submission generation endpoint
+# Test Docuseal Integration Fix
+# This script tests the enhanced Docuseal submission generation endpoint
 
-Write-Host "🧪 Testing DocuSeal Integration Fix" -ForegroundColor Cyan
+Write-Host "🧪 Testing Docuseal Integration Fix" -ForegroundColor Cyan
 Write-Host "=================================" -ForegroundColor Cyan
 
 # Configuration
@@ -104,4 +104,4 @@ Write-Host "`n📚 Additional Information:" -ForegroundColor White
 Write-Host "  Debug URL: $baseUrl$debugEndpoint" -ForegroundColor Gray
 Write-Host "  Submission URL: $baseUrl$submissionEndpoint" -ForegroundColor Gray
 Write-Host "  Check Laravel logs: storage/logs/laravel.log" -ForegroundColor Gray
-Write-Host "  For detailed logs, search for: DocuSeal submission generation" -ForegroundColor Gray
+Write-Host "  For detailed logs, search for: Docuseal submission generation" -ForegroundColor Gray

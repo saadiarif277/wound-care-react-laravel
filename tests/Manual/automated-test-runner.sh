@@ -59,9 +59,9 @@ echo ""
 echo "3. Checking Configuration..."
 echo "============================"
 
-# Check DocuSeal config
+# Check Docuseal config
 DOCUSEAL_KEY=$(php artisan tinker --execute="echo config('services.docuseal.api_key') ? 'SET' : 'NOT SET';")
-echo "DocuSeal API Key: $DOCUSEAL_KEY"
+echo "Docuseal API Key: $DOCUSEAL_KEY"
 
 # Check FHIR config
 FHIR_URL=$(php artisan tinker --execute="echo config('services.azure_fhir.base_url') ? 'SET' : 'NOT SET';")

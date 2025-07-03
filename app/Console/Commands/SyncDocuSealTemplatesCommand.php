@@ -8,12 +8,12 @@ use App\Services\AzureDocumentIntelligenceService;
 use App\Services\TemplateIntelligenceService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
-use App\Jobs\SyncDocuSealTemplateJob;
+use App\Jobs\SyncDocusealTemplateJob;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
-class SyncDocuSealTemplatesCommand extends Command
+class SyncDocusealTemplatesCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -26,7 +26,7 @@ class SyncDocuSealTemplatesCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Sync all DocuSeal templates and their field mappings to database';
+    protected $description = 'Sync all Docuseal templates and their field mappings to database';
 
     private DocusealService $docusealService;
     private TemplateIntelligenceService $templateIntelligence;
@@ -45,16 +45,16 @@ class SyncDocuSealTemplatesCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('🔄 Starting Enhanced DocuSeal Template Sync...');
+        $this->info('🔄 Starting Enhanced Docuseal Template Sync...');
 
         // Test connection first
         $connectionTest = $this->docusealService->testConnection();
         if (!$connectionTest['success']) {
-            $this->error('❌ DocuSeal API connection failed: ' . $connectionTest['error']);
+            $this->error('❌ Docuseal API connection failed: ' . $connectionTest['error']);
             return self::FAILURE;
         }
 
-        $this->info('✅ DocuSeal API connection successful');
+        $this->info('✅ Docuseal API connection successful');
 
         // First, discover all templates to get a comprehensive view
         $this->info('🔍 Discovering all available templates...');
@@ -110,7 +110,7 @@ class SyncDocuSealTemplatesCommand extends Command
                     $stats['templates_found']++;
                     $this->line("  ✅ Found template: {$template->template_name}");
                     $this->line("     📁 Folder: " . ($template->extraction_metadata['folder_name'] ?? 'None'));
-                    $this->line("     🔢 DocuSeal ID: {$template->docuseal_template_id}");
+                    $this->line("     🔢 Docuseal ID: {$template->docuseal_template_id}");
                     $this->line("     📊 Fields: " . count($template->field_mappings ?? []));
 
                     if ($template->wasRecentlyCreated) {
@@ -244,11 +244,11 @@ class SyncDocuSealTemplatesCommand extends Command
     }
 
     /**
-     * Fetch all templates from DocuSeal API (including folder-organized templates)
+     * Fetch all templates from Docuseal API (including folder-organized templates)
      */
     private function fetchAllTemplates(): array
     {
-        $this->info('🔍 Fetching templates from DocuSeal API...');
+        $this->info('🔍 Fetching templates from Docuseal API...');
 
         try {
             $response = Http::withHeaders([
@@ -333,7 +333,7 @@ class SyncDocuSealTemplatesCommand extends Command
 
         if ($this->option('queue')) {
             // Dispatch to queue for processing
-            SyncDocuSealTemplateJob::dispatch($templateData, $detailedTemplate, $manufacturer, $documentType);
+            SyncDocusealTemplateJob::dispatch($templateData, $detailedTemplate, $manufacturer, $documentType);
 
             return [
                 'action' => 'processed',
@@ -595,7 +595,7 @@ class SyncDocuSealTemplatesCommand extends Command
             ]
         );
 
-        Log::info('DocuSeal template synced', [
+        Log::info('Docuseal template synced', [
             'template_id' => $templateId,
             'template_name' => $templateName,
             'manufacturer' => $manufacturer?->name,
@@ -607,7 +607,7 @@ class SyncDocuSealTemplatesCommand extends Command
     }
 
     /**
-     * Extract field mappings from DocuSeal template structure
+     * Extract field mappings from Docuseal template structure
      */
     private function extractFieldMappings(array $detailedTemplate): array
     {
@@ -637,7 +637,7 @@ class SyncDocuSealTemplatesCommand extends Command
     }
 
     /**
-     * Map DocuSeal field name to local system field
+     * Map Docuseal field name to local system field
      */
     private function mapToLocalField(string $docusealFieldName): string
     {

@@ -28,7 +28,7 @@ return new class extends Migration
 
         // Add missing facility fields
         Schema::table('facilities', function (Blueprint $table) {
-            // Split address into two lines for better DocuSeal compatibility
+            // Split address into two lines for better Docuseal compatibility
             if (!Schema::hasColumn('facilities', 'address_line1')) {
                 $table->string('address_line1')->nullable()->after('address');
             }

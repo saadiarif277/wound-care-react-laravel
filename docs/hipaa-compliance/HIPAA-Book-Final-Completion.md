@@ -874,7 +874,7 @@ SESSION_SECURE_COOKIE=true
 SESSION_HTTP_ONLY=true
 SESSION_SAME_SITE=strict
 
-# DocuSeal Integration
+# Docuseal Integration
 DOCUSEAL_API_KEY=
 DOCUSEAL_API_URL=https://api.docuseal.co
 
@@ -1623,7 +1623,7 @@ Remember: compliance is not a destination but a journey. Stay informed about reg
   - Pipeline, 286-288
   - Production, 282-297
 - Disaster Recovery, 292-294
-- DocuSeal Integration, 171-173
+- Docuseal Integration, 171-173
 
 ### E
 - Episode Architecture, 186-195

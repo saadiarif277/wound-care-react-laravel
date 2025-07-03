@@ -616,7 +616,7 @@ Eligibility & Prior Auth Tracking - More detailed than just verifications
 FHIR References - The schema should maintain FHIR ID references
 Wound-Specific Fields - While generic, we need to support wound measurements, etc.
 Care Reminders - From Availity integration
-DocuSeal Integration - Specific tracking for DocuSeal
+Docuseal Integration - Specific tracking for Docuseal
 Vector Embeddings - For RAG/AI features
 Commission Hierarchy - More complex than current schema
 Audit Trail - More comprehensive than activity_logs
@@ -1022,7 +1022,7 @@ CREATE TABLE treatment_records (
   
   INDEX idx_treatment_recipient (recipient_id)
 );
-8. Enhanced Document Management for DocuSeal
+8. Enhanced Document Management for Docuseal
 sql-- =====================================================
 -- DOCUSEAL INTEGRATION ENHANCEMENTS
 -- =====================================================
@@ -1030,7 +1030,7 @@ sql-- =====================================================
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS
   docuseal_submission_id VARCHAR(255),
   docuseal_template_id VARCHAR(255),
-  docuseal_status VARCHAR(50), -- DocuSeal-specific status
+  docuseal_status VARCHAR(50), -- Docuseal-specific status
   field_mappings JSONB DEFAULT '{}', -- How fields map
   signature_request_sent_at TIMESTAMP WITH TIME ZONE,
   signature_completed_at TIMESTAMP WITH TIME ZONE;
@@ -1913,7 +1913,7 @@ CREATE TABLE treatment_records (
 );
 ```
 
-### 8. **Enhanced Document Management for DocuSeal**
+### 8. **Enhanced Document Management for Docuseal**
 
 ```sql
 -- =====================================================
@@ -1923,7 +1923,7 @@ CREATE TABLE treatment_records (
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS
   docuseal_submission_id VARCHAR(255),
   docuseal_template_id VARCHAR(255),
-  docuseal_status VARCHAR(50), -- DocuSeal-specific status
+  docuseal_status VARCHAR(50), -- Docuseal-specific status
   field_mappings JSONB DEFAULT '{}', -- How fields map
   signature_request_sent_at TIMESTAMP WITH TIME ZONE,
   signature_completed_at TIMESTAMP WITH TIME ZONE;

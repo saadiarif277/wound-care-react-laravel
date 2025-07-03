@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\Services\UnifiedFieldMappingService;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Models\Episode;
 use App\Models\PatientManufacturerIVREpisode;
 use Illuminate\Console\Command;
@@ -22,7 +22,7 @@ class FieldMappingCommand extends Command
 
     public function __construct(
         private UnifiedFieldMappingService $fieldMappingService,
-        private DocuSealService $docuSealService
+        private DocusealService $docuSealService
     ) {
         parent::__construct();
     }
@@ -132,9 +132,9 @@ class FieldMappingCommand extends Command
                 }
             }
 
-            // Ask if user wants to create DocuSeal submission
-            if ($this->confirm('Create DocuSeal submission?')) {
-                $this->info('📝 Creating DocuSeal submission...');
+            // Ask if user wants to create Docuseal submission
+            if ($this->confirm('Create Docuseal submission?')) {
+                $this->info('📝 Creating Docuseal submission...');
                 
                 $submissionResult = $this->docuSealService->createOrUpdateSubmission(
                     (int) $episodeId,
@@ -142,10 +142,10 @@ class FieldMappingCommand extends Command
                 );
 
                 if ($submissionResult['success']) {
-                    $this->info('✅ DocuSeal submission created successfully!');
+                    $this->info('✅ Docuseal submission created successfully!');
                     $this->info("   Submission ID: {$submissionResult['submission']['id']}");
                 } else {
-                    $this->error('❌ DocuSeal submission failed');
+                    $this->error('❌ Docuseal submission failed');
                 }
             }
 

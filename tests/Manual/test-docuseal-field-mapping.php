@@ -1,7 +1,7 @@
 <?php
 
 /**
- * Manual test script to verify DocuSeal field mapping
+ * Manual test script to verify Docuseal field mapping
  * 
  * Run this with: php tests/Manual/test-docuseal-field-mapping.php
  */
@@ -77,7 +77,7 @@ $manufacturers = [
     'Extremity Care'
 ];
 
-echo "=== DocuSeal Field Mapping Test ===\n\n";
+echo "=== Docuseal Field Mapping Test ===\n\n";
 
 foreach ($manufacturers as $manufacturer) {
     echo "Testing manufacturer: $manufacturer\n";
@@ -107,13 +107,13 @@ foreach ($manufacturers as $manufacturer) {
         echo "   Validation: " . ($mappingResult['validation']['valid'] ? '✅ Valid' : '❌ Invalid') . "\n";
         echo "   Completeness: " . ($mappingResult['completeness']['percentage'] ?? 0) . "%\n";
         
-        // Convert to DocuSeal format
-        $docuSealFields = $service->convertToDocuSealFields(
+        // Convert to Docuseal format
+        $docuSealFields = $service->convertToDocusealFields(
             $mappingResult['data'],
             $config
         );
         
-        echo "   DocuSeal fields generated: " . count($docuSealFields) . "\n";
+        echo "   Docuseal fields generated: " . count($docuSealFields) . "\n";
         
         // Show sample field mappings
         echo "\n   Sample field mappings:\n";
@@ -154,21 +154,21 @@ foreach ($manufacturers as $manufacturer) {
     echo "\n";
 }
 
-// Test the actual DocuSeal field format
-echo "\n=== DocuSeal Field Format Test ===\n";
+// Test the actual Docuseal field format
+echo "\n=== Docuseal Field Format Test ===\n";
 echo str_repeat('-', 50) . "\n";
 
 $sampleConfig = $service->getManufacturerConfig('MedLife Solutions');
 if ($sampleConfig) {
-    $sampleFields = $service->convertToDocuSealFields(
+    $sampleFields = $service->convertToDocusealFields(
         ['patient_name' => 'John Doe', 'physician_npi' => '1234567890'],
         $sampleConfig
     );
     
-    echo "Expected DocuSeal field format:\n";
+    echo "Expected Docuseal field format:\n";
     echo json_encode($sampleFields, JSON_PRETTY_PRINT);
     echo "\n\nEach field should have:\n";
-    echo "- name: The exact field name from the DocuSeal template\n";
+    echo "- name: The exact field name from the Docuseal template\n";
     echo "- value: The value to pre-fill\n";
     echo "- readonly: (optional) Whether the field should be read-only\n";
 }

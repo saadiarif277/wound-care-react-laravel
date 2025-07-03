@@ -176,7 +176,7 @@ return [
                 ]
             ],
             
-            // DocuSeal field name mappings (order form template fields)
+            // Docuseal field name mappings (order form template fields)
             'docuseal_field_names' => [
                 'company_facility' => 'Company/Facility',
                 'contact_name' => 'Contact Name',

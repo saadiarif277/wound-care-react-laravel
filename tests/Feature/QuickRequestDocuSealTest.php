@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use Tests\TestCase;
-use App\Services\Templates\DocuSealBuilder;
+use App\Services\Templates\DocusealBuilder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use App\Models\User;
 use App\Models\Order\Manufacturer;
@@ -11,7 +11,7 @@ use App\Models\Docuseal\DocusealTemplate;
 use Mockery;
 use Illuminate\Support\Facades\Schema;
 
-class QuickRequestDocuSealTest extends TestCase
+class QuickRequestDocusealTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -41,8 +41,8 @@ class QuickRequestDocuSealTest extends TestCase
             'is_active'            => true,
         ]);
 
-        // Mock DocuSealBuilder service to return expected token and URL
-        $mockBuilder = Mockery::mock(\App\Services\Templates\DocuSealBuilder::class);
+        // Mock DocusealBuilder service to return expected token and URL
+        $mockBuilder = Mockery::mock(\App\Services\Templates\DocusealBuilder::class);
         $mockBuilder->shouldReceive('generateBuilderToken')
             ->once()
             ->with($manufacturer->id, 'PROD1')
@@ -51,7 +51,7 @@ class QuickRequestDocuSealTest extends TestCase
                 'jwt-token-abc',
                 'https://api.docuseal.com/builder'
             ]);
-        $this->app->instance(DocuSealBuilder::class, $mockBuilder);
+        $this->app->instance(DocusealBuilder::class, $mockBuilder);
 
         // Call the endpoint
         $response = $this->postJson('/api/v1/quick-request/docuseal/generate-builder-token', [

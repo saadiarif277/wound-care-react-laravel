@@ -18,7 +18,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Carbon\Carbon;
 
-class IvrDocuSealE2ETest extends TestCase
+class IvrDocusealE2ETest extends TestCase
 {
     use RefreshDatabase, WithFaker;
 
@@ -180,7 +180,7 @@ class IvrDocuSealE2ETest extends TestCase
         // Step 2: Login as admin and generate IVR
         $this->actingAs($this->adminUser);
 
-        // Mock DocuSeal API response
+        // Mock Docuseal API response
         Http::fake([
             'docuseal.com/api/*' => Http::response([
                 [
@@ -242,7 +242,7 @@ class IvrDocuSealE2ETest extends TestCase
             'order_status' => 'ivr_sent'
         ]);
 
-        // Verify DocuSeal submission was created
+        // Verify Docuseal submission was created
         $this->assertDatabaseHas('docuseal_submissions', [
             'order_id' => $productRequest->id,
             'document_type' => 'IVR',

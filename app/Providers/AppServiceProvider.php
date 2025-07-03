@@ -98,9 +98,9 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Register Unified DocuSeal Service
-        $this->app->singleton(\App\Services\DocuSealService::class, function ($app) {
-            return new \App\Services\DocuSealService(
+        // Register Unified Docuseal Service
+        $this->app->singleton(\App\Services\DocusealService::class, function ($app) {
+            return new \App\Services\DocusealService(
                 $app->make(\App\Services\UnifiedFieldMappingService::class)
             );
         });

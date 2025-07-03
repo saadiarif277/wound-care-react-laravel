@@ -117,7 +117,7 @@ class ProcessFormWithAI extends Command
             }
 
             if (isset($result['docuseal_submission'])) {
-                $this->info("DocuSeal Submission ID: " . $result['docuseal_submission']['id']);
+                $this->info("Docuseal Submission ID: " . $result['docuseal_submission']['id']);
             }
 
             // Log to Laravel logs

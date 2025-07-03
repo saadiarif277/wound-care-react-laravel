@@ -16,7 +16,7 @@ export interface ManufacturerTemplateResponse {
   fields: ManufacturerField[];
 }
 
-class DocuSealTemplateService {
+class DocusealTemplateService {
   private baseUrl = '/api/v1/docuseal/templates';
 
   /**
@@ -40,7 +40,7 @@ class DocuSealTemplateService {
   }
 
   /**
-   * Sync templates from DocuSeal
+   * Sync templates from Docuseal
    */
   async syncTemplates(): Promise<{ success: boolean; templates: any[] }> {
     try {
@@ -105,4 +105,4 @@ class DocuSealTemplateService {
   }
 }
 
-export default new DocuSealTemplateService();
+export default new DocusealTemplateService();

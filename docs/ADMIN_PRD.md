@@ -2,7 +2,7 @@ MSC Platform – Admin Order Processing Flow (PRD)
 
 1. OVERVIEW
 This document defines the product requirements for the Admin workflow after a Provider or Office Manager submits an order to the MSC platform. The Admin is responsible for reviewing and sending IVR and Order Forms to the manufacturer, updating statuses, uploading supporting documents, and notifying users as needed.
-The platform should re-use shared UI templates for both the Order Dashboard and Order Details views across all user roles. Based on user permissions, each view should dynamically render applicable data fields and action buttons (e.g., status edits, uploads, DocuSeal send options).
+The platform should re-use shared UI templates for both the Order Dashboard and Order Details views across all user roles. Based on user permissions, each view should dynamically render applicable data fields and action buttons (e.g., status edits, uploads, Docuseal send options).
 
 2. ROLES & PERMISSIONS MATRIX
 Role
@@ -16,7 +16,7 @@ View Order Status
 Edit Order Status
 View ASP
 View Amount to be Billed
-Send via DocuSeal
+Send via Docuseal
 Admin
 ✅ Yes
 ✅ Yes
@@ -74,7 +74,7 @@ Filters: Patient, Order Status
 Admin is notified via email (with deep link to order)
 Admin views Order Details page
 Click to view/download IVR (opens in new tab)
-Send IVR via DocuSeal (multi-recipient supported)
+Send IVR via Docuseal (multi-recipient supported)
 Receive verification from manufacturer
 (Optional) Upload IVR result PDF
 Manually update IVR status to Verified
@@ -91,14 +91,14 @@ Rejected (IVR was reviewed and did not meet eligibility criteria)
 IVR Status Change Requirements:
 N/A: No IVR required. Requires reason. Re-upload allowed.
 Pending: Awaiting Admin review. Re-upload allowed.
-Sent: IVR sent to manufacturer via DocuSeal. No further edits allowed.
+Sent: IVR sent to manufacturer via Docuseal. No further edits allowed.
 Verified: Manufacturer verified IVR. No further edits allowed.
 Rejected: IVR did not meet eligibility. Admin must add rejection reason. Re-upload allowed by requestor or Admin.
 
 
 5. ORDER FORM PROCESS FLOW (ADMIN)
 View/download Order Form
-Send via DocuSeal (multi-recipient supported)
+Send via Docuseal (multi-recipient supported)
 Update status to Submitted to Manufacturer
 When manufacturer confirms, update status to Confirmed by Manufacturer
 (Optional) Upload packing slip PDF
@@ -182,7 +182,7 @@ All comments are appended to the Order Activity Log (not editable)
 7. DOCUSEAL INTEGRATION
 Role
 View PDF
-Send via DocuSeal
+Send via Docuseal
 Multi-Recipient Support
 Admin
 ✅ Yes
@@ -204,7 +204,7 @@ Legal/compliance risk of retaining canceled PHI
 
 9. DISCUSSION: PLATFORM EMAIL VS DOCUSEAL
 Current:
-All documents sent via DocuSeal for e-signature and tracking
+All documents sent via Docuseal for e-signature and tracking
 Proposal:
 Option to send IVR and Order Form via MSC platform email
 Manufacturer replies with verification and attachments
@@ -218,4 +218,4 @@ Potential PHI in replies
 Requires secure email handling
 Next Step:
 Technical + compliance review to determine feasibility
-DocuSeal remains fallback/default
+Docuseal remains fallback/default

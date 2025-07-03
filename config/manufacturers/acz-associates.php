@@ -6,7 +6,7 @@ return [
     'signature_required' => true,
     'has_order_form' => false,
     'duration_requirement' => 'greater_than_4_weeks',
-    'docuseal_template_id' => '', // TODO: Add the DocuSeal template ID when available
+    'docuseal_template_id' => '', // TODO: Add the Docuseal template ID when available
     'docuseal_field_names' => [
         // Map canonical names to ACZ's specific field names
         'patient_name' => 'PATIENT NAME',

@@ -220,7 +220,7 @@ export default function OrderSummary({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-700">
-                  DocuSeal Submission ID:
+                  Docuseal Submission ID:
                 </span>
                 <span className="text-sm font-medium text-slate-900">
                   {orderData.submission.docuseal_submission_id || 'N/A'}

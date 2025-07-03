@@ -3,10 +3,10 @@
 return [
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal API Configuration
+    | Docuseal API Configuration
     |--------------------------------------------------------------------------
     |
-    | Configuration for the DocuSeal e-signature integration
+    | Configuration for the Docuseal e-signature integration
     |
     */
 
@@ -16,7 +16,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal Request Configuration
+    | Docuseal Request Configuration
     |--------------------------------------------------------------------------
     |
     | Settings for API requests and timeouts
@@ -28,7 +28,7 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal Template Configuration
+    | Docuseal Template Configuration
     |--------------------------------------------------------------------------
     |
     | Template IDs are now managed via the database (docuseal_templates table)
@@ -38,10 +38,10 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | DocuSeal Field Mapping Configuration
+    | Docuseal Field Mapping Configuration
     |--------------------------------------------------------------------------
     |
-    | Configuration for mapping form fields to DocuSeal template fields
+    | Configuration for mapping form fields to Docuseal template fields
     | This enables the 91% field pre-filling mentioned in documentation
     |
     */

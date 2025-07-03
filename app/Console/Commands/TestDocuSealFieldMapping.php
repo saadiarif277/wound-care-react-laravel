@@ -3,14 +3,14 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
 
-class TestDocuSealFieldMapping extends Command
+class TestDocusealFieldMapping extends Command
 {
     protected $signature = 'docuseal:test-field-mapping {manufacturer_id=1}';
-    protected $description = 'Test DocuSeal field mapping with sample data';
+    protected $description = 'Test Docuseal field mapping with sample data';
 
     public function handle()
     {
@@ -84,7 +84,7 @@ class TestDocuSealFieldMapping extends Command
         ];
         
         // Test mapping
-        $docuSealService = new DocuSealService();
+        $docuSealService = new DocusealService();
         $mappedFields = $docuSealService->mapFieldsUsingTemplate($sampleData, $template);
         
         $this->info("\nField Mapping Results:");
@@ -95,7 +95,7 @@ class TestDocuSealFieldMapping extends Command
         if (count($mappedFields) > 0) {
             $this->info("\nMapped Fields:");
             $this->table(
-                ['DocuSeal Field', 'Mapped Value'],
+                ['Docuseal Field', 'Mapped Value'],
                 collect($mappedFields)->map(function ($value, $field) {
                     if (is_array($value)) {
                         $value = json_encode($value);

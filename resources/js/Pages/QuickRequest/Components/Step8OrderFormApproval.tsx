@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { router } from '@inertiajs/react';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward, FiShield, FiClock, FiStar, FiZap, FiCheck, FiClipboard, FiPackage } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { router } from '@inertiajs/core';
+import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
-import { useManufacturers } from '@/hooks/useManufacturers';
+import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import axios from 'axios';
+import { useManufacturers } from '@/Hooks/useManufacturers';
+// Make sure useManufacturers is exported from manufacturerFields.ts
 
 interface SelectedProduct {
   product_id: number;
@@ -71,11 +72,11 @@ interface FormData {
   primary_member_id?: string;
   primary_plan_type?: string;
 
-  // DocuSeal IVR
+  // Docuseal IVR
   docuseal_submission_id?: string;
   ivr_completed_at?: string;
 
-  // DocuSeal Order Form (NEW)
+  // Docuseal Order Form (NEW)
   order_form_submission_id?: string;
   order_form_completed_at?: string;
   order_form_skipped?: boolean;
@@ -402,7 +403,7 @@ export default function Step8OrderFormApproval({
         </div>
       )}
 
-      {/* DocuSeal Order Form */}
+      {/* Docuseal Order Form */}
       {showOrderForm && !isCompleted && !submissionError && (
         <div className={cn("rounded-lg", t.glass.card)}>
           <div className="relative">
@@ -417,7 +418,7 @@ export default function Step8OrderFormApproval({
               </div>
             )}
             
-            <DocuSealEmbed
+            <DocusealEmbed
               manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
               productCode={selectedProduct?.code || ''}
               documentType="OrderForm"
@@ -425,8 +426,7 @@ export default function Step8OrderFormApproval({
               episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
               onComplete={handleOrderFormComplete}
               onError={handleOrderFormError}
-              className="w-full h-full min-h-[600px]"
-            />
+              className="w-full h-full min-h-[600px]" submissionUrl={''} builderToken={''} builderProps={null}            />
           </div>
         </div>
       )}

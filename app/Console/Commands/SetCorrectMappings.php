@@ -20,7 +20,7 @@ class SetCorrectMappings extends Command
             return 1;
         }
 
-        // Based on the actual DocuSeal template fields we saw, create correct mappings
+        // Based on the actual Docuseal template fields we saw, create correct mappings
         $correctMappings = [
             // Patient Information
             'patient_name' => 'Patient Name',
@@ -66,7 +66,7 @@ class SetCorrectMappings extends Command
         ];
 
         $this->info("Setting correct field mappings for {$template->template_name}");
-        $this->table(['Form Field', 'DocuSeal Field'], 
+        $this->table(['Form Field', 'Docuseal Field'], 
             collect($correctMappings)->map(fn($docuSealField, $formField) => [$formField, $docuSealField])->toArray()
         );
 

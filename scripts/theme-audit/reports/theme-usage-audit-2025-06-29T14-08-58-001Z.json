@@ -91,7 +91,7 @@
       "timestamp": "2025-06-29T14:08:57.984Z"
     },
     {
-      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocusealIVR.tsx",
       "type": "missing-main-layout",
       "severity": "warning",
       "message": "Page component does not import or use MainLayout",

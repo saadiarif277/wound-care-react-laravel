@@ -118,11 +118,11 @@ echo "Products with manufacturers: $productsWithManufacturers\n";
 $requestsWithProducts = \App\Models\Order\ProductRequest::has('products')->count();
 echo "Product requests with products: $requestsWithProducts\n";
 
-// Check DocuSeal setup
+// Check Docuseal setup
 $folders = DB::table('docuseal_folders')->count();
 $templates = DB::table('docuseal_templates')->count();
-echo "DocuSeal folders: $folders\n";
-echo "DocuSeal templates: $templates\n";
+echo "Docuseal folders: $folders\n";
+echo "Docuseal templates: $templates\n";
 
 // Check user roles
 $usersWithRoles = \App\Models\User::whereHas('roles')->count();
@@ -193,7 +193,7 @@ if [ $SEED_RESULT -eq 0 ]; then
     echo "The database has been properly set up with:"
     echo "1. All required tables created in correct order"
     echo "2. Foreign key constraints properly established"
-    echo "3. All IVR and DocuSeal fields added"
+    echo "3. All IVR and Docuseal fields added"
     echo "4. Test data seeded successfully"
 else
     echo -e "${RED}✗ There were errors during migration/seeding${NC}"

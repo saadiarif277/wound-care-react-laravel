@@ -3,10 +3,10 @@
 namespace App\Constants;
 
 /**
- * Constants for DocuSeal field names used throughout the application.
- * These constants ensure consistency when mapping data to DocuSeal templates.
+ * Constants for Docuseal field names used throughout the application.
+ * These constants ensure consistency when mapping data to Docuseal templates.
  */
-class DocuSealFields
+class DocusealFields
 {
     // Patient Information
     public const PATIENT_NAME = 'patient_name';

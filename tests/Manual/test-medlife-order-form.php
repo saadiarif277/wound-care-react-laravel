@@ -69,17 +69,17 @@ try {
     echo "   - Fields mapped: " . count($mappingResult['data']) . "\n";
     echo "   - Completeness: " . round($mappingResult['completeness']['percentage'], 1) . "%\n\n";
     
-    // Test 4: Convert to DocuSeal order form format
-    echo "🔄 Test 4: Converting to DocuSeal Order Form Format\n";
+    // Test 4: Convert to Docuseal order form format
+    echo "🔄 Test 4: Converting to Docuseal Order Form Format\n";
     
-    $docuSealFields = $service->convertToDocuSealFields(
+    $docuSealFields = $service->convertToDocusealFields(
         $mappingResult['data'], 
         $orderConfig, 
         'OrderForm'  // This is the key - using OrderForm document type
     );
     
-    echo "✅ SUCCESS: Converted to DocuSeal format\n";
-    echo "   - DocuSeal fields generated: " . count($docuSealFields) . "\n\n";
+    echo "✅ SUCCESS: Converted to Docuseal format\n";
+    echo "   - Docuseal fields generated: " . count($docuSealFields) . "\n\n";
     
     // Test 5: Show order form field mappings
     echo "📝 Test 5: Order Form Field Mappings\n";
@@ -97,7 +97,7 @@ try {
     // Test 6: Compare with IVR field mappings
     echo "🔍 Test 6: Comparison with IVR Mappings\n";
     
-    $ivrFields = $service->convertToDocuSealFields(
+    $ivrFields = $service->convertToDocusealFields(
         $mappingResult['data'], 
         $ivrConfig, 
         'IVR'  // IVR document type

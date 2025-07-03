@@ -208,7 +208,7 @@ This comprehensive guide is divided into five main files due to size constraints
 
 ### Integration Capabilities
 - EHR system integration (Epic example)
-- Document management (DocuSeal)
+- Document management (Docuseal)
 - Insurance verification
 - Message queue architecture
 - External API connections

@@ -40,7 +40,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
-use App\Http\Controllers\DocuSealWebhookController;
+use App\Http\Controllers\DocusealWebhookController;
 use App\Http\Controllers\FhirController;
 use App\Http\Controllers\Api\AuthTokenController;
 use Illuminate\Support\Facades\Log;
@@ -56,13 +56,13 @@ use Illuminate\Support\Facades\Log;
 |
 */
 
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\OrderReviewPageController;
 
 Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
-    $service = app(DocuSealService::class);
+    $service = app(DocusealService::class);
 
     // Test the FHIR data fetch
     $episode = DB::table('patient_manufacturer_ivr_episodes')->find($episodeId);
@@ -83,7 +83,7 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
         dd([
             'episode' => $episode,
             'fhir_data' => $checklistData,
-            'would_map_to' => $service->mapFHIRToDocuSeal($checklistData)
+            'would_map_to' => $service->mapFHIRToDocuseal($checklistData)
         ]);
     }
 
@@ -508,8 +508,8 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
 
-        // DocuSeal IVR Integration
-        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocuSealIVR'])
+        // Docuseal IVR Integration
+        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocusealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
 
@@ -518,12 +518,12 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.order-summary');
 
-        // DocuSeal Builder Token Generation (web auth)
+        // Docuseal Builder Token Generation (web auth)
         Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-builder-token');
 
-        // DocuSeal Form Token Generation (web auth)
+        // Docuseal Form Token Generation (web auth)
         Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\QuickRequestController::class, 'generateFormToken'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-form-token');
@@ -532,8 +532,8 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-submission-slug');
 
-        // Debug endpoint for DocuSeal integration troubleshooting
-        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugDocuSealIntegration'])
+        // Debug endpoint for Docuseal integration troubleshooting
+        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugDocusealIntegration'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.debug');
 
@@ -575,7 +575,7 @@ Route::middleware(['web', 'auth'])->group(function () {
             ]);
 
             // Debug logging
-            \Log::info('Session storage - Storing form data', [
+            Log::info('Session storage - Storing form data', [
                 'form_data_keys' => array_keys($validated['quick_request_form_data']),
                 'form_data_count' => count($validated['quick_request_form_data']),
                 'episode_data_keys' => isset($validated['validated_episode_data']) ? array_keys($validated['validated_episode_data']) : [],
@@ -591,7 +591,7 @@ Route::middleware(['web', 'auth'])->group(function () {
 
             // Verify data was stored
             $storedFormData = $request->session()->get('quick_request_form_data', []);
-            \Log::info('Session storage - Data stored successfully', [
+            Log::info('Session storage - Data stored successfully', [
                 'stored_form_data_keys' => array_keys($storedFormData),
                 'stored_form_data_count' => count($storedFormData),
                 'session_id' => $request->session()->getId(),
@@ -875,32 +875,32 @@ Route::middleware(['web', 'auth'])->group(function () {
         ]);
     })->name('test.office-manager-permissions');
 
-    // DocuSeal Document Management Routes
+    // Docuseal Document Management Routes
     Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
         // Template management
         Route::get('/templates', function () {
-            return Inertia::render('Admin/DocuSeal/Templates');
+            return Inertia::render('Admin/Docuseal/Templates');
         })->name('admin.docuseal.templates');
 
         // Analytics dashboard
         Route::get('/analytics', function () {
-            return Inertia::render('Admin/DocuSeal/Analytics');
+            return Inertia::render('Admin/Docuseal/Analytics');
         })->name('admin.docuseal.analytics');
     });
 
-    // DocuSeal API endpoints (within web middleware for session auth)
-    // NOTE: DocuSealTemplateController needs to be created
+    // Docuseal API endpoints (within web middleware for session auth)
+    // NOTE: DocusealTemplateController needs to be created
     /*
     Route::prefix('api/v1/docuseal/templates')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'index']);
-        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'sync']);
-        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'extractFields']);
-        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'uploadEmbedded']);
-        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'getManufacturerFields']);
-        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMappings']);
-        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'updateMetadata']);
-        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'applyBulkPatterns']);
-        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocuSealTemplateController::class, 'syncFields']);
+        Route::get('/', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'index']);
+        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'sync']);
+        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'extractFields']);
+        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'uploadEmbedded']);
+        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'getManufacturerFields']);
+        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMappings']);
+        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMetadata']);
+        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'applyBulkPatterns']);
+        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'syncFields']);
     });
     */
 
@@ -1026,22 +1026,22 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 
 
-// DocuSeal Routes
+// Docuseal Routes
 Route::middleware(['auth'])->group(function () {
-    // NOTE: DocuSealController needs to be created
+    // NOTE: DocusealController needs to be created
     /*
-    // Create DocuSeal submission with pre-filled data
-    Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createSubmission'])
+    // Create Docuseal submission with pre-filled data
+    Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocusealController::class, 'createSubmission'])
         ->name('docuseal.create-submission')
         ->middleware('permission:manage-orders');
 
-    // Demo-specific DocuSeal submission (only requires authentication, not manage-orders permission)
-    Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocuSealController::class, 'createDemoSubmission'])
+    // Demo-specific Docuseal submission (only requires authentication, not manage-orders permission)
+    Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocusealController::class, 'createDemoSubmission'])
         ->name('docuseal.demo.create-submission');
     */
 });
 
-// QuickRequest DocuSeal Routes (Consolidated)
+// QuickRequest Docuseal Routes (Consolidated)
 Route::middleware(['auth'])->group(function () {
     // Create final submission form with all QuickRequest data
     Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
@@ -1102,7 +1102,7 @@ Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
         ->name('api.voice.command');
 });
 
-// DocuSeal Webhook (outside auth middleware)
+// Docuseal Webhook (outside auth middleware)
 
 // QuickRequest Episode ID generation for IVR linking
 Route::post('/api/quickrequest/episode', [\App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'store'])
@@ -1137,21 +1137,21 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
 
 // FHIR routes moved to api.php to avoid duplicate route names
 
-// DocuSeal debug routes (remove in production)
+// Docuseal debug routes (remove in production)
 Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
-    Route::get('/test', [\App\Http\Controllers\DocuSealDebugController::class, 'debug'])
+    Route::get('/test', [\App\Http\Controllers\DocusealDebugController::class, 'debug'])
         ->name('docuseal.debug');
     // Debug routes removed - functionality moved to main services
 });
 
-// DocuSeal API Test Route (remove in production)
+// Docuseal API Test Route (remove in production)
 Route::get('/test-docuseal-connection', function () {
     if (!Auth::check()) {
         return response()->json(['error' => 'Please log in first'], 401);
     }
 
     try {
-        $docuSealService = app(\App\Services\DocuSealService::class);
+        $docuSealService = app(\App\Services\DocusealService::class);
         $result = $docuSealService->testConnection();
 
         return response()->json($result);
@@ -1163,7 +1163,7 @@ Route::get('/test-docuseal-connection', function () {
     }
 })->middleware('auth')->name('test.docuseal.connection');
 
-// Quick DocuSeal template check (remove in production)
+// Quick Docuseal template check (remove in production)
 Route::get('/docuseal-templates', function () {
     if (!Auth::check()) {
         return 'Please log in first';

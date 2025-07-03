@@ -4,28 +4,28 @@ namespace Tests\Unit;
 
 use Tests\TestCase;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use App\Services\Templates\DocuSealBuilder;
-use App\Models\DocuSeal\DocuSealTemplate;
+use App\Services\Templates\DocusealBuilder;
+use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
 use App\Models\Order\Product;
 use Exception;
 
-class DocuSealBuilderTest extends TestCase
+class DocusealBuilderTest extends TestCase
 {
     use RefreshDatabase;
 
-    private DocuSealBuilder $builder;
+    private DocusealBuilder $builder;
 
     protected function setUp(): void
     {
         parent::setUp();
-        $this->builder = new DocuSealBuilder();
+        $this->builder = new DocusealBuilder();
     }
 
     public function test_get_template_by_manufacturer()
     {
         $manufacturer = Manufacturer::factory()->create();
-        $template = DocuSealTemplate::create([
+        $template = DocusealTemplate::create([
             'name' => 'Test Template',
             'docuseal_template_id' => 'tmpl1',
             'manufacturer_id' => $manufacturer->id,
@@ -36,14 +36,14 @@ class DocuSealBuilderTest extends TestCase
 
         $result = $this->builder->getTemplate($manufacturer->id, null);
 
-        $this->assertInstanceOf(DocuSealTemplate::class, $result);
+        $this->assertInstanceOf(DocusealTemplate::class, $result);
         $this->assertEquals($template->id, $result->id);
     }
 
     public function test_get_template_by_product_code()
     {
         $manufacturer = Manufacturer::factory()->create();
-        $template = DocuSealTemplate::create([
+        $template = DocusealTemplate::create([
             'name' => 'Product Template',
             'docuseal_template_id' => 'tmpl2',
             'manufacturer_id' => $manufacturer->id,
@@ -54,14 +54,14 @@ class DocuSealBuilderTest extends TestCase
 
         $result = $this->builder->getTemplate($manufacturer->id, 'A6234');
 
-        $this->assertInstanceOf(DocuSealTemplate::class, $result);
+        $this->assertInstanceOf(DocusealTemplate::class, $result);
         $this->assertEquals($template->id, $result->id);
     }
 
     public function test_get_template_throws_exception_when_missing()
     {
         $this->expectException(Exception::class);
-        $this->expectExceptionMessage('No DocuSeal template found');
+        $this->expectExceptionMessage('No Docuseal template found');
         
         $this->builder->getTemplate('nonexistent-id', 'unknowncode');
     }
@@ -71,7 +71,7 @@ class DocuSealBuilderTest extends TestCase
         $manufacturer = Manufacturer::factory()->create();
         
         // Create generic template (no product codes)
-        $genericTemplate = DocuSealTemplate::create([
+        $genericTemplate = DocusealTemplate::create([
             'name' => 'Generic Template',
             'docuseal_template_id' => 'generic-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -81,7 +81,7 @@ class DocuSealBuilderTest extends TestCase
         ]);
         
         // Create specific template for different product
-        $specificTemplate = DocuSealTemplate::create([
+        $specificTemplate = DocusealTemplate::create([
             'name' => 'Specific Template',
             'docuseal_template_id' => 'specific-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -102,7 +102,7 @@ class DocuSealBuilderTest extends TestCase
         $manufacturer = Manufacturer::factory()->create();
         
         // Create inactive template
-        $inactiveTemplate = DocuSealTemplate::create([
+        $inactiveTemplate = DocusealTemplate::create([
             'name' => 'Inactive Template',
             'docuseal_template_id' => 'inactive-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -112,7 +112,7 @@ class DocuSealBuilderTest extends TestCase
         ]);
         
         // Create active template
-        $activeTemplate = DocuSealTemplate::create([
+        $activeTemplate = DocusealTemplate::create([
             'name' => 'Active Template',
             'docuseal_template_id' => 'active-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -131,7 +131,7 @@ class DocuSealBuilderTest extends TestCase
     {
         $manufacturer = Manufacturer::factory()->create();
         
-        $template = DocuSealTemplate::create([
+        $template = DocusealTemplate::create([
             'name' => 'Test Template',
             'docuseal_template_id' => 'test-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -157,7 +157,7 @@ class DocuSealBuilderTest extends TestCase
         $manufacturer = Manufacturer::factory()->create();
         
         // Create generic template
-        $genericTemplate = DocuSealTemplate::create([
+        $genericTemplate = DocusealTemplate::create([
             'name' => 'Generic Template',
             'docuseal_template_id' => 'generic-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -167,7 +167,7 @@ class DocuSealBuilderTest extends TestCase
         ]);
         
         // Create specific template
-        $specificTemplate = DocuSealTemplate::create([
+        $specificTemplate = DocusealTemplate::create([
             'name' => 'Specific Template',
             'docuseal_template_id' => 'specific-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -186,7 +186,7 @@ class DocuSealBuilderTest extends TestCase
     {
         $manufacturer = Manufacturer::factory()->create();
         
-        $template = DocuSealTemplate::create([
+        $template = DocusealTemplate::create([
             'name' => 'Multi Product Template',
             'docuseal_template_id' => 'multi-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -210,7 +210,7 @@ class DocuSealBuilderTest extends TestCase
         $manufacturer = Manufacturer::factory()->create();
         
         // Create older template
-        $olderTemplate = DocuSealTemplate::create([
+        $olderTemplate = DocusealTemplate::create([
             'name' => 'Older Template',
             'docuseal_template_id' => 'older-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -221,7 +221,7 @@ class DocuSealBuilderTest extends TestCase
         ]);
         
         // Create newer template
-        $newerTemplate = DocuSealTemplate::create([
+        $newerTemplate = DocusealTemplate::create([
             'name' => 'Newer Template',
             'docuseal_template_id' => 'newer-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -241,7 +241,7 @@ class DocuSealBuilderTest extends TestCase
     {
         $manufacturer = Manufacturer::factory()->create();
         
-        $genericTemplate = DocuSealTemplate::create([
+        $genericTemplate = DocusealTemplate::create([
             'name' => 'Generic Template',
             'docuseal_template_id' => 'generic-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -252,7 +252,7 @@ class DocuSealBuilderTest extends TestCase
 
         $result = $this->builder->getTemplate($manufacturer->id, null);
 
-        $this->assertInstanceOf(DocuSealTemplate::class, $result);
+        $this->assertInstanceOf(DocusealTemplate::class, $result);
         $this->assertEquals($genericTemplate->id, $result->id);
     }
 
@@ -260,7 +260,7 @@ class DocuSealBuilderTest extends TestCase
     {
         $manufacturer = Manufacturer::factory()->create();
         
-        $genericTemplate = DocuSealTemplate::create([
+        $genericTemplate = DocusealTemplate::create([
             'name' => 'Generic Template',
             'docuseal_template_id' => 'generic-tmpl',
             'manufacturer_id' => $manufacturer->id,
@@ -271,7 +271,7 @@ class DocuSealBuilderTest extends TestCase
 
         $result = $this->builder->getTemplate($manufacturer->id, '');
 
-        $this->assertInstanceOf(DocuSealTemplate::class, $result);
+        $this->assertInstanceOf(DocusealTemplate::class, $result);
         $this->assertEquals($genericTemplate->id, $result->id);
     }
 }

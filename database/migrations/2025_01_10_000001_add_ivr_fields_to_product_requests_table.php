@@ -30,7 +30,7 @@ return new class extends Migration
                 $table->unsignedBigInteger('ivr_bypassed_by')->nullable()->after('ivr_bypassed_at');
             }
 
-            // DocuSeal Integration
+            // Docuseal Integration
             if (!in_array('docuseal_submission_id', $columns)) {
                 $table->string('docuseal_submission_id')->nullable()->after('ivr_bypassed_by');
             }

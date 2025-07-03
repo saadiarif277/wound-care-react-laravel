@@ -9,6 +9,47 @@ use Illuminate\Support\Collection;
 class InsuranceAnalyticsService
 {
     /**
+     * Get analytics for a patient's insurance data.
+     */
+    public function getPatientInsuranceAnalytics(string $patientId): array
+    {
+        // Placeholder implementation; replace with actual analytics logic.
+        return [
+            'insurance_summary' => [],
+            'claims_history' => [],
+            'coverage_gaps' => [],
+        ];
+    }
+
+    /**
+     * Get analytics for a specific payer.
+     *
+     * @param string $payerId
+     * @return array
+     */
+    public function getPayerAnalytics(string $payerId): array
+    {
+        // TODO: Replace with actual analytics retrieval logic
+        return [
+            'rejection_patterns' => [],
+            'avg_approval_time' => null,
+            'prior_auth_patterns' => [],
+            'optimal_submission_times' => [],
+            'success_rate' => 0
+        ];
+    }
+
+    /**
+     * Get the latest insurance card scan data for a patient.
+     */
+    public function getLatestInsuranceCardScan(string $patientId): ?array
+    {
+        // TODO: Implement actual logic to retrieve the latest insurance card scan.
+        // For now, return null or mock data.
+        return null;
+    }
+
+    /**
      * Get insurance verification funnel metrics
      */
     public function getVerificationFunnel($dateFrom, $dateTo): Collection

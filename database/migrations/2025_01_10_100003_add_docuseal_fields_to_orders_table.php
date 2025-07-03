@@ -26,7 +26,7 @@ return new class extends Migration
                 $table->timestamp('documents_generated_at')->nullable();
             }
             if (!Schema::hasColumn('orders', 'docuseal_metadata')) {
-                $table->json('docuseal_metadata')->nullable(); // Store DocuSeal-related metadata
+                $table->json('docuseal_metadata')->nullable(); // Store Docuseal-related metadata
             }
         });
 

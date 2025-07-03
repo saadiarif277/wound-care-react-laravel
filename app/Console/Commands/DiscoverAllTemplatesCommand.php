@@ -14,7 +14,7 @@ class DiscoverAllTemplatesCommand extends Command
                            {--import : Import discovered templates with AI analysis}
                            {--folders= : Comma-separated list of folder names to search}';
 
-    protected $description = 'Discover ALL DocuSeal templates using proper API pagination and folder filtering';
+    protected $description = 'Discover ALL Docuseal templates using proper API pagination and folder filtering';
 
     private TemplateIntelligenceService $templateIntelligence;
 
@@ -26,13 +26,13 @@ class DiscoverAllTemplatesCommand extends Command
 
     public function handle(): int
     {
-        $this->info('🔍 Discovering ALL DocuSeal Templates...');
+        $this->info('🔍 Discovering ALL Docuseal Templates...');
 
         $apiKey = config('docuseal.api_key');
         $apiUrl = config('docuseal.api_url');
 
         if (!$apiKey || !$apiUrl) {
-            $this->error('❌ DocuSeal API configuration missing');
+            $this->error('❌ Docuseal API configuration missing');
             return self::FAILURE;
         }
 

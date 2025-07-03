@@ -10,6 +10,7 @@ use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
 
 class IVRMappingOrchestrator
 {
@@ -263,8 +264,7 @@ class IVRMappingOrchestrator
                         'mapped_value' => substr($data['value'] ?? '', 0, 255), // Truncate for privacy
                         'mapping_strategy' => $data['strategy'] ?? 'unknown',
                         'confidence_score' => $data['confidence'] ?? 0,
-                        'was_successful' => $wasSuccessful && ($data['strategy'] !== 'unmappable'),
-                        'user_id' => auth()->id(),
+                        'user_id' => Auth::check() ? Auth::user()->id : null,
                         'session_id' => session()->getId(),
                     ]);
                 } catch (\Exception $e) {

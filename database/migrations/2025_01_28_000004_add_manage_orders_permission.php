@@ -18,7 +18,7 @@ return new class extends Migration
             $permission = Permission::create([
                 'name' => 'Manage Orders',
                 'slug' => 'manage-orders',
-                'description' => 'Ability to manage orders and DocuSeal templates'
+                'description' => 'Ability to manage orders and Docuseal templates'
             ]);
         }
 

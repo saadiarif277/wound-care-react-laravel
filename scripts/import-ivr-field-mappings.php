@@ -9,7 +9,7 @@ use App\Models\IVRFieldMapping;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Import real IVR field mappings from actual DocuSeal templates
+ * Import real IVR field mappings from actual Docuseal templates
  * This fixes the "filling out so little" issue by providing comprehensive field mappings
  */
 

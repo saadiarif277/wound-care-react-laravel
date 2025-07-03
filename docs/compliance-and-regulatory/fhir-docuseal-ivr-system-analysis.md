@@ -1,4 +1,4 @@
-# FHIR-to-DocuSeal IVR System Architecture
+# FHIR-to-Docuseal IVR System Architecture
 
 ## Current Implementation
 
@@ -19,7 +19,7 @@ Product Model:
 Field Mapping Configuration (config/field-mapping.php):
 ├── Canonical field names
 ├── Field aliases  
-├── Manufacturer-specific DocuSeal field mappings
+├── Manufacturer-specific Docuseal field mappings
 └── Transformation rules
 ```
 
@@ -60,7 +60,7 @@ Patient Creation → FHIR ID Generated → Stored in database
          ↓
 Episode Creation → Episode ID Generated → Stored in database
          ↓
-DocuSeal IVR → UnifiedFieldMappingService → Mapped to DocuSeal fields
+Docuseal IVR → UnifiedFieldMappingService → Mapped to Docuseal fields
          ↓
 Field Conversion → Manufacturer-specific field names applied
 ```
@@ -81,8 +81,8 @@ class UnifiedFieldMappingService {
     // Maps any data source to canonical field names
     public function mapToCanonicalFields(array $data): array;
     
-    // Converts canonical fields to DocuSeal format
-    public function convertToDocuSealFields(array $data, array $config): array;
+    // Converts canonical fields to Docuseal format
+    public function convertToDocusealFields(array $data, array $config): array;
     
     // AI-powered field matching for unknown fields
     public function suggestFieldMappings(array $fields): array;
@@ -112,7 +112,7 @@ return [
 ];
 ```
 
-### 2. DocuSeal IVR Generation Flow
+### 2. Docuseal IVR Generation Flow
 
 **Service Flow:**
 ```
@@ -126,12 +126,12 @@ FhirService → Fetch patient/provider data
     ↓
 UnifiedFieldMappingService → Map to canonical fields
     ↓
-DocuSealService → Convert to manufacturer-specific fields
+DocusealService → Convert to manufacturer-specific fields
     ↓
-DocuSeal API → Create submission
+Docuseal API → Create submission
 ```
 
-**Implementation in DocuSealService:**
+**Implementation in DocusealService:**
 ```php
 public function createIVRSubmission(array $fields, string $templateId): array {
     // Get manufacturer config
@@ -140,16 +140,16 @@ public function createIVRSubmission(array $fields, string $templateId): array {
     
     // Use UnifiedFieldMappingService for field conversion
     if (!empty($manufacturerConfig['docuseal_field_names'])) {
-        $preparedFields = $this->fieldMappingService->convertToDocuSealFields(
+        $preparedFields = $this->fieldMappingService->convertToDocusealFields(
             $fields, 
             $manufacturerConfig
         );
     } else {
         // Fallback to direct field mapping
-        $preparedFields = $this->prepareFieldsForDocuSeal($fields, $templateId);
+        $preparedFields = $this->prepareFieldsForDocuseal($fields, $templateId);
     }
     
-    // Create DocuSeal submission
+    // Create Docuseal submission
     return $this->createSubmission($templateId, $preparedFields);
 }
 ```
@@ -163,7 +163,7 @@ public function createIVRSubmission(array $fields, string $templateId): array {
 - Pattern-based field detection
 - Manufacturer-specific field name conversion
 
-**DocuSeal Integration:**
+**Docuseal Integration:**
 - Direct API integration at https://api.docuseal.com
 - Template management by manufacturer folders
 - Webhook processing for completed forms
@@ -180,7 +180,7 @@ public function createIVRSubmission(array $fields, string $templateId): array {
 ### Backend:
 - **Laravel 11**: Core framework
 - **Azure FHIR Service**: PHI data storage
-- **DocuSeal API**: Document generation
+- **Docuseal API**: Document generation
 - **OpenAI GPT-4**: Intelligent field mapping
 - **Laravel Cache**: Configuration caching
 
@@ -188,12 +188,12 @@ public function createIVRSubmission(array $fields, string $templateId): array {
 - **React 18**: UI framework
 - **Inertia.js**: Server-side rendering
 - **TypeScript**: Type safety
-- **DocuSeal React SDK**: Embedded forms
+- **Docuseal React SDK**: Embedded forms
 
 ### Integration:
 - **UnifiedFieldMappingService**: Central field mapping
 - **FhirService**: Azure FHIR client
-- **DocuSealService**: DocuSeal API wrapper
+- **DocusealService**: Docuseal API wrapper
 - **PhiAuditService**: PHI access auditing
 
 ## Error Handling
@@ -209,7 +209,7 @@ public function createIVRSubmission(array $fields, string $templateId): array {
    - Fallback: Use generic field names
 
 3. **Template Not Found**
-   - Solution: Verify template ID and folder structure in DocuSeal
+   - Solution: Verify template ID and folder structure in Docuseal
    - Fallback: Return error to user with clear message
 
 4. **FHIR Service Unavailable**
@@ -231,7 +231,7 @@ public function createIVRSubmission(array $fields, string $templateId): array {
 1. **config/field-mapping.php**
    - Canonical field definitions
    - Field aliases and transformations
-   - Manufacturer-specific DocuSeal field mappings
+   - Manufacturer-specific Docuseal field mappings
 
 2. **config/docuseal.php**
    - API credentials and endpoints
@@ -251,12 +251,12 @@ public function createIVRSubmission(array $fields, string $templateId): array {
 
 ## Summary
 
-The current implementation provides a simplified, unified approach to DocuSeal IVR generation:
+The current implementation provides a simplified, unified approach to Docuseal IVR generation:
 
 1. **Unified Field Mapping**: Single service handles all field transformations
 2. **Manufacturer by Name**: Products directly reference manufacturer names
 3. **AI-Powered Matching**: Intelligent field mapping for unknown fields
 4. **FHIR Integration**: Secure PHI data access from Azure
-5. **Clean Architecture**: Removed 31 overlapping DocuSeal services
+5. **Clean Architecture**: Removed 31 overlapping Docuseal services
 
 This architecture reduces complexity while maintaining flexibility for manufacturer-specific requirements.

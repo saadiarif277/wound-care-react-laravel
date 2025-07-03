@@ -4,7 +4,7 @@ namespace Tests\Feature;
 
 use Tests\TestCase;
 use App\Services\IvrFieldMappingService;
-use App\Services\DocuSealFieldFormatterService;
+use App\Services\DocusealFieldFormatterService;
 use App\Services\FhirService;
 use App\Models\Order\ProductRequest;
 use App\Models\Order\Product;
@@ -31,7 +31,7 @@ class IvrFieldMappingTest extends TestCase
         // Initialize services
         $this->fieldMappingService = new IvrFieldMappingService(
             $this->createMock(FhirService::class),
-            new DocuSealFieldFormatterService()
+            new DocusealFieldFormatterService()
         );
 
         // Create test data
@@ -112,7 +112,7 @@ class IvrFieldMappingTest extends TestCase
     }
 
     /**
-     * Test standard DocuSeal field mapping
+     * Test standard Docuseal field mapping
      */
     public function test_maps_standard_docuseal_fields_correctly()
     {
@@ -358,7 +358,7 @@ class IvrFieldMappingTest extends TestCase
     }
 
     /**
-     * Test DocuSeal configuration retrieval
+     * Test Docuseal configuration retrieval
      */
     public function test_retrieves_docuseal_configuration()
     {
@@ -366,7 +366,7 @@ class IvrFieldMappingTest extends TestCase
         $this->expectException(\Exception::class);
         $this->expectExceptionMessage('Unknown manufacturer: Invalid_Manufacturer');
         
-        $this->fieldMappingService->getDocuSealConfig('Invalid_Manufacturer');
+        $this->fieldMappingService->getDocusealConfig('Invalid_Manufacturer');
     }
 
     /**

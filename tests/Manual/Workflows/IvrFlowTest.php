@@ -56,7 +56,7 @@ try {
     // Simulate generating IVR (would normally be done through controller)
     echo "  - Generating IVR document...\n";
     
-    // Note: This would fail without DocuSeal API keys configured
+    // Note: This would fail without Docuseal API keys configured
     // For testing, let's just update the status manually
     $productRequest->update([
         'ivr_sent_at' => now(),

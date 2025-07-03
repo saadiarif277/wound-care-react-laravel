@@ -26,7 +26,7 @@ class DocusealFolderSeeder extends Seeder
             ]
         );
 
-        // Create DocuSeal folder for ACZ Distribution
+        // Create Docuseal folder for ACZ Distribution
         DocusealFolder::create([
             'id' => Str::uuid(),
             'folder_name' => 'ACZ Distribution IVR Forms',
@@ -70,6 +70,6 @@ class DocusealFolderSeeder extends Seeder
             ]);
         }
 
-        $this->command->info('DocuSeal folders seeded successfully!');
+        $this->command->info('Docuseal folders seeded successfully!');
     }
 }

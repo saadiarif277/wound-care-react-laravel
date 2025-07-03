@@ -1,10 +1,10 @@
-// Shared DocuSeal data preparation utility for QuickRequest steps
-// Minimal FormData interface for DocuSeal utility typing
+// Shared Docuseal data preparation utility for QuickRequest steps
+// Minimal FormData interface for Docuseal utility typing
 interface FormData {
   [key: string]: any;
 }
 
-export function prepareDocuSealData({
+export function prepareDocusealData({
   formData,
   products,
   providers = [],
@@ -182,7 +182,7 @@ export function prepareDocuSealData({
     // Sales Rep Information
     sales_rep_name: formData.sales_rep_name || '',
 
-    // Signature fields (for DocuSeal template)
+    // Signature fields (for Docuseal template)
     provider_signature_required: true,
     physician_attestation: formatBooleanForDisplay(formData.physician_attestation || formData.manufacturer_fields?.physician_attestation),
 

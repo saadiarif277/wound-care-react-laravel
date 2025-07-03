@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        // Create table to track multiple DocuSeal submissions per episode
+        // Create table to track multiple Docuseal submissions per episode
         if (!Schema::hasTable('episode_docuseal_submissions')) {
             Schema::create('episode_docuseal_submissions', function (Blueprint $table) {
             $table->uuid('id')->primary();
@@ -73,7 +73,7 @@ return new class extends Migration
             }
         });
         
-        // Create configuration table for DocuSeal form flow
+        // Create configuration table for Docuseal form flow
         if (!Schema::hasTable('docuseal_form_flows')) {
             Schema::create('docuseal_form_flows', function (Blueprint $table) {
             $table->uuid('id')->primary();

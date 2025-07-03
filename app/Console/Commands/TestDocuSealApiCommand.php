@@ -3,13 +3,13 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class TestDocuSealApiCommand extends Command
+class TestDocusealApiCommand extends Command
 {
     protected $signature = 'test:docuseal-api
                            {--test-auth : Test authentication only}
@@ -18,15 +18,15 @@ class TestDocuSealApiCommand extends Command
                            {--manufacturer= : Test with specific manufacturer ID}
                            {--show-config : Show current configuration}';
 
-    protected $description = 'Test DocuSeal API integration and diagnose issues';
+    protected $description = 'Test Docuseal API integration and diagnose issues';
 
-    protected DocuSealService $docuSealService;
+    protected DocusealService $docuSealService;
 
     public function handle(): int
     {
-        $this->docuSealService = app(DocuSealService::class);
+        $this->docuSealService = app(DocusealService::class);
 
-        $this->info('🔍 Testing DocuSeal API Integration');
+        $this->info('🔍 Testing Docuseal API Integration');
         $this->newLine();
 
         if ($this->option('show-config')) {
@@ -80,7 +80,7 @@ class TestDocuSealApiCommand extends Command
 
         $this->newLine();
         if ($success) {
-            $this->info('✅ All tests passed! DocuSeal integration is working correctly.');
+            $this->info('✅ All tests passed! Docuseal integration is working correctly.');
         } else {
             $this->error('❌ Some tests failed. Please check the issues above.');
         }
@@ -209,7 +209,7 @@ class TestDocuSealApiCommand extends Command
             $template = DocusealTemplate::where('manufacturer_id', $manufacturerId)->first();
 
             if (!$template) {
-                $this->warn("⚠️  No DocuSeal template found for manufacturer {$manufacturerId}. Skipping submission test.");
+                $this->warn("⚠️  No Docuseal template found for manufacturer {$manufacturerId}. Skipping submission test.");
                 return true;
             }
 
@@ -263,10 +263,10 @@ class TestDocuSealApiCommand extends Command
 
             $this->info("✅ Database integration working");
             $this->info("   Manufacturers: {$manufacturerCount}");
-            $this->info("   DocuSeal Templates: {$templateCount}");
+            $this->info("   Docuseal Templates: {$templateCount}");
 
             if ($templateCount === 0) {
-                $this->warn('⚠️  No DocuSeal templates found in database.');
+                $this->warn('⚠️  No Docuseal templates found in database.');
                 $this->warn('   💡 Run: php artisan docuseal:sync-templates to populate templates');
             }
 

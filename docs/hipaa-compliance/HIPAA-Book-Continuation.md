@@ -1806,15 +1806,15 @@ class EpicIntegrationService extends IntegrationService
 
 ### Document Management Integration
 
-#### 1. **DocuSeal Integration**
+#### 1. **Docuseal Integration**
 
 ```php
-// app/Services/Integration/DocuSealIntegrationService.php
+// app/Services/Integration/DocusealIntegrationService.php
 namespace App\Services\Integration;
 
 use App\Services\FhirService;
 
-class DocuSealIntegrationService extends IntegrationService
+class DocusealIntegrationService extends IntegrationService
 {
     private FhirService $fhirService;
     
@@ -1827,11 +1827,11 @@ class DocuSealIntegrationService extends IntegrationService
             // Get recent clinical data
             $clinicalData = $this->getRecentClinicalData($patientId);
             
-            // Map FHIR data to DocuSeal fields
-            $prefillData = $this->mapFhirToDocuSeal($patient, $clinicalData);
+            // Map FHIR data to Docuseal fields
+            $prefillData = $this->mapFhirToDocuseal($patient, $clinicalData);
             
-            // Create DocuSeal submission
-            $submission = $this->createDocuSealSubmission($templateId, $prefillData);
+            // Create Docuseal submission
+            $submission = $this->createDocusealSubmission($templateId, $prefillData);
             
             // Store reference in FHIR
             $this->createDocumentReference($patientId, $submission['id']);
@@ -1839,7 +1839,7 @@ class DocuSealIntegrationService extends IntegrationService
             return $submission;
             
         } catch (\Exception $e) {
-            $this->logger->error('DocuSeal prefill failed', [
+            $this->logger->error('Docuseal prefill failed', [
                 'patient_id' => $patientId,
                 'template_id' => $templateId,
                 'error' => $e->getMessage(),
@@ -1848,7 +1848,7 @@ class DocuSealIntegrationService extends IntegrationService
         }
     }
     
-    private function mapFhirToDocuSeal(array $patient, array $clinicalData): array
+    private function mapFhirToDocuseal(array $patient, array $clinicalData): array
     {
         $mapping = [
             // Patient Demographics

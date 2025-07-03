@@ -6,7 +6,7 @@
 "resources\js\Pages\Auth\Login.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
 "resources\js\Pages\QuickRequest\Components\Step8OrderFormApproval.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
 "resources\js\Pages\QuickRequest\Components\Step7FinalSubmission.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
-"resources\js\Pages\QuickRequest\Components\Step7DocuSealIVR.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
+"resources\js\Pages\QuickRequest\Components\Step7DocusealIVR.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
 "resources\js\Pages\QuickRequest\Components\Step6ReviewSubmit.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
 "resources\js\Pages\QuickRequest\Components\Step5ProductSelection.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"
 "resources\js\Pages\QuickRequest\Components\Step4Confirmation.tsx","missing-main-layout","warning","Page component does not import or use MainLayout","Wrap page content with MainLayout or import MainLayout"

@@ -151,7 +151,7 @@ class OrderCenterController extends Controller
             'action_required' => $episode->status === 'ready_for_review',
             'docuseal' => [
                 'status' => $episode->ivr_status,
-                'signed_documents' => [], // DocuSeal specific documents
+                'signed_documents' => [], // Docuseal specific documents
                 'audit_log_url' => null, // TODO: Implement if needed
                 'last_synced_at' => $episode->updated_at->toISOString(),
             ],

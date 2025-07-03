@@ -58,12 +58,12 @@ async function fetchAuthToken(): Promise<string | null> {
     return null;
 }
 
-// --- DocuSeal JWT Token Helpers ---
-function getDocuSealToken(): string | null {
+// --- Docuseal JWT Token Helpers ---
+function getDocusealToken(): string | null {
     return sessionStorage.getItem('docuseal_jwt');
 }
 
-async function fetchDocuSealToken(): Promise<string | null> {
+async function fetchDocusealToken(): Promise<string | null> {
     try {
         const resp = await fetch('/api/v1/docuseal/token', {
             method: 'GET',
@@ -81,7 +81,7 @@ async function fetchDocuSealToken(): Promise<string | null> {
             }
         }
     } catch (e) {
-        console.error('Failed to fetch DocuSeal token', e);
+        console.error('Failed to fetch Docuseal token', e);
     }
     return null;
 }
@@ -132,12 +132,12 @@ export function setupAxios() {
                 config.headers['X-XSRF-TOKEN'] = decodeURIComponent(xsrfToken);
             }
 
-                        // Detect if the request is going to DocuSeal API
+                        // Detect if the request is going to Docuseal API
             const docuSealRegex = /(?:^https?:\/\/)?(?:[^\/]*\.)?docuseal\.com/i;
-            const isDocuSealRequest = docuSealRegex.test((config.url ?? '').toString());
+            const isDocusealRequest = docuSealRegex.test((config.url ?? '').toString());
 
-            if (isDocuSealRequest) {
-                // Remove Laravel-specific headers that DocuSeal does not expect
+            if (isDocusealRequest) {
+                // Remove Laravel-specific headers that Docuseal does not expect
                 delete config.headers['X-Requested-With'];
                 delete config.headers['X-CSRF-TOKEN'];
                 delete config.headers['X-XSRF-TOKEN'];
@@ -145,10 +145,10 @@ export function setupAxios() {
                 // Ensure JSON accept header
                 config.headers['Accept'] = 'application/json';
 
-                // Attach DocuSeal JWT token
-                let dsToken = getDocuSealToken();
+                // Attach Docuseal JWT token
+                let dsToken = getDocusealToken();
                 if (!dsToken) {
-                    dsToken = await fetchDocuSealToken();
+                    dsToken = await fetchDocusealToken();
                 }
                 if (dsToken) {
                     config.headers['Authorization'] = `Bearer ${dsToken}`;

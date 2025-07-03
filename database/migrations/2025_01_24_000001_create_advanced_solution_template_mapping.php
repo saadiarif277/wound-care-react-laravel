@@ -26,7 +26,7 @@ return new class extends Migration
                 'updated_at' => now(),
             ]);
         } else {
-            // Update the name to match the DocuSeal folder name
+            // Update the name to match the Docuseal folder name
             DB::table('manufacturers')->where('id', 2)->update([
                 'name' => 'Advanced Solution',
                 'slug' => 'advanced-solution',
@@ -34,7 +34,7 @@ return new class extends Migration
             ]);
         }
 
-        // Create or update the DocuSeal template mapping
+        // Create or update the Docuseal template mapping
         // Note: The actual docuseal_template_id should be fetched from the API
         // For now, we'll create a placeholder that the sync command can update
         DB::table('docuseal_templates')->updateOrInsert(

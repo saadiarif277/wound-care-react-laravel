@@ -10,7 +10,7 @@ import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
-import Step7DocuSealIVR from './Components/Step7DocuSealIVR';
+import Step7DocusealIVR from './Components/Step7DocusealIVR';
 import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import axios from 'axios';
@@ -1074,7 +1074,7 @@ function QuickRequestCreateNew({
       });
 
       console.log('🔍 Selected products details:', finalFormData.selected_products);
-      console.log('🔍 DocuSeal submission ID:', finalFormData.docuseal_submission_id, 'Type:', typeof finalFormData.docuseal_submission_id);
+      console.log('🔍 Docuseal submission ID:', finalFormData.docuseal_submission_id, 'Type:', typeof finalFormData.docuseal_submission_id);
 
       // Submit order directly
       const response = await axios.post('/quick-requests/submit-order', {
@@ -1294,7 +1294,7 @@ function QuickRequestCreateNew({
             )}
 
             {currentSection === 3 && (
-              <Step7DocuSealIVR
+              <Step7DocusealIVR
                 formData={formData as any}
                 updateFormData={updateFormData as any}
                 products={products}

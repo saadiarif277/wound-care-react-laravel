@@ -591,9 +591,9 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Convert mapped data to DocuSeal field format
+     * Convert mapped data to Docuseal field format
      */
-    public function convertToDocuSealFields(array $mappedData, array $manufacturerConfig, string $documentType = 'IVR'): array
+    public function convertToDocusealFields(array $mappedData, array $manufacturerConfig, string $documentType = 'IVR'): array
     {
         $docuSealFields = [];
         
@@ -604,7 +604,7 @@ class UnifiedFieldMappingService
             $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
         }
         
-        Log::info('Starting DocuSeal field conversion', [
+        Log::info('Starting Docuseal field conversion', [
             'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
             'document_type' => $documentType,
             'mapped_data_count' => count($mappedData),
@@ -620,9 +620,9 @@ class UnifiedFieldMappingService
             }
 
             // IMPORTANT: Only include fields that are explicitly defined in the field mapping
-            // This prevents sending unknown fields to DocuSeal which causes 422 errors
+            // This prevents sending unknown fields to Docuseal which causes 422 errors
             if (!isset($fieldNameMapping[$canonicalName])) {
-                Log::debug("Skipping field not in DocuSeal template mapping", [
+                Log::debug("Skipping field not in Docuseal template mapping", [
                     'field' => $canonicalName,
                     'document_type' => $documentType,
                     'manufacturer' => $manufacturerConfig['name'] ?? 'unknown'
@@ -630,7 +630,7 @@ class UnifiedFieldMappingService
                 continue;
             }
 
-            // Get the DocuSeal field name for this canonical field
+            // Get the Docuseal field name for this canonical field
             $docuSealFieldName = $fieldNameMapping[$canonicalName];
 
             // Special handling for gender checkboxes (Centurion)
@@ -648,7 +648,7 @@ class UnifiedFieldMappingService
 
             // Handle boolean values for checkboxes
             if (is_bool($value) || in_array($value, ['true', 'false', 'Yes', 'No', '1', '0', 1, 0], true)) {
-                // Convert various boolean representations to DocuSeal checkbox format
+                // Convert various boolean representations to Docuseal checkbox format
                 $boolValue = false;
                 
                 if (is_bool($value)) {
@@ -659,7 +659,7 @@ class UnifiedFieldMappingService
                     $boolValue = false;
                 }
                 
-                // For checkbox fields, DocuSeal expects 'true' or 'false' as strings
+                // For checkbox fields, Docuseal expects 'true' or 'false' as strings
                 $docuSealFields[] = [
                     'name' => $docuSealFieldName,
                     'default_value' => $boolValue ? 'true' : 'false'
@@ -680,7 +680,7 @@ class UnifiedFieldMappingService
                 $value = implode(', ', $value);
             }
             
-            // Add the field with its DocuSeal name
+            // Add the field with its Docuseal name
             $docuSealFields[] = [
                 'name' => $docuSealFieldName,
                 'default_value' => (string) $value

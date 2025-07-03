@@ -6,7 +6,7 @@ use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Episode;
 use App\Models\Order\Order;
 use App\Services\FhirService;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Mail\ManufacturerOrderEmail;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
@@ -15,13 +15,13 @@ final class QuickRequestService
 {
     public function __construct(
         private FhirService $fhirClient,
-        private DocuSealService $docuSealService,
+        private DocusealService $docuSealService,
     ) {}
 
     /**
-     * Get the DocuSeal service instance.
+     * Get the Docuseal service instance.
      */
-    public function getDocuSealService(): DocuSealService
+    public function getDocusealService(): DocusealService
     {
         return $this->docuSealService;
     }
@@ -112,12 +112,12 @@ final class QuickRequestService
             'details'    => $data['order_details'] ?? [],
         ]);
 
-        // DocuSeal PDF generation
+        // Docuseal PDF generation
         try {
             $manufacturerId = $data['manufacturer_id'];
             $productCode = $data['order_details']['product'] ?? null;
 
-            // Note: DocuSealBuilder service not implemented yet
+            // Note: DocusealBuilder service not implemented yet
             // For now, use basic data without template lookup
             $dataWithTemplate = $data;
             $submission = $this->docuSealService->createIVRSubmission(
@@ -128,7 +128,7 @@ final class QuickRequestService
                 $episode->update(['docuseal_submission_url' => $submission['embed_url']]);
             }
         } catch (\Exception $e) {
-            Log::error('DocuSeal PDF generation failed', [
+            Log::error('Docuseal PDF generation failed', [
                 'error' => $e->getMessage(),
                 'episode_id' => $episode->id,
             ]);

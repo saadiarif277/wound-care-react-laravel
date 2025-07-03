@@ -14,7 +14,7 @@ $apiUrl = config('docuseal.api_url', 'https://api.docuseal.com');
 // MedLife template ID
 $templateId = '1233913';
 
-echo "Fetching fields for DocuSeal template: $templateId\n";
+echo "Fetching fields for Docuseal template: $templateId\n";
 echo "API URL: $apiUrl\n";
 echo "API Key: " . substr($apiKey, 0, 8) . "...\n\n";
 

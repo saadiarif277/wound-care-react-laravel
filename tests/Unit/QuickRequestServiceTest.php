@@ -8,21 +8,21 @@ use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use App\Services\QuickRequestService;
 use App\Services\HealthData\Clients\AzureFhirClient;
-use App\Services\DocuSealService;
-use App\Services\Templates\DocuSealBuilder;
+use App\Services\DocusealService;
+use App\Services\Templates\DocusealBuilder;
 use App\Mail\ManufacturerOrderEmail;
 use App\Models\Episode;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
 use App\Models\Order\Product;
-use App\Models\DocuSeal\DocuSealTemplate;
+use App\Models\Docuseal\DocusealTemplate;
 
 class QuickRequestServiceTest extends TestCase
 {
     use RefreshDatabase;
 
     private $mockFhirClient;
-    private $mockDocuSealService;
+    private $mockDocusealService;
     private $service;
 
     protected function setUp(): void
@@ -30,11 +30,11 @@ class QuickRequestServiceTest extends TestCase
         parent::setUp();
         
         $this->mockFhirClient = \Mockery::mock(AzureFhirClient::class, []);
-        $this->mockDocuSealService = \Mockery::mock(DocuSealService::class, []);
+        $this->mockDocusealService = \Mockery::mock(DocusealService::class, []);
         
         $this->service = new QuickRequestService(
             $this->mockFhirClient,
-            $this->mockDocuSealService
+            $this->mockDocusealService
         );
     }
 
@@ -48,7 +48,7 @@ class QuickRequestServiceTest extends TestCase
     {
         $this->mockFhirClient->shouldReceive('createBundle')->once()->andReturn([]);
 
-        $this->mockDocuSealService->shouldReceive('createIVRSubmission')
+        $this->mockDocusealService->shouldReceive('createIVRSubmission')
             ->once()
             ->andReturn(['embed_url' => 'http://example.com/ivrs', 'submission_id' => 'sub1']);
 
@@ -186,8 +186,8 @@ class QuickRequestServiceTest extends TestCase
             ->with('Task', \Mockery::any())
             ->andReturn(['id' => 'task-123']);
 
-        // Mock DocuSeal
-        $this->mockDocuSealService->shouldReceive('createIVRSubmission')
+        // Mock Docuseal
+        $this->mockDocusealService->shouldReceive('createIVRSubmission')
             ->andReturn(['embed_url' => 'https://docuseal.com/embed/123']);
 
         // Act
@@ -251,8 +251,8 @@ class QuickRequestServiceTest extends TestCase
         $this->mockFhirClient->shouldReceive('create')
             ->andThrow(new \Exception('FHIR service unavailable'));
 
-        // Mock DocuSeal to work normally
-        $this->mockDocuSealService->shouldReceive('createIVRSubmission')
+        // Mock Docuseal to work normally
+        $this->mockDocusealService->shouldReceive('createIVRSubmission')
             ->andReturn(['embed_url' => 'https://docuseal.com/embed/456']);
 
         // Act
@@ -271,7 +271,7 @@ class QuickRequestServiceTest extends TestCase
         $fhirClient = \Mockery::mock(AzureFhirClient::class);
         $fhirClient->shouldReceive('createBundle')->once()->andReturn([]);
 
-        $docuSealService = \Mockery::mock(DocuSealService::class);
+        $docuSealService = \Mockery::mock(DocusealService::class);
         $docuSealService->shouldNotReceive('createIVRSubmission');
 
         $service = new QuickRequestService($fhirClient, $docuSealService);
@@ -305,7 +305,7 @@ class QuickRequestServiceTest extends TestCase
         Mail::fake();
 
         $fhirClient = \Mockery::mock(AzureFhirClient::class, []);
-        $docuSealService = \Mockery::mock(DocuSealService::class);
+        $docuSealService = \Mockery::mock(DocusealService::class);
         $service = new QuickRequestService($fhirClient, $docuSealService);
 
         $manufacturerId = Str::uuid()->toString();

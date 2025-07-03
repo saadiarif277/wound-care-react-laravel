@@ -6,7 +6,7 @@
 - Composer dependencies installed
 - npm packages installed
 - Database configured and migrated
-- DocuSeal API credentials in .env
+- Docuseal API credentials in .env
 - Azure FHIR credentials in .env (for PHI data)
 
 ## Step 1: Environment Setup
@@ -165,7 +165,7 @@ php artisan tinker
 - [ ] Product request creates successfully
 - [ ] Order appears in admin center with correct status
 - [ ] IVR generation works without errors
-- [ ] DocuSeal document is created
+- [ ] Docuseal document is created
 - [ ] Fields are auto-populated correctly
 - [ ] Send to manufacturer updates status
 - [ ] Manufacturer approval can be recorded
@@ -174,7 +174,7 @@ php artisan tinker
 
 ## Common Issues & Solutions
 
-### 1. DocuSeal API Error
+### 1. Docuseal API Error
 
 ```bash
 # Check config
@@ -272,7 +272,7 @@ The order flow is working correctly when:
 
 After successful testing:
 
-1. Configure production DocuSeal templates
+1. Configure production Docuseal templates
 2. Set up manufacturer email addresses
 3. Configure FHIR production endpoints
 4. Set up monitoring for failed IVRs

@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { 
   FileCheck, 
   AlertCircle, 
@@ -107,8 +107,8 @@ const IVREpisodeStatus: React.FC<IVREpisodeStatusProps> = ({
   const statusConfig = getStatusConfig();
   const StatusIcon = statusConfig.icon;
 
-  // DocuSeal status mapping
-  const getDocuSealStatus = (status?: string) => {
+  // Docuseal status mapping
+  const getDocusealStatus = (status?: string) => {
     const statusMap = {
       'completed': {
         icon: FileCheck,
@@ -195,15 +195,15 @@ const IVREpisodeStatus: React.FC<IVREpisodeStatusProps> = ({
         </div>
       </div>
 
-      {/* DocuSeal Status */}
+      {/* Docuseal Status */}
       {docuseal.status && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-3">
             <h4 className={cn("text-sm font-medium", t.text.primary)}>
-              DocuSeal Status
+              Docuseal Status
             </h4>
             {(() => {
-              const dsStatus = getDocuSealStatus(docuseal.status);
+              const dsStatus = getDocusealStatus(docuseal.status);
               const DSIcon = dsStatus.icon;
               return (
                 <div className={cn(

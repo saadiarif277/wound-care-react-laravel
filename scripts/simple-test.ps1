@@ -1,5 +1,5 @@
-# Simple DocuSeal Test
-Write-Host "Testing DocuSeal Integration..." -ForegroundColor Green
+# Simple Docuseal Test
+Write-Host "Testing Docuseal Integration..." -ForegroundColor Green
 
 try {
     # Test debug endpoint
@@ -19,7 +19,7 @@ try {
     $result = Invoke-RestMethod -Uri "http://localhost/quick-requests/docuseal/generate-submission-slug" -Method POST -Body $testData -ContentType "application/json"
 
     if ($result.success) {
-        Write-Host "SUCCESS! DocuSeal integration is working!" -ForegroundColor Green
+        Write-Host "SUCCESS! Docuseal integration is working!" -ForegroundColor Green
         Write-Host "Slug: $($result.slug)" -ForegroundColor White
     } else {
         Write-Host "Failed: $($result.error)" -ForegroundColor Red

@@ -140,7 +140,7 @@ class StoreRequest extends FormRequest
             'signature_date' => 'nullable|date',
             'verbal_order' => 'nullable|array',
 
-            // DocuSeal Integration
+            // Docuseal Integration
             'docuseal_submission_id' => 'nullable|string',
             'episode_id' => 'nullable|uuid',
 

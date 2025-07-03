@@ -27,7 +27,7 @@ return [
     | Manufacturer IVR Configuration
     |--------------------------------------------------------------------------
     |
-    | DocuSeal template IDs for each manufacturer's IVR forms
+    | Docuseal template IDs for each manufacturer's IVR forms
     |
     */
     

@@ -210,7 +210,7 @@ class DashboardController extends Controller
             }),
             'docuseal' => [
                 'status' => $episode->docuseal_status,
-                'signed_documents' => $this->getDocuSealDocuments($episode),
+                'signed_documents' => $this->getDocusealDocuments($episode),
                 'audit_log_url' => $episode->docuseal_audit_log_url,
                 'last_synced_at' => $episode->docuseal_last_synced_at?->toISOString(),
             ],
@@ -228,9 +228,9 @@ class DashboardController extends Controller
     }
 
     /**
-     * Get DocuSeal documents for episode
+     * Get Docuseal documents for episode
      */
-    private function getDocuSealDocuments($episode)
+    private function getDocusealDocuments($episode)
     {
         $documents = [];
 

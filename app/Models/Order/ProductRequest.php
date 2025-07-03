@@ -15,7 +15,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use App\Models\Docuseal\DocusealSubmission;
-use App\Constants\DocuSealFields;
+use App\Constants\DocusealFields;
 use Illuminate\Support\Arr;
 
 class ProductRequest extends Model
@@ -185,7 +185,7 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get the DocuSeal submissions for this product request.
+     * Get the Docuseal submissions for this product request.
      */
     public function docusealSubmissions(): HasMany
     {
@@ -389,7 +389,7 @@ class ProductRequest extends Model
     public function isIvrGenerated(): bool
     {
         // Since ivr_sent_at and ivr_document_url columns don't exist,
-        // check if we have any DocuSeal submissions
+        // check if we have any Docuseal submissions
         return $this->docusealSubmissions()->exists();
     }
 
@@ -525,17 +525,17 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get a normalized field value using DocuSeal canonical keys.
+     * Get a normalized field value using Docuseal canonical keys.
      * This provides a single interface for accessing form data regardless of storage method.
      *
-     * @param string $key Canonical DocuSeal field key
+     * @param string $key Canonical Docuseal field key
      * @param mixed $default Default value if not found
      * @return mixed
      */
     public function getValue(string $key, $default = null)
     {
-        // First check if we have DocuSeal submission data
-        if ($submission = $this->getDocuSealSubmissionData()) {
+        // First check if we have Docuseal submission data
+        if ($submission = $this->getDocusealSubmissionData()) {
             $value = Arr::get($submission, $key, null);
             if ($value !== null) {
                 return $value;
@@ -547,12 +547,12 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get DocuSeal submission form data if available.
+     * Get Docuseal submission form data if available.
      */
-    protected function getDocuSealSubmissionData(): ?array
+    protected function getDocusealSubmissionData(): ?array
     {
         // Since docuseal_submission_id column doesn't exist,
-        // try to get the first DocuSeal submission
+        // try to get the first Docuseal submission
         try {
             $submission = $this->docusealSubmissions()->first();
             if ($submission && isset($submission->response_data)) {
@@ -561,7 +561,7 @@ class ProductRequest extends Model
                     : json_decode($submission->response_data, true);
             }
         } catch (\Exception $e) {
-            Log::error('Failed to get DocuSeal submission data', [
+            Log::error('Failed to get Docuseal submission data', [
                 'product_request_id' => $this->id,
                 'submission_id' => $this->docuseal_submission_id,
                 'error' => $e->getMessage()
@@ -572,75 +572,75 @@ class ProductRequest extends Model
     }
 
     /**
-     * Map canonical DocuSeal field keys to ProductRequest model attributes.
+     * Map canonical Docuseal field keys to ProductRequest model attributes.
      */
     protected function getValueFromModel(string $key, $default = null)
     {
         $fieldMapping = [
             // Patient Information (from FHIR when available)
-            DocuSealFields::PATIENT_NAME => function() {
+            DocusealFields::PATIENT_NAME => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['name'] ?? null) : $this->patient_display_id;
             },
-            DocuSealFields::PATIENT_DOB => function() {
+            DocusealFields::PATIENT_DOB => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['birthDate'] ?? null) : null;
             },
-            DocuSealFields::PATIENT_GENDER => function() {
+            DocusealFields::PATIENT_GENDER => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['gender'] ?? null) : null;
             },
-            DocuSealFields::PATIENT_ADDRESS => function() {
+            DocusealFields::PATIENT_ADDRESS => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['address'] ?? null) : null;
             },
 
             // Provider Information
-            DocuSealFields::PROVIDER_NAME => function() {
+            DocusealFields::PROVIDER_NAME => function() {
                 return $this->provider ? $this->provider->first_name . ' ' . $this->provider->last_name : null;
             },
-            DocuSealFields::PROVIDER_NPI => function() {
+            DocusealFields::PROVIDER_NPI => function() {
                 return $this->provider ? $this->provider->npi : null;
             },
 
             // Facility Information
-            DocuSealFields::FACILITY_NAME => function() {
+            DocusealFields::FACILITY_NAME => function() {
                 return $this->facility ? $this->facility->name : null;
             },
-            DocuSealFields::FACILITY_NPI => function() {
+            DocusealFields::FACILITY_NPI => function() {
                 return $this->facility ? $this->facility->npi : null;
             },
-            DocuSealFields::FACILITY_CONTACT_PHONE => function() {
+            DocusealFields::FACILITY_CONTACT_PHONE => function() {
                 return $this->facility ? $this->facility->phone : null;
             },
-            DocuSealFields::FACILITY_CONTACT_EMAIL => function() {
+            DocusealFields::FACILITY_CONTACT_EMAIL => function() {
                 return $this->facility ? $this->facility->email : null;
             },
 
             // Insurance Information
-            DocuSealFields::PRIMARY_INS_NAME => 'payer_name_submitted',
+            DocusealFields::PRIMARY_INS_NAME => 'payer_name_submitted',
 
             // Service Information
-            DocuSealFields::PLACE_OF_SERVICE => 'place_of_service',
-            DocuSealFields::ANTICIPATED_APPLICATION_DATE => 'expected_service_date',
+            DocusealFields::PLACE_OF_SERVICE => 'place_of_service',
+            DocusealFields::ANTICIPATED_APPLICATION_DATE => 'expected_service_date',
 
             // Product Information
-            DocuSealFields::PRODUCT_CODE => function() {
+            DocusealFields::PRODUCT_CODE => function() {
                 $product = $this->products()->first();
                 return $product ? $product->q_code : null;
             },
-            DocuSealFields::PRODUCT_SIZE => function() {
+            DocusealFields::PRODUCT_SIZE => function() {
                 $product = $this->products()->first();
                 return $product ? $product->pivot->size ?? null : null;
             },
 
             // Clinical Information
-            DocuSealFields::WOUND_TYPE => 'wound_type',
-            DocuSealFields::ICD10_PRIMARY => function() {
+            DocusealFields::WOUND_TYPE => 'wound_type',
+            DocusealFields::ICD10_PRIMARY => function() {
                 $clinical = $this->clinical_summary;
                 return is_array($clinical) ? ($clinical['primary_diagnosis'] ?? null) : null;
             },
-            DocuSealFields::ICD10_SECONDARY => function() {
+            DocusealFields::ICD10_SECONDARY => function() {
                 $clinical = $this->clinical_summary;
                 return is_array($clinical) ? ($clinical['secondary_diagnosis'] ?? null) : null;
             },
@@ -660,14 +660,14 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get form values formatted for DocuSeal templates.
-     * This builds the payload that gets sent to DocuSeal for form population.
+     * Get form values formatted for Docuseal templates.
+     * This builds the payload that gets sent to Docuseal for form population.
      */
-    public function getDocuSealFormValues(): array
+    public function getDocusealFormValues(): array
     {
         $values = [];
 
-        foreach (DocuSealFields::getAllFields() as $field) {
+        foreach (DocusealFields::getAllFields() as $field) {
             $value = $this->getValue($field);
             if ($value !== null) {
                 $values[$field] = $value;
@@ -683,7 +683,7 @@ class ProductRequest extends Model
     public function getFormValuesByCategory(): array
     {
         $categorized = [];
-        $categories = DocuSealFields::getFieldsByCategory();
+        $categories = DocusealFields::getFieldsByCategory();
 
         foreach ($categories as $category => $fields) {
             $categoryData = [];
@@ -691,9 +691,9 @@ class ProductRequest extends Model
                 $value = $this->getValue($field);
                 if ($value !== null) {
                     $categoryData[$field] = [
-                        'label' => DocuSealFields::getFieldLabel($field),
+                        'label' => DocusealFields::getFieldLabel($field),
                         'value' => $value,
-                        'type' => DocuSealFields::getFieldType($field)
+                        'type' => DocusealFields::getFieldType($field)
                     ];
                 }
             }

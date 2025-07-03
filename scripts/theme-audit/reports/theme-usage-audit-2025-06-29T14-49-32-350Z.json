@@ -2424,7 +2424,7 @@
       "timestamp": "2025-06-29T14:49:32.218Z"
     },
     {
-      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocusealIVR.tsx",
       "type": "unsafe-theme-access",
       "severity": "critical",
       "message": "Component has unsafe theme access patterns",
@@ -3281,7 +3281,7 @@
       "timestamp": "2025-06-29T14:49:32.275Z"
     },
     {
-      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "filePath": "resources\\js\\Pages\\Admin\\Docuseal\\Templates.tsx",
       "type": "missing-theme-import",
       "severity": "warning",
       "message": "Component uses theme-related patterns but does not import useTheme",
@@ -3294,7 +3294,7 @@
       "timestamp": "2025-06-29T14:49:32.277Z"
     },
     {
-      "filePath": "resources\\js\\Pages\\Admin\\DocuSeal\\Templates.tsx",
+      "filePath": "resources\\js\\Pages\\Admin\\Docuseal\\Templates.tsx",
       "type": "missing-glass-theme-import",
       "severity": "warning",
       "message": "Component uses glass theme utilities but does not import them",
@@ -3424,7 +3424,7 @@
       "timestamp": "2025-06-29T14:49:32.299Z"
     },
     {
-      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "filePath": "resources\\js\\Components\\Admin\\Docuseal\\MappingStatsDashboard.tsx",
       "type": "missing-theme-import",
       "severity": "warning",
       "message": "Component uses theme-related patterns but does not import useTheme",
@@ -3437,7 +3437,7 @@
       "timestamp": "2025-06-29T14:49:32.301Z"
     },
     {
-      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\MappingStatsDashboard.tsx",
+      "filePath": "resources\\js\\Components\\Admin\\Docuseal\\MappingStatsDashboard.tsx",
       "type": "missing-glass-theme-import",
       "severity": "warning",
       "message": "Component uses glass theme utilities but does not import them",
@@ -3449,7 +3449,7 @@
       "timestamp": "2025-06-29T14:49:32.301Z"
     },
     {
-      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "filePath": "resources\\js\\Components\\Admin\\Docuseal\\BulkMappingModal.tsx",
       "type": "missing-theme-import",
       "severity": "warning",
       "message": "Component uses theme-related patterns but does not import useTheme",
@@ -3462,7 +3462,7 @@
       "timestamp": "2025-06-29T14:49:32.303Z"
     },
     {
-      "filePath": "resources\\js\\Components\\Admin\\DocuSeal\\BulkMappingModal.tsx",
+      "filePath": "resources\\js\\Components\\Admin\\Docuseal\\BulkMappingModal.tsx",
       "type": "missing-glass-theme-import",
       "severity": "warning",
       "message": "Component uses glass theme utilities but does not import them",
@@ -3726,7 +3726,7 @@
       "timestamp": "2025-06-29T14:49:32.339Z"
     },
     {
-      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocuSealIVR.tsx",
+      "filePath": "resources\\js\\Pages\\QuickRequest\\Components\\Step7DocusealIVR.tsx",
       "type": "missing-main-layout",
       "severity": "warning",
       "message": "Page component does not import or use MainLayout",

@@ -4,6 +4,7 @@ namespace App\Services\FuzzyMapping;
 
 use App\Models\IVRFieldMapping;
 use App\Models\IVRMappingAudit;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -388,19 +389,19 @@ class EnhancedFuzzyFieldMatcher
     ): void {
         try {
             IVRMappingAudit::create([
-                'mapping_id' => $mapping?->id,
-                'manufacturer_id' => $mapping?->manufacturer_id ?? 0,
-                'template_id' => $mapping?->template_id ?? '',
-                'target_field' => $result['target_field'] ?? '',
-                'source_field' => $mapping?->source_field ?? '',
-                'mapped_value' => $result['value'] ?? null,
-                'mapping_strategy' => $strategy,
-                'confidence' => $confidence,
-                'was_successful' => $wasSuccessful,
-                'error_details' => $error,
-                'user_id' => auth()->id(),
-                'session_id' => session()->getId(),
-            ]);
+                            'mapping_id' => $mapping?->id,
+                            'manufacturer_id' => $mapping?->manufacturer_id ?? 0,
+                            'template_id' => $mapping?->template_id ?? '',
+                            'target_field' => $result['target_field'] ?? '',
+                            'source_field' => $mapping?->source_field ?? '',
+                            'mapped_value' => $result['value'] ?? null,
+                            'mapping_strategy' => $strategy,
+                            'confidence' => $confidence,
+                            'was_successful' => $wasSuccessful,
+                            'error_details' => $error,
+                            'user_id' => Auth::id(),
+                            'session_id' => session()->getId(),
+                        ]);
         } catch (\Exception $e) {
             Log::warning('Failed to audit mapping', ['error' => $e->getMessage()]);
         }

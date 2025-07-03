@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# MSC Wound Portal - IVR DocuSeal End-to-End Test Script
+# MSC Wound Portal - IVR Docuseal End-to-End Test Script
 # This script tests the complete IVR generation flow
 
 echo "========================================"
-echo "IVR DocuSeal E2E Testing"
+echo "IVR Docuseal E2E Testing"
 echo "========================================"
 echo ""
 
@@ -38,9 +38,9 @@ php artisan test tests/Feature/IvrFieldMappingTest.php --stop-on-failure
 print_result "Field Mapping Tests" $?
 
 # 2. Run E2E Tests
-print_section "2. Running IVR DocuSeal E2E Tests"
+print_section "2. Running IVR Docuseal E2E Tests"
 echo "Testing complete order flow..."
-php artisan test tests/Feature/IvrDocuSealE2ETest.php --stop-on-failure
+php artisan test tests/Feature/IvrDocusealE2ETest.php --stop-on-failure
 print_result "E2E Integration Tests" $?
 
 # 3. Test IVR Generation Directly
@@ -51,7 +51,7 @@ print_result "Direct IVR Generation" $?
 # 4. Check Configuration
 print_section "4. Checking Configuration"
 
-echo "DocuSeal Configuration:"
+echo "Docuseal Configuration:"
 php artisan tinker --execute="
     echo 'API URL: ' . config('services.docuseal.api_url');
     echo PHP_EOL;
@@ -229,16 +229,16 @@ echo ""
 echo "1. Field Mapping Service: Tests the core mapping functionality"
 echo "2. E2E Integration: Tests complete order to IVR flow"
 echo "3. Direct Generation: Tests IVR generation with real data"
-echo "4. Configuration: Verifies DocuSeal and FHIR setup"
+echo "4. Configuration: Verifies Docuseal and FHIR setup"
 echo "5. Test Data: Creates sample orders for testing"
 echo "6. Field Validation: Ensures all required fields are mapped"
 echo "7. API Endpoints: Tests HTTP endpoints"
 echo "8. Manufacturer Support: Verifies all manufacturers configured"
 echo ""
 echo "Next Steps:"
-echo "1. Ensure DocuSeal API credentials are in .env"
+echo "1. Ensure Docuseal API credentials are in .env"
 echo "2. Configure manufacturer template IDs"
-echo "3. Test with real DocuSeal templates"
+echo "3. Test with real Docuseal templates"
 echo "4. Verify FHIR patient data retrieval"
 echo ""
 

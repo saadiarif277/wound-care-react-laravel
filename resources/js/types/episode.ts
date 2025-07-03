@@ -104,19 +104,19 @@ export interface EpisodeOrderProduct {
 
 // Episode Detail Interface (for ShowEpisode page)
 export interface EpisodeDetail extends Episode {
-  docuseal: EpisodeDocuSeal;
+  docuseal: EpisodeDocuseal;
   audit_log: EpisodeAuditLogEntry[];
 }
 
-// DocuSeal Integration
-export interface EpisodeDocuSeal {
+// Docuseal Integration
+export interface EpisodeDocuseal {
   status?: string;
-  signed_documents?: DocuSealDocument[];
+  signed_documents?: DocusealDocument[];
   audit_log_url?: string;
   last_synced_at?: string;
 }
 
-export interface DocuSealDocument {
+export interface DocusealDocument {
   id: number;
   filename?: string;
   name?: string;

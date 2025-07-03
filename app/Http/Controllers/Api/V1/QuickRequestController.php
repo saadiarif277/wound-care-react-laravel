@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\Manufacturer;
 use App\Models\Docuseal\DocusealTemplate;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Services\QuickRequestService;
 use App\Services\AI\AzureFoundryService;
 use Illuminate\Http\Request;
@@ -72,7 +72,7 @@ class QuickRequestController extends Controller
     }
 
         /**
-     * Generate DocuSeal builder token for IVR forms with pre-filled data.
+     * Generate Docuseal builder token for IVR forms with pre-filled data.
      */
     public function generateBuilderToken(Request $request)
     {
@@ -105,11 +105,11 @@ class QuickRequestController extends Controller
         }
 
         try {
-            // Get the appropriate template from DocuSeal service
-            $docuSealService = app(DocuSealService::class);
+            // Get the appropriate template from Docuseal service
+            $docuSealService = app(DocusealService::class);
 
             // For now, return a basic response - proper template selection would be implemented later
-            Log::warning('DocuSealBuilder class not implemented - using fallback response');
+            Log::warning('DocusealBuilder class not implemented - using fallback response');
 
             return response()->json([
                 'success' => true,
@@ -118,33 +118,33 @@ class QuickRequestController extends Controller
                 'jwt' => 'fallback-token-' . uniqid(),
                 'template_id' => 'fallback-template',
                 'mapped_fields_count' => 0,
-                'note' => 'Using fallback implementation - DocuSealBuilder needs to be implemented'
+                'note' => 'Using fallback implementation - DocusealBuilder needs to be implemented'
             ]);
 
             // End of method - fallback response already returned above
 
         } catch (\Exception $e) {
-            Log::error('DocuSeal builder token generation failed', [
+            Log::error('Docuseal builder token generation failed', [
                 'error' => $e->getMessage(),
                 'manufacturer_id' => $manufacturerId,
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
-                'error' => 'Failed to generate DocuSeal token',
+                'error' => 'Failed to generate Docuseal token',
                 'message' => $e->getMessage()
             ], 500);
         }
     }
 
         /**
-     * Get DocuSeal submission result
+     * Get Docuseal submission result
      */
-    public function getDocuSealSubmission(Request $request, $submissionId)
+    public function getDocusealSubmission(Request $request, $submissionId)
     {
         try {
-            // getDocuSealSubmission method not implemented yet
-            // $result = $this->service->getDocuSealSubmission($submissionId);
+            // getDocusealSubmission method not implemented yet
+            // $result = $this->service->getDocusealSubmission($submissionId);
             $result = ['status' => 'pending'];
 
             return response()->json([
@@ -152,7 +152,7 @@ class QuickRequestController extends Controller
                 'data' => $result
             ]);
         } catch (\Exception $e) {
-            Log::error('Failed to get DocuSeal submission', [
+            Log::error('Failed to get Docuseal submission', [
                 'submission_id' => $submissionId,
                 'error' => $e->getMessage()
             ]);
@@ -192,8 +192,8 @@ class QuickRequestController extends Controller
                 ], 404);
             }
 
-            // Get DocuSeal service
-            $docuSealService = app(DocuSealService::class);
+            // Get Docuseal service
+            $docuSealService = app(DocusealService::class);
 
             // Test both AI and static mapping
             $results = [];
@@ -248,7 +248,7 @@ class QuickRequestController extends Controller
                         array_keys($formData),
                         array_keys($templateFields),
                         $formData,
-                        "Suggest optimal field mappings for {$manufacturer->name} DocuSeal template"
+                        "Suggest optimal field mappings for {$manufacturer->name} Docuseal template"
                     );
 
                     $results['ai_suggestions'] = [

@@ -501,7 +501,7 @@ use Tests\TestCase;
 use App\Models\User;
 use App\Models\Order;
 use App\Models\PatientManufacturerIVREpisode;
-use App\Services\Integration\DocuSealIntegrationService;
+use App\Services\Integration\DocusealIntegrationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Mockery;
 
@@ -518,13 +518,13 @@ class EpisodeWorkflowTest extends TestCase
         $this->admin = User::factory()->create(['role' => 'admin']);
         
         // Mock external services
-        $mockDocuSeal = Mockery::mock(DocuSealIntegrationService::class);
-        $mockDocuSeal->shouldReceive('createSubmission')
+        $mockDocuseal = Mockery::mock(DocusealIntegrationService::class);
+        $mockDocuseal->shouldReceive('createSubmission')
             ->andReturn([
                 'id' => 'docuseal-123',
                 'url' => 'https://docuseal.com/submission/123',
             ]);
-        $this->app->instance(DocuSealIntegrationService::class, $mockDocuSeal);
+        $this->app->instance(DocusealIntegrationService::class, $mockDocuseal);
     }
     
     public function test_complete_episode_workflow()

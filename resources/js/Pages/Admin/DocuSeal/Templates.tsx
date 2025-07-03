@@ -14,12 +14,12 @@ import {
   Layers, Target, Sparkles, ClipboardCheck, FileJson,
   Activity, Shield, Brain, Workflow
 } from 'lucide-react';
-// import { FieldMappingInterface } from '@/Components/Admin/DocuSeal/FieldMappingInterface';
-import { MappingStatsDashboard } from '@/Components/Admin/DocuSeal/MappingStatsDashboard';
-import { BulkMappingModal } from '@/Components/Admin/DocuSeal/BulkMappingModal';
-import { ValidationReportModal } from '@/Components/Admin/DocuSeal/ValidationReportModal';
-import { ImportExportModal } from '@/Components/Admin/DocuSeal/ImportExportModal';
-import { AITemplateAnalyzer } from '@/Components/Admin/DocuSeal/AITemplateAnalyzer';
+// import { FieldMappingInterface } from '@/Components/Admin/Docuseal/FieldMappingInterface';
+import { MappingStatsDashboard } from '@/Components/Admin/Docuseal/MappingStatsDashboard';
+import { BulkMappingModal } from '@/Components/Admin/Docuseal/BulkMappingModal';
+import { ValidationReportModal } from '@/Components/Admin/Docuseal/ValidationReportModal';
+import { ImportExportModal } from '@/Components/Admin/Docuseal/ImportExportModal';
+import { AITemplateAnalyzer } from '@/Components/Admin/Docuseal/AITemplateAnalyzer';
 import type { CanonicalField, MappingStatistics, ValidationResult } from '@/types/field-mapping';
 
 // Enhanced Types
@@ -333,7 +333,7 @@ export default function Templates() {
 
   return (
     <MainLayout>
-      <Head title="DocuSeal Templates" />
+      <Head title="Docuseal Templates" />
 
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
@@ -342,7 +342,7 @@ export default function Templates() {
             <div className="py-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">DocuSeal Templates</h1>
+                  <h1 className="text-3xl font-bold text-gray-900">Docuseal Templates</h1>
                   <p className="mt-2 text-gray-600">
                     Manage manufacturer IVR forms and automation templates
                   </p>
@@ -914,14 +914,14 @@ export default function Templates() {
                                 <button
                                   onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}/edit`, '_blank')}
                                   className="text-green-600 hover:text-green-900"
-                                  title="Edit in DocuSeal"
+                                  title="Edit in Docuseal"
                                 >
                                   <Edit3 className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => window.open(`https://app.docuseal.com/templates/${template.docuseal_template_id}`, '_blank')}
                                   className="text-gray-600 hover:text-gray-900"
-                                  title="Open in DocuSeal"
+                                  title="Open in Docuseal"
                                 >
                                   <ExternalLink className="w-4 h-4" />
                                 </button>
@@ -992,7 +992,7 @@ export default function Templates() {
                             <h3 className="font-semibold text-gray-900 mb-3">Template Information</h3>
                             <dl className="space-y-2 text-sm">
                               <div className="flex justify-between">
-                                <dt className="text-gray-600">DocuSeal ID:</dt>
+                                <dt className="text-gray-600">Docuseal ID:</dt>
                                 <dd className="font-mono text-gray-900">{selectedTemplate.docuseal_template_id}</dd>
                               </div>
                               <div className="flex justify-between">
@@ -1072,14 +1072,14 @@ export default function Templates() {
                               className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center gap-2"
                             >
                               <Edit3 className="w-4 h-4" />
-                              Edit in DocuSeal
+                              Edit in Docuseal
                             </button>
                             <button
                               onClick={() => window.open(`https://app.docuseal.com/templates/${selectedTemplate.docuseal_template_id}`, '_blank')}
                               className="w-full bg-gray-600 text-white py-2 px-4 rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center gap-2"
                             >
                               <ExternalLink className="w-4 h-4" />
-                              View in DocuSeal
+                              View in Docuseal
                             </button>
                           </div>
                         </div>

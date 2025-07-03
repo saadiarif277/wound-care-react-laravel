@@ -29,11 +29,11 @@ class FieldMappingTestRunner
                 'FieldMatcherTest', 
                 'DataExtractorTest',
                 'UnifiedFieldMappingServiceTest',
-                'DocuSealServiceTest'
+                'DocusealServiceTest'
             ],
             'Feature Tests' => [
                 'FieldMappingApiTest',
-                'DocuSealApiTest'
+                'DocusealApiTest'
             ],
             'Integration Tests' => [
                 'FieldMappingIntegrationTest'
@@ -122,7 +122,7 @@ class FieldMappingTestRunner
                 'it_calculates_completeness',
                 'it_applies_business_rules'
             ],
-            'DocuSealServiceTest' => [
+            'DocusealServiceTest' => [
                 'it_creates_submissions',
                 'it_processes_webhooks',
                 'it_generates_analytics'
@@ -132,7 +132,7 @@ class FieldMappingTestRunner
                 'it_validates_input',
                 'it_returns_proper_responses'
             ],
-            'DocuSealApiTest' => [
+            'DocusealApiTest' => [
                 'it_creates_submissions_via_api',
                 'it_handles_authentication',
                 'it_processes_batch_requests'
@@ -187,7 +187,7 @@ class FieldMappingTestRunner
         if ($this->failedTests > 0) {
             $this->output("• Fix failing tests before deploying to production\n");
             $this->output("• Review field mapping configurations for accuracy\n");
-            $this->output("• Verify DocuSeal API integration settings\n");
+            $this->output("• Verify Docuseal API integration settings\n");
         }
         
         $this->output("• Run tests in CI/CD pipeline before each deployment\n");

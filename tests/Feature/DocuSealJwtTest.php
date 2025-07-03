@@ -13,7 +13,7 @@ use Firebase\JWT\Key;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Str;
 
-class DocuSealJwtTest extends TestCase
+class DocusealJwtTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -45,7 +45,7 @@ class DocuSealJwtTest extends TestCase
 
     public function test_can_generate_jwt_token_without_order()
     {
-        // Set up DocuSeal API key
+        // Set up Docuseal API key
         config(['services.docuseal.api_key' => 'test-api-key']);
 
         $response = $this->actingAs($this->user)
@@ -73,7 +73,7 @@ class DocuSealJwtTest extends TestCase
 
     public function test_can_generate_jwt_token_with_order()
     {
-        // Set up DocuSeal API key
+        // Set up Docuseal API key
         config(['services.docuseal.api_key' => 'test-api-key']);
 
         // Create an order
@@ -121,7 +121,7 @@ class DocuSealJwtTest extends TestCase
         $response->assertStatus(500)
             ->assertJson([
                 'error' => 'Failed to generate token',
-                'message' => 'DocuSeal API key is not configured',
+                'message' => 'Docuseal API key is not configured',
             ]);
     }
 

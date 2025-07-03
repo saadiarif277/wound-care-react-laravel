@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Feature\DocuSeal;
+namespace Tests\Feature\Docuseal;
 
 use App\Models\User;
 use App\Models\Episode;
@@ -12,7 +12,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Http;
 use Laravel\Sanctum\Sanctum;
 
-class DocuSealApiTest extends TestCase
+class DocusealApiTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -24,7 +24,7 @@ class DocuSealApiTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
 
-        // Mock DocuSeal API responses
+        // Mock Docuseal API responses
         Http::fake([
             'api.docuseal.co/*' => Http::response(['id' => 'test-submission', 'status' => 'pending'], 201)
         ]);

@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { prepareDocuSealData } from './docusealUtils';
-import { FiCheck, FiAlertCircle, FiUser, FiShoppingCart, FiShield, FiEdit3, FiActivity, FiHome, FiCreditCard } from 'react-icons/fi';
+import { useState, useEffect } from 'react';
+import { prepareDocusealData } from './docusealUtils';
+import { FiAlertCircle, FiUser, FiShoppingCart, FiShield, FiEdit3, FiActivity, FiHome } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
+import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import axios from 'axios';
 
 interface FormData {
@@ -66,7 +66,7 @@ interface FormData {
   shipping_zip?: string;
   delivery_notes?: string;
 
-  // DocuSeal tracking
+  // Docuseal tracking
   final_submission_id?: string;
 
   [key: string]: any;
@@ -141,7 +141,7 @@ export default function Step7FinalSubmission({
     forms: true,
   });
 
-  // DocuSeal Builder state
+  // Docuseal Builder state
   const [builderToken, setBuilderToken] = useState<string | null>(null);
   const [builderProps, setBuilderProps] = useState<{
     templateId?: string;
@@ -194,7 +194,7 @@ export default function Step7FinalSubmission({
     }, 0);
   };
 
-  // Create episode before DocuSeal
+  // Create episode before Docuseal
   const createEpisode = async () => {
     setIsCreatingEpisode(true);
     setError(null);
@@ -266,8 +266,8 @@ export default function Step7FinalSubmission({
     }
   };
 
-  // Create DocuSeal submission
-  const createDocuSealSubmission = async () => {
+  // Create Docuseal submission
+  const createDocusealSubmission = async () => {
     setIsCreatingSubmission(true);
     setError(null);
 
@@ -281,8 +281,16 @@ export default function Step7FinalSubmission({
         throw new Error('No product selected');
       }
 
-      const docuSealData = prepareDocuSealData(formData, selectedProduct, episodeId);
-      console.log('Prepared DocuSeal data:', docuSealData);
+      const docuSealData = prepareDocusealData({
+        formData: {
+          ...formData,
+          episode_id: episodeId
+        },
+        products: [selectedProduct],
+        providers: providers,
+        facilities: facilities
+      });
+      console.log('Prepared Docuseal data:', docuSealData);
 
       const response = await axios.post('/api/v1/quick-request/generate-form-token', {
         episode_id: episodeId,
@@ -295,13 +303,13 @@ export default function Step7FinalSubmission({
         setSubmissionId(response.data.submission_id);
         setBuilderToken(response.data.builder_token);
         setBuilderProps(response.data.builder_props);
-        console.log('DocuSeal submission created successfully');
+        console.log('Docuseal submission created successfully');
       } else {
-        throw new Error(response.data.message || 'Failed to create DocuSeal submission');
+        throw new Error(response.data.message || 'Failed to create Docuseal submission');
       }
     } catch (error: any) {
-      console.error('Error creating DocuSeal submission:', error);
-      setError(error.response?.data?.message || error.message || 'Failed to create DocuSeal submission');
+      console.error('Error creating Docuseal submission:', error);
+      setError(error.response?.data?.message || error.message || 'Failed to create Docuseal submission');
     } finally {
       setIsCreatingSubmission(false);
     }
@@ -322,29 +330,29 @@ export default function Step7FinalSubmission({
     initializeSubmission();
   }, [episodeId, isCreatingEpisode]);
 
-  const handleDocuSealComplete = (data: any) => {
-    console.log('DocuSeal completed:', data);
+  const handleDocusealComplete = (data: any) => {
+    console.log('Docuseal completed:', data);
     setIsCompleted(true);
     // Call the parent's onSubmit function
     onSubmit();
   };
 
-  const handleDocuSealError = (errorMessage: string) => {
-    console.error('DocuSeal error:', errorMessage);
+  const handleDocusealError = (errorMessage: string) => {
+    console.error('Docuseal error:', errorMessage);
     setError(errorMessage);
   };
 
-  const handleDocuSealSave = (data: any) => {
-    console.log('DocuSeal saved:', data);
+  const handleDocusealSave = (data: any) => {
+    console.log('Docuseal saved:', data);
   };
 
-  const handleDocuSealSend = (data: any) => {
-    console.log('DocuSeal sent:', data);
+  const handleDocusealSend = (data: any) => {
+    console.log('Docuseal sent:', data);
   };
 
   const handleFinalSubmit = () => {
     if (!submissionUrl) {
-      createDocuSealSubmission();
+      createDocusealSubmission();
     }
   };
 
@@ -357,7 +365,7 @@ export default function Step7FinalSubmission({
       formData?.primary_insurance_name &&
       formData?.wound_type &&
       formData?.wound_location &&
-      formData?.selected_products?.length > 0
+      formData?.selected_products && formData.selected_products.length > 0
     );
   };
 
@@ -367,8 +375,8 @@ export default function Step7FinalSubmission({
       <div className="max-w-6xl mx-auto space-y-6">
         <div className={cn("p-6 rounded-lg", t.glass.card)}>
           <div className="flex items-center space-x-3 mb-4">
-            <FiAlertCircle className={cn("w-6 h-6", t.text.error)} />
-            <h3 className={cn("text-lg font-semibold", t.text.error)}>Error Creating Submission</h3>
+            <FiAlertCircle className={cn("w-6 h-6 text-red-500")} />
+            <h3 className={cn("text-lg font-semibold text-red-500", t.text.primary)}>Error Creating Submission</h3>
           </div>
           <p className={cn("mb-4", t.text.secondary)}>{error}</p>
           <button
@@ -396,7 +404,7 @@ export default function Step7FinalSubmission({
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
             <div>
               <h3 className={cn("text-lg font-semibold", t.text.primary)}>
-                {isCreatingEpisode ? 'Creating Episode...' : 'Creating DocuSeal Submission...'}
+                {isCreatingEpisode ? 'Creating Episode...' : 'Creating Docuseal Submission...'}
               </h3>
               <p className={cn("text-sm", t.text.secondary)}>Please wait while we prepare your submission.</p>
             </div>
@@ -406,7 +414,7 @@ export default function Step7FinalSubmission({
     );
   }
 
-  // If DocuSeal is ready, show the embed
+  // If Docuseal is ready, show the embed
   if (submissionUrl && builderToken) {
     return (
       <div className="max-w-6xl mx-auto space-y-6">
@@ -415,7 +423,7 @@ export default function Step7FinalSubmission({
             <div>
               <h2 className={cn("text-2xl font-bold", t.text.primary)}>Complete Your Submission</h2>
               <p className={cn("text-sm mt-1", t.text.secondary)}>
-                Please review and complete the DocuSeal form to finalize your order.
+                Please review and complete the Docuseal form to finalize your order.
               </p>
             </div>
             <div className={cn("text-sm px-3 py-1 rounded-md", t.glass.frost)}>
@@ -423,14 +431,16 @@ export default function Step7FinalSubmission({
             </div>
           </div>
 
-          <DocuSealEmbed
+          <DocusealEmbed
             submissionUrl={submissionUrl}
             builderToken={builderToken}
             builderProps={builderProps}
-            onComplete={handleDocuSealComplete}
-            onError={handleDocuSealError}
-            onSave={handleDocuSealSave}
-            onSend={handleDocuSealSend}
+            onComplete={handleDocusealComplete}
+            onError={handleDocusealError}
+            onSave={handleDocusealSave}
+            onSend={handleDocusealSend}
+            manufacturerId={getSelectedProduct()?.manufacturer_id || 0}
+            productCode={getSelectedProduct()?.code || ''}
           />
         </div>
       </div>
@@ -820,7 +830,7 @@ export default function Step7FinalSubmission({
       {/* Validation Errors */}
       {!isOrderComplete() && (
         <div className={cn("p-4 rounded-lg", t.glass.card)}>
-          <h4 className={cn("font-medium mb-2", t.text.error)}>Please complete the following:</h4>
+          <h4 className={cn("font-medium mb-2", "text-red-600")}>Please complete the following:</h4>
           <ul className={cn("mt-2 space-y-1 text-sm", t.text.secondary)}>
             {!formData.patient_first_name && <li>• Patient first name</li>}
             {!formData.patient_last_name && <li>• Patient last name</li>}

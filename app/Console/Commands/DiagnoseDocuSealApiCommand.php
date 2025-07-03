@@ -6,23 +6,23 @@ use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
-class DiagnoseDocuSealApiCommand extends Command
+class DiagnoseDocusealApiCommand extends Command
 {
     protected $signature = 'docuseal:diagnose-api 
                            {--test-endpoints : Test all possible API endpoints}
                            {--show-details : Show detailed response data}';
 
-    protected $description = 'Diagnose DocuSeal API structure and find all available templates';
+    protected $description = 'Diagnose Docuseal API structure and find all available templates';
 
     public function handle(): int
     {
-        $this->info('🔍 Diagnosing DocuSeal API Structure...');
+        $this->info('🔍 Diagnosing Docuseal API Structure...');
 
         $apiKey = config('docuseal.api_key');
         $apiUrl = config('docuseal.api_url');
 
         if (!$apiKey || !$apiUrl) {
-            $this->error('❌ DocuSeal API configuration missing');
+            $this->error('❌ Docuseal API configuration missing');
             return self::FAILURE;
         }
 
@@ -181,12 +181,12 @@ class DiagnoseDocuSealApiCommand extends Command
             $this->error('❌ CRITICAL: No templates accessible via API');
             $this->line('   - Check API key permissions');
             $this->line('   - Verify account has templates');
-            $this->line('   - Contact DocuSeal support');
+            $this->line('   - Contact Docuseal support');
         } elseif (count($workingEndpoints['/templates']) < 5) {
             $this->warn('⚠️  LIMITED: Only ' . count($workingEndpoints['/templates']) . ' templates found');
             $this->line('   - Templates may be organized in folders');
             $this->line('   - Folder API endpoint not working (/folders returned ' . ($failedEndpoints['/folders'] ?? 'error') . ')');
-            $this->line('   - Consider manual template organization in DocuSeal');
+            $this->line('   - Consider manual template organization in Docuseal');
             $this->line('   - Alternative: Move templates to top level for API access');
         } else {
             $this->info('✅ GOOD: Multiple templates accessible');
@@ -196,7 +196,7 @@ class DiagnoseDocuSealApiCommand extends Command
             $this->warn('⚠️  FOLDER ISSUE: Folder endpoint not working or no folders');
             $this->line('   - This explains why only top-level templates are synced');
             $this->line('   - Consider these solutions:');
-            $this->line('     1. Move all templates to DocuSeal root level (not in folders)');
+            $this->line('     1. Move all templates to Docuseal root level (not in folders)');
             $this->line('     2. Use template naming conventions instead of folders');
             $this->line('     3. Manual template organization in our database');
         }

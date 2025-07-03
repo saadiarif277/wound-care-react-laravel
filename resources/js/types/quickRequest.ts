@@ -192,8 +192,8 @@ export interface ProductSize {
   unit: string;
 }
 
-// Step 4: DocuSeal IVR
-export interface DocuSealIVRData {
+// Step 4: Docuseal IVR
+export interface DocusealIVRData {
   template: {
     id: string;
     name: string;
@@ -236,7 +236,7 @@ export interface ReviewSubmitData {
     patient: PatientInsuranceData;
     clinical: ClinicalBillingData;
     products: ProductSelectionData;
-    documents: DocuSealIVRData;
+    documents: DocusealIVRData;
     tasks: TaskData[];
     audit: AuditEntry[];
   };
@@ -290,7 +290,7 @@ export interface QuickRequestState {
     patientInsurance?: PatientInsuranceData;
     clinicalBilling?: ClinicalBillingData;
     productSelection?: ProductSelectionData;
-    docuSealIVR?: DocuSealIVRData;
+    docuSealIVR?: DocusealIVRData;
     reviewSubmit?: ReviewSubmitData;
   };
   validation: {

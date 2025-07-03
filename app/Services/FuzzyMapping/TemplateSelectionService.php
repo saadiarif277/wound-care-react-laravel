@@ -6,11 +6,12 @@ use App\Models\Order\Manufacturer;
 use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 
 class TemplateSelectionService
 {
     /**
-     * Get the appropriate DocuSeal template based on manufacturer and context
+     * Get the appropriate Docuseal template based on manufacturer and context
      */
     public function selectTemplate(array $context): ?DocusealTemplate
     {

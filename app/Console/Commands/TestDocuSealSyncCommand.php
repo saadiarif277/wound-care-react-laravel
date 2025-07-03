@@ -7,7 +7,7 @@ use App\Services\DocusealService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
 
-class TestDocuSealSyncCommand extends Command
+class TestDocusealSyncCommand extends Command
 {
     /**
      * The name and signature of the console command.
@@ -17,7 +17,7 @@ class TestDocuSealSyncCommand extends Command
     /**
      * The console command description.
      */
-    protected $description = 'Test the new DocuSeal template sync system';
+    protected $description = 'Test the new Docuseal template sync system';
 
     private DocusealService $docusealService;
 
@@ -32,7 +32,7 @@ class TestDocuSealSyncCommand extends Command
      */
     public function handle(): int
     {
-        $this->info('🧪 Testing DocuSeal Template Sync System...');
+        $this->info('🧪 Testing Docuseal Template Sync System...');
 
         // Test 1: API Connection
         $this->info('📡 Testing API Connection...');

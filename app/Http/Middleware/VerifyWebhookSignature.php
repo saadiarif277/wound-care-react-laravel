@@ -19,7 +19,7 @@ class VerifyWebhookSignature
     public function handle(Request $request, Closure $next, string $provider = 'docuseal'): Response
     {
         $verificationMethod = match($provider) {
-            'docuseal' => 'verifyDocuSealSignature',
+            'docuseal' => 'verifyDocusealSignature',
             'stripe' => 'verifyStripeSignature',
             'aws' => 'verifyAwsSignature',
             default => throw new \InvalidArgumentException("Unknown webhook provider: {$provider}")
@@ -39,11 +39,11 @@ class VerifyWebhookSignature
     }
 
     /**
-     * Verify DocuSeal webhook signature
+     * Verify Docuseal webhook signature
      */
-    protected function verifyDocuSealSignature(Request $request): bool
+    protected function verifyDocusealSignature(Request $request): bool
     {
-        $signature = $request->header('X-DocuSeal-Signature');
+        $signature = $request->header('X-Docuseal-Signature');
         
         if (!$signature) {
             return false;
@@ -52,16 +52,16 @@ class VerifyWebhookSignature
         $secret = config('services.docuseal.webhook_secret');
         
         if (!$secret) {
-            $this->logger->error('DocuSeal webhook secret not configured');
+            $this->logger->error('Docuseal webhook secret not configured');
             return false;
         }
 
         $payload = $request->getContent();
-        $timestamp = $request->header('X-DocuSeal-Timestamp');
+        $timestamp = $request->header('X-Docuseal-Timestamp');
         
         // Prevent replay attacks
         if ($timestamp && abs(time() - intval($timestamp)) > 300) {
-            $this->logger->warning('DocuSeal webhook timestamp too old', [
+            $this->logger->warning('Docuseal webhook timestamp too old', [
                 'timestamp' => $timestamp,
                 'current_time' => time()
             ]);

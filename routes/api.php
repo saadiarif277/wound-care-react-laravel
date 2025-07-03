@@ -140,7 +140,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
     Route::patch('/orders/{order}/status', [App\Http\Controllers\Api\V1\QuickRequestOrderController::class, 'updateStatus'])
         ->name('api.quickrequest.orders.updateStatus');
 
-    // DocuSeal endpoints moved to Quick Request group below
+    // Docuseal endpoints moved to Quick Request group below
 
     // AI Field Mapping Test
     Route::post('/test-ai-mapping', [App\Http\Controllers\Api\V1\QuickRequestController::class, 'testAIFieldMapping'])
@@ -314,7 +314,7 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
     Route::post('/', [FhirController::class, 'transaction'])->name('transaction');
 });
 
-// DocuSeal Integration Routes - DEPRECATED: DocusealController does not exist
+// Docuseal Integration Routes - DEPRECATED: DocusealController does not exist
 // Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
 //     // JWT token generation for form embedding
 //     Route::post('generate-token', [\App\Http\Controllers\DocusealController::class, 'generateToken'])->name('generate-token');
@@ -329,10 +329,10 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 //     // Order submissions
 //     Route::get('orders/{order_id}/submissions', [\App\Http\Controllers\DocusealController::class, 'listOrderSubmissions'])->name('order.submissions');
 //
-//     // Get manufacturer template fields - DEPRECATED: DocuSealTemplateController deleted
+//     // Get manufacturer template fields - DEPRECATED: DocusealTemplateController deleted
 //     // Route::get('manufacturer/{manufacturer}/fields', [ManufacturerController::class, 'getTemplateFields'])->name('manufacturer.fields');
 //
-//     // Template Management Routes - DEPRECATED: DocuSealTemplateController deleted
+//     // Template Management Routes - DEPRECATED: DocusealTemplateController deleted
 //     // Route::get('templates', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getTemplates'])->name('templates.list');
 //     // Route::post('sync', [\App\Http\Controllers\Api\TemplateMappingController::class, 'syncTemplates'])->name('templates.sync');
 //     // Route::post('test-sync', [\App\Http\Controllers\Api\TemplateMappingController::class, 'testSync'])->name('templates.test-sync');
@@ -354,7 +354,7 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 //     Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
 // });
 
-// Field Mapping Management Routes (moved outside deprecated DocuSeal group)
+// Field Mapping Management Routes (moved outside deprecated Docuseal group)
 Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
     // Field Mapping Management Routes
     Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
@@ -373,11 +373,11 @@ Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:mana
     Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
 });
 
-// DocuSeal Webhook with signature verification
-Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocuSealWebhookController::class, 'handle'])
+// Docuseal Webhook with signature verification
+Route::post('v1/webhooks/docuseal', [\App\Http\Controllers\DocusealWebhookController::class, 'handle'])
     ->middleware('webhook.verify:docuseal')
     ->name('docuseal.webhook');
-Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocuSealWebhook'])
+Route::post('v1/webhooks/docuseal/quick-request', [\App\Http\Controllers\QuickRequestController::class, 'handleDocusealWebhook'])
     ->middleware('webhook.verify:docuseal')
     ->name('docuseal.webhook.quickrequest');
 
@@ -392,23 +392,23 @@ Route::prefix('v1/document-intelligence')->middleware(['auth:sanctum', 'permissi
 
 // Field mapping functionality is now handled by TemplateMappingController
 
-// Unified DocuSeal Service Routes - DEPRECATED: DocuSealController does not exist
+// Unified Docuseal Service Routes - DEPRECATED: DocusealController does not exist
 // Route::prefix('v1/docuseal')->middleware(['auth:sanctum'])->name('docuseal.unified.')->group(function () {
 //     // Submission management using unified service
-//     Route::post('submission/create', [\App\Http\Controllers\Api\DocuSealController::class, 'createOrUpdateSubmission'])->name('create-submission');
-//     Route::get('submission/{submissionId}', [\App\Http\Controllers\Api\DocuSealController::class, 'getSubmission'])->name('get-submission');
-//     Route::post('submission/{submissionId}/send', [\App\Http\Controllers\Api\DocuSealController::class, 'sendForSigning'])->name('send-signing');
-//     Route::get('submission/{submissionId}/download', [\App\Http\Controllers\Api\DocuSealController::class, 'downloadDocument'])->name('download-document');
+//     Route::post('submission/create', [\App\Http\Controllers\Api\DocusealController::class, 'createOrUpdateSubmission'])->name('create-submission');
+//     Route::get('submission/{submissionId}', [\App\Http\Controllers\Api\DocusealController::class, 'getSubmission'])->name('get-submission');
+//     Route::post('submission/{submissionId}/send', [\App\Http\Controllers\Api\DocusealController::class, 'sendForSigning'])->name('send-signing');
+//     Route::get('submission/{submissionId}/download', [\App\Http\Controllers\Api\DocusealController::class, 'downloadDocument'])->name('download-document');
 //
 //     // Template management
-//     Route::get('template/{manufacturer}/fields', [\App\Http\Controllers\Api\DocuSealController::class, 'getTemplateFields'])->name('template-fields');
+//     Route::get('template/{manufacturer}/fields', [\App\Http\Controllers\Api\DocusealController::class, 'getTemplateFields'])->name('template-fields');
 //
 //     // Batch operations
-//     Route::post('batch-process', [\App\Http\Controllers\Api\DocuSealController::class, 'batchProcessEpisodes'])->name('batch-process');
+//     Route::post('batch-process', [\App\Http\Controllers\Api\DocusealController::class, 'batchProcessEpisodes'])->name('batch-process');
 //
 //     // Analytics and status
-//     Route::get('episodes/status/{status}', [\App\Http\Controllers\Api\DocuSealController::class, 'getEpisodesByStatus'])->name('episodes-by-status');
-//     Route::get('analytics', [\App\Http\Controllers\Api\DocuSealController::class, 'getAnalytics'])->name('analytics');
+//     Route::get('episodes/status/{status}', [\App\Http\Controllers\Api\DocusealController::class, 'getEpisodesByStatus'])->name('episodes-by-status');
+//     Route::get('analytics', [\App\Http\Controllers\Api\DocusealController::class, 'getAnalytics'])->name('analytics');
 // });
 
 // Note: eClinicalWorks Integration Routes have been removed
@@ -555,7 +555,7 @@ Route::prefix('v1')->group(function () {
     Route::get('providers/{providerId}/onboarded-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getOnboardedProducts']);
     Route::get('providers/all-products', [\App\Http\Controllers\Api\ProviderProductController::class, 'getAllProvidersProducts']);
 
-    // IVR field mapping endpoints - DEPRECATED: DocuSealTemplateController deleted
+    // IVR field mapping endpoints - DEPRECATED: DocusealTemplateController deleted
     // Route::get('ivr/manufacturers/{manufacturer}/fields', [ManufacturerController::class, 'getTemplateFields']);
 });
 
@@ -741,7 +741,7 @@ Route::post('/diagnosis-codes/by-wound-type', [\App\Http\Controllers\Api\Diagnos
 
 // Quick Request API Routes (for providers)
 Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
-    // Get manufacturer template fields for QuickRequest - DEPRECATED: DocuSealTemplateController deleted
+    // Get manufacturer template fields for QuickRequest - DEPRECATED: DocusealTemplateController deleted
     // Route::get('manufacturer/{manufacturer}/fields', [ManufacturerController::class, 'getTemplateFields'])
     //     ->middleware('permission:create-product-requests');
 // Quick Request backend endpoints
@@ -749,7 +749,7 @@ Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function 
     Route::post('episodes/{episode}/follow-up', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'addFollowUp'])->middleware('permission:create-product-requests');
     Route::post('episodes/{episode}/approve', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'approve'])->middleware('permission:manage-episodes');
 
-    // DocuSeal Builder Token
+    // Docuseal Builder Token
     Route::post('docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
         ->middleware('permission:create-product-requests');
 });

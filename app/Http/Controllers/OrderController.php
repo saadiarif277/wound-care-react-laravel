@@ -13,7 +13,7 @@ use Inertia\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 
 final class OrderController extends Controller
 {
@@ -532,7 +532,7 @@ final class OrderController extends Controller
         ]);
     }
 
-    public function show($id, DocuSealService $docuSealService)
+    public function show($id, DocusealService $docuSealService)
     {
         $order = Order::with([
             'provider',
@@ -546,7 +546,7 @@ final class OrderController extends Controller
 
         $patientName = $order->patient_fhir_id;
 
-        // Fetch DocuSeal status for the order
+        // Fetch Docuseal status for the order
         $orderDocuseal = [
             'status' => $order->docuseal_status,
             'signed_documents' => [],
@@ -554,7 +554,7 @@ final class OrderController extends Controller
             'last_synced_at' => $order->docuseal_last_synced_at,
         ];
 
-        // Check if the DocuSealService has the method before calling it
+        // Check if the DocusealService has the method before calling it
         if ($order->docuseal_submission_id && method_exists($docuSealService, 'getSubmissionStatus')) {
             $live = $docuSealService->{'getSubmissionStatus'}($order->docuseal_submission_id);
             if (is_array($live)) {
@@ -565,7 +565,7 @@ final class OrderController extends Controller
             }
         }
 
-        // Fetch DocuSeal status for the IVR episode
+        // Fetch Docuseal status for the IVR episode
         $ivrDocuseal = null;
         if ($order->ivrEpisode) {
             $ivrDocuseal = [

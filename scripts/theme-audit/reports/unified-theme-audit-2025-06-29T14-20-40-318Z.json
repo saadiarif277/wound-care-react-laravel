@@ -4488,7 +4488,7 @@
           "lineNumber": 758,
           "type": "tailwind-class",
           "pattern": "text",
-          "code": "<h2 className=\"text-lg font-bold mb-2\">Order DocuSeal Status</h2>",
+          "code": "<h2 className=\"text-lg font-bold mb-2\">Order Docuseal Status</h2>",
           "match": "text-lg",
           "severity": "warning",
           "message": "Tailwind text class should use glass- prefix or be defined in glass-theme.ts",
@@ -25384,7 +25384,7 @@
         "resources/js/Pages/Admin/OrderCenter/EnhancedDashboard.tsx",
         "resources/js/Pages/QuickRequest/Components/Step4ClinicalBilling.tsx",
         "resources/js/Pages/QuickRequest/Components/Step8OrderFormApproval.tsx",
-        "resources/js/Pages/QuickRequest/Components/Step7DocuSealIVR.tsx",
+        "resources/js/Pages/QuickRequest/Components/Step7DocusealIVR.tsx",
         "resources/js/Pages/Products/Create.tsx",
         "resources/js/Pages/Admin/Organizations/Edit.tsx",
         "resources/js/Pages/QuickRequest/Components/Step3Documentation.tsx"

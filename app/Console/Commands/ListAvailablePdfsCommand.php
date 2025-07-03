@@ -67,7 +67,7 @@ class ListAvailablePdfsCommand extends Command
 
             // Generate manual mapping code
             $this->newLine();
-            $this->info('💡 Suggested manual mappings for EnhanceDocuSealFieldsWithOcrCommand:');
+            $this->info('💡 Suggested manual mappings for EnhanceDocusealFieldsWithOcrCommand:');
             $this->line('');
             $this->line('private array $manualPdfMappings = [');
             foreach ($mappings as $mapping) {

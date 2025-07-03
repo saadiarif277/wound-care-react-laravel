@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
+import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { IvrFieldPreview } from '@/Components/IVR/IvrFieldPreview';
 
 interface ReviewAndSubmitStepProps {
@@ -8,7 +8,7 @@ interface ReviewAndSubmitStepProps {
 }
 
 const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) => {
-    const [showDocuSeal, setShowDocuSeal] = useState(false);
+    const [showDocuseal, setShowDocuseal] = useState(false);
     const [manufacturerConfig, setManufacturerConfig] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     
@@ -39,7 +39,7 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
             const config = await response.json();
             
             if (config.success) {
-                // Create DocuSeal submission with prefill data
+                // Create Docuseal submission with prefill data
                 const submissionResponse = await fetch('/quickrequest/docuseal/create-final-submission', {
                     method: 'POST',
                     headers: {
@@ -113,9 +113,9 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
                         user_email: submissionData.user_email,
                         template_name: submissionData.template_name
                     });
-                    setShowDocuSeal(true);
+                    setShowDocuseal(true);
                 } else {
-                    console.error('Failed to create DocuSeal submission:', submissionData.error);
+                    console.error('Failed to create Docuseal submission:', submissionData.error);
                 }
             } else {
                 console.error('Failed to load manufacturer configuration');
@@ -127,8 +127,8 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
         }
     };
     
-    const handleDocuSealComplete = (submissionId: string) => {
-        // Update form data with DocuSeal submission
+    const handleDocusealComplete = (submissionId: string) => {
+        // Update form data with Docuseal submission
         formData.docuseal_submission_id = submissionId;
         formData.ivr_sent_at = new Date().toISOString();
         
@@ -175,7 +175,7 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
                 </dl>
             </div>
             
-            {!showDocuSeal ? (
+            {!showDocuseal ? (
                 <div className="flex justify-end">
                     <button
                         onClick={handleSubmit}
@@ -196,13 +196,13 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
                         </p>
                     </div>
                     
-                    <DocuSealEmbed
+                    <DocusealEmbed
                         templateId={manufacturerConfig?.template_id}
                         jwtToken={manufacturerConfig?.jwt_token}
                         userEmail={manufacturerConfig?.user_email || formData.provider_email}
                         templateName={manufacturerConfig?.template_name || `${manufacturerConfig?.name} IVR Form`}
                         documentUrls={formData.uploaded_documents || []}
-                        onComplete={handleDocuSealComplete}
+                        onComplete={handleDocusealComplete}
                     />
                 </div>
             )}

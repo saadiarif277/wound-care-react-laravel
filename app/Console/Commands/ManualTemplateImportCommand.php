@@ -15,7 +15,7 @@ class ManualTemplateImportCommand extends Command
                            {--from-list : Import from a predefined list of template IDs}
                            {--interactive : Interactive mode to input template IDs}';
 
-    protected $description = 'Manually import DocuSeal templates when folder API is not available';
+    protected $description = 'Manually import Docuseal templates when folder API is not available';
 
     private TemplateIntelligenceService $templateIntelligence;
 
@@ -27,7 +27,7 @@ class ManualTemplateImportCommand extends Command
 
     public function handle(): int
     {
-        $this->info('📥 Manual DocuSeal Template Import Tool');
+        $this->info('📥 Manual Docuseal Template Import Tool');
         $this->newLine();
 
         if ($this->option('interactive')) {
@@ -120,7 +120,7 @@ class ManualTemplateImportCommand extends Command
     {
         $this->info('📋 Importing from predefined template list...');
         
-        // This would contain template IDs you've identified from your DocuSeal account
+        // This would contain template IDs you've identified from your Docuseal account
         $predefinedTemplateIds = $this->getPredefinedTemplateList();
         
         if (empty($predefinedTemplateIds)) {
@@ -277,7 +277,7 @@ class ManualTemplateImportCommand extends Command
 
     private function getPredefinedTemplateList(): array
     {
-        // You can add known template IDs here based on your DocuSeal account
+        // You can add known template IDs here based on your Docuseal account
         // This is where you'd put template IDs you've identified manually
         
         return [
@@ -293,7 +293,7 @@ class ManualTemplateImportCommand extends Command
         $this->info('📖 Manual Template Import Help');
         $this->newLine();
         
-        $this->line('This command helps import DocuSeal templates when the folder API is not available.');
+        $this->line('This command helps import Docuseal templates when the folder API is not available.');
         $this->newLine();
         
         $this->line('Usage Options:');
@@ -309,7 +309,7 @@ class ManualTemplateImportCommand extends Command
         $this->newLine();
         
         $this->line('To find template IDs:');
-        $this->line('  1. Log into your DocuSeal account');
+        $this->line('  1. Log into your Docuseal account');
         $this->line('  2. Go to Templates section');
         $this->line('  3. Copy template IDs from URLs or use browser developer tools');
         $this->line('  4. Run: php artisan docuseal:diagnose-api --verbose');

@@ -16,7 +16,7 @@ class DocusealTemplateSeeder extends Seeder
      */
     public function run(): void
     {
-        // Manufacturer to DocuSeal mapping based on actual production data
+        // Manufacturer to Docuseal mapping based on actual production data
         $manufacturerTemplates = [
             // MedLife Solutions
             [
@@ -132,7 +132,7 @@ class DocusealTemplateSeeder extends Seeder
 
             $this->command->info("Processing manufacturer: {$manufacturer->name}");
 
-            // Create or update DocuSeal folder (check both manufacturer_id AND docuseal_folder_id)
+            // Create or update Docuseal folder (check both manufacturer_id AND docuseal_folder_id)
             $folder = DocusealFolder::where('manufacturer_id', $manufacturer->id)
                 ->orWhere('docuseal_folder_id', $manufacturerData['folder_id'])
                 ->first();
@@ -141,7 +141,7 @@ class DocusealTemplateSeeder extends Seeder
                 // Update existing folder to ensure correct association
                 $folder->update([
                     'manufacturer_id' => $manufacturer->id,
-                    'folder_name' => "{$manufacturer->name} DocuSeal Forms",
+                    'folder_name' => "{$manufacturer->name} Docuseal Forms",
                     'docuseal_folder_id' => $manufacturerData['folder_id'],
                     'is_active' => true,
                 ]);
@@ -149,7 +149,7 @@ class DocusealTemplateSeeder extends Seeder
                 // Create new folder
                 DocusealFolder::create([
                     'manufacturer_id' => $manufacturer->id,
-                    'folder_name' => "{$manufacturer->name} DocuSeal Forms",
+                    'folder_name' => "{$manufacturer->name} Docuseal Forms",
                     'docuseal_folder_id' => $manufacturerData['folder_id'],
                     'is_active' => true,
                 ]);
@@ -191,7 +191,7 @@ class DocusealTemplateSeeder extends Seeder
         // Create default generic templates if they don't exist
         $this->createGenericTemplates();
 
-        $this->command->info('DocuSeal templates and folders seeded successfully!');
+        $this->command->info('Docuseal templates and folders seeded successfully!');
     }
 
     /**

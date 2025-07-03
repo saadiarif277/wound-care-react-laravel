@@ -7,10 +7,10 @@ export interface ManufacturerField {
   description?: string;
   placeholder?: string;
   conditionalOn?: { field: string; value: any };
-  // DocuSeal embedded field tag information
+  // Docuseal embedded field tag information
   docusealFieldName?: string; // Custom field name if different from 'name'
   docusealFieldType?: 'text' | 'checkbox' | 'select' | 'radio' | 'date' | 'signature';
-  docusealAttributes?: string; // Additional DocuSeal attributes like "required=true;role=Provider"
+  docusealAttributes?: string; // Additional Docuseal attributes like "required=true;role=Provider"
 }
 
 export interface ManufacturerConfig {

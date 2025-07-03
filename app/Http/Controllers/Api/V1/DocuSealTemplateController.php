@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Auth;
 use App\Services\AzureDocumentIntelligenceService;
 use GuzzleHttp\Client as HttpClient;
 
-class DocuSealTemplateController extends Controller
+class DocusealTemplateController extends Controller
 {
     protected ?AzureDocumentIntelligenceService $azureService = null;
 
@@ -43,7 +43,7 @@ class DocuSealTemplateController extends Controller
             
             // Allow if user has manage-orders permission OR is msc-admin
             if (!$user->hasPermission('manage-orders') && !$user->hasRole('msc-admin')) {
-                Log::warning('DocuSeal access denied', [
+                Log::warning('Docuseal access denied', [
                     'user_id' => $user->id,
                     'user_email' => $user->email,
                     'roles' => $user->roles->pluck('slug'),
@@ -65,7 +65,7 @@ class DocuSealTemplateController extends Controller
                 'templates' => $templates,
             ]);
         } catch (\Exception $e) {
-            Log::error('DocuSeal templates index failed', [
+            Log::error('Docuseal templates index failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
             ]);
@@ -450,8 +450,8 @@ class DocuSealTemplateController extends Controller
                 // Combine and validate embedded tags with Azure insights
                 $enhancedTags = $this->enhanceTagsWithAzureAnalysis($embeddedTags, $azureAnalysis);
                 
-                // Upload to DocuSeal and create template
-                $docusealResult = $this->uploadToDocuSeal($tempPath, $template);
+                // Upload to Docuseal and create template
+                $docusealResult = $this->uploadToDocuseal($tempPath, $template);
                 
                 // Map enhanced tags to Quick Request fields
                 $fieldMappings = $this->mapEmbeddedFieldsToQuickRequest($enhancedTags);
@@ -706,7 +706,7 @@ class DocuSealTemplateController extends Controller
                             'detected_name' => $azureField['name'],
                             'confidence' => $azureField['confidence'],
                             'similarity_score' => $similarity,
-                            'suggested_type' => $this->mapAzureTypeToDocuSealType($azureField['type'])
+                            'suggested_type' => $this->mapAzureTypeToDocusealType($azureField['type'])
                         ];
 
                         // Update field type if Azure suggests a better one
@@ -782,9 +782,9 @@ class DocuSealTemplateController extends Controller
     }
 
     /**
-     * Map Azure Document Intelligence field types to DocuSeal types
+     * Map Azure Document Intelligence field types to Docuseal types
      */
-    private function mapAzureTypeToDocuSealType(string $azureType): ?string
+    private function mapAzureTypeToDocusealType(string $azureType): ?string
     {
         $typeMapping = [
             'string' => 'text',
@@ -802,21 +802,21 @@ class DocuSealTemplateController extends Controller
     }
 
     /**
-     * Upload PDF to DocuSeal and create template
+     * Upload PDF to Docuseal and create template
      */
-    private function uploadToDocuSeal(string $pdfPath, DocusealTemplate $template): array
+    private function uploadToDocuseal(string $pdfPath, DocusealTemplate $template): array
     {
         $docusealApiKey = config('services.docuseal.api_key');
         $docusealApiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
         
         if (!$docusealApiKey) {
-            throw new \Exception('DocuSeal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
+            throw new \Exception('Docuseal API key not configured. Please set DOCUSEAL_API_KEY in your environment.');
         }
         
         // Create template name
         $templateName = $template->template_name . ' (Quick Request IVR)';
         
-        // Upload PDF to DocuSeal using their API
+        // Upload PDF to Docuseal using their API
         $client = new HttpClient();
         
         try {
@@ -844,10 +844,10 @@ class DocuSealTemplateController extends Controller
             $responseData = json_decode($response->getBody()->getContents(), true);
             
             if (!$responseData || !isset($responseData['id'])) {
-                throw new \Exception('Invalid response from DocuSeal API: ' . $response->getBody());
+                throw new \Exception('Invalid response from Docuseal API: ' . $response->getBody());
             }
             
-            Log::info('Successfully uploaded template to DocuSeal', [
+            Log::info('Successfully uploaded template to Docuseal', [
                 'template_id' => $responseData['id'],
                 'template_name' => $templateName,
                 'local_template_id' => $template->id
@@ -864,14 +864,14 @@ class DocuSealTemplateController extends Controller
         } catch (\GuzzleHttp\Exception\RequestException $e) {
             $errorBody = $e->hasResponse() ? $e->getResponse()->getBody()->getContents() : 'No response body';
             
-            Log::error('DocuSeal API upload failed', [
+            Log::error('Docuseal API upload failed', [
                 'error' => $e->getMessage(),
                 'status_code' => $e->hasResponse() ? $e->getResponse()->getStatusCode() : null,
                 'response_body' => $errorBody,
                 'template_name' => $templateName
             ]);
             
-            throw new \Exception('Failed to upload template to DocuSeal: ' . $e->getMessage() . '. Response: ' . $errorBody);
+            throw new \Exception('Failed to upload template to Docuseal: ' . $e->getMessage() . '. Response: ' . $errorBody);
         }
     }
 

@@ -291,7 +291,7 @@ class FhirBatchService
 
 ## 🔄 **Data Flow Validation**
 
-### **QuickRequest → FHIR → DocuSeal Flow**
+### **QuickRequest → FHIR → Docuseal Flow**
 ```mermaid
 graph TD
     A[QuickRequest Steps 1-6] --> B[Collect Patient Data]
@@ -299,9 +299,9 @@ graph TD
     C --> D[Store in Azure Health Data Services]
     D --> E[Get FHIR Patient ID]
     E --> F[Create Episode with FHIR Reference]
-    F --> G[Prepare DocuSeal Prefill Data]
+    F --> G[Prepare Docuseal Prefill Data]
     G --> H[Map FHIR Data to Form Fields]
-    H --> I[Create DocuSeal Submission]
+    H --> I[Create Docuseal Submission]
     I --> J[Generate IVR Form]
 ```
 
@@ -318,8 +318,8 @@ const validateDataFlow = async () => {
   // 3. Episode creation with FHIR reference ✅
   const episode = await createEpisode(fhirPatient.id);
   
-  // 4. DocuSeal prefill mapping ✅
-  const prefillData = mapFhirToDocuSeal(fhirPatient, formData);
+  // 4. Docuseal prefill mapping ✅
+  const prefillData = mapFhirToDocuseal(fhirPatient, formData);
   
   // 5. Template resolution ✅
   const template = await resolveTemplate(manufacturerId);
@@ -347,7 +347,7 @@ const validateDataFlow = async () => {
 □ Update FhirService for dual-service support
 □ Implement configuration switching mechanism
 □ Test patient creation/retrieval with new service
-□ Validate DocuSeal integration with new FHIR data
+□ Validate Docuseal integration with new FHIR data
 ```
 
 ### **Long-term (Next 12 Months)**

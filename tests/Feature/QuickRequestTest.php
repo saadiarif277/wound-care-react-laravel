@@ -11,7 +11,7 @@ use App\Models\Episode;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
 use App\Mail\ManufacturerOrderEmail;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 
 class QuickRequestTest extends TestCase
 {
@@ -19,12 +19,12 @@ class QuickRequestTest extends TestCase
 
     public function test_start_episode_endpoint()
     {
-        // Mock DocuSealService to prevent external API calls
-        $docuSealService = \Mockery::mock(DocuSealService::class);
+        // Mock DocusealService to prevent external API calls
+        $docuSealService = \Mockery::mock(DocusealService::class);
         $docuSealService->shouldReceive('createIVRSubmission')
             ->once()
             ->andReturn(['embed_url' => 'http://example.com/ivrs', 'submission_id' => 'sub1']);
-        $this->app->instance(DocuSealService::class, $docuSealService);
+        $this->app->instance(DocusealService::class, $docuSealService);
 
         $payload = [
             'patient_id'           => 'p1',

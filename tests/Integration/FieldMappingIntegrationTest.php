@@ -3,7 +3,7 @@
 namespace Tests\Integration;
 
 use App\Services\UnifiedFieldMappingService;
-use App\Services\DocuSealService;
+use App\Services\DocusealService;
 use App\Services\FieldMapping\DataExtractor;
 use App\Services\FieldMapping\FieldTransformer;
 use App\Services\FieldMapping\FieldMatcher;
@@ -24,7 +24,7 @@ class FieldMappingIntegrationTest extends TestCase
     use RefreshDatabase;
 
     private UnifiedFieldMappingService $fieldMappingService;
-    private DocuSealService $docuSealService;
+    private DocusealService $docuSealService;
 
     protected function setUp(): void
     {
@@ -45,7 +45,7 @@ class FieldMappingIntegrationTest extends TestCase
             $fieldMatcher
         );
         
-        $this->docuSealService = new DocuSealService($this->fieldMappingService);
+        $this->docuSealService = new DocusealService($this->fieldMappingService);
 
         // Mock FHIR responses
         $fhirService->method('getPatient')->willReturn([
@@ -58,7 +58,7 @@ class FieldMappingIntegrationTest extends TestCase
             ]
         ]);
 
-        // Mock DocuSeal API
+        // Mock Docuseal API
         Http::fake([
             'api.docuseal.co/*' => Http::response([
                 'id' => 'submission-123',
@@ -154,7 +154,7 @@ class FieldMappingIntegrationTest extends TestCase
         $this->assertGreaterThan(0, $mappingResult['completeness']['percentage']);
         $this->assertIsArray($mappingResult['completeness']['field_status']);
 
-        // Step 2: Test DocuSeal submission creation
+        // Step 2: Test Docuseal submission creation
         $submissionResult = $this->docuSealService->createOrUpdateSubmission(
             $episode->id,
             'ACZ'
@@ -330,7 +330,7 @@ class FieldMappingIntegrationTest extends TestCase
     /** @test */
     public function it_handles_webhook_processing_end_to_end()
     {
-        // Create IVR episode with DocuSeal submission
+        // Create IVR episode with Docuseal submission
         $ivrEpisode = \App\Models\PatientManufacturerIVREpisode::factory()->create([
             'docuseal_submission_id' => 'webhook-submission-123',
             'docuseal_status' => 'pending'

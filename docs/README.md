@@ -39,7 +39,7 @@ Contains technical development documentation including:
 ### [`feature-documentation/`](feature-documentation/)
 Contains feature-specific documentation including:
 - Episode-based workflow implementations
-- DocuSeal integration enhancements
+- Docuseal integration enhancements
 - CMS enrichment features
 - MAC validation features
 

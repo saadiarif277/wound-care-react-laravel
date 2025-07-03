@@ -1,7 +1,7 @@
-# IVR DocuSeal Integration - Complete Testing Guide
+# IVR Docuseal Integration - Complete Testing Guide
 
 ## Overview
-This guide provides comprehensive testing procedures for the IVR field mapping and DocuSeal integration, ensuring 90% auto-population of fields from existing data.
+This guide provides comprehensive testing procedures for the IVR field mapping and Docuseal integration, ensuring 90% auto-population of fields from existing data.
 
 ## Pre-requisites
 
@@ -15,7 +15,7 @@ npm install
 cp .env.example .env
 php artisan key:generate
 
-# Set DocuSeal credentials in .env
+# Set Docuseal credentials in .env
 DOCUSEAL_API_KEY=your_api_key_here
 DOCUSEAL_API_URL=https://api.docuseal.com
 
@@ -49,7 +49,7 @@ php artisan test tests/Feature/IvrFieldMappingTest.php
 ```
 
 **Tests:**
-- Standard DocuSeal field mapping
+- Standard Docuseal field mapping
 - Manufacturer-specific fields
 - Field type definitions
 - Required field validation
@@ -59,11 +59,11 @@ php artisan test tests/Feature/IvrFieldMappingTest.php
 ### 2. Integration Tests - E2E Flow
 Tests the complete order flow from creation to IVR generation.
 
-**File:** `tests/Feature/IvrDocuSealE2ETest.php`
+**File:** `tests/Feature/IvrDocusealE2ETest.php`
 
 **Run:**
 ```bash
-php artisan test tests/Feature/IvrDocuSealE2ETest.php
+php artisan test tests/Feature/IvrDocusealE2ETest.php
 ```
 
 **Tests:**
@@ -228,7 +228,7 @@ Log::info('Field mapping debug', [
 ]);
 ```
 
-### Issue: DocuSeal API Error
+### Issue: Docuseal API Error
 ```bash
 # Check configuration
 php artisan tinker
@@ -258,7 +258,7 @@ php artisan tinker
 ✓ Date formats are consistent
 ✓ Required field validation works
 ✓ FHIR patient data integrates correctly
-✓ DocuSeal API creates submissions
+✓ Docuseal API creates submissions
 ✓ Status transitions occur properly
 ✓ Permissions are enforced
 
@@ -272,7 +272,7 @@ php artisan tinker
 ## Next Steps
 
 1. **Configure Production Templates**
-   - Upload manufacturer IVR templates to DocuSeal
+   - Upload manufacturer IVR templates to Docuseal
    - Map template IDs in configuration
    - Test with real templates
 

@@ -42,17 +42,17 @@ return [
         'secondary_insurance_name' => 'Secondary Insurance',
         'secondary_member_id' => 'Secondary Member ID',
         
-        // Place of Service checkboxes - exact field names from DocuSeal template
+        // Place of Service checkboxes - exact field names from Docuseal template
         'place_of_service_office' => 'Office: POS-11',
         'place_of_service_home' => 'Home: POS 12', 
         'place_of_service_assisted' => 'Assisted Living: POS-13',
         'place_of_service_other' => 'Other',
         
-        // SNF/Nursing Home questions - exact field names from DocuSeal template
+        // SNF/Nursing Home questions - exact field names from Docuseal template
         'snf_nursing_home_status' => 'Is the patient currently residing in a Nursing Home OR Skilled Nursing Facility',
         'snf_over_100_days' => 'If yes, has it been over 100 days',
         
-        // Post-op period - exact field name from DocuSeal template
+        // Post-op period - exact field name from Docuseal template
         'post_op_status' => 'Is this patient currently under a post-op period',
         'previous_surgery_cpt' => 'If yes, please list CPT codes of previous surgery',
         'surgery_date' => 'Surgery Date',
@@ -65,7 +65,7 @@ return [
         'wound_location' => 'Wound location',
         'graft_size_requested' => 'Size of Graft Requested',
         
-        // ICD-10, CPT, HCPCS codes - Using exact field names from DocuSeal template
+        // ICD-10, CPT, HCPCS codes - Using exact field names from Docuseal template
         // Updated field names with #1, #2, #3, #4 suffixes
         'icd10_code_1' => 'ICD-10 #1',
         'icd10_code_2' => 'ICD-10 #2',
@@ -79,7 +79,7 @@ return [
         // Removed optional HCPCS #2, #3, #4 fields per user request
     ],
     
-    // Order form field mappings using exact DocuSeal field names
+    // Order form field mappings using exact Docuseal field names
     'order_form_field_names' => [
         // Contact Information
         'name' => 'Name',

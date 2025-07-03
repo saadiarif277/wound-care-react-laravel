@@ -133,8 +133,8 @@ class ManufacturerEmailService
             // Prepare attachments (IVR documents)
             $attachments = [];
             if ($emailData['include_ivr'] && $episode->docuseal_submission_id) {
-                // Fetch IVR document from DocuSeal
-        $docusealService = app(\App\Services\DocuSealService::class);
+                // Fetch IVR document from Docuseal
+        $docusealService = app(\App\Services\DocusealService::class);
         try {
             $submissionStatus = $docusealService->getSubmissionStatus($episode->docuseal_submission_id);
             $ivrDocument = $submissionStatus['completed'] ?? false ? $submissionStatus : null;
@@ -146,12 +146,12 @@ class ManufacturerEmailService
                 ];
             }
         } catch (\Exception $e) {
-            Log::warning('Failed to fetch IVR document from DocuSeal', [
+            Log::warning('Failed to fetch IVR document from Docuseal', [
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
         }
-                // $attachments[] = $this->getDocuSealDocument($episode->docuseal_submission_id);
+                // $attachments[] = $this->getDocusealDocument($episode->docuseal_submission_id);
             }
 
             // Log the email sending

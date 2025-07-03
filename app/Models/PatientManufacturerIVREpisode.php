@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
-use App\Models\DocuSeal\DocuSealSubmission;
+use App\Models\Docuseal\DocusealSubmission;
 use App\Traits\UsesEpisodeCache;
 
 class PatientManufacturerIVREpisode extends Model
@@ -92,11 +92,11 @@ class PatientManufacturerIVREpisode extends Model
     }
 
     /**
-     * Get the DocuSeal submission
+     * Get the Docuseal submission
      */
     public function docusealSubmission(): BelongsTo
     {
-        return $this->belongsTo(DocuSealSubmission::class, 'docuseal_submission_id');
+        return $this->belongsTo(DocusealSubmission::class, 'docuseal_submission_id');
     }
 
     /**

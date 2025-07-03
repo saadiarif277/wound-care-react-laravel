@@ -4,7 +4,7 @@ import { FiCheck, FiAlertCircle, FiExternalLink, FiX } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/hooks/useManufacturers';
-import { DocuSealEmbed } from '@/Components/QuickRequest/DocuSealEmbed';
+import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 
 interface Step4Props {
   formData: any;
@@ -80,7 +80,7 @@ export default function Step4Confirmation({
     }
 
     // No fallback - template IDs should come from database
-    console.error('No DocuSeal template ID found for manufacturer:', selectedProduct?.manufacturer);
+    console.error('No Docuseal template ID found for manufacturer:', selectedProduct?.manufacturer);
     return null;
   };
 
@@ -105,7 +105,7 @@ export default function Step4Confirmation({
     setDocusealSubmissionId(submissionId);
     setIvrSigned(true);
     setShowIVRFrame(false);
-    // Update form data with DocuSeal submission ID
+    // Update form data with Docuseal submission ID
     updateFormData({ docuseal_submission_id: submissionId });
   };
 
@@ -328,7 +328,7 @@ export default function Step4Confirmation({
                 </button>
               </div>
               <div className="h-[calc(100%-4rem)] overflow-auto">
-                <DocuSealEmbed
+                <DocusealEmbed
                   manufacturerId={formData.manufacturer_id?.toString() || '1'}
                   productCode={formData.product_code || ''}
                   formData={{

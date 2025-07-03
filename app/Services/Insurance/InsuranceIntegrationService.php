@@ -49,8 +49,7 @@ class InsuranceIntegrationService
         }
 
         // Map to canonical fields using UnifiedFieldMappingService
-        $templateData = $this->fieldMappingService->mapToCanonicalFields($normalized);
-
+        $templateData = $this->fieldMappingService->mapFields($normalized, 'insurance_card');
         return [
             'normalized_data' => $normalized,
             'template_data' => $templateData,
@@ -112,7 +111,7 @@ class InsuranceIntegrationService
         return [
             'normalized_data' => $normalized,
             'eligibility' => $eligibilityResult,
-            'template_data' => $this->mappingEngine->mapInsuranceData($normalized, 'quick_request_form'),
+            'template_data' => $this->fieldMappingService->mapFields($normalized, 'quick_request_form'),
             'recommendations' => $this->generateRecommendations($normalized, $eligibilityResult)
         ];
     }

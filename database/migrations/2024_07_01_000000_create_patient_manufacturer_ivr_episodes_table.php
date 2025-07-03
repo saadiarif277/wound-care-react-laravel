@@ -22,7 +22,7 @@ return new class extends Migration
             $table->timestamps();
             $table->timestamp('completed_at')->nullable();
 
-            // DocuSeal integration fields
+            // Docuseal integration fields
             $table->string('docuseal_submission_id')->nullable();
             $table->string('docuseal_status')->nullable();
             $table->timestamp('docuseal_completed_at')->nullable();

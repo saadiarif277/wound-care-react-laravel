@@ -3,13 +3,13 @@ import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiCheckCircle, FiClock, FiAlertCircle, FiRefreshCw } from 'react-icons/fi';
 
-interface DocuSealStatusProps {
+interface DocusealStatusProps {
   auth: {
     user: any;
   };
 }
 
-export default function DocuSealStatus({ auth }: DocuSealStatusProps) {
+export default function DocusealStatus({ auth }: DocusealStatusProps) {
   return (
     <MainLayout title="Document Signing Status">
       <Head title="Document Signing Status" />

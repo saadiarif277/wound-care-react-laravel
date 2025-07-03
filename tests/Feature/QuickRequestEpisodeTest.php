@@ -354,7 +354,7 @@ class QuickRequestEpisodeTest extends TestCase
             'manufacturer_id' => $this->manufacturer->id
         ]);
 
-        // Mock DocuSeal service
+        // Mock Docuseal service
         $this->mock(\App\Services\DocusealService::class)
             ->shouldReceive('generateDocument')
             ->andReturn([
