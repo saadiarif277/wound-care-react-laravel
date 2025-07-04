@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
+use App\Models\QuickRequestSubmission;  
 
 class DocusealDebugController extends Controller
 {
@@ -88,7 +89,7 @@ class DocusealDebugController extends Controller
         }
 
         try {
-            $result = $this->docuSealService->createQuickRequestSubmission(
+            $result = QuickRequestSubmission::createQuickRequestSubmission(
                 $templateId,
                 [
                     'email' => 'test@example.com',

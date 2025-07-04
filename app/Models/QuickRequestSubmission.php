@@ -164,4 +164,29 @@ class QuickRequestSubmission extends Model
     {
         return $query->whereNotNull('order_form_submission_date');
     }
+    
+ /**
+     * Create a quick request submission to Docuseal.
+     *
+     * @param string $templateId
+     * @param array $data
+     * @return array
+     * @throws \Exception
+     */
+    public function createQuickRequestSubmission(string $templateId, array $data)
+    {
+        $apiKey = config('services.docuseal.api_key');
+        $apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
+
+        $response = \Illuminate\Support\Facades\Http::withHeaders([
+            'X-Auth-Token' => $apiKey,
+            'Accept' => 'application/json',
+        ])->post("{$apiUrl}/templates/{$templateId}/submissions", $data);
+
+        if ($response->successful()) {
+            return $response->json();
+        }
+
+        throw new \Exception('Docuseal API error: ' . $response->body());
+    }
 }
