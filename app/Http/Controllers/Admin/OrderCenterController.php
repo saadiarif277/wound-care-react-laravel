@@ -7,15 +7,33 @@ use App\Http\Controllers\Controller;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use App\Services\ManufacturerEmailService;
+use App\Services\EmailNotificationService;
+use App\Services\StatusChangeService;
+use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Exception;
 
 class OrderCenterController extends Controller
 {
+    protected EmailNotificationService $emailService;
+    protected StatusChangeService $statusService;
+    protected DocusealService $docusealService;
+
+    public function __construct(
+        EmailNotificationService $emailService,
+        StatusChangeService $statusService,
+        DocusealService $docusealService
+    ) {
+        $this->emailService = $emailService;
+        $this->statusService = $statusService;
+        $this->docusealService = $docusealService;
+    }
+
     /**
      * Display episode-based order center dashboard
      */
@@ -81,6 +99,41 @@ class OrderCenterController extends Controller
             ],
             'statusCounts' => $statusCounts,
             'filters' => $request->only(['search', 'status']),
+        ]);
+    }
+
+    /**
+     * Show individual order details
+     */
+    public function show($orderId)
+    {
+        $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
+            ->findOrFail($orderId);
+
+        // Transform order data for display
+        $orderData = [
+            'id' => $order->id,
+            'order_number' => $order->request_number,
+            'patient_name' => $order->patient_display_id ?? 'Unknown Patient',
+            'patient_display_id' => $order->patient_display_id,
+            'provider_name' => $order->provider->name ?? 'Unknown Provider',
+            'facility_name' => $order->facility->name ?? 'Unknown Facility',
+            'manufacturer_name' => $order->manufacturer ?? 'Unknown Manufacturer',
+            'product_name' => $order->product_name ?? 'Unknown Product',
+            'order_status' => $order->order_status,
+            'ivr_status' => $order->ivr_status ?? 'N/A',
+            'order_form_status' => $order->order_form_status ?? 'Not Started',
+            'total_order_value' => (float) ($order->total_order_value ?? 0),
+            'created_at' => $order->created_at->toISOString(),
+            'action_required' => $order->order_status === 'pending',
+            'episode_id' => $order->ivr_episode_id,
+            'docuseal_submission_id' => $order->episode->docuseal_submission_id ?? null,
+        ];
+
+        return Inertia::render('Admin/OrderCenter/OrderDetails', [
+            'order' => $orderData,
+            'can_update_status' => Auth::user()->can('update-order-status'),
+            'can_view_ivr' => Auth::user()->can('view-ivr-documents'),
         ]);
     }
 
@@ -559,6 +612,301 @@ class OrderCenterController extends Controller
                 'success' => false,
                 'message' => 'Failed to delete document'
             ], 500);
+        }
+    }
+
+    /**
+     * Get IVR document for viewing/downloading
+     */
+    public function getIvrDocument($episodeId)
+    {
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
+
+        // Check if IVR exists
+        if (!$episode->docuseal_submission_id) {
+            return response()->json(['error' => 'IVR document not found'], 404);
+        }
+
+        try {
+            // Get IVR document from DocuSeal
+            $documentData = $this->docusealService->getSubmissionDocument($episode->docuseal_submission_id);
+
+            // Update view tracking
+            $episode->update([
+                'last_ivr_viewed_at' => now(),
+                'ivr_download_count' => $episode->ivr_download_count + 1,
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'document_url' => $documentData['url'] ?? null,
+                'audit_log_url' => $documentData['audit_log_url'] ?? null,
+                'download_count' => $episode->ivr_download_count,
+                'last_viewed' => $episode->last_ivr_viewed_at?->toISOString(),
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to get IVR document', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to retrieve IVR document'], 500);
+        }
+    }
+
+    /**
+     * Change order status with notifications
+     */
+    public function changeOrderStatus(Request $request, $orderId)
+    {
+        $order = ProductRequest::findOrFail($orderId);
+        $newStatus = $request->input('status');
+        $notes = $request->input('notes');
+        $rejectionReason = $request->input('rejection_reason');
+        $cancellationReason = $request->input('cancellation_reason');
+        $sendNotification = $request->input('send_notification', true);
+        $carrier = $request->input('carrier');
+        $trackingNumber = $request->input('tracking_number');
+
+        // Validate status change
+        $validStatuses = [
+            'pending', 'pending_ivr', 'ivr_sent', 'ivr_confirmed',
+            'approved', 'sent_back', 'denied', 'submitted_to_manufacturer',
+            'shipped', 'delivered', 'cancelled', 'Sent', 'Verified', 'Rejected',
+            'Submitted to Manufacturer', 'Confirmed by Manufacturer', 'Canceled'
+        ];
+
+        if (!in_array($newStatus, $validStatuses)) {
+            return response()->json(['error' => 'Invalid status'], 400);
+        }
+
+        try {
+            // Update order status in database
+            $order->update([
+                'order_status' => $newStatus,
+                'notes' => $notes,
+                'rejection_reason' => $rejectionReason,
+                'cancellation_reason' => $cancellationReason,
+                'carrier' => $carrier,
+                'tracking_number' => $trackingNumber,
+            ]);
+
+            // Log status change
+            $success = $this->statusService->changeOrderStatus($order, $newStatus, $notes);
+
+            // Send notification if requested
+            $notificationSent = false;
+            if ($sendNotification) {
+                try {
+                    $previousStatus = $order->order_status;
+                    $changedBy = auth()->user()->name ?? 'Admin';
+                    $notificationSent = $this->emailService->sendStatusChangeNotification(
+                        $order,
+                        $previousStatus,
+                        $newStatus,
+                        $changedBy,
+                        $notes
+                    );
+                } catch (Exception $e) {
+                    Log::warning('Failed to send notification', [
+                        'order_id' => $orderId,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+
+            if ($success) {
+                return response()->json([
+                    'success' => true,
+                    'message' => 'Order status updated successfully',
+                    'new_status' => $newStatus,
+                    'notification_sent' => $notificationSent,
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to update order status'], 500);
+            }
+
+        } catch (Exception $e) {
+            Log::error('Failed to change order status', [
+                'order_id' => $orderId,
+                'new_status' => $newStatus,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to update order status'], 500);
+        }
+    }
+
+    /**
+     * Get order status history
+     */
+    public function getOrderStatusHistory($orderId)
+    {
+        $order = ProductRequest::findOrFail($orderId);
+        $history = $this->statusService->getStatusHistory($order);
+
+        return response()->json([
+            'success' => true,
+            'history' => $history,
+        ]);
+    }
+
+    /**
+     * Get email notification statistics
+     */
+    public function getNotificationStats($orderId)
+    {
+        $order = ProductRequest::findOrFail($orderId);
+        $stats = $this->emailService->getNotificationStats($order);
+
+        return response()->json([
+            'success' => true,
+            'stats' => $stats,
+        ]);
+    }
+
+    /**
+     * Send IVR notification
+     */
+    public function sendIvrNotification($episodeId)
+    {
+        $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
+
+        // Get the first order for this episode
+        $order = ProductRequest::where('ivr_episode_id', $episodeId)->first();
+
+        if (!$order) {
+            return response()->json(['error' => 'No order found for this episode'], 404);
+        }
+
+        try {
+            $success = $this->emailService->sendIvrSentNotification($order);
+
+            return response()->json([
+                'success' => $success,
+                'message' => $success ? 'IVR notification sent successfully' : 'Failed to send IVR notification',
+            ]);
+
+        } catch (Exception $e) {
+            Log::error('Failed to send IVR notification', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to send IVR notification'], 500);
+        }
+    }
+
+    /**
+     * Get enhanced order details with IVR and notification data
+     */
+    public function getEnhancedOrderDetails($orderId)
+    {
+        $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
+            ->findOrFail($orderId);
+
+        // Get status history
+        $statusHistory = $this->statusService->getStatusHistory($order);
+
+        // Get notification stats
+        $notificationStats = $this->emailService->getNotificationStats($order);
+
+        // Get IVR data if available
+        $ivrData = null;
+        if ($order->episode && $order->episode->docuseal_submission_id) {
+            try {
+                $ivrData = $this->docusealService->getSubmissionDocument($order->episode->docuseal_submission_id);
+            } catch (Exception $e) {
+                Log::warning('Failed to get IVR data for order', [
+                    'order_id' => $orderId,
+                    'error' => $e->getMessage(),
+                ]);
+            }
+        }
+
+        return response()->json([
+            'success' => true,
+            'order' => [
+                'id' => $order->id,
+                'request_number' => $order->request_number,
+                'patient_display_id' => $order->patient_display_id,
+                'order_status' => $order->order_status,
+                'provider' => $order->provider,
+                'facility' => $order->facility,
+                'products' => $order->products,
+                'total_order_value' => $order->total_order_value,
+                'created_at' => $order->created_at->toISOString(),
+                'updated_at' => $order->updated_at->toISOString(),
+            ],
+            'status_history' => $statusHistory,
+            'notification_stats' => $notificationStats,
+            'ivr_data' => $ivrData,
+        ]);
+    }
+
+    /**
+     * View IVR document in new tab
+     */
+    public function viewIvrDocument($orderId)
+    {
+        $order = ProductRequest::with(['episode'])->findOrFail($orderId);
+
+        if (!$order->episode || !$order->episode->docuseal_submission_id) {
+            return response()->json(['error' => 'IVR document not found'], 404);
+        }
+
+        try {
+            $documentData = $this->docusealService->getSubmissionDocument($order->episode->docuseal_submission_id);
+
+            // Redirect to DocuSeal viewing URL
+            return redirect($documentData['url']);
+
+        } catch (Exception $e) {
+            Log::error('Failed to view IVR document', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to retrieve IVR document'], 500);
+        }
+    }
+
+    /**
+     * Download IVR document
+     */
+    public function downloadIvrDocument($orderId)
+    {
+        $order = ProductRequest::with(['episode'])->findOrFail($orderId);
+
+        if (!$order->episode || !$order->episode->docuseal_submission_id) {
+            return response()->json(['error' => 'IVR document not found'], 404);
+        }
+
+        try {
+            $documentData = $this->docusealService->getSubmissionDocument($order->episode->docuseal_submission_id);
+
+            // Download the document
+            $response = Http::withHeaders([
+                'Authorization' => 'API-Key ' . config('services.docuseal.api_key'),
+            ])->get($documentData['url']);
+
+            if (!$response->successful()) {
+                throw new Exception('Failed to download document from DocuSeal');
+            }
+
+            // Return the file as a download
+            return response($response->body())
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="ivr-document-' . $orderId . '.pdf"');
+
+        } catch (Exception $e) {
+            Log::error('Failed to download IVR document', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage(),
+            ]);
+
+            return response()->json(['error' => 'Failed to download IVR document'], 500);
         }
     }
 }

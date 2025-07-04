@@ -189,7 +189,7 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
 
   // If viewing order details, use the new OrderDetails component
   if (selectedOrder) {
-    return <OrderDetails order={selectedOrder} onBack={handleBackToList} />;
+    return <OrderDetails order={selectedOrder} can_update_status={true} can_view_ivr={true} />;
   }
 
   // Main orders table view
@@ -225,7 +225,7 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
               <div className={cn("p-4 rounded-xl", t?.glass?.card || "bg-white shadow-lg")}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -252,16 +252,6 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
                     <p className="text-2xl font-bold text-green-600">{statusCounts.approved || 0}</p>
                   </div>
                   <CheckCircle className="h-8 w-8 text-green-600" />
-                </div>
-              </div>
-
-              <div className={cn("p-4 rounded-xl", t?.glass?.card || "bg-white shadow-lg")}>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className={cn("text-sm font-medium", t?.text?.muted || "text-gray-500")}>Action Required</p>
-                    <p className="text-2xl font-bold text-red-600">{statusCounts.action_required || 0}</p>
-                  </div>
-                  <XCircle className="h-8 w-8 text-red-600" />
                 </div>
               </div>
             </div>
@@ -305,7 +295,7 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
                 <thead className={cn("border-b", t?.glass?.border || "border-gray-200")}>
                   <tr>
                     <th className={cn("px-6 py-4 text-left text-sm font-medium", t?.text?.primary || "text-gray-900")}>
-                      Order Details
+                      Order ID
                     </th>
                     <th className={cn("px-6 py-4 text-left text-sm font-medium", t?.text?.primary || "text-gray-900")}>
                       Patient
@@ -326,7 +316,7 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
                       Total Value
                     </th>
                     <th className={cn("px-6 py-4 text-left text-sm font-medium", t?.text?.primary || "text-gray-900")}>
-                      Created
+                      Order Date
                     </th>
                     <th className={cn("px-6 py-4 text-left text-sm font-medium", t?.text?.primary || "text-gray-900")}>
                       Actions
@@ -342,11 +332,6 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
                             <span className={cn("font-medium", t?.text?.primary || "text-gray-900")}>
                               {order.order_number}
                             </span>
-                            {order.action_required && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                                Action Required
-                              </span>
-                            )}
                           </div>
                         </div>
                       </td>
@@ -365,18 +350,12 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
                           <div className={cn("font-medium", t?.text?.primary || "text-gray-900")}>
                             {order.provider_name}
                           </div>
-                          <div className={cn("text-sm", t?.text?.muted || "text-gray-500")}>
-                            {order.facility_name}
-                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div>
                           <div className={cn("font-medium", t?.text?.primary || "text-gray-900")}>
                             {order.product_name}
-                          </div>
-                          <div className={cn("text-sm", t?.text?.muted || "text-gray-500")}>
-                            {order.manufacturer_name}
                           </div>
                         </div>
                       </td>

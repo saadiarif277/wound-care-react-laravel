@@ -13,8 +13,8 @@ return new class extends Migration
     {
         Schema::table('phi_audit_logs', function (Blueprint $table) {
             // Add context column (similar to metadata but for specific context)
-            $table->json('context')->nullable()->after('session_id');
-            
+            $table->json('context')->nullable()->after('metadata');
+
             // Add accessed_at timestamp
             $table->timestamp('accessed_at')->nullable()->after('context');
         });

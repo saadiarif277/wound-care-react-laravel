@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Upload, Download, Eye, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { X, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { Button } from '@/Components/Button';
 
 interface StatusUpdateModalProps {
@@ -18,7 +18,6 @@ interface StatusUpdateData {
   rejectionReason?: string;
   cancellationReason?: string;
   sendNotification: boolean;
-  uploadedFiles: File[];
   carrier?: string;
   trackingNumber?: string;
 }
@@ -36,7 +35,6 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [sendNotification, setSendNotification] = useState(true);
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -94,14 +92,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
     }
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files || []);
-    setUploadedFiles(prev => [...prev, ...files]);
-  };
 
-  const removeFile = (index: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-  };
 
   const handleConfirm = async () => {
     if ((newStatus === 'Rejected' && !rejectionReason) ||
@@ -120,7 +111,6 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
         rejectionReason: newStatus === 'Rejected' ? rejectionReason : undefined,
         cancellationReason: newStatus === 'Canceled' ? cancellationReason : undefined,
         sendNotification,
-        uploadedFiles,
         carrier: newStatus === 'Confirmed by Manufacturer' ? carrier : undefined,
         trackingNumber: newStatus === 'Confirmed by Manufacturer' ? trackingNumber : undefined,
       };
@@ -139,7 +129,6 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
     setRejectionReason('');
     setCancellationReason('');
     setSendNotification(true);
-    setUploadedFiles([]);
     setCarrier('');
     setTrackingNumber('');
     setError('');
@@ -217,51 +206,6 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
               rows={3}
               placeholder="Add comments for the requestor..."
             />
-          </div>
-
-          {/* File Upload */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Upload Documents
-            </label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              <input
-                type="file"
-                multiple
-                onChange={handleFileUpload}
-                className="hidden"
-                id="file-upload"
-                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <div className="text-center">
-                  <Upload className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-                  <p className="text-sm text-gray-600">
-                    Click to upload or drag and drop
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    PDF, DOC, DOCX, JPG, PNG (max 10MB each)
-                  </p>
-                </div>
-              </label>
-            </div>
-
-            {/* Uploaded Files */}
-            {uploadedFiles.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {uploadedFiles.map((file, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                    <span className="text-sm text-gray-700">{file.name}</span>
-                    <button
-                      onClick={() => removeFile(index)}
-                      className="text-red-500 hover:text-red-700"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* Shipping Information for Confirmed Orders */}

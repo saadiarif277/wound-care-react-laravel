@@ -73,6 +73,9 @@ class DocusealService
                     'mapped_fields' => $mappingResult['data'],
                     'validation_warnings' => $mappingResult['validation']['warnings'],
                 ]);
+
+                // Update ProductRequest with episode and submission info
+                $this->updateProductRequestWithEpisode($episodeId, $ivrEpisode->id, $response['id'], $mappingResult['manufacturer']['template_id']);
             }
 
             // Log the operation
@@ -199,6 +202,95 @@ class DocusealService
         }
 
         return $response->json();
+    }
+
+    /**
+     * Get submission document for viewing/downloading
+     */
+    public function getSubmissionDocument(string $submissionId): array
+    {
+        try {
+            // Get submission details
+            $submission = $this->getSubmission($submissionId);
+
+            // Get document URL
+            $documentUrl = $this->getDocumentUrl($submissionId);
+
+            // Get audit log URL if available
+            $auditLogUrl = $this->getAuditLogUrl($submissionId);
+
+            return [
+                'submission' => $submission,
+                'url' => $documentUrl,
+                'audit_log_url' => $auditLogUrl,
+                'status' => $submission['status'] ?? 'unknown',
+                'created_at' => $submission['created_at'] ?? null,
+                'completed_at' => $submission['completed_at'] ?? null,
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get submission document', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage(),
+            ]);
+
+            throw $e;
+        }
+    }
+
+    /**
+     * Get document URL for viewing
+     */
+    private function getDocumentUrl(string $submissionId): string
+    {
+        $response = Http::withHeaders([
+            'Authorization' => 'API-Key ' . $this->apiKey,
+        ])->get("{$this->apiUrl}/submissions/{$submissionId}/documents");
+
+        if (!$response->successful()) {
+            throw new \Exception('Failed to get document URL: ' . $response->body());
+        }
+
+        $data = $response->json();
+
+        // Return the first document URL or generate a viewing URL
+        if (!empty($data['documents'])) {
+            return $data['documents'][0]['url'] ?? $this->generateViewUrl($submissionId);
+        }
+
+        return $this->generateViewUrl($submissionId);
+    }
+
+    /**
+     * Generate viewing URL for submission
+     */
+    private function generateViewUrl(string $submissionId): string
+    {
+        return "{$this->apiUrl}/submissions/{$submissionId}/view";
+    }
+
+    /**
+     * Get audit log URL
+     */
+    private function getAuditLogUrl(string $submissionId): ?string
+    {
+        try {
+            $response = Http::withHeaders([
+                'Authorization' => 'API-Key ' . $this->apiKey,
+            ])->get("{$this->apiUrl}/submissions/{$submissionId}/audit_log");
+
+            if ($response->successful()) {
+                $data = $response->json();
+                return $data['url'] ?? null;
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to get audit log URL', [
+                'submission_id' => $submissionId,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        return null;
     }
 
     /**

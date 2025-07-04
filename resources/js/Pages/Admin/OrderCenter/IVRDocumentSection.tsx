@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCircle, X, Download, Eye, Upload, Trash2 } from 'lucide-react';
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
+import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
 
 interface IVRData {
   status: string;
@@ -64,6 +65,8 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [modalType, setModalType] = useState<'ivr' | 'order'>('ivr');
   const [modalCurrentStatus, setModalCurrentStatus] = useState('');
   const [modalNewStatus, setModalNewStatus] = useState('');
+  const [showDocumentPanel, setShowDocumentPanel] = useState(false);
+  const [documentPanelType, setDocumentPanelType] = useState<'ivr' | 'order-form'>('ivr');
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -147,6 +150,11 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
     console.log(`Removing file ${fileId} from ${type}`);
   };
 
+  const handleViewDocument = (type: 'ivr' | 'order-form') => {
+    setDocumentPanelType(type);
+    setShowDocumentPanel(true);
+  };
+
   return (
     <>
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
@@ -207,22 +215,13 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => window.open('/admin/ivr/view/' + orderId, '_blank')}
+                      onClick={() => handleViewDocument('ivr')}
                       className="flex-1"
                       variant="ghost"
                       size="sm"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View IVR
-                    </Button>
-                    <Button
-                      onClick={() => window.open('/admin/ivr/download/' + orderId, '_blank')}
-                      className="flex-1"
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download IVR
                     </Button>
                   </div>
 
@@ -233,11 +232,11 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="N/A">N/A</option>
-                      <option value="Pending">Pending</option>
-                      <option value="Sent">Sent</option>
-                      <option value="Verified">Verified</option>
-                      <option value="Rejected">Rejected</option>
+                      <option value="n/a">N/A</option>
+                      <option value="pending">Pending</option>
+                      <option value="sent">Sent</option>
+                      <option value="verified">Verified</option>
+                      <option value="rejected">Rejected</option>
                     </select>
                   </div>
                 </div>
@@ -349,22 +348,13 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 <div className="space-y-3">
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => window.open('/admin/order-form/download/' + orderId, '_blank')}
+                      onClick={() => handleViewDocument('order-form')}
                       className="flex-1"
                       variant="ghost"
                       size="sm"
                     >
                       <Eye className="h-4 w-4 mr-2" />
                       View Order Form
-                    </Button>
-                    <Button
-                      onClick={() => window.open('/admin/order-form/download/' + orderId, '_blank')}
-                      className="flex-1"
-                      variant="ghost"
-                      size="sm"
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Download
                     </Button>
                   </div>
 
@@ -375,11 +365,11 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       onChange={(e) => handleStatusChange('order', orderFormData.status, e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="Pending">Pending</option>
-                      <option value="Submitted to Manufacturer">Submitted to Manufacturer</option>
-                      <option value="Confirmed by Manufacturer">Confirmed by Manufacturer</option>
-                      <option value="Rejected">Rejected</option>
-                      <option value="Canceled">Canceled</option>
+                      <option value="pending">Pending</option>
+                      <option value="submitted_to_manufacturer">Submitted to Manufacturer</option>
+                      <option value="confirmed_by_manufacturer">Confirmed by Manufacturer</option>
+                      <option value="rejected">Rejected</option>
+                      <option value="canceled">Canceled</option>
                     </select>
                   </div>
                 </div>
@@ -446,7 +436,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 </div>
 
                 {/* Tracking Information for Confirmed Orders */}
-                {orderFormData.status === 'Confirmed by Manufacturer' && (
+                {orderFormData.status === 'confirmed_by_manufacturer' && (
                   <div className="space-y-3 p-4 bg-green-50 rounded-md">
                     <h5 className="text-sm font-medium text-green-800">Shipping Information</h5>
                     <div className="grid grid-cols-2 gap-3">
@@ -508,6 +498,15 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         currentStatus={modalCurrentStatus}
         newStatus={modalNewStatus}
         orderId={orderId}
+      />
+
+      {/* Document Viewer Panel */}
+      <DocumentViewerPanel
+        isOpen={showDocumentPanel}
+        onClose={() => setShowDocumentPanel(false)}
+        documentType={documentPanelType}
+        orderId={orderId}
+        title={documentPanelType === 'ivr' ? 'IVR Document' : 'Order Form Document'}
       />
     </>
   );

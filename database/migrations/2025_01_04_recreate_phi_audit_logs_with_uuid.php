@@ -26,8 +26,8 @@ return new class extends Migration
             $table->json('context')->nullable();
             $table->timestamp('accessed_at')->nullable();
             $table->json('metadata')->nullable();
-            $table->timestamp('created_at');
-            
+            $table->timestamp('created_at')->useCurrent();
+
             // Indexes
             $table->index('user_id');
             $table->index('resource_type');
@@ -36,7 +36,7 @@ return new class extends Migration
             $table->index('created_at');
             $table->index(['resource_type', 'resource_id']);
         });
-        
+
         // Copy any existing data (converting numeric IDs to UUIDs)
         $existingRecords = DB::table('phi_audit_logs')->get();
         foreach ($existingRecords as $record) {
@@ -45,10 +45,10 @@ return new class extends Migration
             $data['id'] = \Illuminate\Support\Str::uuid()->toString();
             DB::table('phi_audit_logs_new')->insert($data);
         }
-        
+
         // Drop the old table
         Schema::dropIfExists('phi_audit_logs');
-        
+
         // Rename the new table
         Schema::rename('phi_audit_logs_new', 'phi_audit_logs');
     }
@@ -72,8 +72,8 @@ return new class extends Migration
             $table->json('context')->nullable();
             $table->timestamp('accessed_at')->nullable();
             $table->json('metadata')->nullable();
-            $table->timestamp('created_at');
-            
+            $table->timestamp('created_at')->useCurrent();
+
             // Indexes
             $table->index('user_id');
             $table->index('resource_type');
@@ -82,10 +82,10 @@ return new class extends Migration
             $table->index('created_at');
             $table->index(['resource_type', 'resource_id']);
         });
-        
+
         // Drop the UUID version
         Schema::dropIfExists('phi_audit_logs');
-        
+
         // Rename back
         Schema::rename('phi_audit_logs_old', 'phi_audit_logs');
     }

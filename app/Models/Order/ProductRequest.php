@@ -52,6 +52,14 @@ class ProductRequest extends Model
         'approved_at',
         'total_order_value',
         'acquiring_rep_id',
+        'ivr_episode_id',
+        'docuseal_submission_id',
+        'docuseal_template_id',
+        'notes',
+        'rejection_reason',
+        'cancellation_reason',
+        'carrier',
+        'tracking_number',
     ];
 
     protected $casts = [
@@ -195,12 +203,9 @@ class ProductRequest extends Model
     /**
      * Get the IVR episode associated with this product request.
      */
-    public function ivrEpisode(): BelongsTo
+    public function episode(): BelongsTo
     {
-        // Since ivr_episode_id column doesn't exist,
-        // we can't establish a direct relationship
-        // This would need to be handled through a different mechanism
-        throw new \Exception('ivr_episode_id column does not exist in product_requests table');
+        return $this->belongsTo(\App\Models\PatientManufacturerIVREpisode::class, 'ivr_episode_id');
     }
 
     /**

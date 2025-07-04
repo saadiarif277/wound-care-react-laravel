@@ -250,6 +250,20 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::get('/episodes/{episode}/documents/{document}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadEpisodeDocument'])->name('admin.episodes.documents.download');
     Route::delete('/episodes/{episode}/documents/{document}', [App\Http\Controllers\Admin\OrderCenterController::class, 'deleteEpisodeDocument'])->name('admin.episodes.documents.delete');
 
+    // Enhanced order management API routes
+    Route::get('/episodes/{episode}/ivr-document', [App\Http\Controllers\Admin\OrderCenterController::class, 'getIvrDocument'])->name('admin.episodes.ivr-document');
+    Route::post('/episodes/{episode}/send-ivr-notification', [App\Http\Controllers\Admin\OrderCenterController::class, 'sendIvrNotification'])->name('admin.episodes.send-ivr-notification');
+
+    // Order status management
+    Route::post('/orders/{order}/change-status', [App\Http\Controllers\Admin\OrderCenterController::class, 'changeOrderStatus'])->name('admin.orders.change-status');
+    Route::get('/orders/{order}/status-history', [App\Http\Controllers\Admin\OrderCenterController::class, 'getOrderStatusHistory'])->name('admin.orders.status-history');
+    Route::get('/orders/{order}/notification-stats', [App\Http\Controllers\Admin\OrderCenterController::class, 'getNotificationStats'])->name('admin.orders.notification-stats');
+    Route::get('/orders/{order}/enhanced-details', [App\Http\Controllers\Admin\OrderCenterController::class, 'getEnhancedOrderDetails'])->name('admin.orders.enhanced-details');
+
+    // IVR Viewing Routes
+    Route::get('/ivr/view/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'viewIvrDocument'])->name('admin.ivr.view');
+    Route::get('/ivr/download/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadIvrDocument'])->name('admin.ivr.download');
+
     // Enhanced Dashboard Routes - Now handled by OrderCenterController
     // Redirect old enhanced dashboard route to consolidated order center
     Route::get('/dashboard/enhanced', function () {
@@ -413,7 +427,7 @@ Route::middleware(['permission:manage-products'])->group(function () {
 
     // MUE validation route (for order validation)
     Route::post('products/{product}/validate-quantity', [ProductController::class, 'validateQuantity'])->name('products.validate-quantity');
-    
+
     // Pricing history route
     Route::get('products/{product}/pricing-history', [ProductController::class, 'getPricingHistory'])->name('products.pricing-history');
 });
@@ -1066,7 +1080,7 @@ Route::middleware(['auth', 'permission:view-orders'])->prefix('provider')->group
     Route::get('/episodes/{episode}', [ProviderDashboardController::class, 'showEpisode'])
         ->name('provider.episodes.show')
         ->middleware('permission:view-orders');
-    
+
     // Provider Profile Route
     Route::get('/profile', [\App\Http\Controllers\Api\ProviderProfileController::class, 'showOwn'])
         ->name('provider.profile');
