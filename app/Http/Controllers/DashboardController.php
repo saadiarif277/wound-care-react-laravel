@@ -153,7 +153,7 @@ class DashboardController extends Controller
     private function getRecentRequests($user): array
     {
         $query = ProductRequest::with(['facility'])
-            ->where('provider_id', $user?->id)
+            ->where('id', $user?->id)
             ->orderBy('created_at', 'desc')
             ->limit(5);
 
