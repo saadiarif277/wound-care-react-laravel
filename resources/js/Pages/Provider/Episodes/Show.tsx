@@ -193,9 +193,9 @@ const ProviderEpisodeShow: React.FC<ProviderEpisodeShowProps> = ({
     );
   }
 
-  const currentStatus = statusConfig[episode.status] || statusConfig.ready_for_review;
+  const currentStatus = statusConfig[episode.status as keyof typeof statusConfig] || statusConfig.ready_for_review;
   const StatusIcon = currentStatus.icon;
-  const ivrStatus = ivrStatusConfig[episode.ivr_status] || ivrStatusConfig.pending;
+  const ivrStatus = ivrStatusConfig[episode.ivr_status as keyof typeof ivrStatusConfig] || ivrStatusConfig.pending;
   const IvrIcon = ivrStatus.icon;
 
   return (
@@ -234,7 +234,7 @@ const ProviderEpisodeShow: React.FC<ProviderEpisodeShowProps> = ({
                   {copied ? <Check className="w-4 h-4 mr-2 text-green-600" /> : <Copy className="w-4 h-4 mr-2" />}
                   {copied ? 'Copied!' : 'Copy Episode ID'}
                 </button>
-                <Button variant="outline">
+                <Button variant="ghost">
                   <Download className="w-4 h-4 mr-2" />
                   Download
                 </Button>
@@ -374,7 +374,7 @@ const ProviderEpisodeShow: React.FC<ProviderEpisodeShowProps> = ({
                         </div>
                         <div className="flex items-center space-x-3">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => router.visit(`/provider/orders/${order.id}`)}
                           >
@@ -520,11 +520,11 @@ const ProviderEpisodeShow: React.FC<ProviderEpisodeShowProps> = ({
                   Our support team is here to help with any questions about your episode.
                 </p>
                 <div className="space-y-2">
-                  <Button variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-100">
+                  <Button variant="ghost" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-100">
                     <Phone className="w-4 h-4 mr-2" />
                     Call Support
                   </Button>
-                  <Button variant="outline" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-100">
+                  <Button variant="ghost" size="sm" className="w-full border-blue-300 text-blue-700 hover:bg-blue-100">
                     <Mail className="w-4 h-4 mr-2" />
                     Email Support
                   </Button>

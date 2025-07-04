@@ -787,5 +787,4 @@ Route::middleware(['auth:sanctum'])->group(function () {
     Route::post('/order-status/update', [App\Http\Controllers\Api\OrderStatusController::class, 'updateStatus']);
     Route::delete('/order-status/remove-document', [App\Http\Controllers\Api\OrderStatusController::class, 'removeDocument']);
 });
-
 // Fallback Route for 404 API requests

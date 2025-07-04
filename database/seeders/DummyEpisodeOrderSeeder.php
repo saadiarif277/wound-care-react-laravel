@@ -18,6 +18,9 @@ class DummyEpisodeOrderSeeder extends Seeder
      */
     public function run(): void
     {
+        // DISABLED: No longer creating mock episodes and orders - using live data only
+        $this->command->info('DummyEpisodeOrderSeeder disabled - using live data only');
+        return;
         // Create some manufacturers if they don't exist
         $manufacturers = [
             ['name' => 'ACZ & Associates', 'contact_email' => 'orders@acz.com'],

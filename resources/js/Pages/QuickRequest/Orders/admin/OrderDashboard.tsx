@@ -1,20 +1,43 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '../ui/button';
 import { OrderTable } from './OrderTable';
 import { OrderDetailView } from './OrderDetailView';
 import { AdminOrderData, DashboardFilter, AdminViewMode } from '../types/adminTypes';
-import { mockAdminOrders } from '../data/mockAdminOrderData';
 import { Plus } from 'lucide-react';
+import { router } from '@inertiajs/react';
 
 export const OrderDashboard: React.FC = () => {
   const [viewMode, setViewMode] = useState<AdminViewMode>('dashboard');
   const [selectedOrder, setSelectedOrder] = useState<AdminOrderData | null>(null);
   const [filter, setFilter] = useState<DashboardFilter>('requiring-action');
+  const [orders, setOrders] = useState<AdminOrderData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredOrders = mockAdminOrders.filter(order => 
-    filter === 'requiring-action' ? order.actionRequired : true
-  );
+  // Fetch orders data
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        setLoading(true);
+        const response = await fetch('/api/admin/orders');
+        const data = await response.json();
+        
+        if (data.success) {
+          setOrders(data.orders || []);
+        }
+      } catch (error) {
+        console.error('Error fetching orders:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchOrders();
+  }, []);
+
+  const filteredOrders = filter === 'requiring-action' 
+    ? orders.filter(o => o.actionRequired) 
+    : orders;
 
   const handleRowClick = (order: AdminOrderData) => {
     setSelectedOrder(order);
@@ -90,7 +113,10 @@ export const OrderDashboard: React.FC = () => {
               Manage provider-submitted orders and track order lifecycle
             </p>
           </div>
-          <Button className="bg-primary hover:bg-primary/90">
+          <Button 
+            className="bg-primary hover:bg-primary/90"
+            onClick={() => router.visit('/quick-request')}
+          >
             <Plus className="h-4 w-4 mr-2" />
             Create Order
           </Button>
@@ -107,7 +133,7 @@ export const OrderDashboard: React.FC = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              Orders Requiring Action ({filteredOrders.filter(o => o.actionRequired).length})
+              Orders Requiring Action ({filteredOrders.filter((o: any) => o.actionRequired).length})
             </button>
             <button
               onClick={() => setFilter('all-orders')}
@@ -117,13 +143,20 @@ export const OrderDashboard: React.FC = () => {
                   : 'text-muted-foreground hover:text-foreground'
               }`}
             >
-              All Orders ({mockAdminOrders.length})
+              All Orders ({orders.length})
             </button>
           </div>
         </div>
 
         {/* Orders Table */}
-        <OrderTable orders={filteredOrders} onRowClick={handleRowClick} />
+        {loading ? (
+          <div className="flex justify-center items-center py-12">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <span className="ml-2 text-muted-foreground">Loading orders...</span>
+          </div>
+        ) : (
+          <OrderTable orders={filteredOrders} onRowClick={handleRowClick} />
+        )}
       </div>
     </div>
   );

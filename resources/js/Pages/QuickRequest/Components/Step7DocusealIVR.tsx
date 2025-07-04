@@ -472,10 +472,13 @@ export default function Step7DocusealIVR({
           apiFormData.append('insurance_card_back', backCard);
         }
 
+        // Get fresh CSRF token for the request
+        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
+        
         const response = await fetch('/api/insurance-card/analyze', {
           method: 'POST',
           headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+            'X-CSRF-TOKEN': csrfToken,
           },
           body: apiFormData,
         });
@@ -498,6 +501,12 @@ export default function Step7DocusealIVR({
               setInsuranceCardSuccess(false);
             }, 5000);
           }
+        } else if (response.status === 419) {
+          console.error('CSRF token expired during insurance card upload');
+          alert('Session expired. Please refresh the page and try again.');
+          window.location.reload();
+        } else {
+          console.error('Insurance card analysis failed:', response.status, response.statusText);
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);

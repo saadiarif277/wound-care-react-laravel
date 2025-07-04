@@ -1,0 +1,486 @@
+{
+  "woundCareGroups": [
+    {
+      "id": "venous_ulcers",
+      "name": "Venous Leg Ulcers",
+      "description": "Must HAVE 1 Yellow and 1 Orange to be covered for Venous Leg Ulcer",
+      "requiresDualCoding": true,
+      "primaryGroup": "venous",
+      "secondaryGroup": "chronic_ulcer",
+      "codes": {
+        "primary": [
+          {
+            "code": "I83.001",
+            "description": "Varicose veins of unspecified lower extremity with ulcer of thigh",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.002",
+            "description": "Varicose veins of unspecified lower extremity with ulcer of calf",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.003",
+            "description": "Varicose veins of unspecified lower extremity with ulcer of ankle",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.004",
+            "description": "Varicose veins of unspecified lower extremity with ulcer of heel and midfoot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.005",
+            "description": "Varicose veins of unspecified lower extremity with ulcer other part of foot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.008",
+            "description": "Varicose veins of unspecified lower extremity with ulcer other part of lower leg",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.009",
+            "description": "Varicose veins of unspecified lower extremity with ulcer of unspecified site",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.011",
+            "description": "Varicose veins of right lower extremity with ulcer of thigh",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.012",
+            "description": "Varicose veins of right lower extremity with ulcer of calf",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.013",
+            "description": "Varicose veins of right lower extremity with ulcer of ankle",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.014",
+            "description": "Varicose veins of right lower extremity with ulcer of heel and midfoot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.015",
+            "description": "Varicose veins of right lower extremity with ulcer other part of foot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.018",
+            "description": "Varicose veins of right lower extremity with ulcer other part of lower leg",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.019",
+            "description": "Varicose veins of right lower extremity with ulcer of unspecified site",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.021",
+            "description": "Varicose veins of left lower extremity with ulcer of thigh",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.022",
+            "description": "Varicose veins of left lower extremity with ulcer of calf",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.023",
+            "description": "Varicose veins of left lower extremity with ulcer of ankle",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.024",
+            "description": "Varicose veins of left lower extremity with ulcer of heel and midfoot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.025",
+            "description": "Varicose veins of left lower extremity with ulcer other part of foot",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.028",
+            "description": "Varicose veins of left lower extremity with ulcer other part of lower leg",
+            "category": "venous_ulcer"
+          },
+          {
+            "code": "I83.029",
+            "description": "Varicose veins of left lower extremity with ulcer of unspecified site",
+            "category": "venous_ulcer"
+          }
+        ],
+        "secondary": [
+          {
+            "code": "L97.101",
+            "description": "Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.102",
+            "description": "Non-pressure chronic ulcer of unspecified thigh with fat layer exposed",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.103",
+            "description": "Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.104",
+            "description": "Non-pressure chronic ulcer of unspecified thigh with necrosis of bone",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.109",
+            "description": "Non-pressure chronic ulcer of unspecified thigh with unspecified severity",
+            "category": "chronic_ulcer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "venous_foot_ulcers",
+      "name": "Venous Foot Ulcers",
+      "description": "Two diagnosis codes are required - Venous insufficiency plus Chronic Ulcer code",
+      "requiresDualCoding": true,
+      "primaryGroup": "venous_insufficiency",
+      "secondaryGroup": "chronic_ulcer",
+      "codes": {
+        "primary": [
+          {
+            "code": "I87.011",
+            "description": "Postthrombotic syndrome with ulcer of right lower extremity",
+            "category": "venous_insufficiency"
+          },
+          {
+            "code": "I87.012",
+            "description": "Postthrombotic syndrome with ulcer of left lower extremity",
+            "category": "venous_insufficiency"
+          },
+          {
+            "code": "I87.013",
+            "description": "Postthrombotic syndrome with ulcer of bilateral lower extremity",
+            "category": "venous_insufficiency"
+          },
+          {
+            "code": "I87.019",
+            "description": "Postthrombotic syndrome with ulcer of unspecified lower extremity",
+            "category": "venous_insufficiency"
+          },
+          {
+            "code": "I87.2",
+            "description": "Venous insufficiency (chronic) (peripheral)",
+            "category": "venous_insufficiency"
+          }
+        ],
+        "secondary": [
+          {
+            "code": "L97.301",
+            "description": "Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.401",
+            "description": "Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.501",
+            "description": "Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "diabetic_foot_ulcers",
+      "name": "Diabetic Foot Ulcers", 
+      "description": "Two diagnosis codes are required - Diabetic Mellitus plus Chronic Ulcer",
+      "requiresDualCoding": true,
+      "primaryGroup": "diabetes_mellitus",
+      "secondaryGroup": "chronic_ulcer",
+      "codes": {
+        "primary": [
+          {
+            "code": "E08.621",
+            "description": "Diabetes mellitus due to underlying condition with foot ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E08.622",
+            "description": "Diabetes mellitus due to underlying condition with other skin ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E09.621",
+            "description": "Drug or chemical induced diabetes mellitus with foot ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E09.622",
+            "description": "Drug or chemical induced diabetes mellitus with other skin ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E10.621",
+            "description": "Type 1 diabetes mellitus with foot ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E10.622",
+            "description": "Type 1 diabetes mellitus with other skin ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E11.621",
+            "description": "Type 2 diabetes mellitus with foot ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E11.622",
+            "description": "Type 2 diabetes mellitus with other skin ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E13.621",
+            "description": "Other specified diabetes mellitus with foot ulcer",
+            "category": "diabetes_mellitus"
+          },
+          {
+            "code": "E13.622",
+            "description": "Other specified diabetes mellitus with other skin ulcer",
+            "category": "diabetes_mellitus"
+          }
+        ],
+        "secondary": [
+          {
+            "code": "L97.401",
+            "description": "Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.501",
+            "description": "Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.511",
+            "description": "Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.521",
+            "description": "Non-pressure chronic ulcer of other part of left foot limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "arterial_ulcers",
+      "name": "Arterial Ulcers",
+      "description": "Requires TWO codes: Primary I70.- + Secondary L97.- (or L98.49- for upper extremity)",
+      "requiresDualCoding": true,
+      "primaryGroup": "arterial",
+      "secondaryGroup": "chronic_ulcer",
+      "codes": {
+        "primary": [
+          {
+            "code": "I70.231",
+            "description": "Atherosclerosis of native arteries of right leg with ulceration of thigh",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.232",
+            "description": "Atherosclerosis of native arteries of right leg with ulceration of calf",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.233",
+            "description": "Atherosclerosis of native arteries of right leg with ulceration of ankle",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.241",
+            "description": "Atherosclerosis of native arteries of left leg with ulceration of thigh",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.242",
+            "description": "Atherosclerosis of native arteries of left leg with ulceration of calf",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.243",
+            "description": "Atherosclerosis of native arteries of left leg with ulceration of ankle",
+            "category": "arterial"
+          },
+          {
+            "code": "I70.25",
+            "description": "Atherosclerosis of native arteries of other extremities with ulceration",
+            "category": "arterial"
+          }
+        ],
+        "secondary": [
+          {
+            "code": "L97.101",
+            "description": "Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.201",
+            "description": "Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L97.301",
+            "description": "Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          },
+          {
+            "code": "L98.491",
+            "description": "Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin",
+            "category": "chronic_ulcer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pressure_ulcers",
+      "name": "Pressure Ulcers",
+      "description": "ONLY 1 CODE NEEDED",
+      "requiresDualCoding": false,
+      "codes": [
+        {
+          "code": "L89.000",
+          "description": "Pressure ulcer of unspecified elbow, unstageable",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.002",
+          "description": "Pressure ulcer of unspecified elbow, stage 2",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.003",
+          "description": "Pressure ulcer of unspecified elbow, stage 3",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.004",
+          "description": "Pressure ulcer of unspecified elbow, stage 4",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.150",
+          "description": "Pressure ulcer of sacral region, unstageable",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.151",
+          "description": "Pressure ulcer of sacral region, stage 1",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.152",
+          "description": "Pressure ulcer of sacral region, stage 2",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.153",
+          "description": "Pressure ulcer of sacral region, stage 3",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.154",
+          "description": "Pressure ulcer of sacral region, stage 4",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.600",
+          "description": "Pressure ulcer of unspecified heel, unstageable",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.601",
+          "description": "Pressure ulcer of unspecified heel, stage 1",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.602",
+          "description": "Pressure ulcer of unspecified heel, stage 2",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.603",
+          "description": "Pressure ulcer of unspecified heel, stage 3",
+          "category": "pressure_ulcer"
+        },
+        {
+          "code": "L89.604",
+          "description": "Pressure ulcer of unspecified heel, stage 4",
+          "category": "pressure_ulcer"
+        }
+      ]
+    },
+    {
+      "id": "chronic_ulcers",
+      "name": "Chronic Ulcers",
+      "description": "ONLY 1 CODE NEEDED",
+      "requiresDualCoding": false,
+      "codes": [
+        {
+          "code": "L97.101",
+          "description": "Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.111",
+          "description": "Non-pressure chronic ulcer of right thigh limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.121",
+          "description": "Non-pressure chronic ulcer of left thigh limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.201",
+          "description": "Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.211",
+          "description": "Non-pressure chronic ulcer of right calf limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.221",
+          "description": "Non-pressure chronic ulcer of left calf limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.301",
+          "description": "Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.311",
+          "description": "Non-pressure chronic ulcer of right ankle limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        },
+        {
+          "code": "L97.321",
+          "description": "Non-pressure chronic ulcer of left ankle limited to breakdown of skin",
+          "category": "chronic_ulcer"
+        }
+      ]
+    }
+  ]
+} 

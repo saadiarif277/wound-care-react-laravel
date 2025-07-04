@@ -15,6 +15,8 @@ use App\Services\PatientService;
 use App\Services\FhirService;
 use App\Services\DocusealService;
 use Illuminate\Support\Facades\Response;
+use App\Models\Order\Order;
+use App\Observers\OrderObserver;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -127,6 +129,9 @@ class AppServiceProvider extends ServiceProvider
         JsonResource::withoutWrapping();
 
         $this->bootRoute();
+
+        // Register Order Observer
+        Order::observe(OrderObserver::class);
 
         // Response macro for security headers
         // Response::macro('withSecurityHeaders', function ($response) {

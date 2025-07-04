@@ -1,7 +1,6 @@
 <?php
 
 return [
-
     /*
     |--------------------------------------------------------------------------
     | Third Party Services
@@ -35,9 +34,19 @@ return [
         'tenant_id' => env('AZURE_FHIR_TENANT_ID', env('AZURE_TENANT_ID')),
         'client_id' => env('AZURE_FHIR_CLIENT_ID', env('AZURE_CLIENT_ID')),
         'client_secret' => env('AZURE_FHIR_CLIENT_SECRET', env('AZURE_CLIENT_SECRET')),
-        'fhir_endpoint' => env('AZURE_FHIR_BASE_URL', env('AZURE_FHIR_ENDPOINT')),
+        'fhir_endpoint' => env('AZURE_FHIR_ENDPOINT', env('AZURE_FHIR_BASE_URL')),
+        'fhir_scope' => env('AZURE_FHIR_SCOPE'),
         'fhir' => [
-            'base_url' => env('AZURE_FHIR_BASE_URL', env('AZURE_FHIR_ENDPOINT')),
+            'base_url' => env('AZURE_FHIR_ENDPOINT', env('AZURE_FHIR_BASE_URL')),
+        ],
+        // Azure Health Data Services (AHDS) Configuration
+        'health_data_services' => [
+            'workspace_url' => env('AZURE_HEALTH_DATA_SERVICES_WORKSPACE_URL'),
+            'tenant_id' => env('AZURE_HEALTH_DATA_SERVICES_TENANT_ID', env('AZURE_TENANT_ID')),
+            'client_id' => env('AZURE_HEALTH_DATA_SERVICES_CLIENT_ID', env('AZURE_CLIENT_ID')),
+            'client_secret' => env('AZURE_HEALTH_DATA_SERVICES_CLIENT_SECRET', env('AZURE_CLIENT_SECRET')),
+            'scope' => env('AZURE_HEALTH_DATA_SERVICES_SCOPE', 'https://azurehealthcareapis.com/.default'),
+            'oauth_endpoint' => env('AZURE_HEALTH_DATA_SERVICES_OAUTH_ENDPOINT', 'https://login.microsoftonline.com'),
         ],
         'key_vault' => [
             'vault_url' => env('AZURE_KEY_VAULT_URL'),

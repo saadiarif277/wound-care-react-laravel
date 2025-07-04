@@ -56,6 +56,7 @@ class Order extends Model
         'episode_id',
         'parent_order_id',
         'type', // 'initial' or 'follow_up'
+        'notes', // Added notes field for storing JSON data
         // NO PHI fields like patient name, DOB, etc.
     ];
 
@@ -76,6 +77,7 @@ class Order extends Model
         'submitted_to_manufacturer_at' => 'datetime',
         'paid_at' => 'datetime',
         'type' => 'string',
+        'notes' => 'json',
     ];
 
     /**

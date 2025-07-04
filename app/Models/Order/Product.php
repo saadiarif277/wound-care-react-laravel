@@ -447,11 +447,20 @@ class Product extends Model
     {
         // If we have size_options, return those as the primary source
         if (!empty($this->attributes['size_options'])) {
-            return json_decode($this->attributes['size_options'], true) ?? [];
+            // Check if it's already decoded (due to cast)
+            $sizeOptions = $this->attributes['size_options'];
+            if (is_string($sizeOptions)) {
+                return json_decode($sizeOptions, true) ?? [];
+            }
+            // If it's already an array (from cast), return it directly
+            return $sizeOptions;
         }
 
         // Otherwise return the original numeric sizes for backward compatibility
-        return json_decode($value, true) ?? [];
+        if (is_string($value)) {
+            return json_decode($value, true) ?? [];
+        }
+        return $value ?? [];
     }
 
     /**

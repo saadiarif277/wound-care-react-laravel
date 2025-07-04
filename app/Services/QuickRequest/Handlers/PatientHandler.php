@@ -6,48 +6,62 @@ use App\Services\FhirService;
 use App\Logging\PhiSafeLogger;
 use App\Services\Compliance\PhiAuditService;
 
-class PatientHandler
+class PatientHandler extends BaseHandler
 {
     public function __construct(
-        private FhirService $fhirService,
-        private PhiSafeLogger $logger,
-        private PhiAuditService $auditService
-    ) {}
+        FhirService $fhirService,
+        PhiSafeLogger $logger,
+        PhiAuditService $auditService
+    ) {
+        parent::__construct($fhirService, $logger, $auditService);
+    }
 
     /**
      * Create or update patient in FHIR
      */
     public function createOrUpdatePatient(array $patientData): string
     {
-        try {
-            $this->logger->info('Creating or updating patient in FHIR');
+        // Validate required fields
+        $this->validateRequiredFields($patientData, ['first_name', 'last_name', 'dob']);
+        
+        // Sanitize input data
+        $patientData = $this->sanitizeData($patientData);
 
-            // Search for existing patient
-            $existingPatient = $this->findExistingPatient($patientData);
+        return $this->executeFhirOperation(
+            'patient creation',
+            function () use ($patientData) {
+                // Search for existing patient
+                $existingPatient = $this->findExistingPatient($patientData);
 
-            if ($existingPatient) {
-                $this->auditService->logAccess('patient.accessed', 'Patient', $existingPatient['id']);
-                return $existingPatient['id'];
+                if ($existingPatient) {
+                    $this->logAuditAccess('patient.accessed', 'Patient', $existingPatient['id']);
+                    return $existingPatient['id'];
+                }
+
+                // Create new patient
+                $fhirPatient = $this->mapToFhirPatient($patientData);
+                $response = $this->fhirService->createPatient($fhirPatient);
+
+                $this->logAuditAccess('patient.created', 'Patient', $response['id']);
+
+                $this->logger->info('Patient created successfully in FHIR', [
+                    'patient_id' => $response['id']
+                ]);
+
+                return $response['id'];
+            },
+            function () use ($patientData) {
+                // Fallback: generate local patient ID
+                $localPatientId = $this->generateLocalId('patient', $patientData);
+                
+                $this->logger->info('Using local patient ID (FHIR disabled)', [
+                    'patient_id' => $localPatientId,
+                    'patient_name' => $patientData['first_name'] . ' ' . $patientData['last_name']
+                ]);
+                
+                return $localPatientId;
             }
-
-            // Create new patient
-            $fhirPatient = $this->mapToFhirPatient($patientData);
-            $response = $this->fhirService->createPatient($fhirPatient);
-
-            $this->auditService->logAccess('patient.created', 'Patient', $response['id']);
-
-            $this->logger->info('Patient created successfully in FHIR', [
-                'patient_id' => $response['id']
-            ]);
-
-            return $response['id'];
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to create/update patient in FHIR', [
-                'error' => $e->getMessage(),
-                'patient_name' => $patientData['first_name'] . ' ' . $patientData['last_name']
-            ]);
-            throw new \Exception('Failed to create/update patient: ' . $e->getMessage());
-        }
+        );
     }
 
     /**
@@ -62,16 +76,10 @@ class PatientHandler
             'birthdate' => $patientData['dob']
         ];
 
-        $results = $this->fhirService->searchPatients($searchParams);
-
-        if (!empty($results['entry'])) {
-            // Additional validation to ensure it's the same patient
-            foreach ($results['entry'] as $entry) {
-                $resource = $entry['resource'];
-                if ($this->matchesPatient($resource, $patientData)) {
-                    return $resource;
-                }
-            }
+        $resource = $this->findExistingFhirResource('Patient', $searchParams);
+        
+        if ($resource && $this->matchesPatient($resource, $patientData)) {
+            return $resource;
         }
 
         return null;
@@ -127,7 +135,7 @@ class PatientHandler
                     'given' => [$data['first_name']]
                 ]
             ],
-            'gender' => $this->mapGender($data['gender'] ?? 'unknown'),
+            'gender' => $this->mapGenderToFhir($data['gender'] ?? 'unknown'),
             'birthDate' => $data['dob']
         ];
 
@@ -136,7 +144,7 @@ class PatientHandler
         if (!empty($data['phone'])) {
             $telecom[] = [
                 'system' => 'phone',
-                'value' => $data['phone'],
+                'value' => $this->formatPhoneNumber($data['phone']),
                 'use' => 'home'
             ];
         }
@@ -195,22 +203,7 @@ class PatientHandler
         return $first . $last . $random;
     }
 
-    /**
-     * Map gender to FHIR values
-     */
-    private function mapGender(string $gender): string
-    {
-        $genderMap = [
-            'm' => 'male',
-            'f' => 'female',
-            'male' => 'male',
-            'female' => 'female',
-            'other' => 'other',
-            'unknown' => 'unknown'
-        ];
 
-        return $genderMap[strtolower($gender)] ?? 'unknown';
-    }
 
     /**
      * Map marital status to FHIR values

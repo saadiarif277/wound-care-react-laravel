@@ -24,7 +24,7 @@ class PhiAuditService
     {
         try {
             DB::table('phi_audit_logs')->insert([
-                'id' => \Illuminate\Support\Str::uuid(),
+                'id' => \Illuminate\Support\Str::uuid()->toString(),
                 'user_id' => Auth::id(),
                 'user_email' => Auth::user()?->email,
                 'action' => $action,
@@ -67,7 +67,7 @@ class PhiAuditService
         
         foreach ($resources as $resource) {
             $logs[] = [
-                'id' => \Illuminate\Support\Str::uuid(),
+                'id' => \Illuminate\Support\Str::uuid()->toString(),
                 'user_id' => Auth::id(),
                 'user_email' => Auth::user()?->email,
                 'action' => $action,

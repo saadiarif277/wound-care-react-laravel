@@ -1,0 +1,521 @@
+Neat List:
+ -  | Must HAVE 1 Yellow and 1 Orange to be covered for Venous Leg Ulcer
+ - Group 1- Venous Ulcers (As per ICD 10 code book notes from I83.0- and I83.2- : Use Additional Code to identify severity of ulcer (L97.-) | Chronic Ulcer
+ - I83.001 | Varicose veins of unspecified lower extremity with ulcer of thigh | L97.101 | Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin
+ - I83.002 | Varicose veins of unspecified lower extremity with ulcer of calf | L97.102 | Non-pressure chronic ulcer of unspecified thigh with fat layer exposed
+ - I83.003 | Varicose veins of unspecified lower extremity with ulcer of ankle | L97.103 | Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle
+ - I83.004 | Varicose veins of unspecified lower extremity with ulcer of heel and midfoot | L97.104 | Non-pressure chronic ulcer of unspecified thigh with necrosis of bone
+ - I83.005 | Varicose veins of unspecified lower extremity with ulcer other part of foot | L97.109 | Non-pressure chronic ulcer of unspecified thigh with unspecified severity
+ - I83.008 | Varicose veins of unspecified lower extremity with ulcer other part of lower leg | L97.111 | Non-pressure chronic ulcer of right thigh limited to breakdown of skin
+ - I83.009 | Varicose veins of unspecified lower extremity with ulcer of unspecified site | L97.112 | Non-pressure chronic ulcer of right thigh with fat layer exposed
+ - I83.011 | Varicose veins of right lower extremity with ulcer of thigh | L97.113 | Non-pressure chronic ulcer of right thigh with necrosis of muscle   
+ - I83.012 | Varicose veins of right lower extremity with ulcer of calf | L97.114 | Non-pressure chronic ulcer of right thigh with necrosis of bone      
+ - I83.013 | Varicose veins of right lower extremity with ulcer of ankle | L97.119 | Non-pressure chronic ulcer of right thigh with unspecified severity 
+ - I83.014 | Varicose veins of right lower extremity with ulcer of heel and midfoot | L97.121 | Non-pressure chronic ulcer of left thigh limited to breakdown of skin
+ - I83.015 | Varicose veins of right lower extremity with ulcer other part of foot | L97.122 | Non-pressure chronic ulcer of left thigh with fat layer exposed
+ - I83.018 | Varicose veins of right lower extremity with ulcer other part of lower leg | L97.123 | Non-pressure chronic ulcer of left thigh with necrosis of muscle
+ - I83.019 | Varicose veins of right lower extremity with ulcer of unspecified site | L97.124 | Non-pressure chronic ulcer of left thigh with necrosis of bone
+ - I83.021 | Varicose veins of left lower extremity with ulcer of thigh | L97.129 | Non-pressure chronic ulcer of left thigh with unspecified severity   
+ - I83.022 | Varicose veins of left lower extremity with ulcer of calf | L97.201 | Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin
+ - I83.023 | mity with ulcer of ankle | L97.202 | Non-pressure chronic ulcer of unspecified calf with fat layer exposed
+ - I83.024 | Varicose veins of left lower extremity with ulcer of heel and midfoot | L97.203 | Non-pressure chronic ulcer of unspecified calf with necrosis of muscle
+ - I83.025 | Varicose veins of left lower extremity with ulcer other part of foot | L97.204 | Non-pressure chronic ulcer of unspecified calf with necrosis of bone
+ - I83.028 | Varicose veins of left lower extremity with ulcer other part of lower leg | L97.209 | Non-pressure chronic ulcer of unspecified calf with unspecified severity
+ - I83.029 | Varicose veins of left lower extremity with ulcer of unspecified site | L97.211 | Non-pressure chronic ulcer of right calf limited to breakdown of skin
+ - I83.201 | Varicose veins of unspecified lower extremity with both ulcer of thigh and inflammation | L97.212 | Non-pressure chronic ulcer of right calf with fat layer exposed
+ - I83.202 | Varicose veins of unspecified lower extremity with both ulcer of calf and inflammation | L97.213 | Non-pressure chronic ulcer of right calf with necrosis of muscle
+ - I83.203 | Varicose veins of unspecified lower extremity with both ulcer of ankle and inflammation | L97.214 | Non-pressure chronic ulcer of right calf with necrosis of bone
+ - I83.204 | Varicose veins of unspecified lower extremity with both ulcer of heel and midfoot and inflammation | L97.219 | Non-pressure chronic ulcer of right calf with unspecified severity
+ - I83.205 | Varicose veins of unspecified lower extremity with both ulcer other part of foot and inflammation | L97.221 | Non-pressure chronic ulcer of left calf limited to breakdown of skin
+ - I83.208 | Varicose veins of unspecified lower extremity with both ulcer of other part of lower extremity and inflammation | L97.222 | Non-pressure chronic ulcer of left calf with fat layer exposed
+ - I83.209 | Varicose veins of unspecified lower extremity with both ulcer of unspecified site and inflammation | L97.223 | Non-pressure chronic ulcer of left calf with necrosis of muscle
+ - I83.211 | Varicose veins of right lower extremity with both ulcer of thigh and inflammation | L97.224 | Non-pressure chronic ulcer of left calf with necrosis of bone
+ - I83.212 | Varicose veins of right lower extremity with both ulcer of calf and inflammation | L97.229 | Non-pressure chronic ulcer of left calf with unspecified severity
+ - I83.213 | Varicose veins of right lower extremity with both ulcer of ankle and inflammation | L97.301 | Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin
+ - I83.214 | Varicose veins of right lower extremity with both ulcer of heel and midfoot and inflammation | L97.302 | Non-pressure chronic ulcer of unspecified ankle with fat layer exposed
+ - I83.215 | Varicose veins of right lower extremity with both ulcer other part of foot and inflammation | L97.303 | Non-pressure chronic ulcer of unspecified ankle with necrosis of muscle
+ - I83.218 | Varicose veins of right lower extremity with both ulcer of other part of lower extremity and inflammation | L97.304 | Non-pressure chronic ulcer of unspecified ankle with necrosis of bone
+ - I83.219 | Varicose veins of right lower extremity with both ulcer of unspecified site and inflammation | L97.309 | Non-pressure chronic ulcer of unspecified ankle with unspecified severity
+ - I83.221 | Varicose veins of left lower extremity with both ulcer of thigh and inflammation | L97.311 | Non-pressure chronic ulcer of right ankle limited to breakdown of skin
+ - I83.222 | Varicose veins of left lower extremity with both ulcer of calf and inflammation | L97.312 | Non-pressure chronic ulcer of right ankle with fat layer exposed
+ - I83.223 | Varicose veins of left lower extremity with both ulcer of ankle and inflammation | L97.313 | Non-pressure chronic ulcer of right ankle with necrosis of muscle
+ - I83.224 | Varicose veins of left lower extremity with both ulcer of heel and midfoot and inflammation | L97.314 | Non-pressure chronic ulcer of right ankle with necrosis of bone
+ - I83.225 | Varicose veins of left lower extremity with both ulcer other part of foot and inflammation | L97.319 | Non-pressure chronic ulcer of right ankle with unspecified severity
+ - I83.228 | Varicose veins of left lower extremity with both ulcer of other part of lower extremity and inflammation | L97.321 | Non-pressure chronic ulcer of left ankle limited to breakdown of skin
+ - I83.229 | Varicose veins of left lower extremity with both ulcer of unspecified site and inflammation | L97.322 | Non-pressure chronic ulcer of left ankle with fat layer exposed
+ - Group 2- Two diagnosis codes are required- Venous insufficiency plus Chronic Ulcer code | L97.323 | Non-pressure chronic ulcer of left ankle with necrosis of muscle
+ - Venous insufficiency | L97.324 | Non-pressure chronic ulcer of left ankle with necrosis of bone
+ - I87.011 | Postthrombotic syndrome with ulcer of right lower extremity | L97.329 | Non-pressure chronic ulcer of left ankle with unspecified severity  
+ - I87.012 | Postthrombotic syndrome with ulcer of left lower extremity | L97.401 | Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin
+ - I87.013 | Postthrombotic syndrome with ulcer of bilateral lower extremity | L97.402 | Non-pressure chronic ulcer of unspecified heel and midfoot with fat layer exposed
+ - I87.019 | Postthrombotic syndrome with ulcer of unspecified lower extremity | L97.403 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of muscle
+ - I87.031 | Postthrombotic syndrome with ulcer and inflammation of right lower extremity | L97.404 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of bone
+ - I87.032 | Postthrombotic syndrome with ulcer and inflammation of left lower extremity | L97.409 | Non-pressure chronic ulcer of unspecified heel and midfoot with unspecified severity
+ - I87.033 | Postthrombotic syndrome with ulcer and inflammation of bilateral lower extremity | L97.411 | Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin
+ - I87.039 | Postthrombotic syndrome with ulcer and inflammation of unspecified lower extremity | L97.412 | Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed
+ - I87.2 | Venous insufficiency (chronic) (peripheral) | L97.413 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of muscle
+ - I87.311 | Chronic venous hypertension (idiopathic) with ulcer of right lower extremity | L97.414 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of bone
+ - I87.312 | Chronic venous hypertension (idiopathic) with ulcer of left lower extremity | L97.419 | Non-pressure chronic ulcer of right heel and midfoot with unspecified severity
+ - I87.313 | Chronic venous hypertension (idiopathic) with ulcer of bilateral lower extremity | L97.421 | Non-pressure chronic ulcer of left heel and midfoot limited to breakdown of skin
+ - I87.319 | Chronic venous hypertension (idiopathic) with ulcer of unspecified lower extremity | L97.422 | Non-pressure chronic ulcer of left heel and midfoot with fat layer exposed
+ - I87.331 | Chronic venous hypertension (idiopathic) with ulcer and inflammation of right lower extremity | L97.423 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of muscle
+ - I87.332 | Chronic venous hypertension (idiopathic) with ulcer and inflammation of left lower extremity | L97.424 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of bone
+ - I87.333 | Chronic venous hypertension (idiopathic) with ulcer and inflammation of bilateral lower extremity | L97.429 | Non-pressure chronic ulcer of left heel and midfoot with unspecified severity
+ - I87.339 | Chronic venous hypertension (idiopathic) with ulcer and inflammation of unspecified lower extremity | L97.501 | Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin
+ - L97.502 | Non-pressure chronic ulcer of other part of unspecified foot with fat layer exposed
+ - L97.503 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of muscle
+ - L97.504 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of bone
+ - L97.509 | Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity
+ - L97.511 | Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin
+ - L97.512 | Non-pressure chronic ulcer of other part of right foot with fat layer exposed
+ - L97.513 | Non-pressure chronic ulcer of other part of right foot with necrosis of muscle
+ - L97.514 | Non-pressure chronic ulcer of other part of right foot with necrosis of bone
+ - L97.519 | Non-pressure chronic ulcer of other part of right foot with unspecified severity
+ - L97.521 | Non-pressure chronic ulcer of other part of left foot limited to breakdown of skin
+ - L97.522 | Non-pressure chronic ulcer of other part of left foot with fat layer exposed
+ - L97.523 | Non-pressure chronic ulcer of other part of left foot with necrosis of muscle
+ - L97.524 | Non-pressure chronic ulcer of other part of left foot with necrosis of bone
+ - L97.529 | Non-pressure chronic ulcer of other part of left foot with unspecified severity
+ - L97.801 | Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin
+ - L97.802 | Non-pressure chronic ulcer of other part of unspecified lower leg with fat layer exposed
+ - L97.803 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of muscle
+ - L97.804 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of bone
+ - L97.809 | Non-pressure chronic ulcer of other part of unspecified lower leg with unspecified severity
+ - L97.811 | Non-pressure chronic ulcer of other part of right lower leg limited to breakdown of skin
+ - L97.812 | Non-pressure chronic ulcer of other part of right lower leg with fat layer exposed
+ - L97.813 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of muscle
+ - L97.814 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of bone
+ - L97.819 | Non-pressure chronic ulcer of other part of right lower leg with unspecified severity
+ - L97.821 | Non-pressure chronic ulcer of other part of left lower leg limited to breakdown of skin
+ - L97.822 | Non-pressure chronic ulcer of other part of left lower leg with fat layer exposed
+ - L97.823 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of muscle
+ - L97.824 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of bone
+ - L97.829 | Non-pressure chronic ulcer of other part of left lower leg with unspecified severity
+ - L97.901 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg limited to breakdown of skin
+ - L97.902 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with fat layer exposed
+ - L97.903 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of muscle
+ - L97.904 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of bone
+ - L97.909 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with unspecified severity
+ - L97.911 | Non-pressure chronic ulcer of unspecified part of right lower leg limited to breakdown of skin
+ - L97.912 | Non-pressure chronic ulcer of unspecified part of right lower leg with fat layer exposed
+ - L97.913 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of muscle
+ - L97.914 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of bone
+ - L97.919 | Non-pressure chronic ulcer of unspecified part of right lower leg with unspecified severity
+ - L97.921 | Non-pressure chronic ulcer of unspecified part of left lower leg limited to breakdown of skin
+ - L97.922 | Non-pressure chronic ulcer of unspecified part of left lower leg with fat layer exposed
+ - L97.923 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of muscle
+ - L97.924 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of bone
+ - L97.929 | Non-pressure chronic ulcer of unspecified part of left lower leg with unspecified severity
+ - L98.411 | Non-pressure chronic ulcer of buttock limited to breakdown of skin
+ - L98.412 | Non-pressure chronic ulcer of buttock with fat layer exposed
+ - L98.413 | Non-pressure chronic ulcer of buttock with necrosis of muscle
+ - L98.414 | Non-pressure chronic ulcer of buttock with necrosis of bone
+ - L98.419 | Non-pressure chronic ulcer of buttock with unspecified severity
+ - L98.421 | Non-pressure chronic ulcer of back limited to breakdown of skin
+ - L98.422 | Non-pressure chronic ulcer of back with fat layer exposed
+ - L98.423 | Non-pressure chronic ulcer of back with necrosis of muscle
+ - L98.424 | Non-pressure chronic ulcer of back with necrosis of bone
+ - L98.429 | Non-pressure chronic ulcer of back with unspecified severity
+ - L98.491 | Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin
+ - L98.492 | Non-pressure chronic ulcer of skin of other sites with fat layer exposed
+ - L98.493 | Non-pressure chronic ulcer of skin of other sites with necrosis of muscle
+ - L98.494 | Non-pressure chronic ulcer of skin of other sites with necrosis of bone
+ - L98.499 | Non-pressure chronic ulcer of skin of other sites with unspecified severity
+ - Must HAVE 1 Yellow and 1 Orange to be covered for Diabetic Foot Ulcer
+ - Group 3- Two diagnosis codes are required- Diabetic Mellitus plus Chronic Ulcer
+ - Diabetes Mellitus | Chronic Ulcer
+ - E08.621 | Diabetes mellitus due to underlying condition with foot ulcer | L97.101 | Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin
+ - E08.622 | Diabetes mellitus due to underlying condition with other skin ulcer | L97.102 | Non-pressure chronic ulcer of unspecified thigh with fat layer exposed
+ - E09.621 | Drug or chemical induced diabetes mellitus with foot ulcer | L97.103 | Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle
+ - E09.622 | Drug or chemical induced diabetes mellitus with other skin ulcer | L97.104 | Non-pressure chronic ulcer of unspecified thigh with necrosis of bone
+ - E10.621 | Type 1 diabetes mellitus with foot ulcer | L97.109 | Non-pressure chronic ulcer of unspecified thigh with unspecified severity
+ - E10.622 | Type 1 diabetes mellitus with other skin ulcer | L97.111 | Non-pressure chronic ulcer of right thigh limited to breakdown of skin
+ - E11.621 | Type 2 diabetes mellitus with foot ulcer | L97.112 | Non-pressure chronic ulcer of right thigh with fat layer exposed
+ - E11.622 | Type 2 diabetes mellitus with other skin ulcer | L97.113 | Non-pressure chronic ulcer of right thigh with necrosis of muscle
+ - E13.621 | Other specified diabetes mellitus with foot ulcer | L97.114 | Non-pressure chronic ulcer of right thigh with necrosis of bone
+ - E13.622 | Other specified diabetes mellitus with other skin ulcer | L97.119 | Non-pressure chronic ulcer of right thigh with unspecified severity     
+ - E11.42 | L97.121 | Non-pressure chronic ulcer of left thigh limited to breakdown of skin
+ - E11.65 | L97.122 | Non-pressure chronic ulcer of left thigh with fat layer exposed
+ - E11.4 | L97.123 | Non-pressure chronic ulcer of left thigh with necrosis of muscle
+ - E11.9 | L97.124 | Non-pressure chronic ulcer of left thigh with necrosis of bone
+ - E11.49 | L97.129 | Non-pressure chronic ulcer of left thigh with unspecified severity
+ - L97.201 | Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin
+ - L97.202 | Non-pressure chronic ulcer of unspecified calf with fat layer exposed
+ - L97.203 | Non-pressure chronic ulcer of unspecified calf with necrosis of muscle
+ - L97.204 | Non-pressure chronic ulcer of unspecified calf with necrosis of bone
+ - L97.209 | Non-pressure chronic ulcer of unspecified calf with unspecified severity
+ - L97.211 | Non-pressure chronic ulcer of right calf limited to breakdown of skin
+ - L97.212 | Non-pressure chronic ulcer of right calf with fat layer exposed
+ - L97.213 | Non-pressure chronic ulcer of right calf with necrosis of muscle
+ - L97.214 | Non-pressure chronic ulcer of right calf with necrosis of bone
+ - L97.219 | Non-pressure chronic ulcer of right calf with unspecified severity
+ - L97.221 | Non-pressure chronic ulcer of left calf limited to breakdown of skin
+ - L97.222 | Non-pressure chronic ulcer of left calf with fat layer exposed
+ - L97.223 | Non-pressure chronic ulcer of left calf with necrosis of muscle
+ - L97.224 | Non-pressure chronic ulcer of left calf with necrosis of bone
+ - L97.229 | Non-pressure chronic ulcer of left calf with unspecified severity
+ - L97.301 | Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin
+ - L97.302 | Non-pressure chronic ulcer of unspecified ankle with fat layer exposed
+ - L97.303 | Non-pressure chronic ulcer of unspecified ankle with necrosis of muscle
+ - L97.304 | Non-pressure chronic ulcer of unspecified ankle with necrosis of bone
+ - L97.309 | Non-pressure chronic ulcer of unspecified ankle with unspecified severity
+ - L97.311 | Non-pressure chronic ulcer of right ankle limited to breakdown of skin
+ - L97.312 | Non-pressure chronic ulcer of right ankle with fat layer exposed
+ - L97.313 | Non-pressure chronic ulcer of right ankle with necrosis of muscle
+ - L97.314 | Non-pressure chronic ulcer of right ankle with necrosis of bone
+ - L97.319 | Non-pressure chronic ulcer of right ankle with unspecified severity
+ - L97.321 | Non-pressure chronic ulcer of left ankle limited to breakdown of skin
+ - L97.322 | Non-pressure chronic ulcer of left ankle with fat layer exposed
+ - L97.323 | Non-pressure chronic ulcer of left ankle with necrosis of muscle
+ - L97.324 | Non-pressure chronic ulcer of left ankle with necrosis of bone
+ - L97.329 | Non-pressure chronic ulcer of left ankle with unspecified severity
+ - L97.401 | Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin
+ - L97.402 | Non-pressure chronic ulcer of unspecified heel and midfoot with fat layer exposed
+ - L97.403 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of muscle
+ - L97.404 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of bone
+ - L97.409 | Non-pressure chronic ulcer of unspecified heel and midfoot with unspecified severity
+ - L97.411 | Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin
+ - L97.412 | Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed
+ - L97.413 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of muscle
+ - L97.414 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of bone
+ - L97.419 | Non-pressure chronic ulcer of right heel and midfoot with unspecified severity
+ - L97.421 | Non-pressure chronic ulcer of left heel and midfoot limited to breakdown of skin
+ - L97.422 | Non-pressure chronic ulcer of left heel and midfoot with fat layer exposed
+ - L97.423 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of muscle
+ - L97.424 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of bone
+ - L97.429 | Non-pressure chronic ulcer of left heel and midfoot with unspecified severity
+ - L97.501 | Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin
+ - L97.502 | Non-pressure chronic ulcer of other part of unspecified foot with fat layer exposed
+ - L97.503 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of muscle
+ - L97.504 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of bone
+ - L97.509 | Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity
+ - L97.511 | Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin
+ - L97.512 | Non-pressure chronic ulcer of other part of right foot with fat layer exposed
+ - L97.513 | Non-pressure chronic ulcer of other part of right foot with necrosis of muscle
+ - L97.514 | Non-pressure chronic ulcer of other part of right foot with necrosis of bone
+ - L97.519 | Non-pressure chronic ulcer of other part of right foot with unspecified severity
+ - L97.521 | Non-pressure chronic ulcer of other part of left foot limited to breakdown of skin
+ - L97.522 | Non-pressure chronic ulcer of other part of left foot with fat layer exposed
+ - L97.523 | Non-pressure chronic ulcer of other part of left foot with necrosis of muscle
+ - L97.524 | Non-pressure chronic ulcer of other part of left foot with necrosis of bone
+ - L97.529 | Non-pressure chronic ulcer of other part of left foot with unspecified severity
+ - L97.801 | Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin
+ - L97.802 | Non-pressure chronic ulcer of other part of unspecified lower leg with fat layer exposed
+ - L97.803 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of muscle
+ - L97.804 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of bone
+ - L97.809 | Non-pressure chronic ulcer of other part of unspecified lower leg with unspecified severity
+ - L97.811 | Non-pressure chronic ulcer of other part of right lower leg limited to breakdown of skin
+ - L97.812 | Non-pressure chronic ulcer of other part of right lower leg with fat layer exposed
+ - L97.813 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of muscle
+ - L97.814 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of bone
+ - L97.819 | Non-pressure chronic ulcer of other part of right lower leg with unspecified severity
+ - L97.821 | Non-pressure chronic ulcer of other part of left lower leg limited to breakdown of skin
+ - L97.822 | Non-pressure chronic ulcer of other part of left lower leg with fat layer exposed
+ - L97.823 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of muscle
+ - L97.824 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of bone
+ - L97.829 | Non-pressure chronic ulcer of other part of left lower leg with unspecified severity
+ - L97.901 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg limited to breakdown of skin
+ - L97.902 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with fat layer exposed
+ - L97.903 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of muscle
+ - L97.904 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of bone
+ - L97.909 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with unspecified severity
+ - L97.911 | Non-pressure chronic ulcer of unspecified part of right lower leg limited to breakdown of skin
+ - L97.912 | Non-pressure chronic ulcer of unspecified part of right lower leg with fat layer exposed
+ - L97.913 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of muscle
+ - L97.914 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of bone
+ - L97.919 | Non-pressure chronic ulcer of unspecified part of right lower leg with unspecified severity
+ - L97.921 | Non-pressure chronic ulcer of unspecified part of left lower leg limited to breakdown of skin
+ - L97.922 | Non-pressure chronic ulcer of unspecified part of left lower leg with fat layer exposed
+ - L97.923 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of muscle
+ - L97.924 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of bone
+ - L97.929 | Non-pressure chronic ulcer of unspecified part of left lower leg with unspecified severity
+ - L98.411 | Non-pressure chronic ulcer of buttock limited to breakdown of skin
+ - L98.412 | Non-pressure chronic ulcer of buttock with fat layer exposed
+ - L98.413 | Non-pressure chronic ulcer of buttock with necrosis of muscle
+ - L98.414 | Non-pressure chronic ulcer of buttock with necrosis of bone
+ - L98.419 | Non-pressure chronic ulcer of buttock with unspecified severity
+ - L98.421 | Non-pressure chronic ulcer of back limited to breakdown of skin
+ - L98.422 | Non-pressure chronic ulcer of back with fat layer exposed
+ - L98.423 | Non-pressure chronic ulcer of back with necrosis of muscle
+ - L98.424 | Non-pressure chronic ulcer of back with necrosis of bone
+ - L98.429 | Non-pressure chronic ulcer of back with unspecified severity
+ - L98.491 | Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin
+ - L98.492 | Non-pressure chronic ulcer of skin of other sites with fat layer exposed
+ - L98.493 | Non-pressure chronic ulcer of skin of other sites with necrosis of muscle
+ - L98.494 | Non-pressure chronic ulcer of skin of other sites with necrosis of bone
+ - L98.499 | Non-pressure chronic ulcer of skin of other sites with unspecified severity
+ - Group 4- Pressure Ulcers      ONLY 1 CODE NEEDED
+ - L89.000 | Pressure ulcer of unspecified elbow, unstageable
+ - L89.001 | Pressure ulcer of unspecified elbow, stage 1
+ - L89.002 | Pressure ulcer of unspecified elbow, stage 2
+ - L89.003 | Pressure ulcer of unspecified elbow, stage 3
+ - L89.004 | Pressure ulcer of unspecified elbow, stage 4
+ - L89.009 | Pressure ulcer of unspecified elbow, unspecified stage
+ - L89.010 | Pressure ulcer of right elbow, unstageable
+ - L89.011 | Pressure ulcer of right elbow, stage 1
+ - L89.012 | Pressure ulcer of right elbow, stage 2
+ - L89.013 | Pressure ulcer of right elbow, stage 3
+ - L89.014 | Pressure ulcer of right elbow, stage 4
+ - L89.019 | Pressure ulcer of right elbow, unspecified stage
+ - L89.020 | Pressure ulcer of left elbow, unstageable
+ - L89.021 | Pressure ulcer of left elbow, stage 1
+ - L89.022 | Pressure ulcer of left elbow, stage 2
+ - L89.023 | Pressure ulcer of left elbow, stage 3
+ - L89.024 | Pressure ulcer of left elbow, stage 4
+ - L89.029 | Pressure ulcer of left elbow, unspecified stage
+ - L89.100 | Pressure ulcer of unspecified part of back, unstageable
+ - L89.101 | Pressure ulcer of unspecified part of back, stage 1
+ - L89.102 | Pressure ulcer of unspecified part of back, stage 2
+ - L89.103 | Pressure ulcer of unspecified part of back, stage 3
+ - L89.104 | Pressure ulcer of unspecified part of back, stage 4
+ - L89.109 | Pressure ulcer of unspecified part of back, unspecified stage
+ - L89.110 | Pressure ulcer of right upper back, unstageable
+ - L89.111 | Pressure ulcer of right upper back, stage 1
+ - L89.112 | Pressure ulcer of right upper back, stage 2
+ - L89.113 | Pressure ulcer of right upper back, stage 3
+ - L89.114 | Pressure ulcer of right upper back, stage 4
+ - L89.119 | Pressure ulcer of right upper back, unspecified stage
+ - L89.120 | Pressure ulcer of left upper back, unstageable
+ - L89.121 | Pressure ulcer of left upper back, stage 1
+ - L89.122 | Pressure ulcer of left upper back, stage 2
+ - L89.123 | Pressure ulcer of left upper back, stage 3
+ - L89.124 | Pressure ulcer of left upper back, stage 4
+ - L89.129 | Pressure ulcer of left upper back, unspecified stage
+ - L89.130 | Pressure ulcer of right lower back, unstageable
+ - L89.131 | Pressure ulcer of right lower back, stage 1
+ - L89.132 | Pressure ulcer of right lower back, stage 2
+ - L89.133 | Pressure ulcer of right lower back, stage 3
+ - L89.134 | Pressure ulcer of right lower back, stage 4
+ - L89.139 | Pressure ulcer of right lower back, unspecified stage
+ - L89.140 | Pressure ulcer of left lower back, unstageable
+ - L89.141 | Pressure ulcer of left lower back, stage 1
+ - L89.142 | Pressure ulcer of left lower back, stage 2
+ - L89.143 | Pressure ulcer of left lower back, stage 3
+ - L89.144 | Pressure ulcer of left lower back, stage 4
+ - L89.149 | Pressure ulcer of left lower back, unspecified stage
+ - L89.150 | Pressure ulcer of sacral region, unstageable
+ - L89.151 | Pressure ulcer of sacral region, stage 1
+ - L89.152 | Pressure ulcer of sacral region, stage 2
+ - L89.153 | Pressure ulcer of sacral region, stage 3
+ - L89.154 | Pressure ulcer of sacral region, stage 4
+ - L89.159 | Pressure ulcer of sacral region, unspecified stage
+ - L89.200 | Pressure ulcer of unspecified hip, unstageable
+ - L89.201 | Pressure ulcer of unspecified hip, stage 1
+ - L89.202 | Pressure ulcer of unspecified hip, stage 2
+ - L89.203 | Pressure ulcer of unspecified hip, stage 3
+ - L89.204 | Pressure ulcer of unspecified hip, stage 4
+ - L89.209 | Pressure ulcer of unspecified hip, unspecified stage
+ - L89.210 | Pressure ulcer of right hip, unstageable
+ - L89.211 | Pressure ulcer of right hip, stage 1
+ - L89.212 | Pressure ulcer of right hip, stage 2
+ - L89.213 | Pressure ulcer of right hip, stage 3
+ - L89.214 | Pressure ulcer of right hip, stage 4
+ - L89.219 | Pressure ulcer of right hip, unspecified stage
+ - L89.220 | Pressure ulcer of left hip, unstageable
+ - L89.221 | Pressure ulcer of left hip, stage 1
+ - L89.222 | Pressure ulcer of left hip, stage 2
+ - L89.223 | Pressure ulcer of left hip, stage 3
+ - L89.224 | Pressure ulcer of left hip, stage 4
+ - L89.229 | Pressure ulcer of left hip, unspecified stage
+ - L89.300 | Pressure ulcer of unspecified buttock, unstageable
+ - L89.301 | Pressure ulcer of unspecified buttock, stage 1
+ - L89.302 | Pressure ulcer of unspecified buttock, stage 2
+ - L89.303 | Pressure ulcer of unspecified buttock, stage 3
+ - L89.304 | Pressure ulcer of unspecified buttock, stage 4
+ - L89.309 | Pressure ulcer of unspecified buttock, unspecified stage
+ - L89.310 | Pressure ulcer of right buttock, unstageable
+ - L89.311 | Pressure ulcer of right buttock, stage 1
+ - L89.312 | Pressure ulcer of right buttock, stage 2
+ - L89.313 | Pressure ulcer of right buttock, stage 3
+ - L89.314 | Pressure ulcer of right buttock, stage 4
+ - L89.319 | Pressure ulcer of right buttock, unspecified stage
+ - L89.320 | Pressure ulcer of left buttock, unstageable
+ - L89.321 | Pressure ulcer of left buttock, stage 1
+ - L89.322 | Pressure ulcer of left buttock, stage 2
+ - L89.323 | Pressure ulcer of left buttock, stage 3
+ - L89.324 | Pressure ulcer of left buttock, stage 4
+ - L89.329 | Pressure ulcer of left buttock, unspecified stage
+ - L89.40 | Pressure ulcer of contiguous site of back, buttock and hip, unspecified stage
+ - L89.41 | Pressure ulcer of contiguous site of back, buttock and hip, stage 1
+ - L89.42 | Pressure ulcer of contiguous site of back, buttock and hip, stage 2
+ - L89.43 | Pressure ulcer of contiguous site of back, buttock and hip, stage 3
+ - L89.44 | Pressure ulcer of contiguous site of back, buttock and hip, stage 4
+ - L89.45 | Pressure ulcer of contiguous site of back, buttock and hip, unstageable
+ - L89.500 | Pressure ulcer of unspecified ankle, unstageable
+ - L89.501 | Pressure ulcer of unspecified ankle, stage 1
+ - L89.502 | Pressure ulcer of unspecified ankle, stage 2
+ - L89.503 | Pressure ulcer of unspecified ankle, stage 3
+ - L89.504 | Pressure ulcer of unspecified ankle, stage 4
+ - L89.509 | Pressure ulcer of unspecified ankle, unspecified stage
+ - L89.510 | Pressure ulcer of right ankle, unstageable
+ - L89.511 | Pressure ulcer of right ankle, stage 1
+ - L89.512 | Pressure ulcer of right ankle, stage 2
+ - L89.513 | Pressure ulcer of right ankle, stage 3
+ - L89.514 | Pressure ulcer of right ankle, stage 4
+ - L89.519 | Pressure ulcer of right ankle, unspecified stage
+ - L89.520 | Pressure ulcer of left ankle, unstageable
+ - L89.521 | Pressure ulcer of left ankle, stage 1
+ - L89.522 | Pressure ulcer of left ankle, stage 2
+ - L89.523 | Pressure ulcer of left ankle, stage 3
+ - L89.524 | Pressure ulcer of left ankle, stage 4
+ - L89.529 | Pressure ulcer of left ankle, unspecified stage
+ - L89.600 | Pressure ulcer of unspecified heel, unstageable
+ - L89.601 | Pressure ulcer of unspecified heel, stage 1
+ - L89.602 | Pressure ulcer of unspecified heel, stage 2
+ - L89.603 | Pressure ulcer of unspecified heel, stage 3
+ - L89.604 | Pressure ulcer of unspecified heel, stage 4
+ - L89.609 | Pressure ulcer of unspecified heel, unspecified stage
+ - L89.610 | Pressure ulcer of right heel, unstageable
+ - L89.611 | Pressure ulcer of right heel, stage 1
+ - L89.612 | Pressure ulcer of right heel, stage 2
+ - L89.613 | Pressure ulcer of right heel, stage 3
+ - L89.614 | Pressure ulcer of right heel, stage 4
+ - L89.619 | Pressure ulcer of right heel, unspecified stage
+ - L89.620 | Pressure ulcer of left heel, unstageable
+ - L89.621 | Pressure ulcer of left heel, stage 1
+ - L89.622 | Pressure ulcer of left heel, stage 2
+ - L89.623 | Pressure ulcer of left heel, stage 3
+ - L89.624 | Pressure ulcer of left heel, stage 4
+ - L89.629 | Pressure ulcer of left heel, unspecified stage
+ - L89.810 | Pressure ulcer of head, unstageable
+ - L89.811 | Pressure ulcer of head, stage 1
+ - L89.812 | Pressure ulcer of head, stage 2
+ - L89.813 | Pressure ulcer of head, stage 3
+ - L89.814 | Pressure ulcer of head, stage 4
+ - L89.819 | Pressure ulcer of head, unspecified stage
+ - L89.890 | Pressure ulcer of other site, unstageable
+ - L89.891 | Pressure ulcer of other site, stage 1
+ - L89.892 | Pressure ulcer of other site, stage 2
+ - L89.893 | Pressure ulcer of other site, stage 3
+ - L89.894 | Pressure ulcer of other site, stage 4
+ - L89.899 | Pressure ulcer of other site, unspecified stage
+ - L89.90 | Pressure ulcer of unspecified site, unspecified stage
+ - L89.91 | Pressure ulcer of unspecified site, stage 1
+ - L89.92 | Pressure ulcer of unspecified site, stage 2
+ - L89.93 | Pressure ulcer of unspecified site, stage 3
+ - L89.94 | Pressure ulcer of unspecified site, stage 4
+ - L89.95 | Pressure ulcer of unspecified site, unstageable
+ 
+Pressure Ulcers      ONLY 1 CODE NEEDED
+
+ - Chronic Ulcer
+ - L97.101 | Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin
+ - L97.102 | Non-pressure chronic ulcer of unspecified thigh with fat layer exposed
+ - L97.103 | Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle
+ - L97.104 | Non-pressure chronic ulcer of unspecified thigh with necrosis of bone
+ - L97.109 | Non-pressure chronic ulcer of unspecified thigh with unspecified severity
+ - L97.111 | Non-pressure chronic ulcer of right thigh limited to breakdown of skin
+ - L97.112 | Non-pressure chronic ulcer of right thigh with fat layer exposed
+ - L97.113 | Non-pressure chronic ulcer of right thigh with necrosis of muscle
+ - L97.114 | Non-pressure chronic ulcer of right thigh with necrosis of bone
+ - L97.119 | Non-pressure chronic ulcer of right thigh with unspecified severity
+ - L97.121 | Non-pressure chronic ulcer of left thigh limited to breakdown of skin
+ - L97.122 | Non-pressure chronic ulcer of left thigh with fat layer exposed
+ - L97.123 | Non-pressure chronic ulcer of left thigh with necrosis of muscle
+ - L97.124 | Non-pressure chronic ulcer of left thigh with necrosis of bone
+ - L97.129 | Non-pressure chronic ulcer of left thigh with unspecified severity
+ - L97.201 | Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin
+ - L97.202 | Non-pressure chronic ulcer of unspecified calf with fat layer exposed
+ - L97.203 | Non-pressure chronic ulcer of unspecified calf with necrosis of muscle
+ - L97.204 | Non-pressure chronic ulcer of unspecified calf with necrosis of bone
+ - L97.209 | Non-pressure chronic ulcer of unspecified calf with unspecified severity
+ - L97.211 | Non-pressure chronic ulcer of right calf limited to breakdown of skin
+ - L97.212 | Non-pressure chronic ulcer of right calf with fat layer exposed
+ - L97.213 | Non-pressure chronic ulcer of right calf with necrosis of muscle
+ - L97.214 | Non-pressure chronic ulcer of right calf with necrosis of bone
+ - L97.219 | Non-pressure chronic ulcer of right calf with unspecified severity
+ - L97.221 | Non-pressure chronic ulcer of left calf limited to breakdown of skin
+ - L97.222 | Non-pressure chronic ulcer of left calf with fat layer exposed
+ - L97.223 | Non-pressure chronic ulcer of left calf with necrosis of muscle
+ - L97.224 | Non-pressure chronic ulcer of left calf with necrosis of bone
+ - L97.229 | Non-pressure chronic ulcer of left calf with unspecified severity
+ - L97.301 | Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin
+ - L97.302 | Non-pressure chronic ulcer of unspecified ankle with fat layer exposed
+ - L97.303 | Non-pressure chronic ulcer of unspecified ankle with necrosis of muscle
+ - L97.304 | Non-pressure chronic ulcer of unspecified ankle with necrosis of bone
+ - L97.309 | Non-pressure chronic ulcer of unspecified ankle with unspecified severity
+ - L97.311 | Non-pressure chronic ulcer of right ankle limited to breakdown of skin
+ - L97.312 | Non-pressure chronic ulcer of right ankle with fat layer exposed
+ - L97.313 | Non-pressure chronic ulcer of right ankle with necrosis of muscle
+ - L97.314 | Non-pressure chronic ulcer of right ankle with necrosis of bone
+ - L97.319 | Non-pressure chronic ulcer of right ankle with unspecified severity
+ - L97.321 | Non-pressure chronic ulcer of left ankle limited to breakdown of skin
+ - L97.322 | Non-pressure chronic ulcer of left ankle with fat layer exposed
+ - L97.323 | Non-pressure chronic ulcer of left ankle with necrosis of muscle
+ - L97.324 | Non-pressure chronic ulcer of left ankle with necrosis of bone
+ - L97.329 | Non-pressure chronic ulcer of left ankle with unspecified severity
+ - L97.401 | Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin
+ - L97.402 | Non-pressure chronic ulcer of unspecified heel and midfoot with fat layer exposed
+ - L97.403 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of muscle
+ - L97.404 | Non-pressure chronic ulcer of unspecified heel and midfoot with necrosis of bone
+ - L97.409 | Non-pressure chronic ulcer of unspecified heel and midfoot with unspecified severity
+ - L97.411 | Non-pressure chronic ulcer of right heel and midfoot limited to breakdown of skin
+ - L97.412 | Non-pressure chronic ulcer of right heel and midfoot with fat layer exposed
+ - L97.413 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of muscle
+ - L97.414 | Non-pressure chronic ulcer of right heel and midfoot with necrosis of bone
+ - L97.419 | Non-pressure chronic ulcer of right heel and midfoot with unspecified severity
+ - L97.421 | Non-pressure chronic ulcer of left heel and midfoot limited to breakdown of skin
+ - L97.422 | Non-pressure chronic ulcer of left heel and midfoot with fat layer exposed
+ - L97.423 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of muscle
+ - L97.424 | Non-pressure chronic ulcer of left heel and midfoot with necrosis of bone
+ - L97.429 | Non-pressure chronic ulcer of left heel and midfoot with unspecified severity
+ - L97.501 | Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin
+ - L97.502 | Non-pressure chronic ulcer of other part of unspecified foot with fat layer exposed
+ - L97.503 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of muscle
+ - L97.504 | Non-pressure chronic ulcer of other part of unspecified foot with necrosis of bone
+ - L97.509 | Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity
+ - L97.511 | Non-pressure chronic ulcer of other part of right foot limited to breakdown of skin
+ - L97.512 | Non-pressure chronic ulcer of other part of right foot with fat layer exposed
+ - L97.513 | Non-pressure chronic ulcer of other part of right foot with necrosis of muscle
+ - L97.514 | Non-pressure chronic ulcer of other part of right foot with necrosis of bone
+ - L97.519 | Non-pressure chronic ulcer of other part of right foot with unspecified severity
+ - L97.521 | Non-pressure chronic ulcer of other part of left foot limited to breakdown of skin
+ - L97.522 | Non-pressure chronic ulcer of other part of left foot with fat layer exposed
+ - L97.523 | Non-pressure chronic ulcer of other part of left foot with necrosis of muscle
+ - L97.524 | Non-pressure chronic ulcer of other part of left foot with necrosis of bone
+ - L97.529 | Non-pressure chronic ulcer of other part of left foot with unspecified severity
+ - L97.801 | Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin
+ - L97.802 | Non-pressure chronic ulcer of other part of unspecified lower leg with fat layer exposed
+ - L97.803 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of muscle
+ - L97.804 | Non-pressure chronic ulcer of other part of unspecified lower leg with necrosis of bone
+ - L97.809 | Non-pressure chronic ulcer of other part of unspecified lower leg with unspecified severity
+ - L97.811 | Non-pressure chronic ulcer of other part of right lower leg limited to breakdown of skin
+ - L97.812 | Non-pressure chronic ulcer of other part of right lower leg with fat layer exposed
+ - L97.813 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of muscle
+ - L97.814 | Non-pressure chronic ulcer of other part of right lower leg with necrosis of bone
+ - L97.819 | Non-pressure chronic ulcer of other part of right lower leg with unspecified severity
+ - L97.821 | Non-pressure chronic ulcer of other part of left lower leg limited to breakdown of skin
+ - L97.822 | Non-pressure chronic ulcer of other part of left lower leg with fat layer exposed
+ - L97.823 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of muscle
+ - L97.824 | Non-pressure chronic ulcer of other part of left lower leg with necrosis of bone
+ - L97.829 | Non-pressure chronic ulcer of other part of left lower leg with unspecified severity
+ - L97.901 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg limited to breakdown of skin
+ - L97.902 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with fat layer exposed
+ - L97.903 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of muscle
+ - L97.904 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with necrosis of bone
+ - L97.909 | Non-pressure chronic ulcer of unspecified part of unspecified lower leg with unspecified severity
+ - L97.911 | Non-pressure chronic ulcer of unspecified part of right lower leg limited to breakdown of skin
+ - L97.912 | Non-pressure chronic ulcer of unspecified part of right lower leg with fat layer exposed
+ - L97.913 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of muscle
+ - L97.914 | Non-pressure chronic ulcer of unspecified part of right lower leg with necrosis of bone
+ - L97.919 | Non-pressure chronic ulcer of unspecified part of right lower leg with unspecified severity
+ - L97.921 | Non-pressure chronic ulcer of unspecified part of left lower leg limited to breakdown of skin
+ - L97.922 | Non-pressure chronic ulcer of unspecified part of left lower leg with fat layer exposed
+ - L97.923 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of muscle
+ - L97.924 | Non-pressure chronic ulcer of unspecified part of left lower leg with necrosis of bone
+ - L97.929 | Non-pressure chronic ulcer of unspecified part of left lower leg with unspecified severity
+ - L98.411 | Non-pressure chronic ulcer of buttock limited to breakdown of skin
+ - L98.412 | Non-pressure chronic ulcer of buttock with fat layer exposed
+ - L98.413 | Non-pressure chronic ulcer of buttock with necrosis of muscle
+ - L98.414 | Non-pressure chronic ulcer of buttock with necrosis of bone
+ - L98.419 | Non-pressure chronic ulcer of buttock with unspecified severity
+ - L98.421 | Non-pressure chronic ulcer of back limited to breakdown of skin
+ - L98.422 | Non-pressure chronic ulcer of back with fat layer exposed
+ - L98.423 | Non-pressure chronic ulcer of back with necrosis of muscle
+ - L98.424 | Non-pressure chronic ulcer of back with necrosis of bone
+ - L98.429 | Non-pressure chronic ulcer of back with unspecified severity
+ - L98.491 | Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin
+ - L98.492 | Non-pressure chronic ulcer of skin of other sites with fat layer exposed
+ - L98.493 | Non-pressure chronic ulcer of skin of other sites with necrosis of muscle
+ - L98.494 | Non-pressure chronic ulcer of skin of other sites with necrosis of bone
+ - L98.499 | Non-pressure chronic ulcer of skin of other sites with unspecified severity

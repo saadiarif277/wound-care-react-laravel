@@ -9,6 +9,7 @@ import { SubmissionSection } from './order/SubmissionSection';
 import { OrderModals } from './order/OrderModals';
 import { OrderDashboard } from './admin/OrderDashboard';
 import { OrderData } from './types/orderTypes';
+import { usePermissions } from '@/hooks/usePermissions';
 
 // Define the structure of the props we expect from Inertia
 interface OrderReviewProps {
@@ -16,13 +17,17 @@ interface OrderReviewProps {
     validatedEpisodeData: any; // Replace 'any' with a more specific type if available
 }
 
-// Permission helper functions
-const canViewFinancialData = (userRole: string): boolean => {
-    return userRole !== 'OM'; // Office Managers cannot see financial data
+// Permission helper functions - now use actual permissions instead of roles
+const canViewFinancialData = (): boolean => {
+    // Use permissions hook to check financial access
+    const { can } = usePermissions();
+    return can('view-financials') || can('view-national-asp') || can('view-msc-pricing');
 };
 
-const canViewAllOrders = (userRole: string): boolean => {
-    return userRole === 'Admin' || userRole === 'Provider'; // Providers see their own, Admins see all
+const canViewAllOrders = (): boolean => {
+    // Use permissions to determine order visibility
+    const { can } = usePermissions();
+    return can('view-orders') && (can('manage-orders') || can('view-all-orders'));
 };
 
 const Index: React.FC<OrderReviewProps> = ({ formData, validatedEpisodeData }) => {

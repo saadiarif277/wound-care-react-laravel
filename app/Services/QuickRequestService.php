@@ -2,12 +2,19 @@
 declare(strict_types=1);
 
 namespace App\Services;
+
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Episode;
 use App\Models\Order\Order;
+use App\Models\Order\Product;
+use App\Models\Fhir\Facility;
+use App\Models\User;
 use App\Services\FhirService;
 use App\Services\DocusealService;
+use App\Services\PayerService;
 use App\Mail\ManufacturerOrderEmail;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 
@@ -16,7 +23,292 @@ final class QuickRequestService
     public function __construct(
         private FhirService $fhirClient,
         private DocusealService $docuSealService,
+        private PayerService $payerService,
     ) {}
+
+    /**
+     * Get form data for Quick Request creation
+     */
+    public function getFormData(User $user): array
+    {
+        $user = $this->loadUserWithRelations($user);
+        $currentOrg = $user->organizations->first();
+
+        // Determine if we should filter products by provider
+        $providerId = null;
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+
+        if ($userRole === 'provider') {
+            $providerId = $user->id;
+        }
+
+        return [
+            'facilities' => $this->getFacilitiesForUser($user, $currentOrg),
+            'providers' => $this->getProvidersForUser($user, $currentOrg),
+            'products' => $userRole === 'office-manager' ? [] : $this->getActiveProducts($providerId),
+            'woundTypes' => $this->getWoundTypes(),
+            'insuranceCarriers' => $this->getInsuranceCarriers(),
+            'diagnosisCodes' => $this->getDiagnosisCodes(),
+            'currentUser' => $this->getCurrentUserData($user, $currentOrg),
+            'providerProducts' => [],
+        ];
+    }
+
+    /**
+     * Load user with necessary relations
+     */
+    private function loadUserWithRelations(User $user): User
+    {
+        return $user->load([
+            'roles',
+            'providerProfile',
+            'providerCredentials',
+            'organizations' => fn($q) => $q->where('organization_users.is_active', true),
+            'facilities'
+        ]);
+    }
+
+    /**
+     * Get facilities for user
+     */
+    private function getFacilitiesForUser(User $user, $currentOrg): \Illuminate\Support\Collection
+    {
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+
+        // Office managers should only see their assigned facility
+        if ($userRole === 'office-manager') {
+            $userFacilities = $user->facilities->map(function($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->full_address,
+                    'source' => 'user_relationship'
+                ];
+            });
+
+            return $userFacilities;
+        }
+
+        // Providers can select from multiple facilities
+        $userFacilities = $user->facilities->map(function($facility) {
+            return [
+                'id' => $facility->id,
+                'name' => $facility->name,
+                'address' => $facility->full_address,
+                'source' => 'user_relationship'
+            ];
+        });
+
+        if ($userFacilities->count() > 0) {
+            return $userFacilities;
+        }
+
+        return Facility::withoutGlobalScope(\App\Models\Scopes\OrganizationScope::class)
+            ->where('active', true)
+            ->take(10)
+            ->get()
+            ->map(function($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->full_address ?? 'No address',
+                    'organization_id' => $facility->organization_id,
+                    'source' => 'all_facilities'
+                ];
+            });
+    }
+
+    /**
+     * Get providers for user based on role restrictions
+     */
+    private function getProvidersForUser(User $user, $currentOrg): array
+    {
+        $providers = [];
+        $userRole = $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug;
+
+        if ($userRole === 'provider') {
+            // Providers can only see themselves - they cannot order for other providers
+            $providers[] = [
+                'id' => $user->id,
+                'name' => $user->first_name . ' ' . $user->last_name,
+                'credentials' => $user->providerProfile?->credentials ?? $user->providerCredentials->pluck('credential_number')->implode(', ') ?? null,
+                'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+            ];
+        } elseif ($userRole === 'office-manager') {
+            // Office managers can order for multiple providers at their facility
+            if ($currentOrg) {
+                $orgProviders = User::whereHas('organizations', function($q) use ($currentOrg) {
+                        $q->where('organizations.id', $currentOrg->id);
+                    })
+                    ->whereHas('roles', function($q) {
+                        $q->where('slug', 'provider');
+                    })
+                    ->get(['id', 'first_name', 'last_name', 'npi_number'])
+                    ->map(function($provider) {
+                        return [
+                            'id' => $provider->id,
+                            'name' => $provider->first_name . ' ' . $provider->last_name,
+                            'credentials' => $provider->providerProfile?->credentials ?? $provider->provider_credentials ?? null,
+                            'npi' => $provider->npi_number,
+                        ];
+                    })
+                    ->toArray();
+
+                $providers = $orgProviders;
+            }
+        }
+
+        return $providers;
+    }
+
+    /**
+     * Get active products
+     */
+    private function getActiveProducts(?int $providerId = null): \Illuminate\Support\Collection
+    {
+        $query = Product::where('is_active', true);
+
+        // If a provider ID is specified, filter to only products they're onboarded with
+        if ($providerId) {
+            $query->whereHas('activeProviders', function($q) use ($providerId) {
+                $q->where('users.id', $providerId);
+            });
+        }
+
+        return $query
+            ->orderBy('price_per_sq_cm', 'desc') // Sort by highest ASP first
+            ->get()
+            ->map(function($product) {
+                $sizes = $product->available_sizes;
+                if (is_string($sizes)) {
+                    $sizes = json_decode($sizes, true) ?? [];
+                } elseif (!is_array($sizes)) {
+                    $sizes = [];
+                }
+
+                return [
+                    'id' => $product->id,
+                    'code' => $product->q_code,
+                    'name' => $product->name,
+                    'manufacturer' => $product->manufacturer,
+                    'manufacturer_id' => $product->manufacturer_id,
+                    'available_sizes' => $sizes,
+                    'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
+                ];
+            });
+    }
+
+    /**
+     * Get wound types
+     */
+    private function getWoundTypes(): array
+    {
+        try {
+            return DB::table('wound_types')
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->pluck('display_name', 'code')
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to hardcoded wound types if table doesn't exist
+            return [
+                'DFU' => 'Diabetic Foot Ulcer',
+                'VLU' => 'Venous Leg Ulcer',
+                'PU' => 'Pressure Ulcer',
+                'SWI' => 'Surgical Wound Infection',
+                'TU' => 'Traumatic Ulcer',
+                'AU' => 'Arterial Ulcer',
+            ];
+        }
+    }
+
+    /**
+     * Get insurance carriers
+     */
+    private function getInsuranceCarriers(): array
+    {
+        try {
+            return $this->payerService->getAllPayers()
+                ->pluck('name')
+                ->unique()
+                ->values()
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to basic insurance carriers
+            return [
+                'Medicare',
+                'Medicaid',
+                'Aetna',
+                'Anthem',
+                'Blue Cross Blue Shield',
+                'Cigna',
+                'Humana',
+                'UnitedHealthcare',
+                'Other',
+            ];
+        }
+    }
+
+    /**
+     * Get diagnosis codes
+     */
+    private function getDiagnosisCodes(): array
+    {
+        try {
+            return DB::table('diagnosis_codes')
+                ->where('is_active', true)
+                ->select(['code', 'description', 'category'])
+                ->orderBy('category')
+                ->orderBy('code')
+                ->get()
+                ->groupBy('category')
+                ->map(function ($group) {
+                    return $group->map(function ($item) {
+                        return [
+                            'code' => $item->code,
+                            'description' => $item->description
+                        ];
+                    })->values()->toArray();
+                })
+                ->toArray();
+        } catch (\Exception $e) {
+            // Fallback to basic diagnosis codes
+            return [
+                'Diabetic' => [
+                    ['code' => 'E11.621', 'description' => 'Type 2 diabetes mellitus with foot ulcer'],
+                    ['code' => 'E10.621', 'description' => 'Type 1 diabetes mellitus with foot ulcer'],
+                ],
+                'Venous' => [
+                    ['code' => 'I87.2', 'description' => 'Venous insufficiency (chronic) (peripheral)'],
+                    ['code' => 'L97.909', 'description' => 'Non-pressure chronic ulcer of unspecified part of unspecified lower leg'],
+                ],
+                'Pressure' => [
+                    ['code' => 'L89.90', 'description' => 'Pressure ulcer of unspecified site, unspecified stage'],
+                ],
+            ];
+        }
+    }
+
+    /**
+     * Get current user data
+     */
+    private function getCurrentUserData(User $user, $currentOrg): array
+    {
+        return [
+            'id' => $user->id,
+            'name' => $user->first_name . ' ' . $user->last_name,
+            'npi' => $user->npi_number ?? $user->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+            'role' => $user->getPrimaryRole()?->slug ?? $user->roles->first()?->slug,
+            'organization' => $currentOrg ? [
+                'id' => $currentOrg->id,
+                'name' => $currentOrg->name,
+                'address' => $currentOrg->billing_address,
+                'phone' => $currentOrg->phone,
+            ] : null,
+        ];
+    }
+
+
 
     /**
      * Get the Docuseal service instance.

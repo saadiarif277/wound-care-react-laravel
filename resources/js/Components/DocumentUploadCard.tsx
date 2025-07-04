@@ -41,7 +41,7 @@ export default function DocumentUploadCard({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  const [selectedType, setSelectedType] = useState<DocumentType>('demographics');
+  const [selectedType, setSelectedType] = useState<DocumentType | ''>('');
   const [tempFiles, setTempFiles] = useState<{ primary?: File; secondary?: File }>({});
   
   const primaryInputRef = useRef<HTMLInputElement>(null);
@@ -61,7 +61,7 @@ export default function DocumentUploadCard({
     onInsuranceProcessed: onInsuranceDataExtracted,
   });
 
-  const config = DOCUMENT_TYPE_CONFIGS[selectedType];
+  const config = selectedType ? DOCUMENT_TYPE_CONFIGS[selectedType] : null;
   const requiresSecondary = selectedType === 'insurance_card';
 
   const handleFileSelect = async (file: File, isPrimary: boolean = true) => {
@@ -98,7 +98,7 @@ export default function DocumentUploadCard({
     const file = isPrimary ? tempFiles.primary : tempFiles.secondary;
     const inputRef = isPrimary ? primaryInputRef : secondaryInputRef;
     const label = requiresSecondary 
-      ? (isPrimary ? config.subLabels?.primary : config.subLabels?.secondary)
+      ? (isPrimary ? config?.subLabels?.primary : config?.subLabels?.secondary)
       : 'Click to upload';
 
     return (
@@ -121,7 +121,7 @@ export default function DocumentUploadCard({
           <input
             ref={inputRef}
             type="file"
-            accept={config.accept}
+            accept={config?.accept || '*'}
             className="hidden"
             onChange={(e) => {
               const selectedFile = e.target.files?.[0];
@@ -148,7 +148,7 @@ export default function DocumentUploadCard({
                 {!requiresSecondary ? 'Click to upload' : label}
               </p>
               <p className={cn("text-xs mt-1", t.text.secondary)}>
-                {config.accept.replace(/\./g, '').toUpperCase()}
+                {config?.accept?.replace(/\./g, '').toUpperCase() || 'Any file type'}
               </p>
             </div>
           )}
@@ -173,7 +173,7 @@ export default function DocumentUploadCard({
           </label>
           <Select value={selectedType} onValueChange={(value) => setSelectedType(value as DocumentType)}>
             <SelectTrigger className={cn(t.input.base, t.input.focus)}>
-              <SelectValue />
+              <SelectValue placeholder="Please select a document type" />
             </SelectTrigger>
             <SelectContent>
               {Object.entries(DOCUMENT_TYPE_CONFIGS).map(([type, config]) => (
@@ -183,7 +183,7 @@ export default function DocumentUploadCard({
               ))}
             </SelectContent>
           </Select>
-          {config.description && (
+          {config?.description && (
             <p className={cn("text-xs mt-1", t.text.secondary)}>
               {config.description}
             </p>
@@ -191,13 +191,15 @@ export default function DocumentUploadCard({
         </div>
 
         {/* Upload Areas */}
-        <div className={cn(
-          "grid gap-4",
-          requiresSecondary ? "grid-cols-2" : "grid-cols-1"
-        )}>
-          {renderUploadArea(true)}
-          {requiresSecondary && renderUploadArea(false)}
-        </div>
+        {selectedType && (
+          <div className={cn(
+            "grid gap-4",
+            requiresSecondary ? "grid-cols-2" : "grid-cols-1"
+          )}>
+            {renderUploadArea(true)}
+            {requiresSecondary && renderUploadArea(false)}
+          </div>
+        )}
 
         {/* Processing Indicator */}
         {isProcessing && (

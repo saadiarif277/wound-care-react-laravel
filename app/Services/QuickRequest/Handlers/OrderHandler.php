@@ -8,12 +8,14 @@ use App\Services\FhirService;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Auth;
+use App\Services\PhiAuditService;
 
 class OrderHandler
 {
     public function __construct(
         private FhirService $fhirService,
-        private PhiSafeLogger $logger
+        private PhiSafeLogger $logger,
+        private PhiAuditService $auditService
     ) {}
 
     /**
@@ -32,11 +34,21 @@ class OrderHandler
 
             // Create FHIR DeviceRequest
             $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails);
+            $this->logger->info('FHIR DeviceRequest created', [
+                'device_request_id' => $deviceRequestId
+            ]);
 
             // Get facility and provider info from episode metadata
             $metadata = $episode->metadata ?? [];
             $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
-            $providerId = $metadata['provider_data']['id'] ?? Auth::id();
+            // Always use the authenticated user as the provider for security and access control
+            $providerId = Auth::id();
+            
+            $this->logger->info('Setting order provider', [
+                'auth_user_id' => Auth::id(),
+                'metadata_provider_id' => $metadata['provider_data']['id'] ?? null,
+                'using_provider_id' => $providerId
+            ]);
 
             // Create local order record
             $order = Order::create([
@@ -44,6 +56,7 @@ class OrderHandler
                 'episode_id' => $episode->id,
                 'type' => 'initial',
                 'status' => 'pending',
+                'order_status' => 'Pending',
                 'patient_fhir_id' => $episode->patient_fhir_id,
                 'patient_display_id' => $episode->patient_display_id,
                 'facility_id' => $facilityId,
@@ -51,21 +64,24 @@ class OrderHandler
                 'manufacturer_id' => $episode->manufacturer_id,
                 'date_of_service' => now()->toDateString(),
                 'total_amount' => $this->calculateOrderTotals($orderDetails['products'] ?? [])['total'] ?? 0,
-                'notes' => json_encode([
+                'notes' => [
                     'created_by' => Auth::id(),
                     'created_at' => now()->toIso8601String(),
                     'fhir_device_request_id' => $deviceRequestId,
                     'order_details' => $orderDetails,
                     'patient_display_id' => $episode->patient_display_id,
                     'manufacturer_id' => $episode->manufacturer_id
-                ])
+                ]
             ]);
 
             $this->logger->info('Initial order created successfully', [
                 'order_id' => $order->id,
+                'order_provider_id' => $order->provider_id,
                 'episode_id' => $episode->id,
                 'fhir_device_request_id' => $deviceRequestId,
-                'patient_display_id' => $episode->patient_display_id
+                'patient_display_id' => $episode->patient_display_id,
+                'auth_user_id' => Auth::id(),
+                'order_exists_check' => Order::where('episode_id', $episode->id)->where('provider_id', Auth::id())->exists()
             ]);
 
             return $order;
@@ -100,10 +116,20 @@ class OrderHandler
             // Get facility and provider info from episode metadata
             $metadata = $episode->metadata ?? [];
             $facilityId = $metadata['facility_data']['id'] ?? Auth::user()->facility_id ?? 1;
-            $providerId = $metadata['provider_data']['id'] ?? Auth::id();
+            // Always use the authenticated user as the provider for security and access control
+            $providerId = Auth::id();
+            
+            $this->logger->info('Setting follow-up order provider', [
+                'auth_user_id' => Auth::id(),
+                'metadata_provider_id' => $metadata['provider_data']['id'] ?? null,
+                'using_provider_id' => $providerId
+            ]);
 
             // Create FHIR DeviceRequest
             $deviceRequestId = $this->createDeviceRequest($episode, $orderDetails, $parentOrder);
+            $this->logger->info('FHIR DeviceRequest for follow-up created', [
+                'device_request_id' => $deviceRequestId
+            ]);
 
             // Create local order record
             $order = Order::create([
@@ -112,6 +138,7 @@ class OrderHandler
                 'parent_order_id' => $parentOrder?->id,
                 'type' => 'follow_up',
                 'status' => 'pending',
+                'order_status' => 'Pending',
                 'patient_fhir_id' => $episode->patient_fhir_id,
                 'patient_display_id' => $episode->patient_display_id,
                 'facility_id' => $facilityId,
@@ -119,7 +146,7 @@ class OrderHandler
                 'manufacturer_id' => $episode->manufacturer_id,
                 'date_of_service' => now()->toDateString(),
                 'total_amount' => $this->calculateOrderTotals($orderDetails['products'] ?? [])['total'] ?? 0,
-                'notes' => json_encode([
+                'notes' => [
                     'created_by' => Auth::id(),
                     'created_at' => now()->toIso8601String(),
                     'fhir_device_request_id' => $deviceRequestId,
@@ -127,7 +154,7 @@ class OrderHandler
                     'follow_up_reason' => $orderDetails['reason'] ?? 'routine',
                     'patient_display_id' => $episode->patient_display_id,
                     'manufacturer_id' => $episode->manufacturer_id
-                ])
+                ]
             ]);
 
             $this->logger->info('Follow-up order created successfully', [
@@ -338,6 +365,8 @@ class OrderHandler
             ]);
 
             // Update FHIR DeviceRequest status
+            // TEMPORARILY DISABLED: FHIR operations disabled for debugging
+            /*
             $notes = json_decode($order->notes ?? '{}', true) ?: [];
             if (!empty($notes['fhir_device_request_id'])) {
                 $fhirStatus = $this->mapOrderStatusToFhir($status);
@@ -346,6 +375,8 @@ class OrderHandler
                     'status' => $fhirStatus
                 ]);
             }
+            */
+            $this->logger->info('FHIR DeviceRequest update skipped (FHIR disabled)');
 
             $this->logger->info('Order status updated successfully', [
                 'order_id' => $order->id,
@@ -452,5 +483,107 @@ class OrderHandler
         $random = strtoupper(Str::random(4));
 
         return "{$prefix}{$timestamp}{$random}";
+    }
+
+    /**
+     * Create ServiceRequest for a new order
+     */
+    public function createServiceRequest(array $data): string
+    {
+        try {
+            $this->logger->info('Creating FHIR ServiceRequest for order');
+
+            $serviceRequestData = [
+                'resourceType' => 'ServiceRequest',
+                'status' => 'active',
+                'intent' => 'order',
+                'subject' => [
+                    'reference' => "Patient/{$data['patient_id']}"
+                ],
+                'requester' => [
+                    'reference' => "Practitioner/{$data['provider_id']}"
+                ],
+                'performer' => [
+                    [
+                        'reference' => "Organization/{$data['organization_id']}"
+                    ]
+                ],
+                'reasonReference' => [
+                    [
+                        'reference' => "Condition/{$data['condition_id']}"
+                    ]
+                ],
+                'occurrenceTiming' => [
+                    'repeat' => [
+                        'duration' => $data['duration_weeks'],
+                        'durationUnit' => 'wk'
+                    ]
+                ],
+                'category' => [
+                    [
+                        'coding' => [
+                            [
+                                'system' => 'http://msc-mvp.com/order-type',
+                                'code' => $data['order_type'],
+                                'display' => ucfirst($data['order_type']) . ' Order'
+                            ]
+                        ]
+                    ]
+                ],
+                'orderDetail' => [
+                    [
+                        'coding' => [
+                            [
+                                'system' => 'http://msc-mvp.com/product',
+                                'code' => (string) $data['product_id'],
+                                'display' => $data['product_name'] ?? "Product {$data['product_id']}"
+                            ]
+                        ],
+                        'text' => "Quantity: {$data['quantity']}"
+                    ]
+                ]
+            ];
+
+            if (!empty($data['shipping_address'])) {
+                $serviceRequestData['extension'] = [
+                    [
+                        'url' => 'http://msc-mvp.com/fhir/StructureDefinition/shipping-details',
+                        'extension' => [
+                            [
+                                'url' => 'delivery-preference',
+                                'valueString' => $data['delivery_preference']
+                            ],
+                            [
+                                'url' => 'shipping-address',
+                                'valueAddress' => [
+                                    'line' => [$data['shipping_address']['address_line1']],
+                                    'city' => $data['shipping_address']['city'],
+                                    'state' => $data['shipping_address']['state'],
+                                    'postalCode' => $data['shipping_address']['postalCode']
+                                ]
+                            ]
+                        ]
+                    ]
+                ];
+            }
+
+            $response = $this->fhirService->create('ServiceRequest', $serviceRequestData);
+
+            $this->auditService->logAccess('order.created', 'ServiceRequest', $response['id']);
+
+            $this->logger->info('ServiceRequest created successfully in FHIR', [
+                'service_request_id' => $response['id'],
+                'order_type' => $data['order_type']
+            ]);
+
+            return $response['id'];
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create ServiceRequest in FHIR', [
+                'error' => $e->getMessage(),
+                'order_type' => $data['order_type'] ?? 'unknown'
+            ]);
+            throw $e;
+        }
     }
 }

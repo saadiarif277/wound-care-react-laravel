@@ -19,6 +19,10 @@ class SalesRepTestDataSeeder extends Seeder
 {
     public function run(): void
     {
+        // DISABLED: No longer creating mock sales rep test data - using live data only
+        $this->command->info('SalesRepTestDataSeeder disabled - using live data only');
+        return;
+
         $this->command->info('Creating comprehensive sales rep test data...');
 
         DB::beginTransaction();

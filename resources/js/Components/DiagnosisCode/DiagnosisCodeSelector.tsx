@@ -64,6 +64,15 @@ const WOUND_TYPES: WoundType[] = [
     secondaryLabel: 'Chronic Ulcer (L97-codes)'
   },
   {
+    id: 'arterial_ulcer',
+    name: 'Arterial Ulcer',
+    requiresDualCoding: true,
+    primaryCategory: 'arterial_primary',
+    secondaryCategory: 'chronic_ulcer_l97',
+    primaryLabel: 'Arterial Diagnosis (I70-codes)',
+    secondaryLabel: 'Chronic Ulcer (L97-codes)'
+  },
+  {
     id: 'pressure_ulcer',
     name: 'Pressure Ulcer',
     requiresDualCoding: false,
@@ -71,11 +80,32 @@ const WOUND_TYPES: WoundType[] = [
     primaryLabel: 'Pressure Ulcer (L89-codes)'
   },
   {
+    id: 'surgical_wound',
+    name: 'Surgical Wound',
+    requiresDualCoding: false,
+    primaryCategory: 'surgical_wound',
+    primaryLabel: 'Surgical Wound (T81-codes)'
+  },
+  {
+    id: 'traumatic_wound',
+    name: 'Traumatic Wound',
+    requiresDualCoding: false,
+    primaryCategory: 'traumatic_wound',
+    primaryLabel: 'Traumatic Wound (S-codes)'
+  },
+  {
     id: 'chronic_ulcer',
     name: 'Chronic Ulcer',
     requiresDualCoding: false,
     primaryCategory: 'chronic_ulcer_l97_single',
     primaryLabel: 'Chronic Ulcer (L97-codes)'
+  },
+  {
+    id: 'other_general',
+    name: 'Other/General',
+    requiresDualCoding: false,
+    primaryCategory: 'other_general',
+    primaryLabel: 'Other/General Wound Types'
   }
 ];
 
@@ -275,8 +305,131 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
     const mockPrimaryCodes: DiagnosisCode[] = [];
     const mockSecondaryCodes: DiagnosisCode[] = [];
 
+    // Arterial Ulcers (I70 codes)
+    if (currentWoundType.primaryCategory === 'arterial_primary') {
+      mockPrimaryCodes.push(
+        { code: 'I70.231', description: 'Atherosclerosis of native arteries of right leg with ulceration of thigh', category: 'arterial' },
+        { code: 'I70.232', description: 'Atherosclerosis of native arteries of right leg with ulceration of calf', category: 'arterial' },
+        { code: 'I70.233', description: 'Atherosclerosis of native arteries of right leg with ulceration of ankle', category: 'arterial' },
+        { code: 'I70.234', description: 'Atherosclerosis of native arteries of right leg with ulceration of heel and midfoot', category: 'arterial' },
+        { code: 'I70.235', description: 'Atherosclerosis of native arteries of right leg with ulceration other part of foot', category: 'arterial' },
+        { code: 'I70.238', description: 'Atherosclerosis of native arteries of right leg with ulceration other part of lower leg', category: 'arterial' },
+        { code: 'I70.241', description: 'Atherosclerosis of native arteries of left leg with ulceration of thigh', category: 'arterial' },
+        { code: 'I70.242', description: 'Atherosclerosis of native arteries of left leg with ulceration of calf', category: 'arterial' },
+        { code: 'I70.243', description: 'Atherosclerosis of native arteries of left leg with ulceration of ankle', category: 'arterial' },
+        { code: 'I70.244', description: 'Atherosclerosis of native arteries of left leg with ulceration of heel and midfoot', category: 'arterial' },
+        { code: 'I70.245', description: 'Atherosclerosis of native arteries of left leg with ulceration other part of foot', category: 'arterial' },
+        { code: 'I70.248', description: 'Atherosclerosis of native arteries of left leg with ulceration other part of lower leg', category: 'arterial' },
+        { code: 'I70.25', description: 'Atherosclerosis of native arteries of other extremities with ulceration', category: 'arterial' }
+      );
+    }
+    
+    // Surgical Wounds (T81 codes)
+    else if (currentWoundType.primaryCategory === 'surgical_wound') {
+      mockPrimaryCodes.push(
+        { code: 'T81.30XA', description: 'Disruption of wound, unspecified, initial encounter', category: 'surgical' },
+        { code: 'T81.31XA', description: 'Disruption of external operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.32XA', description: 'Disruption of internal operation (surgical) wound, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.33XA', description: 'Disruption of traumatic injury wound repair, initial encounter', category: 'surgical' },
+        { code: 'T81.4XXA', description: 'Infection following a procedure, initial encounter', category: 'surgical' },
+        { code: 'T81.89XA', description: 'Other complications of procedures, not elsewhere classified, initial encounter', category: 'surgical' },
+        { code: 'T81.9XXA', description: 'Unspecified complication of procedure, initial encounter', category: 'surgical' }
+      );
+    }
+    
+    // Traumatic Wounds (S codes)
+    else if (currentWoundType.primaryCategory === 'traumatic_wound') {
+      mockPrimaryCodes.push(
+        { code: 'S71.001A', description: 'Unspecified open wound, right hip, initial encounter', category: 'traumatic' },
+        { code: 'S71.002A', description: 'Unspecified open wound, left hip, initial encounter', category: 'traumatic' },
+        { code: 'S71.009A', description: 'Unspecified open wound, unspecified hip, initial encounter', category: 'traumatic' },
+        { code: 'S81.001A', description: 'Unspecified open wound, right knee, initial encounter', category: 'traumatic' },
+        { code: 'S81.002A', description: 'Unspecified open wound, left knee, initial encounter', category: 'traumatic' },
+        { code: 'S81.009A', description: 'Unspecified open wound, unspecified knee, initial encounter', category: 'traumatic' },
+        { code: 'S91.001A', description: 'Unspecified open wound, right ankle, initial encounter', category: 'traumatic' },
+        { code: 'S91.002A', description: 'Unspecified open wound, left ankle, initial encounter', category: 'traumatic' },
+        { code: 'S91.301A', description: 'Unspecified open wound, right foot, initial encounter', category: 'traumatic' },
+        { code: 'S91.302A', description: 'Unspecified open wound, left foot, initial encounter', category: 'traumatic' }
+      );
+    }
+    
+    // Other/General - Allow selection from all available diagnosis codes
+    else if (currentWoundType.primaryCategory === 'other_general') {
+      mockPrimaryCodes.push(
+        // Surgical Wounds (T81 codes)
+        { code: 'T81.30XA', description: 'Disruption of wound, unspecified, initial encounter', category: 'other_general' },
+        { code: 'T81.31XA', description: 'Disruption of external operation (surgical) wound, not elsewhere classified, initial encounter', category: 'other_general' },
+        { code: 'T81.32XA', description: 'Disruption of internal operation (surgical) wound, not elsewhere classified, initial encounter', category: 'other_general' },
+        { code: 'T81.40XA', description: 'Infection following a procedure, unspecified, initial encounter', category: 'other_general' },
+        { code: 'T81.41XA', description: 'Infection following a procedure, superficial incisional surgical site, initial encounter', category: 'other_general' },
+        { code: 'T81.42XA', description: 'Infection following a procedure, deep incisional surgical site, initial encounter', category: 'other_general' },
+        { code: 'T81.43XA', description: 'Infection following a procedure, organ and space surgical site, initial encounter', category: 'other_general' },
+        { code: 'T81.44XA', description: 'Sepsis following a procedure, initial encounter', category: 'other_general' },
+        { code: 'T81.49XA', description: 'Infection following a procedure, other surgical site, initial encounter', category: 'other_general' },
+        
+        // Post-Procedural (Z48 codes)
+        { code: 'Z48.00', description: 'Encounter for change or removal of nonsurgical wound dressing', category: 'other_general' },
+        { code: 'Z48.01', description: 'Encounter for change or removal of surgical wound dressing', category: 'other_general' },
+        { code: 'Z48.02', description: 'Encounter for removal of sutures', category: 'other_general' },
+        { code: 'Z48.03', description: 'Encounter for change or removal of drains', category: 'other_general' },
+        { code: 'Z48.1', description: 'Encounter for planned postprocedural wound closure', category: 'other_general' },
+        { code: 'Z48.280', description: 'Encounter for aftercare following organ transplant', category: 'other_general' },
+        { code: 'Z48.290', description: 'Encounter for aftercare following other organ transplant', category: 'other_general' },
+        
+        // Infection (L03, B95, B96 codes)
+        { code: 'L03.111', description: 'Cellulitis of right axilla', category: 'other_general' },
+        { code: 'L03.112', description: 'Cellulitis of left axilla', category: 'other_general' },
+        { code: 'L03.119', description: 'Cellulitis of unspecified axilla', category: 'other_general' },
+        { code: 'L03.211', description: 'Cellulitis of face', category: 'other_general' },
+        { code: 'L03.311', description: 'Cellulitis of abdominal wall', category: 'other_general' },
+        { code: 'L03.811', description: 'Cellulitis of head', category: 'other_general' },
+        { code: 'L03.818', description: 'Cellulitis of other sites', category: 'other_general' },
+        { code: 'L03.90', description: 'Cellulitis, unspecified', category: 'other_general' },
+        { code: 'B95.61', description: 'Methicillin susceptible Staphylococcus aureus infection as the cause of diseases classified elsewhere', category: 'other_general' },
+        { code: 'B95.62', description: 'Methicillin resistant Staphylococcus aureus infection as the cause of diseases classified elsewhere', category: 'other_general' },
+        { code: 'B96.20', description: 'Unspecified Escherichia coli [E. coli] as the cause of diseases classified elsewhere', category: 'other_general' },
+        
+        // Amputation (T87 codes)
+        { code: 'T87.30', description: 'Neuroma of amputation stump, unspecified extremity', category: 'other_general' },
+        { code: 'T87.31', description: 'Neuroma of amputation stump, right upper extremity', category: 'other_general' },
+        { code: 'T87.32', description: 'Neuroma of amputation stump, left upper extremity', category: 'other_general' },
+        { code: 'T87.33', description: 'Neuroma of amputation stump, right lower extremity', category: 'other_general' },
+        { code: 'T87.34', description: 'Neuroma of amputation stump, left lower extremity', category: 'other_general' },
+        { code: 'T87.40', description: 'Infection of amputation stump, unspecified extremity', category: 'other_general' },
+        { code: 'T87.41', description: 'Infection of amputation stump, right upper extremity', category: 'other_general' },
+        { code: 'T87.42', description: 'Infection of amputation stump, left upper extremity', category: 'other_general' },
+        { code: 'T87.43', description: 'Infection of amputation stump, right lower extremity', category: 'other_general' },
+        { code: 'T87.44', description: 'Infection of amputation stump, left lower extremity', category: 'other_general' },
+        { code: 'T87.50', description: 'Necrosis of amputation stump, unspecified extremity', category: 'other_general' },
+        { code: 'T87.81', description: 'Dehiscence of amputation stump', category: 'other_general' },
+        { code: 'T87.89', description: 'Other complications of amputation stump', category: 'other_general' },
+        
+        // Chronic Ulcers (L97/L98 codes)
+        { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'other_general' },
+        { code: 'L97.102', description: 'Non-pressure chronic ulcer of unspecified thigh with fat layer exposed', category: 'other_general' },
+        { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'other_general' },
+        { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'other_general' },
+        { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'other_general' },
+        { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'other_general' },
+        { code: 'L97.801', description: 'Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin', category: 'other_general' },
+        { code: 'L98.411', description: 'Non-pressure chronic ulcer of buttock limited to breakdown of skin', category: 'other_general' },
+        { code: 'L98.421', description: 'Non-pressure chronic ulcer of back limited to breakdown of skin', category: 'other_general' },
+        { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'other_general' },
+        
+        // Additional wound-related codes for comprehensive coverage
+        { code: 'K62.6', description: 'Ulcer of anus and rectum', category: 'other_general' },
+        { code: 'N36.2', description: 'Urethral caruncle', category: 'other_general' },
+        { code: 'H01.00', description: 'Unspecified blepharitis unspecified eye, unspecified eyelid', category: 'other_general' },
+        { code: 'J34.0', description: 'Abscess, furuncle and carbuncle of nose', category: 'other_general' },
+        { code: 'M79.3', description: 'Panniculitis, unspecified', category: 'other_general' },
+        { code: 'R22.9', description: 'Localized swelling, mass and lump, unspecified', category: 'other_general' },
+        { code: 'S00.00XA', description: 'Unspecified superficial injury of scalp, initial encounter', category: 'other_general' },
+        { code: 'W01.0XXA', description: 'Fall on same level from slipping, tripping and stumbling without subsequent striking against object, initial encounter', category: 'other_general' }
+      );
+    }
+
     // Group 1 & 2 Combined - Venous Leg Ulcers (I83 + I87 codes combined)
-    if (currentWoundType.primaryCategory === 'venous_ulcer_combined') {
+    else if (currentWoundType.primaryCategory === 'venous_ulcer_combined') {
       // I83 codes - Varicose veins with ulcer
       mockPrimaryCodes.push(
         { code: 'I83.001', description: 'Varicose veins of unspecified lower extremity with ulcer of thigh', category: 'venous_ulcer' },
@@ -369,29 +522,7 @@ export const DiagnosisCodeSelector: React.FC<DiagnosisCodeSelectorProps> = ({
       );
     }
     
-    // Group 5 - Chronic Ulcers (L97 - single coding)
-    else if (currentWoundType.primaryCategory === 'chronic_ulcer_l97_single') {
-      mockPrimaryCodes.push(
-        { code: 'L97.101', description: 'Non-pressure chronic ulcer of unspecified thigh limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L97.102', description: 'Non-pressure chronic ulcer of unspecified thigh with fat layer exposed', category: 'chronic_ulcer' },
-        { code: 'L97.103', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of muscle', category: 'chronic_ulcer' },
-        { code: 'L97.104', description: 'Non-pressure chronic ulcer of unspecified thigh with necrosis of bone', category: 'chronic_ulcer' },
-        { code: 'L97.109', description: 'Non-pressure chronic ulcer of unspecified thigh with unspecified severity', category: 'chronic_ulcer' },
-        { code: 'L97.201', description: 'Non-pressure chronic ulcer of unspecified calf limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L97.202', description: 'Non-pressure chronic ulcer of unspecified calf with fat layer exposed', category: 'chronic_ulcer' },
-        { code: 'L97.203', description: 'Non-pressure chronic ulcer of unspecified calf with necrosis of muscle', category: 'chronic_ulcer' },
-        { code: 'L97.204', description: 'Non-pressure chronic ulcer of unspecified calf with necrosis of bone', category: 'chronic_ulcer' },
-        { code: 'L97.301', description: 'Non-pressure chronic ulcer of unspecified ankle limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L97.302', description: 'Non-pressure chronic ulcer of unspecified ankle with fat layer exposed', category: 'chronic_ulcer' },
-        { code: 'L97.401', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L97.402', description: 'Non-pressure chronic ulcer of unspecified heel and midfoot with fat layer exposed', category: 'chronic_ulcer' },
-        { code: 'L97.501', description: 'Non-pressure chronic ulcer of other part of unspecified foot limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L97.801', description: 'Non-pressure chronic ulcer of other part of unspecified lower leg limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L98.411', description: 'Non-pressure chronic ulcer of buttock limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L98.421', description: 'Non-pressure chronic ulcer of back limited to breakdown of skin', category: 'chronic_ulcer' },
-        { code: 'L98.491', description: 'Non-pressure chronic ulcer of skin of other sites limited to breakdown of skin', category: 'chronic_ulcer' }
-      );
-    }
+
 
     // Secondary codes for dual-coding wound types (L97 codes)
     if (currentWoundType.secondaryCategory === 'chronic_ulcer_l97') {

@@ -11,9 +11,22 @@ use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
 use App\Models\Order\Manufacturer;
+use App\Http\Requests\StoreProductRequest;
+use App\Http\Requests\UpdateProductRequest;
+use App\Services\ProductDataService;
+use App\Repositories\ProductRepository;
 
 class ProductController extends Controller
 {
+    protected ProductDataService $productDataService;
+    protected ProductRepository $productRepository;
+
+    public function __construct(ProductDataService $productDataService, ProductRepository $productRepository)
+    {
+        $this->productDataService = $productDataService;
+        $this->productRepository = $productRepository;
+    }
+
     /**
      * Display the product catalog index page
      */
@@ -23,91 +36,28 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
-        // Get all products without provider onboarding filtering
-        $products = Product::query()
-            ->when($request->filled('search'), function ($query) use ($request) {
-                $search = $request->get('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('name', 'like', "%{$search}%")
-                        ->orWhere('sku', 'like', "%{$search}%")
-                        ->orWhere('q_code', 'like', "%{$search}%");
-                });
-            })
-            ->when($request->filled('manufacturer'), function ($query) use ($request) {
-                $query->where('manufacturer', $request->get('manufacturer'));
-            })
-            ->when($request->filled('category'), function ($query) use ($request) {
-                $query->where('category', $request->get('category'));
-            })
-            ->latest()
-            ->paginate($request->get('per_page', 15))
-            ->through(function ($product) use ($user) {
-                $data = [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'q_code' => $product->q_code,
-                    'manufacturer' => $product->manufacturer,
-                    'category' => $product->category,
-                    'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
-                    'size_options' => $product->size_options,
-                    'size_pricing' => $product->size_pricing,
-                    'size_unit' => $product->size_unit,
-                    'is_active' => $product->is_active,
-                    'created_at' => $product->created_at,
-                    'updated_at' => $product->updated_at,
-                ];
+        // Get filtered products using repository
+        $filters = $request->only(['search', 'category', 'manufacturer']);
+        $products = $this->productRepository->getFilteredProducts($filters, $request->get('per_page', 15));
 
-                // Include pricing based on user role
-                if ($user->hasRole('provider')) {
-                    // Providers see MSC price (price_per_sq_cm * 0.6)
-                    $data['msc_price'] = $product->price_per_sq_cm * 0.6;
-                    $data['display_price'] = $product->price_per_sq_cm * 0.6;
-                    $data['price_label'] = 'MSC Price';
-                } elseif ($user->hasRole('office_manager')) {
-                    // Office Managers see National ASP (price_per_sq_cm)
-                    $data['national_asp'] = $product->price_per_sq_cm;
-                    $data['display_price'] = $product->price_per_sq_cm;
-                    $data['price_label'] = 'National ASP';
-                } elseif ($user->hasRole('admin') || $user->hasRole('super_admin')) {
-                    // Admins see everything
-                    $data['price_per_sq_cm'] = $product->price_per_sq_cm;
-                    $data['national_asp'] = $product->price_per_sq_cm;
-                    $data['msc_price'] = $product->price_per_sq_cm * 0.6;
-                    $data['display_price'] = $product->price_per_sq_cm;
-                    $data['price_label'] = 'Price/cm²';
-                }
+        // Transform products using the service
+        $products->through(function ($product) use ($user) {
+            return $this->productDataService->transformProduct($product, $user, ['include_timestamps' => true]);
+        });
 
-                // Add commission rate only for authorized users
-                if ($user->hasAnyPermission(['view-financials', 'manage-financials'])) {
-                    $data['commission_rate'] = $product->commission_rate;
-                }
-
-                // Add MUE only for admins
-                if ($user->hasPermission('manage-products')) {
-                    $data['mue'] = $product->mue;
-                }
-
-                // Check if product is onboarded for providers
-                if ($user->hasRole('provider')) {
-                    $data['is_onboarded'] = $product->isAvailableForProvider($user->id);
-                }
-
-                return $data;
-            });
-
-        // Calculate statistics
-        $totalProducts = Product::count();
+        // Get statistics
+        $stats = $this->productRepository->getRepositoryStats();
         $onboardedProductsCount = 0;
         
         if ($user->hasRole('provider')) {
-            $onboardedProductsCount = Product::whereHas('activeProviders', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
-            })->count();
+            $onboardedProductsCount = $this->productRepository->providerHasOnboardedProducts($user) ? 1 : 0; // Simplified for now
         }
 
+        // Get filter options
+        $filterOptions = $this->productRepository->getFilterOptions();
+
         return Inertia::render('Products/Index', [
-            'products' => $products->items(), // Extract the data array from pagination
+            'products' => $products->items(),
             'pagination' => [
                 'current_page' => $products->currentPage(),
                 'last_page' => $products->lastPage(),
@@ -117,22 +67,13 @@ class ProductController extends Controller
                 'to' => $products->lastItem(),
             ],
             'filters' => $request->only(['search', 'category', 'manufacturer', 'sort', 'direction']),
-            'categories' => Product::distinct()->pluck('category')->filter()->sort()->values(),
-            'manufacturers' => Product::distinct()->pluck('manufacturer')->filter()->sort()->values(),
+            'categories' => $filterOptions['categories'],
+            'manufacturers' => $filterOptions['manufacturers'],
             'stats' => [
-                'total_products' => $totalProducts,
+                'total_products' => $stats['total_products'],
                 'onboarded_products' => $onboardedProductsCount,
             ],
-            'permissions' => [
-                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
-                'can_see_discounts' => $user->hasPermission('view-discounts'),
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
-                'can_manage_products' => $user->hasPermission('manage-products'),
-                'is_provider' => $user->hasRole('provider'),
-                'is_office_manager' => $user->hasRole('office_manager'),
-                'is_admin' => $user->hasRole('admin') || $user->hasRole('super_admin'),
-            ],
+            'permissions' => $this->productDataService->getUserPermissions($user),
         ]);
     }
 
@@ -146,17 +87,11 @@ class ProductController extends Controller
         $user->load('roles');
 
         $product->load(['category', 'manufacturer']);
-        $filteredProduct = $this->filterProductPricingData($product, $user);
+        $transformedProduct = $this->productDataService->transformProduct($product, $user);
 
         return Inertia::render('Products/Show', [
-            'product' => $filteredProduct,
-            'permissions' => [
-                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
-                'can_see_discounts' => $user->hasPermission('view-discounts'),
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
-                'can_manage_products' => $user->hasPermission('manage-products'),
-            ],
+            'product' => $transformedProduct,
+            'permissions' => $this->productDataService->getUserPermissions($user),
         ]);
     }
 
@@ -174,32 +109,9 @@ class ProductController extends Controller
     /**
      * Store a newly created product
      */
-    public function store(Request $request)
+    public function store(StoreProductRequest $request)
     {
-        $validated = $request->validate([
-            'sku' => 'required|string|unique:msc_products,sku',
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'manufacturer' => 'nullable|string|max:255',
-            'category' => 'nullable|string|max:255',
-            'national_asp' => 'nullable|numeric|min:0',
-            'price_per_sq_cm' => 'nullable|numeric|min:0',
-            'q_code' => 'nullable|string|max:10',
-            'mue' => 'nullable|integer|min:0',
-            'available_sizes' => 'nullable|array',
-            'available_sizes.*' => 'string|max:20',
-            'size_options' => 'nullable|array',
-            'size_options.*' => 'string|max:20',
-            'size_pricing' => 'nullable|array',
-            'size_unit' => 'nullable|string|in:in,cm',
-            'graph_type' => 'nullable|string|max:255',
-            'image_url' => 'nullable|url',
-            'document_urls' => 'nullable|array',
-            'document_urls.*' => 'url',
-            'commission_rate' => 'nullable|numeric|min:0|max:100',
-            'is_active' => 'boolean',
-        ]);
-
+        $validated = $request->validated();
         $product = Product::create($validated);
 
         return redirect()->route('products.index')
@@ -221,32 +133,9 @@ class ProductController extends Controller
     /**
      * Update the specified product
      */
-    public function update(Request $request, Product $product)
+    public function update(UpdateProductRequest $request, Product $product)
     {
-        $validated = $request->validate([
-            'sku' => 'required|string|unique:msc_products,sku,' . $product->id,
-            'name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'manufacturer' => 'nullable|string|max:255',
-            'category' => 'nullable|string|max:255',
-            'national_asp' => 'nullable|numeric|min:0',
-            'price_per_sq_cm' => 'nullable|numeric|min:0',
-            'q_code' => 'nullable|string|max:10',
-            'mue' => 'nullable|integer|min:0',
-            'available_sizes' => 'nullable|array',
-            'available_sizes.*' => 'string|max:20',
-            'size_options' => 'nullable|array',
-            'size_options.*' => 'string|max:20',
-            'size_pricing' => 'nullable|array',
-            'size_unit' => 'nullable|string|in:in,cm',
-            'graph_type' => 'nullable|string|max:255',
-            'image_url' => 'nullable|url',
-            'document_urls' => 'nullable|array',
-            'document_urls.*' => 'url',
-            'commission_rate' => 'nullable|numeric|min:0|max:100',
-            'is_active' => 'boolean',
-        ]);
-
+        $validated = $request->validated();
         $product->update($validated);
 
         return redirect()->route('products.index')
@@ -284,98 +173,36 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
-
-        $query = Product::active();
-
-        // Add a flag to indicate if provider has no products
+        $filters = $request->only(['q', 'category', 'onboarded_q_codes']);
         $providerHasNoProducts = false;
 
-        // Filter by specific onboarded Q-codes if provided (for performance optimization)
-        if ($request->has('onboarded_q_codes') && $request->get('onboarded_q_codes') !== null) {
-            $qCodesParam = $request->get('onboarded_q_codes');
-            $qCodes = explode(',', $qCodesParam);
-            $qCodes = array_map('trim', $qCodes);
-            $qCodes = array_filter($qCodes); // Remove empty values
-
-            if (!empty($qCodes)) {
-                $query->whereIn('q_code', $qCodes);
-            } else {
-                // Provider has no onboarded products - ensure query returns no results
-                $providerHasNoProducts = true;
-                $query->whereRaw('1 = 0'); // Impossible condition to return no products
-            }
-        }
-        // Fallback to original provider filtering if no specific Q-codes provided
-        elseif ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
-            // Only show products the provider is onboarded with
-            $query->whereHas('activeProviders', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
-            });
-
-            // Check if provider has any onboarded products
-            $onboardedCount = Product::whereHas('activeProviders', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
-            })->count();
-
-            if ($onboardedCount === 0) {
+        // If onboarded_q_codes is provided, use it directly for filtering
+        if (!empty($filters['onboarded_q_codes'])) {
+            // This handles the case where frontend passes specific Q-codes to filter by
+            $products = $this->productRepository->getProviderProducts($user, $filters);
+            
+            if ($products->isEmpty()) {
                 $providerHasNoProducts = true;
             }
+        } 
+        // Handle provider-specific product filtering based on their role
+        else if ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
+            $products = $this->productRepository->getProviderProducts($user, $filters);
+            
+            if ($products->isEmpty()) {
+                $providerHasNoProducts = true;
+            }
+        } else {
+            // Get all products for non-providers or when show_all is true
+            $products = $this->productRepository->getAllProducts($filters);
         }
 
-        if ($request->filled('q')) {
-            $query->search($request->q);
-        }
-
-        if ($request->filled('category')) {
-            $query->byCategory($request->category);
-        }
-
-        $products = $query
-            ->with(['activeSizes']) // Load active sizes
-            ->select(['msc_products.id', 'msc_products.name', 'msc_products.sku', 'msc_products.q_code', 'msc_products.manufacturer', 'msc_products.manufacturer_id', 'msc_products.category', 'msc_products.price_per_sq_cm', 'msc_products.available_sizes', 'msc_products.size_options', 'msc_products.size_pricing', 'msc_products.size_unit', 'msc_products.mue'])
-            ->get();
-
-        // Transform products for response
+        // Transform products for response - convert to array first to avoid type issues
         $transformedProducts = $products->map(function ($product) use ($user) {
-            // Get sizes from new system or fall back to old
-            $availableSizes = $product->size_options ?? $product->available_sizes ?? [];
+            return $this->productDataService->transformProduct($product, $user, ['include_manufacturer_info' => true]);
+        })->values()->toArray();
 
-            // Get manufacturer info
-            $manufacturer = Manufacturer::find($product->manufacturer_id);
-
-            $data = [
-                'id' => $product->id,
-                'name' => $product->name,
-                'sku' => $product->sku ?? '',
-                'code' => $product->q_code ?? $product->hcpcs_code ?? '',
-                'q_code' => $product->q_code,
-                'hcpcs_code' => $product->hcpcs_code,
-                'manufacturer' => $product->manufacturer,
-                'manufacturer_id' => $product->manufacturer_id,
-                'category' => $product->category,
-                'price_per_sq_cm' => $product->price_per_sq_cm,
-                'available_sizes' => $availableSizes,
-                'size_options' => $product->size_options ?? [],
-                'size_pricing' => $product->size_pricing ?? [],
-                'size_unit' => $product->size_unit ?? 'in',
-                'graphSizes' => $product->available_sizes ?? [], // Keep for backward compatibility
-                'has_onboarding' => $product->manufacturer_requires_onboarding ?? false,
-                'signature_required' => $manufacturer?->signature_required ?? false,
-                'docuseal_template_id' => $manufacturer?->docuseal_order_form_template_id,
-            ];
-
-            // Only include MUE for admin users, not providers
-            // MUE is sensitive CMS data that should only be used for validation
-            if ($user->hasPermission('manage-products')) {
-                $data['mue'] = $product->mue;
-            }
-
-            return $data;
-        });
-
-
-        // Also get categories and manufacturers for filtering
-        // Use the already fetched products to avoid running the query again
+        // Get filter options from the fetched products
         $categories = $products->pluck('category')->unique()->filter()->sort()->values();
         $manufacturers = $products->pluck('manufacturer')->unique()->filter()->sort()->values();
 
@@ -463,79 +290,45 @@ class ProductController extends Controller
         $user = Auth::user();
         $user->load('roles');
 
-        $query = Product::active();
+        $filters = $request->only(['q', 'category', 'manufacturer', 'onboarded_q_codes']);
+        $providerHasNoProducts = false;
 
-        // Filter by provider's onboarded products if user has provider viewing permission
-        // The 'show_all' parameter allows showing all products for catalog viewing
-        if ($user->hasPermission('view-providers') && !$request->boolean('show_all', false)) {
-            // Only show products the provider is onboarded with
-            $query->whereHas('activeProviders', function ($q) use ($user) {
-                $q->where('users.id', $user->id);
-            });
+        // If onboarded_q_codes is provided, use it directly for filtering
+        if (!empty($filters['onboarded_q_codes'])) {
+            // This handles the case where frontend passes specific Q-codes to filter by
+            $products = $this->productRepository->getProviderProducts($user, $filters);
+            
+            if ($products->isEmpty()) {
+                $providerHasNoProducts = true;
+            }
+        } 
+        // Handle provider-specific product filtering based on their role
+        else if ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
+            $products = $this->productRepository->getProviderProducts($user, $filters);
+            
+            if ($products->isEmpty()) {
+                $providerHasNoProducts = true;
+            }
+        } else {
+            // Get all products for non-providers or when show_all is true
+            $products = $this->productRepository->getAllProducts($filters);
         }
 
-        // Apply search filter
-        if ($request->filled('q')) {
-            $query->search($request->q);
-        }
+        // Transform products for response - convert to array first to avoid type issues
+        $transformedProducts = $products->map(function ($product) use ($user) {
+            return $this->productDataService->transformProduct($product, $user, ['include_manufacturer_info' => true]);
+        })->values()->toArray();
 
-        // Apply category filter
-        if ($request->filled('category')) {
-            $query->byCategory($request->category);
-        }
-
-        // Apply manufacturer filter
-        if ($request->filled('manufacturer')) {
-            $query->byManufacturer($request->manufacturer);
-        }
-
-        $products = $query
-            ->select([
-                'id', 'name', 'sku', 'q_code', 'manufacturer', 'category',
-                'description', 'price_per_sq_cm', 'available_sizes',
-                'image_url', 'commission_rate'
-            ])
-            ->orderBy('name')
-            ->get()
-            ->map(function ($product) use ($user) {
-                $data = [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'sku' => $product->sku,
-                    'q_code' => $product->q_code,
-                    'manufacturer' => $product->manufacturer,
-                    'category' => $product->category,
-                    'description' => $product->description,
-                    'price_per_sq_cm' => $product->price_per_sq_cm,
-                    'available_sizes' => $product->available_sizes ?? [],
-                    'image_url' => $product->image_url,
-                ];
-
-                // Add MSC pricing only if user has permission
-                if ($user->hasPermission('view-msc-pricing')) {
-                    $data['msc_price'] = $product->msc_price;
-                }
-
-                // Add commission data only if user has permission
-                if ($user->hasAnyPermission(['view-financials', 'manage-financials'])) {
-                    $data['commission_rate'] = $product->commission_rate;
-                }
-
-                // Add onboarding status for providers
-                if ($user->hasPermission('view-providers')) {
-                    $data['is_onboarded'] = $product->isAvailableForProvider($user->id);
-                }
-
-                return $data;
-            });
-
-        $categories = Product::getCategories();
-        $manufacturers = Manufacturer::active()->orderBy('name')->pluck('name')->values();
+        // Get filter options from the fetched products
+        $categories = $products->pluck('category')->unique()->filter()->sort()->values();
+        $manufacturers = $products->pluck('manufacturer')->unique()->filter()->sort()->values();
 
         return response()->json([
-            'products' => $products,
+            'products' => $transformedProducts,
             'categories' => $categories,
             'manufacturers' => $manufacturers,
+            'provider_has_no_products' => $providerHasNoProducts,
+            'message' => $providerHasNoProducts ? 'This provider has not been onboarded to any products yet. Please contact your MSC administrator to request product access.' : null,
         ]);
     }
 

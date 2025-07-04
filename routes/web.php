@@ -504,60 +504,60 @@ Route::middleware(['web', 'auth'])->group(function () {
         Route::post('/submit-order', [\App\Http\Controllers\QuickRequestController::class, 'submitOrder'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.submit-order');
-        Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.debug-facilities');
+
+        // Main store route
         Route::post('/', [\App\Http\Controllers\QuickRequestController::class, 'store'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
 
-        // Docuseal IVR Integration
-        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequestController::class, 'prepareDocusealIVR'])
+        // Docuseal IVR Integration - moved to DocusealController
+        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'prepareDocusealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
 
-        // Order Summary Route
-        Route::get('/order-summary/{order_id}', [\App\Http\Controllers\QuickRequestController::class, 'showOrderSummary'])
+        // Docuseal routes - moved to DocusealController
+        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateFormToken'])
             ->middleware('permission:create-product-requests')
-            ->name('quick-requests.order-summary');
+            ->name('quick-requests.docuseal.generate-form-token');
+
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateSubmissionSlug'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.generate-submission-slug');
+
+        // Debug endpoint for Docuseal integration troubleshooting
+        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'debugDocusealIntegration'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.debug');
+
+        Route::get('/docuseal/test-count', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testTemplateCount'])
+            ->middleware('permission:create-product-requests')
+            ->name('quick-requests.docuseal.test-count');
 
         // Docuseal Builder Token Generation (web auth)
         Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-builder-token');
 
-        // Docuseal Form Token Generation (web auth)
-        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\QuickRequestController::class, 'generateFormToken'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-form-token');
-
-        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequestController::class, 'generateSubmissionSlug'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-submission-slug');
-
-        // Debug endpoint for Docuseal integration troubleshooting
-        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugDocusealIntegration'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.debug');
-
-        Route::get('/docuseal/test-count', [\App\Http\Controllers\QuickRequestController::class, 'testTemplateCount'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.test-count');
-
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.create-episode-with-documents');
 
-        // My Orders Page - Provider order tracking
-        Route::get('/my-orders', [\App\Http\Controllers\QuickRequestController::class, 'myOrders'])
-            ->middleware('permission:view-product-requests')
-            ->name('quick-requests.my-orders');
+        // Remove routes for methods that don't exist anymore
+        // Order Summary Route - temporarily commented out until we implement it
+        // Route::get('/order-summary/{order_id}', [\App\Http\Controllers\QuickRequestController::class, 'showOrderSummary'])
+        //     ->middleware('permission:create-product-requests')
+        //     ->name('quick-requests.order-summary');
 
-        // Test route - disabled in production
-        // Route::get('/test-azure', function() {
-        //     return Inertia::render('QuickRequest/Components/TestInsuranceCard');
-        // })->name('quick-requests.test-azure');
+        // My Orders Page - temporarily commented out until we implement it
+        // Route::get('/my-orders', [\App\Http\Controllers\QuickRequestController::class, 'myOrders'])
+        //     ->middleware('permission:view-product-requests')
+        //     ->name('quick-requests.my-orders');
+
+        // Debug routes - temporarily commented out
+        // Route::get('/debug-facilities', [\App\Http\Controllers\QuickRequestController::class, 'debugFacilities'])
+        //     ->middleware('permission:create-product-requests')
+        //     ->name('quick-requests.debug-facilities');
     });
 
     // Insurance Card Analysis API

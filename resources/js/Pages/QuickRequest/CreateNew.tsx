@@ -222,14 +222,7 @@ interface Props {
     };
   };
   providerProducts?: Record<string, string[]>; // provider ID to product codes mapping
-  roleRestrictions?: {
-    can_view_financials: boolean;
-    can_see_discounts: boolean;
-    can_see_msc_pricing: boolean;
-    can_see_order_totals: boolean;
-    pricing_access_level: string;
-    commission_access_level: string;
-  };
+
 }
 
 function QuickRequestCreateNew({
@@ -238,7 +231,6 @@ function QuickRequestCreateNew({
   products = [],
   diagnosisCodes,
   currentUser,
-  roleRestrictions,
 }: Props) {
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -294,7 +286,7 @@ function QuickRequestCreateNew({
     application_cpt_codes: [],
     place_of_service: '11',
     shipping_speed: 'standard_next_day',
-    expected_service_date: getTomorrowDate(),
+    expected_service_date: '',
     order_items: [],
     failed_conservative_treatment: false,
     information_accurate: false,
@@ -601,6 +593,7 @@ function QuickRequestCreateNew({
 
     while (attempt < maxAttempts) {
       try {
+        // Always refresh token before FHIR operations
         const csrfToken = await ensureValidCSRFToken();
         if (!csrfToken) {
           throw new Error('Unable to obtain security token');
@@ -819,42 +812,44 @@ function QuickRequestCreateNew({
 
     setIsExtractingIvrFields(true);
     try {
+      // Always refresh token before IVR extraction
       const csrfToken = await ensureValidCSRFToken();
       if (!csrfToken) throw new Error('Unable to obtain security token');
 
       // Get FHIR IDs from form data and providers/facilities
       const selectedProvider = providers.find(p => p.id === formData.provider_id);
 
-      const response = await axios.post('/api/quick-request/extract-ivr-fields', {
-        patient_id: formData.patient_fhir_id,
-        practitioner_id: formData.fhir_practitioner_id || selectedProvider?.fhir_practitioner_id,
-        organization_id: formData.fhir_organization_id || currentUser.organization?.fhir_organization_id,
-        questionnaire_response_id: formData.fhir_questionnaire_response_id,
-        device_request_id: formData.fhir_device_request_id,
-        episode_id: formData.episode_id,
-        episode_of_care_id: formData.fhir_episode_of_care_id,
-        manufacturer_key: manufacturerConfig.name,
-        sales_rep: formData.sales_rep_id ? {
-          name: 'MSC Distribution',
-          email: 'orders@mscwoundcare.com'
-        } : undefined,
-        selected_products: formData.selected_products?.map(sp => {
-          const product = products.find(p => p.id === sp.product_id);
-          return {
-            name: product?.name || 'Unknown Product',
-            code: product?.code || 'Unknown Code',
-            size: sp.size
-          };
-        })
-      }, {
-        headers: { 'X-CSRF-TOKEN': csrfToken }
-      });
+      // Commented out as per user feedback - extraction happens elsewhere
+      // const response = await axios.post('/api/quick-request/extract-ivr-fields', {
+      //   patient_id: formData.patient_fhir_id,
+      //   practitioner_id: formData.fhir_practitioner_id || selectedProvider?.fhir_practitioner_id,
+      //   organization_id: formData.fhir_organization_id || currentUser.organization?.fhir_organization_id,
+      //   questionnaire_response_id: formData.fhir_questionnaire_response_id,
+      //   device_request_id: formData.fhir_device_request_id,
+      //   episode_id: formData.episode_id,
+      //   episode_of_care_id: formData.fhir_episode_of_care_id,
+      //   manufacturer_key: manufacturerConfig.name,
+      //   sales_rep: formData.sales_rep_id ? {
+      //     name: 'MSC Distribution',
+      //     email: 'orders@mscwoundcare.com'
+      //   } : undefined,
+      //   selected_products: formData.selected_products?.map(sp => {
+      //     const product = products.find(p => p.id === sp.product_id);
+      //     return {
+      //       name: product?.name || 'Unknown Product',
+      //       code: product?.code || 'Unknown Code',
+      //       size: sp.size
+      //     };
+      //   })
+      // }, {
+      //   headers: { 'X-CSRF-TOKEN': csrfToken }
+      // });
 
-      if (response.data.success) {
-        setIvrFields(response.data.ivr_fields);
-        updateFormData({ manufacturer_fields: response.data.ivr_fields });
-        console.log(`IVR Field Coverage: ${response.data.field_coverage.percentage}%`);
-      }
+      // if (response.data.success) {
+      //   setIvrFields(response.data.ivr_fields);
+      //   updateFormData({ manufacturer_fields: response.data.ivr_fields });
+      //   console.log(`IVR Field Coverage: ${response.data.field_coverage.percentage}%`);
+      // }
     } catch (error) {
       console.error('Error extracting IVR fields:', error);
     } finally {
@@ -871,6 +866,15 @@ function QuickRequestCreateNew({
       return;
     }
     setErrors({});
+
+    // Refresh CSRF token before proceeding to next section
+    try {
+      await ensureValidCSRFToken();
+    } catch (error) {
+      console.error('Failed to refresh CSRF token:', error);
+      setErrors({ csrf: 'Unable to refresh security token. Please refresh the page.' });
+      return;
+    }
 
     // If this is the final step, submit the order directly
     const isFinalStep = currentSection === (hasManufacturerWithOrderForm() ? 5 : 4);
@@ -1017,15 +1021,21 @@ function QuickRequestCreateNew({
   const handleSubmitOrder = async () => {
     setIsSubmitting(true);
 
-    try {
-      const csrfToken = await ensureValidCSRFToken();
-      if (!csrfToken) {
-        setErrors({ submit: 'Unable to obtain security token. Please refresh the page.' });
-        return;
-      }
+    // Retry mechanism for CSRF token issues
+    const maxRetries = 2;
+    let currentRetry = 0;
 
-      // Extract IVR fields if available
-      await extractIvrFields();
+    while (currentRetry <= maxRetries) {
+      try {
+        // Always refresh the CSRF token before submission
+        const csrfToken = await ensureValidCSRFToken();
+        if (!csrfToken) {
+          setErrors({ submit: 'Unable to obtain security token. Please refresh the page.' });
+          return;
+        }
+
+        // Extract IVR fields if available
+        await extractIvrFields();
 
       // Clean and prepare the form data for submission
       const finalFormData = {
@@ -1113,35 +1123,84 @@ function QuickRequestCreateNew({
 
       console.log('✅ Order submission response:', response.data);
 
-      if (response.data.success) {
-        // Show success message and redirect to episodes page
-        alert('Order submitted successfully! Your order is now being processed.');
-        router.visit(`/provider/episodes/${response.data.episode_id}`);
-      } else {
-        throw new Error(response.data.message || 'Failed to submit order');
-      }
-    } catch (error: any) {
-      console.error('❌ Error submitting order:', error);
+        if (response.data.success) {
+          // Show success message and redirect
+          alert('Order submitted successfully! Your order is now being processed.');
+          
+          // Temporarily redirect to dashboard to avoid access issues
+          // TODO: Re-enable episode redirect once access control is fixed
+          const redirectToDashboard = true; // Toggle this to test episode redirect
+          
+          if (redirectToDashboard) {
+            // Go directly to dashboard where the new order will be visible
+            setTimeout(() => {
+              router.visit('/provider/dashboard');
+            }, 1000);
+          } else if (response.data.episode_id) {
+            // Original episode redirect logic (currently has access issues)
+            setTimeout(() => {
+              router.visit(`/provider/episodes/${response.data.episode_id}`, {
+                onError: () => {
+                  console.error('Failed to navigate to episode, redirecting to dashboard');
+                  router.visit('/provider/dashboard');
+                }
+              });
+            }, 2000);
+          } else {
+            // Fallback to provider dashboard if no episode_id
+            router.visit('/provider/dashboard');
+          }
+          return; // Exit the retry loop on success
+        } else {
+          throw new Error(response.data.message || 'Failed to submit order');
+        }
+      } catch (error: any) {
+        console.error('❌ Error submitting order (attempt ' + (currentRetry + 1) + '):', error);
 
-      // Provide more specific error messages
-      let errorMessage = 'An error occurred while submitting the order';
+        // Handle CSRF token expiration specifically
+        if (error.response?.status === 419) {
+          console.log('CSRF token expired, attempting to refresh...');
+          
+          // Force refresh the token
+          const newToken = await ensureValidCSRFToken();
+          if (!newToken) {
+            console.error('Failed to refresh CSRF token');
+            setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
+            return;
+          }
+          
+          // If we have retries left, try again
+          if (currentRetry < maxRetries) {
+            currentRetry++;
+            console.log(`Retrying submission with fresh token (attempt ${currentRetry + 1})...`);
+            continue;
+          }
+          
+          // If we've exhausted retries, show error
+          setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
+          return;
+        }
 
-      if (error.response?.status === 422) {
-        errorMessage = 'Please check your form data and try again';
-      } else if (error.response?.status === 419) {
-        errorMessage = 'Session expired. Please refresh the page and try again';
-        window.location.reload();
+        // For other errors, don't retry
+        let errorMessage = 'An error occurred while submitting the order';
+
+        if (error.response?.status === 422) {
+          errorMessage = 'Please check your form data and try again';
+        } else if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.message) {
+          errorMessage = error.message;
+        }
+
+        setErrors({ submit: errorMessage });
         return;
-      } else if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
       }
-
-      alert(errorMessage);
-    } finally {
-      setIsSubmitting(false);
     }
+    
+    // If we reach here, all retries failed
+    setErrors({ submit: 'Unable to submit order after multiple attempts. Please refresh the page and try again.' });
+    
+    setIsSubmitting(false);
   };
 
   const handlePrevious = () => {
@@ -1183,6 +1242,20 @@ function QuickRequestCreateNew({
   }, [formData.patient_first_name, formData.patient_last_name]);
 
 
+
+  // Periodically refresh CSRF token to prevent expiration during long form sessions
+  useEffect(() => {
+    const refreshInterval = setInterval(async () => {
+      try {
+        await ensureValidCSRFToken();
+        console.log('CSRF token refreshed automatically');
+      } catch (error) {
+        console.error('Failed to refresh CSRF token automatically:', error);
+      }
+    }, 10 * 60 * 1000); // Refresh every 10 minutes
+
+    return () => clearInterval(refreshInterval);
+  }, []);
 
   // Calculate wound area
   const woundArea = formData.wound_size_length && formData.wound_size_width
@@ -1313,7 +1386,6 @@ function QuickRequestCreateNew({
                 updateFormData={updateFormData as any}
                 errors={errors}
                 currentUser={currentUser}
-                roleRestrictions={roleRestrictions}
               />
             )}
 

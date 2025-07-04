@@ -132,9 +132,6 @@ class DatabaseSeeder extends Seeder
         // Create product requests
         $this->createProductRequests($userIds, $facilityIds);
 
-        // Create test orders for profit calculation
-        $this->createTestOrders();
-
         // Call other seeders
         $this->callOtherSeeders();
     }
@@ -242,7 +239,7 @@ class DatabaseSeeder extends Seeder
             ],
             'office-manager' => [
                 'name'        => 'Office Manager',
-                'description' => 'Office manager with administrative access',
+                'description' => 'Office manager with administrative access (no financial data access)',
                 'permissions' => [
                     'view-dashboard',
                     'create-product-requests',
@@ -257,7 +254,7 @@ class DatabaseSeeder extends Seeder
                     'view-pre-authorization',
                     'manage-pre-authorization',
                     'view-products',
-                    'view-national-asp',
+                    // Removed 'view-national-asp' - office managers should see NO financial data
                     'view-providers',
                     'manage-providers',
                     'view-facilities',
@@ -692,110 +689,11 @@ class DatabaseSeeder extends Seeder
 
     private function createProductRequests($userIds, $facilityIds): void
     {
-        $productRequests = [
-            [
-                'request_number'                  => 'PR-' . strtoupper(uniqid()),
-                'provider_id'                     => $userIds['provider@example.com'],
-                'patient_fhir_id'                 => 'Patient/' . uniqid(),
-                'patient_display_id'              => 'JoSm001',
-                'facility_id'                     => $facilityIds[0],
-                'payer_name_submitted'            => 'Medicare Part B',
-                'payer_id'                        => 'MEDICARE',
-                'expected_service_date'           => Carbon::now()->addDays(7),
-                'wound_type'                      => 'DFU',
-                'order_status'                    => 'draft',
-                'step'                            => 3,
-                'total_order_value'               => 450.00,
-                'created_at'                      => Carbon::now()->subDays(2),
-                'updated_at'                      => Carbon::now()->subDays(2),
-            ],
-            [
-                'request_number'                  => 'PR-' . strtoupper(uniqid()),
-                'provider_id'                     => $userIds['provider@example.com'],
-                'patient_fhir_id'                 => 'Patient/' . uniqid(),
-                'patient_display_id'              => 'MaJo002',
-                'facility_id'                     => $facilityIds[1],
-                'payer_name_submitted'            => 'Blue Cross Blue Shield',
-                'payer_id'                        => 'BCBS',
-                'expected_service_date'           => Carbon::now()->addDays(5),
-                'wound_type'                      => 'VLU',
-                'order_status'                    => 'submitted',
-                'step'                            => 6,
-                'mac_validation_status'           => 'passed',
-                'eligibility_status'              => 'eligible',
-                'pre_auth_required_determination' => 'not_required',
-                'total_order_value'               => 680.00,
-                'submitted_at'                    => Carbon::now()->subDays(1),
-                'created_at'                      => Carbon::now()->subDays(3),
-                'updated_at'                      => Carbon::now()->subDays(1),
-            ],
-        ];
-
-        foreach ($productRequests as $request) {
-            DB::table('product_requests')->insert($request);
-        }
+        // No mock product requests - all data will be live
+        $this->command->info('Skipping mock product requests - using live data only');
     }
 
-    private function createTestOrders(): void
-    {
-        // Only use Eloquent models if they're available
-        if (!class_exists('\App\Models\Order\ProductRequest')) {
-            $this->command->warn('ProductRequest model not found, skipping test orders creation');
-            return;
-        }
 
-        try {
-            \App\Models\Order\ProductRequest::create([
-                'request_number' => 'TEST-' . uniqid(),
-                'patient_fhir_id' => 'test-patient-1',
-                'patient_display_id' => 'TP001',
-                'wound_type' => 'DFU',
-                'payer_name_submitted' => 'Medicare',
-                'expected_service_date' => now()->addDays(7)->toDateString(),
-                'facility_id' => 1,
-                'provider_id' => 1,
-                'order_status' => 'approved',
-                'total_order_value' => 2500.00,
-                'approved_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            \App\Models\Order\ProductRequest::create([
-                'request_number' => 'TEST-' . uniqid(),
-                'patient_fhir_id' => 'test-patient-2',
-                'patient_display_id' => 'TP002',
-                'wound_type' => 'VLU',
-                'payer_name_submitted' => 'Blue Cross',
-                'expected_service_date' => now()->addDays(5)->toDateString(),
-                'facility_id' => 1,
-                'provider_id' => 1,
-                'order_status' => 'approved',
-                'total_order_value' => 3500.00,
-                'approved_at' => now(),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-
-            \App\Models\Order\ProductRequest::create([
-                'request_number' => 'TEST-' . uniqid(),
-                'patient_fhir_id' => 'test-patient-3',
-                'patient_display_id' => 'TP003',
-                'wound_type' => 'PU',
-                'payer_name_submitted' => 'Aetna',
-                'expected_service_date' => now()->addDays(3)->toDateString(),
-                'facility_id' => 1,
-                'provider_id' => 1,
-                'order_status' => 'delivered',
-                'total_order_value' => 1800.00,
-                'approved_at' => now()->subDays(10),
-                'created_at' => now(),
-                'updated_at' => now(),
-            ]);
-        } catch (\Exception $e) {
-            $this->command->warn('Failed to create test orders: ' . $e->getMessage());
-        }
-    }
 
     private function callOtherSeeders(): void
     {
@@ -807,7 +705,7 @@ class DatabaseSeeder extends Seeder
             IVRFieldMappingSeeder::class,
             DiagnosisCodesFromCsvSeeder::class,
             RemoveHardcodedDataSeeder::class,
-            PatientManufacturerIVREpisodeSeeder::class,
+            // PatientManufacturerIVREpisodeSeeder::class, // Removed - no mock episodes needed
         ]);
     }
 }

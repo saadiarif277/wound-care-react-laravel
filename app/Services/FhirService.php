@@ -26,18 +26,62 @@ class FhirService
                 'client_id' => config('services.azure.client_id'),
                 'client_secret_exists' => !empty(config('services.azure.client_secret')),
                 'fhir_endpoint' => config('services.azure.fhir_endpoint'),
+            ],
+            'env_vars' => [
+                'AZURE_FHIR_ENDPOINT' => env('AZURE_FHIR_ENDPOINT'),
+                'AZURE_FHIR_BASE_URL' => env('AZURE_FHIR_BASE_URL'),
             ]
         ]);
     }
 
     /**
      * Ensure Azure FHIR is properly configured
+     *
+     * @throws \RuntimeException
      */
     private function ensureAzureConfigured(): void
     {
-        // Always allow bypassing Azure FHIR for now - use local data instead
-        Log::info('Using local FHIR data instead of Azure FHIR');
-        return;
+        // Check if FHIR is enabled globally
+        if (!config('features.fhir.enabled', false)) {
+            Log::warning('FHIR is disabled globally via feature flag');
+            throw new \RuntimeException('FHIR is disabled globally via feature flag');
+        }
+
+        // Check if FHIR service is enabled
+        if (!config('features.fhir.service_enabled', false)) {
+            Log::warning('Azure FHIR service is disabled via feature flag');
+            throw new \RuntimeException('Azure FHIR service is disabled via feature flag');
+        }
+
+        // Get token if needed
+        if (empty($this->azureAccessToken)) {
+            $this->azureAccessToken = $this->getAzureAccessToken();
+        }
+
+        if (empty($this->azureAccessToken)) {
+            Log::error('Failed to get Azure access token', [
+                'tenant_id_exists' => !empty(config('services.azure.tenant_id')),
+                'client_id_exists' => !empty(config('services.azure.client_id')),
+                'client_secret_exists' => !empty(config('services.azure.client_secret')),
+                'scope_exists' => !empty(config('services.azure.fhir_scope')),
+            ]);
+            throw new \RuntimeException('Azure FHIR access token is not configured');
+        }
+
+        if (empty($this->azureFhirEndpoint)) {
+            Log::error('Azure FHIR endpoint validation failed', [
+                'configured_endpoint' => $this->azureFhirEndpoint,
+                'env_vars' => [
+                    'AZURE_FHIR_ENDPOINT' => env('AZURE_FHIR_ENDPOINT'),
+                    'AZURE_FHIR_BASE_URL' => env('AZURE_FHIR_BASE_URL')
+                ],
+                'config_keys' => [
+                    'fhir_endpoint' => config('services.azure.fhir_endpoint'),
+                    'fhir.base_url' => config('services.azure.fhir.base_url')
+                ]
+            ]);
+            throw new \RuntimeException('Azure FHIR endpoint is not configured. Check the logs for more details.');
+        }
     }
 
     /**
@@ -48,63 +92,66 @@ class FhirService
         return !empty($this->azureAccessToken) && !empty($this->azureFhirEndpoint);
     }
 
-        /**
-     * Create a new Patient resource using local data
+    /**
+     * Create a new Patient resource in Azure FHIR
      */
     public function createPatient(array $fhirData): array
     {
         $this->ensureAzureConfigured();
 
-        // Always use local data instead of Azure FHIR
-        $patientId = 'local-patient-' . uniqid();
-        Log::info('Creating local FHIR Patient', ['patient_id' => $patientId]);
+        if (!config('features.fhir.service_enabled', false)) {
+            // Fall back to local ID if service is disabled
+            $patientId = 'local-patient-' . uniqid();
+            Log::info('Creating local FHIR Patient (service disabled)', ['patient_id' => $patientId]);
+            return ['resourceType' => 'Patient', 'id' => $patientId];
+        }
 
-        return [
-            'resourceType' => 'Patient',
-            'id' => $patientId,
-            'identifier' => [
-                [
-                    'system' => 'http://msc-mvp.com/patient',
-                    'value' => $patientId
-                ]
-            ],
-            'name' => [
-                [
-                    'use' => 'official',
-                    'given' => [$fhirData['name'][0]['given'][0] ?? 'Local'],
-                    'family' => $fhirData['name'][0]['family'] ?? 'Patient'
-                ]
-            ],
-            'gender' => $fhirData['gender'] ?? 'unknown',
-            'birthDate' => $fhirData['birthDate'] ?? null,
-            'address' => $fhirData['address'] ?? [],
-            'telecom' => $fhirData['telecom'] ?? []
-        ];
+        // Make the actual FHIR API call
+        $response = Http::withToken($this->azureAccessToken)
+            ->withHeaders(['Content-Type' => 'application/fhir+json'])
+            ->post("{$this->azureFhirEndpoint}/Patient", $fhirData);
+
+        if (!$response->successful()) {
+            Log::error('Failed to create FHIR Patient', [
+                'status' => $response->status(),
+                'body' => $response->json(),
+                'data' => $fhirData
+            ]);
+            throw new \RuntimeException('Failed to create FHIR Patient: ' . $response->status());
+        }
+
+        return $response->json();
     }
 
-        /**
-     * Create a new FHIR resource using local data
+    /**
+     * Create a new FHIR resource in Azure FHIR
      */
     public function create(string $resourceType, array $fhirData): array
     {
         $this->ensureAzureConfigured();
 
-        // Always use local data instead of Azure FHIR
-        $resourceId = 'local-' . strtolower($resourceType) . '-' . uniqid();
-        Log::info("Creating local FHIR {$resourceType}", ['resource_id' => $resourceId]);
+        if (!config('features.fhir.service_enabled', false)) {
+            // Fall back to local ID if service is disabled
+            $resourceId = 'local-' . strtolower($resourceType) . '-' . uniqid();
+            Log::info("Creating local FHIR {$resourceType} (service disabled)", ['resource_id' => $resourceId]);
+            return ['resourceType' => $resourceType, 'id' => $resourceId];
+        }
 
-        return [
-            'resourceType' => $resourceType,
-            'id' => $resourceId,
-            'identifier' => [
-                [
-                    'system' => "http://msc-mvp.com/{$resourceType}",
-                    'value' => $resourceId
-                ]
-            ],
-            // Include any other fields from the original data
-            ...$fhirData
-        ];
+        // Make the actual FHIR API call
+        $response = Http::withToken($this->azureAccessToken)
+            ->withHeaders(['Content-Type' => 'application/fhir+json'])
+            ->post("{$this->azureFhirEndpoint}/{$resourceType}", $fhirData);
+
+        if (!$response->successful()) {
+            Log::error("Failed to create FHIR {$resourceType}", [
+                'status' => $response->status(),
+                'body' => $response->json(),
+                'data' => $fhirData
+            ]);
+            throw new \RuntimeException("Failed to create FHIR {$resourceType}: " . $response->status());
+        }
+
+        return $response->json();
     }
 
     /**
@@ -836,51 +883,70 @@ class FhirService
         $tenantId = config('services.azure.tenant_id');
         $clientId = config('services.azure.client_id');
         $clientSecret = config('services.azure.client_secret');
+        $scope = config('services.azure.fhir_scope');
 
-        Log::info('Azure FHIR configuration check', [
+        // Debug log configuration
+        Log::debug('Azure FHIR auth configuration', [
             'tenant_id_exists' => !empty($tenantId),
             'client_id_exists' => !empty($clientId),
             'client_secret_exists' => !empty($clientSecret),
-            'fhir_endpoint_exists' => !empty($this->azureFhirEndpoint),
-            'tenant_id' => $tenantId ? 'set' : 'not set',
-            'client_id' => $clientId ? 'set' : 'not set',
-            'fhir_endpoint' => $this->azureFhirEndpoint ?: 'not set'
+            'scope_exists' => !empty($scope),
+            'scope' => $scope,
+            'endpoint_base' => "https://login.microsoftonline.com/{$tenantId}/oauth2/v2.0/token"
         ]);
 
-        if (!$tenantId || !$clientId || !$clientSecret || !$this->azureFhirEndpoint) {
-            Log::warning('Azure FHIR configuration not complete. FHIR service will be disabled.', [
-                'missing' => [
-                    'tenant_id' => !$tenantId,
-                    'client_id' => !$clientId,
-                    'client_secret' => !$clientSecret,
-                    'fhir_endpoint' => !$this->azureFhirEndpoint
-                ]
+        if (!$tenantId || !$clientId || !$clientSecret || !$scope) {
+            Log::error('Missing required Azure configuration', [
+                'tenant_id_exists' => !empty($tenantId),
+                'client_id_exists' => !empty($clientId),
+                'client_secret_exists' => !empty($clientSecret),
+                'scope_exists' => !empty($scope)
             ]);
             return null;
         }
 
-        // Cache the token for 50 minutes (Azure tokens typically last 1 hour)
-        return Cache::remember('azure_fhir_token', 3000, function () use ($tenantId, $clientId, $clientSecret) {
-            try {
-                $response = Http::asForm()->post('https://login.microsoftonline.com/' . $tenantId . '/oauth2/v2.0/token', [
-                    'grant_type' => 'client_credentials',
-                    'client_id' => $clientId,
-                    'client_secret' => $clientSecret,
-                    'scope' => $this->azureFhirEndpoint . '/.default'
+        try {
+            $tokenEndpoint = "https://login.microsoftonline.com/{$tenantId}/oauth2/v2.0/token";
+            
+            Log::debug('Requesting Azure access token', [
+                'endpoint' => $tokenEndpoint,
+                'scope' => $scope
+            ]);
+            
+            $response = Http::asForm()->post($tokenEndpoint, [
+                'grant_type' => 'client_credentials',
+                'client_id' => $clientId,
+                'client_secret' => $clientSecret,
+                'scope' => $scope
+            ]);
+
+            if (!$response->successful()) {
+                Log::error('Failed to get Azure access token', [
+                    'status' => $response->status(),
+                    'body' => $response->json()
                 ]);
-
-                if (!$response->successful()) {
-                    throw new \Exception("Failed to get Azure access token: " . $response->body());
-                }
-
-                $tokenData = $response->json();
-                return $tokenData['access_token'];
-
-            } catch (\Exception $e) {
-                Log::error('Failed to get Azure access token', ['error' => $e->getMessage()]);
-                throw $e;
+                return null;
             }
-        });
+
+            $data = $response->json();
+            
+            if (!isset($data['access_token'])) {
+                Log::error('Azure token response missing access_token', [
+                    'response_keys' => array_keys($data)
+                ]);
+                return null;
+            }
+
+            Log::info('Successfully obtained Azure access token');
+            return $data['access_token'];
+
+        } catch (\Exception $e) {
+            Log::error('Error getting Azure access token', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            return null;
+        }
     }
 
     /**
@@ -953,5 +1019,51 @@ class FhirService
         }
 
         return $bundle;
+    }
+
+    /**
+     * Read a FHIR resource by type and ID
+     */
+    public function read(string $resourceType, string $id): array
+    {
+        $this->ensureAzureConfigured();
+
+        if (!config('features.fhir.service_enabled', false)) {
+            throw new \RuntimeException('FHIR service is disabled');
+        }
+
+        // Make the actual FHIR API call
+        $response = Http::withToken($this->azureAccessToken)
+            ->withHeaders(['Content-Type' => 'application/fhir+json'])
+            ->get("{$this->azureFhirEndpoint}/{$resourceType}/{$id}");
+
+        if (!$response->successful()) {
+            Log::error("Failed to read FHIR {$resourceType}", [
+                'id' => $id,
+                'status' => $response->status(),
+                'body' => $response->json()
+            ]);
+            throw new \RuntimeException("Failed to read FHIR {$resourceType}/{$id}: " . $response->status());
+        }
+
+        return $response->json();
+    }
+
+    /**
+     * Create a new FHIR resource using local data
+     */
+    public function createLocalResource(string $resourceType, array $data): array
+    {
+        // This is a placeholder method for local resource creation
+        // when Azure FHIR is not available
+        return [
+            'resourceType' => $resourceType,
+            'id' => 'local-' . uniqid(),
+            'meta' => [
+                'lastUpdated' => now()->toISOString(),
+                'source' => 'local-fallback'
+            ],
+            ...$data
+        ];
     }
 }

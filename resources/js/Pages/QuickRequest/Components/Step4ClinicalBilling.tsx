@@ -809,7 +809,7 @@ export default function Step4ClinicalBilling({
                 updates.face_sheet = doc.files.primary;
               } else if (doc.type === 'clinical_notes') {
                 updates.clinical_notes = doc.files.primary;
-              } else if (doc.type === 'wound_photo') {
+              } else if (doc.type === 'other') {
                 updates.wound_photo = doc.files.primary;
               }
             });

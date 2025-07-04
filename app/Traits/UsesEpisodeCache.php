@@ -153,7 +153,9 @@ trait UsesEpisodeCache
     {
         // Warm cache when episode is created
         static::created(function ($episode) {
-            $episode->warmCache();
+            // Temporarily disabled to prevent order creation failures
+            // TODO: Fix provider_fhir_id issue in EpisodeTemplateCacheService
+            // $episode->warmCache();
         });
         
         // Invalidate cache on status changes

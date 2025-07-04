@@ -85,9 +85,29 @@ class QuickRequestOrchestrator
             ]);
 
             // Step 7: Create initial order
+            $this->logger->info('About to create initial order', [
+                'episode_id' => $episode->id,
+                'order_details_count' => count($data['order_details'] ?? []),
+                'has_products' => isset($data['order_details']['products'])
+            ]);
+            
             $order = $this->orderHandler->createInitialOrder($episode, $data['order_details']);
+            
+            $this->logger->info('Order created, checking if saved', [
+                'order_id' => $order->id ?? 'no_id',
+                'order_exists' => $order->exists,
+                'episode_id' => $episode->id
+            ]);
 
             DB::commit();
+            
+            // Verify order was saved after commit
+            $orderCount = Order::where('episode_id', $episode->id)->count();
+            $this->logger->info('After commit - order count check', [
+                'episode_id' => $episode->id,
+                'order_count' => $orderCount,
+                'order_id' => $order->id ?? 'no_id'
+            ]);
 
             $this->logger->info('Quick Request episode created successfully', [
                 'episode_id' => $episode->id,
@@ -96,12 +116,16 @@ class QuickRequestOrchestrator
 
             return $episode->load('orders');
 
-                } catch (Exception $e) {
+        } catch (Exception $e) {
             DB::rollBack();
 
             $this->logger->error('Failed to create Quick Request episode', [
                 'error' => $e->getMessage(),
-                'manufacturer_id' => $data['manufacturer_id'] ?? 'unknown'
+                'error_trace' => $e->getTraceAsString(),
+                'error_file' => $e->getFile(),
+                'error_line' => $e->getLine(),
+                'manufacturer_id' => $data['manufacturer_id'] ?? 'unknown',
+                'step' => 'Unknown - check trace'
             ]);
 
             throw new \Exception('Failed to create Quick Request episode: ' . $e->getMessage());

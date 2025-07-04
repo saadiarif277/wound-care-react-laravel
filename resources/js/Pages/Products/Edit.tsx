@@ -65,6 +65,18 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
   const [pricingHistory, setPricingHistory] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
+  // Helper function to safely format prices
+  const formatPrice = (value: any): string => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return (numValue && !isNaN(numValue)) ? numValue.toFixed(2) : '0.00';
+  };
+
+  // Helper function to safely convert to number
+  const toNumber = (value: any): number => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return (numValue && !isNaN(numValue)) ? numValue : 0;
+  };
+
   const { data, setData, put, processing, errors, reset } = useForm({
     sku: product.sku || '',
     q_code: product.q_code || '',
@@ -72,13 +84,13 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
     description: product.description || '',
     manufacturer: product.manufacturer || '',
     category: product.category || '',
-    price_per_sq_cm: product.price_per_sq_cm || 0,
-    national_asp: product.national_asp || 0,
-    commission_rate: product.commission_rate || 0,
+    price_per_sq_cm: toNumber(product.price_per_sq_cm),
+    national_asp: toNumber(product.national_asp),
+    commission_rate: toNumber(product.commission_rate),
     available_sizes: product.available_sizes || [],
     size_options: product.size_options || [],
     size_unit: product.size_unit || 'cm',
-    mue: product.mue || 0,
+    mue: toNumber(product.mue),
     graph_type: product.graph_type || '',
     is_active: product.is_active ?? true,
     image_url: product.image_url || '',
@@ -281,7 +293,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
               </div>
               <div className="text-right">
                 <div className={cn("text-lg font-bold", t.text.primary)}>
-                  ${product.price_per_sq_cm.toFixed(2)}/cm²
+                  ${formatPrice(product.price_per_sq_cm)}/cm²
                 </div>
                 <div className="text-sm text-green-500">
                   {product.commission_rate}% commission
@@ -521,7 +533,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                         step="0.01"
                         min="0"
                         value={data.price_per_sq_cm}
-                        onChange={(e) => setData('price_per_sq_cm', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('price_per_sq_cm', toNumber(e.target.value))}
                         className={cn(
                           "w-full pl-8 pr-4 py-3 rounded-xl",
                           t.input.base,
@@ -547,7 +559,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                         step="0.01"
                         min="0"
                         value={data.national_asp}
-                        onChange={(e) => setData('national_asp', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('national_asp', toNumber(e.target.value))}
                         className={cn(
                           "w-full pl-8 pr-4 py-3 rounded-xl",
                           t.input.base,
@@ -569,7 +581,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                         min="0"
                         max="100"
                         value={data.commission_rate}
-                        onChange={(e) => setData('commission_rate', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('commission_rate', toNumber(e.target.value))}
                         className={cn(
                           "w-full pr-8 pl-4 py-3 rounded-xl",
                           t.input.base,
@@ -595,7 +607,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                       type="number"
                       min="0"
                       value={data.mue}
-                      onChange={(e) => setData('mue', parseInt(e.target.value) || 0)}
+                      onChange={(e) => setData('mue', toNumber(e.target.value))}
                       className={cn(
                         "w-full px-4 py-3 rounded-xl",
                         t.input.base,
@@ -638,19 +650,19 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                     <div>
                       <span className={cn("block", t.text.secondary)}>1 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${data.price_per_sq_cm.toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm)}
                       </span>
                     </div>
                     <div>
                       <span className={cn("block", t.text.secondary)}>10 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${(data.price_per_sq_cm * 10).toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm * 10)}
                       </span>
                     </div>
                     <div>
                       <span className={cn("block", t.text.secondary)}>25 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${(data.price_per_sq_cm * 25).toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm * 25)}
                       </span>
                     </div>
                   </div>
@@ -707,7 +719,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                           min="0"
                           step="0.1"
                           value={size}
-                          onChange={(e) => updateSize(index, parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateSize(index, toNumber(e.target.value))}
                           className={cn(
                             "flex-1 px-3 py-2 rounded-lg text-sm",
                             t.input.base,
@@ -1045,16 +1057,16 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                                   </td>
                                   <td className="px-4 py-3 text-sm">
                                     {field === 'national_asp' || field === 'price_per_sq_cm' || field === 'msc_price' ? 
-                                      `$${(record.previous_values?.[field] || 0).toFixed(2)}` :
+                                      `$${formatPrice(record.previous_values?.[field])}` :
                                      field === 'commission_rate' ? 
-                                      `${record.previous_values?.[field] || 0}%` :
+                                      `${toNumber(record.previous_values?.[field])}%` :
                                       record.previous_values?.[field] || 'N/A'}
                                   </td>
                                   <td className="px-4 py-3 text-sm">
                                     {field === 'national_asp' || field === 'price_per_sq_cm' || field === 'msc_price' ? 
-                                      `$${(record[field] || 0).toFixed(2)}` :
+                                      `$${formatPrice(record[field])}` :
                                      field === 'commission_rate' ? 
-                                      `${record[field] || 0}%` :
+                                      `${toNumber(record[field])}%` :
                                       record[field] || 'N/A'}
                                   </td>
                                   <td className="px-4 py-3 text-sm">
@@ -1065,7 +1077,7 @@ export default function ProductEdit({ product, categories, manufacturers }: Prop
                                         record.is_price_decrease ? "bg-green-500/20 text-green-400" :
                                         "bg-gray-500/20 text-gray-400"
                                       )}>
-                                        {record.is_price_increase ? '↑' : '↓'} {Math.abs(record.price_change_percentage).toFixed(1)}%
+                                        {record.is_price_increase ? '↑' : '↓'} {formatPrice(Math.abs(toNumber(record.price_change_percentage)))}%
                                       </span>
                                     ) : null}
                                   </td>

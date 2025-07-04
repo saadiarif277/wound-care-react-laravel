@@ -339,8 +339,8 @@ export default function ProviderEpisodesIndex({ episodes }: Props) {
               </thead>
               <tbody className={`divide-y ${theme === 'dark' ? 'divide-gray-700' : 'divide-gray-200'}`}>
                 {filteredEpisodes.map((episode) => {
-                  const episodeStatus = episodeStatusConfig[episode.status] || episodeStatusConfig.ready_for_review;
-                  const ivrStatus = ivrStatusConfig[episode.ivr_status];
+                  const episodeStatus = episodeStatusConfig[episode.status as keyof typeof episodeStatusConfig] || episodeStatusConfig.ready_for_review;
+                  const ivrStatus = ivrStatusConfig[episode.ivr_status as keyof typeof ivrStatusConfig];
                   const IvrIcon = ivrStatus.icon;
                   const StatusIcon = episodeStatus.icon;
                   const daysUntilExpiration = getDaysUntilExpiration(episode.expiration_date);
@@ -464,7 +464,7 @@ export default function ProviderEpisodesIndex({ episodes }: Props) {
                 </p>
                 <div className="flex items-center space-x-2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     disabled={episodes.current_page === 1}
                     onClick={() => router.visit(`${route('provider.episodes')}?page=${episodes.current_page - 1}`)}
@@ -475,7 +475,7 @@ export default function ProviderEpisodesIndex({ episodes }: Props) {
                     Page {episodes.current_page} of {episodes.last_page}
                   </span>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="sm"
                     disabled={episodes.current_page === episodes.last_page}
                     onClick={() => router.visit(`${route('provider.episodes')}?page=${episodes.current_page + 1}`)}

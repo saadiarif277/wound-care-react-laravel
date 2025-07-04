@@ -29,9 +29,22 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
   const t = themes[theme];
 
   const [activeTab, setActiveTab] = useState<'basic' | 'pricing' | 'sizes' | 'documents'>('basic');
+  const [uploadingFiles, setUploadingFiles] = useState(false);
   const [previewUrls, setPreviewUrls] = useState<string[]>([]);
 
-  const { data, setData, post, processing, errors } = useForm({
+  // Helper function to safely format prices
+  const formatPrice = (value: any): string => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return (numValue && !isNaN(numValue)) ? numValue.toFixed(2) : '0.00';
+  };
+
+  // Helper function to safely convert to number
+  const toNumber = (value: any): number => {
+    const numValue = typeof value === 'string' ? parseFloat(value) : value;
+    return (numValue && !isNaN(numValue)) ? numValue : 0;
+  };
+
+  const { data, setData, post, processing, errors, reset } = useForm({
     sku: '',
     q_code: '',
     name: '',
@@ -189,16 +202,16 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="text-center">
                 <div className={cn("text-lg font-bold", t.text.primary)}>
-                  {data.price_per_sq_cm > 0 ? `$${data.price_per_sq_cm.toFixed(2)}` : '$0.00'}
+                  {formatPrice(data.price_per_sq_cm)}
                 </div>
                 <div className={cn("text-xs", t.text.secondary)}>Price per cm²</div>
               </div>
-              <div className="text-center">
-                <div className={cn("text-lg font-bold text-green-500")}>
-                  {data.commission_rate > 0 ? `${data.commission_rate}%` : '0%'}
+                              <div className="text-center">
+                  <div className={cn("text-lg font-bold text-green-500")}>
+                    {toNumber(data.commission_rate)}%
+                  </div>
+                  <div className={cn("text-xs", t.text.secondary)}>Commission</div>
                 </div>
-                <div className={cn("text-xs", t.text.secondary)}>Commission</div>
-              </div>
               <div className="text-center">
                 <div className={cn("text-lg font-bold", t.text.primary)}>
                   {data.available_sizes.length + data.size_options.length}
@@ -445,7 +458,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                         step="0.01"
                         min="0"
                         value={data.price_per_sq_cm}
-                        onChange={(e) => setData('price_per_sq_cm', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('price_per_sq_cm', toNumber(e.target.value))}
                         className={cn(
                           "w-full pl-8 pr-4 py-3 rounded-xl",
                           t.input.base,
@@ -471,7 +484,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                         step="0.01"
                         min="0"
                         value={data.national_asp}
-                        onChange={(e) => setData('national_asp', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('national_asp', toNumber(e.target.value))}
                         className={cn(
                           "w-full pl-8 pr-4 py-3 rounded-xl",
                           t.input.base,
@@ -493,7 +506,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                         min="0"
                         max="100"
                         value={data.commission_rate}
-                        onChange={(e) => setData('commission_rate', parseFloat(e.target.value) || 0)}
+                        onChange={(e) => setData('commission_rate', toNumber(e.target.value))}
                         className={cn(
                           "w-full pr-8 pl-4 py-3 rounded-xl",
                           t.input.base,
@@ -519,7 +532,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                       type="number"
                       min="0"
                       value={data.mue}
-                      onChange={(e) => setData('mue', parseInt(e.target.value) || 0)}
+                      onChange={(e) => setData('mue', toNumber(e.target.value))}
                       className={cn(
                         "w-full px-4 py-3 rounded-xl",
                         t.input.base,
@@ -562,19 +575,19 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                     <div>
                       <span className={cn("block", t.text.secondary)}>1 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${data.price_per_sq_cm.toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm)}
                       </span>
                     </div>
                     <div>
                       <span className={cn("block", t.text.secondary)}>10 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${(data.price_per_sq_cm * 10).toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm * 10)}
                       </span>
                     </div>
                     <div>
                       <span className={cn("block", t.text.secondary)}>25 cm²</span>
                       <span className={cn("font-medium", t.text.primary)}>
-                        ${(data.price_per_sq_cm * 25).toFixed(2)}
+                        ${formatPrice(data.price_per_sq_cm * 25)}
                       </span>
                     </div>
                   </div>
@@ -631,7 +644,7 @@ export default function ProductCreate({ categories, manufacturers }: Props) {
                           min="0"
                           step="0.1"
                           value={size}
-                          onChange={(e) => updateSize(index, parseFloat(e.target.value) || 0)}
+                          onChange={(e) => updateSize(index, toNumber(e.target.value))}
                           className={cn(
                             "flex-1 px-3 py-2 rounded-lg text-sm",
                             t.input.base,

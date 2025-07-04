@@ -3,9 +3,10 @@ import { FiLock } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes } from '@/theme/glass-theme';
+import { usePermissions } from '@/hooks/usePermissions';
 
 interface ProtectedFinancialInfoProps {
-  userRole: string;
+  permission: string;
   label: string;
   value: string | number;
   children?: React.ReactNode;
@@ -13,12 +14,14 @@ interface ProtectedFinancialInfoProps {
 }
 
 export const ProtectedFinancialInfo: React.FC<ProtectedFinancialInfoProps> = ({
-  userRole,
+  permission,
   label,
   value,
   children,
   className
 }) => {
+  const { can } = usePermissions();
+  
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -31,8 +34,8 @@ export const ProtectedFinancialInfo: React.FC<ProtectedFinancialInfoProps> = ({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Office Managers cannot see financial data
-  if (userRole === 'OM') {
+  // Check permission instead of role - office managers have no financial permissions
+  if (!can(permission)) {
     return (
       <div className={cn("flex items-center justify-between py-2", className)}>
         <span className={cn("text-sm font-medium", t.text.secondary)}>{label}:</span>
@@ -44,7 +47,7 @@ export const ProtectedFinancialInfo: React.FC<ProtectedFinancialInfoProps> = ({
     );
   }
 
-  // For providers and admins, show the actual value
+  // For users with permission, show the actual value
   if (children) {
     return <>{children}</>;
   }
@@ -57,14 +60,18 @@ export const ProtectedFinancialInfo: React.FC<ProtectedFinancialInfoProps> = ({
   );
 };
 
-// Helper hook for permission checks
-export const useFinancialPermissions = (userRole: string) => {
+// Helper hook for financial permission checks - now uses actual permissions
+export const useFinancialPermissions = () => {
+  const { can, getFinancialAccess } = usePermissions();
+  const financialAccess = getFinancialAccess();
+  
   return {
-    canViewPricing: userRole !== 'OM',
-    canViewCommissions: userRole === 'Admin',
-    canViewAllFinancials: userRole === 'Admin' || userRole === 'Provider',
-    isOfficeManager: userRole === 'OM',
-    isProvider: userRole === 'Provider',
-    isAdmin: userRole === 'Admin'
+    canViewPricing: can('view-national-asp') || can('view-msc-pricing'),
+    canViewCommissions: can('view-commission'),
+    canViewAllFinancials: can('view-financials') || can('manage-financials'),
+    canViewMscPricing: can('view-msc-pricing'),
+    canViewNationalAsp: can('view-national-asp'),
+    canViewDiscounts: can('view-discounts'),
+    financialAccess
   };
 };

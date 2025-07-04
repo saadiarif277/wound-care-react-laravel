@@ -21,6 +21,33 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Azure Health Data Services Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Azure Health Data Services (AHDS) - the modern
+    | replacement for Azure FHIR Server
+    |
+    */
+
+    'ahds' => [
+        'enabled' => env('AZURE_HEALTH_DATA_SERVICES_ENABLED', false),
+        'workspace_url' => env('AZURE_HEALTH_DATA_SERVICES_WORKSPACE_URL'),
+        'version' => 'R4',
+        'timeout' => 30,
+        'retry_attempts' => 3,
+        'retry_delay' => 1000, // milliseconds
+        'oauth' => [
+            'tenant_id' => env('AZURE_HEALTH_DATA_SERVICES_TENANT_ID', env('AZURE_TENANT_ID')),
+            'client_id' => env('AZURE_HEALTH_DATA_SERVICES_CLIENT_ID', env('AZURE_CLIENT_ID')),
+            'client_secret' => env('AZURE_HEALTH_DATA_SERVICES_CLIENT_SECRET', env('AZURE_CLIENT_SECRET')),
+            'scope' => env('AZURE_HEALTH_DATA_SERVICES_SCOPE', 'https://azurehealthcareapis.com/.default'),
+            'endpoint' => env('AZURE_HEALTH_DATA_SERVICES_OAUTH_ENDPOINT', 'https://login.microsoftonline.com'),
+            'token_cache_ttl' => 3300, // 55 minutes (tokens are valid for 60 minutes)
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Circuit Breaker Configuration
     |--------------------------------------------------------------------------
     |

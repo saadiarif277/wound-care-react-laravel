@@ -4,366 +4,162 @@ namespace App\Services\QuickRequest\Handlers;
 
 use App\Services\FhirService;
 use App\Logging\PhiSafeLogger;
+use App\Services\PhiAuditService;
 
 class ClinicalHandler
 {
     public function __construct(
         private FhirService $fhirService,
-        private PhiSafeLogger $logger
+        private PhiSafeLogger $logger,
+        private PhiAuditService $auditService
     ) {}
 
     /**
-     * Create clinical FHIR resources
+     * Create clinical resources in FHIR (Condition, EpisodeOfCare)
      */
     public function createClinicalResources(array $data): array
     {
         try {
-            $this->logger->info('Creating clinical FHIR resources');
+            $this->logger->info('Creating clinical resources in FHIR');
 
-            $resources = [];
-
-            // Create Condition
-            $condition = $this->createCondition($data);
-            $resources['condition_id'] = $condition['id'];
-
-            // Create EpisodeOfCare
-            $episodeOfCare = $this->createEpisodeOfCare($data, $condition['id']);
-            $resources['episode_of_care_id'] = $episodeOfCare['id'];
-
-            // Create Encounter if needed
-            if ($data['create_encounter'] ?? true) {
-                $encounter = $this->createEncounter($data, $episodeOfCare['id']);
-                $resources['encounter_id'] = $encounter['id'];
-            }
-
-            // Create Task for approval workflow
-            $task = $this->createApprovalTask($data, $episodeOfCare['id']);
-            $resources['task_id'] = $task['id'];
-
-            $this->logger->info('Clinical FHIR resources created successfully', [
-                'condition_id' => $condition['id'],
-                'episode_id' => $episodeOfCare['id']
-            ]);
-
-            return $resources;
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to create clinical FHIR resources', [
-                'error' => $e->getMessage()
-            ]);
-            throw new \Exception('Failed to create clinical FHIR resources: ' . $e->getMessage());
-        }
-    }
-
-    /**
-     * Create FHIR Condition resource
-     */
-    private function createCondition(array $data): array
-    {
-        $conditionData = [
-            'resourceType' => 'Condition',
-            'clinicalStatus' => [
-                'coding' => [
-                    [
-                        'system' => 'http://terminology.hl7.org/CodeSystem/condition-clinical',
-                        'code' => 'active'
-                    ]
-                ]
-            ],
-            'verificationStatus' => [
-                'coding' => [
-                    [
-                        'system' => 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
-                        'code' => 'confirmed'
-                    ]
-                ]
-            ],
-            'category' => [
-                [
+            // Create Condition for primary diagnosis
+            $conditionData = [
+                'resourceType' => 'Condition',
+                'subject' => [
+                    'reference' => "Patient/{$data['patient_id']}"
+                ],
+                'asserter' => [
+                    'reference' => "Practitioner/{$data['provider_id']}"
+                ],
+                'code' => [
                     'coding' => [
                         [
-                            'system' => 'http://terminology.hl7.org/CodeSystem/condition-category',
-                            'code' => 'problem-list-item',
-                            'display' => 'Problem List Item'
+                            'system' => 'http://hl7.org/fhir/sid/icd-10',
+                            'code' => $data['clinical']['diagnosis']['primary'],
+                            'display' => $this->getICDDisplayName($data['clinical']['diagnosis']['primary'])
                         ]
                     ]
-                ]
-            ],
-            'code' => $this->mapDiagnosisCodes($data['clinical']['diagnosis_codes'] ?? []),
-            'subject' => [
-                'reference' => "Patient/{$data['patient_id']}"
-            ],
-            'onsetDateTime' => $data['clinical']['onset_date'] ?? now()->toIso8601String(),
-            'recordedDate' => now()->toIso8601String(),
-            'recorder' => [
-                'reference' => "Practitioner/{$data['provider_id']}"
-            ]
-        ];
-
-        // Add wound-specific extensions
-        if (!empty($data['clinical']['wound_type'])) {
-            $conditionData['extension'] = [
-                [
-                    'url' => 'http://mscwoundcare.com/fhir/StructureDefinition/wound-details',
-                    'extension' => [
+                ],
+                'clinicalStatus' => [
+                    'coding' => [
                         [
-                            'url' => 'woundType',
-                            'valueString' => $data['clinical']['wound_type']
-                        ],
-                        [
-                            'url' => 'woundLocation',
-                            'valueString' => $data['clinical']['wound_location'] ?? ''
-                        ],
-                        [
-                            'url' => 'woundSize',
-                            'valueString' => json_encode($data['clinical']['wound_size'] ?? [])
-                        ],
-                        [
-                            'url' => 'woundStage',
-                            'valueString' => $data['clinical']['wound_stage'] ?? ''
+                            'system' => 'http://terminology.hl7.org/CodeSystem/condition-clinical',
+                            'code' => 'active'
                         ]
+                    ]
+                ],
+                'verificationStatus' => [
+                    'coding' => [
+                        [
+                            'system' => 'http://terminology.hl7.org/CodeSystem/condition-ver-status',
+                            'code' => 'confirmed'
+                        ]
+                    ]
+                ],
+                'bodySite' => [
+                    [
+                        'text' => $data['clinical']['woundLocation']
+                    ]
+                ],
+                'note' => [
+                    [
+                        'text' => $data['clinical']['woundDescription']
                     ]
                 ]
             ];
-        }
 
-        return $this->fhirService->create('Condition', $conditionData);
-    }
-
-    /**
-     * Create FHIR EpisodeOfCare resource
-     */
-    private function createEpisodeOfCare(array $data, string $conditionId): array
-    {
-        $episodeData = [
-            'resourceType' => 'EpisodeOfCare',
-            'status' => 'active',
-            'type' => [
-                [
-                    'coding' => [
-                        [
-                            'system' => 'http://terminology.hl7.org/CodeSystem/episodeofcare-type',
-                            'code' => 'hacc',
-                            'display' => 'Home and Community Care'
-                        ]
-                    ]
-                ]
-            ],
-            'diagnosis' => [
-                [
-                    'condition' => [
-                        'reference' => "Condition/{$conditionId}"
-                    ],
-                    'role' => [
-                        'coding' => [
+            // Add measurements if available
+            if (!empty($data['clinical']['woundMeasurements'])) {
+                $conditionData['extension'] = [
+                    [
+                        'url' => 'http://msc-mvp.com/fhir/StructureDefinition/wound-measurements',
+                        'extension' => [
                             [
-                                'system' => 'http://terminology.hl7.org/CodeSystem/diagnosis-role',
-                                'code' => 'CC',
-                                'display' => 'Chief complaint'
+                                'url' => 'length',
+                                'valueDecimal' => $data['clinical']['woundMeasurements']['length']
+                            ],
+                            [
+                                'url' => 'width',
+                                'valueDecimal' => $data['clinical']['woundMeasurements']['width']
+                            ],
+                            [
+                                'url' => 'depth',
+                                'valueDecimal' => $data['clinical']['woundMeasurements']['depth']
                             ]
                         ]
-                    ],
-                    'rank' => 1
-                ]
-            ],
-            'patient' => [
-                'reference' => "Patient/{$data['patient_id']}"
-            ],
-            'managingOrganization' => [
-                'reference' => "Organization/{$data['organization_id']}"
-            ],
-            'period' => [
-                'start' => now()->toIso8601String()
-            ],
-            'team' => [
-                [
-                    'reference' => "CareTeam/wound-care-team-{$data['patient_id']}",
-                    'display' => 'Wound Care Team'
-                ]
-            ]
-        ];
-
-        return $this->fhirService->create('EpisodeOfCare', $episodeData);
-    }
-
-    /**
-     * Create FHIR Encounter resource
-     */
-    private function createEncounter(array $data, string $episodeOfCareId): array
-    {
-        $encounterData = [
-            'resourceType' => 'Encounter',
-            'status' => 'finished',
-            'class' => [
-                'system' => 'http://terminology.hl7.org/CodeSystem/v3-ActCode',
-                'code' => 'AMB',
-                'display' => 'ambulatory'
-            ],
-            'type' => [
-                [
-                    'coding' => [
-                        [
-                            'system' => 'http://snomed.info/sct',
-                            'code' => '439740005',
-                            'display' => 'Postoperative follow-up visit'
-                        ]
                     ]
-                ]
-            ],
-            'subject' => [
-                'reference' => "Patient/{$data['patient_id']}"
-            ],
-            'episodeOfCare' => [
-                [
-                    'reference' => "EpisodeOfCare/{$episodeOfCareId}"
-                ]
-            ],
-            'participant' => [
-                [
-                    'type' => [
-                        [
+                ];
+            }
+
+            $condition = $this->fhirService->create('Condition', $conditionData);
+            $conditionId = $condition['id'];
+
+            $this->auditService->logAccess('condition.created', 'Condition', $conditionId);
+
+            // Create EpisodeOfCare
+            $episodeData = [
+                'resourceType' => 'EpisodeOfCare',
+                'status' => 'active',
+                'patient' => [
+                    'reference' => "Patient/{$data['patient_id']}"
+                ],
+                'managingOrganization' => [
+                    'reference' => "Organization/{$data['organization_id']}"
+                ],
+                'careManager' => [
+                    'reference' => "Practitioner/{$data['provider_id']}"
+                ],
+                'diagnosis' => [
+                    [
+                        'condition' => [
+                            'reference' => "Condition/{$conditionId}"
+                        ],
+                        'role' => [
                             'coding' => [
                                 [
-                                    'system' => 'http://terminology.hl7.org/CodeSystem/v3-ParticipationType',
-                                    'code' => 'PPRF',
-                                    'display' => 'primary performer'
+                                    'system' => 'http://terminology.hl7.org/CodeSystem/diagnosis-role',
+                                    'code' => 'CC'
                                 ]
                             ]
                         ]
-                    ],
-                    'individual' => [
-                        'reference' => "Practitioner/{$data['provider_id']}"
                     ]
                 ]
-            ],
-            'period' => [
-                'start' => now()->subHours(1)->toIso8601String(),
-                'end' => now()->toIso8601String()
-            ],
-            'serviceProvider' => [
-                'reference' => "Organization/{$data['organization_id']}"
-            ]
-        ];
-
-        return $this->fhirService->create('Encounter', $encounterData);
-    }
-
-    /**
-     * Create approval task
-     */
-    private function createApprovalTask(array $data, string $episodeOfCareId): array
-    {
-        $taskData = [
-            'resourceType' => 'Task',
-            'status' => 'requested',
-            'businessStatus' => [
-                'text' => 'Pending Review'
-            ],
-            'intent' => 'order',
-            'priority' => 'routine',
-            'code' => [
-                'coding' => [
-                    [
-                        'system' => 'http://hl7.org/fhir/CodeSystem/task-code',
-                        'code' => 'approve',
-                        'display' => 'Approve Order'
-                    ]
-                ]
-            ],
-            'description' => 'Review and approve wound care episode',
-            'focus' => [
-                'reference' => "EpisodeOfCare/{$episodeOfCareId}"
-            ],
-            'for' => [
-                'reference' => "Patient/{$data['patient_id']}"
-            ],
-            'authoredOn' => now()->toIso8601String(),
-            'requester' => [
-                'reference' => "Practitioner/{$data['provider_id']}"
-            ],
-            'owner' => [
-                'reference' => "Organization/{$data['organization_id']}"
-            ],
-            'restriction' => [
-                'period' => [
-                    'end' => now()->addDays(2)->toIso8601String()
-                ]
-            ]
-        ];
-
-        return $this->fhirService->create('Task', $taskData);
-    }
-
-    /**
-     * Update task status
-     */
-    public function updateTaskStatus(string $taskId, string $status, string $businessStatus): void
-    {
-        $this->fhirService->update('Task', $taskId, [
-            'status' => $status,
-            'businessStatus' => [
-                'text' => $businessStatus
-            ],
-            'lastModified' => now()->toIso8601String()
-        ]);
-    }
-
-    /**
-     * Complete EpisodeOfCare
-     */
-    public function completeEpisodeOfCare(string $episodeOfCareId): void
-    {
-        $this->fhirService->update('EpisodeOfCare', $episodeOfCareId, [
-            'status' => 'finished',
-            'period' => [
-                'end' => now()->toIso8601String()
-            ]
-        ]);
-    }
-
-    /**
-     * Map diagnosis codes to FHIR CodeableConcept
-     */
-    private function mapDiagnosisCodes(array $diagnosisCodes): array
-    {
-        // Handle empty diagnosis codes
-        if (empty($diagnosisCodes)) {
-            return [
-                'coding' => [
-                    [
-                        'system' => 'http://hl7.org/fhir/sid/icd-10-cm',
-                        'code' => 'L97.509', // Default wound code
-                        'display' => 'Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity'
-                    ]
-                ],
-                'text' => 'Wound diagnosis (default)'
             ];
-        }
 
-        return [
-            'coding' => array_map(function ($code) {
-                return [
-                    'system' => 'http://hl7.org/fhir/sid/icd-10-cm',
-                    'code' => $code,
-                    'display' => $this->getIcd10Display($code)
-                ];
-            }, $diagnosisCodes),
-            'text' => 'Wound diagnosis'
-        ];
+            $episode = $this->fhirService->create('EpisodeOfCare', $episodeData);
+            $episodeId = $episode['id'];
+
+            $this->auditService->logAccess('episode.created', 'EpisodeOfCare', $episodeId);
+
+            $this->logger->info('Clinical resources created successfully', [
+                'condition_id' => $conditionId,
+                'episode_id' => $episodeId
+            ]);
+
+            return [
+                'condition_id' => $conditionId,
+                'episode_of_care_id' => $episodeId
+            ];
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to create clinical resources', [
+                'error' => $e->getMessage()
+            ]);
+            throw $e;
+        }
     }
 
     /**
-     * Get ICD-10 display text
+     * Get ICD-10 code display name (placeholder - should use a proper terminology service)
      */
-    private function getIcd10Display(string $code): string
+    private function getICDDisplayName(string $code): string
     {
-        // This would normally lookup from a database or service
-        $icd10Map = [
-            'L89.154' => 'Pressure ulcer of sacral region, stage 4',
-            'E11.9' => 'Type 2 diabetes mellitus without complications',
-            'I70.213' => 'Atherosclerosis of native arteries of extremities with intermittent claudication, bilateral legs',
-            'L97.509' => 'Non-pressure chronic ulcer of other part of unspecified foot with unspecified severity'
+        // TODO: Implement proper ICD-10 code lookup
+        $commonCodes = [
+            'L89.004' => 'Pressure ulcer of sacral region, stage 4',
+            'E11.9' => 'Type 2 diabetes mellitus without complications'
         ];
 
-        return $icd10Map[$code] ?? $code;
+        return $commonCodes[$code] ?? "ICD-10 Code: {$code}";
     }
 }

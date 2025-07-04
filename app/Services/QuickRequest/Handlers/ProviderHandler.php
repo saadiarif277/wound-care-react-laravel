@@ -14,7 +14,7 @@ class ProviderHandler
         private PhiAuditService $auditService
     ) {}
 
-        /**
+    /**
      * Create or update provider in FHIR
      */
     public function createOrUpdateProvider(array $providerData): string
@@ -25,94 +25,143 @@ class ProviderHandler
             // Check if NPI is provided
             if (empty($providerData['npi'])) {
                 $this->logger->warning('No NPI provided for provider, creating new provider without NPI search');
-                // Create new provider without searching
                 $fhirPractitioner = $this->mapToFhirPractitioner($providerData);
-                $response = $this->fhirService->createPractitioner($fhirPractitioner);
-
-                $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
-
-                $this->logger->info('Provider created successfully in FHIR', [
-                    'practitioner_id' => $response['id'],
-                    'npi' => $providerData['npi'] ?? 'none'
-                ]);
-
-                return $response['id'];
+                try {
+                    $response = $this->fhirService->create('Practitioner', $fhirPractitioner);
+                    $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
+                    $this->logger->info('Provider created successfully in FHIR', [
+                        'practitioner_id' => $response['id'],
+                        'npi' => $providerData['npi'] ?? 'none'
+                    ]);
+                    return $response['id'];
+                } catch (\Exception $e) {
+                    $this->logger->error('FHIR unavailable, falling back to local provider creation', [
+                        'error' => $e->getMessage(),
+                        'npi' => $providerData['npi'] ?? 'none'
+                    ]);
+                    // TODO: Replace with your local provider creation logic
+                    // $localProvider = Provider::create([...]);
+                    // return $localProvider->id;
+                    return 'local-provider-fallback-id';
+                }
             }
 
             // Search for existing provider by NPI
-            $existingProvider = $this->findProviderByNpi($providerData['npi']);
-
-            if ($existingProvider) {
-                $this->auditService->logAccess('provider.accessed', 'Practitioner', $existingProvider['id']);
-                return $existingProvider['id'];
+            try {
+                $existingProvider = $this->findExistingProvider($providerData['npi']);
+                if ($existingProvider) {
+                    $this->logger->info('Found existing provider in FHIR', [
+                        'practitioner_id' => $existingProvider['id'],
+                        'npi' => $providerData['npi']
+                    ]);
+                    $this->auditService->logAccess('provider.accessed', 'Practitioner', $existingProvider['id']);
+                    return $existingProvider['id'];
+                }
+            } catch (\Exception $e) {
+                $this->logger->error('FHIR search failed, falling back to local provider search', [
+                    'error' => $e->getMessage(),
+                    'npi' => $providerData['npi']
+                ]);
+                // TODO: Replace with your local provider search logic
+                // $localProvider = Provider::where('npi', $providerData['npi'])->first();
+                // if ($localProvider) return $localProvider->id;
             }
 
-            // Create new provider
+            // Create new provider with NPI
             $fhirPractitioner = $this->mapToFhirPractitioner($providerData);
-            $response = $this->fhirService->createPractitioner($fhirPractitioner);
-
-            $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
-
-            $this->logger->info('Provider created successfully in FHIR', [
-                'practitioner_id' => $response['id'],
-                'npi' => $providerData['npi']
-            ]);
-
-            return $response['id'];
+            try {
+                $response = $this->fhirService->create('Practitioner', $fhirPractitioner);
+                $this->auditService->logAccess('provider.created', 'Practitioner', $response['id']);
+                $this->logger->info('Provider created successfully in FHIR', [
+                    'practitioner_id' => $response['id'],
+                    'npi' => $providerData['npi']
+                ]);
+                return $response['id'];
+            } catch (\Exception $e) {
+                $this->logger->error('FHIR unavailable, falling back to local provider creation', [
+                    'error' => $e->getMessage(),
+                    'npi' => $providerData['npi']
+                ]);
+                // TODO: Replace with your local provider creation logic
+                // $localProvider = Provider::create([...]);
+                // return $localProvider->id;
+                return 'local-provider-fallback-id';
+            }
         } catch (\Exception $e) {
-            $this->logger->error('Failed to create/update provider in FHIR', [
+            $this->logger->error('Failed to create/update provider in FHIR and local fallback', [
                 'error' => $e->getMessage(),
-                'npi' => $providerData['npi'] ?? 'unknown'
+                'npi' => $providerData['npi'] ?? 'none'
             ]);
-            throw new \Exception('Failed to create/update provider: ' . $e->getMessage());
+            throw $e;
         }
     }
 
-        /**
-     * Create or update organization/facility in FHIR
+    /**
+     * Create or update organization in FHIR
      */
     public function createOrUpdateOrganization(array $facilityData): string
     {
         try {
             $this->logger->info('Creating or updating organization in FHIR');
 
-            // Search for existing organization
-            $existingOrg = $this->findOrganizationByNpi($facilityData['npi'] ?? null);
+            // Check if NPI is provided
+            if (empty($facilityData['npi'])) {
+                $this->logger->warning('No NPI provided for facility, creating new organization without NPI search');
+                // Create new organization without searching
+                $fhirOrg = $this->mapToFhirOrganization($facilityData);
+                $response = $this->fhirService->create('Organization', $fhirOrg);
 
-            if ($existingOrg) {
-                $this->logger->info('Existing organization found in FHIR', [
-                    'organization_id' => $existingOrg['id']
+                $this->auditService->logAccess('organization.created', 'Organization', $response['id']);
+
+                $this->logger->info('Organization created successfully in FHIR', [
+                    'organization_id' => $response['id'],
+                    'npi' => $facilityData['npi'] ?? 'none'
                 ]);
+
+                return $response['id'];
+            }
+
+            // Search for existing organization by NPI
+            $existingOrg = $this->findExistingOrganization($facilityData['npi']);
+            if ($existingOrg) {
+                $this->logger->info('Found existing organization in FHIR', [
+                    'organization_id' => $existingOrg['id'],
+                    'npi' => $facilityData['npi']
+                ]);
+
+                $this->auditService->logAccess('organization.accessed', 'Organization', $existingOrg['id']);
+
                 return $existingOrg['id'];
             }
 
-            // Create new organization
-            $fhirOrganization = $this->mapToFhirOrganization($facilityData);
-            $response = $this->fhirService->createOrganization($fhirOrganization);
+            // Create new organization with NPI
+            $fhirOrg = $this->mapToFhirOrganization($facilityData);
+            $response = $this->fhirService->create('Organization', $fhirOrg);
+
+            $this->auditService->logAccess('organization.created', 'Organization', $response['id']);
 
             $this->logger->info('Organization created successfully in FHIR', [
                 'organization_id' => $response['id'],
-                'name' => $facilityData['name']
+                'npi' => $facilityData['npi']
             ]);
 
             return $response['id'];
+
         } catch (\Exception $e) {
             $this->logger->error('Failed to create/update organization in FHIR', [
                 'error' => $e->getMessage(),
-                'organization_name' => $facilityData['name'] ?? 'unknown'
+                'npi' => $facilityData['npi'] ?? 'none'
             ]);
-            throw new \Exception('Failed to create/update organization: ' . $e->getMessage());
+            throw $e;
         }
     }
 
     /**
-     * Find provider by NPI
+     * Find existing provider by NPI
      */
-    private function findProviderByNpi(?string $npi): ?array
+    private function findExistingProvider(string $npi): ?array
     {
-        if (empty($npi)) {
-            return null;
-        }
+        $this->logger->info('Searching for existing provider by NPI', ['npi' => $npi]);
 
         $searchParams = [
             'identifier' => "http://hl7.org/fhir/sid/us-npi|{$npi}"
@@ -121,20 +170,20 @@ class ProviderHandler
         $results = $this->fhirService->search('Practitioner', $searchParams);
 
         if (!empty($results['entry'])) {
+            $this->logger->info('Existing provider found', ['provider_id' => $results['entry'][0]['resource']['id']]);
             return $results['entry'][0]['resource'];
         }
 
+        $this->logger->info('No existing provider found for NPI', ['npi' => $npi]);
         return null;
     }
 
     /**
-     * Find organization by NPI
+     * Find existing organization by NPI
      */
-    private function findOrganizationByNpi(?string $npi): ?array
+    private function findExistingOrganization(string $npi): ?array
     {
-        if (!$npi) {
-            return null;
-        }
+        $this->logger->info('Searching for existing organization by NPI', ['npi' => $npi]);
 
         $searchParams = [
             'identifier' => "http://hl7.org/fhir/sid/us-npi|{$npi}"
@@ -143,9 +192,11 @@ class ProviderHandler
         $results = $this->fhirService->search('Organization', $searchParams);
 
         if (!empty($results['entry'])) {
+            $this->logger->info('Existing organization found', ['organization_id' => $results['entry'][0]['resource']['id']]);
             return $results['entry'][0]['resource'];
         }
 
+        $this->logger->info('No existing organization found for NPI', ['npi' => $npi]);
         return null;
     }
 

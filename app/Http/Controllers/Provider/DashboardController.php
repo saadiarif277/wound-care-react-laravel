@@ -10,6 +10,7 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 
 class DashboardController extends Controller
 {
@@ -144,15 +145,46 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Ensure provider has access to this episode
-        $episode = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($user) {
+        // First check if episode exists at all
+        $episodeExists = PatientManufacturerIVREpisode::where('id', $episodeId)->exists();
+        
+        if (!$episodeExists) {
+            Log::error('Episode not found', ['episode_id' => $episodeId]);
+            abort(404, 'Episode not found');
+        }
+        
+        // Debug: Check what orders exist for this episode
+        $orderCount = \App\Models\Order\Order::where('episode_id', $episodeId)->count();
+        $providerOrderCount = \App\Models\Order\Order::where('episode_id', $episodeId)
+            ->where('provider_id', $user->id)
+            ->count();
+            
+        Log::info('Episode access check', [
+            'episode_id' => $episodeId,
+            'user_id' => $user->id,
+            'total_orders' => $orderCount,
+            'provider_orders' => $providerOrderCount,
+            'user_roles' => $user->roles->pluck('slug')->toArray()
+        ]);
+
+        // Ensure provider has access to this episode through orders
+        $episode = PatientManufacturerIVREpisode::where('id', $episodeId)
+            ->whereHas('orders', function ($query) use ($user) {
                 $query->where('provider_id', $user->id);
             })
             ->with(['manufacturer', 'orders' => function ($query) use ($user) {
                 $query->where('provider_id', $user->id)
                     ->with(['products', 'facility', 'provider']);
             }])
-            ->findOrFail($episodeId);
+            ->first();
+            
+        if (!$episode) {
+            Log::error('Provider does not have access to episode', [
+                'episode_id' => $episodeId,
+                'provider_id' => $user->id
+            ]);
+            abort(403, 'You do not have access to this episode');
+        }
 
         // Check permissions
         $can_view_episode = $user->hasPermission('view-orders');
