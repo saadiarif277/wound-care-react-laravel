@@ -15,7 +15,6 @@ import { themes, cn } from '@/theme/glass-theme';
 import GlassCard from '@/Components/ui/GlassCard';
 import { Button } from '@/Components/Button';
 import Heading from '@/Components/ui/Heading';
-import { Stepper, Step, StepLabel, StepContent } from '@/Components/ui/stepper';
 import ReviewAndSubmitStep from '@/Components/ProductRequest/Steps/ReviewAndSubmitStep';
 
 interface Props {
@@ -507,10 +506,7 @@ const ProductRequestCreate: React.FC<Props> = ({
         return (
           <ReviewAndSubmitStep
             formData={formData}
-            updateFormData={updateFormData}
             onSubmit={submitForm}
-            facilities={facilities}
-            woundTypes={woundTypes}
           />
         );
       default:
@@ -532,7 +528,7 @@ const ProductRequestCreate: React.FC<Props> = ({
       facility_id: Number(userFacilityId) || (facilities[0]?.id ? Number(facilities[0].id) : 1),
       place_of_service: '11', // Office
       medicare_part_b_authorized: false,
-      expected_service_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+      expected_service_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] || '', // 7 days from now
       payer_name: 'Test Insurance',
       payer_id: 'INS123456',
       second_payer: '',
@@ -838,7 +834,7 @@ const ReviewSubmitStep: React.FC<{
   // Add useEffect to randomly set validation status when component mounts
   useEffect(() => {
     const statuses: Array<'pending' | 'approved' | 'rejected'> = ['pending', 'approved', 'rejected'];
-    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+    const randomStatus = statuses[Math.floor(Math.random() * statuses.length)] || 'pending';
     setMockValidationStatus(randomStatus);
   }, []);
 

@@ -517,25 +517,25 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->name('quick-requests.store');
 
         // Docuseal IVR Integration - moved to DocusealController
-        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'prepareDocusealIVR'])
+        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\DocusealController::class, 'prepareDocusealIVR'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.prepare-docuseal-ivr');
 
         // Docuseal routes - moved to DocusealController
-        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateFormToken'])
+        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\DocusealController::class, 'generateFormToken'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-form-token');
 
-        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'generateSubmissionSlug'])
+        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\DocusealController::class, 'generateSubmissionSlug'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.generate-submission-slug');
 
         // Debug endpoint for Docuseal integration troubleshooting
-        Route::get('/docuseal/debug', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'debugDocusealIntegration'])
+        Route::get('/docuseal/debug', [\App\Http\Controllers\DocusealController::class, 'debugDocusealIntegration'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.debug');
 
-        Route::get('/docuseal/test-count', [\App\Http\Controllers\QuickRequest\DocusealController::class, 'testTemplateCount'])
+        Route::get('/docuseal/test-count', [\App\Http\Controllers\DocusealController::class, 'testTemplateCount'])
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.docuseal.test-count');
 

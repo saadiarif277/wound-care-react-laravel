@@ -68,12 +68,12 @@ export default function Step5ProductSelection({
   errors,
   currentUser,
   roleRestrictions = {
-    can_view_financials: true,
-    can_see_discounts: true,
-    can_see_msc_pricing: true,
-    can_see_order_totals: true,
+    can_view_financials: false, // Providers can't see commission
+    can_see_discounts: true,     // Providers CAN see discounts
+    can_see_msc_pricing: true,   // Providers CAN see MSC pricing
+    can_see_order_totals: true,  // Providers CAN see order totals
     pricing_access_level: 'full',
-    commission_access_level: 'full'
+    commission_access_level: 'none' // No commission for providers
   }
 }: Step5Props) {
   const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
