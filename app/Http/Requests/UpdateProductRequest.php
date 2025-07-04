@@ -28,7 +28,7 @@ class UpdateProductRequest extends FormRequest
             'sku' => [
                 'required',
                 'string',
-                Rule::unique('msc_products', 'sku')->ignore($this->route('product')->id),
+                Rule::unique('msc_products', 'sku')->ignore($this->product->id ?? null),
             ],
             'name' => 'required|string|max:255',
             'description' => 'nullable|string',
