@@ -94,6 +94,12 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
 
 // AI Support Escalation Route
 Route::get('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
+
+// CSRF Token Refresh Route
+Route::get('/csrf-token', function () {
+    return response()->json(['token' => csrf_token()]);
+})->name('csrf.refresh');
+
 Route::post('/api/support/escalate', function (Request $request) {
     // Validate the request
     $validated = $request->validate([
