@@ -1,20 +1,20 @@
-export const getProductSizeLabel = (size: number | string, sizeUnit?: string): string => {
+export const getProductSizeLabel = (productName: string, size: string | number): string => {
   const parsedSize = typeof size === 'string' ? parseFloat(size) : size;
-
-  // If size unit is provided, use it
-  if (sizeUnit) {
-    if (sizeUnit === 'cm') {
-      // For cm unit, we're dealing with area (cm²)
-      return `${parsedSize} cm²`;
-    } else if (sizeUnit === 'inch' || sizeUnit === 'inches') {
-      // For inches, just show the value with quotes
-      return `${parsedSize}"`;
-    } else {
-      // For any other unit, append it directly
-      return `${parsedSize} ${sizeUnit}`;
-    }
+  
+  // Handle invalid sizes
+  if (isNaN(parsedSize) || parsedSize <= 0) {
+    return 'Invalid size';
   }
   
-  // Default fallback - assume cm²
+  // For wound care products, sizes are typically in cm²
+  // Calculate dimensions for square sizes (common in wound care)
+  const sqrtSize = Math.sqrt(parsedSize);
+  const isSquare = sqrtSize === Math.floor(sqrtSize);
+  
+  if (isSquare) {
+    return `${sqrtSize} x ${sqrtSize} cm`;
+  }
+  
+  // For non-square sizes, just show the area
   return `${parsedSize} cm²`;
 };

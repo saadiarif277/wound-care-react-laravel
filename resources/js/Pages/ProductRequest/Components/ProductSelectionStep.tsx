@@ -26,13 +26,58 @@ const ProductSelectionStep: React.FC<Props> = ({ formData, updateFormData, produ
     });
   };
 
+  // Define proper role restrictions for providers
+  const getRoleRestrictions = () => {
+    switch (userRole) {
+      case 'provider':
+        return {
+          can_view_financials: false, // This controls commission visibility - providers can't see commission
+          can_see_discounts: true,     // Providers CAN see discounts
+          can_see_msc_pricing: true,   // Providers CAN see MSC pricing
+          can_see_order_totals: true,  // Providers CAN see order totals
+          pricing_access_level: 'full',
+          commission_access_level: 'none' // Hide commission from providers
+        };
+      case 'office_manager':
+        return {
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'none', // No pricing visibility at all
+          commission_access_level: 'none'
+        };
+      case 'msc-admin':
+      case 'msc-rep':
+      case 'superadmin':
+        return {
+          can_view_financials: true,
+          can_see_discounts: true,
+          can_see_msc_pricing: true,
+          can_see_order_totals: true,
+          pricing_access_level: 'full',
+          commission_access_level: 'full'
+        };
+      default:
+        // Default to most restrictive
+        return {
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'national_asp_only',
+          commission_access_level: 'none'
+        };
+    }
+  };
+
   return (
     <ProductSelector
       selectedProducts={formData.selected_products}
       onProductsChange={handleProductsChange}
       recommendationContext={formData.wound_type}
       productRequestId={productRequestId}
-      userRole={userRole}
+      roleRestrictions={getRoleRestrictions()} // Pass proper role restrictions
       title={productRequestId ? "Product Selection with AI Clinical Recommendations" : "Product Selection with AI Recommendations"}
       description={productRequestId
         ? "AI-powered recommendations based on clinical assessment, patient factors, and evidence-based protocols"

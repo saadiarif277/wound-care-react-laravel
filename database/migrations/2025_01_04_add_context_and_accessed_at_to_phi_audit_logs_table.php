@@ -16,7 +16,7 @@ return new class extends Migration
             $table->json('context')->nullable()->after('metadata');
 
             // Add accessed_at timestamp
-            $table->timestamp('accessed_at')->nullable()->after('context');
+            $table->timestamp('accessed_at')->nullable();
         });
     }
 

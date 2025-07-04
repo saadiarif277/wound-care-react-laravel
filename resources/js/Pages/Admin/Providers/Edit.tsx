@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Head, router, useForm, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { FiArrowLeft, FiSave, FiUser, FiMapPin, FiCreditCard, FiPhone, FiPrinter, FiShield } from 'react-icons/fi';
+import axios from 'axios';
 
 interface EditProviderProps {
   provider: any;
@@ -24,7 +25,7 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  const { data, setData, put, processing, errors } = useForm({
+  const { data, setData, put, processing, errors, setError, clearErrors } = useForm({
     // Basic Info
     first_name: provider.first_name || '',
     last_name: provider.last_name || '',
@@ -50,10 +51,56 @@ export default function EditProvider({ provider, organizations, states }: EditPr
     is_verified: provider.is_verified || false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    put(`/admin/providers/${provider.id}`);
+    clearErrors();
+
+    try {
+      // First, refresh the CSRF token
+      await axios.get('/sanctum/csrf-cookie');
+      
+      // Then submit the form
+      put(`/admin/providers/${provider.id}`, {
+        preserveScroll: true,
+        onError: (errors) => {
+          // Handle CSRF token expiration
+          if (errors.message && errors.message.includes('419')) {
+            // Refresh the page to get a new CSRF token
+            window.location.reload();
+          }
+        },
+        onSuccess: () => {
+          // Optionally show a success message
+          router.visit('/admin/providers', {
+            preserveScroll: true,
+          });
+        }
+      });
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      setError('submit', 'An error occurred. Please try again.');
+    }
   };
+
+  // Refresh CSRF token periodically to prevent expiration
+  useEffect(() => {
+    // Refresh CSRF token every 20 minutes (session lifetime is 30 minutes)
+    const refreshToken = async () => {
+      try {
+        await axios.get('/sanctum/csrf-cookie');
+      } catch (error) {
+        console.error('Failed to refresh CSRF token:', error);
+      }
+    };
+
+    // Initial refresh
+    refreshToken();
+
+    // Set up interval
+    const interval = setInterval(refreshToken, 20 * 60 * 1000); // 20 minutes
+
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <MainLayout>
@@ -76,6 +123,17 @@ export default function EditProvider({ provider, organizations, states }: EditPr
           <h1 className={cn("text-3xl font-bold", t.text.primary)}>Edit Provider</h1>
           <p className={cn("mt-1", t.text.secondary)}>Update provider information</p>
         </div>
+
+        {/* Global Error Message */}
+        {errors.submit && (
+          <div className={cn(
+            "mb-6 p-4 rounded-lg border",
+            t.status.error,
+            "bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800"
+          )}>
+            <p className="text-sm font-medium">Error: {errors.submit}</p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}

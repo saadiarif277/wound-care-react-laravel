@@ -38,6 +38,16 @@ interface OrderTotalProps {
 }
 
 export function PricingDisplay({ roleRestrictions, product, showLabel = true, className = '' }: PricingDisplayProps) {
+  // Users with no pricing access at all (e.g., office managers)
+  if (roleRestrictions.pricing_access_level === 'none') {
+    return (
+      <div className={`text-gray-500 ${className}`}>
+        {showLabel && <span className="text-sm">Price: </span>}
+        <span>Not available for your role</span>
+      </div>
+    );
+  }
+
   // Office Manager or users without MSC pricing access - ONLY show National ASP
   if (!roleRestrictions.can_see_msc_pricing) {
     if (!product.nationalAsp) {

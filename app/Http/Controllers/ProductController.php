@@ -583,6 +583,25 @@ class ProductController extends Controller
 
         // Transform products for display
         $products->getCollection()->transform(function ($product) {
+            // Get sizes from ProductSize relationship
+            $productSizes = $product->activeSizes()->get();
+            
+            // Format sizes for frontend
+            $availableSizes = [];
+            $sizeOptions = [];
+            $sizePricing = [];
+            
+            foreach ($productSizes as $size) {
+                // Add the display label (e.g., "2x2cm", "4x4cm")
+                $sizeOptions[] = $size->size_label;
+                
+                // Add to size pricing mapping
+                $sizePricing[$size->size_label] = $size->area_cm2;
+                
+                // For backward compatibility, also add numeric sizes
+                $availableSizes[] = $size->area_cm2;
+            }
+
             return [
                 'id' => $product->id,
                 'sku' => $product->sku,
@@ -592,13 +611,16 @@ class ProductController extends Controller
                 'q_code' => $product->q_code,
                 'national_asp' => $product->national_asp,
                 'price_per_sq_cm' => $product->price_per_sq_cm,
-                'commission_rate' => $product->commission_rate,
-                'is_active' => $product->is_active,
-                'deleted_at' => $product->deleted_at,
-                'created_at' => $product->created_at->format('M j, Y'),
-                'updated_at' => $product->updated_at->format('M j, Y'),
-                'image_url' => $product->image_url,
-                'available_sizes' => $product->available_sizes,
+                'commission_rate' => $product->commission_rate ?? 3.0,
+                'mue' => $product->mue,
+                'available_sizes' => $availableSizes, // Numeric sizes for backward compatibility
+                'size_options' => $sizeOptions, // Actual size labels like "2x2cm", "4x4cm"
+                'size_pricing' => $sizePricing, // Maps size labels to area in cm²
+                'size_unit' => 'cm', // Default to cm for wound care products
+                'graphSizes' => $availableSizes, // Keep for backward compatibility
+                'has_onboarding' => $product->manufacturer_requires_onboarding ?? false,
+                'signature_required' => $product->manufacturer->signature_required ?? false,
+                'docuseal_template_id' => $product->manufacturer->docuseal_order_form_template_id,
             ];
         });
 

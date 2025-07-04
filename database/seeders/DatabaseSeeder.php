@@ -235,6 +235,8 @@ class DatabaseSeeder extends Seeder
                     'view-orders',
                     'create-orders',
                     'view-facilities',
+                    // Added to allow Docuseal/IVR access for providers
+                    'manage-orders',
                 ],
             ],
             'office-manager' => [

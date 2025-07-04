@@ -129,7 +129,7 @@ const ProductSelector: React.FC<Props> = ({
           can_see_discounts: false,
           can_see_msc_pricing: false,
           can_see_order_totals: false,
-          pricing_access_level: 'national_asp_only',
+          pricing_access_level: 'none', // No pricing visibility at all
           commission_access_level: 'none'
         };
       case 'msc_subrep':
@@ -142,10 +142,18 @@ const ProductSelector: React.FC<Props> = ({
           commission_access_level: 'none'
         };
       case 'provider':
+        // Providers can see pricing but NOT commission
+        return {
+          can_view_financials: false, // This controls commission visibility
+          can_see_discounts: true,     // Providers CAN see discounts
+          can_see_msc_pricing: true,   // Providers CAN see MSC pricing
+          can_see_order_totals: true,  // Providers CAN see order totals
+          pricing_access_level: 'full',
+          commission_access_level: 'none' // No commission for providers
+        };
       case 'msc-rep':
       case 'msc-admin':
       case 'superadmin':
-      default:
         return {
           can_view_financials: true,
           can_see_discounts: true,
@@ -153,6 +161,16 @@ const ProductSelector: React.FC<Props> = ({
           can_see_order_totals: true,
           pricing_access_level: 'full',
           commission_access_level: 'full'
+        };
+      default:
+        // Default to most restrictive for unknown roles
+        return {
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'national_asp_only',
+          commission_access_level: 'none'
         };
     }
   };
@@ -248,7 +266,8 @@ const ProductSelector: React.FC<Props> = ({
 
       console.log(`ProductSelector: Loaded ${productsData.length} products for ${userRole}`, {
         showAll,
-        roleRestrictions: currentRoleRestrictions
+        roleRestrictions: currentRoleRestrictions,
+        sampleProduct: productsData[0] // Log a sample product to see its structure
       });
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -553,13 +572,6 @@ const ProductSelector: React.FC<Props> = ({
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
-                    onClick={() => setShowSizeManager(!showSizeManager)}
-                    className="inline-flex items-center px-3 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded-md hover:bg-blue-200"
-                  >
-                    <Edit3 className="w-3 h-3 mr-1" />
-                    Manage Sizes
-                  </button>
-                  <button
                     onClick={clearAllProducts}
                     className="inline-flex items-center px-3 py-1 text-xs font-medium text-red-700 bg-red-100 rounded-md hover:bg-red-200"
                   >
@@ -777,6 +789,15 @@ const ProductCard: React.FC<{
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
+  // Debug logging
+  console.log('ProductCard rendering:', {
+    productName: product.name,
+    available_sizes: product.available_sizes,
+    size_options: product.size_options,
+    size_unit: product.size_unit,
+    hasSizes: (product.size_options && product.size_options.length > 0) || (product.available_sizes && product.available_sizes.length > 0)
+  });
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -867,11 +888,11 @@ const ProductCard: React.FC<{
         )}
       </div>
 
-      {/* Size Selection */}
+      {/* Size Selection - MOVED ABOVE QUANTITY */}
       {(product.size_options && product.size_options.length > 0) ? (
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Size ({product.size_unit === 'cm' ? 'cm' : 'inches'})
+            Size
           </label>
           <select
             value={selectedSize}
@@ -880,12 +901,13 @@ const ProductCard: React.FC<{
             disabled={isDisabled}
           >
             <option value="">Select size...</option>
-            {product.size_options.map(size => {
-              const price = product.size_pricing?.[size] || 0;
-              const displayPrice = roleRestrictions.can_see_msc_pricing ? (product.msc_price || price) : price;
+            {product.size_options.map(sizeLabel => {
+              const areaCm2 = product.size_pricing?.[sizeLabel] || 0;
+              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              const sizePrice = pricePerUnit * areaCm2;
               return (
-                <option key={size} value={size}>
-                  {size}{product.size_unit === 'cm' ? ' cm' : '"'} - {formatPrice(displayPrice)}
+                <option key={sizeLabel} value={areaCm2.toString()}>
+                  {sizeLabel} - {formatPrice(sizePrice)}
                 </option>
               );
             })}
@@ -894,7 +916,7 @@ const ProductCard: React.FC<{
       ) : (product.available_sizes && product.available_sizes.length > 0) ? (
         <div className="mb-3">
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Size (cm²)
+            Size
           </label>
           <select
             value={selectedSize}
@@ -905,10 +927,23 @@ const ProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => {
               const sizeNum = typeof size === 'string' ? parseFloat(size) : size;
+              const sizeStr = size.toString();
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              
+              // Try to find a label for this size in size_pricing
+              let displayLabel = `${sizeNum} cm²`;
+              if (product.size_pricing) {
+                for (const [label, area] of Object.entries(product.size_pricing)) {
+                  if (area === sizeNum) {
+                    displayLabel = label;
+                    break;
+                  }
+                }
+              }
+              
               return (
-                <option key={size} value={size.toString()}>
-                  {getProductSizeLabel(product.name)} - {formatPrice(pricePerUnit * sizeNum)}
+                <option key={sizeStr} value={sizeStr}>
+                  {displayLabel} - {formatPrice(pricePerUnit * sizeNum)}
                 </option>
               );
             })}
@@ -916,7 +951,7 @@ const ProductCard: React.FC<{
         </div>
       ) : null}
 
-      {/* Quantity Selection */}
+      {/* Quantity Selection - MOVED BELOW SIZE */}
       <div className="mb-3">
         <label className="block text-xs font-medium text-gray-700 mb-1">
           Quantity

@@ -15,6 +15,8 @@ use App\Models\AccessRequest;
 use App\Models\Insurance\PriorAuthorization;
 use App\Models\Users\Organization\Organization;
 use App\Models\Fhir\Facility;
+use App\Models\Role;
+use App\Models\Fhir\Provider;
 
 class DashboardController extends Controller
 {
@@ -151,7 +153,7 @@ class DashboardController extends Controller
     private function getRecentRequests($user): array
     {
         $query = ProductRequest::with(['facility'])
-            ->where('provider_id', $user->id)
+            ->where('id', $user?->id)
             ->orderBy('created_at', 'desc')
             ->limit(5);
 

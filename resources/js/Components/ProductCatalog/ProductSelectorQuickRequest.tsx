@@ -87,10 +87,30 @@ const parseSizeString = (sizeStr: string): { dimensions: string; area: number } 
     };
   }
 
+  // If it's just a number (area in cm²), calculate square dimensions
+  const area = parseFloat(sizeStr);
+  if (!isNaN(area) && area > 0) {
+    const sqrtSize = Math.sqrt(area);
+    const isSquare = sqrtSize === Math.floor(sqrtSize);
+    
+    if (isSquare) {
+      return {
+        dimensions: `${sqrtSize} x ${sqrtSize} cm`,
+        area: area
+      };
+    } else {
+      // For non-square sizes, just show the area
+      return {
+        dimensions: `${area} cm²`,
+        area: area
+      };
+    }
+  }
+
   // Fallback - return as is
   return {
     dimensions: sizeStr,
-    area: parseFloat(sizeStr) || 0
+    area: 0
   };
 };
 
@@ -439,14 +459,6 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                   </div>
                   <div className="flex items-center space-x-2">
                     <button
-                      title="Manage Sizes"
-                      onClick={() => setShowSizeManager(!showSizeManager)}
-                      className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md ${t.button.secondary.base} ${t.button.secondary.hover}`}
-                    >
-                      <Edit3 className="w-3 h-3 mr-1" />
-                      Manage Sizes
-                    </button>
-                    <button
                       onClick={clearAllProducts}
                       className={`inline-flex items-center px-3 py-1 text-xs font-medium rounded-md ${t.button.danger.base} ${t.button.danger.hover}`}
                     >
@@ -677,6 +689,14 @@ const QuickRequestProductCard: React.FC<{
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
+  // Debug logging
+  console.log('QuickRequestProductCard rendering:', {
+    productName: product.name,
+    available_sizes: product.available_sizes,
+    size_options: product.size_options,
+    size_unit: product.size_unit,
+    hasSizes: (product.size_options && product.size_options.length > 0) || (product.available_sizes && product.available_sizes.length > 0)
+  });
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -758,7 +778,7 @@ const QuickRequestProductCard: React.FC<{
         )}
       </div>
 
-      {/* Size Selection */}
+      {/* Size Selection - MOVED ABOVE QUANTITY */}
       {(product.size_options && product.size_options.length > 0) ? (
         <div className="mb-3">
           <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
@@ -771,13 +791,13 @@ const QuickRequestProductCard: React.FC<{
             disabled={isDisabled}
           >
             <option value="">Select size...</option>
-            {product.size_options.map(size => {
-              const sizeInfo = parseSizeString(size);
-              const price = product.size_pricing?.[size] || (product.price_per_sq_cm * sizeInfo.area);
-              const displayPrice = roleRestrictions.can_see_msc_pricing ? (product.msc_price || price) : price;
+            {product.size_options.map(sizeLabel => {
+              const areaCm2 = product.size_pricing?.[sizeLabel] || 0;
+              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              const sizePrice = pricePerUnit * areaCm2;
               return (
-                <option key={size} value={sizeInfo.area.toString()}>
-                  {sizeInfo.dimensions} ({sizeInfo.area} cm²) - {formatPrice(displayPrice)}
+                <option key={sizeLabel} value={areaCm2.toString()}>
+                  {sizeLabel} - {formatPrice(sizePrice)}
                 </option>
               );
             })}
@@ -797,11 +817,23 @@ const QuickRequestProductCard: React.FC<{
             <option value="">Select size...</option>
             {product.available_sizes.map(size => {
               const sizeStr = size.toString();
-              const sizeInfo = parseSizeString(sizeStr);
+              const sizeNum = parseFloat(sizeStr);
               const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+              
+              // Try to find a label for this size in size_pricing
+              let displayLabel = `${sizeNum} cm²`;
+              if (product.size_pricing) {
+                for (const [label, area] of Object.entries(product.size_pricing)) {
+                  if (area === sizeNum) {
+                    displayLabel = label;
+                    break;
+                  }
+                }
+              }
+              
               return (
-                <option key={sizeStr} value={sizeInfo.area.toString()}>
-                  {sizeInfo.dimensions} ({sizeInfo.area} cm²) - {formatPrice(pricePerUnit * sizeInfo.area)}
+                <option key={sizeStr} value={sizeStr}>
+                  {displayLabel} - {formatPrice(pricePerUnit * sizeNum)}
                 </option>
               );
             })}
@@ -809,7 +841,7 @@ const QuickRequestProductCard: React.FC<{
         </div>
       ) : null}
 
-      {/* Quantity Selection */}
+      {/* Quantity Selection - MOVED BELOW SIZE */}
       <div className="mb-3">
         <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
           Quantity
@@ -905,7 +937,6 @@ const ConsultationModal: React.FC<{
             <h3 className={`text-lg font-semibold ${t.text.primary}`}>
               Contact MSC Admin
             </h3>
-
             <button
               type="button"
               title="Close"

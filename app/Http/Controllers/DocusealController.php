@@ -20,7 +20,18 @@ class DocusealController extends Controller
         private DocusealService $docusealService
     ) {
         $this->middleware('auth');
-        $this->middleware('permission:manage-orders');
+        // Apply manage-orders permission to most methods, but exclude IVR-related methods that providers need
+        $this->middleware('permission:manage-orders')->except([
+            'createSubmission', 
+            'createDemoSubmission', 
+            'generateToken'
+        ]);
+        // Apply create-product-requests permission to IVR methods that providers use
+        $this->middleware('permission:create-product-requests')->only([
+            'createSubmission', 
+            'createDemoSubmission', 
+            'generateToken'
+        ]);
     }
 
     /**
@@ -44,22 +55,33 @@ class DocusealController extends Controller
             }
 
             // Generate documents for the order
-            $submissions = $this->docusealService->generateDocumentsForOrder($order);
-
-            if (empty($submissions)) {
-                return response()->json([
-                    'error' => 'No documents could be generated'
-                ], 400);
+            $episodeId = $order->episode_id;
+            if (!$episodeId) {
+                throw new Exception('Order does not have an associated episode');
             }
 
-            // Return the first submission (primary document)
-            $submission = $submissions[0];
+            $manufacturerName = $order->manufacturer->name ?? '';
+            if (!$manufacturerName) {
+                throw new Exception('Order does not have a manufacturer');
+            }
 
+            // Create or update submission for the episode
+            $result = $this->docusealService->createOrUpdateSubmission(
+                $episodeId,
+                $manufacturerName,
+                ['order_id' => $order->id]
+            );
+
+            if (!$result['success']) {
+                throw new Exception($result['error'] ?? 'Failed to create submission');
+            }
+
+            // Return the submission info
             return response()->json([
-                'submission_id' => $submission->id,
-                'docuseal_submission_id' => $submission->docuseal_submission_id,
-                'status' => $submission->status,
-                'document_url' => $submission->signing_url,
+                'submission_id' => $result['submission']['id'] ?? null,
+                'docuseal_submission_id' => $result['submission']['id'] ?? null,
+                'status' => 'pending',
+                'document_url' => $result['submission']['embed_url'] ?? null,
                 'expires_at' => now()->addDays(30)->toIso8601String(),
             ]);
 
@@ -94,13 +116,16 @@ class DocusealController extends Controller
             }
 
             // Get latest status from Docuseal API
-            $docusealStatus = $this->docusealService->getSubmissionStatus($submission->docuseal_submission_id);
+            $docusealData = $this->docusealService->getSubmission($submission->docuseal_submission_id);
+
+            // Extract status from the response
+            $docusealStatus = $docusealData['status'] ?? $submission->status;
 
             // Update local status if different
-            if ($docusealStatus['status'] !== $submission->status) {
+            if ($docusealStatus !== $submission->status) {
                 $submission->update([
-                    'status' => $docusealStatus['status'],
-                    'completed_at' => $docusealStatus['status'] === 'completed' ? now() : null,
+                    'status' => $docusealStatus,
+                    'completed_at' => $docusealStatus === 'completed' ? now() : null,
                 ]);
             }
 
