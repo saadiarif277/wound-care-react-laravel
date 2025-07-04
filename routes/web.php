@@ -261,10 +261,10 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     Route::post('/episodes/{episode}/send-ivr-notification', [App\Http\Controllers\Admin\OrderCenterController::class, 'sendIvrNotification'])->name('admin.episodes.send-ivr-notification');
 
     // Order status management
-    Route::post('/orders/{order}/change-status', [App\Http\Controllers\Admin\OrderCenterController::class, 'changeOrderStatus'])->name('admin.orders.change-status');
-    Route::get('/orders/{order}/status-history', [App\Http\Controllers\Admin\OrderCenterController::class, 'getOrderStatusHistory'])->name('admin.orders.status-history');
-    Route::get('/orders/{order}/notification-stats', [App\Http\Controllers\Admin\OrderCenterController::class, 'getNotificationStats'])->name('admin.orders.notification-stats');
-    Route::get('/orders/{order}/enhanced-details', [App\Http\Controllers\Admin\OrderCenterController::class, 'getEnhancedOrderDetails'])->name('admin.orders.enhanced-details');
+    Route::post('/orders/{orderId}/change-status', [App\Http\Controllers\Admin\OrderCenterController::class, 'changeOrderStatus'])->name('admin.orders.change-status');
+    Route::get('/orders/{orderId}/status-history', [App\Http\Controllers\Admin\OrderCenterController::class, 'getOrderStatusHistory'])->name('admin.orders.status-history');
+    Route::get('/orders/{orderId}/notification-stats', [App\Http\Controllers\Admin\OrderCenterController::class, 'getNotificationStats'])->name('admin.orders.notification-stats');
+    Route::get('/orders/{orderId}/enhanced-details', [App\Http\Controllers\Admin\OrderCenterController::class, 'getEnhancedOrderDetails'])->name('admin.orders.enhanced-details');
 
     // IVR Viewing Routes
     Route::get('/ivr/view/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'viewIvrDocument'])->name('admin.ivr.view');

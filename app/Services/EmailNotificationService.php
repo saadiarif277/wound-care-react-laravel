@@ -357,17 +357,20 @@ class EmailNotificationService
     private function sendEmail(OrderEmailNotification $notification): bool
     {
         try {
-            // For now, we'll just mark it as sent
-            // In a real implementation, you would use Laravel's Mail facade
-            // Mail::to($notification->recipient_email)
-            //     ->send(new OrderStatusNotification($notification));
+            // Send actual email using Laravel Mail facade
+            Mail::raw($notification->content, function ($message) use ($notification) {
+                $message->to($notification->recipient_email)
+                        ->subject($notification->subject)
+                        ->from(config('mail.from.address'), config('mail.from.name'));
+            });
 
-            $notification->markAsSent('mock-message-id-' . time());
+            $notification->markAsSent('message-id-' . time());
 
-            Log::info('Email notification sent', [
+            Log::info('Email notification sent successfully', [
                 'notification_id' => $notification->id,
                 'recipient' => $notification->recipient_email,
                 'type' => $notification->notification_type,
+                'subject' => $notification->subject,
             ]);
 
             return true;
@@ -377,7 +380,9 @@ class EmailNotificationService
 
             Log::error('Failed to send email notification', [
                 'notification_id' => $notification->id,
+                'recipient' => $notification->recipient_email,
                 'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
             ]);
 
             return false;

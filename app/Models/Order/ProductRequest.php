@@ -47,6 +47,7 @@ class ProductRequest extends Model
         'pre_auth_denied_at',
         'clinical_opportunities',
         'order_status',
+        'ivr_status',
         'step',
         'submitted_at',
         'approved_at',

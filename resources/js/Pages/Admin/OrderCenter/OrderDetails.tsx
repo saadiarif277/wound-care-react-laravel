@@ -12,7 +12,7 @@ import { OrderModals } from '@/Pages/QuickRequest/Orders/order/OrderModals';
 import { ArrowLeft } from 'lucide-react';
 
 interface Order {
-  id: string;
+  id: number;
   order_number: string;
   patient_name: string;
   patient_display_id: string;
@@ -517,7 +517,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           <IVRDocumentSection
             ivrData={ivrData}
             orderFormData={orderFormData}
-            orderId={order.order_number}
+            orderId={order.id}
             onUpdateIVRStatus={handleUpdateIVRStatus}
             onUploadIVRResults={handleUploadIVRResults}
             onUpdateOrderFormStatus={handleUpdateOrderFormStatus}

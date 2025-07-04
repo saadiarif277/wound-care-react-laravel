@@ -662,6 +662,7 @@ class OrderCenterController extends Controller
     {
         $order = ProductRequest::findOrFail($orderId);
         $newStatus = $request->input('status');
+        $statusType = $request->input('status_type', 'order'); // 'ivr' or 'order'
         $notes = $request->input('notes');
         $rejectionReason = $request->input('rejection_reason');
         $cancellationReason = $request->input('cancellation_reason');
@@ -669,28 +670,49 @@ class OrderCenterController extends Controller
         $carrier = $request->input('carrier');
         $trackingNumber = $request->input('tracking_number');
 
-        // Validate status change
-        $validStatuses = [
-            'pending', 'pending_ivr', 'ivr_sent', 'ivr_confirmed',
-            'approved', 'sent_back', 'denied', 'submitted_to_manufacturer',
-            'shipped', 'delivered', 'cancelled', 'Sent', 'Verified', 'Rejected',
-            'Submitted to Manufacturer', 'Confirmed by Manufacturer', 'Canceled'
+        // Validate status change based on type
+        $validIVRStatuses = ['pending', 'sent', 'verified', 'rejected', 'n/a'];
+        $validOrderStatuses = [
+            'pending', 'submitted_to_manufacturer', 'confirmed_by_manufacturer',
+            'rejected', 'canceled', 'shipped', 'delivered'
         ];
 
-        if (!in_array($newStatus, $validStatuses)) {
-            return response()->json(['error' => 'Invalid status'], 400);
+        $isValidStatus = false;
+        if ($statusType === 'ivr' && in_array($newStatus, $validIVRStatuses)) {
+            $isValidStatus = true;
+        } elseif ($statusType === 'order' && in_array($newStatus, $validOrderStatuses)) {
+            $isValidStatus = true;
+        }
+
+        if (!$isValidStatus) {
+            return response()->json(['error' => 'Invalid status for type: ' . $statusType], 400);
         }
 
         try {
-            // Update order status in database
-            $order->update([
-                'order_status' => $newStatus,
+            // Prepare update data
+            $updateData = [
                 'notes' => $notes,
                 'rejection_reason' => $rejectionReason,
                 'cancellation_reason' => $cancellationReason,
-                'carrier' => $carrier,
-                'tracking_number' => $trackingNumber,
-            ]);
+            ];
+
+            // Update appropriate status field based on type
+            if ($statusType === 'ivr') {
+                $updateData['ivr_status'] = $newStatus;
+                $previousStatus = $order->ivr_status ?? 'none';
+            } else {
+                $updateData['order_status'] = $newStatus;
+                $previousStatus = $order->order_status ?? 'none';
+
+                // Save shipping info when submitted to manufacturer
+                if ($newStatus === 'submitted_to_manufacturer') {
+                    $updateData['carrier'] = $carrier;
+                    $updateData['tracking_number'] = $trackingNumber;
+                }
+            }
+
+            // Update order in database
+            $order->update($updateData);
 
             // Log status change
             $success = $this->statusService->changeOrderStatus($order, $newStatus, $notes);
@@ -699,7 +721,6 @@ class OrderCenterController extends Controller
             $notificationSent = false;
             if ($sendNotification) {
                 try {
-                    $previousStatus = $order->order_status;
                     $changedBy = auth()->user()->name ?? 'Admin';
                     $notificationSent = $this->emailService->sendStatusChangeNotification(
                         $order,
@@ -717,24 +738,30 @@ class OrderCenterController extends Controller
             }
 
             if ($success) {
+                $message = ucfirst($statusType) . ' status updated successfully';
+                if ($notificationSent) {
+                    $message .= ' and email sent';
+                }
+
                 return response()->json([
                     'success' => true,
-                    'message' => 'Order status updated successfully',
+                    'message' => $message,
                     'new_status' => $newStatus,
+                    'status_type' => $statusType,
                     'notification_sent' => $notificationSent,
                 ]);
             } else {
-                return response()->json(['error' => 'Failed to update order status'], 500);
+                return response()->json(['error' => 'Failed to update ' . $statusType . ' status'], 500);
             }
 
         } catch (Exception $e) {
-            Log::error('Failed to change order status', [
+            Log::error('Failed to change ' . $statusType . ' status', [
                 'order_id' => $orderId,
                 'new_status' => $newStatus,
                 'error' => $e->getMessage(),
             ]);
 
-            return response()->json(['error' => 'Failed to update order status'], 500);
+            return response()->json(['error' => 'Failed to update ' . $statusType . ' status'], 500);
         }
     }
 

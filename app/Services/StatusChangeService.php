@@ -27,7 +27,7 @@ class StatusChangeService
         ?array $metadata = null
     ): bool {
         try {
-            $previousStatus = $order->order_status;
+            $previousStatus = $order->order_status ?? 'none';
             $changedBy = $this->getChangedBy();
 
             // Update the order status

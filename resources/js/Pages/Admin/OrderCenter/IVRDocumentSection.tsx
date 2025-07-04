@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCir
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
+import ToastNotification from '@/Components/ToastNotification';
 
 interface IVRData {
   status: string;
@@ -43,7 +44,7 @@ interface DocumentFile {
 interface IVRDocumentSectionProps {
   ivrData: IVRData;
   orderFormData: OrderFormData;
-  orderId: string;
+  orderId: number;
   onUpdateIVRStatus: (data: any) => Promise<void>;
   onUploadIVRResults: (file: File) => void;
   onUpdateOrderFormStatus: (data: any) => Promise<void>;
@@ -67,6 +68,19 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [modalNewStatus, setModalNewStatus] = useState('');
   const [showDocumentPanel, setShowDocumentPanel] = useState(false);
   const [documentPanelType, setDocumentPanelType] = useState<'ivr' | 'order-form'>('ivr');
+  const [notification, setNotification] = useState<{
+    type: 'success' | 'error' | 'info' | 'warning';
+    message: string;
+    isVisible: boolean;
+  } | null>(null);
+
+  const showNotification = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
+    setNotification({ type, message, isVisible: true });
+  };
+
+  const hideNotification = () => {
+    setNotification(null);
+  };
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -128,10 +142,47 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   };
 
   const handleStatusUpdate = async (data: any) => {
-    if (modalType === 'ivr') {
-      await onUpdateIVRStatus(data);
-    } else {
-      await onUpdateOrderFormStatus(data);
+    try {
+      const statusType = modalType === 'ivr' ? 'ivr' : 'order';
+      const status = data.status.toLowerCase().replace(/ /g, '_');
+
+      // Call backend API to update status
+      const response = await fetch(`/admin/orders/${orderId}/change-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          status: status,
+          status_type: statusType,
+          notes: data.comments,
+          rejection_reason: data.rejectionReason,
+          send_notification: data.sendNotification,
+          carrier: data.carrier,
+          tracking_number: data.trackingNumber,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Update local state
+        if (modalType === 'ivr') {
+          onUpdateIVRStatus(data);
+        } else {
+          onUpdateOrderFormStatus(data);
+        }
+
+        // Show success notification
+        showNotification('success', result.message || `${statusType.toUpperCase()} status updated successfully!`);
+      } else {
+        const errorData = await response.json();
+        showNotification('error', errorData.error || `Failed to update ${statusType} status`);
+      }
+    } catch (error) {
+      console.error('Status update error:', error);
+      showNotification('error', `Failed to update ${modalType} status: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   };
 
@@ -508,6 +559,16 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         orderId={orderId}
         title={documentPanelType === 'ivr' ? 'IVR Document' : 'Order Form Document'}
       />
+
+      {/* Toast Notification */}
+      {notification && (
+        <ToastNotification
+          type={notification.type}
+          message={notification.message}
+          isVisible={notification.isVisible}
+          onClose={hideNotification}
+        />
+      )}
     </>
   );
 };
