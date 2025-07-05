@@ -3,7 +3,6 @@ import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCir
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
-import ToastNotification from '@/Components/ToastNotification';
 
 interface IVRData {
   status: string;
@@ -48,6 +47,7 @@ interface IVRDocumentSectionProps {
   onUpdateIVRStatus: (data: any) => Promise<void>;
   onUploadIVRResults: (file: File) => void;
   onUpdateOrderFormStatus: (data: any) => Promise<void>;
+  onManufacturerSubmission?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
 }
@@ -59,6 +59,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   onUpdateIVRStatus,
   onUploadIVRResults,
   onUpdateOrderFormStatus,
+  onManufacturerSubmission,
   isOpen = true,
   onToggle,
 }) => {
@@ -68,19 +69,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [modalNewStatus, setModalNewStatus] = useState('');
   const [showDocumentPanel, setShowDocumentPanel] = useState(false);
   const [documentPanelType, setDocumentPanelType] = useState<'ivr' | 'order-form'>('ivr');
-  const [notification, setNotification] = useState<{
-    type: 'success' | 'error' | 'info' | 'warning';
-    message: string;
-    isVisible: boolean;
-  } | null>(null);
-
-  const showNotification = (type: 'success' | 'error' | 'info' | 'warning', message: string) => {
-    setNotification({ type, message, isVisible: true });
-  };
-
-  const hideNotification = () => {
-    setNotification(null);
-  };
+  // Remove local notification state - let parent handle notifications
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -144,7 +133,20 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const handleStatusUpdate = async (data: any) => {
     try {
       const statusType = modalType === 'ivr' ? 'ivr' : 'order';
-      const status = data.status.toLowerCase().replace(/ /g, '_');
+
+      // Map frontend status values to backend expected values
+      const statusMapping: Record<string, string> = {
+        'Sent': 'sent',
+        'Verified': 'verified',
+        'Rejected': 'rejected',
+        'Pending': 'pending',
+        'N/A': 'n/a',
+        'Submitted to Manufacturer': 'submitted_to_manufacturer',
+        'Confirmed by Manufacturer': 'confirmed_by_manufacturer',
+        'Canceled': 'canceled',
+      };
+
+      const status = statusMapping[data.status] || data.status.toLowerCase().replace(/ /g, '_');
 
       // Call backend API to update status
       const response = await fetch(`/admin/orders/${orderId}/change-status`, {
@@ -167,22 +169,28 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
       if (response.ok) {
         const result = await response.json();
 
-        // Update local state
+        // Update local state with the processed data
+        const processedData = {
+          ...data,
+          status: data.status, // Keep the display status
+          backendStatus: status, // Add the backend status for reference
+        };
+
         if (modalType === 'ivr') {
-          onUpdateIVRStatus(data);
+          onUpdateIVRStatus(processedData);
         } else {
-          onUpdateOrderFormStatus(data);
+          onUpdateOrderFormStatus(processedData);
         }
 
-        // Show success notification
-        showNotification('success', result.message || `${statusType.toUpperCase()} status updated successfully!`);
+        // Success - parent will handle notification via onUpdateIVRStatus/onUpdateOrderFormStatus
       } else {
         const errorData = await response.json();
-        showNotification('error', errorData.error || `Failed to update ${statusType} status`);
+        console.error('Status update failed:', errorData.error || `Failed to update ${statusType} status`);
+        // Parent will handle error notification
       }
     } catch (error) {
       console.error('Status update error:', error);
-      showNotification('error', `Failed to update ${modalType} status: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Parent will handle error notification
     }
   };
 
@@ -423,6 +431,21 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                       <option value="canceled">Canceled</option>
                     </select>
                   </div>
+
+                  {/* Manufacturer Submission Button */}
+                  {orderFormData.status === 'pending' && onManufacturerSubmission && (
+                    <div className="pt-2">
+                      <Button
+                        onClick={onManufacturerSubmission}
+                        className="w-full"
+                        variant="primary"
+                        size="sm"
+                      >
+                        <Send className="h-4 w-4 mr-2" />
+                        Submit to Manufacturer
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Order Form Files */}
@@ -548,7 +571,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         type={modalType}
         currentStatus={modalCurrentStatus}
         newStatus={modalNewStatus}
-        orderId={orderId}
+        orderId={orderId.toString()}
       />
 
       {/* Document Viewer Panel */}
@@ -556,19 +579,11 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         isOpen={showDocumentPanel}
         onClose={() => setShowDocumentPanel(false)}
         documentType={documentPanelType}
-        orderId={orderId}
+        orderId={orderId.toString()}
         title={documentPanelType === 'ivr' ? 'IVR Document' : 'Order Form Document'}
       />
 
-      {/* Toast Notification */}
-      {notification && (
-        <ToastNotification
-          type={notification.type}
-          message={notification.message}
-          isVisible={notification.isVisible}
-          onClose={hideNotification}
-        />
-      )}
+      {/* Notifications handled by parent component */}
     </>
   );
 };

@@ -708,6 +708,16 @@ class OrderCenterController extends Controller
                 if ($newStatus === 'submitted_to_manufacturer') {
                     $updateData['carrier'] = $carrier;
                     $updateData['tracking_number'] = $trackingNumber;
+
+                    // Save shipping info as JSON
+                    if ($carrier || $trackingNumber) {
+                        $updateData['shipping_info'] = [
+                            'carrier' => $carrier,
+                            'tracking_number' => $trackingNumber,
+                            'submitted_at' => now()->toISOString(),
+                            'submitted_by' => auth()->user()->name ?? 'Admin',
+                        ];
+                    }
                 }
             }
 

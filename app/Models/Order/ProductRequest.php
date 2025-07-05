@@ -61,6 +61,7 @@ class ProductRequest extends Model
         'cancellation_reason',
         'carrier',
         'tracking_number',
+        'shipping_info',
     ];
 
     protected $casts = [
@@ -69,6 +70,7 @@ class ProductRequest extends Model
         'mac_validation_results' => 'array',
         'eligibility_results' => 'array',
         'clinical_opportunities' => 'array',
+        'shipping_info' => 'array',
         'submitted_at' => 'datetime',
         'approved_at' => 'datetime',
         'pre_auth_submitted_at' => 'datetime',

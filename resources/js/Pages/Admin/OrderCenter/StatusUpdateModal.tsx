@@ -111,8 +111,8 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
         rejectionReason: newStatus === 'Rejected' ? rejectionReason : undefined,
         cancellationReason: newStatus === 'Canceled' ? cancellationReason : undefined,
         sendNotification,
-        carrier: newStatus === 'Confirmed by Manufacturer' ? carrier : undefined,
-        trackingNumber: newStatus === 'Confirmed by Manufacturer' ? trackingNumber : undefined,
+        carrier: (newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') ? carrier : undefined,
+        trackingNumber: (newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') ? trackingNumber : undefined,
       };
 
       await onConfirm(updateData);
@@ -208,8 +208,8 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
             />
           </div>
 
-          {/* Shipping Information for Confirmed Orders */}
-          {newStatus === 'Confirmed by Manufacturer' && (
+          {/* Shipping Information for Manufacturer Submission and Confirmed Orders */}
+          {(newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') && (
             <div className="space-y-3">
               <h3 className="font-medium text-gray-900">Shipping Information</h3>
               <div className="grid grid-cols-2 gap-3">

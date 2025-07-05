@@ -9,6 +9,7 @@ import ClinicalSection from './ClinicalSection';
 import ProviderSection from './ProviderSection';
 import AdditionalDocumentsSection from './AdditionalDocumentsSection';
 import { OrderModals } from '@/Pages/QuickRequest/Orders/order/OrderModals';
+import ManufacturerSubmissionModal from './ManufacturerSubmissionModal';
 import { ArrowLeft } from 'lucide-react';
 
 interface Order {
@@ -49,6 +50,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [showManufacturerSubmissionModal, setShowManufacturerSubmissionModal] = useState(false);
   const [confirmationChecked, setConfirmationChecked] = useState(false);
   const [adminNote, setAdminNote] = useState('');
   const [orderSubmitted, setOrderSubmitted] = useState(false);
@@ -151,8 +153,19 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
     const { status, comments, rejectionReason, sendNotification } = data;
 
     try {
+      // Map frontend status values to backend expected values
+      const statusMapping: Record<string, string> = {
+        'Sent': 'sent',
+        'Verified': 'verified',
+        'Rejected': 'rejected',
+        'Pending': 'pending',
+        'N/A': 'n/a',
+      };
+
+      const backendStatus = statusMapping[status] || status.toLowerCase().replace(/ /g, '_');
+
       // Call backend API to update order status
-      console.log('Updating IVR status for order:', order.id, 'with data:', { status, comments, rejectionReason, sendNotification });
+      console.log('Updating IVR status for order:', order.id, 'with data:', { status, backendStatus, comments, rejectionReason, sendNotification });
       const response = await fetch(`/admin/orders/${order.id}/change-status`, {
         method: 'POST',
         headers: {
@@ -160,7 +173,8 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         },
         body: JSON.stringify({
-          status: status.toLowerCase().replace(/ /g, '_'),
+          status: backendStatus,
+          status_type: 'ivr',
           notes: comments,
           rejection_reason: rejectionReason,
           send_notification: sendNotification,
@@ -185,7 +199,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           type: 'success',
           message: result.message || 'IVR status updated successfully!'
         });
-        setTimeout(() => setNotificationMessage(null), 3000);
+        setTimeout(() => setNotificationMessage(null), 5000);
       } else {
         console.error('Response not OK:', response.status, response.statusText);
         const responseText = await response.text();
@@ -239,6 +253,17 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
     const { status, comments, rejectionReason, cancellationReason, sendNotification, carrier, trackingNumber } = data;
 
     try {
+      // Map frontend status values to backend expected values
+      const statusMapping: Record<string, string> = {
+        'Submitted to Manufacturer': 'submitted_to_manufacturer',
+        'Confirmed by Manufacturer': 'confirmed_by_manufacturer',
+        'Rejected': 'rejected',
+        'Canceled': 'canceled',
+        'Pending': 'pending',
+      };
+
+      const backendStatus = statusMapping[status] || status.toLowerCase().replace(/ /g, '_');
+
       // Call backend API to update order status
       const response = await fetch(`/admin/orders/${order.id}/change-status`, {
         method: 'POST',
@@ -247,7 +272,8 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         },
         body: JSON.stringify({
-          status: status.toLowerCase().replace(/ /g, '_'),
+          status: backendStatus,
+          status_type: 'order',
           notes: comments,
           rejection_reason: rejectionReason,
           cancellation_reason: cancellationReason,
@@ -278,7 +304,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           type: 'success',
           message: result.message || 'Order form status updated successfully!'
         });
-        setTimeout(() => setNotificationMessage(null), 3000);
+        setTimeout(() => setNotificationMessage(null), 5000);
       } else {
         const error = await response.json();
         setNotificationMessage({
@@ -365,6 +391,75 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
 
   const handleSubmitOrder = () => {
     setShowSubmitModal(true);
+  };
+
+  const handleManufacturerSubmission = async (data: any) => {
+    try {
+      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          status: 'submitted_to_manufacturer',
+          status_type: 'order',
+          notes: data.specialInstructions,
+          send_notification: data.sendNotification,
+          carrier: data.carrier,
+          tracking_number: data.trackingNumber,
+          shipping_info: {
+            carrier: data.carrier,
+            tracking_number: data.trackingNumber,
+            shipping_address: data.shippingAddress,
+            shipping_contact: data.shippingContact,
+            shipping_phone: data.shippingPhone,
+            shipping_email: data.shippingEmail,
+            special_instructions: data.specialInstructions,
+            submitted_at: new Date().toISOString(),
+            submitted_by: 'Admin',
+          },
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+
+        // Show success notification with email status
+        const message = data.sendNotification && result.notification_sent
+          ? 'Order submitted to manufacturer successfully! Email notification sent.'
+          : 'Order submitted to manufacturer successfully!';
+
+        setNotificationMessage({
+          type: 'success',
+          message: message
+        });
+        setTimeout(() => setNotificationMessage(null), 5000);
+
+        // Update order form status
+        setOrderFormData((prev) => ({
+          ...prev,
+          status: 'Submitted to Manufacturer',
+          carrier: data.carrier,
+          trackingNumber: data.trackingNumber,
+          submissionDate: new Date().toLocaleDateString(),
+        }));
+      } else {
+        const error = await response.json();
+        setNotificationMessage({
+          type: 'error',
+          message: error.error || 'Failed to submit to manufacturer'
+        });
+        setTimeout(() => setNotificationMessage(null), 5000);
+      }
+    } catch (error) {
+      console.error('Error submitting to manufacturer:', error);
+      setNotificationMessage({
+        type: 'error',
+        message: 'Failed to submit to manufacturer. Please try again.'
+      });
+      setTimeout(() => setNotificationMessage(null), 5000);
+    }
   };
 
   const confirmSubmission = () => {
@@ -521,6 +616,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
             onUpdateIVRStatus={handleUpdateIVRStatus}
             onUploadIVRResults={handleUploadIVRResults}
             onUpdateOrderFormStatus={handleUpdateOrderFormStatus}
+            onManufacturerSubmission={() => setShowManufacturerSubmissionModal(true)}
             isOpen={!!openSections.ivrDocument}
             onToggle={() => toggleSection('ivrDocument')}
           />
@@ -540,23 +636,69 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
             onToggle={() => toggleSection('documents')}
           />
 
-          {/* Modals (if needed for admin actions) */}
+          {/* Modals */}
+          <ManufacturerSubmissionModal
+            isOpen={showManufacturerSubmissionModal}
+            onClose={() => setShowManufacturerSubmissionModal(false)}
+            onConfirm={handleManufacturerSubmission}
+            orderId={order.id.toString()}
+            orderNumber={order.order_number}
+            manufacturerName={order.manufacturer_name}
+          />
 
-          {/* Notification Toast */}
+          {/* Enhanced Notification Toast */}
           {notificationMessage && (
-            <div className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg ${
-              notificationMessage.type === 'success'
-                ? 'bg-green-500 text-white'
-                : 'bg-red-500 text-white'
-            }`}>
-              <div className="flex items-center gap-2">
-                <span>{notificationMessage.message}</span>
-                <button
-                  onClick={() => setNotificationMessage(null)}
-                  className="ml-2 hover:opacity-75"
-                >
-                  ×
-                </button>
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+              <div className={`max-w-md w-full mx-4 p-6 rounded-lg shadow-xl transform transition-all ${
+                notificationMessage.type === 'success'
+                  ? 'bg-green-50 border border-green-200'
+                  : 'bg-red-50 border border-red-200'
+              }`}>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    notificationMessage.type === 'success'
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-red-100 text-red-600'
+                  }`}>
+                    {notificationMessage.type === 'success' ? (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex-1">
+                    <h3 className={`text-lg font-semibold ${
+                      notificationMessage.type === 'success'
+                        ? 'text-green-800'
+                        : 'text-red-800'
+                    }`}>
+                      {notificationMessage.type === 'success' ? 'Success!' : 'Error!'}
+                    </h3>
+                    <p className={`text-sm ${
+                      notificationMessage.type === 'success'
+                        ? 'text-green-700'
+                        : 'text-red-700'
+                    }`}>
+                      {notificationMessage.message}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end">
+                  <button
+                    onClick={() => setNotificationMessage(null)}
+                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                      notificationMessage.type === 'success'
+                        ? 'bg-green-600 text-white hover:bg-green-700'
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
+                  >
+                    OK
+                  </button>
+                </div>
               </div>
             </div>
           )}
