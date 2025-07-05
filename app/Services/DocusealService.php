@@ -1018,6 +1018,231 @@ class DocusealService
     }
 
     /**
+     * Create DocuSeal submission for Quick Request workflow
+     * This method handles the specific data structure coming from the frontend
+     */
+    public function createSubmissionForQuickRequest(
+        string $templateId,
+        string $integrationEmail,
+        string $userEmail,
+        array $prefillData = [],
+        ?int $episodeId = null
+    ): array {
+        Log::info('Creating DocuSeal submission for Quick Request', [
+            'template_id' => $templateId,
+            'integration_email' => $integrationEmail,
+            'user_email' => $userEmail,
+            'episode_id' => $episodeId,
+            'prefill_data_keys' => array_keys($prefillData)
+        ]);
+
+        try {
+            // Transform prefill data to DocuSeal format
+            $docusealFields = $this->transformQuickRequestData($prefillData, $templateId);
+
+            // Prepare submission data
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false, // Don't send email automatically
+                'metadata' => [
+                    'source' => 'quick_request',
+                    'episode_id' => $episodeId,
+                    'created_at' => now()->toIso8601String(),
+                    'user_email' => $userEmail,
+                    'integration_email' => $integrationEmail,
+                ],
+                'submitters' => [
+                    [
+                        'name' => $prefillData['provider_name'] ?? $prefillData['patient_name'] ?? 'Provider',
+                        'email' => $integrationEmail,
+                        'values' => $docusealFields
+                    ]
+                ]
+            ];
+
+            // Make API call to DocuSeal
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if (!$response->successful()) {
+                $errorBody = $response->json();
+                $errorMessage = 'Failed to create DocuSeal submission';
+
+                if (isset($errorBody['error'])) {
+                    $errorMessage .= ': ' . $errorBody['error'];
+                } elseif (isset($errorBody['message'])) {
+                    $errorMessage .= ': ' . $errorBody['message'];
+                } else {
+                    $errorMessage .= ': HTTP ' . $response->status();
+                }
+
+                Log::error('DocuSeal API error', [
+                    'template_id' => $templateId,
+                    'status' => $response->status(),
+                    'error' => $errorBody,
+                    'fields_count' => count($docusealFields)
+                ]);
+
+                throw new \Exception($errorMessage);
+            }
+
+            $result = $response->json();
+
+            // Extract submission info from response
+            $submissionData = $result[0] ?? $result; // Handle array or single object response
+            $submissionId = $submissionData['submission_id'] ?? null;
+            $slug = $submissionData['slug'] ?? null;
+
+            if (!$slug) {
+                throw new \Exception('No slug returned from DocuSeal API');
+            }
+
+                         Log::info('DocuSeal submission created successfully', [
+                 'template_id' => $templateId,
+                 'submission_id' => $submissionId,
+                 'slug' => $slug,
+                 'fields_mapped' => count($docusealFields),
+                 'actual_fields_sent' => $docusealFields, // Log all the fields we sent
+                 'sample_prefill_data' => array_slice($prefillData, 0, 10, true) // Log sample input data
+             ]);
+
+            return [
+                'success' => true,
+                'data' => [
+                    'slug' => $slug,
+                    'submission_id' => $submissionId,
+                    'embed_url' => "https://docuseal.com/s/{$slug}",
+                    'template_id' => $templateId
+                ],
+                'ai_mapping_used' => false, // Could be enhanced later
+                'ai_confidence' => 0.0,
+                'mapping_method' => 'static',
+                'fields_mapped' => count($docusealFields)
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create DocuSeal submission for Quick Request', [
+                'template_id' => $templateId,
+                'integration_email' => $integrationEmail,
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Transform Quick Request data to DocuSeal field format
+     */
+    private function transformQuickRequestData(array $prefillData, string $templateId): array
+    {
+        $docusealFields = [];
+
+        // Common field mappings for Quick Request data
+        $fieldMappings = [
+            // Patient information
+            'patient_name' => 'Patient Name',
+            'patient_first_name' => 'Patient First Name',
+            'patient_last_name' => 'Patient Last Name',
+            'patient_dob' => 'Patient Date of Birth',
+            'patient_gender' => 'Patient Gender',
+            'patient_phone' => 'Patient Phone',
+            'patient_email' => 'Patient Email',
+            'patient_address_line1' => 'Patient Address',
+            'patient_city' => 'Patient City',
+            'patient_state' => 'Patient State',
+            'patient_zip' => 'Patient ZIP',
+
+            // Provider information
+            'provider_name' => 'Provider Name',
+            'provider_npi' => 'Provider NPI',
+            'provider_ptan' => 'Provider PTAN',
+            'provider_credentials' => 'Provider Credentials',
+            'provider_email' => 'Provider Email',
+
+            // Facility information
+            'facility_name' => 'Facility Name',
+            'facility_address' => 'Facility Address',
+            'facility_phone' => 'Facility Phone',
+            'facility_npi' => 'Facility NPI',
+
+            // Insurance information
+            'primary_insurance_name' => 'Primary Insurance',
+            'primary_member_id' => 'Member ID',
+            'primary_plan_type' => 'Plan Type',
+
+            // Clinical information
+            'wound_type' => 'Wound Type',
+            'wound_location' => 'Wound Location',
+            'wound_size_length' => 'Wound Length',
+            'wound_size_width' => 'Wound Width',
+            'wound_size_depth' => 'Wound Depth',
+            'wound_dimensions' => 'Wound Dimensions',
+            'wound_duration' => 'Wound Duration',
+            'primary_diagnosis_code' => 'Primary Diagnosis',
+            'secondary_diagnosis_code' => 'Secondary Diagnosis',
+
+            // Product information
+            'product_name' => 'Product Name',
+            'product_code' => 'Product Code',
+            'product_manufacturer' => 'Manufacturer',
+
+            // Other fields
+            'service_date' => 'Service Date',
+            'prior_applications' => 'Prior Applications',
+            'hospice_status' => 'Hospice Status',
+        ];
+
+        // Apply field mappings
+        foreach ($fieldMappings as $sourceKey => $targetKey) {
+            if (isset($prefillData[$sourceKey]) && $prefillData[$sourceKey] !== null && $prefillData[$sourceKey] !== '') {
+                $value = $prefillData[$sourceKey];
+                
+                // Convert boolean values to text
+                if (is_bool($value)) {
+                    $value = $value ? 'Yes' : 'No';
+                }
+                
+                $docusealFields[$targetKey] = $value;
+            }
+        }
+
+        // Handle special field transformations
+        if (isset($prefillData['product_details_text'])) {
+            $docusealFields['Product Details'] = $prefillData['product_details_text'];
+        }
+
+        if (isset($prefillData['diagnosis_codes_display'])) {
+            $docusealFields['Diagnosis Codes'] = $prefillData['diagnosis_codes_display'];
+        }
+
+        // Handle manufacturer-specific fields
+        if (isset($prefillData['manufacturer_fields']) && is_array($prefillData['manufacturer_fields'])) {
+            foreach ($prefillData['manufacturer_fields'] as $key => $value) {
+                if (is_bool($value)) {
+                    $value = $value ? 'Yes' : 'No';
+                }
+                $docusealFields[ucfirst(str_replace('_', ' ', $key))] = $value;
+            }
+        }
+
+        Log::info('Transformed Quick Request data to DocuSeal fields', [
+            'template_id' => $templateId,
+            'input_fields' => count($prefillData),
+            'output_fields' => count($docusealFields),
+            'sample_mapping' => array_slice($docusealFields, 0, 5, true)
+        ]);
+
+        return $docusealFields;
+    }
+
+    /**
      * Create IVR submission (alias for createOrUpdateSubmission for legacy compatibility)
      */
     public function createIVRSubmission(array $data, Episode $episode): array
@@ -1158,5 +1383,20 @@ class DocusealService
         }
 
         return $mappedData;
+    }
+
+    /**
+     * Update ProductRequest with episode and submission information
+     * TODO: Implement this method properly based on the actual ProductRequest model
+     */
+    private function updateProductRequestWithEpisode(int $episodeId, int $ivrEpisodeId, string $submissionId, string $templateId): void
+    {
+        // Placeholder method - implement based on actual ProductRequest model structure
+        Log::info('updateProductRequestWithEpisode called', [
+            'episode_id' => $episodeId,
+            'ivr_episode_id' => $ivrEpisodeId,
+            'submission_id' => $submissionId,
+            'template_id' => $templateId
+        ]);
     }
 }

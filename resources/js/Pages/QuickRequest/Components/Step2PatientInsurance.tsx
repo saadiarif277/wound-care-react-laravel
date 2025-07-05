@@ -5,6 +5,7 @@ import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAut
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
+import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
 
 
 interface Step2Props {
@@ -114,14 +115,9 @@ function Step2PatientInsurance({
           apiFormData.append('insurance_card_back', backCard);
         }
 
-        // Get fresh CSRF token for the request
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        
-        const response = await fetch('/api/insurance-card/analyze', {
+        // Use the enhanced fetch function with automatic CSRF token handling
+        const response = await fetchWithCSRF('/api/insurance-card/analyze', {
           method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': csrfToken,
-          },
           body: apiFormData,
         });
 
@@ -151,12 +147,10 @@ function Step2PatientInsurance({
               setAutoFillSuccess(false);
             }, 5000);
           }
-        } else if (response.status === 419) {
-          console.error('CSRF token expired during insurance card upload');
-          alert('Session expired. Please refresh the page and try again.');
-          window.location.reload();
         } else {
-          console.error('Insurance card analysis failed:', response.status, response.statusText);
+          const errorMessage = handleAPIError(response, 'Insurance card upload');
+          console.error('Insurance card analysis failed:', response.status, response.statusText, errorMessage);
+          alert(errorMessage);
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);

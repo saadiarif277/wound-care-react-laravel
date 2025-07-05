@@ -580,14 +580,7 @@ Route::middleware(['web', 'auth'])->group(function () {
         //     ->name('quick-requests.debug-facilities');
     });
 
-    // Insurance Card Analysis API
-    Route::prefix('api/insurance-card')->group(function () {
-        Route::post('/analyze', [\App\Http\Controllers\Api\InsuranceCardController::class, 'analyze'])
-            ->middleware('permission:create-product-requests')
-            ->name('api.insurance-card.analyze');
-        Route::get('/status', [\App\Http\Controllers\Api\InsuranceCardController::class, 'status'])
-            ->name('api.insurance-card.status');
-    });
+    // Insurance Card Analysis API - moved to api.php
 
     // Session storage for form data
     Route::prefix('api/session')->group(function () {

@@ -279,6 +279,111 @@ class DocusealController extends Controller
     }
 
     /**
+     * Generate DocuSeal submission slug for Quick Request IVR workflow
+     * POST /quick-requests/docuseal/generate-submission-slug
+     */
+    public function generateSubmissionSlug(Request $request): JsonResponse
+    {
+        Log::info('DocuSeal generateSubmissionSlug called', [
+            'user' => Auth::user()?->email,
+            'authenticated' => Auth::check(),
+            'has_permission' => Auth::user()?->hasPermission('create-product-requests'),
+            'data_keys' => array_keys($request->all())
+        ]);
+
+        $request->validate([
+            'user_email' => 'required|email',
+            'integration_email' => 'required|email',
+            'prefill_data' => 'nullable|array',
+            'manufacturerId' => 'required|string',
+            'templateId' => 'nullable|string',
+            'productCode' => 'nullable|string',
+            'documentType' => 'nullable|string',
+            'episode_id' => 'nullable|integer'
+        ]);
+
+        try {
+            $user = Auth::user();
+            $templateId = $request->templateId;
+            $prefillData = $request->prefill_data ?? [];
+            $episodeId = $request->episode_id;
+
+            // Enhanced response data for frontend
+            $responseData = [
+                'slug' => null,
+                'submission_id' => null,
+                'template_id' => $templateId,
+                'integration_type' => $episodeId ? 'fhir_enhanced' : 'standard',
+                'fhir_data_used' => $episodeId ? count($prefillData) : 0,
+                'fields_mapped' => count($prefillData),
+                'template_name' => 'Insurance Verification Request',
+                'manufacturer' => 'Standard',
+                'ai_mapping_used' => false,
+                'ai_confidence' => 0.0,
+                'mapping_method' => 'static'
+            ];
+
+            // If no template ID provided, return success without creating submission
+            if (!$templateId) {
+                Log::warning('No template ID provided for DocuSeal submission', [
+                    'manufacturerId' => $request->manufacturerId,
+                    'productCode' => $request->productCode
+                ]);
+
+                return response()->json(array_merge($responseData, [
+                    'error' => 'No template configured for this product'
+                ]), 400);
+            }
+
+            // Call DocuSeal API to create submission
+            $result = $this->docusealService->createSubmissionForQuickRequest(
+                $templateId,
+                $request->integration_email,
+                $request->user_email ?? $request->integration_email,
+                $prefillData,
+                $episodeId
+            );
+
+            if (!$result['success']) {
+                throw new Exception($result['error'] ?? 'Failed to create DocuSeal submission');
+            }
+
+            $submission = $result['data'];
+
+            // Update response with actual submission data
+            $responseData = array_merge($responseData, [
+                'slug' => $submission['slug'] ?? null,
+                'submission_id' => $submission['submission_id'] ?? null,
+                'ai_mapping_used' => $result['ai_mapping_used'] ?? false,
+                'ai_confidence' => $result['ai_confidence'] ?? 0.0,
+                'mapping_method' => $result['mapping_method'] ?? 'static'
+            ]);
+
+            Log::info('DocuSeal submission created successfully', [
+                'template_id' => $templateId,
+                'submission_id' => $responseData['submission_id'],
+                'slug' => $responseData['slug'],
+                'fields_mapped' => $responseData['fields_mapped']
+            ]);
+
+            return response()->json($responseData);
+
+        } catch (Exception $e) {
+            Log::error('Failed to generate DocuSeal submission slug', [
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'template_id' => $request->templateId ?? null,
+                'manufacturer_id' => $request->manufacturerId ?? null
+            ]);
+
+            return response()->json([
+                'error' => 'Failed to create form submission',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
      * Create Docuseal submission with pre-filled data
      * POST /docuseal/create-submission
      */

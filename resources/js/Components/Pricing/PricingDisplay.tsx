@@ -40,12 +40,8 @@ interface OrderTotalProps {
 export function PricingDisplay({ roleRestrictions, product, showLabel = true, className = '' }: PricingDisplayProps) {
   // Users with no pricing access at all (e.g., office managers)
   if (roleRestrictions.pricing_access_level === 'none') {
-    return (
-      <div className={`text-gray-500 ${className}`}>
-        {showLabel && <span className="text-sm">Price: </span>}
-        <span>Not available for your role</span>
-      </div>
-    );
+    // Render nothing for office managers (no price, no label, no message)
+    return null;
   }
 
   // Office Manager or users without MSC pricing access - ONLY show National ASP
@@ -142,21 +138,9 @@ export function PricingDisplay({ roleRestrictions, product, showLabel = true, cl
 
 export function OrderTotalDisplay({ roleRestrictions, total, amountOwed, discount, className = '' }: OrderTotalProps) {
   // Users without order totals access cannot see financial totals
-  if (!roleRestrictions.can_see_order_totals) {
-    return (
-      <div className={`text-gray-500 italic ${className}`}>
-        <span className="text-sm">Financial information not available for your role</span>
-      </div>
-    );
-  }
-
-  // Users with limited financial access
-  if (!roleRestrictions.can_view_financials) {
-    return (
-      <div className={`text-gray-500 italic ${className}`}>
-        <span className="text-sm">Order totals not available</span>
-      </div>
-    );
+  if (!roleRestrictions.can_see_order_totals || !roleRestrictions.can_view_financials) {
+    // Render nothing for office managers or users with no financial access
+    return null;
   }
 
   // Users with full financial visibility
@@ -196,16 +180,14 @@ export function CommissionDisplay({ roleRestrictions, commission, className = ''
 
   // No commission access - hide commission completely
   if (commissionAccess === 'none') {
+    // Render nothing for office managers or users with no commission access
     return null;
   }
 
   // Limited commission access
   if (commissionAccess === 'limited') {
-    return (
-      <div className={`text-gray-600 ${className}`}>
-        <span className="text-sm">Commission: Limited Access</span>
-      </div>
-    );
+    // Render nothing for limited commission access (silent)
+    return null;
   }
 
   // Full commission access

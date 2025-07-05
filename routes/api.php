@@ -719,11 +719,22 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
 
 
 
+// CSRF Token endpoint for automatic refresh
+Route::middleware(['web'])->group(function () {
+    Route::get('/csrf-token', function () {
+        return response()->json([
+            'token' => csrf_token(),
+            'csrf_token' => csrf_token(),
+        ]);
+    })->name('api.csrf-token');
+});
+
 // Insurance Card Processing Routes
 Route::middleware(['web'])->group(function () {
     Route::post('/insurance-card/analyze', [\App\Http\Controllers\Api\InsuranceCardController::class, 'analyze'])
+        ->middleware('permission:create-product-requests')
         ->name('api.insurance-card.analyze');
-    Route::get('/insurance-card/status', [\App\Http\Controllers\QuickRequestController::class, 'checkAzureStatus'])
+    Route::get('/insurance-card/status', [\App\Http\Controllers\Api\InsuranceCardController::class, 'status'])
         ->name('api.insurance-card.status');
     Route::post('/insurance-card/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugInsuranceCard'])
         ->name('api.insurance-card.debug');

@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useManufacturers } from '@/Hooks/useManufacturers';
+import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
 
 // Prepare Docuseal data function (moved from deleted docusealUtils.ts)
 const prepareDocusealData = ({ formData, products, providers, facilities }: any) => {
@@ -454,6 +455,12 @@ export default function Step7DocusealIVR({
 
   // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
+    // Check permissions first
+    if (!hasPermission('create-product-requests')) {
+      setSubmissionError('You do not have permission to upload insurance cards. Please contact your administrator.');
+      return;
+    }
+
     // Store file in form data
     updateFormData({ [`insurance_card_${side}`]: file });
 
@@ -464,6 +471,7 @@ export default function Step7DocusealIVR({
     if (frontCard) {
       setIsProcessingInsuranceCard(true);
       setInsuranceCardSuccess(false);
+      setSubmissionError(''); // Clear any previous errors
 
       try {
         const apiFormData = new FormData();
@@ -472,14 +480,9 @@ export default function Step7DocusealIVR({
           apiFormData.append('insurance_card_back', backCard);
         }
 
-        // Get fresh CSRF token for the request
-        const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-        
-        const response = await fetch('/api/insurance-card/analyze', {
+        // Use the enhanced fetch function with automatic CSRF token handling
+        const response = await fetchWithCSRF('/api/insurance-card/analyze', {
           method: 'POST',
-          headers: {
-            'X-CSRF-TOKEN': csrfToken,
-          },
           body: apiFormData,
         });
 
@@ -500,16 +503,16 @@ export default function Step7DocusealIVR({
             setTimeout(() => {
               setInsuranceCardSuccess(false);
             }, 5000);
+          } else {
+            setSubmissionError('Insurance card uploaded but could not extract data. Please enter information manually.');
           }
-        } else if (response.status === 419) {
-          console.error('CSRF token expired during insurance card upload');
-          alert('Session expired. Please refresh the page and try again.');
-          window.location.reload();
         } else {
-          console.error('Insurance card analysis failed:', response.status, response.statusText);
+          const errorMessage = handleAPIError(response, 'Insurance card upload');
+          setSubmissionError(errorMessage);
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);
+        setSubmissionError('Unable to process insurance card. Please try again or enter information manually.');
       } finally {
         setIsProcessingInsuranceCard(false);
       }
@@ -888,12 +891,14 @@ export default function Step7DocusealIVR({
                   "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
                   theme === 'dark' ? 'text-red-400' : 'text-red-600'
                 )} />
-                <div>
+                <div className="flex-1">
                   <h4 className={cn(
                     "text-sm font-medium",
                     theme === 'dark' ? 'text-red-300' : 'text-red-900'
                   )}>
-                    Error Loading IVR Form
+                    {submissionError.includes('permission') ? 'Permission Error' : 
+                     submissionError.includes('session') || submissionError.includes('expired') ? 'Session Error' :
+                     submissionError.includes('server') ? 'Server Error' : 'Error Loading IVR Form'}
                   </h4>
                   <p className={cn(
                     "text-sm mt-1",
@@ -901,18 +906,61 @@ export default function Step7DocusealIVR({
                   )}>
                     {submissionError}
                   </p>
-                  <button
-                    onClick={() => {
-                      setSubmissionError('');
-                      setIsCompleted(false);
-                    }}
-                    className={cn(
-                      "mt-3 text-sm underline",
-                      theme === 'dark' ? 'text-red-300' : 'text-red-600'
+                  <div className="mt-4 space-y-2">
+                    <button
+                      onClick={() => {
+                        setSubmissionError('');
+                        setIsCompleted(false);
+                      }}
+                      className={cn(
+                        "inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors mr-3",
+                        theme === 'dark'
+                          ? 'bg-red-700 hover:bg-red-600 text-white'
+                          : 'bg-red-600 hover:bg-red-700 text-white'
+                      )}
+                    >
+                      <FiRefreshCw className="mr-1 h-4 w-4" />
+                      Try Again
+                    </button>
+                    
+                    {submissionError.includes('permission') && (
+                      <div className={cn(
+                        "mt-3 p-3 rounded-md",
+                        theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+                      )}>
+                        <p className={cn(
+                          "text-sm",
+                          theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                        )}>
+                          <strong>Need Help?</strong> Contact your administrator to request the 
+                          "create-product-requests" permission to access this feature.
+                        </p>
+                      </div>
                     )}
-                  >
-                    Try Again
-                  </button>
+                    
+                    {(submissionError.includes('session') || submissionError.includes('expired')) && (
+                      <div className={cn(
+                        "mt-3 p-3 rounded-md",
+                        theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+                      )}>
+                        <p className={cn(
+                          "text-sm",
+                          theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                        )}>
+                          <strong>Session Expired:</strong> Please refresh the page and try again.
+                        </p>
+                        <button
+                          onClick={() => window.location.reload()}
+                          className={cn(
+                            "mt-2 text-sm underline",
+                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                          )}
+                        >
+                          Refresh Page
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
