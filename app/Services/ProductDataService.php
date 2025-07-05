@@ -19,6 +19,41 @@ class ProductDataService
      */
     public function transformProduct(Product $product, User $user, array $options = []): array
     {
+        // Load the ProductSize relationship if not already loaded
+        if (!$product->relationLoaded('activeSizes')) {
+            $product->load('activeSizes');
+        }
+
+        // Get sizes from ProductSize relationship
+        $productSizes = $product->activeSizes;
+
+        // Format sizes for frontend
+        $availableSizes = [];
+        $sizeOptions = [];
+        $sizePricing = [];
+        $sizeSpecificPricing = [];
+
+        foreach ($productSizes as $size) {
+            // Add the display label (e.g., "2x2cm", "4x4cm")
+            $sizeOptions[] = $size->size_label;
+
+            // Add to size pricing mapping (area in cm²)
+            $sizePricing[$size->size_label] = $size->area_cm2;
+
+            // Add size-specific pricing data
+            $sizeSpecificPricing[$size->size_label] = [
+                'area_cm2' => $size->area_cm2,
+                'size_specific_price' => $size->size_specific_price,
+                'price_per_unit' => $size->price_per_unit,
+                'effective_price' => $size->getEffectivePrice(),
+                'display_label' => $size->display_label,
+                'formatted_size' => $size->formatted_size,
+            ];
+
+            // For backward compatibility, also add numeric sizes
+            $availableSizes[] = $size->area_cm2;
+        }
+
         $data = [
             'id' => $product->id,
             'name' => $product->name,
@@ -29,10 +64,11 @@ class ProductDataService
             'manufacturer_id' => $product->manufacturer_id,
             'category' => $product->category,
             'description' => $product->description ?? '',
-            'available_sizes' => $product->size_options ?? $product->available_sizes ?? [],
-            'size_options' => $product->size_options ?? [],
-            'size_pricing' => $product->size_pricing ?? [],
-            'size_unit' => $product->size_unit ?? 'in',
+            'available_sizes' => $availableSizes, // Numeric sizes for backward compatibility
+            'size_options' => $sizeOptions, // Actual size labels like "2x2cm", "4x4cm"
+            'size_pricing' => $sizePricing, // Maps size labels to area in cm²
+            'size_specific_pricing' => $sizeSpecificPricing, // Detailed pricing data for each size
+            'size_unit' => 'cm', // Default to cm for wound care products
             'is_active' => $product->is_active,
             'image_url' => $product->image_url,
             'document_urls' => $product->document_urls ?? [],
@@ -150,7 +186,7 @@ class ProductDataService
         // Add specific fields for search results
         if ($options['include_manufacturer_info'] ?? false) {
             $data['code'] = $product->q_code ?? $product->hcpcs_code ?? '';
-            $data['graphSizes'] = $product->available_sizes ?? [];
+            $data['graphSizes'] = $data['available_sizes'] ?? [];
         }
 
         // Add timestamps if requested
@@ -244,4 +280,4 @@ class ProductDataService
 
         return $stats;
     }
-} 
+}

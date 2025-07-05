@@ -18,16 +18,16 @@ class ProcessQuickRequestToDocusealAndFhir implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
-    protected $episodeId;
-    protected $quickRequestData;
+    protected ?string $episodeId;
+    protected ?array $quickRequestData;
 
     /**
      * Create a new job instance.
      *
-     * @param int|null $episodeId
+     * @param string|null $episodeId
      * @param array|null $quickRequestData
      */
-    public function __construct(?int $episodeId = null, ?array $quickRequestData = null)
+    public function __construct(?string $episodeId = null, ?array $quickRequestData = null)
     {
         $this->episodeId = $episodeId;
         $this->quickRequestData = $quickRequestData;

@@ -176,14 +176,27 @@ final class QuickRequestService
         }
 
         return $query
+            ->with('activeSizes') // Load the ProductSize relationship
             ->orderBy('price_per_sq_cm', 'desc') // Sort by highest ASP first
             ->get()
             ->map(function($product) {
-                $sizes = $product->available_sizes;
-                if (is_string($sizes)) {
-                    $sizes = json_decode($sizes, true) ?? [];
-                } elseif (!is_array($sizes)) {
-                    $sizes = [];
+                // Get sizes from ProductSize relationship
+                $productSizes = $product->activeSizes;
+                
+                // Format sizes for frontend
+                $availableSizes = [];
+                $sizeOptions = [];
+                $sizePricing = [];
+                
+                foreach ($productSizes as $size) {
+                    // Add the display label (e.g., "2x2cm", "4x4cm")
+                    $sizeOptions[] = $size->size_label;
+                    
+                    // Add to size pricing mapping
+                    $sizePricing[$size->size_label] = $size->area_cm2;
+                    
+                    // For backward compatibility, also add numeric sizes
+                    $availableSizes[] = $size->area_cm2;
                 }
 
                 return [
@@ -192,8 +205,15 @@ final class QuickRequestService
                     'name' => $product->name,
                     'manufacturer' => $product->manufacturer,
                     'manufacturer_id' => $product->manufacturer_id,
-                    'available_sizes' => $sizes,
+                    'available_sizes' => $availableSizes, // Numeric sizes for backward compatibility
+                    'size_options' => $sizeOptions, // Actual size labels like "2x2cm", "4x4cm"
+                    'size_pricing' => $sizePricing, // Maps size labels to area in cm²
+                    'size_unit' => 'cm', // Default to cm for wound care products
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
+                    'msc_price' => $product->msc_price ?? null,
+                    'commission_rate' => $product->commission_rate ?? null,
+                    'docuseal_template_id' => $product->manufacturer->docuseal_order_form_template_id ?? null,
+                    'signature_required' => $product->manufacturer->signature_required ?? false,
                 ];
             });
     }

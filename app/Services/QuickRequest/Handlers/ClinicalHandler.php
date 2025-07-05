@@ -22,6 +22,10 @@ class ClinicalHandler
         try {
             $this->logger->info('Creating clinical resources in FHIR');
 
+            // Get primary diagnosis code from the diagnosisCodes array
+            $diagnosisCodes = $data['clinical']['diagnosis_codes'] ?? [];
+            $primaryDiagnosisCode = !empty($diagnosisCodes) ? $diagnosisCodes[0] : 'Z00.00'; // Default to general examination if no diagnosis
+
             // Create Condition for primary diagnosis
             $conditionData = [
                 'resourceType' => 'Condition',
@@ -35,8 +39,8 @@ class ClinicalHandler
                     'coding' => [
                         [
                             'system' => 'http://hl7.org/fhir/sid/icd-10',
-                            'code' => $data['clinical']['diagnosis']['primary'],
-                            'display' => $this->getICDDisplayName($data['clinical']['diagnosis']['primary'])
+                            'code' => $primaryDiagnosisCode,
+                            'display' => $this->getICDDisplayName($primaryDiagnosisCode)
                         ]
                     ]
                 ],
@@ -58,37 +62,41 @@ class ClinicalHandler
                 ],
                 'bodySite' => [
                     [
-                        'text' => $data['clinical']['woundLocation']
+                        'text' => $data['clinical']['wound_location'] ?? 'Unknown location'
                     ]
                 ],
                 'note' => [
                     [
-                        'text' => $data['clinical']['woundDescription']
+                        'text' => $data['clinical']['wound_type'] ?? 'Wound care treatment'
                     ]
                 ]
             ];
 
             // Add measurements if available
-            if (!empty($data['clinical']['woundMeasurements'])) {
+            if (!empty($data['clinical']['wound_size_length']) && !empty($data['clinical']['wound_size_width'])) {
                 $conditionData['extension'] = [
                     [
                         'url' => 'http://msc-mvp.com/fhir/StructureDefinition/wound-measurements',
                         'extension' => [
                             [
                                 'url' => 'length',
-                                'valueDecimal' => $data['clinical']['woundMeasurements']['length']
+                                'valueDecimal' => $data['clinical']['wound_size_length']
                             ],
                             [
                                 'url' => 'width',
-                                'valueDecimal' => $data['clinical']['woundMeasurements']['width']
-                            ],
-                            [
-                                'url' => 'depth',
-                                'valueDecimal' => $data['clinical']['woundMeasurements']['depth']
+                                'valueDecimal' => $data['clinical']['wound_size_width']
                             ]
                         ]
                     ]
                 ];
+
+                // Add depth if available
+                if (!empty($data['clinical']['wound_size_depth'])) {
+                    $conditionData['extension'][0]['extension'][] = [
+                        'url' => 'depth',
+                        'valueDecimal' => $data['clinical']['wound_size_depth']
+                    ];
+                }
             }
 
             $condition = $this->fhirService->create('Condition', $conditionData);
@@ -133,7 +141,8 @@ class ClinicalHandler
 
             $this->logger->info('Clinical resources created successfully', [
                 'condition_id' => $conditionId,
-                'episode_id' => $episodeId
+                'episode_id' => $episodeId,
+                'primary_diagnosis' => $primaryDiagnosisCode
             ]);
 
             return [
@@ -143,7 +152,8 @@ class ClinicalHandler
 
         } catch (\Exception $e) {
             $this->logger->error('Failed to create clinical resources', [
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
+                'clinical_data' => $data['clinical'] ?? 'no clinical data'
             ]);
             throw $e;
         }

@@ -490,7 +490,7 @@ function QuickRequestCreateNew({
           }
         }
         if (!formData.shipping_speed) errors.shipping_speed = 'Shipping speed is required';
-        
+
         // Validate delivery date for choose_delivery_date option
         if (formData.shipping_speed === 'choose_delivery_date' && !formData.delivery_date) {
           errors.delivery_date = 'Please select a delivery date';
@@ -515,7 +515,7 @@ function QuickRequestCreateNew({
         if (!formData.wound_location) errors.wound_location = 'Wound location is required';
         if (!formData.wound_size_length) errors.wound_size = 'Wound length is required';
         if (!formData.wound_size_width) errors.wound_size = 'Wound width is required';
-        if ((!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) && 
+        if ((!formData.application_cpt_codes || formData.application_cpt_codes.length === 0) &&
             !formData.application_cpt_codes_other) {
           errors.cpt_codes = 'At least one CPT code must be selected';
         }
@@ -1126,11 +1126,11 @@ function QuickRequestCreateNew({
         if (response.data.success) {
           // Show success message and redirect
           alert('Order submitted successfully! Your order is now being processed.');
-          
+
           // Temporarily redirect to dashboard to avoid access issues
           // TODO: Re-enable episode redirect once access control is fixed
           const redirectToDashboard = true; // Toggle this to test episode redirect
-          
+
           if (redirectToDashboard) {
             // Go directly to dashboard where the new order will be visible
             setTimeout(() => {
@@ -1160,7 +1160,7 @@ function QuickRequestCreateNew({
         // Handle CSRF token expiration specifically
         if (error.response?.status === 419) {
           console.log('CSRF token expired, attempting to refresh...');
-          
+
           // Force refresh the token
           const newToken = await ensureValidCSRFToken();
           if (!newToken) {
@@ -1168,14 +1168,14 @@ function QuickRequestCreateNew({
             setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
             return;
           }
-          
+
           // If we have retries left, try again
           if (currentRetry < maxRetries) {
             currentRetry++;
             console.log(`Retrying submission with fresh token (attempt ${currentRetry + 1})...`);
             continue;
           }
-          
+
           // If we've exhausted retries, show error
           setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
           return;
@@ -1196,10 +1196,10 @@ function QuickRequestCreateNew({
         return;
       }
     }
-    
+
     // If we reach here, all retries failed
     setErrors({ submit: 'Unable to submit order after multiple attempts. Please refresh the page and try again.' });
-    
+
     setIsSubmitting(false);
   };
 
@@ -1210,6 +1210,13 @@ function QuickRequestCreateNew({
     }
   };
 
+  // Set default expected service date to tomorrow when component mounts
+  useEffect(() => {
+    if (!formData.expected_service_date) {
+      updateFormData({ expected_service_date: getTomorrowDate() });
+    }
+  }, []); // Empty dependency array means this runs once when component mounts
+
   // Calculate delivery date based on shipping speed
   useEffect(() => {
     if (formData.expected_service_date && formData.shipping_speed) {
@@ -1217,7 +1224,7 @@ function QuickRequestCreateNew({
         // Don't auto-calculate for 'choose_delivery_date', user will input manually
         return;
       }
-      
+
       const today = new Date();
       const daysToAdd = formData.shipping_speed === 'standard_2_day' ? 2 : 1;
 

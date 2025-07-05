@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Provider;
 
 use App\Http\Controllers\Controller;
-use App\Models\Order\Order;
+use App\Models\Order\ProductRequest;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Notification;
 use Illuminate\Http\Request;
@@ -21,45 +21,45 @@ class DashboardController extends Controller
     {
         $user = Auth::user();
 
-        // Get provider's orders
-        $orders = Order::where('provider_id', $user->id)
-            ->with(['patient', 'manufacturer', 'products', 'ivrEpisode'])
+        // Get provider's product requests
+        $productRequests = ProductRequest::where('provider_id', $user->id)
+            ->with(['provider', 'facility', 'products.manufacturer'])
             ->orderBy('created_at', 'desc')
             ->take(50)
             ->get();
 
-        // Transform orders for frontend
-        $transformedOrders = $orders->map(function ($order) {
+        // Transform product requests for frontend
+        $transformedProductRequests = $productRequests->map(function ($productRequest) {
             return [
-                'id' => $order->id,
-                'order_number' => $order->order_number,
-                'patient_display_id' => $order->patient_display_id,
-                'status' => $order->order_status,
-                'created_at' => $order->created_at->toIso8601String(),
-                'expected_service_date' => $order->date_of_service,
-                'products' => $order->products->map(fn($p) => [
+                'id' => $productRequest->id,
+                'order_number' => $productRequest->request_number,
+                'patient_display_id' => $productRequest->patient_display_id,
+                'status' => $productRequest->order_status,
+                'created_at' => $productRequest->created_at->toIso8601String(),
+                'expected_service_date' => $productRequest->expected_service_date,
+                'products' => $productRequest->products->map(fn($p) => [
                     'id' => $p->id,
                     'name' => $p->name,
                     'quantity' => $p->pivot->quantity ?? 1,
                 ]),
                 'manufacturer' => [
-                    'name' => $order->manufacturer->name ?? 'Unknown',
+                    'name' => $this->getManufacturerName($productRequest),
                 ],
-                'ivr_status' => $order->ivrEpisode->ivr_status ?? 'pending',
-                'tracking_number' => $order->tracking_number,
-                'action_required' => $this->checkActionRequired($order),
-                'priority' => $this->calculatePriority($order),
+                'ivr_status' => $productRequest->ivr_status ?? 'pending',
+                'tracking_number' => $productRequest->tracking_number,
+                'action_required' => $this->checkActionRequired($productRequest),
+                'priority' => $this->calculatePriority($productRequest),
             ];
         });
 
-        // Calculate stats
+        // Calculate stats based on ProductRequest statuses
         $stats = [
-            'total_orders' => $orders->count(),
-            'pending_ivr' => $orders->where('order_status', 'pending_ivr')->count(),
-            'in_progress' => $orders->whereIn('order_status', ['ivr_sent', 'approved', 'submitted_to_manufacturer'])->count(),
-            'completed' => $orders->where('order_status', 'delivered')->count(),
-            'success_rate' => $this->calculateSuccessRate($orders),
-            'average_completion_time' => $this->calculateAverageCompletionTime($orders),
+            'total_orders' => $productRequests->count(),
+            'pending_ivr' => $productRequests->where('order_status', 'pending')->count(),
+            'in_progress' => $productRequests->whereIn('order_status', ['submitted_to_manufacturer'])->count(),
+            'completed' => $productRequests->whereIn('order_status', ['confirmed_by_manufacturer'])->count(),
+            'success_rate' => $this->calculateSuccessRate($productRequests),
+            'average_completion_time' => $this->calculateAverageCompletionTime($productRequests),
         ];
 
         // Get recent activity
@@ -69,10 +69,10 @@ class DashboardController extends Controller
         $upcomingDeadlines = $this->getUpcomingDeadlines($user->id);
 
         // Generate AI insights
-        $aiInsights = $this->generateAIInsights($orders, $stats, $upcomingDeadlines);
+        $aiInsights = $this->generateAIInsights($productRequests, $stats, $upcomingDeadlines);
 
         return Inertia::render('Provider/Orders/Dashboard', [
-            'orders' => $transformedOrders,
+            'orders' => $transformedProductRequests,
             'stats' => $stats,
             'recentActivity' => $recentActivity,
             'upcomingDeadlines' => $upcomingDeadlines,
@@ -147,18 +147,18 @@ class DashboardController extends Controller
 
         // First check if episode exists at all
         $episodeExists = PatientManufacturerIVREpisode::where('id', $episodeId)->exists();
-        
+
         if (!$episodeExists) {
             Log::error('Episode not found', ['episode_id' => $episodeId]);
             abort(404, 'Episode not found');
         }
-        
+
         // Debug: Check what orders exist for this episode
         $orderCount = \App\Models\Order\Order::where('episode_id', $episodeId)->count();
         $providerOrderCount = \App\Models\Order\Order::where('episode_id', $episodeId)
             ->where('provider_id', $user->id)
             ->count();
-            
+
         Log::info('Episode access check', [
             'episode_id' => $episodeId,
             'user_id' => $user->id,
@@ -177,7 +177,7 @@ class DashboardController extends Controller
                     ->with(['products', 'facility', 'provider']);
             }])
             ->first();
-            
+
         if (!$episode) {
             Log::error('Provider does not have access to episode', [
                 'episode_id' => $episodeId,
@@ -372,77 +372,76 @@ class DashboardController extends Controller
         return response()->json($response);
     }
 
-    private function checkActionRequired($order)
+    private function checkActionRequired($productRequest)
     {
-        return in_array($order->order_status, ['pending_ivr', 'sent_back', 'denied']);
+        return in_array($productRequest->order_status, ['pending', 'rejected']);
     }
 
-    private function calculatePriority($order)
+    private function calculatePriority($productRequest)
     {
-        if ($order->order_status === 'denied') return 'critical';
-        if ($order->order_status === 'sent_back') return 'high';
-        if ($order->order_status === 'pending_ivr') return 'medium';
+        if ($productRequest->order_status === 'rejected') return 'critical';
+        if ($productRequest->order_status === 'pending') return 'high';
+        if ($productRequest->order_status === 'submitted_to_manufacturer') return 'medium';
         return 'low';
     }
 
-    private function calculateSuccessRate($orders)
+    private function calculateSuccessRate($productRequests)
     {
-        $total = $orders->count();
+        $total = $productRequests->count();
         if ($total === 0) return 0;
 
-        $successful = $orders->where('order_status', 'delivered')->count();
+        $successful = $productRequests->where('order_status', 'confirmed_by_manufacturer')->count();
         return round(($successful / $total) * 100, 1);
     }
 
-    private function calculateAverageCompletionTime($orders)
+    private function calculateAverageCompletionTime($productRequests)
     {
-        $completedOrders = $orders->where('order_status', 'delivered');
-        if ($completedOrders->isEmpty()) return 0;
+        $completedProductRequests = $productRequests->where('order_status', 'confirmed_by_manufacturer');
+        if ($completedProductRequests->isEmpty()) return 0;
 
-        $totalDays = $completedOrders->sum(function ($order) {
-            return $order->created_at->diffInDays($order->updated_at);
+        $totalDays = $completedProductRequests->sum(function ($productRequest) {
+            return $productRequest->created_at->diffInDays($productRequest->updated_at);
         });
 
-        return round($totalDays / $completedOrders->count(), 1);
+        return round($totalDays / $completedProductRequests->count(), 1);
     }
 
     private function getRecentActivity($providerId)
     {
-        // Get recent order status changes and activities
-        $recentOrders = Order::where('provider_id', $providerId)
-            ->with('ivrEpisode')
+        // Get recent product request status changes and activities
+        $recentProductRequests = ProductRequest::where('provider_id', $providerId)
             ->orderBy('updated_at', 'desc')
             ->take(10)
             ->get();
 
         $activities = collect();
 
-        foreach ($recentOrders as $order) {
-            // Add activity based on order status
+        foreach ($recentProductRequests as $productRequest) {
+            // Add activity based on product request status
             $activities->push([
                 'id' => uniqid(),
-                'type' => $this->getActivityType($order),
-                'description' => $this->getActivityDescription($order),
-                'timestamp' => $order->updated_at->toIso8601String(),
+                'type' => $this->getActivityType($productRequest),
+                'description' => $this->getActivityDescription($productRequest),
+                'timestamp' => $productRequest->updated_at->toIso8601String(),
             ]);
 
-            // Add IVR completion activity if applicable (check episode IVR status)
-            if ($order->ivrEpisode && $order->ivrEpisode->ivr_status === 'verified' && $order->updated_at->diffInDays() <= 7) {
+            // Add IVR completion activity if applicable
+            if ($productRequest->ivr_status === 'verified' && $productRequest->updated_at->diffInDays() <= 7) {
                 $activities->push([
                     'id' => uniqid(),
                     'type' => 'ivr_completed',
-                    'description' => "IVR completed for patient {$order->patient_display_id}",
-                    'timestamp' => $order->updated_at->subHours(1)->toIso8601String(),
+                    'description' => "IVR completed for patient {$productRequest->patient_display_id}",
+                    'timestamp' => $productRequest->updated_at->subHours(1)->toIso8601String(),
                 ]);
             }
 
             // Add tracking activity if tracking number exists
-            if ($order->tracking_number && $order->updated_at->diffInDays() <= 7) {
+            if ($productRequest->tracking_number && $productRequest->updated_at->diffInDays() <= 7) {
                 $activities->push([
                     'id' => uniqid(),
                     'type' => 'tracking_added',
-                    'description' => "Tracking added for order #{$order->order_number}",
-                    'timestamp' => $order->updated_at->addHours(2)->toIso8601String(),
+                    'description' => "Tracking added for product request #{$productRequest->request_number}",
+                    'timestamp' => $productRequest->updated_at->addHours(2)->toIso8601String(),
                 ]);
             }
         }
@@ -454,30 +453,30 @@ class DashboardController extends Controller
     {
         $deadlines = collect();
 
-        // Get orders that need IVR completion
-        $pendingIvrOrders = Order::where('provider_id', $providerId)
-            ->where('order_status', 'pending_ivr')
+        // Get product requests that need IVR completion
+        $pendingIvrProductRequests = ProductRequest::where('provider_id', $providerId)
+            ->where('order_status', 'pending')
             ->get();
 
-        foreach ($pendingIvrOrders as $order) {
+        foreach ($pendingIvrProductRequests as $productRequest) {
             $deadlines->push([
                 'id' => uniqid(),
-                'description' => "Complete IVR for patient {$order->patient_display_id}",
-                'due_date' => Carbon::parse($order->date_of_service)->subDays(3)->toIso8601String(),
+                'description' => "Complete IVR for patient {$productRequest->patient_display_id}",
+                'due_date' => Carbon::parse($productRequest->expected_service_date)->subDays(3)->toIso8601String(),
                 'priority' => 'high',
             ]);
         }
 
-        // Get orders that were sent back and need review
-        $sentBackOrders = Order::where('provider_id', $providerId)
-            ->where('order_status', 'sent_back')
+        // Get product requests that were rejected and need review
+        $rejectedProductRequests = ProductRequest::where('provider_id', $providerId)
+            ->where('order_status', 'rejected')
             ->get();
 
-        foreach ($sentBackOrders as $order) {
+        foreach ($rejectedProductRequests as $productRequest) {
             $deadlines->push([
                 'id' => uniqid(),
-                'description' => "Review sent back order #{$order->order_number}",
-                'due_date' => Carbon::parse($order->updated_at)->addDays(2)->toIso8601String(),
+                'description' => "Review rejected product request #{$productRequest->request_number}",
+                'due_date' => Carbon::parse($productRequest->updated_at)->addDays(2)->toIso8601String(),
                 'priority' => 'critical',
             ]);
         }
@@ -504,17 +503,17 @@ class DashboardController extends Controller
             }
         }
 
-        // Get orders approaching service date without approval
-        $approachingServiceDate = Order::where('provider_id', $providerId)
-            ->whereIn('order_status', ['ivr_sent', 'submitted_to_manufacturer'])
-            ->where('date_of_service', '<=', Carbon::now()->addDays(7))
+        // Get product requests approaching service date without approval
+        $approachingServiceDate = ProductRequest::where('provider_id', $providerId)
+            ->whereIn('order_status', ['submitted_to_manufacturer'])
+            ->where('expected_service_date', '<=', Carbon::now()->addDays(7))
             ->get();
 
-        foreach ($approachingServiceDate as $order) {
+        foreach ($approachingServiceDate as $productRequest) {
             $deadlines->push([
                 'id' => uniqid(),
-                'description' => "Order #{$order->order_number} service date approaching",
-                'due_date' => Carbon::parse($order->date_of_service)->toIso8601String(),
+                'description' => "Product request #{$productRequest->request_number} service date approaching",
+                'due_date' => Carbon::parse($productRequest->expected_service_date)->toIso8601String(),
                 'priority' => 'medium',
             ]);
         }
@@ -522,43 +521,41 @@ class DashboardController extends Controller
         return $deadlines->sortBy('due_date')->take(5)->values();
     }
 
-    private function getActivityType($order)
+    private function getActivityType($productRequest)
     {
         $statusMap = [
-            'pending_ivr' => 'order_created',
-            'ivr_sent' => 'ivr_sent',
-            'approved' => 'order_approved',
-            'denied' => 'order_denied',
-            'delivered' => 'order_delivered',
+            'pending' => 'order_created',
+            'submitted_to_manufacturer' => 'ivr_sent',
+            'confirmed_by_manufacturer' => 'order_approved',
+            'rejected' => 'order_denied',
         ];
 
-        return $statusMap[$order->order_status] ?? 'status_changed';
+        return $statusMap[$productRequest->order_status] ?? 'status_changed';
     }
 
-    private function getActivityDescription($order)
+    private function getActivityDescription($productRequest)
     {
         $descriptions = [
-            'pending_ivr' => "Order #{$order->order_number} created, IVR needed",
-            'ivr_sent' => "IVR sent for order #{$order->order_number}",
-            'approved' => "Order #{$order->order_number} approved",
-            'denied' => "Order #{$order->order_number} denied - action required",
-            'delivered' => "Order #{$order->order_number} delivered successfully",
+            'pending' => "Product request #{$productRequest->request_number} created, IVR needed",
+            'submitted_to_manufacturer' => "IVR sent for product request #{$productRequest->request_number}",
+            'confirmed_by_manufacturer' => "Product request #{$productRequest->request_number} approved",
+            'rejected' => "Product request #{$productRequest->request_number} rejected - action required",
         ];
 
-        return $descriptions[$order->order_status] ?? "Order #{$order->order_number} status updated";
+        return $descriptions[$productRequest->order_status] ?? "Product request #{$productRequest->request_number} status updated";
     }
 
-    private function generateAIInsights($orders, $stats, $upcomingDeadlines)
+    private function generateAIInsights($productRequests, $stats, $upcomingDeadlines)
     {
         $insights = [];
 
         // Count action-required items
-        $pendingIvr = $orders->where('order_status', 'pending_ivr')->count();
-        $sentBack = $orders->where('order_status', 'sent_back')->count();
+        $pendingIvr = $productRequests->where('order_status', 'pending')->count();
+        $rejected = $productRequests->where('order_status', 'rejected')->count();
 
-        // Get expired IVR count from episodes, not orders
-        $expiredIvr = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($orders) {
-                $query->whereIn('id', $orders->pluck('id'));
+        // Get expired IVR count from episodes
+        $expiredIvr = PatientManufacturerIVREpisode::whereHas('orders', function ($query) use ($productRequests) {
+                $query->whereIn('id', $productRequests->pluck('id'));
             })
             ->where('ivr_status', 'expired')
             ->count();
@@ -567,11 +564,11 @@ class DashboardController extends Controller
 
         // Generate contextual messages
         if ($pendingIvr > 0) {
-            $insights[] = "{$pendingIvr} order" . ($pendingIvr > 1 ? 's' : '') . " need IVR completion";
+            $insights[] = "{$pendingIvr} product request" . ($pendingIvr > 1 ? 's' : '') . " need IVR completion";
         }
 
-        if ($sentBack > 0) {
-            $insights[] = "{$sentBack} order" . ($sentBack > 1 ? 's' : '') . " sent back for review";
+        if ($rejected > 0) {
+            $insights[] = "{$rejected} product request" . ($rejected > 1 ? 's' : '') . " rejected - action required";
         }
 
         if ($expiredIvr > 0) {
@@ -585,17 +582,58 @@ class DashboardController extends Controller
         // If no urgent items, provide positive feedback
         if (empty($insights)) {
             if ($stats['total_orders'] > 0) {
-                $insights[] = "All orders on track! " . $stats['success_rate'] . "% success rate";
+                $insights[] = "All product requests on track! " . $stats['success_rate'] . "% success rate";
             } else {
-                $insights[] = "Ready to create new orders";
+                $insights[] = "Ready to create new product requests";
             }
         }
 
         return [
             'message' => implode(' • ', $insights),
-            'urgentCount' => $pendingIvr + $sentBack + $expiredIvr,
+            'urgentCount' => $pendingIvr + $rejected + $expiredIvr,
             'upcomingCount' => $expiringDeadlines,
-            'hasActions' => !empty($insights) && ($pendingIvr > 0 || $sentBack > 0 || $expiredIvr > 0),
+            'hasActions' => !empty($insights) && ($pendingIvr > 0 || $rejected > 0 || $expiredIvr > 0),
         ];
+    }
+
+    /**
+     * Get manufacturer name for a product request
+     */
+    private function getManufacturerName($productRequest)
+    {
+        // Try to get manufacturer from products (ensure relationship is loaded)
+        if ($productRequest->relationLoaded('products')) {
+            $firstProduct = $productRequest->products->first();
+            if ($firstProduct) {
+                // Check if manufacturer is loaded and is an object
+                if ($firstProduct->relationLoaded('manufacturer') && $firstProduct->manufacturer && is_object($firstProduct->manufacturer)) {
+                    return $firstProduct->manufacturer->name;
+                }
+
+                // If manufacturer_id exists, try to get the manufacturer
+                if ($firstProduct->manufacturer_id) {
+                    $manufacturer = \App\Models\Order\Manufacturer::find($firstProduct->manufacturer_id);
+                    return $manufacturer ? $manufacturer->name : 'Unknown';
+                }
+            }
+        }
+
+        // Try to get from clinical summary
+        $clinicalSummary = $productRequest->clinical_summary;
+        if (is_array($clinicalSummary) && isset($clinicalSummary['product_selection']['manufacturer_id'])) {
+            $manufacturer = \App\Models\Order\Manufacturer::find($clinicalSummary['product_selection']['manufacturer_id']);
+            return $manufacturer ? $manufacturer->name : 'Unknown';
+        }
+
+        // Try to get from clinical summary if it's a JSON string
+        if (is_string($clinicalSummary)) {
+            $decoded = json_decode($clinicalSummary, true);
+            if (is_array($decoded) && isset($decoded['product_selection']['manufacturer_id'])) {
+                $manufacturer = \App\Models\Order\Manufacturer::find($decoded['product_selection']['manufacturer_id']);
+                return $manufacturer ? $manufacturer->name : 'Unknown';
+            }
+        }
+
+        return 'Unknown';
     }
 }

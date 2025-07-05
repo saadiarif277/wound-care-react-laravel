@@ -24,7 +24,7 @@ use Inertia\Response;
 
 /**
  * Refactored QuickRequestController - Focused and Clean
- * 
+ *
  * This replaces the previous 3,198-line monolithic controller.
  * Responsibilities are now properly separated into services and DTOs.
  */
@@ -83,9 +83,9 @@ class QuickRequestController extends Controller
     public function submitOrder(SubmitOrderRequest $request): JsonResponse
     {
         $validated = $request->validated();
-        
+
         DB::beginTransaction();
-        
+
         try {
             // Convert to structured DTO
             $quickRequestData = QuickRequestData::fromFormData($validated['formData']);
@@ -176,10 +176,22 @@ class QuickRequestController extends Controller
      * Create ProductRequest with proper total calculation
      */
     private function createProductRequest(
-        QuickRequestData $data, 
+        QuickRequestData $data,
         PatientManufacturerIVREpisode $episode,
         array $calculation
     ): ProductRequest {
+        // Ensure expected_service_date has a valid value - default to tomorrow if empty
+        $expectedServiceDate = $data->orderPreferences->expectedServiceDate;
+        if (empty($expectedServiceDate)) {
+            $expectedServiceDate = date('Y-m-d', strtotime('+1 day')); // Default to tomorrow
+        }
+
+        // Handle empty place_of_service - convert empty string to null
+        $placeOfService = $data->orderPreferences->placeOfService;
+        if (empty($placeOfService)) {
+            $placeOfService = null;
+        }
+
         $productRequest = ProductRequest::create([
             'request_number' => $this->generateRequestNumber(),
             'provider_id' => $data->provider->id,
@@ -188,17 +200,28 @@ class QuickRequestController extends Controller
             'patient_display_id' => $episode->patient_display_id,
             'payer_name_submitted' => $data->insurance->primaryName,
             'payer_id' => $data->insurance->primaryMemberId,
-            'expected_service_date' => $data->orderPreferences->expectedServiceDate,
+            'expected_service_date' => $expectedServiceDate,
             'wound_type' => $data->clinical->woundType,
-            'place_of_service' => $data->orderPreferences->placeOfService,
+            'place_of_service' => $placeOfService,
             'order_status' => ProductRequest::ORDER_STATUS_PENDING,
             'submitted_at' => now(),
             'total_order_value' => $calculation['total'], // FIX: Set the calculated total
+            'docuseal_submission_id' => $data->docusealSubmissionId, // Add docuseal submission ID
             'clinical_summary' => array_merge($data->toArray(), [
                 'admin_note' => $data->adminNote,
                 'admin_note_added_at' => $data->adminNote ? now()->toIso8601String() : null,
             ]),
         ]);
+
+        // Save DocuSeal template ID for IVR
+        $manufacturerId = $data->manufacturer->id ?? $this->getManufacturerIdFromProducts($data->orderPreferences->products ?? []);
+        if ($manufacturerId) {
+            $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
+            if ($template) {
+                $productRequest->docuseal_template_id = $template->docuseal_template_id;
+                $productRequest->save();
+            }
+        }
 
         // Create product relationships with proper pricing
         $this->createProductRelationships($productRequest, $calculation['item_breakdown']);
@@ -260,7 +283,7 @@ class QuickRequestController extends Controller
     private function extractPatientData(array $formData): array
     {
         $displayId = $formData['patient_display_id'] ?? $this->generateRandomPatientDisplayId($formData);
-        
+
         return [
             'id' => $formData['patient_id'] ?? uniqid('patient-'),
             'first_name' => $formData['patient_first_name'] ?? '',
@@ -311,9 +334,14 @@ class QuickRequestController extends Controller
 
     private function extractOrderData(array $formData): array
     {
+        $expectedServiceDate = $formData['expected_service_date'] ?? '';
+        if (empty($expectedServiceDate)) {
+            $expectedServiceDate = date('Y-m-d', strtotime('+1 day')); // Default to tomorrow
+        }
+
         return [
             'products' => $formData['selected_products'] ?? [],
-            'expected_service_date' => $formData['expected_service_date'] ?? '',
+            'expected_service_date' => $expectedServiceDate,
             'shipping_speed' => $formData['shipping_speed'] ?? 'standard',
         ];
     }
@@ -339,4 +367,4 @@ class QuickRequestController extends Controller
 
         return 'PAT' . str_pad((string)rand(0, 9999), 4, '0', STR_PAD_LEFT);
     }
-} 
+}

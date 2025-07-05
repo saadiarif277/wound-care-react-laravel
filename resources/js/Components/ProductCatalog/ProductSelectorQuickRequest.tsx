@@ -39,6 +39,14 @@ interface Product {
   signature_required?: boolean;
   size_options?: string[];
   size_pricing?: Record<string, number>;
+  size_specific_pricing?: Record<string, {
+    area_cm2: number;
+    size_specific_price?: number;
+    price_per_unit?: number;
+    effective_price: number;
+    display_label: string;
+    formatted_size: string;
+  }>;
   size_unit?: string;
   mue?: number; // Maximum Units of Eligibility from database
 }
@@ -70,7 +78,7 @@ interface Props {
   selectedProducts?: SelectedProduct[];
   className?: string;
 }
-  
+
 
 // Helper function to parse size string to get dimensions and area
 const parseSizeString = (sizeStr: string): { dimensions: string; area: number } => {
@@ -92,7 +100,7 @@ const parseSizeString = (sizeStr: string): { dimensions: string; area: number } 
   if (!isNaN(area) && area > 0) {
     const sqrtSize = Math.sqrt(area);
     const isSquare = sqrtSize === Math.floor(sqrtSize);
-    
+
     if (isSquare) {
       return {
         dimensions: `${sqrtSize} x ${sqrtSize} cm`,
@@ -183,7 +191,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      
+
       // Build query parameters for server-side filtering
       const params = new URLSearchParams();
 
@@ -213,12 +221,12 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
   // Filter products based on allowed Q-codes
   const filteredProducts = useMemo(() => {
     if (!products || products.length === 0) return [];
-    
+
     // If provider has no onboarded products, return empty array
     if (providerOnboardedProducts.length === 0) return [];
-    
+
     // Filter products by onboarded Q-codes
-    return products.filter(product => 
+    return products.filter(product =>
       providerOnboardedProducts.includes(product.q_code)
     );
   }, [products, providerOnboardedProducts]);
@@ -238,10 +246,10 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
 
     // Check for repeated orders in last 24 hours
     selectedProductsMemo.forEach(item => {
-      const recent = last24HourOrdersMemo.find(order => 
+      const recent = last24HourOrdersMemo.find(order =>
         order.productCode === item.product?.q_code
       );
-      
+
       if (recent) {
         newWarnings.push(
           `Warning: ${item.product?.name} (${item.product?.q_code}) was ordered within the last 24 hours. Please verify this is not a duplicate order.`
@@ -711,15 +719,29 @@ const QuickRequestProductCard: React.FC<{
     setSelectedSize('');
   };
 
-  const calculatePrice = () => {
-    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+    const calculatePrice = () => {
     if (selectedSize) {
       const sizeValue = parseFloat(selectedSize);
       if (isNaN(sizeValue)) {
-        return pricePerUnit * quantity;
+        return 0;
       }
+
+      // Try to find size-specific pricing data
+      if (product.size_specific_pricing) {
+        for (const [label, data] of Object.entries(product.size_specific_pricing)) {
+          if (data.area_cm2 === sizeValue) {
+            return data.effective_price * quantity;
+          }
+        }
+      }
+
+      // Fallback to calculated price if no size-specific data
+      const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
       return pricePerUnit * sizeValue * quantity;
     }
+
+    // No size selected, return base price
+    const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
     return pricePerUnit * quantity;
   };
 
@@ -792,12 +814,11 @@ const QuickRequestProductCard: React.FC<{
           >
             <option value="">Select size...</option>
             {product.size_options.map(sizeLabel => {
-              const areaCm2 = product.size_pricing?.[sizeLabel] || 0;
-              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-              const sizePrice = pricePerUnit * areaCm2;
+              const sizeData = product.size_specific_pricing?.[sizeLabel];
+              const effectivePrice = sizeData?.effective_price || 0;
               return (
-                <option key={sizeLabel} value={areaCm2.toString()}>
-                  {sizeLabel} - {formatPrice(sizePrice)}
+                <option key={sizeLabel} value={sizeData?.area_cm2?.toString() || '0'}>
+                  {sizeData?.display_label || sizeLabel} - {formatPrice(effectivePrice)}
                 </option>
               );
             })}
@@ -818,28 +839,58 @@ const QuickRequestProductCard: React.FC<{
             {product.available_sizes.map(size => {
               const sizeStr = size.toString();
               const sizeNum = parseFloat(sizeStr);
-              const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
-              
-              // Try to find a label for this size in size_pricing
+
+              // Try to find size-specific pricing data first
+              let sizeData = null;
               let displayLabel = `${sizeNum} cm²`;
-              if (product.size_pricing) {
-                for (const [label, area] of Object.entries(product.size_pricing)) {
-                  if (area === sizeNum) {
-                    displayLabel = label;
+              let effectivePrice = 0;
+
+              if (product.size_specific_pricing) {
+                for (const [label, data] of Object.entries(product.size_specific_pricing)) {
+                  if (data.area_cm2 === sizeNum) {
+                    sizeData = data;
+                    displayLabel = data.display_label;
+                    effectivePrice = data.effective_price;
                     break;
                   }
                 }
               }
-              
+
+              // Fallback to calculated price if no size-specific data
+              if (!sizeData) {
+                const pricePerUnit = roleRestrictions.can_see_msc_pricing ? (product.msc_price || product.price_per_sq_cm) : product.price_per_sq_cm;
+                effectivePrice = pricePerUnit * sizeNum;
+
+                // Try to find a label for this size in size_pricing
+                if (product.size_pricing) {
+                  for (const [label, area] of Object.entries(product.size_pricing)) {
+                    if (area === sizeNum) {
+                      displayLabel = label;
+                      break;
+                    }
+                  }
+                }
+              }
+
               return (
                 <option key={sizeStr} value={sizeStr}>
-                  {displayLabel} - {formatPrice(pricePerUnit * sizeNum)}
+                  {displayLabel} - {formatPrice(effectivePrice)}
                 </option>
               );
             })}
           </select>
         </div>
-      ) : null}
+            ) : (
+        // No sizes available - show message
+        <div className="mb-3">
+          <label className={`block text-xs font-medium ${t.text.primary} mb-1`}>
+            Size
+          </label>
+          <div className={`text-xs ${t.text.secondary} p-2 ${t.glass.frost} rounded`}>
+            No sizes available for this product. Please contact your administrator.
+          </div>
+        </div>
+      )}
 
       {/* Quantity Selection - MOVED BELOW SIZE */}
       <div className="mb-3">

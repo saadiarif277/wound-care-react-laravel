@@ -71,7 +71,10 @@ class InsuranceHandler
             return $coverageIds;
         }
 
-        foreach ($insuranceData as $index => $insurance) {
+        // Transform flat InsuranceData structure to nested format for FHIR
+        $coverages = $this->transformInsuranceData($insuranceData);
+
+        foreach ($coverages as $index => $insurance) {
             try {
                 $this->logger->info('Creating coverage for insurance', [
                     'index' => $index,
@@ -109,6 +112,52 @@ class InsuranceHandler
         }
 
         return $coverageIds;
+    }
+
+    /**
+     * Transform flat InsuranceData structure to nested format for FHIR
+     */
+    private function transformInsuranceData(array $insuranceData): array
+    {
+        $coverages = [];
+
+        // Primary insurance
+        if (!empty($insuranceData['primary_name'])) {
+            $coverages[] = [
+                'policy_type' => 'primary',
+                'payer_name' => $insuranceData['primary_name'],
+                'member_id' => $insuranceData['primary_member_id'] ?? '',
+                'plan_type' => $insuranceData['primary_plan_type'] ?? '',
+                'effective_date' => now()->startOfYear()->toIso8601String(),
+                'termination_date' => now()->endOfYear()->toIso8601String()
+            ];
+        }
+
+        // Secondary insurance
+        if (!empty($insuranceData['has_secondary']) && !empty($insuranceData['secondary_name'])) {
+            $coverages[] = [
+                'policy_type' => 'secondary',
+                'payer_name' => $insuranceData['secondary_name'],
+                'member_id' => $insuranceData['secondary_member_id'] ?? '',
+                'plan_type' => $insuranceData['secondary_plan_type'] ?? '',
+                'effective_date' => now()->startOfYear()->toIso8601String(),
+                'termination_date' => now()->endOfYear()->toIso8601String()
+            ];
+        }
+
+        // If no insurance data provided, create a default coverage
+        if (empty($coverages)) {
+            $coverages[] = [
+                'policy_type' => 'primary',
+                'payer_name' => 'Self Pay',
+                'member_id' => '',
+                'plan_type' => 'self_pay',
+                'effective_date' => now()->startOfYear()->toIso8601String(),
+                'termination_date' => now()->endOfYear()->toIso8601String()
+            ];
+        }
+
+        return $coverages;
     }
 
     /**

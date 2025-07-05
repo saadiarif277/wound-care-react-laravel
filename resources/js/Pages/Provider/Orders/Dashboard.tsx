@@ -28,7 +28,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 
-interface Order {
+interface ProductRequest {
   id: string;
   order_number: string;
   patient_display_id: string;
@@ -59,7 +59,7 @@ interface DashboardStats {
 }
 
 interface Props {
-  orders: Order[];
+  orders: ProductRequest[];
   stats: DashboardStats;
   recentActivity: Array<{
     id: string;
@@ -114,17 +114,17 @@ export default function ProviderOrdersDashboard({
     // Fallback to dark theme
   }
 
-  // Filter orders
-  const filteredOrders = orders.filter(order => {
+    // Filter product requests
+  const filteredProductRequests = orders.filter(productRequest => {
     const matchesSearch = searchQuery === '' ||
-      order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.patient_display_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      order.manufacturer.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
+      productRequest.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      productRequest.patient_display_id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      productRequest.manufacturer.name.toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesFilter = selectedFilter === 'all' ||
-      (selectedFilter === 'pending' && order.status === 'pending_ivr') ||
-      (selectedFilter === 'action_required' && order.action_required) ||
-      (selectedFilter === 'completed' && order.status === 'completed');
+      (selectedFilter === 'pending' && productRequest.status === 'pending') ||
+      (selectedFilter === 'action_required' && productRequest.action_required) ||
+      (selectedFilter === 'completed' && productRequest.status === 'confirmed_by_manufacturer');
 
     return matchesSearch && matchesFilter;
   });
@@ -141,7 +141,7 @@ export default function ProviderOrdersDashboard({
   return (
     <MainLayout>
       <Head title="Orders Dashboard" />
-      
+
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
           <h1 className={`text-2xl font-bold ${t.text.primary}`}>Orders Dashboard</h1>
@@ -209,32 +209,32 @@ export default function ProviderOrdersDashboard({
           </div>
         </div>
 
-        {/* Orders List */}
+        {/* Product Requests List */}
         <div className="space-y-4">
-          {filteredOrders.map((order) => (
-            <div key={order.id} className={`${t.glass.card} ${t.glass.border} p-6`}>
+          {filteredProductRequests.map((productRequest) => (
+            <div key={productRequest.id} className={`${t.glass.card} ${t.glass.border} p-6`}>
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 mb-2">
                     <h3 className={`text-lg font-semibold ${t.text.primary}`}>
-                      {order.order_number}
+                      {productRequest.order_number}
                     </h3>
                     <span className={`px-2 py-1 rounded-full text-xs ${
-                      order.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      order.status === 'pending_ivr' ? 'bg-yellow-100 text-yellow-800' :
+                      productRequest.status === 'confirmed_by_manufacturer' ? 'bg-green-100 text-green-800' :
+                      productRequest.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-blue-100 text-blue-800'
                     }`}>
-                      {order.status.replace('_', ' ')}
+                      {productRequest.status.replace('_', ' ')}
                     </span>
                   </div>
                   <p className={`text-sm ${t.text.secondary} mb-2`}>
-                    Patient: {order.patient_display_id}
+                    Patient: {productRequest.patient_display_id}
                   </p>
                   <p className={`text-sm ${t.text.secondary} mb-2`}>
-                    Manufacturer: {order.manufacturer.name}
+                    Manufacturer: {productRequest.manufacturer.name}
                   </p>
                                      <div className="flex flex-wrap gap-2">
-                     {order.products.map((product) => (
+                     {productRequest.products.map((product: any) => (
                        <span key={product.id} className={`px-2 py-1 rounded text-xs ${t.glass.card} border ${t.glass.border}`}>
                          {product.name} ({product.quantity})
                        </span>
@@ -243,7 +243,7 @@ export default function ProviderOrdersDashboard({
                 </div>
                 <div className="flex items-center gap-2">
                   <Link
-                    href={route('orders.show', order.id)}
+                    href={route('product-requests.show', productRequest.id)}
                     className={`${t.button.primary} px-4 py-2 rounded-lg flex items-center gap-2`}
                   >
                     <Eye className="w-4 h-4" />
@@ -255,7 +255,7 @@ export default function ProviderOrdersDashboard({
           ))}
         </div>
 
-        {filteredOrders.length === 0 && (
+        {filteredProductRequests.length === 0 && (
           <div className={`${t.glass.card} ${t.glass.border} p-12 text-center`}>
             <Package className={`w-16 h-16 mx-auto mb-4 ${t.text.muted}`} />
             <p className={`text-lg ${t.text.secondary}`}>No orders found</p>

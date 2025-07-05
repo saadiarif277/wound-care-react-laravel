@@ -23,10 +23,13 @@ class PhiAuditService
     public function logAccess(string $action, string $resourceType, string $resourceId, array $context = []): void
     {
         try {
+            $user = Auth::user();
+            $userId = $user?->id ?? 0;
+            $userEmail = $user?->email ?? 'system@localhost';
             DB::table('phi_audit_logs')->insert([
                 'id' => \Illuminate\Support\Str::uuid()->toString(),
-                'user_id' => Auth::id(),
-                'user_email' => Auth::user()?->email,
+                'user_id' => $userId,
+                'user_email' => $userEmail,
                 'action' => $action,
                 'resource_type' => $resourceType,
                 'resource_id' => $resourceId,
@@ -51,7 +54,7 @@ class PhiAuditService
                 'action' => $action,
                 'resource' => "{$resourceType}/{$resourceId}"
             ]);
-            
+
             // Could trigger emergency notification here
             $this->notifyComplianceTeam($e, $action, $resourceType, $resourceId);
         }
@@ -64,12 +67,14 @@ class PhiAuditService
     {
         $logs = [];
         $timestamp = now();
-        
+        $user = Auth::user();
+        $userId = $user?->id ?? 0;
+        $userEmail = $user?->email ?? 'system@localhost';
         foreach ($resources as $resource) {
             $logs[] = [
                 'id' => \Illuminate\Support\Str::uuid()->toString(),
-                'user_id' => Auth::id(),
-                'user_email' => Auth::user()?->email,
+                'user_id' => $userId,
+                'user_email' => $userEmail,
                 'action' => $action,
                 'resource_type' => $resource['type'],
                 'resource_id' => $resource['id'],
@@ -81,7 +86,7 @@ class PhiAuditService
                 'created_at' => $timestamp
             ];
         }
-        
+
         try {
             DB::table('phi_audit_logs')->insert($logs);
         } catch (\Exception $e) {
@@ -231,7 +236,7 @@ class PhiAuditService
     {
         // This would send immediate notification to compliance team
         // Could use SMS, Slack, PagerDuty, etc.
-        
+
         $message = sprintf(
             'CRITICAL: PHI audit logging failed. Action: %s, Resource: %s/%s, Error: %s',
             $action,
@@ -242,7 +247,7 @@ class PhiAuditService
 
         // Log to emergency channel
         Log::channel('emergency')->critical($message);
-        
+
         // Could also trigger other notifications here
     }
 
@@ -315,7 +320,7 @@ class PhiAuditService
                 'resource_type' => $resourceType,
                 'resource_id' => $resourceId
             ]);
-            
+
             // Return empty collection on error
             return collect([]);
         }
@@ -328,7 +333,7 @@ class PhiAuditService
     {
         // HIPAA requires 6 years (2190 days) retention
         $cutoffDate = now()->subDays($daysToKeep);
-        
+
         // Move to archive table
         $archived = DB::table('phi_audit_logs')
             ->where('accessed_at', '<', $cutoffDate)
@@ -336,8 +341,8 @@ class PhiAuditService
 
         if ($archived > 0) {
             DB::statement('
-                INSERT INTO phi_audit_logs_archive 
-                SELECT * FROM phi_audit_logs 
+                INSERT INTO phi_audit_logs_archive
+                SELECT * FROM phi_audit_logs
                 WHERE accessed_at < ?
             ', [$cutoffDate]);
 
