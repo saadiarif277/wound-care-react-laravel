@@ -11,10 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('phi_audit_logs', function (Blueprint $table) {
-            // Add session_id column after user_agent
-            $table->string('session_id')->nullable()->after('user_agent');
-        });
+        // Only run if the table exists
+        if (Schema::hasTable('phi_audit_logs')) {
+            Schema::table('phi_audit_logs', function (Blueprint $table) {
+                // Add session_id column after user_agent
+                if (!Schema::hasColumn('phi_audit_logs', 'session_id')) {
+                    $table->string('session_id')->nullable()->after('user_agent');
+                }
+            });
+        }
     }
 
     /**

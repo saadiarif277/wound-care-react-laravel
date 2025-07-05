@@ -11,10 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('phi_audit_logs', function (Blueprint $table) {
-            // Add user_email column after user_id
-            $table->string('user_email')->nullable()->after('user_id');
-        });
+        // Only run if the table exists
+        if (Schema::hasTable('phi_audit_logs')) {
+            Schema::table('phi_audit_logs', function (Blueprint $table) {
+                // Add user_email column after user_id
+                if (!Schema::hasColumn('phi_audit_logs', 'user_email')) {
+                    $table->string('user_email')->nullable()->after('user_id');
+                }
+            });
+        }
     }
 
     /**

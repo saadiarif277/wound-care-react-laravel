@@ -11,13 +11,20 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::table('phi_audit_logs', function (Blueprint $table) {
-            // Add context column (similar to metadata but for specific context)
-            $table->json('context')->nullable()->after('metadata');
+        // Only run if the table exists
+        if (Schema::hasTable('phi_audit_logs')) {
+            Schema::table('phi_audit_logs', function (Blueprint $table) {
+                // Add context column (similar to metadata but for specific context)
+                if (!Schema::hasColumn('phi_audit_logs', 'context')) {
+                    $table->json('context')->nullable()->after('metadata');
+                }
 
-            // Add accessed_at timestamp
-            $table->timestamp('accessed_at')->nullable();
-        });
+                // Add accessed_at timestamp
+                if (!Schema::hasColumn('phi_audit_logs', 'accessed_at')) {
+                    $table->timestamp('accessed_at')->nullable();
+                }
+            });
+        }
     }
 
     /**

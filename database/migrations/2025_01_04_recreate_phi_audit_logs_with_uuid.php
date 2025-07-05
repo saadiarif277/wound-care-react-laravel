@@ -12,6 +12,9 @@ return new class extends Migration
      */
     public function up(): void
     {
+        // Drop the new table if it exists (from previous failed runs)
+        Schema::dropIfExists('phi_audit_logs_new');
+        
         // Create a new table with the correct structure
         Schema::create('phi_audit_logs_new', function (Blueprint $table) {
             $table->string('id', 36)->primary();
@@ -37,17 +40,19 @@ return new class extends Migration
             $table->index(['resource_type', 'resource_id']);
         });
 
-        // Copy any existing data (converting numeric IDs to UUIDs)
-        $existingRecords = DB::table('phi_audit_logs')->get();
-        foreach ($existingRecords as $record) {
-            $data = (array) $record;
-            // Generate a new UUID for the ID
-            $data['id'] = \Illuminate\Support\Str::uuid()->toString();
-            DB::table('phi_audit_logs_new')->insert($data);
-        }
+        // Copy any existing data (converting numeric IDs to UUIDs) only if table exists
+        if (Schema::hasTable('phi_audit_logs')) {
+            $existingRecords = DB::table('phi_audit_logs')->get();
+            foreach ($existingRecords as $record) {
+                $data = (array) $record;
+                // Generate a new UUID for the ID
+                $data['id'] = \Illuminate\Support\Str::uuid()->toString();
+                DB::table('phi_audit_logs_new')->insert($data);
+            }
 
-        // Drop the old table
-        Schema::dropIfExists('phi_audit_logs');
+            // Drop the old table
+            Schema::dropIfExists('phi_audit_logs');
+        }
 
         // Rename the new table
         Schema::rename('phi_audit_logs_new', 'phi_audit_logs');
