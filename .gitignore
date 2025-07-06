@@ -43,6 +43,8 @@ test-*.log
   Thumbs.db
   ehthumbs.db
   Desktop.ini
+  .env.backup.local
+  .env.backup
 
   # Backup files
   *.bak
