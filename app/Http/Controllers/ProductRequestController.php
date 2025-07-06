@@ -339,6 +339,14 @@ final class ProductRequestController extends Controller
 
     public function show(ProductRequest $productRequest)
     {
+        // Load all necessary relationships upfront
+        $productRequest->load([
+            'provider', 
+            'facility', 
+            'products.manufacturer',
+            'episode'
+        ]);
+        
         $user = Auth::user()->load(['roles', 'organizations', 'facilities']);
         
         // Check permissions based on user role
@@ -373,7 +381,7 @@ final class ProductRequestController extends Controller
                 'id' => $productRequest->id,
                 'orderNumber' => $productRequest->request_number,
                 'createdDate' => $productRequest->created_at->format('Y-m-d'),
-                'createdBy' => $productRequest->provider->first_name . ' ' . $productRequest->provider->last_name,
+                'createdBy' => ($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? ''),
                 'patient' => [
                     'name' => $productRequest->formatPatientDisplay(),
                     'fhirId' => $productRequest->patient_fhir_id,
@@ -388,29 +396,35 @@ final class ProductRequestController extends Controller
                             $clinicalSummary['patient']['address']['state'] ?? '',
                             $clinicalSummary['patient']['address']['zipCode'] ?? ''
                         ])) : null,
+                    'insurance' => [
+                        'primary' => isset($clinicalSummary['insurance']) ? 
+                            ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . (isset($clinicalSummary['insurance']['primaryMemberId']) ? ' - ' . $clinicalSummary['insurance']['primaryMemberId'] : '') : 'N/A',
+                        'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
+                            ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . (isset($clinicalSummary['insurance']['secondaryMemberId']) ? ' - ' . $clinicalSummary['insurance']['secondaryMemberId'] : '') : 'N/A',
+                    ],
                 ],
                 'insurance' => [
                     'primary' => isset($clinicalSummary['insurance']) ? 
-                        ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['primaryMemberId'] ?? 'N/A') : 'N/A',
+                        ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . (isset($clinicalSummary['insurance']['primaryMemberId']) ? ' - ' . $clinicalSummary['insurance']['primaryMemberId'] : '') : 'N/A',
                     'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
-                        ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['secondaryMemberId'] ?? 'N/A') : 'N/A',
+                        ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . (isset($clinicalSummary['insurance']['secondaryMemberId']) ? ' - ' . $clinicalSummary['insurance']['secondaryMemberId'] : '') : 'N/A',
                 ],
                 'provider' => [
-                    'name' => $productRequest->provider->first_name . ' ' . $productRequest->provider->last_name,
-                    'npi' => $productRequest->provider->npi_number ?? $productRequest->provider->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
-                    'facility' => $productRequest->facility->name ?? null,
+                    'name' => ($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? ''),
+                    'npi' => $productRequest->provider?->npi_number ?? $productRequest->provider?->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+                    'facility' => $productRequest->facility?->name ?? null,
                 ],
                 'facility' => [
-                    'name' => $productRequest->facility->name ?? null,
-                    'address' => $productRequest->facility->full_address ?? null,
+                    'name' => $productRequest->facility?->name ?? null,
+                    'address' => $productRequest->facility?->full_address ?? null,
                 ],
                 'product' => [
-                    'name' => $productRequest->products->first()->name ?? 'N/A',
-                    'code' => $productRequest->products->first()->q_code ?? 'N/A',
-                    'quantity' => $productRequest->products->first()->pivot->quantity ?? 0,
-                    'size' => $productRequest->products->first()->pivot->size ?? 'N/A',
-                    'category' => $productRequest->products->first()->category ?? 'N/A',
-                    'manufacturer' => $productRequest->products->first()->manufacturer->name ?? 'N/A',
+                    'name' => $productRequest->products->first()?->name ?? 'N/A',
+                    'code' => $productRequest->products->first()?->q_code ?? 'N/A',
+                    'quantity' => $productRequest->products->first()?->pivot?->quantity ?? 0,
+                    'size' => $productRequest->products->first()?->pivot?->size ?? 'N/A',
+                    'category' => $productRequest->products->first()?->category ?? 'N/A',
+                    'manufacturer' => $productRequest->products->first()?->manufacturer?->name ?? 'N/A',
                     'shippingInfo' => [
                         'speed' => $clinicalSummary['orderPreferences']['shippingSpeed'] ?? 'Standard',
                         'address' => $clinicalSummary['orderPreferences']['shippingAddress'] ?? $productRequest->facility->full_address ?? 'N/A',
@@ -429,10 +443,10 @@ final class ProductRequestController extends Controller
                     'location' => $clinicalSummary['clinical']['woundLocation'] ?? 'N/A',
                     'size' => isset($clinicalSummary['clinical']['woundSizeLength']) && isset($clinicalSummary['clinical']['woundSizeWidth']) ? 
                         $clinicalSummary['clinical']['woundSizeLength'] . ' x ' . $clinicalSummary['clinical']['woundSizeWidth'] . 'cm' : 'N/A',
-                    'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) ? 
+                    'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) && is_array($clinicalSummary['clinical']['applicationCptCodes']) ? 
                         implode(', ', $clinicalSummary['clinical']['applicationCptCodes']) : 'N/A',
                     'serviceDate' => $productRequest->expected_service_date?->format('Y-m-d'),
-                    'placeOfService' => $productRequest->place_of_service,
+                    'placeOfService' => $productRequest->place_of_service ?? '11',
                     'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,
                 ],
                 'submission' => [
@@ -458,21 +472,21 @@ final class ProductRequestController extends Controller
                     'fhirId' => $order->patient_fhir_id,
                 ],
                 'provider' => [
-                    'name' => $order->provider->name ?? 'N/A',
-                    'npi' => $order->provider->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
-                    'facility' => $order->facility->name ?? null,
+                    'name' => $order->provider?->name ?? 'N/A',
+                    'npi' => $order->provider?->providerCredentials->where('credential_type', 'npi_number')->first()?->credential_number ?? null,
+                    'facility' => $order->facility?->name ?? null,
                 ],
                 'facility' => [
-                    'name' => $order->facility->name ?? null,
-                    'address' => $order->facility->full_address ?? null,
+                    'name' => $order->facility?->name ?? null,
+                    'address' => $order->facility?->full_address ?? null,
                 ],
                 'product' => [
-                    'name' => $order->items->first()->product->name ?? 'N/A',
-                    'code' => $order->items->first()->product->q_code ?? 'N/A',
-                    'quantity' => $order->items->first()->quantity ?? 0,
-                    'size' => $order->items->first()->graph_size ?? 'N/A',
-                    'category' => $order->items->first()->product->category ?? 'N/A',
-                    'manufacturer' => $order->items->first()->product->manufacturer ?? 'N/A',
+                    'name' => $order->items->first()?->product?->name ?? 'N/A',
+                    'code' => $order->items->first()?->product?->q_code ?? 'N/A',
+                    'quantity' => $order->items->first()?->quantity ?? 0,
+                    'size' => $order->items->first()?->graph_size ?? 'N/A',
+                    'category' => $order->items->first()?->product?->category ?? 'N/A',
+                    'manufacturer' => $order->items->first()?->product?->manufacturer ?? 'N/A',
                     'shippingInfo' => [
                         'speed' => 'Standard',
                         'address' => $order->facility->full_address ?? 'N/A',
@@ -543,8 +557,29 @@ final class ProductRequestController extends Controller
         $canUpdateStatus = $user->hasPermission('manage-orders');
         $canViewIvr = $user->hasPermission('view-ivr-documents') || $user->hasPermission('manage-orders');
 
+        // Build the Order interface data that the frontend expects
+        $orderInterfaceData = [
+            'id' => $productRequest->id,
+            'order_number' => $productRequest->request_number,
+            'patient_name' => $productRequest->formatPatientDisplay(),
+            'patient_display_id' => $productRequest->patient_display_id,
+            'provider_name' => ($productRequest->provider?->first_name ?? '') . ' ' . ($productRequest->provider?->last_name ?? ''),
+            'facility_name' => $productRequest->facility?->name ?? 'N/A',
+            'manufacturer_name' => $productRequest->products->first()?->manufacturer?->name ?? 'N/A',
+            'product_name' => $productRequest->products->first()?->name ?? 'N/A',
+            'order_status' => $productRequest->order_status,
+            'ivr_status' => $productRequest->ivr_status ?? 'pending',
+            'order_form_status' => $productRequest->order_status,
+            'total_order_value' => $productRequest->total_order_value ?? 0,
+            'created_at' => $productRequest->created_at->toISOString(),
+            'action_required' => in_array($productRequest->order_status, ['pending', 'submitted_to_manufacturer']),
+            'episode_id' => $productRequest->episode?->id,
+            'docuseal_submission_id' => $productRequest->docuseal_submission_id,
+        ];
+
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
-            'order' => $orderData,
+            'order' => $orderInterfaceData,
+            'orderData' => $orderData, // Keep the detailed order data
             'can_update_status' => $canUpdateStatus,
             'can_view_ivr' => $canViewIvr,
             'userRole' => $userRole,

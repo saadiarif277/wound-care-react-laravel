@@ -33,6 +33,7 @@ interface Order {
 
 interface OrderDetailsProps {
   order: Order;
+  orderData?: any; // The detailed order data from backend
   can_update_status: boolean;
   can_view_ivr: boolean;
   userRole?: 'Provider' | 'OM' | 'Admin';
@@ -50,6 +51,7 @@ interface OrderDetailsProps {
 
 const OrderDetails: React.FC<OrderDetailsProps> = ({ 
   order, 
+  orderData: propOrderData,
   can_update_status, 
   can_view_ivr,
   userRole: propUserRole,
@@ -73,34 +75,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
   const [adminNote, setAdminNote] = useState('');
   const [orderSubmitted, setOrderSubmitted] = useState(false);
   const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [enhancedOrderData, setEnhancedOrderData] = useState<any>(null);
-
-  // Fetch enhanced order details on component mount
-  useEffect(() => {
-    const fetchEnhancedOrderDetails = async () => {
-      try {
-        const response = await fetch(`/admin/orders/${order.id}/enhanced-details`, {
-          headers: {
-            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setEnhancedOrderData(data);
-        } else {
-          console.error('Failed to fetch enhanced order details');
-        }
-      } catch (error) {
-        console.error('Error fetching enhanced order details:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchEnhancedOrderDetails();
-  }, [order.id]);
+  const enhancedOrderData = propOrderData || {};
 
   // IVR and Order Form data based on real data or defaults
   const [ivrData, setIVRData] = useState<{
@@ -502,71 +477,54 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
     createdDate: formatDate(order.created_at),
     createdBy: order.provider_name,
     patient: {
-      name: order.patient_name,
-      dob: enhancedOrderData?.patient?.dob || 'N/A',
-      gender: enhancedOrderData?.patient?.gender || 'N/A',
-      phone: enhancedOrderData?.patient?.phone || 'N/A',
-      address: enhancedOrderData?.patient?.address || 'N/A',
+      name: propOrderData?.patient?.name || order.patient_name,
+      dob: propOrderData?.patient?.dob || 'N/A',
+      gender: propOrderData?.patient?.gender || 'N/A',
+      phone: propOrderData?.patient?.phone || 'N/A',
+      address: propOrderData?.patient?.address || 'N/A',
       insurance: {
-        primary: enhancedOrderData?.patient?.insurance?.primary || 'N/A',
-        secondary: enhancedOrderData?.patient?.insurance?.secondary || 'N/A',
+        primary: propOrderData?.patient?.insurance?.primary || 'N/A',
+        secondary: propOrderData?.patient?.insurance?.secondary || 'N/A',
       },
     },
     product: {
-      name: order.product_name,
-      code: enhancedOrderData?.product?.code || 'N/A',
-      quantity: enhancedOrderData?.product?.quantity || 1,
-      size: enhancedOrderData?.product?.size || 'N/A',
-      category: enhancedOrderData?.product?.category || 'N/A',
-      manufacturer: order.manufacturer_name,
+      name: propOrderData?.product?.name || order.product_name,
+      code: propOrderData?.product?.code || 'N/A',
+      quantity: propOrderData?.product?.quantity || 1,
+      size: propOrderData?.product?.size || 'N/A',
+      category: propOrderData?.product?.category || 'N/A',
+      manufacturer: propOrderData?.product?.manufacturer || order.manufacturer_name,
       shippingInfo: {
-        speed: enhancedOrderData?.product?.shippingInfo?.speed || 'Standard',
-        address: enhancedOrderData?.product?.shippingInfo?.address || 'N/A',
+        speed: propOrderData?.product?.shippingInfo?.speed || 'Standard',
+        address: propOrderData?.product?.shippingInfo?.address || 'N/A',
       },
     },
     forms: {
-      consent: enhancedOrderData?.forms?.consent || false,
-      assignmentOfBenefits: enhancedOrderData?.forms?.assignmentOfBenefits || false,
-      medicalNecessity: enhancedOrderData?.forms?.medicalNecessity || false,
+      consent: propOrderData?.forms?.consent || false,
+      assignmentOfBenefits: propOrderData?.forms?.assignmentOfBenefits || false,
+      medicalNecessity: propOrderData?.forms?.medicalNecessity || false,
     },
     clinical: {
-      woundType: enhancedOrderData?.clinical?.woundType || 'N/A',
-      location: enhancedOrderData?.clinical?.location || 'N/A',
-      size: enhancedOrderData?.clinical?.size || 'N/A',
-      cptCodes: enhancedOrderData?.clinical?.cptCodes || 'N/A',
-      placeOfService: enhancedOrderData?.clinical?.placeOfService || 'N/A',
-      failedConservativeTreatment: enhancedOrderData?.clinical?.failedConservativeTreatment || false,
+      woundType: propOrderData?.clinical?.woundType || 'N/A',
+      location: propOrderData?.clinical?.location || 'N/A',
+      size: propOrderData?.clinical?.size || 'N/A',
+      cptCodes: propOrderData?.clinical?.cptCodes || 'N/A',
+      placeOfService: propOrderData?.clinical?.placeOfService || 'N/A',
+      failedConservativeTreatment: propOrderData?.clinical?.failedConservativeTreatment || false,
     },
     provider: {
-      name: order.provider_name,
-      npi: enhancedOrderData?.provider?.npi || 'N/A',
-      facility: order.facility_name,
+      name: propOrderData?.provider?.name || order.provider_name,
+      npi: propOrderData?.provider?.npi || 'N/A',
+      facility: propOrderData?.provider?.facility || propOrderData?.facility?.name || order.facility_name,
     },
     submission: {
-      informationAccurate: enhancedOrderData?.submission?.informationAccurate || false,
-      documentationMaintained: enhancedOrderData?.submission?.documentationMaintained || false,
-      authorizePriorAuth: enhancedOrderData?.submission?.authorizePriorAuth || false,
+      informationAccurate: propOrderData?.submission?.informationAccurate || false,
+      documentationMaintained: propOrderData?.submission?.documentationMaintained || false,
+      authorizePriorAuth: propOrderData?.submission?.authorizePriorAuth || false,
     },
   };
 
-  // Show loading state
-  if (isLoading) {
-    return (
-      <MainLayout>
-        <Head title={`Order Details - ${order.order_number}`} />
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-          <div className="container mx-auto px-4 py-8 max-w-6xl">
-            <div className="flex items-center justify-center h-64">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-600">Loading order details...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </MainLayout>
-    );
-  }
+  // No loading state needed since data is passed from backend
 
   return (
     <MainLayout>
@@ -659,7 +617,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             onToggle={toggleSection}
           />
           <AdditionalDocumentsSection
-            documents={[]}
+            documents={propOrderData?.documents || []}
             isOpen={!!openSections.documents}
             onToggle={() => toggleSection('documents')}
           />
