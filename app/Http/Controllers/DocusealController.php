@@ -292,7 +292,8 @@ class DocusealController extends Controller
         ]);
 
         $request->validate([
-            'user_email' => 'required|email',
+            'submitter_email' => 'required|email',
+            'submitter_name' => 'required|string',
             'integration_email' => 'required|email',
             'prefill_data' => 'nullable|array',
             'manufacturerId' => 'required|string',
@@ -338,8 +339,9 @@ class DocusealController extends Controller
             // Call DocuSeal API to create submission
             $result = $this->docusealService->createSubmissionForQuickRequest(
                 $templateId,
-                $request->integration_email,
-                $request->user_email ?? $request->integration_email,
+                $request->integration_email,  // Our DocuSeal account email (limitless@mscwoundcare.com)
+                $request->submitter_email,    // The person who will sign (provider@example.com)
+                $request->submitter_name,     // The person's name
                 $prefillData,
                 $episodeId
             );

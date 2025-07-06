@@ -4,15 +4,12 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText, FiZap } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { ensureValidCSRFToken, addCSRFTokenToFormData } from '@/lib/csrf';
-// CSRFTestButton import removed as requested
+import { ensureValidCSRFToken } from '@/lib/csrf';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocusealIVR from './Components/Step7DocusealIVR';
-import Step8OrderFormApproval from './Components/Step8OrderFormApproval';
-import { useManufacturers } from '@/Hooks/useManufacturers';
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -244,11 +241,11 @@ function QuickRequestCreateNew({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Use manufacturers hook
-  const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
+  // Use manufacturers hook (simplified since we don't need order form logic)
 
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Get tomorrow's date as default for service date
@@ -306,25 +303,24 @@ function QuickRequestCreateNew({
     setFormData(prev => ({ ...prev, ...updates }));
   };
 
-  // Helper function to check if any selected products have manufacturers with order forms
-  const hasManufacturerWithOrderForm = (): boolean => {
-    if (!formData.selected_products || formData.selected_products.length === 0) {
-      return false;
+  // Check organization on mount
+  useEffect(() => {
+    if (!currentUser.organization || !currentUser.organization.id) {
+      console.warn('⚠️ Current user has no organization in frontend data, but backend may still find it');
+      // Don't show error immediately - backend has fallback logic
+    } else {
+      console.log('✅ Organization found:', currentUser.organization.name);
     }
+  }, [currentUser]);
 
-    return formData.selected_products.some(selectedProduct => {
-      const product = products.find(p => p.id === selectedProduct.product_id);
-      if (!product) return false;
-
-      // Find the manufacturer configuration from API data
-      const manufacturerConfig = getManufacturerByName(product.manufacturer);
-
-      // Check if manufacturer has order form configured
-      return manufacturerConfig?.has_order_form === true;
-    });
-  };
-
-  // Pre-fill function for testing
+  // Simplified sections array - no order form step needed
+  const sections = [
+    { title: 'Patient & Insurance', icon: FiUser },
+    { title: 'Clinical Validation', icon: FiActivity },
+    { title: 'Select Products', icon: FiShoppingCart },
+    { title: 'Complete IVR Form', icon: FiFileText },
+    { title: 'Review & Confirm', icon: FiCheck },
+  ];
   const prefillTestData = () => {
     const testData: Partial<QuickRequestFormData> = {
       // Provider & Facility (pick first available)
@@ -438,31 +434,6 @@ function QuickRequestCreateNew({
       successDiv.remove();
     }, 3000);
   };
-
-  // State for IVR fields
-  const [ivrFields, setIvrFields] = useState<Record<string, any>>({});
-  const [isExtractingIvrFields, setIsExtractingIvrFields] = useState(false);
-
-  // Dynamic sections array that conditionally includes order form step
-  const getSections = () => {
-    const baseSections = [
-      { title: 'Patient & Insurance', icon: FiUser },
-      { title: 'Clinical Validation', icon: FiActivity },
-      { title: 'Select Products', icon: FiShoppingCart },
-      { title: 'Complete IVR Form', icon: FiFileText },
-    ];
-
-    // Check if order form step should be included
-    if (hasManufacturerWithOrderForm()) {
-      baseSections.push({ title: 'Order Form Review', icon: FiFileText });
-    }
-
-    baseSections.push({ title: 'Review & Confirm', icon: FiCheck });
-    return baseSections;
-  };
-
-  // Make sections dynamic - recalculate when products change or manufacturers load
-  const sections = React.useMemo(() => getSections(), [formData.selected_products, manufacturersLoading]);
 
   const validateSection = (section: number): Record<string, string> => {
     const errors: Record<string, string> = {};
@@ -586,277 +557,6 @@ function QuickRequestCreateNew({
     return errors;
   };
 
-  // Enhanced FHIR resource creation with best practices
-  const createFhirResources = async (resourceType: string) => {
-    const maxAttempts = 3;
-    let attempt = 0;
-
-    while (attempt < maxAttempts) {
-      try {
-        // Always refresh token before FHIR operations
-        const csrfToken = await ensureValidCSRFToken();
-        if (!csrfToken) {
-          throw new Error('Unable to obtain security token');
-        }
-
-        switch (resourceType) {
-          case 'Coverage': {
-            if (formData.primary_insurance_name && formData.primary_member_id && formData.patient_fhir_id) {
-              const coverageResource = {
-                resourceType: 'Coverage',
-                status: 'active',
-                beneficiary: {
-                  reference: `Patient/${formData.patient_fhir_id}`
-                },
-                subscriber: {
-                  reference: formData.patient_is_subscriber ? `Patient/${formData.patient_fhir_id}` : undefined,
-                  display: formData.patient_is_subscriber ? undefined : formData.caregiver_name
-                },
-                subscriberId: formData.primary_member_id,
-                payor: [{
-                  display: formData.primary_insurance_name
-                }],
-                order: 1,
-                network: formData.primary_plan_type,
-                extension: formData.fhir_episode_of_care_id ? [{
-                  url: 'https://mscwoundcare.com/fhir/StructureDefinition/episode-context',
-                  valueReference: {
-                    reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-                  }
-                }] : undefined
-              };
-
-              const response = await axios.post('/api/fhir/Coverage', coverageResource, {
-                headers: {
-                  'X-CSRF-TOKEN': csrfToken,
-                  'Content-Type': 'application/fhir+json',
-                  'Accept': 'application/fhir+json',
-                  'User-Agent': 'MSC-WoundCare/1.0'
-                },
-                timeout: 30000
-              });
-
-              if (response.data?.id) {
-                const coverageIds = [...(formData.fhir_coverage_ids || []), response.data.id];
-                updateFormData({ fhir_coverage_ids: coverageIds });
-                console.log(`✅ FHIR Coverage created: ${response.data.id}`);
-              }
-            }
-            break;
-          }
-          case 'QuestionnaireResponse': {
-            if (formData.patient_fhir_id && formData.wound_types.length > 0) {
-              const questionnaireResponse = {
-                resourceType: 'QuestionnaireResponse',
-                status: 'completed',
-                subject: {
-                  reference: `Patient/${formData.patient_fhir_id}`
-                },
-                authored: new Date().toISOString(),
-                encounter: formData.fhir_episode_of_care_id ? {
-                  reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-                } : undefined,
-                item: [
-                  {
-                    linkId: 'wound-type',
-                    answer: [{
-                      valueCoding: {
-                        display: formData.wound_types[0]
-                      }
-                    }]
-                  },
-                  {
-                    linkId: 'wound-location',
-                    answer: [{
-                      valueString: formData.wound_location
-                    }]
-                  },
-                  {
-                    linkId: 'wound-size-length',
-                    answer: [{
-                      valueDecimal: parseFloat(formData.wound_size_length) || 0
-                    }]
-                  },
-                  {
-                    linkId: 'wound-size-width',
-                    answer: [{
-                      valueDecimal: parseFloat(formData.wound_size_width) || 0
-                    }]
-                  },
-                  {
-                    linkId: 'place-of-service',
-                    answer: [{
-                      valueCoding: {
-                        code: formData.place_of_service,
-                        display: formData.place_of_service === '11' ? 'Office' : 'Other'
-                      }
-                    }]
-                  }
-                ]
-              };
-
-              const response = await axios.post('/api/fhir/QuestionnaireResponse', questionnaireResponse, {
-                headers: {
-                  'X-CSRF-TOKEN': csrfToken,
-                  'Content-Type': 'application/fhir+json',
-                  'Accept': 'application/fhir+json',
-                  'User-Agent': 'MSC-WoundCare/1.0'
-                },
-                timeout: 30000
-              });
-
-              if (response.data?.id) {
-                updateFormData({ fhir_questionnaire_response_id: response.data.id });
-                console.log(`✅ FHIR QuestionnaireResponse created: ${response.data.id}`);
-              }
-            }
-            break;
-          }
-          case 'DeviceRequest': {
-            if (formData.patient_fhir_id && formData.selected_products && formData.selected_products.length > 0) {
-              const firstSelectedProduct = formData.selected_products[0];
-              if (firstSelectedProduct) {
-                const product = products.find(p => p.id === firstSelectedProduct.product_id);
-                if (product) {
-                  const deviceRequest = {
-                    resourceType: 'DeviceRequest',
-                    status: 'draft',
-                    intent: 'order',
-                    subject: {
-                      reference: `Patient/${formData.patient_fhir_id}`
-                    },
-                    code: {
-                      coding: [{
-                        system: 'https://mscwoundcare.com/products',
-                        code: product.code,
-                        display: product.name
-                      }]
-                    },
-                    occurrenceDateTime: formData.expected_service_date,
-                    requester: formData.fhir_practitioner_id ? {
-                      reference: `Practitioner/${formData.fhir_practitioner_id}`
-                    } : undefined,
-                    encounter: formData.fhir_episode_of_care_id ? {
-                      reference: `EpisodeOfCare/${formData.fhir_episode_of_care_id}`
-                    } : undefined
-                  };
-
-                  const response = await axios.post('/api/fhir/DeviceRequest', deviceRequest, {
-                    headers: {
-                      'X-CSRF-TOKEN': csrfToken,
-                      'Content-Type': 'application/fhir+json',
-                      'Accept': 'application/fhir+json',
-                      'User-Agent': 'MSC-WoundCare/1.0'
-                    },
-                    timeout: 30000
-                  });
-
-                  if (response.data?.id) {
-                    updateFormData({ fhir_device_request_id: response.data.id });
-                    console.log(`✅ FHIR DeviceRequest created: ${response.data.id}`);
-                  }
-                }
-              }
-            }
-            break;
-          }
-          // Add other resource cases here as needed, following the same pattern
-        }
-        // Success - break out of retry loop
-        break;
-      } catch (error: any) {
-        attempt++;
-        console.error(`❌ Error creating FHIR ${resourceType} (attempt ${attempt}/${maxAttempts}):`, error);
-        if (error.response?.status === 401) {
-          console.warn('🔑 Authentication failed, will retry with fresh token');
-        } else if (error.response?.status === 429) {
-          console.warn('⏰ Rate limit exceeded, implementing exponential backoff');
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-        } else if (error.code === 'ECONNABORTED') {
-          console.warn('⏱️ Request timeout, will retry');
-        }
-        if (attempt >= maxAttempts) {
-          console.error(`💥 Final error creating FHIR ${resourceType} after ${maxAttempts} attempts:`, {
-            status: error.response?.status,
-            statusText: error.response?.statusText,
-            data: error.response?.data,
-            message: error.message
-          });
-          if (resourceType === 'Coverage') {
-            console.warn('⚠️ Failed to create FHIR Coverage - continuing without it');
-          } else if (resourceType === 'QuestionnaireResponse') {
-            console.warn('⚠️ Failed to create FHIR QuestionnaireResponse - continuing without it');
-          } else if (resourceType === 'DeviceRequest') {
-            console.warn('⚠️ Failed to create FHIR DeviceRequest - continuing without it');
-          }
-        } else {
-          await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
-        }
-      }
-    }
-  };
-
-
-  // Extract IVR fields when moving to Step 6 (after product selection)
-  const extractIvrFields = async () => {
-    if (!formData.selected_products || formData.selected_products.length === 0) return;
-
-    const firstProduct = formData.selected_products[0];
-    if (!firstProduct) return;
-
-    const product = products.find(p => p.id === firstProduct.product_id);
-    if (!product) return;
-
-    const manufacturerConfig = getManufacturerByName(product.manufacturer);
-    if (!manufacturerConfig) return;
-
-    setIsExtractingIvrFields(true);
-    try {
-      // Always refresh token before IVR extraction
-      const csrfToken = await ensureValidCSRFToken();
-      if (!csrfToken) throw new Error('Unable to obtain security token');
-
-      // Get FHIR IDs from form data and providers/facilities
-      const selectedProvider = providers.find(p => p.id === formData.provider_id);
-
-      // Commented out as per user feedback - extraction happens elsewhere
-      // const response = await axios.post('/api/quick-request/extract-ivr-fields', {
-      //   patient_id: formData.patient_fhir_id,
-      //   practitioner_id: formData.fhir_practitioner_id || selectedProvider?.fhir_practitioner_id,
-      //   organization_id: formData.fhir_organization_id || currentUser.organization?.fhir_organization_id,
-      //   questionnaire_response_id: formData.fhir_questionnaire_response_id,
-      //   device_request_id: formData.fhir_device_request_id,
-      //   episode_id: formData.episode_id,
-      //   episode_of_care_id: formData.fhir_episode_of_care_id,
-      //   manufacturer_key: manufacturerConfig.name,
-      //   sales_rep: formData.sales_rep_id ? {
-      //     name: 'MSC Distribution',
-      //     email: 'orders@mscwoundcare.com'
-      //   } : undefined,
-      //   selected_products: formData.selected_products?.map(sp => {
-      //     const product = products.find(p => p.id === sp.product_id);
-      //     return {
-      //       name: product?.name || 'Unknown Product',
-      //       code: product?.code || 'Unknown Code',
-      //       size: sp.size
-      //     };
-      //   })
-      // }, {
-      //   headers: { 'X-CSRF-TOKEN': csrfToken }
-      // });
-
-      // if (response.data.success) {
-      //   setIvrFields(response.data.ivr_fields);
-      //   updateFormData({ manufacturer_fields: response.data.ivr_fields });
-      //   console.log(`IVR Field Coverage: ${response.data.field_coverage.percentage}%`);
-      // }
-    } catch (error) {
-      console.error('Error extracting IVR fields:', error);
-    } finally {
-      setIsExtractingIvrFields(false);
-    }
-  };
-
   const handleNext = async () => {
     // Validate current section
     const sectionErrors = validateSection(currentSection);
@@ -877,145 +577,94 @@ function QuickRequestCreateNew({
     }
 
     // If this is the final step, submit the order directly
-    const isFinalStep = currentSection === (hasManufacturerWithOrderForm() ? 5 : 4);
+    const isFinalStep = currentSection === 4; // Step 4 is Review & Confirm
 
     if (isFinalStep) {
       await handleSubmitOrder();
       return;
     }
 
-    // Create FHIR patient when moving from section 0 to section 1
-    if (currentSection === 0 && !formData.patient_fhir_id) {
+    // All frontend FHIR creation logic has been removed.
+    // The backend orchestrator is now the single source of truth.
+
+    // Create draft episode when moving from Product Selection (step 2) to IVR Form (step 3)
+    if (currentSection === 2 && !formData.episode_id) {
+      setIsCreatingDraft(true);
       try {
-        const csrfToken = await ensureValidCSRFToken();
-        if (!csrfToken) {
-          setErrors({ patient_fhir_id: 'Unable to obtain security token. Please refresh the page.' });
+        console.log('🔄 Creating draft episode before IVR step...');
+        
+        // Get manufacturer name from the selected product
+        const selectedProduct = formData.selected_products?.[0];
+        const product = products.find(p => p.id === selectedProduct?.product_id);
+        const manufacturerName = product?.manufacturer;
+
+        if (!manufacturerName) {
+          setErrors({ episode: 'Unable to determine manufacturer from selected products. Please select a product first.' });
           return;
         }
-
-        // Parse patient name into first and last
-        const nameParts = (formData.patient_name || '').trim().split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || nameParts[0] || '';
-
-        // Create FHIR patient resource
-        const patientResource = {
-          resourceType: 'Patient',
-          identifier: [{
-            system: 'https://mscwoundcare.com/patient-id',
-            value: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10) + '_' + Date.now()
-          }],
-          name: [{
-            given: [firstName],
-            family: lastName
-          }],
-          active: true,
-          meta: {
-            tag: [{
-              system: 'https://mscwoundcare.com/tags',
-              code: 'quick-request-patient'
-            }]
-          }
+        
+        // Try to include organization_id if available, but don't block if missing
+        // Backend has fallback logic to find organization
+        const updatedFormData = {
+          ...formData,
+          organization_id: formData.organization_id || currentUser.organization?.id || null,
+          organization_name: formData.organization_name || currentUser.organization?.name || '',
+        };
+        
+        console.log('📋 Submitting draft episode with organization data:', {
+          organization_id: updatedFormData.organization_id,
+          organization_name: updatedFormData.organization_name,
+          has_current_org: !!currentUser.organization,
+          current_user_id: currentUser.id
+        });
+        
+        const payload = {
+          form_data: updatedFormData,
+          manufacturer_name: manufacturerName,
         };
 
-        const response = await axios.post('/api/fhir/Patient', patientResource, {
-          headers: {
-            'X-CSRF-TOKEN': csrfToken,
-            'Content-Type': 'application/fhir+json'
-          },
-        });
-
-        if (response.data && response.data.id) {
-          const patientFhirId = response.data.id;
-
-          // Update practitioner ID if provider is selected
-          const selectedProvider = providers.find(p => p.id === formData.provider_id);
-
-          // Create FHIR EpisodeOfCare resource
-          const episodeOfCareResource = {
-            resourceType: 'EpisodeOfCare',
-            status: 'active',
-            patient: {
-              reference: `Patient/${patientFhirId}`
-            },
-            managingOrganization: formData.fhir_organization_id ? {
-              reference: `Organization/${formData.fhir_organization_id}`
-            } : undefined,
-            team: selectedProvider?.fhir_practitioner_id ? [{
-              reference: `CareTeam/${selectedProvider.fhir_practitioner_id}`
-            }] : undefined,
-            type: [{
-              coding: [{
-                system: 'http://snomed.info/sct',
-                code: '225358003',
-                display: 'Wound care'
-              }]
-            }],
-            period: {
-              start: new Date().toISOString()
-            },
-            identifier: [{
-              system: 'https://mscwoundcare.com/episode-id',
-              value: `EPISODE_${Date.now()}`
-            }],
-            meta: {
-              tag: [{
-                system: 'https://mscwoundcare.com/tags',
-                code: 'wound-care-episode'
-              }]
-            }
-          };
-
-          const episodeResponse = await axios.post('/api/fhir/EpisodeOfCare', episodeOfCareResource, {
+        const response = await axios.post(
+          "/api/v1/quick-request/create-draft-episode",
+          payload,
+          {
             headers: {
-              'X-CSRF-TOKEN': csrfToken,
-              'Content-Type': 'application/fhir+json'
-            },
-          });
-
-          if (episodeResponse.data && episodeResponse.data.id) {
-            updateFormData({
-              patient_fhir_id: patientFhirId,
-              patient_display_id: ((formData.patient_name || '') as string).replace(/\s+/g, '').substring(0, 10),
-              fhir_practitioner_id: selectedProvider?.fhir_practitioner_id || formData.fhir_practitioner_id,
-              fhir_episode_of_care_id: episodeResponse.data.id
-            });
-          } else {
-            setErrors({ episode_of_care: 'Failed to create episode of care. Please try again.' });
-            return;
+              'X-CSRF-TOKEN': await ensureValidCSRFToken(),
+              'Content-Type': 'application/json'
+            }
           }
+        );
+
+        if (response.data.success && response.data.episode_id) {
+          console.log('✅ Draft episode created:', response.data.episode_id);
+          
+          // Update form data with the draft episode ID
+          updateFormData({
+            episode_id: response.data.episode_id
+          });
         } else {
-          setErrors({ patient_fhir_id: 'Failed to create patient record. Please try again.' });
+          console.error('❌ Failed to create draft episode:', response.data);
+          setErrors({ episode: 'Failed to create draft episode. Please try again.' });
           return;
         }
       } catch (error: any) {
-        console.error('Error creating patient:', error);
-        const errorMessage = error.response?.data?.message || error.response?.data?.error || 'Failed to create patient';
-        setErrors({ patient_fhir_id: errorMessage });
+        console.error('❌ Error creating draft episode:', error);
+        setErrors({ episode: 'Error creating draft episode. Please try again.' });
         return;
+      } finally {
+        setIsCreatingDraft(false);
       }
     }
 
-    // Create FHIR Coverage when moving from section 0 to 1
-    if (currentSection === 0) {
-      await createFhirResources('Coverage');
+    // Move to the next section
+    setCurrentSection(currentSection + 1);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleBack = () => {
+    if (currentSection > 0) {
+      setCurrentSection(prev => prev - 1);
+      setErrors({});
     }
-
-    // Create FHIR QuestionnaireResponse when moving from section 1 to 2
-    if (currentSection === 1) {
-      await createFhirResources('QuestionnaireResponse');
-    }
-
-    // Create DeviceRequest when moving from section 2 to 3 (after product selection)
-    if (currentSection === 2) {
-      await createFhirResources('DeviceRequest');
-    }
-
-    // Extract IVR fields if available
-    await extractIvrFields();
-
-    // Move to next section
-    setCurrentSection(prev => prev + 1);
   };
 
   const handleSubmitOrder = async () => {
@@ -1034,13 +683,13 @@ function QuickRequestCreateNew({
           return;
         }
 
-        // Extract IVR fields if available
-        await extractIvrFields();
+        // The extractIvrFields function has been removed. This is now a backend responsibility.
 
       // Clean and prepare the form data for submission
       const finalFormData = {
         ...formData,
-        manufacturer_fields: ivrFields || {},
+        // manufacturer_fields are now directly from the form state, not a separate extraction.
+        manufacturer_fields: formData.manufacturer_fields || {},
         // Ensure docuseal_submission_id is a string or null
         docuseal_submission_id: formData.docuseal_submission_id ? String(formData.docuseal_submission_id) : null,
         // Ensure selected_products have valid product_id values
@@ -1123,92 +772,76 @@ function QuickRequestCreateNew({
 
       console.log('✅ Order submission response:', response.data);
 
-        if (response.data.success) {
-          // Show success message and redirect
-          alert('Order submitted successfully! Your order is now being processed.');
+      if (response.data.success) {
+        // Show success message and redirect
+        alert('Order submitted successfully! Your order is now being processed.');
 
-          // Temporarily redirect to dashboard to avoid access issues
-          // TODO: Re-enable episode redirect once access control is fixed
-          const redirectToDashboard = true; // Toggle this to test episode redirect
+        // Temporarily redirect to dashboard to avoid access issues
+        // TODO: Re-enable episode redirect once access control is fixed
+        const redirectToDashboard = true; // Toggle this to test episode redirect
 
-          if (redirectToDashboard) {
-            // Go directly to dashboard where the new order will be visible
-            setTimeout(() => {
-              router.visit('/provider/dashboard');
-            }, 1000);
-          } else if (response.data.episode_id) {
-            // Original episode redirect logic (currently has access issues)
-            setTimeout(() => {
-              router.visit(`/provider/episodes/${response.data.episode_id}`, {
-                onError: () => {
-                  console.error('Failed to navigate to episode, redirecting to dashboard');
-                  router.visit('/provider/dashboard');
-                }
-              });
-            }, 2000);
-          } else {
-            // Fallback to provider dashboard if no episode_id
+        if (redirectToDashboard) {
+          // Go directly to dashboard where the new order will be visible
+          setTimeout(() => {
             router.visit('/provider/dashboard');
-          }
-          return; // Exit the retry loop on success
+          }, 1000);
+        } else if (response.data.episode_id) {
+          // Original episode redirect logic (currently has access issues)
+          setTimeout(() => {
+            router.visit(`/provider/episodes/${response.data.episode_id}`, {
+              onError: () => {
+                console.error('Failed to navigate to episode, redirecting to dashboard');
+                router.visit('/provider/dashboard');
+              }
+            });
+          }, 2000);
         } else {
-          throw new Error(response.data.message || 'Failed to submit order');
+          // Fallback to provider dashboard if no episode_id
+          router.visit('/provider/dashboard');
         }
-      } catch (error: any) {
-        console.error('❌ Error submitting order (attempt ' + (currentRetry + 1) + '):', error);
-
-        // Handle CSRF token expiration specifically
-        if (error.response?.status === 419) {
-          console.log('CSRF token expired, attempting to refresh...');
-
-          // Force refresh the token
-          const newToken = await ensureValidCSRFToken();
-          if (!newToken) {
-            console.error('Failed to refresh CSRF token');
-            setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
-            return;
-          }
-
-          // If we have retries left, try again
-          if (currentRetry < maxRetries) {
-            currentRetry++;
-            console.log(`Retrying submission with fresh token (attempt ${currentRetry + 1})...`);
-            continue;
-          }
-
-          // If we've exhausted retries, show error
-          setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
-          return;
-        }
-
-        // For other errors, don't retry
-        let errorMessage = 'An error occurred while submitting the order';
-
-        if (error.response?.status === 422) {
-          errorMessage = 'Please check your form data and try again';
-        } else if (error.response?.data?.message) {
-          errorMessage = error.response.data.message;
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        setErrors({ submit: errorMessage });
-        return;
+        return; // Exit the retry loop on success
+      } else {
+        throw new Error(response.data.message || 'Failed to submit order');
       }
+    } catch (error: any) {
+      console.error('❌ Error submitting order (attempt ' + (currentRetry + 1) + '):', error);
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+
+      // Handle CSRF token expiration specifically
+      if (error.response?.status === 419) {
+        console.log('CSRF token expired, attempting to refresh...');
+
+        // Force refresh the token
+        const newToken = await ensureValidCSRFToken();
+        if (!newToken) {
+          console.error('Failed to refresh CSRF token');
+          setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
+          return; // Exit if token refresh fails
+        }
+
+        // If we have retries left, try again
+        if (currentRetry < maxRetries) {
+          currentRetry++;
+          console.log(`Retrying submission with fresh token (attempt ${currentRetry + 1})...`);
+          continue; // Continue to the next iteration of the while loop
+        }
+        
+        // If we've exhausted retries, set an error message before falling through
+        errorMessage = 'Session expired. Please refresh the page and try again.';
+
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setErrors({ submit: errorMessage });
+      setIsSubmitting(false); // Make sure to turn off submitting state on final failure
+      return; // Exit the function
     }
+  } // End of while loop
 
-    // If we reach here, all retries failed
-    setErrors({ submit: 'Unable to submit order after multiple attempts. Please refresh the page and try again.' });
-
-    setIsSubmitting(false);
-  };
-
-  const handlePrevious = () => {
-    if (currentSection > 0) {
-      setCurrentSection(prev => prev - 1);
-      setErrors({});
-    }
-  };
+  // This should be outside the loop. If the loop finishes without returning, it means all retries failed.
+  setIsSubmitting(false);
+};
 
   // Set default expected service date to tomorrow when component mounts
   useEffect(() => {
@@ -1248,7 +881,11 @@ function QuickRequestCreateNew({
     }
   }, [formData.patient_first_name, formData.patient_last_name]);
 
+  // The createFhirResources function has been removed as it is redundant.
+  // The backend orchestrator now handles all FHIR resource creation.
 
+  // The extractIvrFields function has been removed.
+  // This logic is now handled by the backend to ensure a single source of truth.
 
   // Periodically refresh CSRF token to prevent expiration during long form sessions
   useEffect(() => {
@@ -1296,8 +933,6 @@ function QuickRequestCreateNew({
               <FiZap className="h-4 w-4" />
               Pre-fill Test Data
             </button>
-
-            {/* CSRF Test Component removed as requested */}
           </div>
 
           {/* Progress Bar */}
@@ -1401,29 +1036,13 @@ function QuickRequestCreateNew({
                 formData={formData as any}
                 updateFormData={updateFormData as any}
                 products={products}
-                providers={providers}
-                facilities={facilities}
                 errors={errors}
                 onNext={handleNext}
-              />
-            )}
-
-            {/* Order Form Review Step (conditional) */}
-            {currentSection === 4 && hasManufacturerWithOrderForm() && (
-              <Step8OrderFormApproval
-                formData={formData as any}
-                updateFormData={updateFormData as any}
-                products={products}
-                providers={providers}
-                facilities={facilities}
-                errors={errors}
-                onNext={handleNext}
-                onSkip={() => setCurrentSection(prev => prev + 1)}
               />
             )}
 
             {/* Review & Submit Step */}
-            {currentSection === (hasManufacturerWithOrderForm() ? 5 : 4) && (
+            {currentSection === 4 && (
               <Step6ReviewSubmit
                 formData={formData}
                 products={products}
@@ -1439,7 +1058,7 @@ function QuickRequestCreateNew({
           {/* Navigation Buttons */}
           <div className="flex justify-between">
             <button
-              onClick={handlePrevious}
+              onClick={handleBack}
               disabled={currentSection === 0}
               className={cn(
                 "px-6 py-3 rounded-xl font-medium transition-all duration-200",
@@ -1481,16 +1100,6 @@ function QuickRequestCreateNew({
             {formData.episode_id && (
               <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
                 ✅ Episode created: {formData.episode_id}
-              </div>
-            )}
-            {isExtractingIvrFields && (
-              <div className={cn("mt-2 p-2 rounded-lg", t.status.info)}>
-                ⏳ Extracting IVR fields from FHIR resources...
-              </div>
-            )}
-            {Object.keys(ivrFields).length > 0 && (
-              <div className={cn("mt-2 p-2 rounded-lg", t.status.success)}>
-                ✅ IVR fields extracted: {Object.keys(ivrFields).length} fields
               </div>
             )}
           </div>

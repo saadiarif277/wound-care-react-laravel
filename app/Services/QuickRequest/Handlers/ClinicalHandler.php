@@ -172,4 +172,72 @@ class ClinicalHandler
 
         return $commonCodes[$code] ?? "ICD-10 Code: {$code}";
     }
+
+    /**
+     * Update the status of a FHIR Task resource.
+     */
+    public function updateTaskStatus(string $taskId, string $status, string $statusReason): array
+    {
+        try {
+            $this->logger->info('Updating FHIR Task status', [
+                'task_id' => $taskId,
+                'status' => $status,
+                'status_reason' => $statusReason
+            ]);
+
+            // First, read the existing task to ensure we have the full resource
+            $existingTask = $this->fhirService->read('Task', $taskId);
+
+            // Update the status and statusReason
+            $existingTask['status'] = $status;
+            $existingTask['statusReason'] = ['text' => $statusReason];
+            $existingTask['lastModified'] = now()->toIso8601String();
+
+
+            $response = $this->fhirService->update('Task', $taskId, $existingTask);
+
+            $this->auditService->logAccess('task.updated', 'Task', $taskId);
+
+            $this->logger->info('FHIR Task status updated successfully', ['task_id' => $taskId]);
+
+            return $response;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to update FHIR Task status', [
+                'error' => $e->getMessage(),
+                'task_id' => $taskId,
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Complete an EpisodeOfCare resource by updating its status.
+     */
+    public function completeEpisodeOfCare(string $episodeOfCareId): array
+    {
+        try {
+            $this->logger->info('Completing FHIR EpisodeOfCare', ['episode_of_care_id' => $episodeOfCareId]);
+
+            // Read the existing resource
+            $episodeOfCare = $this->fhirService->read('EpisodeOfCare', $episodeOfCareId);
+
+            // Update status and period end
+            $episodeOfCare['status'] = 'finished';
+            $episodeOfCare['period']['end'] = now()->toIso8601String();
+
+            $response = $this->fhirService->update('EpisodeOfCare', $episodeOfCareId, $episodeOfCare);
+
+            $this->auditService->logAccess('episode.completed', 'EpisodeOfCare', $episodeOfCareId);
+
+            $this->logger->info('FHIR EpisodeOfCare completed successfully', ['episode_of_care_id' => $episodeOfCareId]);
+
+            return $response;
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to complete FHIR EpisodeOfCare', [
+                'error' => $e->getMessage(),
+                'episode_of_care_id' => $episodeOfCareId,
+            ]);
+            throw $e;
+        }
+    }
 }

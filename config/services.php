@@ -84,6 +84,7 @@ return [
     'docuseal' => [
         'api_key' => env('DOCUSEAL_API_KEY'),
         'api_url' => env('DOCUSEAL_API_URL', 'https://api.docuseal.com'),
+        'webhook_url' => env('DOCUSEAL_WEBHOOK_URL'),
         'webhook_secret' => env('DOCUSEAL_WEBHOOK_SECRET'),
         'timeout' => env('DOCUSEAL_TIMEOUT', 30),
         'max_retries' => env('DOCUSEAL_MAX_RETRIES', 3),

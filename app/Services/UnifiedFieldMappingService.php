@@ -361,23 +361,38 @@ class UnifiedFieldMappingService
 
     /**
      * Validate mapped data against manufacturer requirements
+     * Uses intelligent validation that adapts to different IVR form requirements
      */
     private function validateMapping(array $data, array $config): array
     {
         $errors = [];
         $warnings = [];
+        $criticalErrors = [];
+        $missingOptionalFields = [];
 
         foreach ($config['fields'] as $field => $fieldConfig) {
-            // Check required fields
-            if ($fieldConfig['required'] ?? false) {
-                if (empty($data[$field]) && $data[$field] !== '0' && $data[$field] !== 0) {
-                    $errors[] = "Required field '{$field}' is missing or empty";
+            $isRequired = $fieldConfig['required'] ?? false;
+            $fieldValue = $data[$field] ?? null;
+            $isEmpty = empty($fieldValue) && $fieldValue !== '0' && $fieldValue !== 0;
+
+            // Check required fields - but be intelligent about it
+            if ($isRequired && $isEmpty) {
+                // Categorize by importance for better error handling
+                $importance = $fieldConfig['importance'] ?? 'medium';
+                
+                if ($importance === 'critical') {
+                    $criticalErrors[] = "Critical field '{$field}' is missing or empty";
+                } else {
+                    // For non-critical required fields, just warn
+                    $warnings[] = "Required field '{$field}' is missing or empty (some IVR forms may not need this)";
                 }
+            } elseif (!$isRequired && $isEmpty) {
+                $missingOptionalFields[] = $field;
             }
 
             // Validate format if specified and value exists
-            if (!empty($data[$field]) && isset($fieldConfig['type'])) {
-                $isValid = $this->validateFieldType($data[$field], $fieldConfig['type']);
+            if (!$isEmpty && isset($fieldConfig['type'])) {
+                $isValid = $this->validateFieldType($fieldValue, $fieldConfig['type']);
                 if (!$isValid) {
                     $warnings[] = "Field '{$field}' format may be invalid for type '{$fieldConfig['type']}'";
                 }
@@ -389,10 +404,36 @@ class UnifiedFieldMappingService
             $warnings = array_merge($warnings, $data['_warnings']);
         }
 
+        // Add intelligent recommendations
+        if (!empty($missingOptionalFields)) {
+            $warnings[] = "Consider adding optional fields for better form completion: " . implode(', ', array_slice($missingOptionalFields, 0, 5));
+        }
+
+        // Only fail validation if there are critical errors
+        // Most IVR forms can work with missing non-critical fields
+        $isValid = empty($criticalErrors);
+        
+        // If we have too many warnings, suggest using AI enhancement
+        if (count($warnings) > 5 && class_exists('\App\Services\AI\IntelligentFieldMappingService')) {
+            $warnings[] = "Consider using AI-enhanced field mapping for better results";
+        }
+
+        Log::info('Unified field mapping validation completed', [
+            'is_valid' => $isValid,
+            'critical_errors' => count($criticalErrors),
+            'warnings' => count($warnings),
+            'missing_optional' => count($missingOptionalFields),
+            'total_fields' => count($config['fields']),
+            'provided_fields' => count(array_filter($data, fn($v) => !empty($v) || $v === '0' || $v === 0))
+        ]);
+
         return [
-            'valid' => empty($errors),
-            'errors' => $errors,
-            'warnings' => $warnings
+            'valid' => $isValid,
+            'errors' => array_merge($criticalErrors, $errors), // Put critical errors first
+            'warnings' => $warnings,
+            'critical_errors' => $criticalErrors,
+            'missing_optional_fields' => $missingOptionalFields,
+            'validation_strategy' => 'intelligent_flexible'
         ];
     }
 

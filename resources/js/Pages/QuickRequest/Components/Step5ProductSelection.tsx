@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
+import { fetchWithCSRF } from '@/utils/csrf';
 
 interface Product {
   id: number;
@@ -41,6 +42,7 @@ interface FormData {
   wound_size_length?: string;
   wound_size_width?: string;
   last_24_hour_orders?: Array<{productCode: string, orderDate: Date}>;
+  episode_id?: string;
   [key: string]: any;
 }
 
@@ -49,6 +51,7 @@ interface Step5Props {
   updateFormData: (data: Partial<FormData>) => void;
   errors: Record<string, string>;
   currentUser?: {
+    id?: number;
     role?: string;
   };
   roleRestrictions?: {
@@ -106,7 +109,7 @@ export default function Step5ProductSelection({
       if (providerId) {
         setLoading(true);
         try {
-          const response = await fetch(`/api/v1/providers/${providerId}/onboarded-products`);
+          const response = await fetchWithCSRF(`/api/v1/providers/${providerId}/onboarded-products`);
           const data = await response.json();
           if (data.success) {
             setProviderOnboardedProducts(data.q_codes || []);
@@ -122,8 +125,7 @@ export default function Step5ProductSelection({
     fetchProviderProducts();
   }, [formData.provider_id, currentUser?.id, currentUser?.role]);
 
-  const handleProductsChange = (selectedProducts: SelectedProduct[]) => {
-
+  const handleProductsChange = async (selectedProducts: SelectedProduct[]) => {
     // Store provider-product mapping in formData, format size as '2 x 2'
     const updatedProducts = selectedProducts.map((item) => ({
       ...item,
@@ -135,6 +137,47 @@ export default function Step5ProductSelection({
     updateFormData({
       selected_products: updatedProducts
     });
+
+    // Create draft episode if products are selected and we don't have an episode_id yet
+    if (updatedProducts.length > 0 && !formData.episode_id) {
+      try {
+        // Get manufacturer name from the first selected product
+        const firstProduct = updatedProducts[0]?.product;
+        const manufacturerName = firstProduct?.manufacturer || 'Unknown';
+
+        const response = await fetchWithCSRF('/api/v1/quick-request/create-draft-episode', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            form_data: formData,
+            manufacturer_name: manufacturerName
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.episode_id) {
+            // Update form data with the episode ID
+            updateFormData({
+              episode_id: result.episode_id.toString()
+            });
+            console.log('✅ Draft episode created:', result.episode_id);
+          }
+        } else {
+          const errorData = await response.json();
+          if (response.status === 401 && errorData.requires_auth) {
+            console.warn('Authentication required for draft episode creation - will create during final submission');
+          } else {
+            console.warn('Failed to create draft episode, will create during final submission');
+          }
+        }
+      } catch (error) {
+        console.warn('Error creating draft episode:', error);
+        // Don't throw - this is not critical, episode will be created during final submission
+      }
+    }
   };
 
   return (

@@ -251,6 +251,60 @@ class FhirService
     }
 
     /**
+     * Read a FHIR resource by type and ID.
+     */
+    public function read(string $resourceType, string $id): ?array
+    {
+        $this->ensureAzureConfigured();
+
+        // If Azure is not configured, handle local IDs without making a real HTTP call.
+        if (!$this->isAzureConfigured()) {
+            Log::info("Attempting to read local resource since Azure is not configured.", ['type' => $resourceType, 'id' => $id]);
+            if (str_starts_with($id, 'local-')) {
+                // Return a mock success response for local IDs.
+                return ['resourceType' => $resourceType, 'id' => $id, 'status' => 'active'];
+            }
+            // If it's not a local ID and we can't connect to Azure, we can't find it.
+            return null;
+        }
+
+        // Proceed with a real API call to Azure FHIR.
+        try {
+            $url = rtrim($this->azureFhirEndpoint, '/') . "/{$resourceType}/{$id}";
+            Log::info("Reading FHIR resource from Azure URL: {$url}");
+
+            $response = Http::withToken($this->azureAccessToken)
+                ->withHeaders(['Accept' => 'application/fhir+json'])
+                ->get($url);
+
+            if ($response->status() === 404) {
+                Log::warning("FHIR resource not found in Azure.", ['url' => $url]);
+                return null;
+            }
+
+            if (!$response->successful()) {
+                Log::error("Failed to read FHIR resource from Azure.", [
+                    'url' => $url,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+                // Throw a more specific exception.
+                throw new \RuntimeException("Failed to read FHIR {$resourceType}/{$id}. Status: " . $response->status());
+            }
+
+            return $response->json();
+        } catch (\Exception $e) {
+            Log::error("Exception while reading FHIR resource from Azure.", [
+                'error' => $e->getMessage(),
+                'type' => $resourceType,
+                'id' => $id,
+            ]);
+            // Re-throw the exception to be handled by the caller.
+            throw $e;
+        }
+    }
+
+    /**
      * Get Patient by ID from Azure FHIR
      */
     public function getPatientById(string $id): ?array
@@ -339,31 +393,10 @@ class FhirService
     }
     public function createPractitioner(array $practitionerData): ?array
     {
-        $this->ensureAzureConfigured();
-
-        // Always use local data instead of Azure FHIR
-        $practitionerId = 'local-practitioner-' . uniqid();
-        Log::info('Creating local FHIR Practitioner', ['practitioner_id' => $practitionerId]);
-
-        return [
-            'resourceType' => 'Practitioner',
-            'id' => $practitionerId,
-            'identifier' => [
-                [
-                    'system' => 'http://msc-mvp.com/practitioner',
-                    'value' => $practitionerId
-                ]
-            ],
-            'name' => [
-                [
-                    'use' => 'official',
-                    'given' => [$practitionerData['name'][0]['given'][0] ?? 'Local'],
-                    'family' => $practitionerData['name'][0]['family'] ?? 'Practitioner'
-                ]
-            ],
-            'telecom' => $practitionerData['telecom'] ?? [],
-            'address' => $practitionerData['address'] ?? []
-        ];
+        // This was previously hardcoded to always create a local resource.
+        // Now it correctly uses the generic `create` method which handles
+        // both Azure and local fallback logic.
+        return $this->create('Practitioner', $practitionerData);
     }
 
     /**
@@ -403,25 +436,10 @@ class FhirService
      */
     public function createOrganization(array $organizationData): ?array
     {
-        $this->ensureAzureConfigured();
-
-        // Always use local data instead of Azure FHIR
-        $organizationId = 'local-organization-' . uniqid();
-        Log::info('Creating local FHIR Organization', ['organization_id' => $organizationId]);
-
-        return [
-            'resourceType' => 'Organization',
-            'id' => $organizationId,
-            'identifier' => [
-                [
-                    'system' => 'http://msc-mvp.com/organization',
-                    'value' => $organizationId
-                ]
-            ],
-            'name' => $organizationData['name'] ?? 'Local Organization',
-            'telecom' => $organizationData['telecom'] ?? [],
-            'address' => $organizationData['address'] ?? []
-        ];
+        // This was previously hardcoded to always create a local resource.
+        // Now it correctly uses the generic `create` method which handles
+        // both Azure and local fallback logic.
+        return $this->create('Organization', $organizationData);
     }
 
     /**
@@ -1059,48 +1077,17 @@ class FhirService
     }
 
     /**
-     * Read a FHIR resource by type and ID
-     */
-    public function read(string $resourceType, string $id): array
-    {
-        $this->ensureAzureConfigured();
-
-        if (!config('features.fhir.service_enabled', false)) {
-            throw new \RuntimeException('FHIR service is disabled');
-        }
-
-        // Make the actual FHIR API call
-        $response = Http::withToken($this->azureAccessToken)
-            ->withHeaders(['Content-Type' => 'application/fhir+json'])
-            ->get("{$this->azureFhirEndpoint}/{$resourceType}/{$id}");
-
-        if (!$response->successful()) {
-            Log::error("Failed to read FHIR {$resourceType}", [
-                'id' => $id,
-                'status' => $response->status(),
-                'body' => $response->json()
-            ]);
-            throw new \RuntimeException("Failed to read FHIR {$resourceType}/{$id}: " . $response->status());
-        }
-
-        return $response->json();
-    }
-
-    /**
      * Create a new FHIR resource using local data
      */
     public function createLocalResource(string $resourceType, array $data): array
     {
-        // This is a placeholder method for local resource creation
-        // when Azure FHIR is not available
+        $resourceId = 'local-' . strtolower($resourceType) . '-' . uniqid();
+        Log::info("Creating local FHIR {$resourceType}", ['resource_id' => $resourceId]);
+
         return [
             'resourceType' => $resourceType,
-            'id' => 'local-' . uniqid(),
-            'meta' => [
-                'lastUpdated' => now()->toISOString(),
-                'source' => 'local-fallback'
-            ],
-            ...$data
+            'id' => $resourceId,
+            // Map other fields from $data as needed
         ];
     }
 }

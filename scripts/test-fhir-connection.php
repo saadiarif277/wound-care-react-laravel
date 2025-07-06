@@ -15,7 +15,9 @@ echo "Testing FHIR Connection...\n\n";
 $tenantId = $_ENV['AZURE_FHIR_TENANT_ID'];
 $clientId = $_ENV['AZURE_FHIR_CLIENT_ID'];
 $clientSecret = $_ENV['AZURE_FHIR_CLIENT_SECRET'];
+
 $fhirEndpoint = $_ENV['AZURE_FHIR_ENDPOINT'];
+$fhirScope = $_ENV['AZURE_FHIR_SCOPE'] ?? null;
 
 echo "Configuration loaded:\n";
 echo "Tenant ID: " . substr($tenantId, 0, 8) . "...\n";
@@ -27,6 +29,11 @@ try {
 
     // Get access token
     echo "Getting access token...\n";
+
+    if (!$fhirScope) {
+        throw new Exception("AZURE_FHIR_SCOPE is not set in the environment.");
+    }
+
     $tokenResponse = $client->post(
         "https://login.microsoftonline.com/{$tenantId}/oauth2/v2.0/token",
         [
@@ -34,7 +41,7 @@ try {
                 'grant_type' => 'client_credentials',
                 'client_id' => $clientId,
                 'client_secret' => $clientSecret,
-                'scope' => 'https://ahdsmscmvpprod-fhir-msc-mvp-prod.fhir.azurehealthcareapis.com/.default'
+                'scope' => $fhirScope
             ]
         ]
     );

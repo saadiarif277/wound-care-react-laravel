@@ -2,88 +2,15 @@ import { useState, useEffect } from 'react';
 import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
+import { DocusealForm } from '@docuseal/react';
 
-// Prepare Docuseal data function (moved from deleted docusealUtils.ts)
-const prepareDocusealData = ({ formData, products, providers, facilities }: any) => {
-  const selectedProduct = formData.selected_products?.[0];
-  const product = products?.find((p: any) => p.id === selectedProduct?.product_id);
-  const provider = providers?.find((p: any) => p.id === formData.provider_id);
-  const facility = facilities?.find((f: any) => f.id === formData.facility_id);
+// This component now relies on the backend orchestrator for all data aggregation
+// No frontend data preparation is needed - the backend is the single source of truth
 
-  // Extract Q codes from all selected products for product checkbox automation
-  const selectedProductCodes = formData.selected_products?.map((selectedProd: any) => {
-    const prod = products?.find((p: any) => p.id === selectedProd.product_id);
-    return prod?.q_code || prod?.code;
-  }).filter(Boolean) || [];
-
-  // Get product names for additional matching
-  const selectedProductNames = formData.selected_products?.map((selectedProd: any) => {
-    const prod = products?.find((p: any) => p.id === selectedProd.product_id);
-    return prod?.name;
-  }).filter(Boolean) || [];
-
-  return {
-    // Patient Information
-    patient_name: `${formData.patient_first_name || ''} ${formData.patient_last_name || ''}`.trim(),
-    patient_first_name: formData.patient_first_name || '',
-    patient_last_name: formData.patient_last_name || '',
-    patient_dob: formData.patient_dob || '',
-    patient_gender: formData.patient_gender || '',
-
-    // Provider Information (structured for field mapping)
-    provider_name: provider?.name || formData.provider_name || '',
-    provider_npi: provider?.npi || formData.provider_npi || '',
-    provider_ptan: provider?.ptan || formData.provider_ptan || '',
-    provider_email: formData.provider_email || '',
-    provider: {
-      name: provider?.name || formData.provider_name || '',
-      npi: provider?.npi || formData.provider_npi || '',
-      ptan: provider?.ptan || formData.provider_ptan || '',
-      credentials: provider?.credentials || formData.provider_credentials || '',
-      email: formData.provider_email || '',
-    },
-
-    // Facility Information (structured for field mapping)
-    facility_name: facility?.name || formData.facility_name || '',
-    facility_address: facility?.address || '',
-    facility: {
-      name: facility?.name || formData.facility_name || '',
-      address: facility?.address || '',
-      email: facility?.email || '',
-      phone: facility?.phone || '',
-      contact_name: facility?.contact_name || facility?.name || '',
-      npi: facility?.npi || facility?.group_npi || '',
-      ptan: facility?.ptan || facility?.facility_ptan || '',
-    },
-
-    // Product Information
-    product_name: product?.name || '',
-    product_code: product?.code || product?.q_code || '',
-    product_manufacturer: product?.manufacturer || '',
-    manufacturer_id: product?.manufacturer_id || null,
-
-    // Product Selection Arrays (for field mapping computations)
-    selected_product_codes: selectedProductCodes,
-    selected_product_names: selectedProductNames,
-
-    // Insurance Information
-    primary_insurance_name: formData.primary_insurance_name || '',
-    primary_member_id: formData.primary_member_id || '',
-
-    // Clinical Information
-    wound_type: formData.wound_type || '',
-    wound_location: formData.wound_location || '',
-    wound_size_length: formData.wound_size_length || '',
-    wound_size_width: formData.wound_size_width || '',
-    wound_size_depth: formData.wound_size_depth || '',
-
-    // Other fields
-    ...formData
-  };
-};
+// This component now relies on the backend orchestrator for all data aggregation
+// No frontend data preparation is needed - the backend is the single source of truth
 
 interface SelectedProduct {
   product_id: number;
@@ -169,42 +96,17 @@ interface Step7Props {
     available_sizes?: any;
     price_per_sq_cm?: number;
   }>;
-  providers?: Array<{
-    id: number;
-    name: string;
-    credentials?: string;
-    npi?: string;
-  }>;
-  facilities?: Array<{
-    id: number;
-    name: string;
-    address?: string;
-  }>;
+  // Removed providers and facilities - backend handles this data
   errors: Record<string, string>;
   onNext?: () => void;
 }
 
-// Direct product-to-template mapping
-// This eliminates the complex manufacturer lookup
-const PRODUCT_TEMPLATE_MAP: Record<number, string> = {
-  10: '1233913',  // Amnio AMP → MEDLIFE SOLUTIONS template
-  // Add more product mappings as needed
-  // Format: [product_id]: 'docuseal_template_id'
-};
-
-// Q-Code to template mapping for more reliable matching
-const Q_CODE_TEMPLATE_MAP: Record<string, string> = {
-  'Q4162': '1233913',  // MedLife template
-  'Q4151': '1233918',  // Centurion AmnioBand
-  'Q4128': '1233918',  // Centurion Allopatch
-};
+// Template mapping is now handled dynamically through manufacturer configuration
 
 export default function Step7DocusealIVR({
   formData,
   updateFormData,
   products,
-  providers = [],
-  facilities = [],
   errors,
   onNext
 }: Step7Props) {
@@ -224,6 +126,8 @@ export default function Step7DocusealIVR({
   const [submissionError, setSubmissionError] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [enhancedSubmission] = useState<any>(null);
+  const [docusealSlug, setDocusealSlug] = useState<string>('');
+  const [isLoadingSlug, setIsLoadingSlug] = useState(false);
 
   // Insurance card re-upload states
   const [showInsuranceUpload, setShowInsuranceUpload] = useState(false);
@@ -272,34 +176,23 @@ export default function Step7DocusealIVR({
 
   const selectedProduct = getSelectedProduct();
 
-  // Get Docuseal template ID - prefer direct mapping, fallback to Q code, then manufacturer config
+  // Get Docuseal template ID from manufacturer configuration
   const getTemplateId = (): string | undefined => {
-    if (!selectedProduct) return undefined;
+    if (!selectedProduct || manufacturersLoading) return undefined;
 
-    // First check our direct product mapping
-    if (selectedProduct.id && PRODUCT_TEMPLATE_MAP[selectedProduct.id]) {
-      console.log('Using direct product template mapping');
-      return PRODUCT_TEMPLATE_MAP[selectedProduct.id];
-    }
-
-    // Second, check Q code mapping
-    if (selectedProduct.q_code && Q_CODE_TEMPLATE_MAP[selectedProduct.q_code]) {
-      console.log('Using Q code template mapping for:', selectedProduct.q_code);
-      return Q_CODE_TEMPLATE_MAP[selectedProduct.q_code];
-    }
-
-    // Fallback to manufacturer config
+    // Use manufacturer config to get the template ID
     const config = selectedProduct.manufacturer ? getManufacturerByName(selectedProduct.manufacturer) : null;
     if (config?.docuseal_template_id) {
-      console.log('Using manufacturer template mapping');
+      console.log('Using manufacturer template mapping:', config.docuseal_template_id);
       return config.docuseal_template_id;
     }
 
+    console.log('No template ID found for manufacturer:', selectedProduct.manufacturer);
     return undefined;
   };
 
   const templateId = getTemplateId();
-  const manufacturerConfig = selectedProduct?.manufacturer
+  const manufacturerConfig = (!manufacturersLoading && selectedProduct?.manufacturer)
     ? getManufacturerByName(selectedProduct.manufacturer)
     : null;
 
@@ -321,137 +214,8 @@ export default function Step7DocusealIVR({
   console.log('Manufacturer Config found:', manufacturerConfig);
   console.log('Signature Required:', manufacturerConfig?.signature_required);
 
-  // Get provider and facility details
-  const provider = formData.provider_id ? providers.find(p => p.id === formData.provider_id) : null;
-  const facility = formData.facility_id ? facilities.find(f => f.id === formData.facility_id) : null;
-
-  // Build Docuseal payload using shared utility. This data will be passed to Docuseal.
-  const preparedDocusealData = prepareDocusealData({ formData, products, providers, facilities });
-
-  // Build extended payload for Docuseal
-  const productDetails = formData.selected_products?.map((item: any) => {
-    // First try to find the product in the products array
-    let prod = products.find(p => p.id === item.product_id);
-
-    // If not found in products array, use the product data from selected_products
-    if (!prod && item.product) {
-      prod = item.product;
-    }
-
-    return {
-      name: prod?.name || '',
-      code: prod?.code || '',
-      size: item.size || 'Standard',
-      quantity: item.quantity,
-      manufacturer: prod?.manufacturer || '',
-      manufacturer_id: prod?.manufacturer_id || prod?.id // Include manufacturer_id
-    };
-  }) || [];
-
-  // Calculate total wound size
-  const woundSizeLength = parseFloat(formData.wound_size_length || '0');
-  const woundSizeWidth = parseFloat(formData.wound_size_width || '0');
-  const totalWoundSize = woundSizeLength * woundSizeWidth;
-
-  // Format wound duration
-  const durationParts: string[] = [];
-  if (formData.wound_duration_years) durationParts.push(`${formData.wound_duration_years} years`);
-  if (formData.wound_duration_months) durationParts.push(`${formData.wound_duration_months} months`);
-  if (formData.wound_duration_weeks) durationParts.push(`${formData.wound_duration_weeks} weeks`);
-  if (formData.wound_duration_days) durationParts.push(`${formData.wound_duration_days} days`);
-  const woundDuration = durationParts.length > 0 ? durationParts.join(', ') : 'Not specified';
-
-  // Format diagnosis codes
-  let diagnosisCodeDisplay = '';
-  if (formData.primary_diagnosis_code && formData.secondary_diagnosis_code) {
-    diagnosisCodeDisplay = `Primary: ${formData.primary_diagnosis_code}, Secondary: ${formData.secondary_diagnosis_code}`;
-  } else if (formData.diagnosis_code) {
-    diagnosisCodeDisplay = formData.diagnosis_code;
-  }
-
-  // Merge everything into a single payload object to send to Docuseal
-  const extendedDocusealData = {
-    ...formData,
-
-    // Provider Information
-    provider_name: provider?.name || formData.provider_name || '',
-    provider_credentials: provider?.credentials || '',
-    provider_npi: provider?.npi || formData.provider_npi || '',
-    provider_email: formData.provider_email || 'provider@example.com',
-
-    // Facility Information
-    facility_name: facility?.name || formData.facility_name || '',
-    facility_address: facility?.address || '',
-
-    // Product Information
-    product_name: selectedProduct?.name,
-    product_code: selectedProduct?.code,
-    product_manufacturer: selectedProduct?.manufacturer,
-    manufacturer_id: selectedProduct?.manufacturer_id,
-    product_details: productDetails,
-    product_details_text: productDetails.map((p: any) =>
-      `${p.name} (${p.code}) - Size: ${p.size}, Qty: ${p.quantity}`
-    ).join('\n'),
-
-    // Clinical Information
-    wound_size_total: totalWoundSize, // Send as number, not string with units
-    wound_dimensions: `${formData.wound_size_length || '0'} × ${formData.wound_size_width || '0'} × ${formData.wound_size_depth || '0'} cm`,
-    wound_duration: woundDuration,
-    wound_duration_days: formData.wound_duration_days || '',
-    wound_duration_weeks: formData.wound_duration_weeks || '',
-    wound_duration_months: formData.wound_duration_months || '',
-    wound_duration_years: formData.wound_duration_years || '',
-
-    // Diagnosis codes
-    diagnosis_codes_display: diagnosisCodeDisplay,
-    primary_diagnosis_code: formData.primary_diagnosis_code || '',
-    secondary_diagnosis_code: formData.secondary_diagnosis_code || '',
-    diagnosis_code: formData.diagnosis_code || '',
-
-    // Prior applications
-    prior_applications: formData.prior_applications || '0',
-    prior_application_product: formData.prior_application_product || '',
-    prior_application_within_12_months: formData.prior_application_within_12_months ? 'Yes' : 'No',
-
-    // Hospice information
-    hospice_status: formData.hospice_status ? 'Yes' : 'No',
-    hospice_family_consent: formData.hospice_family_consent ? 'Yes' : 'No',
-    hospice_clinically_necessary: formData.hospice_clinically_necessary ? 'Yes' : 'No',
-
-    // Manufacturer Fields (convert booleans to Yes/No for display)
-    ...Object.entries(formData.manufacturer_fields || {}).reduce((acc, [key, value]) => {
-      acc[key] = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
-      return acc;
-    }, {} as Record<string, any>),
-
-    // Date fields
-    service_date: formData.expected_service_date,
-
-    // Signature fields (for Docuseal template)
-    provider_signature_required: true,
-    provider_signature_date: undefined
-  };
-
-  // Override preparedDocusealData with the extended version
-  Object.assign(preparedDocusealData, extendedDocusealData);
-
-  // Log the final data being sent to Docuseal
-  console.log('📊 Docuseal Form Data Prepared:', {
-    fields: Object.keys(preparedDocusealData).length,
-    hasPatientData: !!preparedDocusealData.patient_name,
-    hasInsuranceData: !!preparedDocusealData.primary_insurance_name,
-    hasProviderData: !!preparedDocusealData.provider_name,
-    hasFacilityData: !!preparedDocusealData.facility_name,
-    hasClinicalData: !!preparedDocusealData.wound_type,
-    actualFormData: {
-      patient_name: preparedDocusealData.patient_name,
-      patient_dob: preparedDocusealData.patient_dob,
-      provider_name: preparedDocusealData.provider_name,
-      provider_npi: preparedDocusealData.provider_npi,
-      primary_insurance_name: preparedDocusealData.primary_insurance_name,
-      facility_name: preparedDocusealData.facility_name
-    }
-  });
+  // The backend orchestrator now handles all provider, facility, and organization data
+  // This component only needs to handle patient/clinical/insurance data from the form
 
   // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
@@ -519,56 +283,112 @@ export default function Step7DocusealIVR({
     }
   };
 
-  // Enhanced completion handler with FHIR integration and redirect
-  const handleDocusealComplete = async (submissionData: any) => {
+  // Fetch DocuSeal slug when component loads
+  const fetchDocusealSlug = async () => {
+    if (!formData.episode_id || !selectedProduct?.manufacturer) {
+      return;
+    }
+
+    setIsLoadingSlug(true);
+    setSubmissionError('');
+
+    try {
+      const response = await fetchWithCSRF('/api/v1/quick-request/create-ivr-submission', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          episode_id: formData.episode_id,
+          manufacturer_name: selectedProduct.manufacturer,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('✅ DocuSeal submission created:', result);
+
+        if (result.slug) {
+          setDocusealSlug(result.slug);
+          updateFormData({
+            docuseal_submission_id: result.submission_id,
+          });
+        } else {
+          throw new Error('No slug received from API');
+        }
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Failed to create DocuSeal submission');
+      }
+    } catch (error) {
+      console.error('Error fetching DocuSeal slug:', error);
+      setSubmissionError(`Failed to initialize form: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      setIsLoadingSlug(false);
+    }
+  };
+
+  // Load DocuSeal embed URL when component mounts and has required data
+  useEffect(() => {
+    console.log('🔍 useEffect for fetchDocusealSlug triggered');
+    console.log('Debug conditions:', {
+      manufacturersLoading,
+      'formData.episode_id': formData.episode_id,
+      'selectedProduct?.manufacturer': selectedProduct?.manufacturer,
+      templateId,
+      docusealSlug,
+      'formData.docuseal_submission_id': formData.docuseal_submission_id,
+    });
+
+    if (!manufacturersLoading && formData.episode_id && selectedProduct?.manufacturer && templateId && !docusealSlug && !formData.docuseal_submission_id) {
+      console.log('✅ All conditions met, calling fetchDocusealSlug');
+      fetchDocusealSlug();
+    } else {
+      console.log('❌ Not all conditions met for fetchDocusealSlug');
+      if (manufacturersLoading) console.log('   - Manufacturers still loading');
+      if (!formData.episode_id) console.log('   - Missing episode_id');
+      if (!selectedProduct?.manufacturer) console.log('   - Missing manufacturer');
+      if (!templateId) console.log('   - Missing templateId');
+      if (docusealSlug) console.log('   - DocuSeal slug already exists');
+      if (formData.docuseal_submission_id) console.log('   - Submission ID already exists');
+    }
+  }, [manufacturersLoading, formData.episode_id, selectedProduct?.manufacturer, templateId]);
+
+  // Enhanced completion handler for DocuSeal form
+  const handleDocusealFormComplete = (event: any) => {
     setIsProcessing(true);
 
     try {
-      console.log('🎉 Docuseal form completed:', submissionData);
+      console.log('🎉 DocuSeal form completed:', event);
 
-      const submissionId = submissionData.submission_id || submissionData.id || 'unknown';
-
-      // Update form data immediately
+      // Update form data with completion
       updateFormData({
-        docuseal_submission_id: submissionId,
-        ivr_completed_at: new Date().toISOString()
+        ivr_completed_at: new Date().toISOString(),
+        docuseal_completed: true,
       });
 
-      // Since the Docuseal form is completed successfully,
-      // mark as completed but don't auto-redirect
-      console.log('✅ Docuseal submission completed successfully:', submissionId);
-
       setIsCompleted(true);
-
-      // Show success message
-      setSubmissionError(''); // Clear any previous errors
-
-      // Don't auto-redirect - let user click next manually
+      setSubmissionError('');
 
     } catch (error) {
-      console.error('Error processing Docuseal completion:', error);
-      setSubmissionError('Form completed but there was an error processing the submission.');
+      console.error('Error processing DocuSeal completion:', error);
+      setSubmissionError('Form completed but there was an error processing the result.');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  const handleDocusealError = (error: string) => {
-    console.error('Docuseal error:', error);
-    setSubmissionError(error);
-    setIsProcessing(false);
-  };
-
   // Set NO_IVR_REQUIRED when manufacturer doesn't require signature
   useEffect(() => {
-    if (!manufacturersLoading && manufacturerConfig !== undefined) {
-      if (!manufacturerConfig || !manufacturerConfig.signature_required) {
+    if (!manufacturersLoading && selectedProduct?.manufacturer) {
+      const config = getManufacturerByName(selectedProduct.manufacturer);
+      if (config !== undefined && !config.signature_required) {
         if (!formData.docuseal_submission_id) {
           updateFormData({ docuseal_submission_id: 'NO_IVR_REQUIRED' });
         }
       }
     }
-  }, [manufacturersLoading, manufacturerConfig, formData.docuseal_submission_id, updateFormData]);
+  }, [manufacturersLoading, selectedProduct?.manufacturer, formData.docuseal_submission_id, updateFormData, getManufacturerByName]);
 
   // No product selected
   if (!selectedProduct) {
@@ -978,20 +798,39 @@ export default function Step7DocusealIVR({
               </div>
             )}
 
-            <DocusealEmbed
-              manufacturerId={manufacturerConfig?.id?.toString() || selectedProduct?.manufacturer_id?.toString() || '1'}
-              templateId={templateId}
-              productCode={selectedProduct?.code || ''}
-              formData={preparedDocusealData}
-              episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
-              onComplete={handleDocusealComplete}
-              onError={handleDocusealError}
-              className="w-full"
-              submissionUrl="/api/docuseal/submission"
-              builderToken={process.env.DOCUSEAL_BUILDER_TOKEN || ''}
-              builderProps={{
-              }}
-            />
+            {/* Loading state while fetching slug */}
+            {isLoadingSlug ? (
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
+                <p className={cn("text-sm ml-3", t.text.secondary)}>
+                  Initializing form...
+                </p>
+              </div>
+            ) : docusealSlug ? (
+              /* DocuSeal Form Embed */
+              <div className="w-full">
+                <DocusealForm
+                  src={`https://docuseal.com/s/${docusealSlug}`}
+                  onComplete={handleDocusealFormComplete}
+                />
+              </div>
+            ) : (
+              <div className={cn("text-center py-12", t.text.secondary)}>
+                <p>Form could not be loaded. Please try again.</p>
+                <button
+                  onClick={fetchDocusealSlug}
+                  className={cn(
+                    "mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                    theme === 'dark'
+                      ? 'bg-blue-700 hover:bg-blue-600 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  )}
+                >
+                  <FiRefreshCw className="mr-2 h-4 w-4" />
+                  Retry
+                </button>
+              </div>
+            )}
             
             {/* Documents Section for IVR */}
             <div className={cn("mt-6 p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>

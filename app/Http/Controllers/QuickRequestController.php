@@ -8,6 +8,10 @@ use App\Http\Requests\QuickRequest\StoreRequest;
 use App\Http\Requests\QuickRequest\SubmitOrderRequest;
 use App\Models\Order\ProductRequest;
 use App\Models\PatientManufacturerIVREpisode;
+use App\Models\User;
+use App\Models\Users\Organization\Organization;
+use App\Services\CurrentOrganization;
+use App\Services\DocusealService;
 use App\Services\QuickRequest\QuickRequestCalculationService;
 use App\Services\QuickRequest\QuickRequestFileService;
 use App\Services\QuickRequest\QuickRequestOrchestrator;
@@ -35,6 +39,8 @@ class QuickRequestController extends Controller
         protected QuickRequestOrchestrator $orchestrator,
         protected QuickRequestCalculationService $calculationService,
         protected QuickRequestFileService $fileService,
+        protected CurrentOrganization $currentOrganization,
+        protected DocusealService $docusealService,
     ) {}
 
     /**
@@ -106,16 +112,38 @@ class QuickRequestController extends Controller
             // Calculate order totals - THIS FIXES THE $0 ISSUE
             $calculation = $this->calculationService->calculateOrderTotal($quickRequestData->productSelection);
 
-            // Create episode
-            $episode = $this->orchestrator->startEpisode([
-                'patient' => $this->extractPatientData($validated['formData']),
-                'provider' => $this->extractProviderData($validated['formData']),
-                'facility' => $this->extractFacilityData($validated['formData']),
-                'clinical' => $this->extractClinicalData($validated['formData']),
-                'insurance' => $this->extractInsuranceData($validated['formData']),
-                'order_details' => $this->extractOrderData($validated['formData']),
-                'manufacturer_id' => $this->getManufacturerIdFromProducts($validated['formData']['selected_products']),
-            ]);
+            // Check if we have an existing draft episode to finalize
+            $episode = null;
+            if (isset($validated['formData']['episode_id'])) {
+                $draftEpisode = PatientManufacturerIVREpisode::find($validated['formData']['episode_id']);
+                if ($draftEpisode && $draftEpisode->status === PatientManufacturerIVREpisode::STATUS_DRAFT && $draftEpisode->created_by === Auth::id()) {
+                    // Finalize the existing draft episode
+                    $finalData = [
+                        'patient' => $this->extractPatientData($validated['formData']),
+                        'provider' => $this->extractProviderData($validated['formData']),
+                        'facility' => $this->extractFacilityData($validated['formData']),
+                        'organization' => $this->extractOrganizationData(),
+                        'clinical' => $this->extractClinicalData($validated['formData']),
+                        'insurance' => $this->extractInsuranceData($validated['formData']),
+                        'order_details' => $this->extractOrderData($validated['formData']),
+                    ];
+                    $episode = $this->orchestrator->finalizeDraftEpisode($draftEpisode, $finalData);
+                }
+            }
+
+            // If no draft episode was finalized, create a new episode
+            if (!$episode) {
+                $episode = $this->orchestrator->startEpisode([
+                    'patient' => $this->extractPatientData($validated['formData']),
+                    'provider' => $this->extractProviderData($validated['formData']),
+                    'facility' => $this->extractFacilityData($validated['formData']),
+                    'organization' => $this->extractOrganizationData(),
+                    'clinical' => $this->extractClinicalData($validated['formData']),
+                    'insurance' => $this->extractInsuranceData($validated['formData']),
+                    'order_details' => $this->extractOrderData($validated['formData']),
+                    'manufacturer_id' => $this->getManufacturerIdFromProducts($validated['formData']['selected_products']),
+                ]);
+            }
 
             // Create product request with CALCULATED TOTAL
             $productRequest = $this->createProductRequest($quickRequestData, $episode, $calculation);
@@ -298,18 +326,88 @@ class QuickRequestController extends Controller
 
     private function extractProviderData(array $formData): array
     {
-        return [
-            'id' => $formData['provider_id'],
-            'name' => $formData['provider_name'] ?? '',
-            'npi' => $formData['provider_npi'] ?? null,
+        $providerId = $formData['provider_id'];
+        
+        // Load provider with full profile information
+        $provider = User::with(['providerProfile', 'providerCredentials'])->find($providerId);
+        
+        if (!$provider) {
+            throw new \Exception("Provider not found with ID: {$providerId}");
+        }
+
+        $providerData = [
+            'id' => $provider->id,
+            'name' => $provider->first_name . ' ' . $provider->last_name,
+            'first_name' => $provider->first_name,
+            'last_name' => $provider->last_name,
+            'email' => $provider->email,
+            'phone' => $provider->phone ?? '',
+            'npi' => $provider->npi_number ?? '',
         ];
+
+        // Add provider profile data if available
+        if ($provider->providerProfile) {
+            $profile = $provider->providerProfile;
+            $providerData = array_merge($providerData, [
+                'specialty' => $profile->primary_specialty ?? '',
+                'credentials' => $profile->credentials ?? '',
+                'license_number' => $profile->state_license_number ?? '',
+                'license_state' => $profile->license_state ?? '',
+                'dea_number' => $profile->dea_number ?? '',
+                'ptan' => $profile->ptan ?? '',
+                'tax_id' => $profile->tax_id ?? '',
+                'practice_name' => $profile->practice_name ?? '',
+            ]);
+        }
+
+        // Add credential data if available
+        if ($provider->providerCredentials) {
+            foreach ($provider->providerCredentials as $credential) {
+                if ($credential->credential_type === 'npi_number' && empty($providerData['npi'])) {
+                    $providerData['npi'] = $credential->credential_number;
+                }
+            }
+        }
+
+        return $providerData;
     }
 
     private function extractFacilityData(array $formData): array
     {
+        $facilityId = $formData['facility_id'] ?? null;
+        
+        // If facility_id is provided, try to load from database
+        if ($facilityId) {
+            $facility = \App\Models\Fhir\Facility::find($facilityId);
+            
+            if ($facility) {
+                return [
+                    'id' => $facility->id,
+                    'name' => $facility->name,
+                    'address' => $facility->address ?? '',
+                    'address_line1' => $facility->address ?? '',
+                    'address_line2' => $facility->address_line2 ?? '',
+                    'city' => $facility->city ?? '',
+                    'state' => $facility->state ?? '',
+                    'zip' => $facility->zip ?? '',
+                    'phone' => $facility->phone ?? '',
+                    'npi' => $facility->npi ?? '',
+                ];
+            }
+        }
+
+        // Fallback: use form data or defaults
         return [
-            'id' => $formData['facility_id'],
-            'name' => $formData['facility_name'] ?? '',
+            'id' => $facilityId ?? 'default',
+            'name' => $formData['facility_name'] ?? 'Default Facility',
+            'address' => $formData['facility_address'] ?? '',
+            'address_line1' => $formData['facility_address'] ?? '',
+            'address_line2' => $formData['facility_address_line2'] ?? '',
+            'city' => $formData['facility_city'] ?? '',
+            'state' => $formData['facility_state'] ?? '',
+            'zip' => $formData['facility_zip'] ?? '',
+            'phone' => $formData['facility_phone'] ?? '',
+            'npi' => $formData['facility_npi'] ?? '',
         ];
     }
 
@@ -352,8 +450,25 @@ class QuickRequestController extends Controller
             return null;
         }
 
+        // Try to get manufacturer_id from the product record in database
         $product = \App\Models\Order\Product::find($selectedProducts[0]['product_id']);
-        return $product?->manufacturer_id;
+        if ($product && $product->manufacturer_id) {
+            return $product->manufacturer_id;
+        }
+
+        // Fallback: try to get manufacturer_id from the product data in the request
+        $firstProduct = $selectedProducts[0];
+        if (isset($firstProduct['product']['manufacturer_id'])) {
+            return $firstProduct['product']['manufacturer_id'];
+        }
+
+        // Fallback: look up manufacturer by name
+        if (isset($firstProduct['product']['manufacturer'])) {
+            $manufacturer = \App\Models\Order\Manufacturer::where('name', $firstProduct['product']['manufacturer'])->first();
+            return $manufacturer?->id;
+        }
+
+        return null;
     }
 
     private function generateRandomPatientDisplayId(array $formData): string
@@ -366,5 +481,237 @@ class QuickRequestController extends Controller
         }
 
         return 'PAT' . str_pad((string)rand(0, 9999), 4, '0', STR_PAD_LEFT);
+    }
+
+    private function extractOrganizationData(array $formData = []): array
+    {
+        $organization = null;
+
+        // Priority 1: Get organization from formData if available
+        if (!empty($formData['organization_id'])) {
+            $organization = \App\Models\Users\Organization\Organization::find($formData['organization_id']);
+        }
+
+        // Priority 2: Try to get organization from authenticated user
+        if (!$organization && Auth::check()) {
+            $user = Auth::user();
+            
+            // First try current_organization_id
+            if ($user->current_organization_id) {
+                $organization = \App\Models\Users\Organization\Organization::find($user->current_organization_id);
+                if ($organization) {
+                    Log::info('Found organization from current_organization_id', [
+                        'user_id' => $user->id,
+                        'current_organization_id' => $user->current_organization_id,
+                        'organization_name' => $organization->name
+                    ]);
+                }
+            }
+            
+            // If still no organization, try the relationships
+            if (!$organization) {
+                // Try currentOrganization relationship
+                if (!$user->relationLoaded('currentOrganization')) {
+                    $user->load('currentOrganization');
+                }
+                $organization = $user->currentOrganization;
+                
+                // Try primaryOrganization
+                if (!$organization && method_exists($user, 'primaryOrganization')) {
+                    $organization = $user->primaryOrganization();
+                }
+                
+                // Try first active organization
+                if (!$organization && method_exists($user, 'activeOrganizations')) {
+                    $organization = $user->activeOrganizations()->first();
+                }
+            }
+        }
+
+        // Priority 3: Fallback to CurrentOrganization service
+        if (!$organization) {
+            $organization = $this->currentOrganization->getOrganization();
+        }
+        
+        // Priority 4: If still no organization, try to find the first active organization (for providers with single org)
+        if (!$organization && Auth::check()) {
+            $user = Auth::user();
+            // For providers, they might have access to facilities which belong to organizations
+            if ($user->hasRole('provider') && $user->facilities()->exists()) {
+                $facility = $user->facilities()->with('organization')->first();
+                if ($facility && $facility->organization) {
+                    $organization = $facility->organization;
+                }
+            }
+        }
+        
+        if (!$organization) {
+            Log::error('No organization found for draft episode creation', [
+                'user_id' => Auth::id(),
+                'form_data_has_org_id' => !empty($formData['organization_id']),
+                'form_data_org_id' => $formData['organization_id'] ?? null,
+                'current_org_service_has_org' => $this->currentOrganization->hasOrganization(),
+                'current_org_service_id' => $this->currentOrganization->getId(),
+            ]);
+            
+            throw new \Exception("No current organization found. Please ensure you are associated with an organization to create requests.");
+        }
+
+        return [
+            'id' => $organization->id,
+            'name' => $organization->name,
+            'tax_id' => $organization->tax_id ?? '',
+            'type' => $organization->type ?? '',
+            'address' => $organization->address ?? '',
+            'city' => $organization->city ?? '',
+            'state' => $organization->region ?? '',
+            'zip_code' => $organization->postal_code ?? '',
+            'phone' => $organization->phone ?? '',
+            'email' => $organization->email ?? '',
+            'status' => $organization->status ?? '',
+        ];
+    }
+
+    /**
+     * Create IVR submission using orchestrator's comprehensive data
+     */
+    public function createIvrSubmission(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'episode_id' => 'required|string|exists:patient_manufacturer_ivr_episodes,id',
+            'manufacturer_name' => 'required|string',
+        ]);
+
+        try {
+            // Load the episode
+            $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
+            
+            // Check if user has permission to access this episode
+            if ((int)$episode->created_by !== Auth::id()) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Unauthorized access to episode'
+                ], 403);
+            }
+
+            // Get comprehensive data from orchestrator
+            $comprehensiveData = $this->orchestrator->prepareDocusealData($episode);
+            
+            // Create Docuseal submission using comprehensive data
+            $result = $this->docusealService->createSubmissionFromOrchestratorData(
+                $episode,
+                $comprehensiveData,
+                $validated['manufacturer_name']
+            );
+
+            if (!$result['success']) {
+                throw new \Exception($result['error'] ?? 'Failed to create IVR submission');
+            }
+
+            Log::info('IVR submission created successfully using orchestrator data', [
+                'episode_id' => $episode->id,
+                'submission_id' => $result['submission']['id'],
+                'user_id' => Auth::id(),
+                'manufacturer' => $validated['manufacturer_name']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'submission_id' => $result['submission']['id'],
+                'slug' => $result['submission']['slug'] ?? null,
+                'embed_url' => $result['submission']['embed_url'] ?? null,
+                'status' => $result['submission']['status'] ?? 'pending',
+                'manufacturer' => $result['manufacturer'],
+                'mapped_fields_count' => count($result['mapped_data']),
+                'completeness_percentage' => $result['completeness']['percentage'] ?? 0,
+                'message' => 'IVR submission created successfully with comprehensive data'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create IVR submission using orchestrator data', [
+                'episode_id' => $validated['episode_id'],
+                'manufacturer' => $validated['manufacturer_name'],
+                'user_id' => Auth::id(),
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create IVR submission: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * Create a draft episode for IVR generation before final submission
+     */
+    public function createDraftEpisode(Request $request): JsonResponse
+    {
+        // Check if user is authenticated
+        if (!Auth::check()) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User authentication required to create draft episode',
+                'requires_auth' => true
+            ], 401);
+        }
+
+        $validated = $request->validate([
+            'form_data' => 'required|array',
+            'manufacturer_name' => 'required|string'
+        ]);
+
+        try {
+            // Extract data from form
+            $formData = $validated['form_data'];
+            
+            // Get manufacturer ID
+            $manufacturerId = $this->getManufacturerIdFromProducts($formData['selected_products'] ?? []);
+            if (!$manufacturerId) {
+                throw new \Exception('Unable to determine manufacturer from selected products');
+            }
+
+            // Prepare data for draft episode creation
+            $episodeData = [
+                'patient' => $this->extractPatientData($formData),
+                'provider' => $this->extractProviderData($formData),
+                'facility' => $this->extractFacilityData($formData),
+                'organization' => $this->extractOrganizationData($formData),
+                'clinical' => $this->extractClinicalData($formData),
+                'insurance' => $this->extractInsuranceData($formData),
+                'order_details' => $this->extractOrderData($formData),
+                'manufacturer_id' => $manufacturerId,
+            ];
+
+            // Create draft episode (no FHIR resources created yet)
+            $episode = $this->orchestrator->createDraftEpisode($episodeData);
+
+            Log::info('Draft episode created for IVR generation', [
+                'episode_id' => $episode->id,
+                'user_id' => Auth::id(),
+                'manufacturer' => $validated['manufacturer_name']
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'episode_id' => $episode->id,
+                'status' => $episode->status,
+                'message' => 'Draft episode created successfully for IVR generation'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create draft episode for IVR', [
+                'user_id' => Auth::id(),
+                'manufacturer' => $validated['manufacturer_name'] ?? 'unknown',
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create draft episode: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

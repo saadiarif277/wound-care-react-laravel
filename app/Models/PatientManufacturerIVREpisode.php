@@ -51,6 +51,7 @@ class PatientManufacturerIVREpisode extends Model
     /**
      * Status constants
      */
+    const STATUS_DRAFT = 'draft';
     const STATUS_READY_FOR_REVIEW = 'ready_for_review';
     const STATUS_IVR_SENT = 'ivr_sent';
     const STATUS_IVR_VERIFIED = 'ivr_verified';
@@ -66,6 +67,7 @@ class PatientManufacturerIVREpisode extends Model
     const IVR_STATUS_SENT = 'sent';
     const IVR_STATUS_VERIFIED = 'verified';
     const IVR_STATUS_REJECTED = 'rejected';
+    const IVR_STATUS_ADMIN_REVIEWED = 'admin_reviewed';
 
     /**
      * Get the manufacturer for this episode

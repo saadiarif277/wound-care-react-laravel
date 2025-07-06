@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { AlertCircle, Bug, CheckCircle2, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
+import { DocusealForm } from '@docuseal/react';
 
 // Better TypeScript interfaces
 interface FormData {
@@ -73,10 +74,8 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
   const [, setTemplateId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const useDirectUrl = false; // Always use embedded mode
   const [integrationInfo, setIntegrationInfo] = useState<IntegrationInfo | null>(null); // Store integration details
   const [mappingProgress, setMappingProgress] = useState<string>(''); // Track AI mapping progress
-  const [debugInfo, setDebugInfo] = useState<any>(null); // Store debug info for display
   const isMountedRef = useRef(true);
   const requestInProgressRef = useRef(false);
 
@@ -167,8 +166,9 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
       // Enhanced request with FHIR integration support
       const requestData = {
-        user_email: 'limitless@mscwoundcare.com',
-        integration_email: formData.provider_email || formData.patient_email || 'patient@example.com',
+        integration_email: 'limitless@mscwoundcare.com', // Our DocuSeal account email
+        submitter_email: formData.provider_email || 'provider@example.com', // The person who will sign
+        submitter_name: formData.provider_name || 'Healthcare Provider', // The person's name
         prefill_data: formData,
         manufacturerId,
         templateId, // Direct template ID if provided
@@ -243,23 +243,6 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         console.log('Mapping Method:', response.data.mapping_method);
         console.log('Integration Type:', response.data.integration_type);
         console.groupEnd();
-
-        // Store debug info for display
-        setDebugInfo({
-          request: {
-            templateId,
-            manufacturerId,
-            documentType,
-            episodeId,
-            formDataKeys: Object.keys(formData),
-            formDataSample: {
-              patient_name: formData.patient_name,
-              physician_npi: formData.physician_npi,
-              facility_name: formData.facility_name
-            }
-          },
-          response: response.data
-        });
       }
     } catch (err: any) {
       console.error('Docuseal token fetch error:', {
@@ -307,46 +290,16 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
     };
   }, [fetchToken]);
 
-  // Enhanced embedded form logic with completion handling
-  useEffect(() => {
-    if (!token || useDirectUrl) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://cdn.docuseal.com/js/form.js';
-    script.async = true;
-    document.body.appendChild(script);
-
-    script.onload = () => {
-      const container = document.getElementById('docuseal-embed-container');
-      if (container) {
-        container.innerHTML = `<docuseal-form data-src="https://docuseal.com/s/${token}" data-minimize="true"></docuseal-form>`;
-
-        // Add event listeners for form completion
-        const docusealForm = container.querySelector('docuseal-form');
-        if (docusealForm) {
-          docusealForm.addEventListener('completed', (event: any) => {
-            console.log('Docuseal form completed:', event.detail);
-            if (onComplete) {
-              onComplete(event.detail);
-            }
-          });
-
-          docusealForm.addEventListener('save', (event: any) => {
-            console.log('Docuseal form saved:', event.detail);
-            if (onSave) {
-              onSave(event.detail);
-            }
-          });
-        }
-      }
-    };
-
-    return () => {
-      if (document.body.contains(script)) {
-        document.body.removeChild(script);
-      }
-    };
-  }, [token, useDirectUrl, onComplete, onSave]);
+  // Event handlers for the React component
+  const handleCompleted = useCallback((event: any) => {
+    console.log('Docuseal form completed:', event);
+    if (onComplete) {
+      onComplete(event);
+    }
+    if (onSave) {
+      onSave(event);
+    }
+  }, [onComplete, onSave]);
 
   if (error) {
     return (
@@ -527,27 +480,18 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
           </div>
         )}
 
-        {/* Embedded Form Container */}
+        {/* DocuSeal React Component */}
         <div className="relative">
-          <div
-            id="docuseal-embed-container"
-            className="w-full bg-white rounded-lg shadow-lg overflow-auto"
+          <DocusealForm 
+            src={`https://docuseal.com/s/${token}`}
+            onComplete={handleCompleted}
             style={{
               height: '1200px',
               width: '100%',
               maxWidth: '100%'
             }}
-          >
-            {/* Docuseal form will be inserted here */}
-          </div>
-
-          {/* Loading overlay while form loads */}
-          <div className="absolute inset-0 bg-white/50 backdrop-blur-sm flex items-center justify-center transition-opacity duration-500 pointer-events-none opacity-0" id="docuseal-loading-overlay">
-            <div className="text-center">
-              <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-3"></div>
-              <p className="text-sm text-gray-600">Loading form...</p>
-            </div>
-          </div>
+            className="w-full bg-white rounded-lg shadow-lg overflow-auto"
+          />
         </div>
       </div>
     );

@@ -29,6 +29,7 @@ Log::info('Starting FHIR test...', [
 
 // Test data for a QuickRequest
 $testData = [
+    'manufacturer_id' => 1, // Assuming 1 is a valid manufacturer ID
     'order_details' => [
         'order_type' => 'initial',
         'delivery_preference' => 'ship_to_facility',
@@ -63,6 +64,15 @@ $testData = [
         'phone' => '555-123-4567',
         'email' => 'test@example.com'
     ],
+    // Add primary insurance data
+    'primary_insurance_name' => 'Blue Cross Blue Shield',
+    'primary_member_id' => 'X123456789',
+    'primary_plan_type' => 'PPO',
+    // Add secondary insurance data
+    'has_secondary_insurance' => true,
+    'secondary_insurance_name' => 'Medicare Part B',
+    'secondary_member_id' => 'MEDICARE987654321',
+    'secondary_plan_type' => 'Government',
     'provider' => [
         'first_name' => 'Jane',
         'last_name' => 'Smith',
@@ -71,39 +81,19 @@ $testData = [
         'phone' => '555-987-6543'
     ],
     'facility' => [
-        'name' => 'Test Clinic',
-        'npi' => '0987654321',
-        'address' => [
-            'address_line1' => '456 Clinic Ave',
-            'city' => 'Test City',
-            'state' => 'TX',
-            'postalCode' => '12345'
-        ]
+        'name' => 'Test Facility',
+        'npi' => '1234567890'
     ],
     'clinical' => [
-        'diagnosis' => [
-            'primary' => 'L89.004',
-            'secondary' => ['E11.9']
-        ],
-        'woundLocation' => 'Sacrum',
-        'woundMeasurements' => [
+        'wound_location' => 'Right Foot',
+        'icd10_code' => 'S91.301A', // Laceration without foreign body, right foot, initial encounter
+        'wound_measurements' => [
             'length' => 2.5,
             'width' => 3.0,
             'depth' => 1.0
         ],
-        'woundDescription' => 'Stage 4 pressure ulcer'
+        'wound_description' => 'Stage 4 pressure ulcer'
     ],
-    'insurance' => [
-        'primary' => [
-            'payer_name' => 'Medicare',
-            'member_id' => 'MED123456',
-            'group_number' => 'GRP789',
-            'policy_type' => 'Medicare Part B',
-            'effective_date' => '2025-01-01',
-            'expiration_date' => '2025-12-31'
-        ]
-    ],
-    'manufacturer_id' => 1, // Assuming this is a valid manufacturer ID in your database
 ];
 
 try {
@@ -111,9 +101,6 @@ try {
 
     // First verify FHIR service configuration
     $fhirService = new FhirService();
-    if (!$fhirService->isAzureConfigured()) {
-        throw new RuntimeException("Azure FHIR is not properly configured!");
-    }
 
     // Check feature flags
     $featureFlags = [
@@ -133,8 +120,9 @@ try {
         }
     }
 
-    // Get the orchestrator from the container
+    // Get services from the container to ensure proper initialization
     $orchestrator = App::make(QuickRequestOrchestrator::class);
+    $fhirService = App::make(FhirService::class);
 
     echo "Creating new episode with test data...\n";
     
@@ -155,7 +143,14 @@ try {
         echo "- Practitioner: " . ($metadata['practitioner_fhir_id'] ?? 'Not created') . "\n";
         echo "- Organization: " . ($metadata['organization_fhir_id'] ?? 'Not created') . "\n";
         echo "- EpisodeOfCare: " . ($metadata['episode_of_care_fhir_id'] ?? 'Not created') . "\n";
-        echo "- Coverage: " . ($metadata['coverage_fhir_id'] ?? 'Not created') . "\n";
+        
+        // Check coverage IDs - they're stored as an array
+        $coverageIds = $metadata['coverage_ids'] ?? [];
+        if (!empty($coverageIds)) {
+            echo "- Coverage IDs: " . json_encode($coverageIds) . "\n";
+        } else {
+            echo "- Coverage: Not created\n";
+        }
         
         // Verify FHIR resources exist by trying to fetch them
         echo "\nVerifying FHIR resources...\n";
@@ -165,8 +160,12 @@ try {
             'Practitioner' => $metadata['practitioner_fhir_id'] ?? null,
             'Organization' => $metadata['organization_fhir_id'] ?? null,
             'EpisodeOfCare' => $metadata['episode_of_care_fhir_id'] ?? null,
-            'Coverage' => $metadata['coverage_fhir_id'] ?? null
         ];
+        
+        // Add coverage resources to check
+        foreach ($coverageIds as $policyType => $coverageId) {
+            $resourcesToCheck["Coverage ({$policyType})"] = $coverageId;
+        }
         
         foreach ($resourcesToCheck as $type => $id) {
             if (!$id) {

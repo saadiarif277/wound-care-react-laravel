@@ -156,9 +156,11 @@ Route::prefix('v1/order-form')->middleware(['auth:sanctum'])->group(function () 
 });
 
 // Quick Request Order Summary routes
-Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
+Route::prefix('v1/quick-request')->middleware(['web'])->group(function () {
     Route::get('order-summary/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'showOrderSummary']);
     Route::get('order-status/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'getOrderStatus']);
+    Route::post('create-draft-episode', [App\Http\Controllers\QuickRequestController::class, 'createDraftEpisode']);
+    Route::post('create-ivr-submission', [App\Http\Controllers\QuickRequestController::class, 'createIvrSubmission']);
 });
 
 // Order Review API routes

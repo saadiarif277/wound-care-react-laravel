@@ -54,7 +54,7 @@ return [
         
         // Post-op period - exact field name from Docuseal template
         'post_op_status' => 'Is this patient currently under a post-op period',
-        'previous_surgery_cpt' => 'If yes, please list CPT codes of previous surgery',
+        'previous_surgery_cpt' => 'If yes please list CPT codes of previous surgery', // Fixed field name
         'surgery_date' => 'Surgery Date',
         
         // Procedure Information
@@ -66,7 +66,6 @@ return [
         'graft_size_requested' => 'Size of Graft Requested',
         
         // ICD-10, CPT, HCPCS codes - Using exact field names from Docuseal template
-        // Updated field names with #1, #2, #3, #4 suffixes
         'icd10_code_1' => 'ICD-10 #1',
         'icd10_code_2' => 'ICD-10 #2',
         'icd10_code_3' => 'ICD-10 #3',
@@ -75,8 +74,10 @@ return [
         'cpt_code_2' => 'CPT #2',
         'cpt_code_3' => 'CPT #3',
         'cpt_code_4' => 'CPT #4',
-        'hcpcs_code_1' => 'HCPCS #1'
-        // Removed optional HCPCS #2, #3, #4 fields per user request
+        'hcpcs_code_1' => 'HCPCS #1',
+        'hcpcs_code_2' => 'HCPCS #2',  // Added missing fields
+        'hcpcs_code_3' => 'HCPCS #3',
+        'hcpcs_code_4' => 'HCPCS #4',
     ],
     
     // Order form field mappings using exact Docuseal field names
