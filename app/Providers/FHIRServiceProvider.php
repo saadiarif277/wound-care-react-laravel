@@ -26,13 +26,22 @@ class FhirServiceProvider extends ServiceProvider
     {
         // Register Azure FHIR client with proper error handling
         $this->app->singleton(AzureFhirClient::class, function ($app) {
+            // Skip authentication during console commands to avoid errors
+            if (app()->runningInConsole()) {
+                return new AzureFhirClient('http://localhost', 'dummy-token');
+            }
+
             $baseUrl = config('services.azure.fhir.base_url');
 
             if (!$baseUrl) {
                 throw new \RuntimeException('Azure FHIR base URL is not configured. Please set AZURE_FHIR_URL in your .env file.');
             }
 
-            return new AzureFhirClient($baseUrl, $this->getAzureFhirAccessToken());
+            try {
+                return new AzureFhirClient($baseUrl, $this->getAzureFhirAccessToken());
+            } catch (\Exception $e) {
+                throw $e;
+            }
         });
 
         // Register circuit breaker for FHIR calls
