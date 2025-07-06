@@ -344,6 +344,7 @@ final class ProductRequestController extends Controller
             'provider', 
             'facility', 
             'products.manufacturer',
+            'products.sizes',
             'episode'
         ]);
         
@@ -445,6 +446,10 @@ final class ProductRequestController extends Controller
                         $clinicalSummary['clinical']['woundSizeLength'] . ' x ' . $clinicalSummary['clinical']['woundSizeWidth'] . 'cm' : 'N/A',
                     'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) && is_array($clinicalSummary['clinical']['applicationCptCodes']) ? 
                         implode(', ', $clinicalSummary['clinical']['applicationCptCodes']) : 'N/A',
+                    'diagnosisCodes' => isset($clinicalSummary['clinical']['diagnosis_codes']) && is_array($clinicalSummary['clinical']['diagnosis_codes']) ? 
+                        $clinicalSummary['clinical']['diagnosis_codes'] : [],
+                    'primaryDiagnosis' => isset($clinicalSummary['clinical']['diagnosis_codes'][0]) ? 
+                        $clinicalSummary['clinical']['diagnosis_codes'][0] : 'N/A',
                     'serviceDate' => $productRequest->expected_service_date?->format('Y-m-d'),
                     'placeOfService' => $productRequest->place_of_service ?? '11',
                     'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,

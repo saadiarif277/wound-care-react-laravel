@@ -143,9 +143,18 @@ export default function ProviderOrdersDashboard({
       <Head title="Orders Dashboard" />
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className={`text-2xl font-bold ${t.text.primary}`}>Orders Dashboard</h1>
-          <p className={`text-sm ${t.text.secondary}`}>Manage and track your patient orders</p>
+        <div className="mb-8 flex justify-between items-start">
+          <div>
+            <h1 className={`text-2xl font-bold ${t.text.primary}`}>Orders Dashboard</h1>
+            <p className={`text-sm ${t.text.secondary}`}>Manage and track your patient orders</p>
+          </div>
+          <Link
+            href={route('quick-requests.create-new')}
+            className={`${t.button.primary} px-4 py-2 rounded-lg shadow-lg flex items-center gap-2`}
+          >
+            <Plus className="w-5 h-5" />
+            <span>New Request</span>
+          </Link>
         </div>
 
         {/* Stats Grid */}
@@ -263,16 +272,6 @@ export default function ProviderOrdersDashboard({
           </div>
         )}
 
-        {/* Action Button */}
-        <div className="fixed bottom-6 right-6">
-          <Link
-            href={route('quick-requests.create-new')}
-            className={`${t.button.primary} p-4 rounded-full shadow-lg flex items-center gap-2`}
-          >
-            <Plus className="w-6 h-6" />
-            <span className="hidden sm:inline">New Request</span>
-          </Link>
-        </div>
       </div>
     </MainLayout>
   );

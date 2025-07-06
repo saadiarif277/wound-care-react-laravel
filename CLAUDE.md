@@ -232,3 +232,9 @@ The application supports Azure deployment with:
 - Azure Health Data Services (FHIR)
 - Azure Storage for documents
 - Azure Key Vault for secrets
+```
+
+## Project Terminology
+
+- **Product Request**: Term used on the provider/office manager side
+- **Order**: Corresponding term used on the admin side

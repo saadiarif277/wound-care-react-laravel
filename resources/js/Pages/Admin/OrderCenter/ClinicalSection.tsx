@@ -58,10 +58,17 @@ const ClinicalSection: React.FC<ClinicalSectionProps> = ({
         </div>
         <div>
           <h4 className="font-medium text-sm mb-2">Diagnosis Codes:</h4>
-          <div className="text-sm bg-muted/50 p-2 rounded mb-1">
-            <div className="font-medium">E11.621</div>
-            <div className="text-muted-foreground">Type 2 diabetes with foot ulcer</div>
-          </div>
+          {orderData.clinical?.diagnosisCodes && orderData.clinical.diagnosisCodes.length > 0 ? (
+            orderData.clinical.diagnosisCodes.map((code: string, index: number) => (
+              <div key={index} className="text-sm bg-muted/50 p-2 rounded mb-1">
+                <div className="font-medium">{code}</div>
+              </div>
+            ))
+          ) : (
+            <div className="text-sm bg-muted/50 p-2 rounded mb-1">
+              <div className="font-medium">{orderData.clinical?.primaryDiagnosis || 'N/A'}</div>
+            </div>
+          )}
         </div>
       </div>
     </div>

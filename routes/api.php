@@ -190,6 +190,14 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
         Route::post('/clear-cache', [ManufacturerController::class, 'clearCache'])
             ->name('api.manufacturers.clear-cache');
     });
+
+    // Product API routes
+    Route::prefix('products')->group(function () {
+        Route::get('/with-sizes', [\App\Http\Controllers\Api\ProductDataController::class, 'getProductsWithSizes'])
+            ->name('api.products.with-sizes');
+        Route::get('/{productId}/sizes', [\App\Http\Controllers\Api\ProductDataController::class, 'getProductWithSizes'])
+            ->name('api.products.sizes');
+    });
 });
 
 // MAC Validation & Eligibility Routes (Public with Rate Limiting)

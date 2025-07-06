@@ -1157,12 +1157,6 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
 
 // FHIR routes moved to api.php to avoid duplicate route names
 
-// Docuseal debug routes (remove in production)
-Route::prefix('docuseal-debug')->middleware(['auth'])->group(function () {
-    Route::get('/test', [\App\Http\Controllers\DocusealDebugController::class, 'debug'])
-        ->name('docuseal.debug');
-    // Debug routes removed - functionality moved to main services
-});
 
 // Docuseal API Test Route (remove in production)
 Route::get('/test-docuseal-connection', function () {

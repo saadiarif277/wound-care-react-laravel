@@ -529,8 +529,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
   return (
     <MainLayout>
       <Head title={`Order Details - ${order.order_number}`} />
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-        <div className="container mx-auto px-4 py-8 max-w-6xl">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <button
@@ -689,7 +688,6 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             </div>
           )}
         </div>
-      </div>
     </MainLayout>
   );
 };

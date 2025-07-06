@@ -110,6 +110,9 @@ class OrderCenterController extends Controller
         $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
             ->findOrFail($orderId);
 
+        // Get clinical summary data which contains all submitted form data
+        $clinicalSummary = $order->clinical_summary ?? [];
+        
         // Transform order data for display
         $orderData = [
             'id' => $order->id,
@@ -130,10 +133,86 @@ class OrderCenterController extends Controller
             'docuseal_submission_id' => $order->episode->docuseal_submission_id ?? null,
         ];
 
+        // Extract detailed order data from clinical summary
+        $detailedOrderData = [
+            'patient' => [
+                'name' => $order->patient_display_id ?? 'Unknown Patient',
+                'dob' => $clinicalSummary['patient']['dateOfBirth'] ?? null,
+                'gender' => $clinicalSummary['patient']['gender'] ?? null,
+                'phone' => $clinicalSummary['patient']['phone'] ?? null,
+                'address' => isset($clinicalSummary['patient']['address']) ? 
+                    implode(', ', array_filter([
+                        $clinicalSummary['patient']['address']['street'] ?? '',
+                        $clinicalSummary['patient']['address']['city'] ?? '',
+                        $clinicalSummary['patient']['address']['state'] ?? '',
+                        $clinicalSummary['patient']['address']['zipCode'] ?? ''
+                    ])) : null,
+                'insurance' => [
+                    'primary' => isset($clinicalSummary['insurance']['primaryName']) ? 
+                        ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['primaryMemberId'] ?? 'N/A') : 'N/A',
+                    'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
+                        ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['secondaryMemberId'] ?? 'N/A') : 'N/A',
+                ],
+            ],
+            'product' => [
+                'name' => $order->product_name ?? 'Unknown Product',
+                'code' => $order->products->isNotEmpty() ? ($order->products->first()->sku ?? $order->products->first()->code ?? 'N/A') : 'N/A',
+                'quantity' => $order->products->isNotEmpty() ? ($order->products->first()->pivot->quantity ?? 1) : 1,
+                'size' => $clinicalSummary['productSize'] ?? 'N/A',
+                'category' => $order->products->isNotEmpty() ? ($order->products->first()->category ?? 'N/A') : 'N/A',
+                'manufacturer' => $order->manufacturer ?? 'Unknown Manufacturer',
+                'shippingInfo' => [
+                    'speed' => $order->shipping_speed ?? 'Standard',
+                    'address' => $order->shipping_address ?? ($order->facility->address ?? 'N/A'),
+                ],
+            ],
+            'forms' => [
+                'consent' => $clinicalSummary['forms']['consent'] ?? false,
+                'assignmentOfBenefits' => $clinicalSummary['forms']['assignmentOfBenefits'] ?? false,
+                'medicalNecessity' => $clinicalSummary['forms']['medicalNecessity'] ?? false,
+            ],
+            'clinical' => [
+                'woundType' => $clinicalSummary['clinical']['woundType'] ?? 'N/A',
+                'location' => $clinicalSummary['clinical']['woundLocation'] ?? 'N/A',
+                'size' => $clinicalSummary['clinical']['woundSize'] ?? 'N/A',
+                'cptCodes' => $clinicalSummary['clinical']['cptCode'] ?? 'N/A',
+                'placeOfService' => $clinicalSummary['clinical']['placeOfService'] ?? 'N/A',
+                'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,
+                'primaryDiagnosis' => $clinicalSummary['clinical']['primaryDiagnosis'] ?? 'N/A',
+                'diagnosisCodes' => $clinicalSummary['clinical']['diagnosisCodes'] ?? [],
+            ],
+            'provider' => [
+                'name' => $order->provider->name ?? 'Unknown Provider',
+                'npi' => $order->provider->npi ?? 'N/A',
+                'facility' => $order->facility->name ?? 'Unknown Facility',
+            ],
+            'submission' => [
+                'informationAccurate' => $clinicalSummary['submission']['informationAccurate'] ?? false,
+                'documentationMaintained' => $clinicalSummary['submission']['documentationMaintained'] ?? false,
+                'authorizePriorAuth' => $clinicalSummary['submission']['authorizePriorAuth'] ?? false,
+            ],
+        ];
+
+        // Get role restrictions
+        $user = Auth::user();
+        $roleRestrictions = [
+            'can_view_financials' => $user->can('view-financials'),
+            'can_see_discounts' => $user->can('view-discounts'),
+            'can_see_msc_pricing' => $user->can('view-msc-pricing'),
+            'can_see_order_totals' => $user->can('view-order-totals'),
+            'can_see_commission' => $user->can('view-commission'),
+            'pricing_access_level' => 'full',
+            'commission_access_level' => 'full',
+        ];
+
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
             'order' => $orderData,
-            'can_update_status' => Auth::user()->can('update-order-status'),
-            'can_view_ivr' => Auth::user()->can('view-ivr-documents'),
+            'orderData' => $detailedOrderData,
+            'can_update_status' => $user->can('update-order-status'),
+            'can_view_ivr' => $user->can('view-ivr-documents'),
+            'userRole' => $user->getPrimaryRole()->slug === 'provider' ? 'Provider' : 
+                        ($user->getPrimaryRole()->slug === 'office-manager' ? 'OM' : 'Admin'),
+            'roleRestrictions' => $roleRestrictions,
         ]);
     }
 

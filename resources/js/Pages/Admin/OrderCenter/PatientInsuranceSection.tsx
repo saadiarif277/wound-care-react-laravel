@@ -54,10 +54,6 @@ const PatientInsuranceSection: React.FC<PatientInsuranceSectionProps> = ({
       <div className="space-y-1">
         <InfoRow label="Primary Insurance" value={orderData.patient?.insurance?.primary || 'N/A'} />
         <InfoRow label="Secondary Insurance" value={orderData.patient?.insurance?.secondary || 'N/A'} />
-        <div className="flex justify-between items-center py-2">
-          <span className="font-medium text-sm">Insurance Card:</span>
-          <span className="text-sm text-green-600">Uploaded</span>
-        </div>
       </div>
     </div>
   </SectionCard>
