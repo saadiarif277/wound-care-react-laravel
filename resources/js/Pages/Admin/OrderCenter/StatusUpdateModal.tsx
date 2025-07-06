@@ -18,6 +18,7 @@ interface StatusUpdateData {
   rejectionReason?: string;
   cancellationReason?: string;
   sendNotification: boolean;
+  notificationDocuments?: File[];
   carrier?: string;
   trackingNumber?: string;
 }
@@ -35,6 +36,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
   const [cancellationReason, setCancellationReason] = useState('');
   const [sendNotification, setSendNotification] = useState(true);
+  const [notificationDocuments, setNotificationDocuments] = useState<File[]>([]);
   const [carrier, setCarrier] = useState('');
   const [trackingNumber, setTrackingNumber] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -111,8 +113,9 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
         rejectionReason: newStatus === 'Rejected' ? rejectionReason : undefined,
         cancellationReason: newStatus === 'Canceled' ? cancellationReason : undefined,
         sendNotification,
-        carrier: (newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') ? carrier : undefined,
-        trackingNumber: (newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') ? trackingNumber : undefined,
+        notificationDocuments: sendNotification ? notificationDocuments : undefined,
+        carrier: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? carrier : undefined,
+        trackingNumber: (newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') ? trackingNumber : undefined,
       };
 
       await onConfirm(updateData);
@@ -129,6 +132,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
     setRejectionReason('');
     setCancellationReason('');
     setSendNotification(true);
+    setNotificationDocuments([]);
     setCarrier('');
     setTrackingNumber('');
     setError('');
@@ -194,6 +198,45 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
             </div>
           )}
 
+          {/* Notification Options */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="sendNotification"
+                checked={sendNotification}
+                onChange={(e) => setSendNotification(e.target.checked)}
+                className="rounded"
+              />
+              <label htmlFor="sendNotification" className="text-sm font-medium text-gray-700">
+                Send notification to Provider/OM
+              </label>
+            </div>
+
+            {sendNotification && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">
+                  Upload Documents (Optional)
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setNotificationDocuments(files);
+                  }}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-700"
+                />
+                {notificationDocuments.length > 0 && (
+                  <div className="text-xs text-gray-600">
+                    {notificationDocuments.length} file(s) selected
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Comments */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -209,7 +252,7 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
           </div>
 
           {/* Shipping Information for Manufacturer Submission and Confirmed Orders */}
-          {(newStatus === 'Submitted to Manufacturer' || newStatus === 'Confirmed by Manufacturer') && (
+          {(newStatus === 'submitted_to_manufacturer' || newStatus === 'confirmed_by_manufacturer') && (
             <div className="space-y-3">
               <h3 className="font-medium text-gray-900">Shipping Information</h3>
               <div className="grid grid-cols-2 gap-3">
@@ -236,20 +279,6 @@ const StatusUpdateModal: React.FC<StatusUpdateModalProps> = ({
               </div>
             </div>
           )}
-
-          {/* Notification Options */}
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              id="sendNotification"
-              checked={sendNotification}
-              onChange={(e) => setSendNotification(e.target.checked)}
-              className="rounded"
-            />
-            <label htmlFor="sendNotification" className="text-sm text-gray-700">
-              Send notification to Provider/OM
-            </label>
-          </div>
 
           {/* Error Message */}
           {error && (

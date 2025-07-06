@@ -176,7 +176,7 @@ final class QuickRequestService
         }
 
         return $query
-            ->with('activeSizes') // Load the ProductSize relationship
+            ->with(['activeSizes', 'manufacturer']) // Load both ProductSize and Manufacturer relationships
             ->orderBy('price_per_sq_cm', 'desc') // Sort by highest ASP first
             ->get()
             ->map(function($product) {
@@ -203,7 +203,7 @@ final class QuickRequestService
                     'id' => $product->id,
                     'code' => $product->q_code,
                     'name' => $product->name,
-                    'manufacturer' => $product->manufacturer,
+                    'manufacturer' => is_object($product->manufacturer) ? $product->manufacturer->name : $product->manufacturer,
                     'manufacturer_id' => $product->manufacturer_id,
                     'available_sizes' => $availableSizes, // Numeric sizes for backward compatibility
                     'size_options' => $sizeOptions, // Actual size labels like "2x2cm", "4x4cm"

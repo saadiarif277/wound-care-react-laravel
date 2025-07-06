@@ -19,7 +19,8 @@ class EmailNotificationService
         string $previousStatus,
         string $newStatus,
         string $changedBy,
-        ?string $notes = null
+        ?string $notes = null,
+        ?array $notificationDocuments = null
     ): bool {
         try {
             // Get notification recipients

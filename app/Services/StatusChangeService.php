@@ -43,7 +43,8 @@ class StatusChangeService
                     $previousStatus,
                     $newStatus,
                     $changedBy,
-                    $notes
+                    $notes,
+                    $metadata['notification_documents'] ?? null
                 );
             }
 

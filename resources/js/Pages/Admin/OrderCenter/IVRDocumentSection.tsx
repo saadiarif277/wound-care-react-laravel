@@ -143,8 +143,8 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         'Rejected': 'rejected',
         'Pending': 'pending',
         'N/A': 'n/a',
-        'Submitted to Manufacturer': 'submitted_to_manufacturer',
-        'Confirmed by Manufacturer': 'confirmed_by_manufacturer',
+        'submitted_to_manufacturer': 'submitted_to_manufacturer',
+        'confirmed_by_manufacturer': 'confirmed_by_manufacturer',
         'Canceled': 'canceled',
       };
 
