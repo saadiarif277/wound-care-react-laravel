@@ -11,7 +11,7 @@ use Exception;
 
 /**
  * Azure AI Foundry Service for intelligent form translation and field mapping
- * 
+ *
  * Uses Azure OpenAI to intelligently map between different form formats,
  * reducing the need for static field mappings and handling variations automatically.
  */
@@ -24,8 +24,23 @@ final class AzureFoundryService
 
     public function __construct()
     {
-        $this->endpoint = config('azure.ai_foundry.endpoint');
-        $this->apiKey = config('azure.ai_foundry.api_key');
+        $endpoint = config('azure.ai_foundry.endpoint');
+        $apiKey = config('azure.ai_foundry.api_key');
+
+        if (empty($endpoint)) {
+            throw new \InvalidArgumentException(
+                'Azure AI Foundry endpoint is not configured. Please set AZURE_OPENAI_ENDPOINT in your .env file.'
+            );
+        }
+
+        if (empty($apiKey)) {
+            throw new \InvalidArgumentException(
+                'Azure AI Foundry API key is not configured. Please set AZURE_OPENAI_API_KEY in your .env file.'
+            );
+        }
+
+        $this->endpoint = $endpoint;
+        $this->apiKey = $apiKey;
         $this->deploymentName = config('azure.ai_foundry.deployment_name', 'gpt-4o');
         $this->apiVersion = config('azure.ai_foundry.api_version', '2024-02-15-preview');
     }
@@ -41,7 +56,7 @@ final class AzureFoundryService
         array $options = []
     ): array {
         $cacheKey = $this->generateCacheKey('translate', $sourceData, $targetSchema);
-        
+
         if ($options['use_cache'] ?? true) {
             $cached = Cache::get($cacheKey);
             if ($cached) {
@@ -51,7 +66,7 @@ final class AzureFoundryService
         }
 
         $prompt = $this->buildTranslationPrompt($sourceData, $targetSchema, $sourceContext, $targetContext);
-        
+
         try {
             $response = $this->callAzureOpenAI([
                 'messages' => [
@@ -70,7 +85,7 @@ final class AzureFoundryService
             ]);
 
             $result = $this->parseTranslationResponse($response);
-            
+
             // Cache successful translations
             if ($options['use_cache'] ?? true) {
                 Cache::put($cacheKey, $result, now()->addHours(24));
@@ -98,7 +113,7 @@ final class AzureFoundryService
         array $context = []
     ): array {
         $prompt = $this->buildFhirMappingPrompt($fhirData, $docuSealFields, $manufacturerName, $context);
-        
+
         try {
             $response = $this->callAzureOpenAI([
                 'messages' => [
@@ -138,7 +153,7 @@ final class AzureFoundryService
         string $context = ''
     ): array {
         $prompt = $this->buildExtractionPrompt($unstructuredText, $targetSchema, $context);
-        
+
         try {
             $response = $this->callAzureOpenAI([
                 'messages' => [
@@ -177,7 +192,7 @@ final class AzureFoundryService
         string $context = ''
     ): array {
         $prompt = $this->buildValidationPrompt($formData, $validationRules, $context);
-        
+
         try {
             $response = $this->callAzureOpenAI([
                 'messages' => [
@@ -216,7 +231,7 @@ final class AzureFoundryService
         string $context = ''
     ): array {
         $prompt = $this->buildSuggestionPrompt($sourceFields, $targetFields, $sampleData, $context);
-        
+
         try {
             $response = $this->callAzureOpenAI([
                 'messages' => [
@@ -254,13 +269,13 @@ final class AzureFoundryService
         // Ensure endpoint doesn't have trailing slash
         $endpoint = rtrim($this->endpoint, '/');
         $url = "{$endpoint}/openai/deployments/{$this->deploymentName}/chat/completions?api-version={$this->apiVersion}";
-        
+
         Log::debug('Azure OpenAI API call', [
             'url' => $url,
             'deployment' => $this->deploymentName,
             'api_version' => $this->apiVersion
         ]);
-        
+
         $response = Http::withHeaders([
             'api-key' => $this->apiKey,
             'Content-Type' => 'application/json',
@@ -312,7 +327,7 @@ final class AzureFoundryService
     ): string {
         $sourceJson = json_encode($sourceData, JSON_PRETTY_PRINT);
         $targetJson = json_encode($targetSchema, JSON_PRETTY_PRINT);
-        
+
         return "
 TASK: Translate form data from source format to target format.
 
@@ -365,7 +380,7 @@ RESPONSE FORMAT:
         $fhirJson = json_encode($fhirData, JSON_PRETTY_PRINT);
         $fieldsJson = json_encode($docuSealFields, JSON_PRETTY_PRINT);
         $contextJson = json_encode($context, JSON_PRETTY_PRINT);
-        
+
         return "
 TASK: Map FHIR R4 healthcare data to Docuseal form fields for {$manufacturerName}.
 
@@ -418,7 +433,7 @@ RESPONSE FORMAT:
         string $context
     ): string {
         $schemaJson = json_encode($targetSchema, JSON_PRETTY_PRINT);
-        
+
         return "
 TASK: Extract structured data from unstructured medical text.
 
@@ -461,7 +476,7 @@ RESPONSE FORMAT:
     ): string {
         $dataJson = json_encode($formData, JSON_PRETTY_PRINT);
         $rulesJson = json_encode($validationRules, JSON_PRETTY_PRINT);
-        
+
         return "
 TASK: Validate medical form data and suggest corrections.
 
@@ -516,7 +531,7 @@ RESPONSE FORMAT:
         $sourceJson = json_encode($sourceFields, JSON_PRETTY_PRINT);
         $targetJson = json_encode($targetFields, JSON_PRETTY_PRINT);
         $sampleJson = json_encode($sampleData, JSON_PRETTY_PRINT);
-        
+
         return "
 TASK: Suggest intelligent field mappings between source and target forms.
 
@@ -569,7 +584,7 @@ RESPONSE FORMAT:
     {
         $content = $response['choices'][0]['message']['content'] ?? '';
         $data = json_decode($content, true);
-        
+
         if (!$data) {
             throw new Exception("Invalid JSON response from Azure AI");
         }
@@ -589,7 +604,7 @@ RESPONSE FORMAT:
     {
         $content = $response['choices'][0]['message']['content'] ?? '';
         $data = json_decode($content, true);
-        
+
         if (!$data) {
             throw new Exception("Invalid JSON response from Azure AI");
         }
@@ -609,7 +624,7 @@ RESPONSE FORMAT:
     {
         $content = $response['choices'][0]['message']['content'] ?? '';
         $data = json_decode($content, true);
-        
+
         if (!$data) {
             throw new Exception("Invalid JSON response from Azure AI");
         }
@@ -628,7 +643,7 @@ RESPONSE FORMAT:
     {
         $content = $response['choices'][0]['message']['content'] ?? '';
         $data = json_decode($content, true);
-        
+
         if (!$data) {
             throw new Exception("Invalid JSON response from Azure AI");
         }
@@ -648,7 +663,7 @@ RESPONSE FORMAT:
     {
         $content = $response['choices'][0]['message']['content'] ?? '';
         $data = json_decode($content, true);
-        
+
         if (!$data) {
             throw new Exception("Invalid JSON response from Azure AI");
         }

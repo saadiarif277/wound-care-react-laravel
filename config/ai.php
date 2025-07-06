@@ -37,8 +37,8 @@ return [
 
     'providers' => [
         'azure' => [
-            'endpoint' => env('AZURE_OPENAI_ENDPOINT'),
-            'api_key' => env('AZURE_OPENAI_API_KEY'),
+            'endpoint' => env('AZURE_OPENAI_ENDPOINT','https://msc-ai-services.openai.azure.com/'),
+            'api_key' => env('AZURE_OPENAI_API_KEY','CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P'),
             'deployment' => env('AZURE_OPENAI_DEPLOYMENT', 'gpt-4'),
             'api_version' => env('AZURE_OPENAI_API_VERSION', '2023-12-01-preview'),
         ],

@@ -16,7 +16,7 @@ interface IVRSectionProps {
     notes?: string;
     resultsFileUrl?: string;
   };
-  onUpdateIVRStatus: (status: string, notes?: string) => void;
+  onUpdateIVRStatus: (status: string, notes?: string, sendNotification?: boolean, documents?: File[]) => void;
   onUploadIVRResults: (file: File) => void;
   onGenerateIVR: () => void;
 }
@@ -32,6 +32,8 @@ const IVRSection: React.FC<IVRSectionProps> = ({
   const [newStatus, setNewStatus] = useState<string>(ivrData.status);
   const [notes, setNotes] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [sendNotification, setSendNotification] = useState(false);
+  const [notificationDocuments, setNotificationDocuments] = useState<File[]>([]);
 
   const getStatusColor = (status: string): string => {
     switch (status) {
@@ -45,9 +47,16 @@ const IVRSection: React.FC<IVRSectionProps> = ({
   };
 
   const handleStatusUpdate = () => {
-    onUpdateIVRStatus(newStatus, notes);
+    onUpdateIVRStatus(
+      newStatus,
+      notes,
+      sendNotification,
+      sendNotification ? notificationDocuments : undefined
+    );
     setShowStatusModal(false);
     setNotes('');
+    setSendNotification(false);
+    setNotificationDocuments([]);
   };
 
   const handleUploadResults = () => {
@@ -150,6 +159,44 @@ const IVRSection: React.FC<IVRSectionProps> = ({
                 <option value="Verified">Verified</option>
               </select>
             </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="send-notification"
+                  checked={sendNotification}
+                  onChange={(e) => setSendNotification(e.target.checked)}
+                  className="rounded border-gray-300"
+                />
+                <Label htmlFor="send-notification" className="text-sm font-medium">
+                  Send notification to Provider/OM
+                </Label>
+              </div>
+            </div>
+
+            {sendNotification && (
+              <div className="space-y-2">
+                <Label htmlFor="notification-documents">Upload Documents (optional)</Label>
+                <input
+                  id="notification-documents"
+                  type="file"
+                  multiple
+                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []);
+                    setNotificationDocuments(files);
+                  }}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                />
+                {notificationDocuments.length > 0 && (
+                  <div className="text-xs text-gray-600">
+                    {notificationDocuments.length} file(s) selected
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="status-notes">Notes (optional)</Label>
               <Textarea

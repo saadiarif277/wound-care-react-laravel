@@ -176,25 +176,25 @@ final class QuickRequestService
         }
 
         return $query
-            ->with('activeSizes') // Load the ProductSize relationship
+            ->with(['activeSizes', 'manufacturer']) // Load both ProductSize and Manufacturer relationships
             ->orderBy('price_per_sq_cm', 'desc') // Sort by highest ASP first
             ->get()
             ->map(function($product) {
                 // Get sizes from ProductSize relationship
                 $productSizes = $product->activeSizes;
-                
+
                 // Format sizes for frontend
                 $availableSizes = [];
                 $sizeOptions = [];
                 $sizePricing = [];
-                
+
                 foreach ($productSizes as $size) {
                     // Add the display label (e.g., "2x2cm", "4x4cm")
                     $sizeOptions[] = $size->size_label;
-                    
+
                     // Add to size pricing mapping
                     $sizePricing[$size->size_label] = $size->area_cm2;
-                    
+
                     // For backward compatibility, also add numeric sizes
                     $availableSizes[] = $size->area_cm2;
                 }
@@ -203,7 +203,7 @@ final class QuickRequestService
                     'id' => $product->id,
                     'code' => $product->q_code,
                     'name' => $product->name,
-                    'manufacturer' => $product->manufacturer,
+                    'manufacturer' => is_object($product->manufacturer) ? $product->manufacturer->name : $product->manufacturer,
                     'manufacturer_id' => $product->manufacturer_id,
                     'available_sizes' => $availableSizes, // Numeric sizes for backward compatibility
                     'size_options' => $sizeOptions, // Actual size labels like "2x2cm", "4x4cm"
@@ -212,8 +212,8 @@ final class QuickRequestService
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
                     'msc_price' => $product->msc_price ?? null,
                     'commission_rate' => $product->commission_rate ?? null,
-                    'docuseal_template_id' => $product->manufacturer->docuseal_order_form_template_id ?? null,
-                    'signature_required' => $product->manufacturer->signature_required ?? false,
+                    'docuseal_template_id' => $product->manufacturer?->docuseal_order_form_template_id ?? null,
+                    'signature_required' => $product->manufacturer?->signature_required ?? false,
                 ];
             });
     }

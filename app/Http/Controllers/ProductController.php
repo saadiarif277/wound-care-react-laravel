@@ -48,7 +48,7 @@ class ProductController extends Controller
         // Get statistics
         $stats = $this->productRepository->getRepositoryStats();
         $onboardedProductsCount = 0;
-        
+
         if ($user->hasRole('provider')) {
             $onboardedProductsCount = $this->productRepository->providerHasOnboardedProducts($user) ? 1 : 0; // Simplified for now
         }
@@ -180,15 +180,15 @@ class ProductController extends Controller
         if (!empty($filters['onboarded_q_codes'])) {
             // This handles the case where frontend passes specific Q-codes to filter by
             $products = $this->productRepository->getProviderProducts($user, $filters);
-            
+
             if ($products->isEmpty()) {
                 $providerHasNoProducts = true;
             }
-        } 
+        }
         // Handle provider-specific product filtering based on their role
         else if ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
             $products = $this->productRepository->getProviderProducts($user, $filters);
-            
+
             if ($products->isEmpty()) {
                 $providerHasNoProducts = true;
             }
@@ -297,15 +297,15 @@ class ProductController extends Controller
         if (!empty($filters['onboarded_q_codes'])) {
             // This handles the case where frontend passes specific Q-codes to filter by
             $products = $this->productRepository->getProviderProducts($user, $filters);
-            
+
             if ($products->isEmpty()) {
                 $providerHasNoProducts = true;
             }
-        } 
+        }
         // Handle provider-specific product filtering based on their role
         else if ($user->hasRole('provider') && !$request->boolean('show_all', false)) {
             $products = $this->productRepository->getProviderProducts($user, $filters);
-            
+
             if ($products->isEmpty()) {
                 $providerHasNoProducts = true;
             }
@@ -496,7 +496,7 @@ class ProductController extends Controller
             // For non-admins, remove raw MUE value
             unset($productArray['mue']);
         }
-        
+
         // Always remove cms_last_updated for non-admins
         if (!$user->hasPermission('manage-products')) {
             unset($productArray['cms_last_updated']);
@@ -585,19 +585,19 @@ class ProductController extends Controller
         $products->getCollection()->transform(function ($product) {
             // Get sizes from ProductSize relationship
             $productSizes = $product->activeSizes()->get();
-            
+
             // Format sizes for frontend
             $availableSizes = [];
             $sizeOptions = [];
             $sizePricing = [];
-            
+
             foreach ($productSizes as $size) {
                 // Add the display label (e.g., "2x2cm", "4x4cm")
                 $sizeOptions[] = $size->size_label;
-                
+
                 // Add to size pricing mapping
                 $sizePricing[$size->size_label] = $size->area_cm2;
-                
+
                 // For backward compatibility, also add numeric sizes
                 $availableSizes[] = $size->area_cm2;
             }
@@ -606,7 +606,7 @@ class ProductController extends Controller
                 'id' => $product->id,
                 'sku' => $product->sku,
                 'name' => $product->name,
-                'manufacturer' => $product->manufacturer,
+                'manufacturer' => is_object($product->manufacturer) ? $product->manufacturer->name : $product->manufacturer,
                 'category' => $product->category,
                 'q_code' => $product->q_code,
                 'national_asp' => $product->national_asp,
@@ -619,8 +619,8 @@ class ProductController extends Controller
                 'size_unit' => 'cm', // Default to cm for wound care products
                 'graphSizes' => $availableSizes, // Keep for backward compatibility
                 'has_onboarding' => $product->manufacturer_requires_onboarding ?? false,
-                'signature_required' => $product->manufacturer->signature_required ?? false,
-                'docuseal_template_id' => $product->manufacturer->docuseal_order_form_template_id,
+                'signature_required' => $product->manufacturer?->signature_required ?? false,
+                'docuseal_template_id' => $product->manufacturer?->docuseal_order_form_template_id ?? null,
             ];
         });
 
@@ -659,17 +659,17 @@ class ProductController extends Controller
         ]);
 
         $validation = $product->validateOrderQuantity($validated['quantity']);
-        
+
         /** @var \App\Models\User $user */
         $user = Auth::user();
-        
+
         $response = [
             'valid' => $validation['valid'],
             'warnings' => $validation['warnings'],
             'errors' => $validation['errors'],
             'has_limits' => $product->hasMueEnforcement()
         ];
-        
+
         // Only expose the actual MUE limit to admin users
         if ($user && $user->hasPermission('manage-products')) {
             $response['max_allowed'] = $product->getMaxAllowedQuantity();

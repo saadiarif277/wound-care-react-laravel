@@ -749,6 +749,12 @@ class OrderCenterController extends Controller
         $carrier = $request->input('carrier');
         $trackingNumber = $request->input('tracking_number');
 
+        // Handle notification documents
+        $notificationDocuments = [];
+        if ($sendNotification && $request->hasFile('notification_documents')) {
+            $notificationDocuments = $request->file('notification_documents');
+        }
+
         // Validate status change based on type
         $validIVRStatuses = ['pending', 'sent', 'verified', 'rejected', 'n/a'];
         $validOrderStatuses = [
@@ -816,7 +822,8 @@ class OrderCenterController extends Controller
                         $previousStatus,
                         $newStatus,
                         $changedBy,
-                        $notes
+                        $notes,
+                        $notificationDocuments
                     );
                 } catch (Exception $e) {
                     Log::warning('Failed to send notification', [
@@ -953,7 +960,7 @@ class OrderCenterController extends Controller
                         'dob' => $resource['birthDate'] ?? null,
                         'gender' => $resource['gender'] ?? null,
                         'phone' => $resource['telecom'][0]['value'] ?? null,
-                        'address' => isset($resource['address'][0]) ? 
+                        'address' => isset($resource['address'][0]) ?
                             implode(', ', array_filter([
                                 $resource['address'][0]['line'][0] ?? '',
                                 $resource['address'][0]['city'] ?? '',
@@ -985,18 +992,18 @@ class OrderCenterController extends Controller
 
         // Get clinical summary data which contains all submitted form data
         $clinicalSummary = $order->clinical_summary ?? [];
-        
+
         // Extract patient insurance data from clinical summary
         $insuranceData = null;
         if (isset($clinicalSummary['insurance'])) {
             $insuranceData = [
-                'primary' => isset($clinicalSummary['insurance']['primaryName']) ? 
+                'primary' => isset($clinicalSummary['insurance']['primaryName']) ?
                     ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['primaryMemberId'] ?? 'N/A') : 'N/A',
-                'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
+                'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ?
                     ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['secondaryMemberId'] ?? 'N/A') : 'N/A',
             ];
         }
-        
+
         return response()->json([
             'success' => true,
             'order' => [
@@ -1015,7 +1022,7 @@ class OrderCenterController extends Controller
                 'dob' => $clinicalSummary['patient']['dateOfBirth'] ?? null,
                 'gender' => $clinicalSummary['patient']['gender'] ?? null,
                 'phone' => $clinicalSummary['patient']['phone'] ?? null,
-                'address' => isset($clinicalSummary['patient']['address']) ? 
+                'address' => isset($clinicalSummary['patient']['address']) ?
                     implode(', ', array_filter([
                         $clinicalSummary['patient']['address']['street'] ?? '',
                         $clinicalSummary['patient']['address']['city'] ?? '',
@@ -1040,9 +1047,9 @@ class OrderCenterController extends Controller
             'clinical' => [
                 'woundType' => $clinicalSummary['clinical']['woundType'] ?? $order->wound_type ?? null,
                 'location' => $clinicalSummary['clinical']['woundLocation'] ?? null,
-                'size' => isset($clinicalSummary['clinical']['woundSizeLength']) && isset($clinicalSummary['clinical']['woundSizeWidth']) ? 
+                'size' => isset($clinicalSummary['clinical']['woundSizeLength']) && isset($clinicalSummary['clinical']['woundSizeWidth']) ?
                     $clinicalSummary['clinical']['woundSizeLength'] . ' x ' . $clinicalSummary['clinical']['woundSizeWidth'] . 'cm' : null,
-                'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) ? 
+                'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) ?
                     implode(', ', $clinicalSummary['clinical']['applicationCptCodes']) : null,
                 'placeOfService' => $order->place_of_service ?? $clinicalSummary['orderPreferences']['placeOfService'] ?? null,
                 'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,

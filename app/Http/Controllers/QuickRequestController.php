@@ -327,10 +327,10 @@ class QuickRequestController extends Controller
     private function extractProviderData(array $formData): array
     {
         $providerId = $formData['provider_id'];
-        
+
         // Load provider with full profile information
         $provider = User::with(['providerProfile', 'providerCredentials'])->find($providerId);
-        
+
         if (!$provider) {
             throw new \Exception("Provider not found with ID: {$providerId}");
         }
@@ -375,11 +375,11 @@ class QuickRequestController extends Controller
     private function extractFacilityData(array $formData): array
     {
         $facilityId = $formData['facility_id'] ?? null;
-        
+
         // If facility_id is provided, try to load from database
         if ($facilityId) {
             $facility = \App\Models\Fhir\Facility::find($facilityId);
-            
+
             if ($facility) {
                 return [
                     'id' => $facility->id,
@@ -422,19 +422,19 @@ class QuickRequestController extends Controller
             'wound_size_length' => $formData['wound_size_length'] ?? 0,
             'wound_size_width' => $formData['wound_size_width'] ?? 0,
             'wound_size_depth' => $formData['wound_size_depth'] ?? null,
-            
+
             // Add diagnosis codes
             'primary_diagnosis_code' => $formData['primary_diagnosis_code'] ?? '',
             'secondary_diagnosis_code' => $formData['secondary_diagnosis_code'] ?? '',
-            
+
             // Add CPT codes
             'application_cpt_codes' => $formData['application_cpt_codes'] ?? [],
-            
+
             // Add post-op status fields
             'global_period_status' => $formData['global_period_status'] ?? false,
             'global_period_cpt' => $formData['global_period_cpt'] ?? '',
             'global_period_surgery_date' => $formData['global_period_surgery_date'] ?? '',
-            
+
             // Add other clinical fields
             'wound_duration_days' => $formData['wound_duration_days'] ?? '',
             'wound_duration_weeks' => $formData['wound_duration_weeks'] ?? '',
@@ -498,26 +498,70 @@ class QuickRequestController extends Controller
     private function getManufacturerIdFromProducts(array $selectedProducts): ?int
     {
         if (empty($selectedProducts)) {
+            \Log::warning('getManufacturerIdFromProducts: No selected products provided');
+            return null;
+        }
+
+        $firstProduct = $selectedProducts[0];
+        $productId = $firstProduct['product_id'] ?? null;
+
+        if (!$productId) {
+            \Log::warning('getManufacturerIdFromProducts: No product_id in first selected product', [
+                'selected_products' => $selectedProducts
+            ]);
             return null;
         }
 
         // Try to get manufacturer_id from the product record in database
-        $product = \App\Models\Order\Product::find($selectedProducts[0]['product_id']);
-        if ($product && $product->manufacturer_id) {
+        $product = \App\Models\Order\Product::with('manufacturer')->find($productId);
+
+        if (!$product) {
+            \Log::warning('getManufacturerIdFromProducts: Product not found in database', [
+                'product_id' => $productId
+            ]);
+            return null;
+        }
+
+        if ($product->manufacturer_id) {
+            \Log::info('getManufacturerIdFromProducts: Found manufacturer_id from database', [
+                'product_id' => $productId,
+                'manufacturer_id' => $product->manufacturer_id,
+                'manufacturer_name' => $product->manufacturer?->name ?? 'unknown'
+            ]);
             return $product->manufacturer_id;
         }
 
         // Fallback: try to get manufacturer_id from the product data in the request
-        $firstProduct = $selectedProducts[0];
         if (isset($firstProduct['product']['manufacturer_id'])) {
+            \Log::info('getManufacturerIdFromProducts: Found manufacturer_id from request data', [
+                'product_id' => $productId,
+                'manufacturer_id' => $firstProduct['product']['manufacturer_id']
+            ]);
             return $firstProduct['product']['manufacturer_id'];
         }
 
         // Fallback: look up manufacturer by name
         if (isset($firstProduct['product']['manufacturer'])) {
-            $manufacturer = \App\Models\Order\Manufacturer::where('name', $firstProduct['product']['manufacturer'])->first();
-            return $manufacturer?->id;
+            $manufacturerName = $firstProduct['product']['manufacturer'];
+            $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerName)->first();
+
+            if ($manufacturer) {
+                \Log::info('getManufacturerIdFromProducts: Found manufacturer by name', [
+                    'product_id' => $productId,
+                    'manufacturer_name' => $manufacturerName,
+                    'manufacturer_id' => $manufacturer->id
+                ]);
+                return $manufacturer->id;
+            }
         }
+
+        \Log::error('getManufacturerIdFromProducts: Unable to determine manufacturer', [
+            'product_id' => $productId,
+            'product_manufacturer_id' => $product->manufacturer_id,
+            'product_manufacturer_name' => $product->manufacturer?->name ?? 'null',
+            'request_manufacturer_id' => $firstProduct['product']['manufacturer_id'] ?? 'not_set',
+            'request_manufacturer_name' => $firstProduct['product']['manufacturer'] ?? 'not_set'
+        ]);
 
         return null;
     }
@@ -546,7 +590,7 @@ class QuickRequestController extends Controller
         // Priority 2: Try to get organization from authenticated user
         if (!$organization && Auth::check()) {
             $user = Auth::user();
-            
+
             // First try current_organization_id
             if ($user->current_organization_id) {
                 $organization = \App\Models\Users\Organization\Organization::find($user->current_organization_id);
@@ -558,7 +602,7 @@ class QuickRequestController extends Controller
                     ]);
                 }
             }
-            
+
             // If still no organization, try the relationships
             if (!$organization) {
                 // Try currentOrganization relationship
@@ -566,12 +610,12 @@ class QuickRequestController extends Controller
                     $user->load('currentOrganization');
                 }
                 $organization = $user->currentOrganization;
-                
+
                 // Try primaryOrganization
                 if (!$organization && method_exists($user, 'primaryOrganization')) {
                     $organization = $user->primaryOrganization();
                 }
-                
+
                 // Try first active organization
                 if (!$organization && method_exists($user, 'activeOrganizations')) {
                     $organization = $user->activeOrganizations()->first();
@@ -583,7 +627,7 @@ class QuickRequestController extends Controller
         if (!$organization) {
             $organization = $this->currentOrganization->getOrganization();
         }
-        
+
         // Priority 4: If still no organization, try to find the first active organization (for providers with single org)
         if (!$organization && Auth::check()) {
             $user = Auth::user();
@@ -595,7 +639,7 @@ class QuickRequestController extends Controller
                 }
             }
         }
-        
+
         if (!$organization) {
             Log::error('No organization found for draft episode creation', [
                 'user_id' => Auth::id(),
@@ -604,7 +648,7 @@ class QuickRequestController extends Controller
                 'current_org_service_has_org' => $this->currentOrganization->hasOrganization(),
                 'current_org_service_id' => $this->currentOrganization->getId(),
             ]);
-            
+
             throw new \Exception("No current organization found. Please ensure you are associated with an organization to create requests.");
         }
 
@@ -636,7 +680,7 @@ class QuickRequestController extends Controller
         try {
             // Load the episode
             $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
-            
+
             // Check if user has permission to access this episode
             if ((int)$episode->created_by !== Auth::id()) {
                 return response()->json([
@@ -647,7 +691,7 @@ class QuickRequestController extends Controller
 
             // Get comprehensive data from orchestrator
             $comprehensiveData = $this->orchestrator->prepareDocusealData($episode);
-            
+
             // Create Docuseal submission using comprehensive data
             $result = $this->docusealService->createSubmissionFromOrchestratorData(
                 $episode,
@@ -716,7 +760,7 @@ class QuickRequestController extends Controller
         try {
             // Extract data from form
             $formData = $validated['form_data'];
-            
+
             // Get manufacturer ID
             $manufacturerId = $this->getManufacturerIdFromProducts($formData['selected_products'] ?? []);
             if (!$manufacturerId) {
