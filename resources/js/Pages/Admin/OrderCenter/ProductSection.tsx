@@ -31,14 +31,28 @@ interface ProductSectionProps {
   userRole: 'Provider' | 'OM' | 'Admin';
   isOpen: boolean;
   onToggle: (section: string) => void;
+  roleRestrictions?: {
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    can_see_commission: boolean;
+    pricing_access_level: string;
+    commission_access_level: string;
+  };
 }
 
 const ProductSection: React.FC<ProductSectionProps> = ({
   orderData,
   userRole,
   isOpen,
-  onToggle
-}) => (
+  onToggle,
+  roleRestrictions
+}) => {
+  // Determine if user can see financial data
+  const canSeeFinancials = roleRestrictions?.can_view_financials ?? (userRole !== 'OM');
+  
+  return (
   <SectionCard
     title="Product Information"
     icon={Package}
@@ -58,7 +72,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
         <InfoRow label="Manufacturer" value={orderData.product?.manufacturer || 'N/A'} />
         <InfoRow label="Shipping Speed" value={orderData.product?.shippingInfo?.speed || 'N/A'} />
         <InfoRow label="Shipping Address" value={orderData.product?.shippingInfo?.address || 'N/A'} />
-        {userRole !== 'OM' && (
+        {canSeeFinancials && (
           <InfoRow
             label="Estimated Cost"
             value="$1,200.00"
@@ -67,6 +81,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
       </div>
     </div>
   </SectionCard>
-);
+  );
+};
 
 export default ProductSection;

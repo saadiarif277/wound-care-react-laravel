@@ -2,8 +2,8 @@
 
 namespace App\Services\FieldMapping;
 
-use App\Models\Episode;
-use App\Models\ProductRequest;
+use App\Models\PatientManufacturerIVREpisode;
+use App\Models\Order\ProductRequest;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
@@ -17,13 +17,13 @@ class DataExtractor
     /**
      * Extract all data for an episode, including FHIR data
      */
-    public function extractEpisodeData(int $episodeId): array
+    public function extractEpisodeData(string $episodeId): array
     {
         $cacheKey = "episode_data_{$episodeId}";
 
         return Cache::remember($cacheKey, 300, function() use ($episodeId) {
             try {
-                $episode = Episode::with([
+                $episode = PatientManufacturerIVREpisode::with([
                     'patient',
                     'productRequests' => function($query) {
                         $query->where('status', 'approved')
@@ -73,10 +73,12 @@ class DataExtractor
     {
         return [
             'episode_id' => $episode->id,
-            'episode_number' => $episode->episode_number,
+            'episode_number' => $episode->id, // UUID is used as the episode number
             'status' => $episode->status,
             'created_at' => $episode->created_at,
             'manufacturer_name' => $episode->manufacturer->name ?? null,
+            'ivr_status' => $episode->ivr_status,
+            'patient_display_id' => $episode->patient_display_id,
         ];
     }
 

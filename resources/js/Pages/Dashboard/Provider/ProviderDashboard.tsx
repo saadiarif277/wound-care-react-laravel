@@ -141,6 +141,22 @@ function DashboardContent({ user, dashboardData, roleRestrictions }: ProviderDas
       <Head title="Provider Dashboard" />
 
       <div className="relative space-y-6">
+        {/* Create Request Button - Top Right */}
+        <div className="absolute top-0 right-0">
+          <Link
+            href={route('quick-requests.create-new')}
+            className={cn(
+              "inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all",
+              theme === 'dark' 
+                ? "bg-[#1925c3] hover:bg-[#1925c3]/90 text-white" 
+                : "bg-[#1925c3] hover:bg-[#1520a6] text-white"
+            )}
+          >
+            <FiPlus className="h-4 w-4" />
+            Create New Product Request
+          </Link>
+        </div>
+
         {/* Provider Welcome Header */}
         <div className="mb-8 text-center max-w-4xl mx-auto">
           <Heading level={1} className="bg-clip-text text-transparent bg-gradient-to-r from-[#1925c3] to-[#c71719]">
@@ -220,7 +236,7 @@ function DashboardContent({ user, dashboardData, roleRestrictions }: ProviderDas
                         <p className={cn("text-xs mt-1", t.text.muted)}>Due: {item.due_date}</p>
                       </div>
                       <Link
-                        href={route('product-requests.show', { id: item.request_id })}
+                        href={route('product-requests.show', { productRequest: item.request_id })}
                         className={cn(
                           "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
                           theme === 'dark' ? t.button.secondary : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
@@ -293,7 +309,7 @@ function DashboardContent({ user, dashboardData, roleRestrictions }: ProviderDas
                     )}
                     <td className="px-6 py-4 text-right">
                       <Link
-                        href={route('product-requests.show', { id: request.id })}
+                        href={route('product-requests.show', { productRequest: request.id })}
                         className={cn(
                           "inline-flex items-center px-3 py-1 text-sm font-medium rounded-lg transition-all",
                           theme === 'dark' ? t.table.actionButton : 'bg-gray-100 hover:bg-gray-200 text-gray-700'

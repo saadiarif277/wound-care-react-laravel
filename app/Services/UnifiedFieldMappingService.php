@@ -30,7 +30,7 @@ class UnifiedFieldMappingService
      * Main entry point for all field mapping needs
      */
     public function mapEpisodeToTemplate(
-        ?int $episodeId, 
+        ?string $episodeId, 
         string $manufacturerName,
         array $additionalData = [],
         string $documentType = 'IVR'

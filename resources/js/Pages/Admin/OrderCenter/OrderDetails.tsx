@@ -35,10 +35,28 @@ interface OrderDetailsProps {
   order: Order;
   can_update_status: boolean;
   can_view_ivr: boolean;
+  userRole?: 'Provider' | 'OM' | 'Admin';
+  roleRestrictions?: {
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    can_see_commission: boolean;
+    pricing_access_level: string;
+    commission_access_level: string;
+  };
+  navigationRoute?: string;
 }
 
-const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, can_view_ivr }) => {
-  const [userRole, setUserRole] = useState<'Provider' | 'OM' | 'Admin'>('Admin');
+const OrderDetails: React.FC<OrderDetailsProps> = ({ 
+  order, 
+  can_update_status, 
+  can_view_ivr,
+  userRole: propUserRole,
+  roleRestrictions,
+  navigationRoute 
+}) => {
+  const [userRole, setUserRole] = useState<'Provider' | 'OM' | 'Admin'>(propUserRole || 'Admin');
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     patient: true,
     product: true,
@@ -485,49 +503,49 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
     createdBy: order.provider_name,
     patient: {
       name: order.patient_name,
-      dob: '1980-01-01', // This would come from FHIR data
-      gender: 'Male', // This would come from FHIR data
-      phone: '(555) 123-4567', // This would come from FHIR data
-      address: '123 Main St, City, State 12345', // This would come from FHIR data
+      dob: enhancedOrderData?.patient?.dob || 'N/A',
+      gender: enhancedOrderData?.patient?.gender || 'N/A',
+      phone: enhancedOrderData?.patient?.phone || 'N/A',
+      address: enhancedOrderData?.patient?.address || 'N/A',
       insurance: {
-        primary: 'Blue Cross Blue Shield - 123456789', // This would come from FHIR data
-        secondary: 'Medicare - 987654321', // This would come from FHIR data
+        primary: enhancedOrderData?.patient?.insurance?.primary || 'N/A',
+        secondary: enhancedOrderData?.patient?.insurance?.secondary || 'N/A',
       },
     },
     product: {
       name: order.product_name,
-      code: 'BW-001', // This would come from product data
-      quantity: 1, // This would come from order data
-      size: '10cm x 10cm', // This would come from product data
-      category: 'Wound Care Matrix', // This would come from product data
+      code: enhancedOrderData?.product?.code || 'N/A',
+      quantity: enhancedOrderData?.product?.quantity || 1,
+      size: enhancedOrderData?.product?.size || 'N/A',
+      category: enhancedOrderData?.product?.category || 'N/A',
       manufacturer: order.manufacturer_name,
       shippingInfo: {
-        speed: 'Standard',
-        address: '123 Main St, City, State 12345',
+        speed: enhancedOrderData?.product?.shippingInfo?.speed || 'Standard',
+        address: enhancedOrderData?.product?.shippingInfo?.address || 'N/A',
       },
     },
     forms: {
-      consent: true,
-      assignmentOfBenefits: true,
-      medicalNecessity: true,
+      consent: enhancedOrderData?.forms?.consent || false,
+      assignmentOfBenefits: enhancedOrderData?.forms?.assignmentOfBenefits || false,
+      medicalNecessity: enhancedOrderData?.forms?.medicalNecessity || false,
     },
     clinical: {
-      woundType: 'Diabetic Foot Ulcer', // This would come from FHIR data
-      location: 'Right foot, plantar surface', // This would come from FHIR data
-      size: '3.5 x 2.8cm', // This would come from FHIR data
-      cptCodes: 'E11.621 - Type 2 diabetes with foot ulcer', // This would come from FHIR data
-      placeOfService: 'Office',
-      failedConservativeTreatment: true,
+      woundType: enhancedOrderData?.clinical?.woundType || 'N/A',
+      location: enhancedOrderData?.clinical?.location || 'N/A',
+      size: enhancedOrderData?.clinical?.size || 'N/A',
+      cptCodes: enhancedOrderData?.clinical?.cptCodes || 'N/A',
+      placeOfService: enhancedOrderData?.clinical?.placeOfService || 'N/A',
+      failedConservativeTreatment: enhancedOrderData?.clinical?.failedConservativeTreatment || false,
     },
     provider: {
       name: order.provider_name,
-      npi: '1234567890', // This would come from provider data
+      npi: enhancedOrderData?.provider?.npi || 'N/A',
       facility: order.facility_name,
     },
     submission: {
-      informationAccurate: true,
-      documentationMaintained: true,
-      authorizePriorAuth: true,
+      informationAccurate: enhancedOrderData?.submission?.informationAccurate || false,
+      documentationMaintained: enhancedOrderData?.submission?.documentationMaintained || false,
+      authorizePriorAuth: enhancedOrderData?.submission?.authorizePriorAuth || false,
     },
   };
 
@@ -558,7 +576,15 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           {/* Header */}
           <div className="flex items-center gap-4 mb-8">
             <button
-              onClick={() => window.history.back()}
+              onClick={() => {
+                if (navigationRoute) {
+                  router.get(route(navigationRoute));
+                } else if (userRole === 'Admin') {
+                  router.get(route('admin.orders.index'));
+                } else {
+                  router.get(route('dashboard'));
+                }
+              }}
               className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -605,9 +631,10 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
           />
           <ProductSection
             orderData={orderData}
-            userRole={'Admin'}
+            userRole={userRole}
             isOpen={!!openSections.product}
             onToggle={toggleSection}
+            roleRestrictions={roleRestrictions}
           />
           <IVRDocumentSection
             ivrData={ivrData}
@@ -619,6 +646,7 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({ order, can_update_status, c
             onManufacturerSubmission={() => setShowManufacturerSubmissionModal(true)}
             isOpen={!!openSections.ivrDocument}
             onToggle={() => toggleSection('ivrDocument')}
+            userRole={userRole}
           />
           <ClinicalSection
             orderData={orderData}

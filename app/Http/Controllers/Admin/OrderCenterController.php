@@ -862,6 +862,62 @@ class OrderCenterController extends Controller
             }
         }
 
+        // Get patient data from FHIR or request submission
+        $patientData = null;
+        if ($order->patient_fhir_id) {
+            try {
+                $fhirService = app(\App\Services\FhirService::class);
+                $patient = $fhirService->searchPatients(['_id' => $order->patient_fhir_id]);
+                if (!empty($patient['entry'][0]['resource'])) {
+                    $resource = $patient['entry'][0]['resource'];
+                    $patientData = [
+                        'dob' => $resource['birthDate'] ?? null,
+                        'gender' => $resource['gender'] ?? null,
+                        'phone' => $resource['telecom'][0]['value'] ?? null,
+                        'address' => isset($resource['address'][0]) ? 
+                            implode(', ', array_filter([
+                                $resource['address'][0]['line'][0] ?? '',
+                                $resource['address'][0]['city'] ?? '',
+                                $resource['address'][0]['state'] ?? '',
+                                $resource['address'][0]['postalCode'] ?? ''
+                            ])) : null,
+                    ];
+                }
+            } catch (Exception $e) {
+                Log::warning('Failed to get patient FHIR data', ['error' => $e->getMessage()]);
+            }
+        }
+
+        // Get product details
+        $productData = null;
+        if ($order->products->isNotEmpty()) {
+            $product = $order->products->first();
+            $productData = [
+                'code' => $product->sku ?? $product->code ?? null,
+                'quantity' => $product->pivot->quantity ?? 1,
+                'size' => $product->size ?? null,
+                'category' => $product->category ?? null,
+                'shippingInfo' => [
+                    'speed' => $order->shipping_speed ?? 'Standard',
+                    'address' => $order->shipping_address ?? $order->facility->address ?? null,
+                ],
+            ];
+        }
+
+        // Get clinical summary data which contains all submitted form data
+        $clinicalSummary = $order->clinical_summary ?? [];
+        
+        // Extract patient insurance data from clinical summary
+        $insuranceData = null;
+        if (isset($clinicalSummary['insurance'])) {
+            $insuranceData = [
+                'primary' => isset($clinicalSummary['insurance']['primaryName']) ? 
+                    ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['primaryMemberId'] ?? 'N/A') : 'N/A',
+                'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
+                    ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['secondaryMemberId'] ?? 'N/A') : 'N/A',
+            ];
+        }
+        
         return response()->json([
             'success' => true,
             'order' => [
@@ -875,6 +931,55 @@ class OrderCenterController extends Controller
                 'total_order_value' => $order->total_order_value,
                 'created_at' => $order->created_at->toISOString(),
                 'updated_at' => $order->updated_at->toISOString(),
+            ],
+            'patient' => $patientData ?? [
+                'dob' => $clinicalSummary['patient']['dateOfBirth'] ?? null,
+                'gender' => $clinicalSummary['patient']['gender'] ?? null,
+                'phone' => $clinicalSummary['patient']['phone'] ?? null,
+                'address' => isset($clinicalSummary['patient']['address']) ? 
+                    implode(', ', array_filter([
+                        $clinicalSummary['patient']['address']['street'] ?? '',
+                        $clinicalSummary['patient']['address']['city'] ?? '',
+                        $clinicalSummary['patient']['address']['state'] ?? '',
+                        $clinicalSummary['patient']['address']['zipCode'] ?? ''
+                    ])) : null,
+                'insurance' => $insuranceData ?? [
+                    'primary' => 'N/A',
+                    'secondary' => 'N/A',
+                ],
+            ],
+            'product' => $productData ?? [
+                'code' => $product->sku ?? $product->code ?? null,
+                'quantity' => $product->pivot->quantity ?? 1,
+                'size' => $product->pivot->size ?? null,
+                'category' => $product->category ?? null,
+                'shippingInfo' => [
+                    'speed' => $clinicalSummary['orderPreferences']['shippingSpeed'] ?? $order->shipping_speed ?? 'Standard',
+                    'address' => $clinicalSummary['orderPreferences']['shippingAddress'] ?? $order->shipping_address ?? $order->facility->address ?? null,
+                ],
+            ],
+            'clinical' => [
+                'woundType' => $clinicalSummary['clinical']['woundType'] ?? $order->wound_type ?? null,
+                'location' => $clinicalSummary['clinical']['woundLocation'] ?? null,
+                'size' => isset($clinicalSummary['clinical']['woundSizeLength']) && isset($clinicalSummary['clinical']['woundSizeWidth']) ? 
+                    $clinicalSummary['clinical']['woundSizeLength'] . ' x ' . $clinicalSummary['clinical']['woundSizeWidth'] . 'cm' : null,
+                'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) ? 
+                    implode(', ', $clinicalSummary['clinical']['applicationCptCodes']) : null,
+                'placeOfService' => $order->place_of_service ?? $clinicalSummary['orderPreferences']['placeOfService'] ?? null,
+                'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,
+            ],
+            'forms' => [
+                'consent' => $clinicalSummary['attestations']['informationAccurate'] ?? false,
+                'assignmentOfBenefits' => $clinicalSummary['attestations']['documentationMaintained'] ?? false,
+                'medicalNecessity' => $clinicalSummary['attestations']['medicalNecessityEstablished'] ?? false,
+            ],
+            'provider' => [
+                'npi' => $order->provider->npi_number ?? null,
+            ],
+            'submission' => [
+                'informationAccurate' => $clinicalSummary['attestations']['informationAccurate'] ?? false,
+                'documentationMaintained' => $clinicalSummary['attestations']['documentationMaintained'] ?? false,
+                'authorizePriorAuth' => $clinicalSummary['attestations']['priorAuthPermission'] ?? false,
             ],
             'status_history' => $statusHistory,
             'notification_stats' => $notificationStats,

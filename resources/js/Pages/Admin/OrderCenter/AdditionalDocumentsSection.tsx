@@ -79,61 +79,7 @@ const AdditionalDocumentsSection: React.FC<AdditionalDocumentsSectionProps> = ({
     });
   };
 
-  // Mock documents data - in real implementation this would come from the database
-  const mockDocuments: Document[] = [
-    {
-      id: '1',
-      name: 'Front_Insurance_Card.jpg',
-      type: 'insurance_card',
-      fileType: 'image',
-      uploadedAt: '2024-07-01T10:30:00Z',
-      uploadedBy: 'Dr. Smith',
-      fileSize: '2.3 MB',
-      url: '/documents/insurance-card-front.jpg'
-    },
-    {
-      id: '2',
-      name: 'Back_Insurance_Card.jpg',
-      type: 'insurance_card',
-      fileType: 'image',
-      uploadedAt: '2024-07-01T10:31:00Z',
-      uploadedBy: 'Dr. Smith',
-      fileSize: '1.8 MB',
-      url: '/documents/insurance-card-back.jpg'
-    },
-    {
-      id: '3',
-      name: 'Medical_History.pdf',
-      type: 'medical_record',
-      fileType: 'pdf',
-      uploadedAt: '2024-07-01T11:00:00Z',
-      uploadedBy: 'Nurse Johnson',
-      fileSize: '5.2 MB',
-      url: '/documents/medical-history.pdf'
-    },
-    {
-      id: '4',
-      name: 'Prescription_Order.pdf',
-      type: 'prescription',
-      fileType: 'pdf',
-      uploadedAt: '2024-07-01T14:15:00Z',
-      uploadedBy: 'Dr. Smith',
-      fileSize: '1.1 MB',
-      url: '/documents/prescription.pdf'
-    },
-    {
-      id: '5',
-      name: 'Consent_Form_Signed.pdf',
-      type: 'consent_form',
-      fileType: 'pdf',
-      uploadedAt: '2024-07-01T15:45:00Z',
-      uploadedBy: 'Patient',
-      fileSize: '0.8 MB',
-      url: '/documents/consent-form.pdf'
-    }
-  ];
-
-  const displayDocuments = documents.length > 0 ? documents : mockDocuments;
+  const displayDocuments = documents;
 
   return (
     <SectionCard

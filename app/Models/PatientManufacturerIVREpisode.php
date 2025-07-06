@@ -94,6 +94,14 @@ class PatientManufacturerIVREpisode extends Model
     }
 
     /**
+     * Get the product requests associated with this episode
+     */
+    public function productRequests(): HasMany
+    {
+        return $this->hasMany(\App\Models\Order\ProductRequest::class, 'ivr_episode_id');
+    }
+
+    /**
      * Get the Docuseal submission
      */
     public function docusealSubmission(): BelongsTo

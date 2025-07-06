@@ -339,60 +339,217 @@ final class ProductRequestController extends Controller
 
     public function show(ProductRequest $productRequest)
     {
-        // Ensure the provider can only view their own requests
-        if ($productRequest->provider_id !== Auth::id()) {
-            abort(403);
+        $user = Auth::user()->load(['roles', 'organizations', 'facilities']);
+        
+        // Check permissions based on user role
+        if ($user->hasRole('provider')) {
+            // Providers can only view their own requests
+            if ($productRequest->provider_id !== $user->id) {
+                abort(403, 'Unauthorized access to this product request.');
+            }
+        } elseif ($user->hasRole('office-manager')) {
+            // Office managers can view requests from their facilities
+            $userFacilityIds = $user->facilities->pluck('id')->toArray();
+            if (!in_array($productRequest->facility_id, $userFacilityIds)) {
+                abort(403, 'Unauthorized access to this product request.');
+            }
+        } elseif (!$user->hasPermission('manage-orders')) {
+            // Other users need manage-orders permission
+            abort(403, 'Unauthorized access to this product request.');
         }
 
-        $user = Auth::user()->load('roles');
+        // Find the associated order
+        $order = \App\Models\Order\Order::where('patient_fhir_id', $productRequest->patient_fhir_id)
+            ->where('provider_id', $productRequest->provider_id)
+            ->where('facility_id', $productRequest->facility_id)
+            ->first();
 
-        return Inertia::render('ProductRequest/Show', [
-            'roleRestrictions' => [
-                'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
-                'can_see_discounts' => $user->hasPermission('view-discounts'),
-                'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
-                'can_see_order_totals' => $user->hasPermission('view-order-totals'),
-                'pricing_access_level' => $this->getPricingAccessLevel($user),
-            ],
-            'request' => [
+        if (!$order) {
+            // Get the clinical summary data that contains all submitted information
+            $clinicalSummary = $productRequest->clinical_summary ?? [];
+            
+            // If no order exists, create basic order data from product request
+            $orderData = [
                 'id' => $productRequest->id,
-                'request_number' => $productRequest->request_number,
-                'order_status' => $productRequest->order_status,
-                'step' => $productRequest->step,
-                'step_description' => $productRequest->step_description,
-                'wound_type' => $productRequest->wound_type,
-                'expected_service_date' => $productRequest->expected_service_date,
-                'patient_display' => $productRequest->formatPatientDisplay(),
-                'patient_fhir_id' => $productRequest->patient_fhir_id,
-                'facility' => $productRequest->facility ? [
-                    'id' => $productRequest->facility->id,
-                    'name' => $productRequest->facility->name,
-                ] : null,
-                'payer_name' => $productRequest->payer_name_submitted,
-                'clinical_summary' => $productRequest->clinical_summary,
-                'mac_validation_results' => $productRequest->mac_validation_results,
-                'mac_validation_status' => $productRequest->mac_validation_status,
-                'eligibility_results' => $productRequest->eligibility_results,
-                'eligibility_status' => $productRequest->eligibility_status,
-                'pre_auth_required' => $productRequest->isPriorAuthRequired(),
-                'clinical_opportunities' => $productRequest->clinical_opportunities,
-                'total_amount' => $productRequest->total_order_value,
-                'created_at' => $productRequest->created_at->format('M j, Y'),
-                'products' => $productRequest->products->map(fn ($product) => [
-                    'id' => $product->id,
-                    'name' => $product->name,
-                    'q_code' => $product->q_code,
-                    'image_url' => $product->image_url,
-                    'quantity' => $product->pivot->quantity,
-                    'size' => $product->pivot->size,
-                    'unit_price' => $product->pivot->unit_price,
-                    'total_price' => $product->pivot->total_price,
-                ]),
+                'orderNumber' => $productRequest->request_number,
+                'createdDate' => $productRequest->created_at->format('Y-m-d'),
+                'createdBy' => $productRequest->provider->first_name . ' ' . $productRequest->provider->last_name,
+                'patient' => [
+                    'name' => $productRequest->formatPatientDisplay(),
+                    'fhirId' => $productRequest->patient_fhir_id,
+                    // Use clinical summary data for additional patient info
+                    'dob' => $clinicalSummary['patient']['dateOfBirth'] ?? null,
+                    'gender' => $clinicalSummary['patient']['gender'] ?? null,
+                    'phone' => $clinicalSummary['patient']['phone'] ?? null,
+                    'address' => isset($clinicalSummary['patient']['address']) ? 
+                        implode(', ', array_filter([
+                            $clinicalSummary['patient']['address']['street'] ?? '',
+                            $clinicalSummary['patient']['address']['city'] ?? '',
+                            $clinicalSummary['patient']['address']['state'] ?? '',
+                            $clinicalSummary['patient']['address']['zipCode'] ?? ''
+                        ])) : null,
+                ],
+                'insurance' => [
+                    'primary' => isset($clinicalSummary['insurance']) ? 
+                        ($clinicalSummary['insurance']['primaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['primaryMemberId'] ?? 'N/A') : 'N/A',
+                    'secondary' => isset($clinicalSummary['insurance']['hasSecondary']) && $clinicalSummary['insurance']['hasSecondary'] ? 
+                        ($clinicalSummary['insurance']['secondaryName'] ?? 'N/A') . ' - ' . ($clinicalSummary['insurance']['secondaryMemberId'] ?? 'N/A') : 'N/A',
+                ],
                 'provider' => [
                     'name' => $productRequest->provider->first_name . ' ' . $productRequest->provider->last_name,
+                    'npi' => $productRequest->provider->npi_number ?? $productRequest->provider->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
                     'facility' => $productRequest->facility->name ?? null,
-                ]
-            ]
+                ],
+                'facility' => [
+                    'name' => $productRequest->facility->name ?? null,
+                    'address' => $productRequest->facility->full_address ?? null,
+                ],
+                'product' => [
+                    'name' => $productRequest->products->first()->name ?? 'N/A',
+                    'code' => $productRequest->products->first()->q_code ?? 'N/A',
+                    'quantity' => $productRequest->products->first()->pivot->quantity ?? 0,
+                    'size' => $productRequest->products->first()->pivot->size ?? 'N/A',
+                    'category' => $productRequest->products->first()->category ?? 'N/A',
+                    'manufacturer' => $productRequest->products->first()->manufacturer->name ?? 'N/A',
+                    'shippingInfo' => [
+                        'speed' => $clinicalSummary['orderPreferences']['shippingSpeed'] ?? 'Standard',
+                        'address' => $clinicalSummary['orderPreferences']['shippingAddress'] ?? $productRequest->facility->full_address ?? 'N/A',
+                    ],
+                ],
+                'status' => $productRequest->order_status,
+                'forms' => [
+                    'ivrStatus' => $productRequest->ivr_status ?? 'not_started',
+                    'docusealStatus' => $productRequest->docuseal_submission_id ? 'completed' : 'not_started',
+                    'consent' => $clinicalSummary['attestations']['informationAccurate'] ?? false,
+                    'assignmentOfBenefits' => $clinicalSummary['attestations']['documentationMaintained'] ?? false,
+                    'medicalNecessity' => $clinicalSummary['attestations']['medicalNecessityEstablished'] ?? false,
+                ],
+                'clinical' => [
+                    'woundType' => $clinicalSummary['clinical']['woundType'] ?? $productRequest->wound_type ?? 'N/A',
+                    'location' => $clinicalSummary['clinical']['woundLocation'] ?? 'N/A',
+                    'size' => isset($clinicalSummary['clinical']['woundSizeLength']) && isset($clinicalSummary['clinical']['woundSizeWidth']) ? 
+                        $clinicalSummary['clinical']['woundSizeLength'] . ' x ' . $clinicalSummary['clinical']['woundSizeWidth'] . 'cm' : 'N/A',
+                    'cptCodes' => isset($clinicalSummary['clinical']['applicationCptCodes']) ? 
+                        implode(', ', $clinicalSummary['clinical']['applicationCptCodes']) : 'N/A',
+                    'serviceDate' => $productRequest->expected_service_date?->format('Y-m-d'),
+                    'placeOfService' => $productRequest->place_of_service,
+                    'failedConservativeTreatment' => $clinicalSummary['clinical']['failedConservativeTreatment'] ?? false,
+                ],
+                'submission' => [
+                    'status' => $productRequest->order_status,
+                    'submittedAt' => $productRequest->submitted_at?->format('Y-m-d H:i:s'),
+                    'informationAccurate' => $clinicalSummary['attestations']['informationAccurate'] ?? false,
+                    'documentationMaintained' => $clinicalSummary['attestations']['documentationMaintained'] ?? false,
+                    'authorizePriorAuth' => $clinicalSummary['attestations']['priorAuthPermission'] ?? false,
+                ],
+                'clinicalSummary' => $clinicalSummary, // Include full clinical summary for debugging
+            ];
+        } else {
+            // Use the existing order data loading logic
+            $order->load(['items.product', 'patient', 'provider', 'facility', 'episode.patientManufacturerIvrEpisode']);
+            
+            $orderData = [
+                'id' => $order->id,
+                'orderNumber' => $order->order_number,
+                'createdDate' => $order->created_at->format('Y-m-d'),
+                'createdBy' => $order->created_by ?? $order->provider->name,
+                'patient' => [
+                    'name' => $order->patient_name ?? 'N/A',
+                    'fhirId' => $order->patient_fhir_id,
+                ],
+                'provider' => [
+                    'name' => $order->provider->name ?? 'N/A',
+                    'npi' => $order->provider->providerCredentials->where('credential_type', 'npi_number')->first()->credential_number ?? null,
+                    'facility' => $order->facility->name ?? null,
+                ],
+                'facility' => [
+                    'name' => $order->facility->name ?? null,
+                    'address' => $order->facility->full_address ?? null,
+                ],
+                'product' => [
+                    'name' => $order->items->first()->product->name ?? 'N/A',
+                    'code' => $order->items->first()->product->q_code ?? 'N/A',
+                    'quantity' => $order->items->first()->quantity ?? 0,
+                    'size' => $order->items->first()->graph_size ?? 'N/A',
+                    'category' => $order->items->first()->product->category ?? 'N/A',
+                    'manufacturer' => $order->items->first()->product->manufacturer ?? 'N/A',
+                    'shippingInfo' => [
+                        'speed' => 'Standard',
+                        'address' => $order->facility->full_address ?? 'N/A',
+                    ],
+                ],
+                'status' => $order->order_status,
+                'forms' => [
+                    'ivrStatus' => $order->episode?->patientManufacturerIvrEpisode?->status ?? 'not_started',
+                    'docusealStatus' => $order->episode?->patientManufacturerIvrEpisode?->docuseal_submission_id ? 'completed' : 'not_started',
+                ],
+                'clinical' => [
+                    'woundType' => $productRequest->wound_type ?? 'N/A',
+                    'serviceDate' => $order->date_of_service?->format('Y-m-d'),
+                    'placeOfService' => $productRequest->place_of_service ?? '11',
+                ],
+                'submission' => [
+                    'status' => $order->order_status,
+                    'submittedAt' => $order->submitted_at?->format('Y-m-d H:i:s'),
+                ],
+            ];
+        }
+
+        // Determine user role for OrderDetails component
+        $userRole = 'Admin';
+        if ($user->hasRole('provider')) {
+            $userRole = 'Provider';
+        } elseif ($user->hasRole('office-manager')) {
+            $userRole = 'OM';
+        }
+
+        // Set role-based restrictions
+        $roleRestrictions = [
+            'can_view_financials' => false,
+            'can_see_discounts' => false,
+            'can_see_msc_pricing' => false,
+            'can_see_order_totals' => false,
+            'can_see_commission' => false,
+            'pricing_access_level' => 'none',
+            'commission_access_level' => 'none',
+        ];
+
+        if ($userRole === 'Provider') {
+            // Providers can see all financial data except commission
+            $roleRestrictions = [
+                'can_view_financials' => true,
+                'can_see_discounts' => true,
+                'can_see_msc_pricing' => true,
+                'can_see_order_totals' => true,
+                'can_see_commission' => false,
+                'pricing_access_level' => 'full',
+                'commission_access_level' => 'none',
+            ];
+        } elseif ($userRole === 'Admin') {
+            // Admins can see everything
+            $roleRestrictions = [
+                'can_view_financials' => true,
+                'can_see_discounts' => true,
+                'can_see_msc_pricing' => true,
+                'can_see_order_totals' => true,
+                'can_see_commission' => true,
+                'pricing_access_level' => 'full',
+                'commission_access_level' => 'full',
+            ];
+        }
+        // Office managers keep the default restrictions (no financial data)
+
+        // Determine permissions
+        $canUpdateStatus = $user->hasPermission('manage-orders');
+        $canViewIvr = $user->hasPermission('view-ivr-documents') || $user->hasPermission('manage-orders');
+
+        return Inertia::render('Admin/OrderCenter/OrderDetails', [
+            'order' => $orderData,
+            'can_update_status' => $canUpdateStatus,
+            'can_view_ivr' => $canViewIvr,
+            'userRole' => $userRole,
+            'roleRestrictions' => $roleRestrictions,
+            'navigationRoute' => 'dashboard',
         ]);
     }
 

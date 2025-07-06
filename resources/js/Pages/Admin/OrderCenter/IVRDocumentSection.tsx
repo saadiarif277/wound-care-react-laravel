@@ -50,6 +50,7 @@ interface IVRDocumentSectionProps {
   onManufacturerSubmission?: () => void;
   isOpen?: boolean;
   onToggle?: () => void;
+  userRole?: 'Provider' | 'OM' | 'Admin';
 }
 
 const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
@@ -62,6 +63,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   onManufacturerSubmission,
   isOpen = true,
   onToggle,
+  userRole = 'Admin',
 }) => {
   const [showStatusModal, setShowStatusModal] = useState(false);
   const [modalType, setModalType] = useState<'ivr' | 'order'>('ivr');
@@ -284,38 +286,42 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">IVR Status</label>
-                    <select
-                      value={ivrData.status}
-                      onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="n/a">N/A</option>
-                      <option value="pending">Pending</option>
-                      <option value="sent">Sent</option>
-                      <option value="verified">Verified</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                  </div>
+                  {userRole === 'Admin' && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">IVR Status</label>
+                      <select
+                        value={ivrData.status}
+                        onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="n/a">N/A</option>
+                        <option value="pending">Pending</option>
+                        <option value="sent">Sent</option>
+                        <option value="verified">Verified</option>
+                        <option value="rejected">Rejected</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
 
                 {/* IVR Files */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h5 className="text-sm font-medium text-gray-700">IVR Documents</h5>
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e, 'ivr')}
-                      />
-                      <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
-                        <Upload className="h-4 w-4" />
-                        Add File
-                      </div>
-                    </label>
+                    {userRole === 'Admin' && (
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileUpload(e, 'ivr')}
+                        />
+                        <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
+                          <Upload className="h-4 w-4" />
+                          Add File
+                        </div>
+                      </label>
+                    )}
                   </div>
 
                   {ivrData.files && ivrData.files.length > 0 ? (
@@ -344,12 +350,14 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                             >
                               <Download className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => removeFile(file.id, 'ivr')}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {userRole === 'Admin' && (
+                              <button
+                                onClick={() => removeFile(file.id, 'ivr')}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -417,23 +425,25 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                     </Button>
                   </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">Order Form Status</label>
-                    <select
-                      value={orderFormData.status}
-                      onChange={(e) => handleStatusChange('order', orderFormData.status, e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    >
-                      <option value="pending">Pending</option>
-                      <option value="submitted_to_manufacturer">Submitted to Manufacturer</option>
-                      <option value="confirmed_by_manufacturer">Confirmed by Manufacturer</option>
-                      <option value="rejected">Rejected</option>
-                      <option value="canceled">Canceled</option>
-                    </select>
-                  </div>
+                  {userRole === 'Admin' && (
+                    <div className="space-y-2">
+                      <label className="block text-sm font-medium text-gray-700">Order Form Status</label>
+                      <select
+                        value={orderFormData.status}
+                        onChange={(e) => handleStatusChange('order', orderFormData.status, e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="submitted_to_manufacturer">Submitted to Manufacturer</option>
+                        <option value="confirmed_by_manufacturer">Confirmed by Manufacturer</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="canceled">Canceled</option>
+                      </select>
+                    </div>
+                  )}
 
                   {/* Manufacturer Submission Button */}
-                  {orderFormData.status === 'pending' && onManufacturerSubmission && (
+                  {userRole === 'Admin' && orderFormData.status === 'pending' && onManufacturerSubmission && (
                     <div className="pt-2">
                       <Button
                         onClick={onManufacturerSubmission}
@@ -452,18 +462,20 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
                     <h5 className="text-sm font-medium text-gray-700">Order Form Documents</h5>
-                    <label className="cursor-pointer">
-                      <input
-                        type="file"
-                        className="hidden"
-                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-                        onChange={(e) => handleFileUpload(e, 'order')}
-                      />
-                      <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
-                        <Upload className="h-4 w-4" />
-                        Add File
-                      </div>
-                    </label>
+                    {userRole === 'Admin' && (
+                      <label className="cursor-pointer">
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+                          onChange={(e) => handleFileUpload(e, 'order')}
+                        />
+                        <div className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
+                          <Upload className="h-4 w-4" />
+                          Add File
+                        </div>
+                      </label>
+                    )}
                   </div>
 
                   {orderFormData.files && orderFormData.files.length > 0 ? (
@@ -492,12 +504,14 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                             >
                               <Download className="h-4 w-4" />
                             </button>
-                            <button
-                              onClick={() => removeFile(file.id, 'order')}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </button>
+                            {userRole === 'Admin' && (
+                              <button
+                                onClick={() => removeFile(file.id, 'order')}
+                                className="text-red-600 hover:text-red-700"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            )}
                           </div>
                         </div>
                       ))}
