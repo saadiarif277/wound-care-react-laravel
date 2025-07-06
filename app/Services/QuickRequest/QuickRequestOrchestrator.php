@@ -285,10 +285,35 @@ class QuickRequestOrchestrator
 
         // Check if insurance_data is already in the correct format
         if (!empty($data['insurance_data']) && is_array($data['insurance_data'])) {
-            return $data['insurance_data'];
+            // If it's indexed array, return as is
+            if (isset($data['insurance_data'][0])) {
+                return $data['insurance_data'];
+            }
+            
+            // If it has named keys, transform it
+            $insurance = $data['insurance_data'];
+            if (!empty($insurance['primary_name'])) {
+                $insuranceData[] = [
+                    'policy_type' => 'primary',
+                    'payer_name' => $insurance['primary_name'],
+                    'member_id' => $insurance['primary_member_id'] ?? null,
+                    'type' => $insurance['primary_plan_type'] ?? null,
+                ];
+            }
+            
+            if (!empty($insurance['has_secondary_insurance']) && !empty($insurance['secondary_insurance_name'])) {
+                $insuranceData[] = [
+                    'policy_type' => 'secondary',
+                    'payer_name' => $insurance['secondary_insurance_name'],
+                    'member_id' => $insurance['secondary_member_id'] ?? null,
+                    'type' => $insurance['secondary_plan_type'] ?? null,
+                ];
+            }
+            
+            return $insuranceData;
         }
 
-        // Primary Insurance
+        // Primary Insurance (from flat data structure)
         if (!empty($data['primary_insurance_name'])) {
             $insuranceData[] = [
                 'policy_type' => 'primary',
@@ -298,7 +323,7 @@ class QuickRequestOrchestrator
             ];
         }
 
-        // Secondary Insurance
+        // Secondary Insurance (from flat data structure)
         if (!empty($data['has_secondary_insurance']) && !empty($data['secondary_insurance_name'])) {
             $insuranceData[] = [
                 'policy_type' => 'secondary',
@@ -569,6 +594,25 @@ class QuickRequestOrchestrator
                 $aggregatedData['maintain_documentation'] = $clinicalData['maintain_documentation'] ?? '';
                 $aggregatedData['wound_duration_weeks'] = $clinicalData['wound_duration_weeks'] ?? '';
                 $aggregatedData['primary_diagnosis_code'] = $clinicalData['primary_diagnosis_code'] ?? '';
+                $aggregatedData['secondary_diagnosis_code'] = $clinicalData['secondary_diagnosis_code'] ?? '';
+                
+                // Add missing diagnosis codes
+                $aggregatedData['icd10_codes'] = [];
+                if (!empty($clinicalData['primary_diagnosis_code'])) {
+                    $aggregatedData['icd10_codes'][] = $clinicalData['primary_diagnosis_code'];
+                }
+                if (!empty($clinicalData['secondary_diagnosis_code'])) {
+                    $aggregatedData['icd10_codes'][] = $clinicalData['secondary_diagnosis_code'];
+                }
+                
+                // Add CPT codes from application_cpt_codes array
+                $aggregatedData['application_cpt_codes'] = $clinicalData['application_cpt_codes'] ?? [];
+                $aggregatedData['cpt_codes'] = $clinicalData['application_cpt_codes'] ?? [];
+                
+                // Add post-op status fields
+                $aggregatedData['global_period_status'] = $clinicalData['global_period_status'] ?? false;
+                $aggregatedData['global_period_cpt'] = $clinicalData['global_period_cpt'] ?? '';
+                $aggregatedData['global_period_surgery_date'] = $clinicalData['global_period_surgery_date'] ?? '';
                 
                 // Calculate wound size total if not present
                 if (!empty($aggregatedData['wound_size_length']) && !empty($aggregatedData['wound_size_width'])) {
@@ -582,14 +626,32 @@ class QuickRequestOrchestrator
             // Insurance data (from form)
             if (isset($metadata['insurance_data'])) {
                 $insuranceData = $metadata['insurance_data'];
-                foreach ($insuranceData as $index => $policy) {
-                    $policyType = $policy['policy_type'] ?? '';
-                    if ($policyType === 'primary') {
-                        $aggregatedData['primary_insurance_name'] = $policy['payer_name'] ?? '';
-                        $aggregatedData['primary_member_id'] = $policy['member_id'] ?? '';
-                    } elseif ($policyType === 'secondary') {
-                        $aggregatedData['secondary_insurance_name'] = $policy['payer_name'] ?? '';
-                        $aggregatedData['secondary_member_id'] = $policy['member_id'] ?? '';
+                
+                // Handle both array and object formats
+                if (isset($insuranceData[0])) {
+                    // Array format from transformRequestDataForInsuranceHandler
+                    foreach ($insuranceData as $index => $policy) {
+                        $policyType = $policy['policy_type'] ?? '';
+                        if ($policyType === 'primary') {
+                            $aggregatedData['primary_insurance_name'] = $policy['payer_name'] ?? '';
+                            $aggregatedData['primary_member_id'] = $policy['member_id'] ?? '';
+                            $aggregatedData['insurance_name'] = $policy['payer_name'] ?? ''; // Alias
+                            $aggregatedData['insurance_member_id'] = $policy['member_id'] ?? ''; // Alias
+                        } elseif ($policyType === 'secondary') {
+                            $aggregatedData['secondary_insurance_name'] = $policy['payer_name'] ?? '';
+                            $aggregatedData['secondary_member_id'] = $policy['member_id'] ?? '';
+                        }
+                    }
+                } else {
+                    // Object format from extractInsuranceData
+                    $aggregatedData['primary_insurance_name'] = $insuranceData['primary_name'] ?? '';
+                    $aggregatedData['primary_member_id'] = $insuranceData['primary_member_id'] ?? '';
+                    $aggregatedData['insurance_name'] = $insuranceData['primary_name'] ?? ''; // Alias
+                    $aggregatedData['insurance_member_id'] = $insuranceData['primary_member_id'] ?? ''; // Alias
+                    
+                    if (!empty($insuranceData['has_secondary_insurance']) && !empty($insuranceData['secondary_insurance_name'])) {
+                        $aggregatedData['secondary_insurance_name'] = $insuranceData['secondary_insurance_name'] ?? '';
+                        $aggregatedData['secondary_member_id'] = $insuranceData['secondary_member_id'] ?? '';
                     }
                 }
             }
@@ -606,6 +668,28 @@ class QuickRequestOrchestrator
             $aggregatedData['patient_id'] = $episode->patient_id;
             $aggregatedData['manufacturer_id'] = $episode->manufacturer_id;
             $aggregatedData['created_by'] = $episode->created_by;
+            
+            // Set distributor_company to always be "MSC Wound Care"
+            $aggregatedData['distributor_company'] = 'MSC Wound Care';
+            
+            // Extract HCPCS code from selected products
+            if (isset($metadata['order_details']['products']) && !empty($metadata['order_details']['products'])) {
+                $firstProduct = $metadata['order_details']['products'][0];
+                
+                // Try to get product code (HCPCS/Q-code)
+                if (isset($firstProduct['product']['code'])) {
+                    $aggregatedData['hcpcs_codes'] = [$firstProduct['product']['code']];
+                    $aggregatedData['product_code'] = $firstProduct['product']['code'];
+                } elseif (isset($firstProduct['product_id'])) {
+                    // Load product from database to get code
+                    $product = \App\Models\Order\Product::find($firstProduct['product_id']);
+                    if ($product && $product->code) {
+                        $aggregatedData['hcpcs_codes'] = [$product->code];
+                        $aggregatedData['product_code'] = $product->code;
+                        $aggregatedData['selected_product_codes'] = [$product->code];
+                    }
+                }
+            }
             
             $this->logger->info('Prepared comprehensive Docuseal data from orchestrator', [
                 'episode_id' => $episode->id,

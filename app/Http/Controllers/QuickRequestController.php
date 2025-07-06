@@ -419,6 +419,32 @@ class QuickRequestController extends Controller
             'wound_length' => $formData['wound_size_length'] ?? 0,
             'wound_width' => $formData['wound_size_width'] ?? 0,
             'wound_depth' => $formData['wound_size_depth'] ?? null,
+            'wound_size_length' => $formData['wound_size_length'] ?? 0,
+            'wound_size_width' => $formData['wound_size_width'] ?? 0,
+            'wound_size_depth' => $formData['wound_size_depth'] ?? null,
+            
+            // Add diagnosis codes
+            'primary_diagnosis_code' => $formData['primary_diagnosis_code'] ?? '',
+            'secondary_diagnosis_code' => $formData['secondary_diagnosis_code'] ?? '',
+            
+            // Add CPT codes
+            'application_cpt_codes' => $formData['application_cpt_codes'] ?? [],
+            
+            // Add post-op status fields
+            'global_period_status' => $formData['global_period_status'] ?? false,
+            'global_period_cpt' => $formData['global_period_cpt'] ?? '',
+            'global_period_surgery_date' => $formData['global_period_surgery_date'] ?? '',
+            
+            // Add other clinical fields
+            'wound_duration_days' => $formData['wound_duration_days'] ?? '',
+            'wound_duration_weeks' => $formData['wound_duration_weeks'] ?? '',
+            'wound_duration_months' => $formData['wound_duration_months'] ?? '',
+            'wound_duration_years' => $formData['wound_duration_years'] ?? '',
+            'previous_treatments' => $formData['previous_treatments'] ?? '',
+            'failed_conservative_treatment' => $formData['failed_conservative_treatment'] ?? false,
+            'information_accurate' => $formData['information_accurate'] ?? false,
+            'medical_necessity_established' => $formData['medical_necessity_established'] ?? false,
+            'maintain_documentation' => $formData['maintain_documentation'] ?? false,
         ];
     }
 
@@ -427,6 +453,13 @@ class QuickRequestController extends Controller
         return [
             'primary_name' => $formData['primary_insurance_name'] ?? '',
             'primary_member_id' => $formData['primary_member_id'] ?? '',
+            'primary_payer_phone' => $formData['primary_payer_phone'] ?? '',
+            'primary_plan_type' => $formData['primary_plan_type'] ?? '',
+            'has_secondary_insurance' => $formData['has_secondary_insurance'] ?? false,
+            'secondary_insurance_name' => $formData['secondary_insurance_name'] ?? '',
+            'secondary_member_id' => $formData['secondary_member_id'] ?? '',
+            'secondary_payer_phone' => $formData['secondary_payer_phone'] ?? '',
+            'secondary_plan_type' => $formData['secondary_plan_type'] ?? '',
         ];
     }
 
@@ -437,10 +470,28 @@ class QuickRequestController extends Controller
             $expectedServiceDate = date('Y-m-d', strtotime('+1 day')); // Default to tomorrow
         }
 
+        // Enhance products with code information
+        $products = $formData['selected_products'] ?? [];
+        foreach ($products as &$productData) {
+            if (isset($productData['product_id']) && !isset($productData['product']['code'])) {
+                $product = \App\Models\Order\Product::find($productData['product_id']);
+                if ($product) {
+                    $productData['product'] = [
+                        'id' => $product->id,
+                        'code' => $product->code,
+                        'name' => $product->name,
+                        'manufacturer' => $product->manufacturer,
+                        'manufacturer_id' => $product->manufacturer_id,
+                    ];
+                }
+            }
+        }
+
         return [
-            'products' => $formData['selected_products'] ?? [],
+            'products' => $products,
             'expected_service_date' => $expectedServiceDate,
             'shipping_speed' => $formData['shipping_speed'] ?? 'standard',
+            'place_of_service' => $formData['place_of_service'] ?? '',
         ];
     }
 
