@@ -12,8 +12,8 @@ return [
     */
 
     'document_intelligence' => [
-        'endpoint' => env('AZURE_DI_ENDPOINT'),
-        'key' => env('AZURE_DI_KEY'),
+        'endpoint' => env('AZURE_DI_ENDPOINT','https://msc-portal-resource.cognitiveservices.azure.com/'),
+        'key' => env('AZURE_DI_KEY','CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P'),
         'api_version' => env('AZURE_DI_API_VERSION', '2023-07-31'),
         'timeout' => env('AZURE_DI_TIMEOUT', 60),
     ],
@@ -55,17 +55,17 @@ return [
 
     'ai_foundry' => [
         'enabled' => env('AZURE_AI_FOUNDRY_ENABLED', false),
-        
+
         /*
         |--------------------------------------------------------------------------
         | Azure OpenAI Configuration
         |--------------------------------------------------------------------------
         */
-        'endpoint' => env('AZURE_OPENAI_ENDPOINT'),
-        'api_key' => env('AZURE_OPENAI_API_KEY'),
+        'endpoint' => env('AZURE_OPENAI_ENDPOINT','https://msc-ai-services.openai.azure.com/'),
+        'api_key' => env('AZURE_OPENAI_API_KEY','CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P'),
         'deployment_name' => env('AZURE_OPENAI_DEPLOYMENT_NAME', 'gpt-4'),
         'api_version' => env('AZURE_OPENAI_API_VERSION', '2024-02-15-preview'),
-        
+
         /*
         |--------------------------------------------------------------------------
         | AI Model Configuration

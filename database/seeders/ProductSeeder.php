@@ -284,6 +284,21 @@ class ProductSeeder extends Seeder
             $sizeLabels = $productData['size_labels'];
             unset($productData['size_labels']);
 
+            // Get or create manufacturer and set manufacturer_id
+            $manufacturerName = $productData['manufacturer'];
+            $manufacturer = \App\Models\Order\Manufacturer::firstOrCreate(
+                ['name' => $manufacturerName],
+                [
+                    'name' => $manufacturerName,
+                    'is_active' => true,
+                    'contact_email' => 'info@' . strtolower(str_replace([' ', '&', '.'], ['', 'and', ''], $manufacturerName)) . '.com',
+                ]
+            );
+
+            // Set manufacturer_id instead of manufacturer string
+            $productData['manufacturer_id'] = $manufacturer->id;
+            unset($productData['manufacturer']); // Remove the string field
+
             // Create or update the product
             $product = Product::firstOrCreate(
                 ['q_code' => $productData['q_code']],
@@ -294,7 +309,7 @@ class ProductSeeder extends Seeder
             );
 
             if ($product->wasRecentlyCreated) {
-                $this->command->info("✅ Created product: {$product->name} ({$product->q_code})");
+                $this->command->info("✅ Created product: {$product->name} ({$product->q_code}) - Manufacturer: {$manufacturer->name}");
 
                 // Create sizes if provided
                 if ($sizeLabels && is_array($sizeLabels)) {
@@ -319,8 +334,10 @@ class ProductSeeder extends Seeder
 
         $this->command->info('🎉 Product seeding completed!');
         $this->command->info('📊 Total products in database: ' . Product::count());
+        $this->command->info('🏭 Total manufacturers: ' . \App\Models\Order\Manufacturer::count());
         $this->command->info('💰 Products with CMS pricing: ' . Product::whereNotNull('national_asp')->count());
         $this->command->info('🔢 Products with MUE limits: ' . Product::whereNotNull('mue')->count());
         $this->command->info('📏 Product sizes created: ' . ProductSize::count());
+        $this->command->info('🔗 Products with manufacturer relationships: ' . Product::whereNotNull('manufacturer_id')->count());
     }
 }

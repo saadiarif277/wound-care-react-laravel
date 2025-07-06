@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Log;
 
 /**
  * DocusealController - Handles all Docuseal integration for Quick Requests
- * 
+ *
  * This controller is focused specifically on Docuseal functionality,
  * extracted from the original monolithic QuickRequestController.
  */
@@ -126,7 +126,7 @@ class DocusealController extends Controller
 
             // Load authenticated user's profile data
             $userProfileData = $this->loadUserProfileDataForDocuseal();
-            
+
             // Merge user profile data with prefill data
             if (!empty($userProfileData)) {
                 $data['prefill_data'] = array_merge($userProfileData, $data['prefill_data'] ?? []);
@@ -143,7 +143,7 @@ class DocusealController extends Controller
                             $data['prefill_data'],
                             'IVR'
                         );
-                        
+
                         if (!empty($mappingResult['data'])) {
                             $data['prefill_data'] = array_merge($data['prefill_data'], $mappingResult['data']);
                             Log::info('Field mapping applied for Docuseal builder', [
@@ -235,7 +235,7 @@ class DocusealController extends Controller
                             $prefillData,
                             'IVR'
                         );
-                        
+
                         if (!empty($mappingResult['data'])) {
                             $prefillData = array_merge($prefillData, $mappingResult['data']);
                         }
@@ -273,7 +273,7 @@ class DocusealController extends Controller
 
             if ($response->successful()) {
                 $submissionData = $response->json();
-                
+
                 Log::info('Docuseal form token generated', [
                     'template_id' => $data['template_id'],
                     'submission_id' => $submissionData['id'] ?? null,
@@ -335,7 +335,7 @@ class DocusealController extends Controller
             }
 
             // Get template ID - use provided one or get from manufacturer
-            $templateId = $data['templateId'] ?? $manufacturer->docuseal_ivr_template_id ?? $manufacturer->docuseal_order_form_template_id;
+            $templateId = $data['templateId'] ?? $manufacturer?->docuseal_ivr_template_id ?? $manufacturer?->docuseal_order_form_template_id;
             if (!$templateId) {
                 throw new \Exception('No Docuseal template found for this manufacturer');
             }
@@ -502,7 +502,7 @@ class DocusealController extends Controller
             }
 
             $user->load(['providerProfile', 'facilities', 'organizations']);
-            
+
             $profileData = [
                 'provider_name' => $user->first_name . ' ' . $user->last_name,
                 'provider_email' => $user->email,
@@ -539,11 +539,11 @@ class DocusealController extends Controller
 
             if ($response->successful()) {
                 $templateData = $response->json();
-                
+
                 // Extract role from template data
                 if (isset($templateData['submitter_roles']) && !empty($templateData['submitter_roles'])) {
-                    return is_string($templateData['submitter_roles'][0]) 
-                        ? $templateData['submitter_roles'][0] 
+                    return is_string($templateData['submitter_roles'][0])
+                        ? $templateData['submitter_roles'][0]
                         : $templateData['submitter_roles'][0]['name'] ?? 'First Party';
                 }
             }
@@ -575,4 +575,4 @@ class DocusealController extends Controller
     {
         return array_filter($prefillData, fn($value) => $value !== null && $value !== '');
     }
-} 
+}
