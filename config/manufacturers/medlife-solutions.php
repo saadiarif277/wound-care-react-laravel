@@ -12,8 +12,6 @@ return [
     // IVR form field mappings - complete mapping from field-mapping.php
     'docuseal_field_names' => [
         // Basic Contact Information
-        'name' => 'Name',
-        'email' => 'Email',
         'phone' => 'Phone',
         'distributor_company' => 'Distributor/Company',
         
@@ -83,8 +81,6 @@ return [
     // Order form field mappings using exact Docuseal field names
     'order_form_field_names' => [
         // Contact Information
-        'name' => 'Name',
-        'email' => 'Email', 
         'phone' => 'Phone',
         
         // Shipping Method Checkboxes

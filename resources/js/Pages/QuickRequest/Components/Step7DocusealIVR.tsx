@@ -1,16 +1,13 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload, FiBrain } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
-import { DocusealForm } from '@docuseal/react';
+import { getIVRFormByManufacturer } from '@/config/localIVRFormMapping';
 
-// This component now relies on the backend orchestrator for all data aggregation
-// No frontend data preparation is needed - the backend is the single source of truth
-
-// This component now relies on the backend orchestrator for all data aggregation
-// No frontend data preparation is needed - the backend is the single source of truth
+// AI-powered IVR form filling - no more DocuSeal dependency
+// Uses the medical AI service for intelligent field mapping and form pre-filling
 
 interface SelectedProduct {
   product_id: number;

@@ -8,8 +8,6 @@ return [
     'docuseal_template_id' => '1233918',
     'docuseal_field_names' => [
         // Basic Contact Information
-        'name' => 'Name',
-        'email' => 'Email',
         'phone' => 'Phone',
         
         // Checkboxes for wound status

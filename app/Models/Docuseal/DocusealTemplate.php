@@ -104,6 +104,14 @@ class DocusealTemplate extends Model
     }
 
     /**
+     * Get the PDF field metadata for this template
+     */
+    public function pdfFieldMetadata(): HasMany
+    {
+        return $this->hasMany(\App\Models\PdfFieldMetadata::class, 'docuseal_template_id', 'docuseal_template_id');
+    }
+
+    /**
      * Get the field mappings for this template
      */
     public function fieldMappings(): HasMany

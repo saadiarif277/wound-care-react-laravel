@@ -809,7 +809,7 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
 });
 
 // QuickRequest AI Routes
-Route::group([], function () {
+Route::middleware(['web'])->group(function () {
     Route::post('/quick-request/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])
         ->middleware('permission:create-product-requests')
         ->name('api.quick-request.generate-ivr');

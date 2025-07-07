@@ -111,8 +111,6 @@ return [
         'specialty_site_name' => 'Specialty Site Name',
         
         // Contact Info
-        'name' => 'Name',
-        'email' => 'Email',
         'phone' => 'Phone'
     ],
     'fields' => [

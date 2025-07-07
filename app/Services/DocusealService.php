@@ -7,6 +7,7 @@ use App\Models\PatientManufacturerIVREpisode;
 use App\Services\UnifiedFieldMappingService;
 use App\Services\AI\AzureFoundryService;
 use App\Services\AI\IntelligentFieldMappingService;
+use App\Services\AI\SmartFieldMappingValidator;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;

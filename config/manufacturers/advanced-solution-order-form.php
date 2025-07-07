@@ -8,8 +8,6 @@ return [
     'docuseal_template_id' => '1299488',
     'docuseal_field_names' => [
         // Contact Information
-        'name' => 'Name',
-        'email' => 'Email',
         'phone' => 'Phone',
         
         // Shipping Information

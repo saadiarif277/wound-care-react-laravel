@@ -27,6 +27,15 @@ import redis
 from cachetools import TTLCache
 import httpx
 
+# Import ML system for intelligent field mapping
+try:
+    from ml_field_mapping import FieldMappingMLSystem, FieldMappingRecord, initialize_ml_system
+    ML_SYSTEM_AVAILABLE = True
+    logger.info("ML field mapping system available")
+except ImportError:
+    ML_SYSTEM_AVAILABLE = False
+    logger.warning("ML field mapping system not available - continuing without ML features")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -1462,11 +1471,12 @@ def _get_default_schema_dict(document_type: DocumentType) -> Dict:
 ai_agent = None
 form_mapping_knowledge_base = FormMappingKnowledgeBase()
 manufacturer_knowledge_base = ManufacturerMappingKnowledgeBase()
+ml_system = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    global ai_agent
+    global ai_agent, ml_system
     try:
         ai_agent = AzureAIAgent()
         logger.info("Medical AI Service started successfully")
@@ -1474,6 +1484,15 @@ async def lifespan(app: FastAPI):
         logger.error(f"Failed to initialize Azure AI Agent: {e}")
         if not Config.ENABLE_LOCAL_FALLBACK:
             raise
+    
+    # Initialize ML system if available
+    if ML_SYSTEM_AVAILABLE:
+        try:
+            ml_system = initialize_ml_system()
+            logger.info("ML field mapping system initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize ML system: {e}")
+            ml_system = None
     
     yield
     
@@ -1509,16 +1528,27 @@ async def health_check():
         else:
             azure_ai_status = "configured_but_failed"
     
+    # ML system status
+    ml_status = "not_available"
+    if ML_SYSTEM_AVAILABLE:
+        if ml_system:
+            ml_status = "running"
+        else:
+            ml_status = "failed_to_initialize"
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "azure_ai_status": azure_ai_status,
         "azure_ai_available": ai_agent is not None and ai_agent.is_available,
         "local_fallback_enabled": Config.ENABLE_LOCAL_FALLBACK,
+        "ml_system_status": ml_status,
+        "ml_system_available": ML_SYSTEM_AVAILABLE,
         "services": {
             "ai_agent": "running" if ai_agent else "not_initialized",
             "knowledge_base": "loaded",
-            "manufacturer_configs": len(manufacturer_knowledge_base.list_manufacturers()) if manufacturer_knowledge_base else 0
+            "manufacturer_configs": len(manufacturer_knowledge_base.list_manufacturers()) if manufacturer_knowledge_base else 0,
+            "ml_system": ml_status
         }
     }
 
@@ -1551,29 +1581,185 @@ async def validate_medical_terms(request: ValidationRequest):
 
 @app.post("/map-fields", response_model=FieldMappingResult)
 async def map_document_fields(request: FieldMappingRequest):
-    """Map OCR data to target schema with manufacturer-specific mappings"""
+    """Map OCR data to target schema with intelligent ML-powered field mapping"""
     try:
-        if ai_agent:
-            # Use Azure AI if available
-            result = await ai_agent.map_fields(
-                request.ocr_data,
-                request.document_type,
-                request.target_schema,
-                request.manufacturer_name
-            )
-        else:
-            # Use local fallback processing
-            result = _local_map_fields(
-                request.ocr_data,
-                request.document_type,
-                request.target_schema
-            )
+        # Use ML-enhanced field mapping
+        result = await _intelligent_field_mapping(
+            request.ocr_data,
+            request.document_type,
+            request.target_schema,
+            request.manufacturer_name
+        )
         
         return FieldMappingResult(**result)
     
     except Exception as e:
         logger.error(f"Field mapping failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+async def _intelligent_field_mapping(ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict], manufacturer_name: Optional[str]) -> Dict:
+    """Enhanced field mapping with ML learning and error correction"""
+    global ml_system
+    
+    # Get ML predictions for improved mapping
+    ml_predictions = {}
+    if ml_system and manufacturer_name:
+        logger.info(f"Using ML predictions for manufacturer: {manufacturer_name}")
+        try:
+            # Get predictions for each OCR field
+            for field_name in ocr_data.keys():
+                prediction = ml_system.predict_field_mapping(
+                    source_field=field_name,
+                    manufacturer=manufacturer_name,
+                    document_type=document_type.value
+                )
+                ml_predictions[field_name] = prediction
+                logger.info(f"ML prediction for '{field_name}': {prediction.predicted_field} (confidence: {prediction.confidence:.3f})")
+        except Exception as e:
+            logger.error(f"ML prediction failed: {e}")
+            ml_predictions = {}
+    
+    # Perform standard field mapping
+    try:
+        if ai_agent:
+            # Use Azure AI if available
+            result = await ai_agent.map_fields(
+                ocr_data,
+                document_type,
+                target_schema,
+                manufacturer_name
+            )
+            mapping_method = "azure_ai"
+        else:
+            # Use local fallback processing
+            result = _local_map_fields(
+                ocr_data,
+                document_type,
+                target_schema
+            )
+            mapping_method = "local_enhanced"
+        
+        # Record mapping results for ML training
+        if ml_system and manufacturer_name:
+            _record_mapping_results(
+                ocr_data, 
+                result, 
+                manufacturer_name, 
+                document_type, 
+                mapping_method,
+                success=True
+            )
+        
+        # Apply ML insights to improve result
+        if ml_predictions:
+            result = _apply_ml_insights(result, ml_predictions, ocr_data)
+        
+        return result
+        
+    except Exception as e:
+        # Record mapping failure for ML learning
+        if ml_system and manufacturer_name:
+            _record_mapping_results(
+                ocr_data, 
+                {}, 
+                manufacturer_name, 
+                document_type, 
+                mapping_method,
+                success=False,
+                error=str(e)
+            )
+        raise
+
+def _record_mapping_results(ocr_data: Dict, result: Dict, manufacturer_name: str, document_type: DocumentType, mapping_method: str, success: bool, error: str = None):
+    """Record field mapping results for ML training"""
+    global ml_system
+    
+    if not ml_system:
+        return
+    
+    try:
+        mapped_fields = result.get('mapped_fields', {})
+        confidence_scores = result.get('confidence_scores', {})
+        
+        # Record each field mapping
+        for source_field, ocr_value in ocr_data.items():
+            target_field = mapped_fields.get(source_field, source_field)
+            confidence = confidence_scores.get(source_field, 0.0)
+            
+            # Skip if this appears to be a failed mapping (like "Email" -> "Email")
+            if not success and "Unknown field" in str(error) and target_field == source_field:
+                # This is likely a failed mapping due to unknown field
+                logger.warning(f"Recording failed mapping: {source_field} -> {target_field} (Unknown field error)")
+                confidence = 0.0
+                success = False
+            
+            ml_system.record_mapping_result(
+                source_field=source_field,
+                target_field=target_field,
+                manufacturer=manufacturer_name,
+                document_type=document_type.value,
+                confidence=confidence,
+                success=success,
+                mapping_method=mapping_method,
+                user_feedback=error if error else None
+            )
+        
+        logger.info(f"Recorded {len(ocr_data)} field mappings for ML training")
+        
+    except Exception as e:
+        logger.error(f"Failed to record mapping results: {e}")
+
+def _apply_ml_insights(result: Dict, ml_predictions: Dict, ocr_data: Dict) -> Dict:
+    """Apply ML insights to improve field mapping results"""
+    mapped_fields = result.get('mapped_fields', {})
+    confidence_scores = result.get('confidence_scores', {})
+    processing_notes = result.get('processing_notes', [])
+    
+    ml_improvements = 0
+    
+    for source_field, prediction in ml_predictions.items():
+        if prediction.confidence > 0.7:  # High confidence ML prediction
+            current_mapping = mapped_fields.get(source_field, source_field)
+            
+            # If ML suggests a different mapping with high confidence, use it
+            if prediction.predicted_field != current_mapping:
+                old_confidence = confidence_scores.get(source_field, 0.0)
+                
+                # Use ML prediction if it's more confident
+                if prediction.confidence > old_confidence:
+                    mapped_fields[source_field] = prediction.predicted_field
+                    confidence_scores[source_field] = prediction.confidence
+                    processing_notes.append(f"ML improved mapping: {source_field} -> {prediction.predicted_field} (confidence: {prediction.confidence:.3f})")
+                    ml_improvements += 1
+    
+    if ml_improvements > 0:
+        processing_notes.append(f"Applied {ml_improvements} ML-powered improvements")
+        
+        # Recalculate quality grade
+        avg_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0.0
+        quality_grade = _calculate_quality_grade(avg_confidence)
+        result['quality_grade'] = quality_grade
+    
+    result['mapped_fields'] = mapped_fields
+    result['confidence_scores'] = confidence_scores
+    result['processing_notes'] = processing_notes
+    
+    return result
+
+def _calculate_quality_grade(avg_confidence: float) -> str:
+    """Calculate quality grade based on average confidence"""
+    if avg_confidence >= 0.9:
+        return "A+"
+    elif avg_confidence >= 0.8:
+        return "A"
+    elif avg_confidence >= 0.7:
+        return "B"
+    elif avg_confidence >= 0.6:
+        return "C"
+    elif avg_confidence >= 0.5:
+        return "D"
+    else:
+        return "F"
 
 @app.get("/terminology-stats")
 async def get_terminology_stats():
@@ -1649,6 +1835,177 @@ async def get_manufacturer_config(manufacturer_name: str):
     except Exception as e:
         logger.error(f"Error getting manufacturer config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/ml-analytics")
+async def get_ml_analytics():
+    """Get ML system analytics and performance metrics"""
+    try:
+        global ml_system
+        
+        if not ML_SYSTEM_AVAILABLE:
+            raise HTTPException(status_code=501, detail="ML system not available")
+        
+        if not ml_system:
+            raise HTTPException(status_code=503, detail="ML system not initialized")
+        
+        analytics = ml_system.get_analytics()
+        
+        return {
+            "ml_system_status": "running",
+            "analytics": analytics,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting ML analytics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/ml-retrain")
+async def retrain_ml_models():
+    """Trigger ML model retraining"""
+    try:
+        global ml_system
+        
+        if not ML_SYSTEM_AVAILABLE:
+            raise HTTPException(status_code=501, detail="ML system not available")
+        
+        if not ml_system:
+            raise HTTPException(status_code=503, detail="ML system not initialized")
+        
+        # Force retrain models
+        results = ml_system.train_models(force=True)
+        
+        return {
+            "status": "success",
+            "training_results": results,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retraining ML models: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/semantic-field-match")
+async def semantic_field_match(request: dict):
+    """
+    Find semantic matches for invalid DocuSeal field names
+    """
+    try:
+        invalid_field = request.get("invalid_field", "")
+        valid_fields = request.get("valid_fields", [])
+        context = request.get("context", "field_mapping")
+        
+        logger.info(f"Semantic field matching for '{invalid_field}' against {len(valid_fields)} valid fields")
+        
+        # Use AI or enhanced local matching
+        suggestions = []
+        
+        if azure_ai_agent and azure_ai_agent.is_available():
+            # Use Azure AI for semantic matching
+            try:
+                prompt = f"""
+                I need to find the best semantic match for an invalid DocuSeal field name.
+                
+                Invalid field: "{invalid_field}"
+                Valid options: {', '.join(valid_fields[:20])}
+                
+                Context: This is for DocuSeal form field mapping where "{invalid_field}" was used but doesn't exist.
+                
+                Please suggest the 3 best matches with confidence scores (0-1).
+                Format as JSON array: [{{"field": "exact_match", "confidence": 0.95, "reason": "explanation"}}]
+                """
+                
+                response = await azure_ai_agent.generate_response(prompt)
+                suggestions = _parse_ai_field_suggestions(response)
+                
+            except Exception as e:
+                logger.warning(f"Azure AI semantic matching failed: {str(e)}")
+                suggestions = []
+        
+        # Fallback to enhanced local matching
+        if not suggestions:
+            suggestions = _get_local_semantic_suggestions(invalid_field, valid_fields)
+        
+        return {
+            "success": True,
+            "suggestions": suggestions,
+            "method": "semantic_matching"
+        }
+        
+    except Exception as e:
+        logger.error(f"Semantic field matching error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+def _parse_ai_field_suggestions(response: str) -> List[Dict]:
+    """Parse AI response for field suggestions"""
+    suggestions = []
+    try:
+        # Try to extract JSON from the response
+        import json
+        import re
+        
+        # Look for JSON array in the response
+        json_match = re.search(r'\[.*\]', response, re.DOTALL)
+        if json_match:
+            suggestions_data = json.loads(json_match.group())
+            for item in suggestions_data:
+                if isinstance(item, dict) and 'field' in item:
+                    suggestions.append({
+                        'field': item.get('field', ''),
+                        'confidence': float(item.get('confidence', 0.5)),
+                        'reason': item.get('reason', 'ai_suggestion')
+                    })
+    except Exception as e:
+        logger.warning(f"Failed to parse AI suggestions: {str(e)}")
+    
+    return suggestions
+
+def _get_local_semantic_suggestions(invalid_field: str, valid_fields: List[str]) -> List[Dict]:
+    """Get semantic suggestions using local algorithms"""
+    suggestions = []
+    
+    # Pattern-based matching
+    patterns = {
+        'Name': ['Patient Name', 'Provider Name', 'Facility Name', 'Patient Full Name'],
+        'Email': ['Patient Email', 'Provider Email', 'Contact Email'],
+        'Phone': ['Patient Phone', 'Provider Phone', 'Contact Phone', 'Phone Number'],
+        'Date': ['Date of Birth', 'Service Date', 'Signature Date'],
+        'Address': ['Patient Address', 'Provider Address', 'Facility Address'],
+        'DOB': ['Date of Birth', 'Patient DOB'],
+        'NPI': ['Provider NPI', 'NPI Number'],
+        'Insurance': ['Insurance Name', 'Primary Insurance'],
+        'Policy': ['Policy Number', 'Insurance Policy'],
+        'Member': ['Member ID', 'Insurance Member ID'],
+    }
+    
+    # Check pattern matches
+    for pattern, alternatives in patterns.items():
+        if pattern.lower() in invalid_field.lower():
+            for alternative in alternatives:
+                if alternative in valid_fields:
+                    suggestions.append({
+                        'field': alternative,
+                        'confidence': 0.8,
+                        'reason': 'pattern_match'
+                    })
+    
+    # Fuzzy string matching
+    for valid_field in valid_fields:
+        similarity = _calculate_string_similarity(invalid_field.lower(), valid_field.lower())
+        if similarity > 0.6:
+            suggestions.append({
+                'field': valid_field,
+                'confidence': similarity,
+                'reason': 'fuzzy_match'
+            })
+    
+    # Sort by confidence and return top 3
+    suggestions.sort(key=lambda x: x['confidence'], reverse=True)
+    return suggestions[:3]
 
 if __name__ == "__main__":
     # Run the service

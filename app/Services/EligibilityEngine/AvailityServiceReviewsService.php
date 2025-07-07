@@ -379,7 +379,7 @@ class AvailityServiceReviewsService
         // Fallback - would need to get from FHIR in real implementation
         return [
             'first_name' => 'Patient',
-            'last_name' => 'Name',
+            'last_name' => 'Unknown',
             'member_id' => 'MEMBER_ID_PLACEHOLDER',
             'dob' => '1980-01-01',
             'gender' => 'unknown',
