@@ -8,6 +8,7 @@ use App\Services\UnifiedFieldMappingService;
 use App\Services\AI\AzureFoundryService;
 use App\Services\AI\IntelligentFieldMappingService;
 use App\Services\AI\SmartFieldMappingValidator;
+use App\Services\AiFormFillerService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
@@ -21,7 +22,8 @@ class DocusealService
 
     public function __construct(
         private UnifiedFieldMappingService $fieldMappingService,
-        private ?IntelligentFieldMappingService $intelligentMapping = null
+        private ?IntelligentFieldMappingService $intelligentMapping = null,
+        private ?AiFormFillerService $aiFormFillerService = null
     ) {
         $this->apiKey = config('services.docuseal.api_key');
         $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
@@ -32,6 +34,17 @@ class DocusealService
                 $this->intelligentMapping = app(IntelligentFieldMappingService::class);
             } catch (\Exception $e) {
                 Log::warning('Intelligent mapping service not available, using standard mapping', [
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+        
+        // Initialize AI form filler service if available
+        if (!$this->aiFormFillerService) {
+            try {
+                $this->aiFormFillerService = app(AiFormFillerService::class);
+            } catch (\Exception $e) {
+                Log::warning('AI form filler service not available', [
                     'error' => $e->getMessage()
                 ]);
             }
@@ -1668,8 +1681,71 @@ class DocusealService
         string $manufacturerName
     ): array {
         try {
-            // Use intelligent mapping if available, otherwise fallback to standard
-            if ($this->intelligentMapping) {
+            // Priority 1: Use Python AI service if available
+            if ($this->aiFormFillerService) {
+                Log::info('Using Python AI service for field mapping');
+                
+                // Use the AI service to map fields
+                $aiResult = $this->aiFormFillerService->fillFormFields(
+                    $comprehensiveData,
+                    'ivr_form',
+                    [] // Let AI service determine target schema
+                );
+                
+                if ($aiResult['success']) {
+                    // Get manufacturer template ID
+                    $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerName)->first();
+                    $template = null;
+                    $templateId = null;
+                    
+                    if ($manufacturer) {
+                        $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                            ->where('document_type', 'IVR')
+                            ->where('is_active', true)
+                            ->where('is_default', true)
+                            ->first();
+                        
+                        if (!$template) {
+                            $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                                ->where('document_type', 'IVR')
+                                ->where('is_active', true)
+                                ->first();
+                        }
+                        
+                        if ($template) {
+                            $templateId = $template->docuseal_template_id;
+                        }
+                    }
+                    
+                    // Convert AI result to mapping result format
+                    $mappingResult = [
+                        'data' => $aiResult['filled_fields'],
+                        'validation' => [
+                            'valid' => true,
+                            'errors' => [],
+                            'warnings' => $aiResult['processing_notes'] ?? []
+                        ],
+                        'manufacturer' => [
+                            'name' => $manufacturerName,
+                            'docuseal_template_id' => $templateId,
+                            'template_id' => $templateId
+                        ],
+                        'completeness' => [
+                            'percentage' => $aiResult['quality_grade'] === 'A' ? 95 : 
+                                           ($aiResult['quality_grade'] === 'B' ? 85 : 70)
+                        ],
+                        'ai_enhanced' => true
+                    ];
+                } else {
+                    Log::warning('Python AI service failed, falling back to intelligent mapping');
+                    $mappingResult = null;
+                }
+            } else {
+                $mappingResult = null;
+            }
+            
+            // Priority 2: Use intelligent mapping if AI service unavailable
+            if (!$mappingResult && $this->intelligentMapping) {
                 Log::info('Using AI-enhanced field mapping for Docuseal submission');
                 $mappingResult = $this->intelligentMapping->mapEpisodeWithAI(
                     null, // No episode ID since we're providing data directly
@@ -1677,7 +1753,10 @@ class DocusealService
                     $comprehensiveData,
                     ['use_cache' => true, 'adaptive_validation' => true]
                 );
-            } else {
+            }
+            
+            // Priority 3: Fallback to standard mapping
+            if (!$mappingResult) {
                 Log::info('Using standard field mapping for Docuseal submission');
                 $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
                     null,

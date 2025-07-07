@@ -5,6 +5,8 @@ import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
 import { getIVRFormByManufacturer } from '@/config/localIVRFormMapping';
+// @ts-ignore
+import { DocusealForm } from '@docuseal/react';
 
 // AI-powered IVR form filling - no more DocuSeal dependency
 // Uses the medical AI service for intelligent field mapping and form pre-filling

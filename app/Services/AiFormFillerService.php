@@ -21,8 +21,8 @@ class AiFormFillerService
 
     public function __construct()
     {
-        $this->aiServiceUrl = config('services.ai_form_filler.url', 'http://localhost:8080');
-        $this->timeout = config('services.ai_form_filler.timeout', 30);
+        $this->aiServiceUrl = config('services.ai_form_filler.url', 'http://127.0.0.1:8080');
+        $this->timeout = config('services.ai_form_filler.timeout', 90); // Increased timeout to 90s
         $this->enableCache = config('services.ai_form_filler.enable_cache', true);
     }
 
@@ -68,9 +68,9 @@ class AiFormFillerService
             ];
 
         } catch (Exception $e) {
-            Log::error('AI Form Filler: Failed to fill form fields', [
+            Log::error('AI Form Filler: Failed to fill form fields. The service will now use a local fallback.', [
                 'error' => $e->getMessage(),
-                'form_type' => $formType
+                'form_type' => $formType,
             ]);
 
             // Fallback to basic mapping

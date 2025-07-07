@@ -3,10 +3,9 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use Symfony\Component\Process\Process;
-use Symfony\Component\Process\Exception\ProcessFailedException;
-use Illuminate\Support\Facades\Log;
+use App\Services\AiFormFillerService;
 use App\Models\Episode;
+use Illuminate\Support\Facades\Log;
 
 class ProcessFormWithAI extends Command
 {
@@ -22,7 +21,15 @@ class ProcessFormWithAI extends Command
      *
      * @var string
      */
-    protected $description = 'Process form data using Python AI script for intelligent field mapping';
+    protected $description = 'Process form data using the AiFormFillerService for intelligent field mapping';
+
+    protected $aiFormFiller;
+
+    public function __construct(AiFormFillerService $aiFormFiller)
+    {
+        parent::__construct();
+        $this->aiFormFiller = $aiFormFiller;
+    }
 
     /**
      * Execute the console command.
@@ -36,72 +43,44 @@ class ProcessFormWithAI extends Command
 
         $this->info("🤖 Processing form with AI for Episode: {$episodeId}, Manufacturer: {$manufacturer}");
 
-        // Verify episode exists
         $episode = Episode::find($episodeId);
         if (!$episode) {
             $this->error("Episode {$episodeId} not found");
             return 1;
         }
 
-        // Get Python executable and venv path from config
-        $pythonExec = config('services.python.executable', env('PYTHON_EXECUTABLE', 'python3'));
-        $venvPath = config('services.python.venv_path', env('PYTHON_VENV_PATH', './venv'));
-        
-        // Use venv Python if available
-        $venvPython = base_path("{$venvPath}/bin/python");
-        if (file_exists($venvPython)) {
-            $pythonExec = $venvPython;
-            $this->info("Using virtual environment Python: {$venvPython}");
-        }
-
-        // Build command
-        $scriptPath = base_path('scripts/form_map_gpt.py');
-        $command = [
-            $pythonExec,
-            $scriptPath,
-            '--fhir-episode', $episodeId,
-            '--manufacturer', $manufacturer,
-            '--form-type', $formType,
-            '--output-format', 'json'
+        // Prepare data for the service
+        // This is a simplified example. In a real scenario, you'd gather more comprehensive data.
+        $formData = [
+            'patient_first_name' => $episode->patient->first_name ?? 'Test',
+            'patient_last_name' => $episode->patient->last_name ?? 'Patient',
+            'patient_dob' => $episode->patient->date_of_birth ?? '1970-01-01',
+            // Add other relevant data from the episode
         ];
-
-        if ($debug) {
-            $command[] = '--debug';
-        }
-
-        // Execute Python script
-        $process = new Process($command);
-        $process->setWorkingDirectory(base_path());
-        $process->setTimeout(60); // 60 seconds timeout
+        
+        $this->info("Calling AiFormFillerService...");
 
         try {
-            $this->info("Executing: " . implode(' ', $command));
-            $process->mustRun();
-
-            $output = $process->getOutput();
+            $result = $this->aiFormFiller->fillFormFields($formData, $formType, []);
             
             if ($debug) {
-                $this->info("Raw output:");
-                $this->line($output);
+                $this->info("Raw output from service:");
+                $this->line(json_encode($result, JSON_PRETTY_PRINT));
             }
 
-            // Parse JSON output
-            $result = json_decode($output, true);
+            if (!$result['success']) {
+                throw new \Exception($result['error'] ?? 'AI service returned an error');
+            }
             
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                throw new \Exception("Failed to parse JSON output: " . json_last_error_msg());
-            }
-
-            // Display results
             $this->info("✅ AI Processing Complete!");
-            
-            if (isset($result['mapped_fields'])) {
-                $this->info("Mapped Fields: " . count($result['mapped_fields']));
+
+            if (isset($result['filled_fields'])) {
+                $this->info("Mapped Fields: " . count($result['filled_fields']));
                 
                 if ($debug) {
                     $this->table(
                         ['Field', 'Value', 'Confidence'],
-                        collect($result['mapped_fields'])->map(function ($value, $field) use ($result) {
+                        collect($result['filled_fields'])->map(function ($value, $field) use ($result) {
                             return [
                                 $field,
                                 is_array($value) ? json_encode($value) : $value,
@@ -112,16 +91,10 @@ class ProcessFormWithAI extends Command
                 }
             }
 
-            if (isset($result['fhir_resources'])) {
-                $this->info("FHIR Resources Created: " . count($result['fhir_resources']));
-            }
+            // Here you would typically update the episode or related models with the results
+            // For example: $episode->update(['metadata' -> $result['filled_fields']]);
 
-            if (isset($result['docuseal_submission'])) {
-                $this->info("Docuseal Submission ID: " . $result['docuseal_submission']['id']);
-            }
-
-            // Log to Laravel logs
-            Log::info('AI form processing completed', [
+            Log::info('AI form processing completed via command', [
                 'episode_id' => $episodeId,
                 'manufacturer' => $manufacturer,
                 'result' => $result
@@ -129,21 +102,10 @@ class ProcessFormWithAI extends Command
 
             return 0;
 
-        } catch (ProcessFailedException $e) {
-            $this->error("Python script failed: " . $e->getMessage());
-            $this->error("Error output: " . $process->getErrorOutput());
-            
-            Log::error('AI form processing failed', [
-                'episode_id' => $episodeId,
-                'error' => $e->getMessage(),
-                'stderr' => $process->getErrorOutput()
-            ]);
-            
-            return 1;
         } catch (\Exception $e) {
             $this->error("Error: " . $e->getMessage());
             
-            Log::error('AI form processing error', [
+            Log::error('AI form processing command failed', [
                 'episode_id' => $episodeId,
                 'error' => $e->getMessage()
             ]);

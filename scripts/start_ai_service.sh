@@ -5,11 +5,22 @@
 
 echo "🚀 Starting Medical AI Service..."
 
-# Export Azure OpenAI environment variables
-export AZURE_OPENAI_ENDPOINT="https://msc-ai-services.openai.azure.com/"
-export AZURE_OPENAI_API_KEY="CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P"
-export AZURE_OPENAI_DEPLOYMENT="gpt-4o"
-export AZURE_OPENAI_API_VERSION="2024-02-15-preview"
+# Source .env file to get the correct API key
+if [ -f "../.env" ]; then
+    set -a
+    source ../.env
+    set +a
+elif [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+fi
+
+# Export Azure OpenAI environment variables (use .env values, fallback to defaults)
+export AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-https://msc-ai-services.openai.azure.com/}"
+export AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY}"
+export AZURE_OPENAI_DEPLOYMENT="${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}"
+export AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}"
 
 # Other service configuration
 export ENABLE_LOCAL_FALLBACK="true"

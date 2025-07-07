@@ -17,6 +17,13 @@ from pathlib import Path
 from contextlib import asynccontextmanager
 import re # Added for PHP config parsing
 
+# Configure logging first - before any other imports
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
@@ -27,22 +34,24 @@ import redis
 from cachetools import TTLCache
 import httpx
 
+# Initialize ML system variables
+ML_SYSTEM_AVAILABLE = False
+ml_system = None
+
 # Import ML system for intelligent field mapping
 try:
     from ml_field_mapping import FieldMappingMLSystem, FieldMappingRecord, initialize_ml_system
     ML_SYSTEM_AVAILABLE = True
     logger.info("ML field mapping system available")
-except ImportError:
+except ImportError as e:
+    logger.warning(f"ML field mapping system not available - continuing without ML features: {e}")
+except Exception as e:
+    logger.error(f"Error importing ML field mapping system: {e}")
     ML_SYSTEM_AVAILABLE = False
-    logger.warning("ML field mapping system not available - continuing without ML features")
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # Configuration
 class Config:
-    AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT')
+    AZURE_OPENAI_ENDPOINT = os.getenv('AZURE_OPENAI_ENDPOINT', '').rstrip('/')
     AZURE_OPENAI_API_KEY = os.getenv('AZURE_OPENAI_API_KEY')
     AZURE_OPENAI_DEPLOYMENT = os.getenv('AZURE_OPENAI_DEPLOYMENT', 'gpt-4o')
     AZURE_OPENAI_API_VERSION = os.getenv('AZURE_OPENAI_API_VERSION', '2024-02-15-preview')
@@ -518,62 +527,54 @@ manufacturer_knowledge_base = ManufacturerMappingKnowledgeBase()
 # Azure OpenAI Client
 class AzureAIAgent:
     def __init__(self):
+        self.config = Config()
         self.client = None
-        self.cache = TTLCache(maxsize=1000, ttl=Config.CACHE_TTL)
-        self.is_available = False
-        
-        # Validate Azure OpenAI configuration
-        missing_vars = []
-        if not Config.AZURE_OPENAI_ENDPOINT:
-            missing_vars.append("AZURE_OPENAI_ENDPOINT")
-        if not Config.AZURE_OPENAI_API_KEY:
-            missing_vars.append("AZURE_OPENAI_API_KEY")
-        
-        if missing_vars:
-            logger.warning(f"Azure OpenAI configuration incomplete. Missing: {', '.join(missing_vars)}")
-            if not Config.ENABLE_LOCAL_FALLBACK:
-                raise ValueError(f"Azure OpenAI configuration is required. Missing environment variables: {', '.join(missing_vars)}")
-            logger.info("Continuing with local fallback mode enabled")
-            return
-        
-        try:
-            # Initialize Azure OpenAI client
-            self.client = AzureOpenAI(
-                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
-                api_key=Config.AZURE_OPENAI_API_KEY,
-                api_version=Config.AZURE_OPENAI_API_VERSION
-            )
-            
-            # Test the connection
-            self._test_connection()
-            self.is_available = True
-            logger.info("✅ Azure OpenAI client initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize Azure OpenAI client: {e}")
-            if not Config.ENABLE_LOCAL_FALLBACK:
-                raise
-            logger.info("Continuing with local fallback mode")
-    
+        self.redis_client = None
+        self.knowledge_base = FormMappingKnowledgeBase()
+        self.manufacturer_kb = ManufacturerMappingKnowledgeBase()
+        self.cache = TTLCache(maxsize=100, ttl=self.config.CACHE_TTL)
+        self.is_azure_connected = False
+
+        if self.config.AZURE_OPENAI_API_KEY:
+            try:
+                self.client = AzureOpenAI(
+                    azure_endpoint=self.config.AZURE_OPENAI_ENDPOINT,
+                    api_key=self.config.AZURE_OPENAI_API_KEY,
+                    api_version=self.config.AZURE_OPENAI_API_VERSION,
+                    timeout=20.0,
+                    max_retries=3,
+                )
+                logger.info("Azure OpenAI client configured. Testing connection...")
+                # The connection test is now just a check, not a fatal error
+                self._test_connection()
+
+            except Exception as e:
+                logger.error(f"Failed to initialize Azure OpenAI client during startup: {e}")
+                self.client = None
+                self.is_azure_connected = False
+        else:
+            logger.warning("Azure OpenAI API key not found. Service will run in local-only mode.")
+
     def _test_connection(self):
-        """Test Azure OpenAI connection with a simple request"""
+        if not self.client:
+            self.is_azure_connected = False
+            return
         try:
-            response = self.client.chat.completions.create(
-                model=Config.AZURE_OPENAI_DEPLOYMENT,
-                messages=[{"role": "user", "content": "Test connection"}],
-                max_tokens=1,
-                temperature=0
+            # A simple, low-cost call to test the connection for chat models
+            self.client.chat.completions.create(
+                model=self.config.AZURE_OPENAI_DEPLOYMENT,
+                messages=[{"role": "user", "content": "Test"}],
+                max_tokens=5
             )
-            logger.info("Azure OpenAI connection test successful")
+            logger.info("✅ Azure OpenAI connection successful!")
+            self.is_azure_connected = True
         except Exception as e:
-            logger.warning(f"Azure OpenAI connection test failed: {e}")
-            raise
-    
+            logger.warning(f"Azure OpenAI connection test failed: {e}. Will retry on next request.")
+            self.is_azure_connected = False
+
     async def validate_medical_terms(self, terms: List[str], context: DocumentType) -> Dict:
-        """Validate medical terms using Azure OpenAI with medical knowledge"""
-        # Use local fallback if Azure AI is not available
-        if not self.is_available or not self.client:
-            logger.info("Azure AI not available, using local fallback for validation")
+        if not self.client:
+            logger.warning("Azure AI client not available. Using local fallback for validation.")
             return self._fallback_validation(terms, context)
         
         cache_key = f"validate_{hash(str(terms))}_{context}"
@@ -586,7 +587,7 @@ class AzureAIAgent:
         
         try:
             response = self.client.chat.completions.create(
-                model=Config.AZURE_OPENAI_DEPLOYMENT,
+                model=self.config.AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {
                         "role": "system",
@@ -615,7 +616,7 @@ class AzureAIAgent:
     async def map_fields(self, ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None, manufacturer_name: Optional[str] = None) -> Dict:
         """Map OCR fields to target schema using Azure OpenAI with manufacturer-specific mappings"""
         # Use local fallback if Azure AI is not available
-        if not self.is_available or not self.client:
+        if not self.client:
             logger.info("Azure AI not available, using local fallback for field mapping")
             return self._fallback_mapping(ocr_data, document_type, manufacturer_name)
         
@@ -635,7 +636,7 @@ class AzureAIAgent:
         
         try:
             response = self.client.chat.completions.create(
-                model=Config.AZURE_OPENAI_DEPLOYMENT,
+                model=self.config.AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {
                         "role": "system",
@@ -652,6 +653,10 @@ class AzureAIAgent:
             )
             
             result = json.loads(response.choices[0].message.content)
+            
+            # Apply standard insurance field mappings for IVR forms
+            if document_type == DocumentType.CLINICAL_NOTE:  # IVR forms are processed as clinical notes
+                result = self._apply_standard_insurance_mappings(result, ocr_data)
             
             # Apply manufacturer-specific field name mappings
             if manufacturer_config and manufacturer_config.get('docuseal_field_names'):
@@ -858,6 +863,10 @@ Return JSON format:
         # Use enhanced local mapping instead of simple mapping
         result = _local_map_fields(ocr_data, document_type)
         
+        # Apply standard insurance field mappings for IVR forms
+        if document_type == DocumentType.CLINICAL_NOTE:  # IVR forms are processed as clinical notes
+            result = self._apply_standard_insurance_mappings(result, ocr_data)
+        
         # Add manufacturer-specific mappings if available
         if manufacturer_name:
             global manufacturer_knowledge_base
@@ -869,6 +878,107 @@ Return JSON format:
         if 'processing_notes' not in result:
             result['processing_notes'] = []
         result['processing_notes'].append("Azure AI unavailable - used enhanced local fallback")
+        
+        return result
+
+    def _apply_standard_insurance_mappings(self, result: Dict, ocr_data: Dict) -> Dict:
+        """Apply standard insurance field mappings for IVR forms"""
+        mapped_fields = result.get('mapped_fields', {})
+        
+        # Standard insurance field mappings for form2_IVR format
+        insurance_mappings = {
+            # Primary insurance
+            'primary_insurance_name': 'Primary Insurance',
+            'primary_member_id': 'Member ID', 
+            'primary_plan_type': 'Primary Plan Type',
+            'primary_payer_phone': 'Primary Payer Phone',
+            
+            # Secondary insurance
+            'secondary_insurance_name': 'Secondary Insurance',
+            'secondary_member_id': 'Secondary Member ID',
+            'secondary_plan_type': 'Secondary Plan Type',
+            
+            # Provider fields
+            'provider_name': 'Physician Name',
+            'provider_npi': 'Physician NPI', 
+            'provider_tax_id': 'TAX ID#',
+            'tax_id': 'TAX ID#',
+            
+            # Practice fields
+            'practice_name': 'Practice Name',
+            'practice_npi': 'Practice NPI',
+            'practice_ptan': 'Practice PTAN',
+            
+            # Facility fields
+            'facility_name': 'Practice Name',  # Often same as practice name in IVR
+            
+            # Patient fields
+            'patient_name': 'Patient Name',
+            'patient_dob': 'Patient DOB',
+            'patient_first_name': 'Patient Name',  # Will be combined
+            'patient_last_name': 'Patient Name',   # Will be combined
+            
+            # Clinical fields 
+            'primary_diagnosis_code': 'Primary Diagnosis',
+            'secondary_diagnosis_code': 'Secondary Diagnosis',
+            'wound_location': 'Wound Location',
+            'wound_type': 'Wound Type',
+            'diagnosis_code': 'Primary Diagnosis',
+            
+            # ICD-10 and CPT codes
+            'icd10_code_1': 'ICD-10 Code 1',
+            'icd10_code_2': 'ICD-10 Code 2', 
+            'icd10_code_3': 'ICD-10 Code 3',
+            'cpt_code_1': 'CPT Code 1',
+            'cpt_code_2': 'CPT Code 2',
+            'cpt_code_3': 'CPT Code 3',
+            'hcpcs_code_1': 'HCPCS Code 1',
+            'hcpcs_code_2': 'HCPCS Code 2',
+            'hcpcs_code_3': 'HCPCS Code 3',
+            
+            # Procedure fields
+            'procedure_date': 'Procedure Date',
+            'wound_size_length': 'Wound Size Length',
+            'wound_size_width': 'Wound Size Width',
+            'total_wound_size': 'Total Wound Size',
+            'wound_size': 'Wound Size',
+            
+            # Place of service
+            'place_of_service': 'Place of Service',
+            'pos_office': 'Office',
+            'pos_home': 'Home',
+            'pos_assisted_living': 'Assisted Living',
+            
+            # Additional fields commonly missing
+            'contact_name': 'Office Contact Name',
+            'contact_email': 'Office Contact Email',
+            'distributor_company': 'Distributor / Company'
+        }
+        
+        # Apply mappings from original data
+        updated_fields = {}
+        for original_field, docuseal_field in insurance_mappings.items():
+            if original_field in ocr_data:
+                updated_fields[docuseal_field] = ocr_data[original_field]
+                logger.info(f"Mapped {original_field} -> {docuseal_field}: {ocr_data[original_field]}")
+        
+        # Combine first and last name for patient name
+        if 'patient_first_name' in ocr_data or 'patient_last_name' in ocr_data:
+            first_name = ocr_data.get('patient_first_name', '')
+            last_name = ocr_data.get('patient_last_name', '')
+            full_name = f"{first_name} {last_name}".strip()
+            if full_name:
+                updated_fields['Patient Name'] = full_name
+                logger.info(f"Combined patient name: {full_name}")
+        
+        # Update the result
+        mapped_fields.update(updated_fields)
+        result['mapped_fields'] = mapped_fields
+        
+        # Update processing notes
+        if 'processing_notes' not in result:
+            result['processing_notes'] = []
+        result['processing_notes'].append(f"Applied standard insurance mappings for {len(updated_fields)} fields")
         
         return result
 
