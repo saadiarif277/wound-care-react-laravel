@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual PDF Upload Test</title>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 20px 0; padding: 10px; background: #f0f0f0; }
+        .error { background: #ffcccc; }
+        .success { background: #ccffcc; }
+        pre { white-space: pre-wrap; }
+    </style>
+</head>
+<body>
+    <h1>Manual PDF Upload Test</h1>
+    
+    <div>
+        <p>This tests file upload directly without Inertia.js</p>
+        <form id="uploadForm" enctype="multipart/form-data">
+            <input type="file" id="pdfFile" accept=".pdf,application/pdf" required>
+            <button type="submit">Test Upload</button>
+        </form>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const form = document.getElementById('uploadForm');
+        const fileInput = document.getElementById('pdfFile');
+        const results = document.getElementById('results');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file');
+                return;
+            }
+
+            // Log file details
+            addResult('File selected:', {
+                name: file.name,
+                type: file.type,
+                size: file.size,
+                sizeMB: (file.size / 1024 / 1024).toFixed(2) + ' MB'
+            });
+
+            // Create FormData
+            const formData = new FormData();
+            formData.append('pdf_file', file);
+            formData.append('manufacturer_id', '1');
+            formData.append('template_name', 'Test Upload');
+            formData.append('document_type', 'ivr');
+            formData.append('version', '1.0');
+            formData.append('is_active', '0');
+
+            try {
+                // Get CSRF token
+                const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+                if (!csrfToken) {
+                    addResult('ERROR: No CSRF token found', null, true);
+                    return;
+                }
+
+                // Try the test endpoint first
+                const testResponse = await fetch('/admin/test-upload', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const testResult = await testResponse.json();
+                addResult('Test endpoint response:', testResult, !testResponse.ok);
+
+                // Now try the actual upload endpoint
+                const uploadResponse = await fetch('/admin/pdf-templates?debug=1', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Accept': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                if (uploadResponse.status === 422) {
+                    const errors = await uploadResponse.json();
+                    addResult('Validation errors:', errors, true);
+                } else if (!uploadResponse.ok) {
+                    addResult('Upload failed with status: ' + uploadResponse.status, {
+                        statusText: uploadResponse.statusText,
+                        headers: Object.fromEntries(uploadResponse.headers.entries())
+                    }, true);
+                } else {
+                    const result = await uploadResponse.json();
+                    addResult('Upload successful:', result);
+                }
+
+            } catch (error) {
+                addResult('Network error:', error.message, true);
+            }
+        });
+
+        function addResult(title, data, isError = false) {
+            const div = document.createElement('div');
+            div.className = 'result ' + (isError ? 'error' : 'success');
+            div.innerHTML = `
+                <strong>${title}</strong>
+                ${data ? '<pre>' + JSON.stringify(data, null, 2) + '</pre>' : ''}
+            `;
+            results.appendChild(div);
+        }
+    </script>
+</body>
+</html>

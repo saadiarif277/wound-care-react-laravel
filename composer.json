@@ -17,8 +17,6 @@
         "dcarbone/php-fhir": "^4.0",
         "dcarbone/php-fhir-generated": "^3.2",
         "doctrine/dbal": "*",
-        "docuseal/docuseal-laravel": "dev-main",
-        "docusealco/docuseal-php": "^1.0",
         "fakerphp/faker": "^1.23",
         "firebase/php-jwt": "^6.11",
         "guzzlehttp/guzzle": "^7.2",
@@ -28,6 +26,7 @@
         "laravel/tinker": "^2.9",
         "league/flysystem-aws-s3-v3": "^3.0",
         "league/glide-symfony": "^2.0",
+        "microsoft/azure-storage-blob": "*",
         "sentry/sentry-laravel": "^4.15",
         "tightenco/ziggy": "^2.2"
     },

@@ -14,8 +14,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use App\Models\Docuseal\DocusealSubmission;
-use App\Constants\DocusealFields;
+use App\Models\PDF\PDFDocument;
 use Illuminate\Support\Arr;
 
 class ProductRequest extends Model
@@ -54,8 +53,7 @@ class ProductRequest extends Model
         'total_order_value',
         'acquiring_rep_id',
         'ivr_episode_id',
-        'docuseal_submission_id',
-        'docuseal_template_id',
+        'pdf_document_id',
         'notes',
         'rejection_reason',
         'cancellation_reason',
@@ -196,11 +194,11 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get the Docuseal submissions for this product request.
+     * Get the PDF documents for this product request.
      */
-    public function docusealSubmissions(): HasMany
+    public function pdfDocuments(): HasMany
     {
-        return $this->hasMany(DocusealSubmission::class, 'order_id');
+        return $this->hasMany(PDFDocument::class, 'episode_id', 'ivr_episode_id');
     }
 
     /**
@@ -396,9 +394,8 @@ class ProductRequest extends Model
      */
     public function isIvrGenerated(): bool
     {
-        // Since ivr_sent_at and ivr_document_url columns don't exist,
-        // check if we have any Docuseal submissions
-        return $this->docusealSubmissions()->exists();
+        // Check if we have any PDF documents
+        return $this->pdfDocuments()->exists();
     }
 
     /**
@@ -533,17 +530,17 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get a normalized field value using Docuseal canonical keys.
+     * Get a normalized field value using canonical keys.
      * This provides a single interface for accessing form data regardless of storage method.
      *
-     * @param string $key Canonical Docuseal field key
+     * @param string $key Canonical field key
      * @param mixed $default Default value if not found
      * @return mixed
      */
     public function getValue(string $key, $default = null)
     {
-        // First check if we have Docuseal submission data
-        if ($submission = $this->getDocusealSubmissionData()) {
+        // First check if we have PDF document data
+        if ($submission = $this->getPDFDocumentData()) {
             $value = Arr::get($submission, $key, null);
             if ($value !== null) {
                 return $value;
@@ -555,23 +552,22 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get Docuseal submission form data if available.
+     * Get PDF document form data if available.
      */
-    protected function getDocusealSubmissionData(): ?array
+    protected function getPDFDocumentData(): ?array
     {
-        // Since docuseal_submission_id column doesn't exist,
-        // try to get the first Docuseal submission
+        // Try to get the first PDF document
         try {
-            $submission = $this->docusealSubmissions()->first();
-            if ($submission && isset($submission->response_data)) {
-                return is_array($submission->response_data)
-                    ? $submission->response_data
-                    : json_decode($submission->response_data, true);
+            $document = $this->pdfDocuments()->where('document_type', 'ivr')->first();
+            if ($document && isset($document->field_values)) {
+                return is_array($document->field_values)
+                    ? $document->field_values
+                    : json_decode($document->field_values, true);
             }
         } catch (\Exception $e) {
-            Log::error('Failed to get Docuseal submission data', [
+            Log::error('Failed to get PDF document data', [
                 'product_request_id' => $this->id,
-                'submission_id' => $this->docuseal_submission_id,
+                'episode_id' => $this->ivr_episode_id,
                 'error' => $e->getMessage()
             ]);
         }
@@ -580,75 +576,75 @@ class ProductRequest extends Model
     }
 
     /**
-     * Map canonical Docuseal field keys to ProductRequest model attributes.
+     * Map canonical field keys to ProductRequest model attributes.
      */
     protected function getValueFromModel(string $key, $default = null)
     {
         $fieldMapping = [
             // Patient Information (from FHIR when available)
-            DocusealFields::PATIENT_NAME => function() {
+            'patient_name' => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['name'] ?? null) : $this->patient_display_id;
             },
-            DocusealFields::PATIENT_DOB => function() {
+            'patient_dob' => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['birthDate'] ?? null) : null;
             },
-            DocusealFields::PATIENT_GENDER => function() {
+            'patient_gender' => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['gender'] ?? null) : null;
             },
-            DocusealFields::PATIENT_ADDRESS => function() {
+            'patient_address' => function() {
                 $patient = $this->getPatientAttribute();
                 return $patient ? ($patient['address'] ?? null) : null;
             },
 
             // Provider Information
-            DocusealFields::PROVIDER_NAME => function() {
+            'provider_name' => function() {
                 return $this->provider ? $this->provider->first_name . ' ' . $this->provider->last_name : null;
             },
-            DocusealFields::PROVIDER_NPI => function() {
+            'provider_npi' => function() {
                 return $this->provider ? $this->provider->npi : null;
             },
 
             // Facility Information
-            DocusealFields::FACILITY_NAME => function() {
+            'facility_name' => function() {
                 return $this->facility ? $this->facility->name : null;
             },
-            DocusealFields::FACILITY_NPI => function() {
+            'facility_npi' => function() {
                 return $this->facility ? $this->facility->npi : null;
             },
-            DocusealFields::FACILITY_CONTACT_PHONE => function() {
+            'facility_contact_phone' => function() {
                 return $this->facility ? $this->facility->phone : null;
             },
-            DocusealFields::FACILITY_CONTACT_EMAIL => function() {
+            'facility_contact_email' => function() {
                 return $this->facility ? $this->facility->email : null;
             },
 
             // Insurance Information
-            DocusealFields::PRIMARY_INS_NAME => 'payer_name_submitted',
+            'primary_ins_name' => 'payer_name_submitted',
 
             // Service Information
-            DocusealFields::PLACE_OF_SERVICE => 'place_of_service',
-            DocusealFields::ANTICIPATED_APPLICATION_DATE => 'expected_service_date',
+            'place_of_service' => 'place_of_service',
+            'anticipated_application_date' => 'expected_service_date',
 
             // Product Information
-            DocusealFields::PRODUCT_CODE => function() {
+            'product_code' => function() {
                 $product = $this->products()->first();
                 return $product ? $product->q_code : null;
             },
-            DocusealFields::PRODUCT_SIZE => function() {
+            'product_size' => function() {
                 $product = $this->products()->first();
                 return $product ? $product->pivot->size ?? null : null;
             },
 
             // Clinical Information
-            DocusealFields::WOUND_TYPE => 'wound_type',
-            DocusealFields::ICD10_PRIMARY => function() {
+            'wound_type' => 'wound_type',
+            'icd10_primary' => function() {
                 $clinical = $this->clinical_summary;
                 return is_array($clinical) ? ($clinical['primary_diagnosis'] ?? null) : null;
             },
-            DocusealFields::ICD10_SECONDARY => function() {
+            'icd10_secondary' => function() {
                 $clinical = $this->clinical_summary;
                 return is_array($clinical) ? ($clinical['secondary_diagnosis'] ?? null) : null;
             },
@@ -668,14 +664,24 @@ class ProductRequest extends Model
     }
 
     /**
-     * Get form values formatted for Docuseal templates.
-     * This builds the payload that gets sent to Docuseal for form population.
+     * Get form values formatted for PDF templates.
+     * This builds the payload that gets used for PDF form population.
      */
-    public function getDocusealFormValues(): array
+    public function getPDFFormValues(): array
     {
         $values = [];
 
-        foreach (DocusealFields::getAllFields() as $field) {
+        // Define all standard fields
+        $standardFields = [
+            'patient_name', 'patient_dob', 'patient_gender', 'patient_address',
+            'provider_name', 'provider_npi',
+            'facility_name', 'facility_npi', 'facility_contact_phone', 'facility_contact_email',
+            'primary_ins_name', 'place_of_service', 'anticipated_application_date',
+            'product_code', 'product_size',
+            'wound_type', 'icd10_primary', 'icd10_secondary'
+        ];
+        
+        foreach ($standardFields as $field) {
             $value = $this->getValue($field);
             if ($value !== null) {
                 $values[$field] = $value;
@@ -691,7 +697,15 @@ class ProductRequest extends Model
     public function getFormValuesByCategory(): array
     {
         $categorized = [];
-        $categories = DocusealFields::getFieldsByCategory();
+        $categories = [
+            'Patient Information' => ['patient_name', 'patient_dob', 'patient_gender', 'patient_address'],
+            'Provider Information' => ['provider_name', 'provider_npi'],
+            'Facility Information' => ['facility_name', 'facility_npi', 'facility_contact_phone', 'facility_contact_email'],
+            'Insurance Information' => ['primary_ins_name'],
+            'Service Information' => ['place_of_service', 'anticipated_application_date'],
+            'Product Information' => ['product_code', 'product_size'],
+            'Clinical Information' => ['wound_type', 'icd10_primary', 'icd10_secondary']
+        ];
 
         foreach ($categories as $category => $fields) {
             $categoryData = [];
@@ -699,9 +713,9 @@ class ProductRequest extends Model
                 $value = $this->getValue($field);
                 if ($value !== null) {
                     $categoryData[$field] = [
-                        'label' => DocusealFields::getFieldLabel($field),
+                        'label' => ucwords(str_replace('_', ' ', $field)),
                         'value' => $value,
-                        'type' => DocusealFields::getFieldType($field)
+                        'type' => 'text'
                     ];
                 }
             }

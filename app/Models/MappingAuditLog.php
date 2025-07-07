@@ -5,7 +5,6 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use App\Models\Docuseal\DocusealTemplate;
 
 class MappingAuditLog extends Model
 {
@@ -30,10 +29,12 @@ class MappingAuditLog extends Model
 
     /**
      * Get the template this audit log belongs to
+     * TODO: Update to use PDF template model
      */
-    public function template(): BelongsTo
+    public function template()
     {
-        return $this->belongsTo(DocusealTemplate::class, 'template_id');
+        // Placeholder - to be replaced with PDF template relationship
+        return null;
     }
 
     /**

@@ -3,46 +3,67 @@
 namespace App\Services;
 
 use App\Models\Order\ProductRequest;
+use App\Services\SmartEmailSender;
+use App\Services\AzureCommunicationsService;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log;
 use App\Mail\ManufacturerOrderEmail;
 
 class ManufacturerEmailService
 {
+    private SmartEmailSender $smartEmailSender;
+    private AzureCommunicationsService $azureCommunications;
+
+    public function __construct(
+        SmartEmailSender $smartEmailSender,
+        AzureCommunicationsService $azureCommunications
+    ) {
+        $this->smartEmailSender = $smartEmailSender;
+        $this->azureCommunications = $azureCommunications;
+    }
+
     /**
-     * Send order to manufacturer via email
+     * Send order to manufacturer via email using Smart Email Sender
      */
     public function sendOrderToManufacturer(ProductRequest $order, array $recipients, $attachments = [])
     {
         try {
             // Prepare order details
             $orderDetails = $this->prepareOrderDetails($order);
+            $manufacturerName = $orderDetails['manufacturer'];
 
-            // Log the email sending (for now, we're not actually sending emails)
-            Log::info('Order email prepared for manufacturer', [
-                'order_id' => $order->id,
-                'order_number' => $order->request_number,
-                'recipients' => $recipients,
-                'manufacturer' => $orderDetails['manufacturer'],
-                'products' => $orderDetails['products'],
-            ]);
+            // Prepare email content
+            $subject = "New Order Request - {$orderDetails['order_number']} - {$orderDetails['patient']['display_id']}";
+            $emailContent = $this->generateEmailContent($orderDetails);
 
-            // Send the email
-            Mail::to($recipients)
-                ->send(new ManufacturerOrderEmail($orderDetails, $attachments));
+            // Send using Smart Email Sender with manufacturer context
+            $result = $this->smartEmailSender->sendManufacturerEmail(
+                $manufacturerName,
+                $recipients,
+                $subject,
+                $emailContent,
+                $attachments
+            );
 
-            // Log successful email send
-            Log::info('Order email sent to manufacturer', [
-                'order_id' => $order->id,
-                'recipients' => $recipients,
-                'attachments_count' => count($attachments),
-            ]);
+            if ($result['success']) {
+                Log::info('Order email sent to manufacturer via Smart Email Sender', [
+                    'order_id' => $order->id,
+                    'recipients' => $result['recipients'],
+                    'sender_used' => $result['sender']->email_address ?? 'unknown',
+                    'method' => $result['method'],
+                ]);
 
-            return [
-                'success' => true,
-                'message' => 'Order successfully sent to manufacturer',
-                'recipients' => $recipients,
-            ];
+                return [
+                    'success' => true,
+                    'message' => 'Order successfully sent to manufacturer',
+                    'recipients' => $result['recipients'],
+                    'sender_used' => $result['sender']->email_address ?? null,
+                    'method' => $result['method'],
+                ];
+            } else {
+                throw new \Exception($result['error'] ?? 'Unknown error from Smart Email Sender');
+            }
+
         } catch (\Exception $e) {
             Log::error('Failed to send order to manufacturer', [
                 'order_id' => $order->id,
@@ -92,7 +113,7 @@ class ManufacturerEmailService
                 ];
             })->toArray(),
             'manufacturer' => $order->getManufacturer(),
-            'ivr_status' => $order->docuseal_submission_id ? 'Completed' : 'Pending',
+            'ivr_status' => $order->pdf_document_id ? 'Completed' : 'Pending',
             'notes' => $order->clinical_notes,
         ];
     }
@@ -132,26 +153,11 @@ class ManufacturerEmailService
 
             // Prepare attachments (IVR documents)
             $attachments = [];
-            if ($emailData['include_ivr'] && $episode->docuseal_submission_id) {
-                // Fetch IVR document from Docuseal
-        $docusealService = app(\App\Services\DocusealService::class);
-        try {
-            $submissionStatus = $docusealService->getSubmissionStatus($episode->docuseal_submission_id);
-            $ivrDocument = $submissionStatus['completed'] ?? false ? $submissionStatus : null;
-            if ($ivrDocument) {
-                $attachments[] = [
-                    'path' => $ivrDocument['url'],
-                    'name' => 'IVR_Document.pdf',
-                    'mime' => 'application/pdf'
-                ];
-            }
-        } catch (\Exception $e) {
-            Log::warning('Failed to fetch IVR document from Docuseal', [
-                'episode_id' => $episode->id,
-                'error' => $e->getMessage()
-            ]);
-        }
-                // $attachments[] = $this->getDocusealDocument($episode->docuseal_submission_id);
+            // TODO: Implement new form service IVR document retrieval
+            if ($emailData['include_ivr']) {
+                Log::info('IVR document inclusion requested but form service not yet implemented', [
+                    'episode_id' => $episode->id
+                ]);
             }
 
             // Log the email sending
@@ -200,5 +206,96 @@ class ManufacturerEmailService
         $defaultRecipients = config('manufacturers.email_recipients', []);
 
         return $defaultRecipients[$manufacturerName] ?? [];
+    }
+
+    /**
+     * Generate email content from order details
+     */
+    private function generateEmailContent(array $orderDetails): string
+    {
+        return view('emails.manufacturer-order-text', [
+            'order' => $orderDetails,
+        ])->render();
+    }
+
+    /**
+     * Send order notification with PDF using Azure Communications
+     */
+    public function sendOrderNotificationWithPDF(
+        ProductRequest $order,
+        string $pdfPath,
+        array $recipients = []
+    ): array {
+        try {
+            // Prepare order data
+            $orderData = [
+                'order_number' => $order->request_number,
+                'patient_name' => $order->patient_display_id, // Use display ID for privacy
+                'provider_name' => $order->provider->full_name,
+                'facility_name' => $order->facility->name,
+                'product_name' => $order->products->first()->name ?? 'Multiple Products',
+                'product_code' => $order->products->first()->sku ?? '',
+                'quantity' => $order->products->sum('pivot.quantity'),
+                'expected_service_date' => $order->expected_service_date?->format('Y-m-d') ?? $order->date_of_service,
+            ];
+
+            // Get manufacturer name
+            $manufacturerName = $order->manufacturer->name ?? 'Unknown';
+
+            // Get recipients if not provided
+            if (empty($recipients)) {
+                $recipients = $this->getDefaultRecipients($manufacturerName);
+            }
+
+            // Send notification using Azure Communications Service
+            return $this->azureCommunications->sendManufacturerNotification(
+                $manufacturerName,
+                $recipients,
+                $orderData,
+                $pdfPath
+            );
+
+        } catch (\Exception $e) {
+            Log::error('Failed to send order notification with PDF', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+            ];
+        }
+    }
+
+    /**
+     * Send order status SMS notification
+     */
+    public function sendOrderStatusSms(ProductRequest $order, string $status): array
+    {
+        // Get patient phone number (would need to be retrieved from FHIR)
+        $phoneNumber = null; // TODO: Retrieve from FHIR patient resource
+
+        if (!$phoneNumber) {
+            Log::warning('No phone number available for SMS notification', [
+                'order_id' => $order->id,
+            ]);
+            return [
+                'success' => false,
+                'error' => 'No phone number available',
+            ];
+        }
+
+        $additionalInfo = [];
+        if ($status === 'shipped' && $order->tracking_number) {
+            $additionalInfo['tracking_number'] = $order->tracking_number;
+        }
+
+        return $this->azureCommunications->sendOrderStatusSms(
+            $phoneNumber,
+            $order->request_number,
+            $status,
+            $additionalInfo
+        );
     }
 }

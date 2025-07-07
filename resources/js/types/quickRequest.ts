@@ -315,7 +315,7 @@ export type QuickRequestStep =
   | 'patient-insurance'
   | 'clinical-billing'
   | 'product-selection'
-  | 'docuseal-ivr'
+  | 'pdf-ivr'
   | 'review-submit';
 
 // API Response Types

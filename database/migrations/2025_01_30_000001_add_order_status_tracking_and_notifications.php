@@ -56,7 +56,7 @@ return new class extends Migration
         // Add IVR document metadata to existing tables
         Schema::table('patient_manufacturer_ivr_episodes', function (Blueprint $table) {
             if (!Schema::hasColumn('patient_manufacturer_ivr_episodes', 'ivr_document_url')) {
-                $table->text('ivr_document_url')->nullable()->after('docuseal_signed_document_url');
+                $table->text('ivr_document_url')->nullable()->after('signed_document_url');
             }
             if (!Schema::hasColumn('patient_manufacturer_ivr_episodes', 'ivr_audit_log_url')) {
                 $table->text('ivr_audit_log_url')->nullable()->after('ivr_document_url');

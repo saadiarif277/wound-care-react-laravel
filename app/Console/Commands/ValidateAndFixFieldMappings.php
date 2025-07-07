@@ -4,8 +4,6 @@ namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
 use App\Services\AI\SmartFieldMappingValidator;
-use App\Services\DocusealService;
-use App\Models\Docuseal\DocusealTemplate;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Log;
@@ -26,13 +24,11 @@ class ValidateAndFixFieldMappings extends Command
     protected $description = 'Validate and automatically fix invalid field mappings in manufacturer configurations';
 
     private SmartFieldMappingValidator $validator;
-    private DocusealService $docusealService;
 
-    public function __construct(SmartFieldMappingValidator $validator, DocusealService $docusealService)
+    public function __construct(SmartFieldMappingValidator $validator)
     {
         parent::__construct();
         $this->validator = $validator;
-        $this->docusealService = $docusealService;
     }
 
     /**

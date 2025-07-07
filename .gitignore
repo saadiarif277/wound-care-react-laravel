@@ -124,3 +124,15 @@ test-*.log
 *.swp
 *.swo
 /scripts/ai_service_env/*
+
+# ML Field Mapping System
+/scripts/ml_env/
+/scripts/ml_models/
+/scripts/ml_field_mapping.db
+/scripts/*.pkl
+/scripts/*.joblib
+/scripts/model_*.json
+/scripts/training_*.log
+/scripts/.ml_cache/
+/scripts/__pycache__/
+/scripts/path

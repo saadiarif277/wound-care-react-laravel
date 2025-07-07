@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Services\DocumentIntelligenceService;
-use App\Models\Docuseal\DocusealTemplate;
 use App\Models\CanonicalField;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;

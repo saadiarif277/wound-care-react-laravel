@@ -13,7 +13,6 @@ use Inertia\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
-use App\Services\DocusealService;
 
 final class OrderController extends Controller
 {
@@ -532,7 +531,7 @@ final class OrderController extends Controller
         ]);
     }
 
-    public function show($id, DocusealService $docuSealService)
+    public function show($id)
     {
         $order = Order::with([
             'provider',
@@ -546,46 +545,28 @@ final class OrderController extends Controller
 
         $patientName = $order->patient_fhir_id;
 
-        // Fetch Docuseal status for the order
+        // PDF document status for the order (replaces DocuSeal)
         $orderDocuseal = [
-            'status' => $order->docuseal_status,
+            'status' => $order->docuseal_status ?? 'pending',
             'signed_documents' => [],
             'audit_log_url' => $order->docuseal_audit_log_url,
             'last_synced_at' => $order->docuseal_last_synced_at,
         ];
 
-        // Check if the DocusealService has the method before calling it
-        if ($order->docuseal_submission_id && method_exists($docuSealService, 'getSubmissionStatus')) {
-            $live = $docuSealService->{'getSubmissionStatus'}($order->docuseal_submission_id);
-            if (is_array($live)) {
-                $orderDocuseal['status'] = $live['status'] ?? $orderDocuseal['status'];
-                $orderDocuseal['signed_documents'] = $live['documents'] ?? [];
-                $orderDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $orderDocuseal['audit_log_url'];
-                $orderDocuseal['last_synced_at'] = now();
-            }
-        }
-
-        // Fetch Docuseal status for the IVR episode
+        // TODO: Replace with PDF service status check
+        // Previously used DocusealService->getSubmissionStatus()
+        
+        // PDF document status for the IVR episode
         $ivrDocuseal = null;
         if ($order->ivrEpisode) {
             $ivrDocuseal = [
-                'status' => $order->ivrEpisode->docuseal_status,
+                'status' => $order->ivrEpisode->docuseal_status ?? 'pending',
                 'signed_documents' => [],
                 'audit_log_url' => $order->ivrEpisode->docuseal_audit_log_url,
                 'last_synced_at' => $order->ivrEpisode->docuseal_last_synced_at,
             ];
-            if (
-                $order->ivrEpisode->docuseal_submission_id &&
-                method_exists($docuSealService, 'getSubmissionStatus')
-            ) {
-                $live = $docuSealService->{'getSubmissionStatus'}($order->ivrEpisode->docuseal_submission_id);
-                if (is_array($live)) {
-                    $ivrDocuseal['status'] = $live['status'] ?? $ivrDocuseal['status'];
-                    $ivrDocuseal['signed_documents'] = $live['documents'] ?? [];
-                    $ivrDocuseal['audit_log_url'] = $live['audit_log_url'] ?? $ivrDocuseal['audit_log_url'];
-                    $ivrDocuseal['last_synced_at'] = now();
-                }
-            }
+            // TODO: Replace with PDF service status check
+            // Previously checked DocusealService->getSubmissionStatus()
         }
 
         $orderDetail = [

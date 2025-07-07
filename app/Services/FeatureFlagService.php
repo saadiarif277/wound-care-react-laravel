@@ -57,13 +57,22 @@ class FeatureFlagService
     }
 
     /**
-     * Check if DocuSeal integration is enabled
+     * Check if PDF integration is enabled (replaces DocuSeal)
      *
      * @return bool
      */
+    public static function isPdfEnabled(): bool
+    {
+        return self::isEnabled('pdf.integration_enabled');
+    }
+    
+    /**
+     * Legacy method for backward compatibility
+     * @deprecated Use isPdfEnabled() instead
+     */
     public static function isDocusealEnabled(): bool
     {
-        return self::isEnabled('docuseal.integration_enabled');
+        return self::isPdfEnabled();
     }
 
     /**

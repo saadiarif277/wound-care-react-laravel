@@ -53,9 +53,7 @@ class DatabaseSeeder extends Seeder
             'wound_type_diagnosis_codes',
 
             // Dependent tables
-            'docuseal_submissions',
-            'docuseal_templates',
-            'docuseal_folders',
+            'sender_mappings',
             'commission_payouts',
             'commission_records',
             'commission_rules',
@@ -66,6 +64,7 @@ class DatabaseSeeder extends Seeder
             'patient_manufacturer_ivr_episodes',
 
             // Core entity tables
+            'verified_senders',
             'diagnosis_codes',
             'wound_types',
             'insurance_product_rules',
@@ -702,12 +701,10 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategoriesAndManufacturersSeeder::class,
             ProductSeeder::class,
-            DocusealFolderSeeder::class,
-            DocusealTemplateSeeder::class,
-            IVRFieldMappingSeeder::class,
             DiagnosisCodesFromCsvSeeder::class,
             RemoveHardcodedDataSeeder::class,
             ExampleProviderSeeder::class,
+            VerifiedSendersSeeder::class,
             // PatientManufacturerIVREpisodeSeeder::class, // Removed - no mock episodes needed
         ]);
     }

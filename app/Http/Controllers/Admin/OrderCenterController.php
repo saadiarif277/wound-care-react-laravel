@@ -9,7 +9,6 @@ use App\Models\Order\ProductRequest;
 use App\Services\ManufacturerEmailService;
 use App\Services\EmailNotificationService;
 use App\Services\StatusChangeService;
-use App\Services\DocusealService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -22,16 +21,16 @@ class OrderCenterController extends Controller
 {
     protected EmailNotificationService $emailService;
     protected StatusChangeService $statusService;
-    protected DocusealService $docusealService;
+    // protected DocusealService $docusealService; // Removed - replaced with PDF system
 
     public function __construct(
         EmailNotificationService $emailService,
-        StatusChangeService $statusService,
-        DocusealService $docusealService
+        StatusChangeService $statusService
+        // DocusealService $docusealService // Removed - replaced with PDF system
     ) {
         $this->emailService = $emailService;
         $this->statusService = $statusService;
-        $this->docusealService = $docusealService;
+        // $this->docusealService = $docusealService; // Removed - replaced with PDF system
     }
 
     /**

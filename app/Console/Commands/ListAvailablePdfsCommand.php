@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use Illuminate\Console\Command;
-use App\Models\Docuseal\DocusealTemplate;
 
 class ListAvailablePdfsCommand extends Command
 {

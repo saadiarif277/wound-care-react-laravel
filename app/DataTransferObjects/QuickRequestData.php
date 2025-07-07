@@ -13,7 +13,7 @@ class QuickRequestData
         public readonly ProductSelectionData $productSelection,
         public readonly OrderPreferencesData $orderPreferences,
         public readonly array $manufacturerFields = [],
-        public readonly ?string $docusealSubmissionId = null,
+        public readonly ?string $pdfDocumentId = null,
         public readonly array $attestations = [],
         public readonly ?string $adminNote = null,
     ) {}
@@ -29,7 +29,7 @@ class QuickRequestData
             'product_selection' => $this->productSelection->toArray(),
             'order_preferences' => $this->orderPreferences->toArray(),
             'manufacturer_fields' => $this->manufacturerFields,
-            'docuseal_submission_id' => $this->docusealSubmissionId,
+            'pdf_document_id' => $this->pdfDocumentId,
             'attestations' => $this->attestations,
             'admin_note' => $this->adminNote,
         ];
@@ -89,7 +89,7 @@ class QuickRequestData
                 'place_of_service' => $formData['place_of_service'] ?? '',
             ]),
             manufacturerFields: $formData['manufacturer_fields'] ?? [],
-            docusealSubmissionId: $formData['docuseal_submission_id'] ?? null,
+            pdfDocumentId: $formData['pdf_document_id'] ?? null,
             attestations: [
                 'failed_conservative_treatment' => $formData['failed_conservative_treatment'] ?? false,
                 'information_accurate' => $formData['information_accurate'] ?? false,

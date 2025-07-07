@@ -10,7 +10,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use App\Models\Order\Order;
 use App\Models\Order\Manufacturer;
-use App\Models\Docuseal\DocusealSubmission;
 use App\Traits\UsesEpisodeCache;
 
 class PatientManufacturerIVREpisode extends Model
@@ -102,23 +101,25 @@ class PatientManufacturerIVREpisode extends Model
     }
 
     /**
-     * Get the Docuseal submission
+     * Get the PDF submission (replaces DocuSeal)
+     * TODO: Update to use PDF submission model when available
      */
-    public function docusealSubmission(): BelongsTo
+    public function pdfSubmission()
     {
-        return $this->belongsTo(DocusealSubmission::class, 'docuseal_submission_id');
+        // Placeholder - to be replaced with PDF submission relationship
+        return null;
     }
 
     /**
-     * Get formatted docuseal data
+     * Get formatted PDF document data (replaces DocuSeal)
      */
     public function getDocusealAttribute()
     {
         return [
-            'status' => $this->docusealSubmission?->status,
+            'status' => 'pending', // TODO: Get from PDF submission
             'signed_documents' => $this->getSignedDocuments(),
-            'audit_log_url' => $this->docusealSubmission?->audit_log_url,
-            'last_synced_at' => $this->docusealSubmission?->last_synced_at?->toIso8601String(),
+            'audit_log_url' => null, // TODO: Get from PDF submission
+            'last_synced_at' => null, // TODO: Get from PDF submission
         ];
     }
 
@@ -127,11 +128,11 @@ class PatientManufacturerIVREpisode extends Model
      */
     protected function getSignedDocuments()
     {
-        if (!$this->docusealSubmission || !$this->docusealSubmission->documents) {
-            return [];
-        }
-
-        return collect($this->docusealSubmission->documents)->map(function ($doc) {
+        // TODO: Get documents from PDF submission
+        return [];
+        
+        /* Previous implementation for reference:
+        return collect($this->pdfSubmission?->documents ?? [])->map(function ($doc) {
             return [
                 'id' => $doc['id'] ?? uniqid(),
                 'filename' => $doc['filename'] ?? $doc['name'] ?? 'Document',
@@ -139,6 +140,7 @@ class PatientManufacturerIVREpisode extends Model
                 'url' => $doc['url'] ?? '#',
             ];
         })->toArray();
+        */
     }
 
     /**

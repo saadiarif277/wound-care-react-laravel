@@ -1,6 +1,5 @@
-import React from 'react';
-import { FileText, Shield, CheckCircle } from 'lucide-react';
-import { DocusealForm } from '@docuseal/react';
+import React, { useState } from 'react';
+import { FileText, Shield, CheckCircle, ExternalLink } from 'lucide-react';
 
 interface BAAStepProps {
     data: any;
@@ -9,6 +8,16 @@ interface BAAStepProps {
 }
 
 export default function BAAStep({ data, setData, onComplete }: BAAStepProps) {
+    const [isAgreed, setIsAgreed] = useState(data.baa_signed || false);
+
+    const handleAgreementSignature = () => {
+        const now = new Date().toISOString();
+        setData('baa_signed', true);
+        setData('baa_signed_at', now);
+        setIsAgreed(true);
+        onComplete();
+    };
+
     return (
         <div className="space-y-8">
             <div>
@@ -36,17 +45,59 @@ export default function BAAStep({ data, setData, onComplete }: BAAStepProps) {
             <div className="border-2 border-gray-200 rounded-lg overflow-hidden">
                 <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
                     <p className="text-sm text-gray-700 font-medium">
-                        Please review and sign the agreement below. The next step will unlock automatically upon completion.
+                        Please review and acknowledge the agreement below. The next step will unlock automatically upon completion.
                     </p>
                 </div>
                 
-                <div className="bg-white p-4">
-                    <DocusealForm
-                        src="https://docuseal.com/d/8odd3N6nPnLdMq"
-                        onComplete={() => {
-                            onComplete();
-                        }}
-                    />
+                <div className="bg-white p-6 space-y-4">
+                    {!isAgreed ? (
+                        <div className="space-y-4">
+                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                                <p className="text-sm text-gray-700 mb-4">
+                                    <strong>Business Associate Agreement Summary:</strong>
+                                </p>
+                                <div className="text-sm text-gray-600 space-y-2">
+                                    <p>By proceeding, you acknowledge and agree to:</p>
+                                    <ul className="list-disc list-inside space-y-1 ml-4">
+                                        <li>Comply with all HIPAA regulations and safeguards</li>
+                                        <li>Protect all PHI according to established protocols</li>
+                                        <li>Report any security breaches immediately</li>
+                                        <li>Maintain appropriate technical and administrative safeguards</li>
+                                        <li>Allow for compliance audits as required</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div className="flex items-center space-x-3">
+                                <input
+                                    type="checkbox"
+                                    id="baa-agreement"
+                                    className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                                    onChange={(e) => {
+                                        if (e.target.checked) {
+                                            handleAgreementSignature();
+                                        }
+                                    }}
+                                />
+                                <label htmlFor="baa-agreement" className="text-sm text-gray-700">
+                                    I have read, understood, and agree to the terms of the Business Associate Agreement
+                                </label>
+                            </div>
+                            
+                            <p className="text-xs text-gray-500">
+                                <ExternalLink className="h-3 w-3 inline mr-1" />
+                                For the complete BAA document, please contact your administrator
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="text-center py-8">
+                            <CheckCircle className="h-12 w-12 text-green-600 mx-auto mb-4" />
+                            <p className="text-lg font-medium text-green-900 mb-2">Agreement Acknowledged</p>
+                            <p className="text-sm text-green-800">
+                                Acknowledged on: {new Date(data.baa_signed_at).toLocaleString()}
+                            </p>
+                        </div>
+                    )}
                 </div>
             </div>
 
@@ -55,9 +106,9 @@ export default function BAAStep({ data, setData, onComplete }: BAAStepProps) {
                     <div className="flex items-center">
                         <CheckCircle className="h-5 w-5 text-green-600 mr-3" />
                         <div>
-                            <p className="text-sm font-medium text-green-900">Agreement Signed Successfully</p>
+                            <p className="text-sm font-medium text-green-900">Agreement Acknowledged Successfully</p>
                             <p className="text-sm text-green-800">
-                                Signed on: {new Date(data.baa_signed_at).toLocaleString()}
+                                Acknowledged on: {new Date(data.baa_signed_at).toLocaleString()}
                             </p>
                         </div>
                     </div>

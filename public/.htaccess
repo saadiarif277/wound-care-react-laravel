@@ -20,6 +20,22 @@
     RewriteRule ^ index.php [L]
 </IfModule>
 
+# PHP Configuration for File Uploads
+<IfModule mod_php7.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 12M
+    php_value max_input_time 300
+    php_value max_execution_time 300
+</IfModule>
+
+# PHP Configuration for PHP 8.x
+<IfModule mod_php8.c>
+    php_value upload_max_filesize 10M
+    php_value post_max_size 12M
+    php_value max_input_time 300
+    php_value max_execution_time 300
+</IfModule>
+
 # Cache Control for Static Assets
 <IfModule mod_expires.c>
     ExpiresActive On

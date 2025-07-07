@@ -10,7 +10,6 @@ use App\Models\Order\Product;
 use App\Models\Fhir\Facility;
 use App\Models\User;
 use App\Services\FhirService;
-use App\Services\DocusealService;
 use App\Services\PayerService;
 use App\Mail\ManufacturerOrderEmail;
 use Illuminate\Support\Facades\Auth;
@@ -22,7 +21,6 @@ final class QuickRequestService
 {
     public function __construct(
         private FhirService $fhirClient,
-        private DocusealService $docuSealService,
         private PayerService $payerService,
     ) {}
 
@@ -212,7 +210,7 @@ final class QuickRequestService
                     'price_per_sq_cm' => $product->price_per_sq_cm ?? 0,
                     'msc_price' => $product->msc_price ?? null,
                     'commission_rate' => $product->commission_rate ?? null,
-                    'docuseal_template_id' => $product->manufacturer?->docuseal_order_form_template_id ?? null,
+                    'pdf_template_id' => $product->manufacturer?->pdf_template_id ?? null,
                     'signature_required' => $product->manufacturer?->signature_required ?? false,
                 ];
             });
@@ -331,11 +329,11 @@ final class QuickRequestService
 
 
     /**
-     * Get the Docuseal service instance.
+     * Get the PDF service instance.
      */
-    public function getDocusealService(): DocusealService
+    public function getPDFService(): PDFMappingService
     {
-        return $this->docuSealService;
+        return app(\App\Services\PDF\PDFMappingService::class);
     }
 
     /**
@@ -424,27 +422,8 @@ final class QuickRequestService
             'details'    => $data['order_details'] ?? [],
         ]);
 
-        // Docuseal PDF generation
-        try {
-            $manufacturerId = $data['manufacturer_id'];
-            $productCode = $data['order_details']['product'] ?? null;
-
-            // Note: DocusealBuilder service not implemented yet
-            // For now, use basic data without template lookup
-            $dataWithTemplate = $data;
-            $submission = $this->docuSealService->createIVRSubmission(
-                $dataWithTemplate,
-                $episode
-            );
-            if (!empty($submission['embed_url'])) {
-                $episode->update(['docuseal_submission_url' => $submission['embed_url']]);
-            }
-        } catch (\Exception $e) {
-            Log::error('Docuseal PDF generation failed', [
-                'error' => $e->getMessage(),
-                'episode_id' => $episode->id,
-            ]);
-        }
+        // PDF generation will be handled separately through PDF API endpoints
+        // The PDF controller will use the episode data to generate the IVR form
 
         return $episode->load('orders');
     }
@@ -995,27 +974,30 @@ final class QuickRequestService
             ]);
 
             // Map form data to Docuseal field format
-            $docusealFields = $this->mapFormDataToDocusealFields($formData, $template);
+            $pdfFields = $this->mapFormDataToPDFFields($formData, $template);
 
-            // Create Docuseal submission with pre-filled data
-            $submission = $this->docuSealService->createSubmissionForQuickRequest(
-                $template->docuseal_template_id,
-                config('docuseal.integration_email', 'limitless@mscwoundcare.com'),
-                'provider@example.com', // Default provider email
-                'Healthcare Provider', // Default provider name
-                $docusealFields
+            // Generate PDF with pre-filled data
+            $pdfService = $this->getPDFService();
+            $document = $pdfService->generateFromTemplate(
+                $template->pdf_template_id ?? null,
+                $pdfFields,
+                [
+                    'episode_id' => $formData['episode_id'] ?? null,
+                    'provider_email' => 'provider@example.com',
+                    'provider_name' => 'Healthcare Provider'
+                ]
             );
 
             Log::info('IVR form generated successfully', [
-                'submission_id' => $submission['id'] ?? 'unknown',
+                'document_id' => $document['id'] ?? 'unknown',
                 'template_name' => $template->template_name
             ]);
 
             return [
-                'submission_url' => $submission['url'] ?? '',
-                'submission_id' => $submission['id'] ?? '',
+                'document_url' => $document['url'] ?? '',
+                'document_id' => $document['id'] ?? '',
                 'template_name' => $template->template_name,
-                'mapped_fields_count' => count($docusealFields)
+                'mapped_fields_count' => count($pdfFields)
             ];
 
         } catch (\Exception $e) {
@@ -1098,16 +1080,16 @@ final class QuickRequestService
     }
 
     /**
-     * Map form data to Docuseal field format
+     * Map form data to PDF field format
      */
-    private function mapFormDataToDocusealFields(array $formData, $template): array
+    private function mapFormDataToPDFFields(array $formData, $template): array
     {
-        $docusealFields = [];
+        $pdfFields = [];
 
         // Patient information mapping
         if (isset($formData['patient'])) {
             $patient = $formData['patient'];
-            $docusealFields = array_merge($docusealFields, [
+            $pdfFields = array_merge($pdfFields, [
                 'patient_name' => ($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''),
                 'patient_first_name' => $patient['first_name'] ?? '',
                 'patient_last_name' => $patient['last_name'] ?? '',
@@ -1123,7 +1105,7 @@ final class QuickRequestService
         // Provider information mapping
         if (isset($formData['provider'])) {
             $provider = $formData['provider'];
-            $docusealFields = array_merge($docusealFields, [
+            $pdfFields = array_merge($pdfFields, [
                 'provider_name' => $provider['name'] ?? '',
                 'provider_npi' => $provider['npi'] ?? '',
                 'provider_phone' => $provider['phone'] ?? '',
@@ -1135,7 +1117,7 @@ final class QuickRequestService
         // Insurance information mapping
         if (isset($formData['insurance'])) {
             $insurance = $formData['insurance'];
-            $docusealFields = array_merge($docusealFields, [
+            $pdfFields = array_merge($pdfFields, [
                 'primary_insurance' => $insurance['primary_insurance_name'] ?? '',
                 'primary_member_id' => $insurance['primary_member_id'] ?? '',
                 'primary_group_number' => $insurance['primary_group_number'] ?? '',
@@ -1147,7 +1129,7 @@ final class QuickRequestService
         // Clinical information mapping
         if (isset($formData['clinical'])) {
             $clinical = $formData['clinical'];
-            $docusealFields = array_merge($docusealFields, [
+            $pdfFields = array_merge($pdfFields, [
                 'primary_diagnosis' => $clinical['primary_diagnosis'] ?? '',
                 'diagnosis_description' => $clinical['diagnosis_description'] ?? '',
                 'wound_location' => $clinical['wound_location'] ?? '',
@@ -1158,7 +1140,7 @@ final class QuickRequestService
         }
 
         // Filter out empty values
-        return array_filter($docusealFields, fn($value) => !empty($value));
+        return array_filter($pdfFields, fn($value) => !empty($value));
     }
 
     /**

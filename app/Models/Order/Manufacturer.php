@@ -8,8 +8,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
-use App\Models\Docuseal\DocusealFolder;
-use App\Models\Docuseal\DocusealTemplate;
 
 class Manufacturer extends Model
 {
@@ -67,19 +65,23 @@ class Manufacturer extends Model
     }
 
     /**
-     * Get the Docuseal folder for this manufacturer
+     * Get the PDF folder for this manufacturer
+     * TODO: Replace with PDF folder relationship
      */
-    public function docusealFolder(): HasOne
+    public function pdfFolder()
     {
-        return $this->hasOne(DocusealFolder::class, 'manufacturer_id');
+        // Placeholder - to be replaced with PDF folder relationship
+        return null;
     }
 
     /**
-     * Get the Docuseal templates for this manufacturer
+     * Get the PDF templates for this manufacturer
+     * TODO: Replace with PDF template relationship
      */
-    public function docusealTemplates(): HasMany
+    public function pdfTemplates()
     {
-        return $this->hasMany(DocusealTemplate::class, 'manufacturer_id');
+        // Placeholder - to be replaced with PDF template relationship
+        return collect();
     }
 
     /**
@@ -87,10 +89,8 @@ class Manufacturer extends Model
      */
     public function ivrTemplate()
     {
-        return $this->docusealTemplates()
-            ->where('document_type', 'IVR')
-            ->where('is_active', true)
-            ->first();
+        // TODO: Replace with PDF template lookup
+        return null;
     }
 
     /**
@@ -98,10 +98,8 @@ class Manufacturer extends Model
      */
     public function onboardingTemplate()
     {
-        return $this->docusealTemplates()
-            ->where('document_type', 'OnboardingForm')
-            ->where('is_active', true)
-            ->first();
+        // TODO: Replace with PDF template lookup
+        return null;
     }
 
     /**
@@ -109,10 +107,8 @@ class Manufacturer extends Model
      */
     public function orderFormTemplate()
     {
-        return $this->docusealTemplates()
-            ->where('document_type', 'OrderForm')
-            ->where('is_active', true)
-            ->first();
+        // TODO: Replace with PDF template lookup
+        return null;
     }
 
     /**

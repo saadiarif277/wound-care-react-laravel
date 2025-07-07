@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\Docuseal\DocusealTemplate;
 use App\Models\PdfFieldMetadata;
 use App\Services\AI\PdfFieldExtractorService;
 use App\Services\AI\SmartFieldMappingValidator;

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { router } from '@inertiajs/core';
-import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiFileText, FiArrowRight, FiSkipForward, FiSend } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import axios from 'axios';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 // Make sure useManufacturers is exported from manufacturerFields.ts
@@ -72,11 +71,11 @@ interface FormData {
   primary_member_id?: string;
   primary_plan_type?: string;
 
-  // Docuseal IVR
-  docuseal_submission_id?: string;
+  // NEW: Manufacturer order form (replaces DocuSeal)
+  manufacturer_submission_id?: string;
   ivr_completed_at?: string;
 
-  // Docuseal Order Form (NEW)
+  // Order Form
   order_form_submission_id?: string;
   order_form_completed_at?: string;
   order_form_skipped?: boolean;
@@ -199,63 +198,38 @@ export default function Step8OrderFormApproval({
   const handleSkip = () => {
     updateFormData({ 
       order_form_skipped: true,
-      order_form_skipped_at: new Date().toISOString()
+      order_form_completed_at: new Date().toISOString()
     });
     setIsSkipped(true);
-    
-    // Auto-proceed to next step after a brief delay
-    setTimeout(() => {
-      onNext();
-    }, 1500);
+    setTimeout(() => onNext(), 1000);
   };
 
-  const handleOrderFormComplete = async (submissionData: any) => {
+  // NEW: Handle manufacturer order form submission
+  const handleOrderFormComplete = async (submissionData?: any) => {
     setIsProcessing(true);
     
     try {
-      console.log('🎉 Order form completed:', submissionData);
-      
-      const submissionId = submissionData.submission_id || submissionData.id || 'unknown';
-      
-      // Update form data immediately
-      updateFormData({ 
-        order_form_submission_id: submissionId,
-        order_form_completed_at: new Date().toISOString() 
+      // Mark as completed
+      updateFormData({
+        order_form_completed_at: new Date().toISOString(),
+        order_form_submission_id: submissionData?.submission_id || 'manual_completion_' + Date.now()
       });
       
-      // Optional: Call backend to process order form completion
-      try {
-        const response = await axios.post('/api/v1/order-form/process-completion', {
-          submission_id: submissionId,
-          episode_id: formData.episode_id,
-          ivr_submission_id: formData.docuseal_submission_id,
-          form_data: formData,
-          completion_data: submissionData
-        });
-        
-        if (response.data.success) {
-          setOrderFormSubmission(response.data);
-        }
-      } catch (apiError) {
-        console.warn('Order form processing API call failed (non-critical):', apiError);
-        // Continue anyway as this is optional processing
-      }
-      
+      setOrderFormSubmission(submissionData);
       setIsCompleted(true);
+      setSubmissionError(null);
       
-      // Auto-proceed to next step after brief delay
-      setTimeout(() => {
-        onNext();
-      }, 2000);
+      // Auto-advance to next step
+      setTimeout(() => onNext(), 2000);
       
     } catch (error) {
-      console.error('Error processing order form completion:', error);
-      setSubmissionError('Form completed but there was an error processing the submission.');
+      console.error('Order form completion error:', error);
+      setSubmissionError('Failed to complete order form. Please try again.');
     } finally {
       setIsProcessing(false);
     }
   };
-  
+
   const handleOrderFormError = (error: string) => {
     setSubmissionError(error);
     setIsProcessing(false);
@@ -269,25 +243,9 @@ export default function Step8OrderFormApproval({
   if (!selectedProduct) {
     return (
       <div className={cn("text-center py-12", t.text.secondary)}>
-        <p>Please select a product first</p>
-      </div>
-    );
-  }
-
-  // No order form available - auto-skip
-  if (!hasOrderForm) {
-    return (
-      <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
-        <FiCheckCircle className={cn("h-12 w-12 mx-auto mb-4 text-green-500")} />
-        <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>
-          No Order Form Required
-        </h3>
-        <p className={cn("text-sm", t.text.secondary)}>
-          {selectedProduct?.name} does not require an additional order form.
-        </p>
-        <p className={cn("text-sm mt-2", t.text.secondary)}>
-          Proceeding to final review...
-        </p>
+        <FiAlertCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+        <p className="text-lg font-medium mb-2">No Product Selected</p>
+        <p>Please go back and select a product to continue.</p>
       </div>
     );
   }
@@ -296,16 +254,29 @@ export default function Step8OrderFormApproval({
   if (isSkipped) {
     return (
       <div className={cn("text-center py-12", t.glass.card, "rounded-lg p-8")}>
-        <FiSkipForward className={cn("h-12 w-12 mx-auto mb-4 text-blue-500")} />
-        <h3 className={cn("text-lg font-medium mb-2", t.text.primary)}>
+        <FiSkipForward className={cn("h-16 w-16 mx-auto mb-4 text-blue-500")} />
+        <h3 className={cn("text-xl font-medium mb-2", t.text.primary)}>
           Order Form Skipped
         </h3>
         <p className={cn("text-sm", t.text.secondary)}>
-          You chose to skip the optional order form review.
+          You've chosen to skip the order form review step.
         </p>
-        <p className={cn("text-sm mt-2", t.text.secondary)}>
+        <p className={cn("text-sm mt-3", t.text.secondary)}>
           Proceeding to final review...
         </p>
+        
+        <button
+          onClick={handleManualNext}
+          className={cn(
+            "mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+            theme === 'dark' 
+              ? 'bg-blue-700 hover:bg-blue-600 text-white' 
+              : 'bg-blue-600 hover:bg-blue-700 text-white'
+          )}
+        >
+          Continue to Review
+          <FiArrowRight className="ml-2 h-4 w-4" />
+        </button>
       </div>
     );
   }
@@ -403,7 +374,7 @@ export default function Step8OrderFormApproval({
         </div>
       )}
 
-      {/* Docuseal Order Form */}
+      {/* NEW: Manufacturer Order Form (replaces DocuSeal) */}
       {showOrderForm && !isCompleted && !submissionError && (
         <div className={cn("rounded-lg", t.glass.card)}>
           <div className="relative">
@@ -418,15 +389,140 @@ export default function Step8OrderFormApproval({
               </div>
             )}
             
-            <DocusealEmbed
-              manufacturerId={selectedProduct?.manufacturer_id?.toString() || '1'}
-              productCode={selectedProduct?.code || ''}
-              documentType="OrderForm"
-              formData={formData}
-              episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
-              onComplete={handleOrderFormComplete}
-              onError={handleOrderFormError}
-              className="w-full h-full min-h-[600px]" submissionUrl={''} builderToken={''} builderProps={null}            />
+            {/* Order Form Summary */}
+            <div className="p-6 space-y-6">
+              <div className="text-center">
+                <h3 className={cn("text-lg font-semibold", t.text.primary)}>
+                  Order Form Summary
+                </h3>
+                <p className={cn("text-sm mt-1", t.text.secondary)}>
+                  Review your order details for {selectedProduct.manufacturer}
+                </p>
+              </div>
+
+              {/* Product Information */}
+              <div className={cn("p-4 rounded-lg border", theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200')}>
+                <h4 className={cn("text-sm font-medium mb-3", t.text.primary)}>
+                  Product Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Product:</p>
+                    <p className={t.text.secondary}>{selectedProduct.name}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Code:</p>
+                    <p className={t.text.secondary}>{selectedProduct.code}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Manufacturer:</p>
+                    <p className={t.text.secondary}>{selectedProduct.manufacturer}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Quantity:</p>
+                    <p className={t.text.secondary}>{formData.selected_products?.[0]?.quantity || 1}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Patient Information */}
+              <div className={cn("p-4 rounded-lg border", theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200')}>
+                <h4 className={cn("text-sm font-medium mb-3", t.text.primary)}>
+                  Patient Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Name:</p>
+                    <p className={t.text.secondary}>{formData.patient_first_name} {formData.patient_last_name}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>DOB:</p>
+                    <p className={t.text.secondary}>{formData.patient_dob || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Insurance:</p>
+                    <p className={t.text.secondary}>{formData.primary_insurance_name || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Member ID:</p>
+                    <p className={t.text.secondary}>{formData.primary_member_id || 'Not provided'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Clinical Information */}
+              <div className={cn("p-4 rounded-lg border", theme === 'dark' ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200')}>
+                <h4 className={cn("text-sm font-medium mb-3", t.text.primary)}>
+                  Clinical Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Wound Type:</p>
+                    <p className={t.text.secondary}>{formData.wound_type || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Location:</p>
+                    <p className={t.text.secondary}>{formData.wound_location || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Primary Diagnosis:</p>
+                    <p className={t.text.secondary}>{formData.primary_diagnosis_code || 'Not specified'}</p>
+                  </div>
+                  <div>
+                    <p className={cn("font-medium", t.text.primary)}>Provider:</p>
+                    <p className={t.text.secondary}>{formData.provider_name || 'Auto-filled'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirmation */}
+              <div className="text-center">
+                <p className={cn("text-sm mb-4", t.text.secondary)}>
+                  Please review the information above and confirm your order.
+                </p>
+                
+                <div className="flex justify-center gap-4">
+                  <button
+                    onClick={() => handleOrderFormComplete({ submission_id: `order_${Date.now()}` })}
+                    disabled={isProcessing}
+                    className={cn(
+                      "inline-flex items-center px-6 py-3 text-sm font-medium rounded-lg transition-colors",
+                      theme === 'dark' 
+                        ? 'bg-green-700 hover:bg-green-600 text-white disabled:bg-gray-700' 
+                        : 'bg-green-600 hover:bg-green-700 text-white disabled:bg-gray-400'
+                    )}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white mr-2" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FiSend className="mr-2 h-4 w-4" />
+                        Confirm Order
+                      </>
+                    )}
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setShowOrderForm(false);
+                      setSubmissionError(null);
+                    }}
+                    disabled={isProcessing}
+                    className={cn(
+                      "inline-flex items-center px-6 py-3 text-sm font-medium rounded-lg transition-colors",
+                      theme === 'dark' 
+                        ? 'bg-gray-700 hover:bg-gray-600 text-gray-300 disabled:bg-gray-800' 
+                        : 'bg-gray-300 hover:bg-gray-400 text-gray-700 disabled:bg-gray-200'
+                    )}
+                  >
+                    Back to Options
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

@@ -7,6 +7,8 @@ use App\Models\Episode;
 use App\Models\Order\Order;
 use App\Services\FhirService;
 use App\Services\Compliance\PhiAuditService;
+use App\Services\PDF\PDFMappingService;
+use App\Models\PatientManufacturerIVREpisode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -16,7 +18,8 @@ class OrderReviewController extends Controller
 {
     public function __construct(
         private FhirService $fhirService,
-        private PhiAuditService $auditService
+        private PhiAuditService $auditService,
+        private PDFMappingService $pdfService
     ) {}
 
     /**
@@ -1004,6 +1007,142 @@ class OrderReviewController extends Controller
         }
         
         return $initials ?: 'N/A';
+    }
+
+    /**
+     * Generate IVR PDF for order review
+     * This creates a draft PDF that can be reviewed before order submission
+     */
+    public function generateIVRForReview(Request $request, string $episodeId)
+    {
+        try {
+            // Find the episode
+            $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
+            
+            // Check permissions (user must have access to the episode)
+            $user = Auth::user();
+            if (!$user->can('view', $episode)) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+            
+            // Check if episode is in a valid state for IVR generation
+            if (!in_array($episode->status, [
+                PatientManufacturerIVREpisode::STATUS_DRAFT,
+                PatientManufacturerIVREpisode::STATUS_READY_FOR_REVIEW
+            ])) {
+                return response()->json([
+                    'error' => 'IVR can only be generated for draft or ready-for-review episodes',
+                    'current_status' => $episode->status
+                ], 422);
+            }
+            
+            // Generate the IVR PDF
+            $pdfDocument = $this->pdfService->generateIVRForReview($episode);
+            
+            // Audit the action
+            $this->auditService->logAccess(
+                'ivr.generated.for.review',
+                'Episode',
+                $episodeId,
+                [
+                    'user_id' => Auth::id(),
+                    'pdf_document_id' => $pdfDocument->document_id,
+                    'manufacturer_id' => $episode->manufacturer_id
+                ]
+            );
+            
+            // Update episode metadata to track IVR generation
+            $metadata = $episode->metadata ?? [];
+            $metadata['ivr_generated_for_review'] = true;
+            $metadata['ivr_generated_at'] = now()->toISOString();
+            $metadata['ivr_document_id'] = $pdfDocument->document_id;
+            $episode->update(['metadata' => $metadata]);
+            
+            // Return PDF document information
+            return response()->json([
+                'success' => true,
+                'pdf' => [
+                    'document_id' => $pdfDocument->document_id,
+                    'url' => $pdfDocument->getSecureUrl(60), // 60 minute expiration
+                    'status' => $pdfDocument->status,
+                    'generated_at' => $pdfDocument->generated_at->toISOString(),
+                    'expires_at' => $pdfDocument->expires_at?->toISOString(),
+                    'manufacturer' => [
+                        'id' => $episode->manufacturer_id,
+                        'name' => $episode->manufacturer->name
+                    ],
+                    'requires_signatures' => $pdfDocument->requires_signatures,
+                    'signature_fields' => $pdfDocument->getSignatureFields()
+                ]
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to generate IVR for review', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to generate IVR PDF',
+                'message' => $e->getMessage()
+            ], 500);
+        }
+    }
+    
+    /**
+     * Get IVR PDF status for an episode
+     */
+    public function getIVRStatus(string $episodeId)
+    {
+        try {
+            $episode = PatientManufacturerIVREpisode::findOrFail($episodeId);
+            
+            // Check permissions
+            if (!Auth::user()->can('view', $episode)) {
+                return response()->json(['error' => 'Unauthorized'], 403);
+            }
+            
+            $metadata = $episode->metadata ?? [];
+            $documentId = $metadata['ivr_document_id'] ?? null;
+            
+            if (!$documentId) {
+                return response()->json([
+                    'generated' => false,
+                    'status' => 'not_generated'
+                ]);
+            }
+            
+            // Get the PDF document
+            $pdfDocument = \App\Models\PDF\PdfDocument::find($documentId);
+            
+            if (!$pdfDocument) {
+                return response()->json([
+                    'generated' => false,
+                    'status' => 'document_not_found'
+                ]);
+            }
+            
+            return response()->json([
+                'generated' => true,
+                'status' => $pdfDocument->status,
+                'document_id' => $pdfDocument->document_id,
+                'url' => $pdfDocument->getSecureUrl(60),
+                'generated_at' => $pdfDocument->generated_at->toISOString(),
+                'expires_at' => $pdfDocument->expires_at?->toISOString(),
+                'signatures_complete' => $pdfDocument->areSignaturesComplete()
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get IVR status', [
+                'episode_id' => $episodeId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'error' => 'Failed to get IVR status'
+            ], 500);
+        }
     }
 
 }

@@ -2,21 +2,17 @@
 
 namespace App\Services\AI;
 
-use App\Models\Docuseal\DocusealTemplate;
-use App\Services\DocusealService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Http;
 
 class SmartFieldMappingValidator
 {
-    private DocusealService $docusealService;
     private array $commonFieldMappings = [];
     private array $invalidFieldHistory = [];
     
-    public function __construct(DocusealService $docusealService)
+    public function __construct()
     {
-        $this->docusealService = $docusealService;
         $this->loadCommonFieldMappings();
         $this->loadInvalidFieldHistory();
     }

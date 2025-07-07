@@ -64,9 +64,9 @@ return [
     |
     */
 
-    'docuseal' => [
-        'integration_enabled' => env('DOCUSEAL_INTEGRATION_ENABLED', true),
-        'webhook_processing_enabled' => env('DOCUSEAL_WEBHOOK_PROCESSING_ENABLED', true),
+    'pdf' => [
+        'integration_enabled' => env('PDF_INTEGRATION_ENABLED', true),
+        'webhook_processing_enabled' => env('PDF_WEBHOOK_PROCESSING_ENABLED', true),
     ],
 
     'polling' => [

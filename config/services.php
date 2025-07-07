@@ -58,6 +58,15 @@ return [
             'resource_id' => env('AZURE_DOCUMENT_INTELLIGENCE_RESOURCE_ID'),
             'api_version' => env('AZURE_DOCUMENT_INTELLIGENCE_API_VERSION', '2023-07-31'),
         ],
+        'communication_services' => [
+            'connection_string' => env('AZURE_COMMUNICATION_CONNECTION_STRING'),
+            'endpoint' => env('AZURE_COMMUNICATION_ENDPOINT'),
+            'default_sender' => env('AZURE_COMMUNICATION_DEFAULT_SENDER', 'noreply@mscwoundcare.com'),
+            'default_sender_name' => env('AZURE_COMMUNICATION_DEFAULT_SENDER_NAME', 'MSC Wound Care Platform'),
+            'timeout' => env('AZURE_COMMUNICATION_TIMEOUT', 30),
+            'max_retries' => env('AZURE_COMMUNICATION_MAX_RETRIES', 3),
+            'retry_delay' => env('AZURE_COMMUNICATION_RETRY_DELAY', 1000),
+        ],
     ],
 
     'cms' => [
@@ -80,17 +89,6 @@ return [
         'max_retries' => env('NPI_MAX_RETRIES', 3),
         'retry_delay' => env('NPI_RETRY_DELAY', 1000), // milliseconds
     ],
-
-    'docuseal' => [
-        'api_key' => env('DOCUSEAL_API_KEY'),
-        'api_url' => env('DOCUSEAL_API_URL', 'https://api.docuseal.com'),
-        'webhook_url' => env('DOCUSEAL_WEBHOOK_URL'),
-        'webhook_secret' => env('DOCUSEAL_WEBHOOK_SECRET'),
-        'timeout' => env('DOCUSEAL_TIMEOUT', 30),
-        'max_retries' => env('DOCUSEAL_MAX_RETRIES', 3),
-        'retry_delay' => env('DOCUSEAL_RETRY_DELAY', 1000),
-    ],
-
 
     'google' => [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),

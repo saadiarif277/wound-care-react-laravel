@@ -5,7 +5,6 @@ namespace App\Jobs\QuickRequest;
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\ProductRequest;
 use App\Mail\ManufacturerOrderNotification;
-use App\Services\DocusealService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -53,7 +52,7 @@ class SendManufacturerNotification implements ShouldQueue
     /**
      * Execute the job.
      */
-    public function handle(DocusealService $docusealService): void
+    public function handle(): void
     {
         Log::info('Sending manufacturer notification', [
             'episode_id' => $this->episode->id,
@@ -84,7 +83,8 @@ class SendManufacturerNotification implements ShouldQueue
             // Generate PDF documents if needed
             $attachments = [];
             if ($this->shouldIncludeDocuments()) {
-                $attachments = $this->prepareDocumentAttachments($docusealService);
+                // TODO: Replace with PDF attachments
+                $attachments = [];
             }
 
             // Send notifications to each contact
@@ -258,7 +258,8 @@ class SendManufacturerNotification implements ShouldQueue
     /**
      * Prepare document attachments
      */
-    private function prepareDocumentAttachments(DocusealService $docusealService): array
+    // TODO: Implement PDF document attachment preparation
+    private function prepareDocumentAttachments(): array
     {
         $attachments = [];
 

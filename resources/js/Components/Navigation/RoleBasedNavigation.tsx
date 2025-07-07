@@ -293,14 +293,14 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['msc-admin'],
           children: [
             {
-              name: 'Templates',
-              href: '/admin/docuseal/templates',
+              name: 'PDF Templates',
+              href: '/admin/pdf-templates',
               icon: FiArchive,
               roles: ['msc-admin']
             },
             {
-              name: 'Analytics',
-              href: '/admin/docuseal/analytics',
+              name: 'PDF Reports',
+              href: '/admin/pdf-reports',
               icon: FiPieChart,
               roles: ['msc-admin']
             }
@@ -427,14 +427,14 @@ const getMenuByRole = (role: UserRole): MenuItem[] => {
           roles: ['super-admin', 'superadmin'],
           children: [
             {
-              name: 'Templates',
-              href: '/admin/docuseal/templates',
+              name: 'PDF Templates',
+              href: '/admin/pdf-templates',
               icon: FiArchive,
               roles: ['super-admin', 'superadmin']
             },
             {
-              name: 'Analytics',
-              href: '/admin/docuseal/analytics',
+              name: 'PDF Reports',
+              href: '/admin/pdf-reports',
               icon: FiPieChart,
               roles: ['super-admin', 'superadmin']
             }

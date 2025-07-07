@@ -5,9 +5,7 @@ namespace App\Services;
 use App\Services\FieldMapping\DataExtractor;
 use App\Services\FieldMapping\FieldTransformer;
 use App\Services\FieldMapping\FieldMatcher;
-use App\Models\CanonicalField;
-use App\Models\TemplateFieldMapping;
-use App\Models\Docuseal\DocusealTemplate;
+use App\Services\ML\MLFieldMappingBridge;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
@@ -20,7 +18,8 @@ class UnifiedFieldMappingService
     public function __construct(
         private DataExtractor $dataExtractor,
         private FieldTransformer $fieldTransformer,
-        private FieldMatcher $fieldMatcher
+        private FieldMatcher $fieldMatcher,
+        private ?MLFieldMappingBridge $mlBridge = null
     ) {
         $this->config = config('field-mapping');
         $this->orderFormConfig = config('order-form-mapping');
@@ -676,22 +675,9 @@ class UnifiedFieldMappingService
                 return null;
             }
             
-            // Get the default template for this manufacturer and document type
-            $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
-                ->where('document_type', $documentType)
-                ->where('is_active', true)
-                ->where('is_default', true)
-                ->first();
-            
-            if (!$template) {
-                // Try without is_default constraint
-                $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
-                    ->where('document_type', $documentType)
-                    ->where('is_active', true)
-                    ->first();
-            }
-            
-            return $template ? $template->docuseal_template_id : null;
+            // TODO: Replace with PDF template lookup
+            // Previously used DocusealTemplate model
+            return null;
             
         } catch (\Exception $e) {
             Log::error('Failed to get template ID from database', [
@@ -728,26 +714,26 @@ class UnifiedFieldMappingService
     }
 
     /**
-     * Convert mapped data to Docuseal field format
+     * Convert mapped data to PDF field format
      */
-    public function convertToDocusealFields(array $mappedData, array $manufacturerConfig, string $documentType = 'IVR'): array
+    public function convertToPDFFields(array $mappedData, array $manufacturerConfig, string $documentType = 'IVR'): array
     {
-        $docuSealFields = [];
+        $pdfFields = [];
         
         // Choose the correct field mapping based on document type
         if ($documentType === 'OrderForm' && isset($manufacturerConfig['order_form_field_names'])) {
             $fieldNameMapping = $manufacturerConfig['order_form_field_names'];
         } else {
-            $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
+            $fieldNameMapping = $manufacturerConfig['pdf_field_names'] ?? $manufacturerConfig['docuseal_field_names'] ?? [];
         }
         
-        Log::info('Starting Docuseal field conversion', [
+        Log::info('Starting PDF field conversion', [
             'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
             'document_type' => $documentType,
             'mapped_data_count' => count($mappedData),
             'field_name_mapping_count' => count($fieldNameMapping),
             'mapped_data_keys' => array_keys($mappedData),
-            'available_docuseal_fields' => array_keys($fieldNameMapping)
+            'available_pdf_fields' => array_keys($fieldNameMapping)
         ]);
 
         // First, check if we're receiving raw data that needs mapping
@@ -1026,7 +1012,8 @@ class UnifiedFieldMappingService
      */
     public function getFieldMappingsForTemplate(string $templateId): array
     {
-        $template = DocusealTemplate::with('fieldMappings.canonicalField')->find($templateId);
+        // TODO: Replace with PDF template lookup
+        $template = null;
         
         if (!$template) {
             return [];
@@ -1134,7 +1121,8 @@ class UnifiedFieldMappingService
      */
     public function getMappingStatistics(string $templateId): array
     {
-        $template = DocusealTemplate::with('fieldMappings')->find($templateId);
+        // TODO: Replace with PDF template lookup
+        $template = null;
         
         if (!$template) {
             return [
@@ -1260,5 +1248,234 @@ class UnifiedFieldMappingService
                 $current = &$current[$key];
             }
         }
+    }
+
+    /**
+     * Enhanced field mapping with ML predictions
+     */
+    public function mapEpisodeToTemplateWithML(
+        ?string $episodeId,
+        string $manufacturerName,
+        array $additionalData = [],
+        string $documentType = 'IVR',
+        string $templateId = null
+    ): array {
+        $startTime = microtime(true);
+
+        try {
+            // 1. Extract all data once
+            if ($episodeId) {
+                $sourceData = $this->dataExtractor->extractEpisodeData($episodeId);
+                $sourceData = array_merge($sourceData, $additionalData);
+            } else {
+                $sourceData = $additionalData;
+            }
+
+            // 2. Get manufacturer configuration
+            $manufacturerConfig = $this->getManufacturerConfig($manufacturerName, $documentType);
+            if (!$manufacturerConfig) {
+                throw new \InvalidArgumentException("Unknown manufacturer: {$manufacturerName} for document type: {$documentType}");
+            }
+
+            // 3. Use ML-enhanced mapping if ML bridge is available
+            $mappedData = [];
+            $mlResults = null;
+
+            if ($this->mlBridge) {
+                try {
+                    $mlResults = $this->mlBridge->mapIVRFieldsWithML(
+                        $sourceData,
+                        $manufacturerName,
+                        $templateId ?? 'default',
+                        array_keys($manufacturerConfig['fields'] ?? [])
+                    );
+                    
+                    $mappedData = $mlResults['mapped_data'];
+                    
+                    Log::info('ML-enhanced field mapping successful', [
+                        'manufacturer' => $manufacturerName,
+                        'template_id' => $templateId,
+                        'ml_mapped_fields' => count($mappedData),
+                        'unmapped_fields' => count($mlResults['unmapped_fields'] ?? [])
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    Log::warning('ML field mapping failed, falling back to traditional mapping', [
+                        'manufacturer' => $manufacturerName,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // 4. Fall back to traditional mapping for any unmapped fields
+            if (empty($mappedData)) {
+                $mappedData = $this->mapFields($sourceData, $manufacturerConfig['fields']);
+            } else {
+                // Fill in any missing fields with traditional mapping
+                $traditionalMapped = $this->mapFields($sourceData, $manufacturerConfig['fields']);
+                foreach ($traditionalMapped as $field => $value) {
+                    if (!isset($mappedData[$field])) {
+                        $mappedData[$field] = $value;
+                    }
+                }
+            }
+
+            // 5. Apply manufacturer-specific business rules
+            $mappedData = $this->applyBusinessRules($mappedData, $manufacturerConfig, $sourceData);
+
+            // 6. Validate mapped data
+            $validation = $this->validateMapping($mappedData, $manufacturerConfig);
+
+            // 7. Calculate completeness
+            $completeness = $this->calculateCompleteness($mappedData, $manufacturerConfig);
+
+            // 8. Log mapping analytics with ML information
+            if ($episodeId) {
+                $this->logMappingAnalytics($episodeId, $manufacturerName, $completeness, microtime(true) - $startTime);
+            }
+
+            return [
+                'data' => $mappedData,
+                'validation' => $validation,
+                'manufacturer' => $manufacturerConfig,
+                'completeness' => $completeness,
+                'ml_results' => $mlResults,
+                'metadata' => [
+                    'episode_id' => $episodeId,
+                    'manufacturer' => $manufacturerName,
+                    'template_id' => $templateId,
+                    'mapped_at' => now()->toIso8601String(),
+                    'duration_ms' => round((microtime(true) - $startTime) * 1000, 2),
+                    'source' => $episodeId ? 'episode' : 'direct',
+                    'ml_enhanced' => !empty($mlResults),
+                    'ml_mapped_fields' => $mlResults ? count($mlResults['mapped_data']) : 0,
+                    'ml_unmapped_fields' => $mlResults ? count($mlResults['unmapped_fields'] ?? []) : 0
+                ]
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('ML-enhanced field mapping failed', [
+                'episode_id' => $episodeId,
+                'manufacturer' => $manufacturerName,
+                'template_id' => $templateId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Get field mapping predictions from ML system
+     */
+    public function getMLFieldPredictions(
+        array $sourceFields,
+        string $manufacturerName,
+        string $documentType = 'IVR',
+        array $contextData = []
+    ): array {
+        if (!$this->mlBridge) {
+            return [];
+        }
+
+        try {
+            return $this->mlBridge->predictFieldMappings(
+                $manufacturerName,
+                $documentType,
+                $sourceFields,
+                $contextData
+            );
+        } catch (\Exception $e) {
+            Log::error('Failed to get ML field predictions', [
+                'manufacturer' => $manufacturerName,
+                'document_type' => $documentType,
+                'source_fields' => $sourceFields,
+                'error' => $e->getMessage()
+            ]);
+            return [];
+        }
+    }
+
+    /**
+     * Record field mapping feedback for ML training
+     */
+    public function recordFieldMappingFeedback(
+        string $sourceField,
+        string $targetField,
+        string $manufacturerName,
+        string $documentType,
+        bool $success,
+        float $confidence = 0.0,
+        ?string $userFeedback = null
+    ): void {
+        if (!$this->mlBridge) {
+            return;
+        }
+
+        try {
+            $this->mlBridge->recordMappingResult(
+                $sourceField,
+                $targetField,
+                $manufacturerName,
+                $documentType,
+                $confidence,
+                $success,
+                'user_feedback',
+                $userFeedback
+            );
+
+            Log::info('Field mapping feedback recorded', [
+                'source_field' => $sourceField,
+                'target_field' => $targetField,
+                'manufacturer' => $manufacturerName,
+                'success' => $success,
+                'confidence' => $confidence
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to record field mapping feedback', [
+                'source_field' => $sourceField,
+                'target_field' => $targetField,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get ML system analytics
+     */
+    public function getMLAnalytics(): array {
+        if (!$this->mlBridge) {
+            return [
+                'ml_available' => false,
+                'error' => 'ML system not available'
+            ];
+        }
+
+        try {
+            $analytics = $this->mlBridge->getMLAnalytics();
+            $analytics['ml_available'] = true;
+            return $analytics;
+        } catch (\Exception $e) {
+            Log::error('Failed to get ML analytics', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return [
+                'ml_available' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Trigger ML model training
+     */
+    public function triggerMLTraining(bool $force = false): array {
+        if (!$this->mlBridge) {
+            throw new \Exception('ML system not available');
+        }
+
+        return $this->mlBridge->triggerMLTraining($force);
     }
 }

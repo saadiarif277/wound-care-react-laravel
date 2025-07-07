@@ -13,7 +13,6 @@ use App\Services\CmsCoverageApiService;
 use App\Services\ValidationBuilderEngine;
 use App\Services\PatientService;
 use App\Services\FhirService;
-use App\Services\DocusealService;
 use Illuminate\Support\Facades\Response;
 use App\Models\Order\Order;
 use App\Observers\OrderObserver;
@@ -100,12 +99,12 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Register Unified Docuseal Service
-        $this->app->singleton(\App\Services\DocusealService::class, function ($app) {
-            return new \App\Services\DocusealService(
-                $app->make(\App\Services\UnifiedFieldMappingService::class)
-            );
-        });
+        // Register Unified Docuseal Service - Commented out as we're replacing DocuSeal with PDFtk
+        // $this->app->singleton(\App\Services\DocusealService::class, function ($app) {
+        //     return new \App\Services\DocusealService(
+        //         $app->make(\App\Services\UnifiedFieldMappingService::class)
+        //     );
+        // });
 
         // Register PayerService
         $this->app->singleton(\App\Services\PayerService::class, function ($app) {

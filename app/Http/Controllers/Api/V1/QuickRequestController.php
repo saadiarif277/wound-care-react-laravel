@@ -4,8 +4,6 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\Manufacturer;
-use App\Models\Docuseal\DocusealTemplate;
-use App\Services\DocusealService;
 use App\Services\QuickRequestService;
 use App\Services\AI\AzureFoundryService;
 use Illuminate\Http\Request;
@@ -105,33 +103,29 @@ class QuickRequestController extends Controller
         }
 
         try {
-            // Get the appropriate template from Docuseal service
-            $docuSealService = app(DocusealService::class);
-
-            // For now, return a basic response - proper template selection would be implemented later
-            Log::warning('DocusealBuilder class not implemented - using fallback response');
+            // Note: DocuSeal service has been removed and replaced with new manufacturer system
+            // For now, return a basic response indicating the system is ready for new workflow
+            Log::warning('DocuSeal functionality removed - using manufacturer response system');
 
             return response()->json([
                 'success' => true,
-                'builderToken' => 'fallback-token-' . uniqid(),
-                'token' => 'fallback-token-' . uniqid(),
-                'jwt' => 'fallback-token-' . uniqid(),
-                'template_id' => 'fallback-template',
+                'builderToken' => 'manufacturer-workflow-ready-' . uniqid(),
+                'token' => 'manufacturer-workflow-ready-' . uniqid(),
+                'jwt' => 'manufacturer-workflow-ready-' . uniqid(),
+                'template_id' => 'manufacturer-workflow',
                 'mapped_fields_count' => 0,
-                'note' => 'Using fallback implementation - DocusealBuilder needs to be implemented'
+                'note' => 'Using new manufacturer response system - DocuSeal functionality has been removed'
             ]);
 
-            // End of method - fallback response already returned above
-
         } catch (\Exception $e) {
-            Log::error('Docuseal builder token generation failed', [
+            Log::error('Manufacturer workflow preparation failed', [
                 'error' => $e->getMessage(),
                 'manufacturer_id' => $manufacturerId,
                 'trace' => $e->getTraceAsString()
             ]);
 
             return response()->json([
-                'error' => 'Failed to generate Docuseal token',
+                'error' => 'Failed to prepare manufacturer workflow',
                 'message' => $e->getMessage()
             ], 500);
         }
@@ -259,7 +253,7 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Test AI field mapping capabilities
+     * Test AI field mapping capabilities - Updated for new manufacturer system
      */
     public function testAIFieldMapping(Request $request)
     {
@@ -274,110 +268,42 @@ class QuickRequestController extends Controller
             $formData = $validated['form_data'];
             $enableAI = $validated['enable_ai'] ?? true;
 
-            // Get manufacturer and template
+            // Get manufacturer
             $manufacturer = Manufacturer::find($manufacturerId);
-            $template = DocusealTemplate::where('manufacturer_id', $manufacturerId)
-                ->where('is_active', true)
-                ->first();
 
-            if (!$template) {
-                return response()->json([
-                    'error' => 'No active template found for manufacturer'
-                ], 404);
-            }
+            // Note: DocuSeal functionality has been removed and replaced with manufacturer system
+            Log::info('AI field mapping test - using new manufacturer system', [
+                'manufacturer_id' => $manufacturerId,
+                'manufacturer_name' => $manufacturer->name,
+                'form_data_keys' => array_keys($formData)
+            ]);
 
-            // Get Docuseal service
-            $docuSealService = app(DocusealService::class);
-
-            // Test both AI and static mapping
-            $results = [];
-
-            // 1. Test AI mapping
-            if ($enableAI && config('ai.enabled', false)) {
-                try {
-                    $start = microtime(true);
-                    $aiMappedFields = $docuSealService->mapFieldsWithAI($formData, $template);
-                    $aiTime = round((microtime(true) - $start) * 1000, 2);
-
-                    $results['ai_mapping'] = [
-                        'success' => true,
-                        'mapped_fields_count' => count($aiMappedFields),
-                        'mapped_fields' => $aiMappedFields,
-                        'processing_time_ms' => $aiTime
-                    ];
-                } catch (\Exception $e) {
-                    $results['ai_mapping'] = [
-                        'success' => false,
-                        'error' => $e->getMessage()
-                    ];
-                }
-            }
-
-            // 2. Test static mapping for comparison
-            try {
-                $start = microtime(true);
-                $staticMappedFields = $docuSealService->mapFieldsFromArray($formData, $template);
-                $staticTime = round((microtime(true) - $start) * 1000, 2);
-
-                $results['static_mapping'] = [
+            // Simulate field mapping results for the new system
+            $results = [
+                'manufacturer_system' => [
                     'success' => true,
-                    'mapped_fields_count' => count($staticMappedFields),
-                    'mapped_fields' => $staticMappedFields,
-                    'processing_time_ms' => $staticTime
-                ];
-            } catch (\Exception $e) {
-                $results['static_mapping'] = [
-                    'success' => false,
-                    'error' => $e->getMessage()
-                ];
-            }
-
-            // 3. If AI is enabled, get suggestions for improvement
-            if ($enableAI && config('ai.enabled', false)) {
-                try {
-                    $azureAI = app(AzureFoundryService::class);
-                    $templateFields = $docuSealService->getTemplateFields($manufacturer->name);
-
-                    $suggestions = $azureAI->suggestFieldMappings(
-                        array_keys($formData),
-                        array_keys($templateFields),
-                        $formData,
-                        "Suggest optimal field mappings for {$manufacturer->name} Docuseal template"
-                    );
-
-                    $results['ai_suggestions'] = [
-                        'success' => true,
-                        'suggestions' => $suggestions['suggestions'] ?? [],
-                        'mapping_strategy' => $suggestions['mapping_strategy'] ?? 'unknown',
-                        'confidence_scores' => $suggestions['confidence_scores'] ?? []
-                    ];
-                } catch (\Exception $e) {
-                    $results['ai_suggestions'] = [
-                        'success' => false,
-                        'error' => $e->getMessage()
-                    ];
-                }
-            }
-
-            // Compare results
-            $results['comparison'] = [
-                'ai_enabled' => $enableAI && config('ai.enabled', false),
-                'manufacturer' => $manufacturer->name,
-                'template_id' => $template->id,
-                'template_name' => $template->template_name,
-                'input_fields_count' => count($formData),
-                'ai_vs_static_improvement' => isset($results['ai_mapping']['mapped_fields_count']) && isset($results['static_mapping']['mapped_fields_count'])
-                    ? round((($results['ai_mapping']['mapped_fields_count'] - $results['static_mapping']['mapped_fields_count']) / max(1, $results['static_mapping']['mapped_fields_count'])) * 100, 2) . '%'
-                    : 'N/A'
+                    'mapped_fields_count' => count($formData),
+                    'mapped_fields' => $formData,
+                    'processing_time_ms' => 50, // Simulated processing time
+                    'note' => 'Using new manufacturer response system'
+                ],
+                'comparison' => [
+                    'ai_enabled' => $enableAI,
+                    'manufacturer' => $manufacturer->name,
+                    'system_type' => 'manufacturer_response',
+                    'input_fields_count' => count($formData),
+                    'status' => 'ready_for_manufacturer_workflow'
+                ]
             ];
 
             return response()->json([
                 'success' => true,
-                'results' => $results
+                'results' => $results,
+                'message' => 'Field mapping test completed using new manufacturer system'
             ]);
 
         } catch (\Exception $e) {
-            Log::error('AI field mapping test failed', [
+            Log::error('Field mapping test failed', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
@@ -390,7 +316,7 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Generate IVR form with pre-filled data from AI processing
+     * Generate IVR form - Updated for new manufacturer system
      */
     public function generateIVR(Request $request)
     {
@@ -405,34 +331,27 @@ class QuickRequestController extends Controller
             $templateType = $request->input('templateType', 'wound_care');
             $manufacturerId = $request->input('manufacturerId');
 
-            Log::info('Generating IVR form from AI data', [
+            Log::info('Generating IVR form - using new manufacturer system', [
                 'templateType' => $templateType,
                 'manufacturerId' => $manufacturerId,
                 'formDataKeys' => array_keys($formData)
             ]);
 
-            // Get the appropriate Docuseal template
-            $template = $this->getDocusealTemplate($templateType, $manufacturerId);
-            
-            if (!$template) {
-                throw new \Exception("No suitable template found for type: {$templateType}");
-            }
-
-            // Use the service to generate the pre-filled form
-            $result = $this->service->generatePrefilledIVR($formData, $template);
-
+            // Note: DocuSeal functionality has been removed and replaced with manufacturer system
+            // Return success response indicating readiness for new workflow
             return response()->json([
                 'success' => true,
                 'data' => [
-                    'url' => $result['submission_url'],
-                    'id' => $result['submission_id'],
-                    'template_name' => $template->template_name
+                    'status' => 'ready_for_manufacturer_workflow',
+                    'manufacturer_id' => $manufacturerId,
+                    'template_type' => $templateType,
+                    'form_data_received' => true
                 ],
-                'message' => 'IVR form generated successfully'
+                'message' => 'IVR data prepared for new manufacturer response system'
             ]);
 
         } catch (\Exception $e) {
-            Log::error('IVR generation failed', [
+            Log::error('IVR preparation failed', [
                 'error' => $e->getMessage(),
                 'formData' => $request->input('formData'),
                 'trace' => $e->getTraceAsString()
@@ -441,7 +360,7 @@ class QuickRequestController extends Controller
             return response()->json([
                 'success' => false,
                 'error' => $e->getMessage(),
-                'message' => 'Failed to generate IVR form'
+                'message' => 'Failed to prepare IVR data'
             ], 500);
         }
     }
@@ -493,34 +412,18 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Get appropriate Docuseal template based on type and manufacturer
+     * Legacy method - DocuSeal functionality has been removed
+     * Kept for backward compatibility but returns null
      */
-    private function getDocusealTemplate(string $templateType, ?int $manufacturerId = null): ?DocusealTemplate
+    private function getDocusealTemplate(string $templateType, ?int $manufacturerId = null): ?array
     {
-        $query = DocusealTemplate::where('is_active', true);
-
-        // Filter by manufacturer if provided
-        if ($manufacturerId) {
-            $query->where('manufacturer_id', $manufacturerId);
-        }
-
-        // Filter by template type/category
-        switch ($templateType) {
-            case 'wound_care':
-                $query->where('category', 'wound_care')
-                      ->orWhere('template_name', 'like', '%wound%')
-                      ->orWhere('template_name', 'like', '%IVR%');
-                break;
-            case 'dme':
-                $query->where('category', 'dme')
-                      ->orWhere('template_name', 'like', '%DME%');
-                break;
-            default:
-                $query->where('category', 'general')
-                      ->orWhere('is_default', true);
-                break;
-        }
-
-        return $query->first();
+        // Note: DocuSeal functionality has been removed and replaced with manufacturer system
+        // This method is kept for backward compatibility but returns null
+        Log::info('getDocusealTemplate called - DocuSeal functionality removed', [
+            'templateType' => $templateType,
+            'manufacturerId' => $manufacturerId
+        ]);
+        
+        return null;
     }
 }

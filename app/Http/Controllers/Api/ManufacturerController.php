@@ -4,9 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Order\Manufacturer;
-use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Log;
 
 class ManufacturerController extends Controller
 {
@@ -115,14 +115,9 @@ class ManufacturerController extends Controller
     /**
      * Get manufacturer fields configuration
      */
-    private function getManufacturerFields(Manufacturer $manufacturer, ?DocusealTemplate $template): array
+    private function getManufacturerFields(Manufacturer $manufacturer): array
     {
-        // If template has stored fields, use those
-        if ($template && !empty($template->fields)) {
-            return $template->fields;
-        }
-
-        // Otherwise, return a standard set of fields that all IVR forms should have
+        // Return a standard set of fields that all IVR forms should have
         return [
             [
                 'name' => 'patient_name',
@@ -173,6 +168,74 @@ class ManufacturerController extends Controller
                 'required' => true
             ]
         ];
+    }
+
+    /**
+     * Get the active PDF template for a manufacturer
+     */
+    public function getTemplate($manufacturerIdOrName): JsonResponse
+    {
+        try {
+            // Find manufacturer by ID or name
+            if (is_numeric($manufacturerIdOrName)) {
+                $manufacturer = Manufacturer::find($manufacturerIdOrName);
+            } else {
+                $manufacturer = Manufacturer::whereRaw('LOWER(name) = LOWER(?)', [$manufacturerIdOrName])->first();
+            }
+
+            if (!$manufacturer) {
+                return response()->json([
+                    'success' => false,
+                    'error' => 'Manufacturer not found'
+                ], 404);
+            }
+
+            // Get the active PDF template for IVR documents
+            $pdfTemplate = \App\Models\PDF\ManufacturerPdfTemplate::getLatestForManufacturer(
+                $manufacturer->id, 
+                'ivr'
+            );
+
+            // Get legacy field mapping config for fallback
+            $fieldMappingConfig = config("field-mapping.manufacturers.{$manufacturer->name}", []);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'manufacturer_id' => $manufacturer->id,
+                    'manufacturer_name' => $manufacturer->name,
+                    // PDF Template (new system)
+                    'pdf_template_id' => $pdfTemplate?->id,
+                    'pdf_template_name' => $pdfTemplate?->template_name,
+                    'pdf_template_version' => $pdfTemplate?->version,
+                    'pdf_template_fields' => $pdfTemplate?->template_fields ?? [],
+                    'pdf_template_active' => $pdfTemplate?->is_active ?? false,
+                    // Legacy fallback for DocuSeal template ID
+                    'docuseal_template_id' => $fieldMappingConfig['docuseal_template_id'] ?? null,
+                    'template_name' => $pdfTemplate?->template_name ?? 'Default IVR Template',
+                    // Field mappings
+                    'field_mapping' => $fieldMappingConfig['docuseal_field_names'] ?? [],
+                    'custom_fields' => $this->getManufacturerFields($manufacturer),
+                    // Template metadata
+                    'has_active_template' => !empty($pdfTemplate),
+                    'template_type' => $pdfTemplate ? 'pdf' : 'none',
+                    'last_updated' => $pdfTemplate?->updated_at,
+                ]
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get manufacturer template', [
+                'manufacturer' => $manufacturerIdOrName,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to retrieve template information',
+                'message' => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**

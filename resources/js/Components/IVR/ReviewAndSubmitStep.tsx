@@ -1,5 +1,4 @@
 import { useState } from 'react';
-import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { IvrFieldPreview } from '@/Components/IVR/IvrFieldPreview';
 
 interface ReviewAndSubmitStepProps {
@@ -8,8 +7,6 @@ interface ReviewAndSubmitStepProps {
 }
 
 const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) => {
-    const [showDocuseal, setShowDocuseal] = useState(false);
-    const [manufacturerConfig, setManufacturerConfig] = useState<any>(null);
     const [loading, setLoading] = useState(false);
     
     const getManufacturerFromProduct = (product: any) => {
@@ -39,16 +36,15 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
             const config = await response.json();
             
             if (config.success) {
-                // Create Docuseal submission with prefill data
-                const submissionResponse = await fetch('/quickrequest/docuseal/create-final-submission', {
+                // Create PDF submission with prefill data
+                const submissionResponse = await fetch('/api/v1/pdf/generate-ivr', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
                     },
                     body: JSON.stringify({
-                        template_type: 'ivr_form',
-                        use_builder: true,
+                        episode_id: formData.episode_id,
                         manufacturer_id: manufacturer,
                         prefill_data: {
                             // Patient Information
@@ -104,18 +100,22 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
                 
                 const submissionData = await submissionResponse.json();
                 
-                if (submissionData.success && submissionData.jwt_token) {
-                    setManufacturerConfig({
-                        ...config,
-                        manufacturer_key: manufacturer,
-                        jwt_token: submissionData.jwt_token,
-                        template_id: submissionData.template_id,
-                        user_email: submissionData.user_email,
-                        template_name: submissionData.template_name
-                    });
-                    setShowDocuseal(true);
+                if (submissionData.success && submissionData.data) {
+                    // Handle PDF response
+                    const pdfDocument = submissionData.data;
+                    
+                    // If PDF was generated successfully, complete the submission
+                    if (pdfDocument.status === 'generated') {
+                        formData.pdf_document_id = pdfDocument.document_id;
+                        formData.ivr_sent_at = new Date().toISOString();
+                        
+                        // Submit the complete order
+                        onSubmit(formData);
+                    } else {
+                        console.error('PDF generation failed:', pdfDocument.status);
+                    }
                 } else {
-                    console.error('Failed to create Docuseal submission:', submissionData.error);
+                    console.error('Failed to create PDF submission:', submissionData.message || submissionData.error);
                 }
             } else {
                 console.error('Failed to load manufacturer configuration');
@@ -127,14 +127,6 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
         }
     };
     
-    const handleDocusealComplete = (submissionId: string) => {
-        // Update form data with Docuseal submission
-        formData.docuseal_submission_id = submissionId;
-        formData.ivr_sent_at = new Date().toISOString();
-        
-        // Submit the complete order
-        onSubmit(formData);
-    };
     
     return (
         <div className="space-y-6">
@@ -175,37 +167,15 @@ const ReviewAndSubmitStep = ({ formData, onSubmit }: ReviewAndSubmitStepProps) =
                 </dl>
             </div>
             
-            {!showDocuseal ? (
-                <div className="flex justify-end">
-                    <button
-                        onClick={handleSubmit}
-                        disabled={loading}
-                        className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        {loading ? 'Loading...' : 'Proceed to IVR Form'}
-                    </button>
-                </div>
-            ) : (
-                <div className="space-y-4">
-                    <div className="bg-blue-50 p-4 rounded-lg">
-                        <h3 className="font-semibold text-blue-900 mb-2">
-                            {manufacturerConfig?.name} IVR Form
-                        </h3>
-                        <p className="text-sm text-blue-700">
-                            Please complete the IVR form below. Fields have been pre-filled where possible.
-                        </p>
-                    </div>
-                    
-                    <DocusealEmbed
-                        templateId={manufacturerConfig?.template_id}
-                        jwtToken={manufacturerConfig?.jwt_token}
-                        userEmail={manufacturerConfig?.user_email || formData.provider_email}
-                        templateName={manufacturerConfig?.template_name || `${manufacturerConfig?.name} IVR Form`}
-                        documentUrls={formData.uploaded_documents || []}
-                        onComplete={handleDocusealComplete}
-                    />
-                </div>
-            )}
+            <div className="flex justify-end">
+                <button
+                    onClick={handleSubmit}
+                    disabled={loading}
+                    className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+                >
+                    {loading ? 'Generating PDF...' : 'Generate IVR Form'}
+                </button>
+            </div>
         </div>
     );
 };

@@ -9,7 +9,7 @@ import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
-import Step7DocusealIVR from './Components/Step7DocusealIVR';
+import Step7PDFIIVR from './Components/Step7PDFIIVR';
 import axios from 'axios';
 
 interface QuickRequestFormData {
@@ -155,6 +155,9 @@ interface QuickRequestFormData {
   // Episode tracking
   episode_id?: string;
   patient_display_id?: string;
+  
+  // PDF document tracking
+  pdf_document_id?: string;
   patient_fhir_id?: string;
   fhir_practitioner_id?: string;
   fhir_organization_id?: string;
@@ -164,7 +167,7 @@ interface QuickRequestFormData {
   fhir_encounter_id?: string; // Added for FHIR Encounter
   fhir_questionnaire_response_id?: string;
   fhir_device_request_id?: string;
-  docuseal_submission_id?: string;
+  pdf_document_id?: string;
   final_submission_id?: string;
   final_submission_completed?: boolean;
   final_submission_data?: any;
@@ -293,7 +296,7 @@ function QuickRequestCreateNew({
     provider_npi: currentUser.npi || '',
     selected_products: [],
     manufacturer_fields: {},
-    docuseal_submission_id: '',
+    pdf_document_id: '',
     // FHIR IDs from providers/orgs
     fhir_practitioner_id: currentUser.role === 'provider' ? currentUser.fhir_practitioner_id : undefined,
     fhir_organization_id: currentUser.organization?.fhir_organization_id,
@@ -670,8 +673,8 @@ function QuickRequestCreateNew({
         ...formData,
         // manufacturer_fields are now directly from the form state, not a separate extraction.
         manufacturer_fields: formData.manufacturer_fields || {},
-        // Ensure docuseal_submission_id is a string or null
-        docuseal_submission_id: formData.docuseal_submission_id ? String(formData.docuseal_submission_id) : null,
+        // Ensure pdf_document_id is a string or null
+        pdf_document_id: formData.pdf_document_id ? String(formData.pdf_document_id) : null,
         // Ensure selected_products have valid product_id values
         selected_products: formData.selected_products?.map(product => ({
           ...product,
@@ -705,7 +708,7 @@ function QuickRequestCreateNew({
           provider_id: finalFormData.provider_id,
           facility_id: finalFormData.facility_id,
           selected_products: finalFormData.selected_products,
-          docuseal_submission_id: finalFormData.docuseal_submission_id,
+          pdf_document_id: finalFormData.pdf_document_id,
         }
       });
 
@@ -729,7 +732,7 @@ function QuickRequestCreateNew({
       });
 
       console.log('🔍 Selected products details:', finalFormData.selected_products);
-      console.log('🔍 Docuseal submission ID:', finalFormData.docuseal_submission_id, 'Type:', typeof finalFormData.docuseal_submission_id);
+      console.log('🔍 PDF document ID:', finalFormData.pdf_document_id, 'Type:', typeof finalFormData.pdf_document_id);
 
       // Submit order directly
       const response = await axios.post('/quick-requests/submit-order', {
@@ -1012,7 +1015,7 @@ function QuickRequestCreateNew({
             )}
 
             {currentSection === 3 && (
-              <Step7DocusealIVR
+              <Step7PDFIIVR
                 formData={formData as any}
                 updateFormData={updateFormData as any}
                 products={products}

@@ -40,7 +40,6 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use App\Http\Controllers\FacilityController;
-use App\Http\Controllers\DocusealWebhookController;
 use App\Http\Controllers\FhirController;
 use App\Http\Controllers\Api\AuthTokenController;
 use Illuminate\Support\Facades\Log;
@@ -56,39 +55,9 @@ use Illuminate\Support\Facades\Log;
 |
 */
 
-use App\Services\DocusealService;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\OrderReviewPageController;
-
-Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
-    $service = app(DocusealService::class);
-
-    // Test the FHIR data fetch
-    $episode = DB::table('patient_manufacturer_ivr_episodes')->find($episodeId);
-
-    if ($episode->azure_order_checklist_fhir_id) {
-        $fhirService = app(FhirService::class);
-        // Use search method to find the DocumentReference by ID
-        $bundle = $fhirService->search('DocumentReference', ['_id' => $episode->azure_order_checklist_fhir_id]);
-
-        // Extract the first entry from the bundle
-        if (!isset($bundle['entry'][0]['resource'])) {
-            return 'DocumentReference not found';
-        }
-
-        $doc = $bundle['entry'][0]['resource'];
-        $checklistData = json_decode(base64_decode($doc['content'][0]['attachment']['data']), true);
-
-        dd([
-            'episode' => $episode,
-            'fhir_data' => $checklistData,
-            'would_map_to' => $service->mapFHIRToDocuseal($checklistData)
-        ]);
-    }
-
-    return 'No FHIR data found';
-});
 
 // Removed debug CSRF routes - security vulnerability fixed
 
@@ -377,6 +346,25 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     // Patient IVR Status
     Route::get('/patients/ivr-status', [PatientIVRController::class, 'index'])->name('admin.patients.ivr-status');
     Route::post('/patients/{patientFhirId}/ivr/{manufacturerId}', [PatientIVRController::class, 'updateStatus'])->name('admin.patients.ivr.update');
+
+    // PDF Template Management Routes
+    Route::middleware(['permission:manage-pdf-templates'])->group(function () {
+        Route::get('/pdf-templates', [App\Http\Controllers\Admin\PDFTemplateController::class, 'index'])->name('admin.pdf-templates.index');
+        Route::post('/pdf-templates', [App\Http\Controllers\Admin\PDFTemplateController::class, 'store'])->name('admin.pdf-templates.store');
+        Route::post('/test-upload', [App\Http\Controllers\Admin\TestUploadController::class, 'test'])->name('admin.test-upload');
+        Route::get('/pdf-templates/{template}', [App\Http\Controllers\Admin\PDFTemplateController::class, 'show'])->name('admin.pdf-templates.show');
+        Route::put('/pdf-templates/{template}', [App\Http\Controllers\Admin\PDFTemplateController::class, 'update'])->name('admin.pdf-templates.update');
+        Route::delete('/pdf-templates/{template}', [App\Http\Controllers\Admin\PDFTemplateController::class, 'destroy'])->name('admin.pdf-templates.destroy');
+        Route::post('/pdf-templates/{template}/extract-fields', [App\Http\Controllers\Admin\PDFTemplateController::class, 'extractFields'])->name('admin.pdf-templates.extract-fields');
+        Route::post('/pdf-templates/{template}/test-fill', [App\Http\Controllers\Admin\PDFTemplateController::class, 'testFill'])->name('admin.pdf-templates.test-fill');
+        Route::post('/pdf-templates/{template}/activate', [App\Http\Controllers\Admin\PDFTemplateController::class, 'activate'])->name('admin.pdf-templates.activate');
+        Route::post('/pdf-templates/{template}/deactivate', [App\Http\Controllers\Admin\PDFTemplateController::class, 'deactivate'])->name('admin.pdf-templates.deactivate');
+        
+        // AI-powered routes
+        Route::post('/pdf-templates/{template}/analyze-with-ai', [App\Http\Controllers\Admin\PDFTemplateController::class, 'analyzeWithAI'])->name('admin.pdf-templates.analyze-with-ai');
+        Route::post('/pdf-templates/{template}/suggest-mappings', [App\Http\Controllers\Admin\PDFTemplateController::class, 'suggestMappings'])->name('admin.pdf-templates.suggest-mappings');
+        Route::post('/pdf-templates/{template}/apply-ai-mappings', [App\Http\Controllers\Admin\PDFTemplateController::class, 'applyAIMappings'])->name('admin.pdf-templates.apply-ai-mappings');
+    });
 });
 
 // Legacy order routes (redirect to consolidated order center)
@@ -604,33 +592,7 @@ Route::middleware(['web', 'auth'])->group(function () {
             ->middleware('permission:create-product-requests')
             ->name('quick-requests.store');
 
-        // Docuseal IVR Integration - moved to DocusealController
-        Route::post('/prepare-docuseal-ivr', [\App\Http\Controllers\DocusealController::class, 'prepareDocusealIVR'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.prepare-docuseal-ivr');
-
-        // Docuseal routes - moved to DocusealController
-        Route::post('/docuseal/generate-form-token', [\App\Http\Controllers\DocusealController::class, 'generateFormToken'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-form-token');
-
-        Route::post('/docuseal/generate-submission-slug', [\App\Http\Controllers\DocusealController::class, 'generateSubmissionSlug'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-submission-slug');
-
-        // Debug endpoint for Docuseal integration troubleshooting
-        Route::get('/docuseal/debug', [\App\Http\Controllers\DocusealController::class, 'debugDocusealIntegration'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.debug');
-
-        Route::get('/docuseal/test-count', [\App\Http\Controllers\DocusealController::class, 'testTemplateCount'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.test-count');
-
-        // Docuseal Builder Token Generation (web auth)
-        Route::post('/docuseal/generate-builder-token', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateBuilderToken'])
-            ->middleware('permission:create-product-requests')
-            ->name('quick-requests.docuseal.generate-builder-token');
+        // TODO: Replace with new form service integration
 
         // Episode-centric workflow with document processing
         Route::post('/create-episode-with-documents', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'createEpisodeWithDocuments'])
@@ -965,34 +927,12 @@ Route::middleware(['web', 'auth'])->group(function () {
         ]);
     })->name('test.office-manager-permissions');
 
-    // Docuseal Document Management Routes
-    Route::middleware(['permission:manage-orders'])->prefix('admin/docuseal')->group(function () {
-        // Template management
-        Route::get('/templates', function () {
-            return Inertia::render('Admin/Docuseal/Templates');
-        })->name('admin.docuseal.templates');
-
-        // Analytics dashboard
-        Route::get('/analytics', function () {
-            return Inertia::render('Admin/Docuseal/Analytics');
-        })->name('admin.docuseal.analytics');
+    // PDF Reports Route
+    Route::middleware(['permission:manage-pdf-templates'])->prefix('admin')->group(function () {
+        Route::get('/pdf-reports', function () {
+            return Inertia::render('Admin/PDFReports');
+        })->name('admin.pdf-reports');
     });
-
-    // Docuseal API endpoints (within web middleware for session auth)
-    // NOTE: DocusealTemplateController needs to be created
-    /*
-    Route::prefix('api/v1/docuseal/templates')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'index']);
-        Route::post('/sync', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'sync']);
-        Route::post('/extract-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'extractFields']);
-        Route::post('/upload-embedded', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'uploadEmbedded']);
-        Route::get('/manufacturer/{manufacturer}/fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'getManufacturerFields']);
-        Route::post('/{templateId}/update-mappings', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMappings']);
-        Route::post('/{templateId}/update-metadata', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'updateMetadata']);
-        Route::post('/{templateId}/apply-bulk-patterns', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'applyBulkPatterns']);
-        Route::post('/{templateId}/sync-fields', [\App\Http\Controllers\Api\V1\DocusealTemplateController::class, 'syncFields']);
-    });
-    */
 
     // Test route for Provider Dashboard functionality
     Route::get('/test-provider-permissions', function () {
@@ -1116,26 +1056,9 @@ Route::middleware(['web', 'auth'])->group(function () {
 
 
 
-// Docuseal Routes
+// PDF Form Routes - Replaced DocuSeal routes
 Route::middleware(['auth'])->group(function () {
-    // NOTE: DocusealController needs to be created
-    /*
-    // Create Docuseal submission with pre-filled data
-    Route::post('/docuseal/create-submission', [\App\Http\Controllers\DocusealController::class, 'createSubmission'])
-        ->name('docuseal.create-submission')
-        ->middleware('permission:manage-orders');
-
-    // Demo-specific Docuseal submission (only requires authentication, not manage-orders permission)
-    Route::post('/docuseal/demo/create-submission', [\App\Http\Controllers\DocusealController::class, 'createDemoSubmission'])
-        ->name('docuseal.demo.create-submission');
-    */
-});
-
-// QuickRequest Docuseal Routes (Consolidated)
-Route::middleware(['auth'])->group(function () {
-    // Create final submission form with all QuickRequest data
-    Route::post('/quickrequest/docuseal/create-final-submission', [\App\Http\Controllers\QuickRequestController::class, 'createFinalSubmission'])
-        ->name('quickrequest.docuseal.create-final-submission');
+    // PDF generation and signing handled by PDFController in api.php
 });
 
 // ================================================================
@@ -1196,8 +1119,6 @@ Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
         ->name('api.voice.command');
 });
 
-// Docuseal Webhook (outside auth middleware)
-
 // QuickRequest Episode ID generation for IVR linking
 Route::post('/api/quickrequest/episode', [\App\Http\Controllers\Api\V1\QuickRequestEpisodeController::class, 'store'])
     ->name('api.quickrequest.episode')
@@ -1231,58 +1152,20 @@ Route::middleware(['auth', 'role:msc-admin'])->prefix('rbac')->group(function ()
 
 // FHIR routes moved to api.php to avoid duplicate route names
 
+// ================================================================
+// MANUFACTURER QUICK RESPONSE ROUTES
+// ================================================================
 
-// Docuseal API Test Route (remove in production)
-Route::get('/test-docuseal-connection', function () {
-    if (!Auth::check()) {
-        return response()->json(['error' => 'Please log in first'], 401);
-    }
+// Manufacturer Quick Response Routes - for email-based responses (no auth required)
+Route::prefix('manufacturer')->group(function () {
+    Route::post('/quick-response/{token}/approve', [\App\Http\Controllers\ManufacturerQuickResponseController::class, 'approve'])
+        ->name('manufacturer.quick-response.approve');
+    
+    Route::post('/quick-response/{token}/deny', [\App\Http\Controllers\ManufacturerQuickResponseController::class, 'deny'])
+        ->name('manufacturer.quick-response.deny');
+    
+    Route::get('/quick-response/{token}/document', [\App\Http\Controllers\ManufacturerQuickResponseController::class, 'viewDocument'])
+        ->name('manufacturer.quick-response.view-document');
+});
 
-    try {
-        $docuSealService = app(\App\Services\DocusealService::class);
-        $result = $docuSealService->testConnection();
-
-        return response()->json($result);
-    } catch (\Exception $e) {
-        return response()->json([
-            'success' => false,
-            'error' => $e->getMessage(),
-        ], 500);
-    }
-})->middleware('auth')->name('test.docuseal.connection');
-
-// Quick Docuseal template check (remove in production)
-Route::get('/docuseal-templates', function () {
-    if (!Auth::check()) {
-        return 'Please log in first';
-    }
-
-    $apiKey = config('docuseal.api_key'); // Fixed: use docuseal.api_key instead of services.docuseal.api_key
-    if (!$apiKey) {
-        return 'DOCUSEAL_API_KEY not set in .env file';
-    }
-
-    try {
-        $response = \Illuminate\Support\Facades\Http::withHeaders([
-            'X-Auth-Token' => $apiKey,
-        ])->get('https://api.docuseal.com/templates');
-
-        if ($response->successful()) {
-            $templates = $response->json();
-            return response()->json([
-                'api_key_works' => true,
-                'templates' => collect($templates)->map(function ($t) {
-                    return [
-                        'id' => $t['id'],
-                        'name' => $t['name'],
-                        'use_this_id' => $t['id'], // <-- Use this ID in your manufacturerFields.ts
-                    ];
-                })
-            ]);
-        }
-
-        return 'API Error: ' . $response->body();
-    } catch (\Exception $e) {
-        return 'Error: ' . $e->getMessage();
-    }
-})->middleware('auth');
+// TODO: Add new form service test routes

@@ -3,7 +3,7 @@
 namespace App\Listeners;
 
 use App\Events\QuickRequestSubmitted;
-use App\Jobs\ProcessQuickRequestToDocusealAndFhir;
+use Illuminate\Support\Facades\Log;
 
 class HandleQuickRequestSubmitted
 {
@@ -15,7 +15,17 @@ class HandleQuickRequestSubmitted
      */
     public function handle(QuickRequestSubmitted $event)
     {
-        // Dispatch the background job with the episode ID
-        ProcessQuickRequestToDocusealAndFhir::dispatch($event->episode->id);
+        // Log the event for monitoring
+        Log::info('QuickRequestSubmitted event received', [
+            'episode_id' => $event->episode->id,
+            'product_request_id' => $event->productRequest->id ?? null,
+            'total_amount' => $event->calculation['total'] ?? 0
+        ]);
+        
+        // PDF generation is handled in the QuickRequestController/PDFService workflow
+        // Additional background processing can be added here if needed
+        
+        // Example: Dispatch notifications, trigger analytics, etc.
+        // dispatch(new ProcessOrderNotifications($event->productRequest));
     }
 }

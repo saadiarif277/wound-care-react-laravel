@@ -16,6 +16,7 @@
     "test:all": "npm run test:coverage && npm run test:php:coverage",
     "test:report": "node scripts/test-report.js",
     "test:order-workflow": "php artisan test:order-workflow",
+    "test:pdf-upload": "node tests/scripts/test-pdf-upload-debug.js",
     "lint": "eslint resources/js --ext .ts,.tsx",
     "lint:fix": "eslint resources/js --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit"
@@ -23,7 +24,6 @@
   "dependencies": {
     "@azure-rest/ai-document-intelligence": "^1.1.0",
     "@azure/identity": "^4.10.1",
-    "@docuseal/react": "^1.0.67",
     "@eslint/config-array": "^0.21.0",
     "@eslint/object-schema": "^2.1.6",
     "@headlessui/react": "^2.2.4",

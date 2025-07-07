@@ -3,7 +3,7 @@
 
 require_once __DIR__ . '/../../vendor/autoload.php';
 
-use App\Services\DocusealService;
+// use App\Services\DocusealService; // Removed - replaced with PDF system
 use App\Services\UnifiedFieldMappingService;
 use Illuminate\Support\Facades\Log;
 
@@ -38,7 +38,7 @@ echo "Testing patient name field mapping for $manufacturerName\n";
 echo "==========================================\n\n";
 
 // Initialize services
-$docuSealService = app(DocusealService::class);
+// $docuSealService = app(DocusealService::class); // Removed - replaced with PDF system
 $fieldMappingService = app(UnifiedFieldMappingService::class);
 
 // Get manufacturer config

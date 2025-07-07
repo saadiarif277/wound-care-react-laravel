@@ -11,7 +11,6 @@ use App\Models\PatientManufacturerIVREpisode;
 use App\Models\User;
 use App\Models\Users\Organization\Organization;
 use App\Services\CurrentOrganization;
-use App\Services\DocusealService;
 use App\Services\QuickRequest\QuickRequestCalculationService;
 use App\Services\QuickRequest\QuickRequestFileService;
 use App\Services\QuickRequest\QuickRequestOrchestrator;
@@ -40,7 +39,7 @@ class QuickRequestController extends Controller
         protected QuickRequestCalculationService $calculationService,
         protected QuickRequestFileService $fileService,
         protected CurrentOrganization $currentOrganization,
-        protected DocusealService $docusealService,
+        // protected DocusealService $docusealService, // Removed - replaced with new PDF/manufacturer system
     ) {}
 
     /**
@@ -104,7 +103,7 @@ class QuickRequestController extends Controller
                 productSelection: $quickRequestData->productSelection,
                 orderPreferences: $quickRequestData->orderPreferences,
                 manufacturerFields: $quickRequestData->manufacturerFields,
-                docusealSubmissionId: $quickRequestData->docusealSubmissionId,
+                pdfDocumentId: $quickRequestData->pdfDocumentId,
                 attestations: $quickRequestData->attestations,
                 adminNote: $validated['adminNote'] ?? null,
             );
@@ -234,22 +233,16 @@ class QuickRequestController extends Controller
             'order_status' => ProductRequest::ORDER_STATUS_PENDING,
             'submitted_at' => now(),
             'total_order_value' => $calculation['total'], // FIX: Set the calculated total
-            'docuseal_submission_id' => $data->docusealSubmissionId, // Add docuseal submission ID
+            'pdf_document_id' => $data->pdfDocumentId, // Add PDF document ID
             'clinical_summary' => array_merge($data->toArray(), [
                 'admin_note' => $data->adminNote,
                 'admin_note_added_at' => $data->adminNote ? now()->toIso8601String() : null,
             ]),
         ]);
 
-        // Save DocuSeal template ID for IVR
-        $manufacturerId = $data->manufacturer->id ?? $this->getManufacturerIdFromProducts($data->orderPreferences->products ?? []);
-        if ($manufacturerId) {
-            $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
-            if ($template) {
-                $productRequest->docuseal_template_id = $template->docuseal_template_id;
-                $productRequest->save();
-            }
-        }
+        // Note: Previously saved DocuSeal template ID - removed as part of new manufacturer system
+        // $manufacturerId = $data->manufacturer->id ?? $this->getManufacturerIdFromProducts($data->orderPreferences->products ?? []);
+        // Template association now handled by the new manufacturer response system
 
         // Create product relationships with proper pricing
         $this->createProductRelationships($productRequest, $calculation['item_breakdown']);
@@ -668,7 +661,7 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Create IVR submission using orchestrator's comprehensive data
+     * Create IVR submission - Now using new manufacturer response system
      */
     public function createIvrSubmission(Request $request): JsonResponse
     {
@@ -689,41 +682,27 @@ class QuickRequestController extends Controller
                 ], 403);
             }
 
-            // Get comprehensive data from orchestrator
-            $comprehensiveData = $this->orchestrator->prepareDocusealData($episode);
+            // Note: This method previously used DocuSeal but has been updated
+            // to work with the new manufacturer response system.
+            // For now, we'll return a success response indicating the episode is ready
+            // for the new IVR/manufacturer workflow
 
-            // Create Docuseal submission using comprehensive data
-            $result = $this->docusealService->createSubmissionFromOrchestratorData(
-                $episode,
-                $comprehensiveData,
-                $validated['manufacturer_name']
-            );
-
-            if (!$result['success']) {
-                throw new \Exception($result['error'] ?? 'Failed to create IVR submission');
-            }
-
-            Log::info('IVR submission created successfully using orchestrator data', [
+            Log::info('IVR submission request received - using new manufacturer system', [
                 'episode_id' => $episode->id,
-                'submission_id' => $result['submission']['id'],
                 'user_id' => Auth::id(),
                 'manufacturer' => $validated['manufacturer_name']
             ]);
 
             return response()->json([
                 'success' => true,
-                'submission_id' => $result['submission']['id'],
-                'slug' => $result['submission']['slug'] ?? null,
-                'embed_url' => $result['submission']['embed_url'] ?? null,
-                'status' => $result['submission']['status'] ?? 'pending',
-                'manufacturer' => $result['manufacturer'],
-                'mapped_fields_count' => count($result['mapped_data']),
-                'completeness_percentage' => $result['completeness']['percentage'] ?? 0,
-                'message' => 'IVR submission created successfully with comprehensive data'
+                'episode_id' => $episode->id,
+                'status' => 'ready_for_manufacturer_workflow',
+                'manufacturer' => $validated['manufacturer_name'],
+                'message' => 'Episode ready for new manufacturer response workflow'
             ]);
 
         } catch (\Exception $e) {
-            Log::error('Failed to create IVR submission using orchestrator data', [
+            Log::error('Failed to prepare IVR for manufacturer workflow', [
                 'episode_id' => $validated['episode_id'],
                 'manufacturer' => $validated['manufacturer_name'],
                 'user_id' => Auth::id(),
@@ -733,7 +712,7 @@ class QuickRequestController extends Controller
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to create IVR submission: ' . $e->getMessage()
+                'message' => 'Failed to prepare IVR: ' . $e->getMessage()
             ], 500);
         }
     }

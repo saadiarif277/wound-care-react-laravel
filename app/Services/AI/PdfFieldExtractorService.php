@@ -5,7 +5,6 @@ namespace App\Services\AI;
 use App\Models\PdfFieldMetadata;
 use App\Models\PdfFieldNameIndex;
 use App\Models\Order\Manufacturer;
-use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -30,12 +29,13 @@ class PdfFieldExtractorService
     }
     
     /**
-     * Extract fields from all DocuSeal templates
+     * Extract fields from all PDF templates
      */
     public function extractAllTemplateFields(): array
     {
         $results = [];
-        $templates = DocusealTemplate::with('manufacturer')->get();
+        // TODO: Replace with PDF template retrieval
+        $templates = collect(); // Empty collection for now
         
         Log::info("Starting field extraction for {$templates->count()} templates");
         
@@ -44,8 +44,8 @@ class PdfFieldExtractorService
                 $result = $this->extractTemplateFields($template);
                 $results[] = $result;
                 
-                Log::info("Extracted fields for template: {$template->template_name}", [
-                    'template_id' => $template->docuseal_template_id,
+                Log::info("Extracted fields for template", [
+                    'template_id' => $template->id ?? 'unknown',
                     'field_count' => $result['field_count'] ?? 0
                 ]);
                 
@@ -98,7 +98,8 @@ class PdfFieldExtractorService
     /**
      * Extract field metadata directly from DocuSeal API
      */
-    private function extractFromDocusealAPI(DocusealTemplate $template): array
+    // TODO: Replace with PDF template extraction
+    private function extractFromDocusealAPI($template): array
     {
         try {
             $apiKey = config('services.docuseal.api_key');
