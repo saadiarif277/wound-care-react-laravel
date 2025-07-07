@@ -247,60 +247,6 @@ function Step2PatientInsurance({
         </div>
       </div>
 
-      {/* Document Upload Section */}
-      <DocumentUploadCard
-        title="Document Upload"
-        description="Upload insurance cards, clinical notes, demographics, and other supporting documents"
-        onDocumentsChange={async (documents) => {
-          // Handle document uploads
-          const updates: any = {};
-          
-          for (const doc of documents) {
-            if (doc.type === 'insurance_front' || doc.type === 'insurance_back') {
-              // Process insurance cards with OCR
-              const side = doc.type === 'insurance_front' ? 'front' : 'back';
-              if (doc.files.primary) {
-                await handleInsuranceCardUpload(doc.files.primary, side);
-              }
-            } else if (doc.type === 'demographics') {
-              updates.face_sheet = doc.files.primary;
-            } else if (doc.type === 'clinical_notes') {
-              updates.clinical_notes = doc.files.primary;
-            } else if (doc.type === 'other') {
-              updates.wound_photo = doc.files.primary;
-            }
-          }
-          
-          updateFormData(updates);
-        }}
-        onInsuranceDataExtracted={(data) => {
-          // Handle extracted insurance data
-          if (data) {
-            const updates: any = {};
-            
-            // Patient information
-            if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
-            if (data.patient_last_name) updates.patient_last_name = data.patient_last_name;
-            if (data.patient_dob) updates.patient_dob = data.patient_dob;
-            if (data.patient_member_id) updates.patient_member_id = data.patient_member_id;
-            
-            // Insurance information
-            if (data.payer_name) updates.primary_insurance_name = data.payer_name;
-            if (data.payer_id) updates.primary_member_id = data.payer_id;
-            if (data.insurance_type) updates.primary_plan_type = data.insurance_type;
-            
-            updates.insurance_card_auto_filled = true;
-            updateFormData(updates);
-            setAutoFillSuccess(true);
-            
-            setTimeout(() => {
-              setAutoFillSuccess(false);
-            }, 5000);
-          }
-        }}
-        className="mb-6"
-      />
-
       {/* Patient Information */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Patient Information</h3>

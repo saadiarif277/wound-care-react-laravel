@@ -65,6 +65,7 @@ class FieldMappingRequest(BaseModel):
     ocr_data: Dict[str, Any]
     document_type: DocumentType
     target_schema: Optional[Dict[str, str]] = None
+    manufacturer_name: Optional[str] = None
     include_confidence: bool = True
 
 class TermValidationResult(BaseModel):
@@ -821,6 +822,29 @@ Return JSON format:
             return {**MEDICAL_TERMINOLOGIES['clinical'], **MEDICAL_TERMINOLOGIES['wound_care']}
         else:
             return MEDICAL_TERMINOLOGIES['clinical']
+    
+    def _apply_manufacturer_field_mappings(self, result: Dict, manufacturer_config: Dict) -> Dict:
+        """Apply manufacturer-specific field name mappings to the result"""
+        if not manufacturer_config.get('docuseal_field_names'):
+            return result
+        
+        docuseal_mappings = manufacturer_config['docuseal_field_names']
+        mapped_fields = {}
+        
+        for canonical_name, value in result.get('mapped_fields', {}).items():
+            # Get the manufacturer-specific DocuSeal field name
+            docuseal_field_name = docuseal_mappings.get(canonical_name, canonical_name)
+            mapped_fields[docuseal_field_name] = value
+        
+        # Update the result with manufacturer-specific field names
+        result['mapped_fields'] = mapped_fields
+        
+        # Add processing note about manufacturer mapping
+        if 'processing_notes' not in result:
+            result['processing_notes'] = []
+        result['processing_notes'].append(f"Applied {manufacturer_config.get('name')} field mappings")
+        
+        return result
 
 # Local fallback functions (used when Azure AI is not available)
 def _local_validate_terms(terms: List[str], context: DocumentType) -> Dict:
@@ -1075,14 +1099,15 @@ async def validate_medical_terms(request: ValidationRequest):
 
 @app.post("/map-fields", response_model=FieldMappingResult)
 async def map_document_fields(request: FieldMappingRequest):
-    """Map OCR data to target schema"""
+    """Map OCR data to target schema with manufacturer-specific mappings"""
     try:
         if ai_agent:
             # Use Azure AI if available
             result = await ai_agent.map_fields(
                 request.ocr_data,
                 request.document_type,
-                request.target_schema
+                request.target_schema,
+                request.manufacturer_name
             )
         else:
             # Use local fallback processing
@@ -1117,11 +1142,58 @@ async def get_terminology_stats():
         stats[domain] = domain_stats
         total_terms += domain_total
     
+    # Get manufacturer knowledge base stats
+    manufacturer_stats = manufacturer_knowledge_base.get_manufacturer_stats()
+    
     return {
         "domains": stats,
         "total_terms": total_terms,
+        "manufacturer_knowledge_base": manufacturer_stats,
         "last_updated": datetime.now().isoformat()
     }
+
+@app.get("/manufacturers")
+async def get_manufacturers():
+    """Get list of available manufacturers and their configurations"""
+    try:
+        manufacturers = manufacturer_knowledge_base.list_manufacturers()
+        manufacturer_details = {}
+        
+        for manufacturer_name in manufacturers:
+            config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
+            manufacturer_details[manufacturer_name] = {
+                "name": config.get('name'),
+                "docuseal_template_id": config.get('docuseal_template_id'),
+                "signature_required": config.get('signature_required'),
+                "has_order_form": config.get('has_order_form'),
+                "field_mappings_count": len(config.get('field_mappings', {})),
+                "docuseal_field_names_count": len(config.get('docuseal_field_names', {}))
+            }
+        
+        return {
+            "total_manufacturers": len(manufacturers),
+            "manufacturers": manufacturer_details
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting manufacturers: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/manufacturers/{manufacturer_name}")
+async def get_manufacturer_config(manufacturer_name: str):
+    """Get detailed configuration for a specific manufacturer"""
+    try:
+        config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
+        if not config:
+            raise HTTPException(status_code=404, detail=f"Manufacturer '{manufacturer_name}' not found")
+        
+        return config
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting manufacturer config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     # Run the service
