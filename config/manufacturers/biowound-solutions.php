@@ -9,7 +9,6 @@ return [
     'order_form_template_id' => '1299495',
     'docuseal_field_names' => [
         // Contact Information
-        'name' => 'Name',
         'email' => 'Email',
         'phone' => 'Phone',
         'territory' => 'Territory',

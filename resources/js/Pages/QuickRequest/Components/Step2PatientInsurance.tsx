@@ -247,6 +247,7 @@ function Step2PatientInsurance({
         </div>
       </div>
 
+
       {/* Patient Information */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Patient Information</h3>
