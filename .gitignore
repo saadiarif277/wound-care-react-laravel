@@ -81,12 +81,13 @@ test-*.log
   /storage/app/scripts/temp/
   /storage/app/debug/
 
-  # Python virtual environments (shouldn't be in Laravel project)
+  # Python virtual environments and AI service
   venv/
   venv_*/
   env/
   ENV/
   .venv/
+  scripts/ai_service_env/
   __pycache__/
   *.py[cod]
   *.pyc
@@ -95,8 +96,20 @@ test-*.log
   .Python
   pip-log.txt
   pip-delete-this-directory.txt
-  requirements.txt
   *.egg-info/
+  
+  # Python AI service specific
+  scripts/__pycache__/
+  scripts/*.pyc
+  scripts/*.pyo
+  scripts/*.egg-info/
+  scripts/.pytest_cache/
+  scripts/medical_ai_service.log
+  scripts/*.log
+  
+  # Keep the AI service requirements.txt but ignore others
+  requirements.txt
+  !scripts/requirements.txt
 
   # Product documentation (should be in wiki/docs repo)
   product-*.md
