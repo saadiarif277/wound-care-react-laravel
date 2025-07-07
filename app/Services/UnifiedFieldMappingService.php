@@ -534,6 +534,14 @@ class UnifiedFieldMappingService
         // First try to load from individual manufacturer file
         $config = $this->loadManufacturerFromFile($name);
         if ($config) {
+            // Validate that IVR configs have template ID
+            if ($documentType === 'IVR' && !isset($config['docuseal_template_id'])) {
+                Log::warning("Manufacturer IVR config missing docuseal_template_id", [
+                    'manufacturer' => $name,
+                    'document_type' => $documentType,
+                    'config_keys' => array_keys($config)
+                ]);
+            }
             return $config;
         }
 
@@ -592,6 +600,14 @@ class UnifiedFieldMappingService
                     'file' => $filename . '.php',
                     'fields_count' => count($config['fields'] ?? [])
                 ]);
+
+                // Validate required fields for IVR
+                if (!isset($config['docuseal_template_id'])) {
+                    Log::warning("Manufacturer config missing required docuseal_template_id", [
+                        'manufacturer' => $manufacturerName,
+                        'config_keys' => array_keys($config)
+                    ]);
+                }
 
                 return $config;
             } catch (\Exception $e) {

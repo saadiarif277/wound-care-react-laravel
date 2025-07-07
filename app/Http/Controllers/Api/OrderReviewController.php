@@ -198,6 +198,9 @@ class OrderReviewController extends Controller
                     'type' => 'submission'
                 ]);
             }
+            
+            // Send dual notifications (Provider/OM + Admin)
+            $this->sendOrderSubmissionNotifications($order);
 
             // Create audit entry
             $this->auditService->logAccess(
@@ -285,6 +288,7 @@ class OrderReviewController extends Controller
             ], 500);
         }
     }
+
 
     /**
      * Get patient data from FHIR
@@ -842,4 +846,164 @@ class OrderReviewController extends Controller
         // - Send confirmation to provider
         // - Queue manufacturer notification if auto-send enabled
     }
+    
+    /**
+     * Send notification #1: Order Request Notification (Provider/OM → Admin)
+     */
+    private function sendOrderSubmissionNotifications(Order $order)
+    {
+        try {
+            // Send notification to all admins about new order submission
+            $this->sendNewOrderNotificationToAdmins($order);
+            
+            // Log successful notification
+            Log::info('Order submission notification sent to admins', [
+                'order_id' => $order->id,
+                'order_number' => $order->order_number,
+                'submitter_id' => Auth::id(),
+                'submitter_name' => Auth::user()->name ?? 'Unknown'
+            ]);
+            
+        } catch (\Exception $e) {
+            // Log error but don't fail the submission
+            Log::error('Failed to send order submission notifications', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+    
+    /**
+     * Send notification #1: New Order Notification to Admins
+     */
+    private function sendNewOrderNotificationToAdmins(Order $order)
+    {
+        try {
+            // Get all admin users
+            $admins = \App\Models\User::whereHas('roles', function($query) {
+                $query->whereIn('slug', ['admin', 'super-admin']);
+            })->where('is_active', true)->get();
+            
+            if ($admins->isEmpty()) {
+                Log::warning('No active admin users found for order notification');
+                return;
+            }
+            
+            $orderData = $this->prepareOrderDataForEmail($order);
+            $submitter = Auth::user();
+            
+            // Get submission note if any
+            $submissionNote = $order->notes()
+                ->where('type', 'submission')
+                ->where('user_id', Auth::id())
+                ->latest()
+                ->first();
+            
+            $comments = $submissionNote ? $submissionNote->note : null;
+            
+            foreach ($admins as $admin) {
+                try {
+                    \Illuminate\Support\Facades\Mail::send('emails.order.new-order-admin', [
+                        'order' => $orderData,
+                        'admin' => $admin,
+                        'submitter' => $submitter,
+                        'comments' => $comments,
+                        'reviewUrl' => route('admin.orders.show', ['order' => $order->id])
+                    ], function ($message) use ($admin, $order, $submitter) {
+                        $message->to($admin->email, $admin->name)
+                            ->subject("New Order Submitted by {$submitter->name} – {$order->order_number}");
+                    });
+                    
+                    Log::info('Admin new order notification sent', [
+                        'order_id' => $order->id,
+                        'admin_id' => $admin->id,
+                        'admin_email' => $admin->email
+                    ]);
+                    
+                } catch (\Exception $e) {
+                    Log::error('Failed to send new order notification to admin', [
+                        'order_id' => $order->id,
+                        'admin_id' => $admin->id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to send new order notifications to admins', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+    
+    /**
+     * Prepare order data for email templates
+     */
+    private function prepareOrderDataForEmail(Order $order): array
+    {
+        $episode = $order->episode;
+        $metadata = $episode->metadata ?? [];
+        
+        // Extract patient info (limited PHI)
+        $patientInfo = [
+            'display_id' => $order->patient_display_id ?? 'N/A',
+            'initials' => $this->getPatientInitials($metadata['patient_data'] ?? [])
+        ];
+        
+        // Extract product info
+        $products = $order->products->map(function($product) {
+            return [
+                'name' => $product->name,
+                'quantity' => $product->pivot->quantity ?? 1,
+                'size' => $product->pivot->size ?? 'N/A'
+            ];
+        })->toArray();
+        
+        // Get facility info
+        $facility = $order->facility;
+        
+        return [
+            'id' => $order->id,
+            'order_number' => $order->order_number,
+            'status' => $order->status,
+            'submitted_at' => $order->submitted_at?->format('Y-m-d H:i:s') ?? now()->format('Y-m-d H:i:s'),
+            'patient' => $patientInfo,
+            'facility' => [
+                'name' => $facility->name ?? 'N/A',
+                'city' => $facility->city ?? 'N/A',
+                'state' => $facility->state ?? 'N/A'
+            ],
+            'provider' => [
+                'name' => $order->provider->name ?? 'N/A',
+                'npi' => $order->provider->npi_number ?? 'N/A'
+            ],
+            'products' => $products,
+            'manufacturer' => [
+                'name' => $order->manufacturer->name ?? 'N/A'
+            ],
+            'episode_id' => $episode->id
+        ];
+    }
+    
+    /**
+     * Get patient initials for privacy
+     */
+    private function getPatientInitials(array $patientData): string
+    {
+        $firstName = $patientData['first_name'] ?? '';
+        $lastName = $patientData['last_name'] ?? '';
+        
+        $initials = '';
+        if ($firstName) {
+            $initials .= strtoupper(substr($firstName, 0, 1));
+        }
+        if ($lastName) {
+            $initials .= strtoupper(substr($lastName, 0, 1));
+        }
+        
+        return $initials ?: 'N/A';
+    }
+
 }

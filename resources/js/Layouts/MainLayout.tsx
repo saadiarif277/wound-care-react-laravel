@@ -5,6 +5,7 @@ import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
 import { AIOverlay, FloatingAIButton } from '@/Components/GhostAiUi';
 import { Toaster } from '@/Components/GhostAiUi/ui/toaster';
+import '@/Components/GhostAiUi/client-tools'; // Initialize Superinterface client tools
 import React from 'react';
 import {
   FiLogOut,

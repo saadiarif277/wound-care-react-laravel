@@ -588,7 +588,7 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                         Size: {sizeInfo.dimensions}
                                       </h5>
                                       <p className={`text-xs ${t.text.secondary}`}>
-                                        {sizeInfo.area} cm² • {formatPrice(unitPrice)} per unit
+                                        {sizeInfo.area} cm²{roleRestrictions.can_see_order_totals && ` • ${formatPrice(unitPrice)} per unit`}
                                       </p>
                                     </>
                                   );
@@ -599,9 +599,11 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                                 <h5 className={`text-sm font-medium ${t.text.primary}`}>
                                   Standard Size
                                 </h5>
-                                <p className={`text-xs ${t.text.secondary}`}>
-                                  {formatPrice(unitPrice)} per unit
-                                </p>
+                                {roleRestrictions.can_see_order_totals && (
+                                  <p className={`text-xs ${t.text.secondary}`}>
+                                    {formatPrice(unitPrice)} per unit
+                                  </p>
+                                )}
                               </div>
                             )}
                           </div>
@@ -637,14 +639,16 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                               <Plus className="w-3 h-3" />
                             </button>
                           </div>
-                          <div className="text-right">
-                            <p className={`text-sm font-semibold ${t.text.primary}`}>
-                              {formatPrice(totalPrice)}
-                            </p>
-                            <p className={`text-xs ${t.text.secondary}`}>
-                              {item.quantity} × {formatPrice(unitPrice)}
-                            </p>
-                          </div>
+                          {roleRestrictions.can_see_order_totals && (
+                            <div className="text-right">
+                              <p className={`text-sm font-semibold ${t.text.primary}`}>
+                                {formatPrice(totalPrice)}
+                              </p>
+                              <p className={`text-xs ${t.text.secondary}`}>
+                                {item.quantity} × {formatPrice(unitPrice)}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     );
@@ -661,17 +665,21 @@ const ProductSelectorQuickRequest: React.FC<Props> = ({
                       </div>
                     )}
 
-                    {/* Total Price */}
-                    <div className="flex items-center justify-between">
-                      <span className={`text-base font-semibold ${t.text.primary}`}>Total Price:</span>
-                      <span className="text-lg font-bold text-blue-600">
-                        {formatPrice(calculateTotal())}
-                      </span>
-                    </div>
-                    {!roleRestrictions.can_see_msc_pricing && (
-                      <p className="text-xs text-yellow-600 mt-1">
-                        * Pricing shown is National ASP only
-                      </p>
+                    {/* Total Price - Only show if user has permission */}
+                    {roleRestrictions.can_see_order_totals && (
+                      <>
+                        <div className="flex items-center justify-between">
+                          <span className={`text-base font-semibold ${t.text.primary}`}>Total Price:</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {formatPrice(calculateTotal())}
+                          </span>
+                        </div>
+                        {!roleRestrictions.can_see_msc_pricing && (
+                          <p className="text-xs text-yellow-600 mt-1">
+                            * Pricing shown is National ASP only
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

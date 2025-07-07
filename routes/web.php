@@ -236,6 +236,78 @@ Route::middleware(['auth'])->group(function () {
     Route::get('/orders/{orderId}/review', [OrderReviewPageController::class, 'show'])->name('orders.review');
 });
 
+// Deep Link Order Tracking Routes for Provider/OM
+Route::middleware(['auth'])->group(function () {
+    // Direct order access with unique link
+    Route::get('/order/{order}/track/{token}', function ($orderId, $token) {
+        $user = Auth::user();
+        
+        // Verify user has permission to view this order
+        if (!$user->hasAnyPermission(['view-orders', 'view-product-requests', 'view-provider-requests'])) {
+            abort(403, 'Unauthorized access to order tracking');
+        }
+        
+        // Verify the token matches the order
+        $order = \App\Models\Order::findOrFail($orderId);
+        
+        // Generate expected token based on order data
+        $expectedToken = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
+        
+        if ($token !== $expectedToken) {
+            abort(404, 'Invalid order tracking link');
+        }
+        
+        // Check if user is provider or office manager who created the order
+        $canView = false;
+        if ($user->hasRole('provider') || $user->hasRole('office-manager')) {
+            // Check if this user created the order or is associated with it
+            if ($order->created_by === $user->id || 
+                $order->provider_id === $user->id ||
+                ($user->facility_id && $order->facility_id === $user->facility_id)) {
+                $canView = true;
+            }
+        } elseif ($user->hasRole(['msc-admin', 'msc-rep'])) {
+            // Admins and reps can view all orders
+            $canView = true;
+        }
+        
+        if (!$canView) {
+            abort(403, 'You do not have permission to view this order');
+        }
+        
+        // Redirect to the order details page
+        return redirect()->route('admin.orders.show', $order->id);
+    })->name('order.track');
+    
+    // Generate tracking link (API endpoint)
+    Route::post('/api/orders/{order}/generate-tracking-link', function ($orderId) {
+        $user = Auth::user();
+        $order = \App\Models\Order::findOrFail($orderId);
+        
+        // Check permissions
+        if (!$user->hasAnyPermission(['view-orders', 'manage-orders', 'create-product-requests'])) {
+            return response()->json(['error' => 'Unauthorized'], 403);
+        }
+        
+        // Generate tracking token
+        $token = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
+        
+        // Generate the tracking URL
+        $trackingUrl = route('order.track', [
+            'order' => $order->id,
+            'token' => $token
+        ]);
+        
+        return response()->json([
+            'success' => true,
+            'tracking_url' => $trackingUrl,
+            'order_id' => $order->id,
+            'order_number' => $order->order_number ?? $order->id,
+            'expires_at' => null // Links don't expire for now
+        ]);
+    })->name('api.orders.generate-tracking-link')->middleware('filter.financial');
+});
+
 // Admin Order Center Routes (Episode-based workflow)
 Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function () {
     // Main episode management routes
@@ -410,7 +482,9 @@ Route::get('/subrep-approvals', function () {
 Route::middleware(['permission:view-products', 'financial.access'])->group(function () {
     Route::get('products', [ProductController::class, 'index'])->name('products.index');
     // Product API endpoints accessible to all roles with view-products permission
-    Route::get('api/products/search', [ProductController::class, 'search'])->name('api.products.search');
+    Route::get('api/products/search', [ProductController::class, 'search'])
+        ->middleware('filter.financial')
+        ->name('api.products.search');
     Route::get('api/products/recommendations', [ProductController::class, 'recommendations'])->name('api.products.recommendations');
 });
 

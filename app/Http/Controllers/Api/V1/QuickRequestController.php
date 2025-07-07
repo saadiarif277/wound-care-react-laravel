@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
-use App\Models\Manufacturer;
+use App\Models\Order\Manufacturer;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Services\DocusealService;
 use App\Services\QuickRequestService;
@@ -165,6 +165,100 @@ class QuickRequestController extends Controller
     }
 
     /**
+     * Get current user's financial permissions
+     */
+    public function getUserPermissions(Request $request)
+    {
+        $user = Auth::user();
+        
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User not authenticated'
+            ], 401);
+        }
+
+        // Load roles if not already loaded
+        if (!$user->relationLoaded('roles')) {
+            $user->load('roles');
+        }
+
+        // Get user role
+        $userRole = $user->roles->first();
+        $roleSlug = $userRole ? $userRole->slug : 'unknown';
+
+        // Log for debugging
+        Log::info('getUserPermissions called', [
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'role' => $roleSlug,
+            'has_role' => $userRole ? true : false
+        ]);
+
+        // Get financial permissions for the user
+        $permissions = [
+            'can_view_financials' => $user->hasAnyPermission(['view-financials', 'manage-financials']),
+            'can_see_discounts' => $user->hasPermission('view-discounts'),
+            'can_see_msc_pricing' => $user->hasPermission('view-msc-pricing'),
+            'can_see_order_totals' => $user->hasPermission('view-order-totals'),
+            'can_view_commission' => $user->hasPermission('view-commission'),
+            'pricing_access_level' => $this->determinePricingAccessLevel($user),
+            'commission_access_level' => $this->determineCommissionAccessLevel($user),
+            'user_role' => $roleSlug
+        ];
+
+        // Providers should always see pricing
+        if ($roleSlug === 'provider') {
+            $permissions['can_view_financials'] = true;
+            $permissions['can_see_order_totals'] = true;
+            $permissions['can_see_msc_pricing'] = true;
+            $permissions['can_see_discounts'] = true;
+            $permissions['pricing_access_level'] = 'msc_only';
+        }
+
+        Log::info('Returning permissions', [
+            'user_id' => $user->id,
+            'permissions' => $permissions
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'permissions' => $permissions
+        ]);
+    }
+
+    /**
+     * Determine pricing access level based on user permissions
+     */
+    private function determinePricingAccessLevel($user): string
+    {
+        if ($user->hasPermission('manage-financials')) {
+            return 'full';
+        }
+        if ($user->hasPermission('view-msc-pricing')) {
+            return 'msc_only';
+        }
+        if ($user->hasPermission('view-discounts')) {
+            return 'basic';
+        }
+        return 'none';
+    }
+
+    /**
+     * Determine commission access level based on user permissions
+     */
+    private function determineCommissionAccessLevel($user): string
+    {
+        if ($user->hasPermission('manage-commission')) {
+            return 'full';
+        }
+        if ($user->hasPermission('view-commission')) {
+            return 'view_only';
+        }
+        return 'none';
+    }
+
+    /**
      * Test AI field mapping capabilities
      */
     public function testAIFieldMapping(Request $request)
@@ -293,5 +387,140 @@ class QuickRequestController extends Controller
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Generate IVR form with pre-filled data from AI processing
+     */
+    public function generateIVR(Request $request)
+    {
+        $request->validate([
+            'formData' => 'required|array',
+            'templateType' => 'string|in:standard,wound_care,dme',
+            'manufacturerId' => 'integer|exists:manufacturers,id'
+        ]);
+
+        try {
+            $formData = $request->input('formData');
+            $templateType = $request->input('templateType', 'wound_care');
+            $manufacturerId = $request->input('manufacturerId');
+
+            Log::info('Generating IVR form from AI data', [
+                'templateType' => $templateType,
+                'manufacturerId' => $manufacturerId,
+                'formDataKeys' => array_keys($formData)
+            ]);
+
+            // Get the appropriate Docuseal template
+            $template = $this->getDocusealTemplate($templateType, $manufacturerId);
+            
+            if (!$template) {
+                throw new \Exception("No suitable template found for type: {$templateType}");
+            }
+
+            // Use the service to generate the pre-filled form
+            $result = $this->service->generatePrefilledIVR($formData, $template);
+
+            return response()->json([
+                'success' => true,
+                'data' => [
+                    'url' => $result['submission_url'],
+                    'id' => $result['submission_id'],
+                    'template_name' => $template->template_name
+                ],
+                'message' => 'IVR form generated successfully'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('IVR generation failed', [
+                'error' => $e->getMessage(),
+                'formData' => $request->input('formData'),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => 'Failed to generate IVR form'
+            ], 500);
+        }
+    }
+
+    /**
+     * Validate form data and return missing fields, errors, and suggestions
+     */
+    public function validateFormData(Request $request)
+    {
+        $request->validate([
+            'formData' => 'required|array',
+            'section' => 'string|in:all,patient,provider,insurance,clinical'
+        ]);
+
+        try {
+            $formData = $request->input('formData');
+            $section = $request->input('section', 'all');
+
+            Log::info('Validating form data', [
+                'section' => $section,
+                'formDataKeys' => array_keys($formData)
+            ]);
+
+            $validation = $this->service->validateFormData($formData, $section);
+
+            return response()->json([
+                'success' => true,
+                'validation' => $validation['results'],
+                'errors' => $validation['errors'],
+                'warnings' => $validation['warnings'],
+                'missingRequired' => $validation['missing_required'],
+                'suggestions' => $validation['suggestions'] ?? [],
+                'completeness' => $validation['completeness_percentage'] ?? 0
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Form validation failed', [
+                'error' => $e->getMessage(),
+                'formData' => $request->input('formData'),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage(),
+                'message' => 'Failed to validate form data'
+            ], 500);
+        }
+    }
+
+    /**
+     * Get appropriate Docuseal template based on type and manufacturer
+     */
+    private function getDocusealTemplate(string $templateType, ?int $manufacturerId = null): ?DocusealTemplate
+    {
+        $query = DocusealTemplate::where('is_active', true);
+
+        // Filter by manufacturer if provided
+        if ($manufacturerId) {
+            $query->where('manufacturer_id', $manufacturerId);
+        }
+
+        // Filter by template type/category
+        switch ($templateType) {
+            case 'wound_care':
+                $query->where('category', 'wound_care')
+                      ->orWhere('template_name', 'like', '%wound%')
+                      ->orWhere('template_name', 'like', '%IVR%');
+                break;
+            case 'dme':
+                $query->where('category', 'dme')
+                      ->orWhere('template_name', 'like', '%DME%');
+                break;
+            default:
+                $query->where('category', 'general')
+                      ->orWhere('is_default', true);
+                break;
+        }
+
+        return $query->first();
     }
 }

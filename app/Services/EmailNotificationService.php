@@ -13,6 +13,7 @@ class EmailNotificationService
 {
     /**
      * Send status change notification
+     * Implements notifications #2 and #3 based on status type
      */
     public function sendStatusChangeNotification(
         ProductRequest $order,
@@ -23,54 +24,36 @@ class EmailNotificationService
         ?array $notificationDocuments = null
     ): bool {
         try {
-            // Get notification recipients
-            $recipients = $this->getNotificationRecipients($order);
-
-            if (empty($recipients)) {
-                Log::info('No recipients found for order status change notification', [
+            // Determine notification type based on status
+            $isIvrStatus = in_array($newStatus, ['sent', 'verified', 'rejected']);
+            $isOrderStatus = in_array($newStatus, ['submitted_to_manufacturer', 'confirmed_by_manufacturer', 'rejected', 'canceled']);
+            
+            if (!$isIvrStatus && !$isOrderStatus) {
+                Log::info('Status change does not require notification', [
                     'order_id' => $order->id,
-                    'new_status' => $newStatus
+                    'status' => $newStatus
                 ]);
                 return false;
             }
-
-            $successCount = 0;
-            $totalRecipients = count($recipients);
-
-            foreach ($recipients as $recipient) {
-                $notification = $this->createNotificationRecord(
-                    $order,
-                    'status_change',
-                    $recipient['email'],
-                    $recipient['name'] ?? null,
-                    $previousStatus,
-                    $newStatus,
-                    $changedBy,
-                    $notes
-                );
-
-                if ($this->sendEmail($notification)) {
-                    $successCount++;
-                }
-            }
-
-            // Update order success notification tracking
-            if ($successCount > 0) {
-                $order->update([
-                    'last_success_notification_at' => now(),
-                    'success_notification_count' => $order->success_notification_count + $successCount,
+            
+            // Get the original requestor (Provider/OM who submitted the order)
+            $requestor = $this->getOrderRequestor($order);
+            
+            if (!$requestor || !$requestor->email) {
+                Log::warning('No requestor found for order status notification', [
+                    'order_id' => $order->id
                 ]);
+                return false;
             }
-
-            Log::info('Status change notification sent', [
-                'order_id' => $order->id,
-                'previous_status' => $previousStatus,
-                'new_status' => $newStatus,
-                'recipients' => $totalRecipients,
-                'successful_sends' => $successCount,
-            ]);
-
-            return $successCount > 0;
+            
+            // Send notification to requestor
+            return $this->sendStatusUpdateToProvider(
+                $order,
+                $requestor,
+                $newStatus,
+                $notes,
+                $isIvrStatus ? 'ivr' : 'order'
+            );
 
         } catch (Exception $e) {
             Log::error('Failed to send status change notification', [
@@ -80,6 +63,107 @@ class EmailNotificationService
             ]);
             return false;
         }
+    }
+    
+    /**
+     * Send status update notification to provider/OM
+     * Implements notifications #2 and #3
+     */
+    private function sendStatusUpdateToProvider(
+        ProductRequest $order,
+        $requestor,
+        string $newStatus,
+        ?string $comments,
+        string $updateType
+    ): bool {
+        try {
+            // Format status for display
+            $displayStatus = $this->formatStatusForDisplay($newStatus);
+            
+            // Send email
+            Mail::send('emails.order.status-update-provider', [
+                'order' => [
+                    'order_number' => $order->request_number,
+                    'id' => $order->id
+                ],
+                'updateType' => $updateType,
+                'newStatus' => $displayStatus,
+                'comments' => $comments,
+                'trackingUrl' => route('orders.track', ['order' => $order->id])
+            ], function ($message) use ($requestor, $order, $displayStatus, $updateType) {
+                $statusType = $updateType === 'ivr' ? 'IVR' : 'Order';
+                $message->to($requestor->email, $requestor->name)
+                    ->subject("Order Update – {$order->request_number} {$statusType} Status: {$displayStatus}");
+            });
+            
+            // Create notification record
+            $this->createNotificationRecord(
+                $order,
+                'status_update',
+                $requestor->email,
+                $requestor->name,
+                '',
+                $newStatus,
+                'Admin',
+                $comments
+            );
+            
+            Log::info('Status update notification sent to provider/OM', [
+                'order_id' => $order->id,
+                'recipient' => $requestor->email,
+                'status' => $newStatus,
+                'type' => $updateType
+            ]);
+            
+            return true;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to send status update to provider', [
+                'order_id' => $order->id,
+                'error' => $e->getMessage()
+            ]);
+            return false;
+        }
+    }
+    
+    /**
+     * Get the original requestor of the order
+     */
+    private function getOrderRequestor(ProductRequest $order)
+    {
+        // First try to get from order provider
+        if ($order->provider) {
+            return $order->provider;
+        }
+        
+        // Then try to get from order created_by
+        if ($order->created_by) {
+            return \App\Models\User::find($order->created_by);
+        }
+        
+        // Finally try to get from episode metadata
+        if ($order->episode && $order->episode->created_by) {
+            return \App\Models\User::find($order->episode->created_by);
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Format status for display in emails
+     */
+    private function formatStatusForDisplay(string $status): string
+    {
+        $statusMap = [
+            'sent' => 'Sent',
+            'verified' => 'Verified',
+            'rejected' => 'Rejected',
+            'submitted_to_manufacturer' => 'Submitted to Manufacturer',
+            'confirmed_by_manufacturer' => 'Confirmed by Manufacturer',
+            'canceled' => 'Canceled'
+        ];
+        
+        return $statusMap[$status] ?? ucfirst(str_replace('_', ' ', $status));
     }
 
     /**

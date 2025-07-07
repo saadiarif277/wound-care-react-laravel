@@ -70,17 +70,19 @@ export default function Step5ProductSelection({
   updateFormData,
   errors,
   currentUser,
-  roleRestrictions = {
-    can_view_financials: false, // Providers can't see commission
-    can_see_discounts: true,     // Providers CAN see discounts
-    can_see_msc_pricing: true,   // Providers CAN see MSC pricing
-    can_see_order_totals: true,  // Providers CAN see order totals
-    pricing_access_level: 'full',
-    commission_access_level: 'none' // No commission for providers
-  }
+  roleRestrictions: propRoleRestrictions
 }: Step5Props) {
   const [providerOnboardedProducts, setProviderOnboardedProducts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
+  const [userPermissions, setUserPermissions] = useState<{
+    can_view_financials: boolean;
+    can_see_discounts: boolean;
+    can_see_msc_pricing: boolean;
+    can_see_order_totals: boolean;
+    pricing_access_level: string;
+    commission_access_level: string;
+  } | null>(null);
+  const [permissionsLoading, setPermissionsLoading] = useState(true);
 
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -91,6 +93,43 @@ export default function Step5ProductSelection({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
+
+  // Fetch user permissions on mount
+  useEffect(() => {
+    const fetchUserPermissions = async () => {
+      try {
+        const response = await fetchWithCSRF('/api/quick-request/user-permissions');
+        const data = await response.json();
+        
+        if (data.success && data.permissions) {
+          setUserPermissions(data.permissions);
+          
+          // Log permissions for debugging (especially for Office Manager role)
+          console.log('User permissions loaded:', {
+            role: data.permissions.user_role,
+            can_see_msc_pricing: data.permissions.can_see_msc_pricing,
+            can_see_order_totals: data.permissions.can_see_order_totals,
+            pricing_access_level: data.permissions.pricing_access_level
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching user permissions:', error);
+        // Use default restrictive permissions on error
+        setUserPermissions({
+          can_view_financials: false,
+          can_see_discounts: false,
+          can_see_msc_pricing: false,
+          can_see_order_totals: false,
+          pricing_access_level: 'none',
+          commission_access_level: 'none'
+        });
+      } finally {
+        setPermissionsLoading(false);
+      }
+    };
+
+    fetchUserPermissions();
+  }, []);
 
   // Fetch provider's onboarded products when provider_id changes or if current user is a provider
   useEffect(() => {
@@ -180,9 +219,19 @@ export default function Step5ProductSelection({
     }
   };
 
+  // Determine which role restrictions to use
+  const roleRestrictions = userPermissions || propRoleRestrictions || {
+    can_view_financials: false,
+    can_see_discounts: false,
+    can_see_msc_pricing: false,
+    can_see_order_totals: false,
+    pricing_access_level: 'none',
+    commission_access_level: 'none'
+  };
+
   return (
     <div className="space-y-6">
-      {loading && formData.provider_id ? (
+      {(loading && formData.provider_id) || permissionsLoading ? (
         <div className={cn(
           "p-8 text-center rounded-lg",
           theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
@@ -191,7 +240,7 @@ export default function Step5ProductSelection({
             "text-sm",
             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
           )}>
-            Loading provider products...
+            {permissionsLoading ? 'Loading permissions...' : 'Loading provider products...'}
           </p>
         </div>
       ) : (

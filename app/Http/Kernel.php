@@ -72,6 +72,7 @@ class Kernel extends HttpKernel
         // 'menu.access' => \App\Http\Middleware\CheckMenuAccess::class,
         // 'menu.analytics' => \App\Http\Middleware\TrackMenuAnalytics::class,
         'financial.access' => \App\Http\Middleware\FinancialAccessControl::class,
+        'filter.financial' => \App\Http\Middleware\FilterFinancialData::class,
         'organization.context' => \App\Http\Middleware\EnsureOrganizationContext::class,
         'validation.builder' => \App\Http\Middleware\ValidationBuilderSecurity::class,
         'role.redirect' => \App\Http\Middleware\RedirectBasedOnRole::class,

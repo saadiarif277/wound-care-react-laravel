@@ -721,4 +721,66 @@ RESPONSE FORMAT:
             ];
         }
     }
+
+    /**
+     * Generate a chat response using Azure AI Foundry
+     */
+    public function generateChatResponse(
+        string $userMessage,
+        array $conversationHistory = [],
+        string $context = '',
+        string $systemPrompt = ''
+    ): string {
+        try {
+            $messages = [];
+
+            // Add system prompt if provided
+            if (!empty($systemPrompt)) {
+                $messages[] = [
+                    'role' => 'system',
+                    'content' => $systemPrompt
+                ];
+            }
+
+            // Add context if provided
+            if (!empty($context)) {
+                $messages[] = [
+                    'role' => 'user',
+                    'content' => "Context: {$context}"
+                ];
+            }
+
+            // Add conversation history
+            foreach ($conversationHistory as $message) {
+                if (isset($message['role']) && isset($message['content'])) {
+                    $messages[] = [
+                        'role' => $message['role'],
+                        'content' => $message['content']
+                    ];
+                }
+            }
+
+            // Add the user's message
+            $messages[] = [
+                'role' => 'user',
+                'content' => $userMessage
+            ];
+
+            $response = $this->callAzureOpenAI([
+                'messages' => $messages,
+                'max_tokens' => 1000,
+                'temperature' => 0.7
+            ]);
+
+            return $response['choices'][0]['message']['content'] ?? 'I apologize, but I was unable to generate a response at this time.';
+
+        } catch (Exception $e) {
+            Log::error('Azure AI Foundry chat response failed', [
+                'error' => $e->getMessage(),
+                'user_message' => $userMessage
+            ]);
+
+            return 'I apologize, but I\'m having trouble processing your request right now. Please try again in a moment.';
+        }
+    }
 }

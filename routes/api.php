@@ -24,8 +24,9 @@ use App\Http\Controllers\FacilityController;
 use App\Http\Controllers\Api\MedicareMacValidationController;
 use App\Http\Controllers\Admin\ProviderManagementController;
 use App\Http\Controllers\Api\OrderReviewController;
-use App\Http\Controllers\Api\TemplateMappingController;
+// use App\Http\Controllers\Api\TemplateMappingController; // Commented out - controller doesn't exist
 use App\Http\Controllers\Api\DocumentIntelligenceController;
+use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
@@ -168,6 +169,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     Route::prefix('orders')->group(function () {
         // Order review and submission
         Route::get('{orderId}/review', [OrderReviewController::class, 'getOrderReview'])
+            ->middleware('filter.financial')
             ->name('api.orders.review');
         Route::post('{orderId}/validate', [OrderReviewController::class, 'validateOrder'])
             ->name('api.orders.validate');
@@ -192,7 +194,7 @@ Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
     });
 
     // Product API routes
-    Route::prefix('products')->group(function () {
+    Route::prefix('products')->middleware('filter.financial')->group(function () {
         Route::get('/with-sizes', [\App\Http\Controllers\Api\ProductDataController::class, 'getProductsWithSizes'])
             ->name('api.products.with-sizes');
         Route::get('/{productId}/sizes', [\App\Http\Controllers\Api\ProductDataController::class, 'getProductWithSizes'])
@@ -366,21 +368,21 @@ Route::prefix('fhir')->middleware(['auth:sanctum'])->name('fhir.')->group(functi
 
 // Field Mapping Management Routes (moved outside deprecated Docuseal group)
 Route::prefix('v1/admin/docuseal')->middleware(['auth:sanctum', 'permission:manage-orders'])->name('docuseal.')->group(function () {
-    // Field Mapping Management Routes
-    Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
-    Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');
-    Route::post('templates/{id}/field-mappings/bulk', [\App\Http\Controllers\Api\TemplateMappingController::class, 'bulkUpdateMappings'])->name('mappings.bulk');
-    Route::post('templates/{id}/field-mappings/suggest', [\App\Http\Controllers\Api\TemplateMappingController::class, 'suggestMappings'])->name('mappings.suggest');
-    Route::post('templates/{id}/field-mappings/auto-map', [\App\Http\Controllers\Api\TemplateMappingController::class, 'autoMapFields'])->name('mappings.auto-map');
-    Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate');
-    Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getMappingStatistics'])->name('mappings.stats');
+    // Field Mapping Management Routes - COMMENTED OUT - TemplateMappingController doesn't exist
+    // Route::get('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getFieldMappings'])->name('mappings.get');
+    // Route::post('templates/{id}/field-mappings', [\App\Http\Controllers\Api\TemplateMappingController::class, 'updateFieldMappings'])->name('mappings.update');
+    // Route::post('templates/{id}/field-mappings/bulk', [\App\Http\Controllers\Api\TemplateMappingController::class, 'bulkUpdateMappings'])->name('mappings.bulk');
+    // Route::post('templates/{id}/field-mappings/suggest', [\App\Http\Controllers\Api\TemplateMappingController::class, 'suggestMappings'])->name('mappings.suggest');
+    // Route::post('templates/{id}/field-mappings/auto-map', [\App\Http\Controllers\Api\TemplateMappingController::class, 'autoMapFields'])->name('mappings.auto-map');
+    // Route::post('templates/{id}/field-mappings/validate', [\App\Http\Controllers\Api\TemplateMappingController::class, 'validateMappings'])->name('mappings.validate'); 
+    // Route::get('templates/{id}/mapping-stats', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getMappingStatistics'])->name('mappings.stats');
 
-    // Canonical Fields Routes
-    Route::get('canonical-fields', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getCanonicalFields'])->name('canonical.fields');
+    // Canonical Fields Routes - COMMENTED OUT - TemplateMappingController doesn't exist
+    // Route::get('canonical-fields', [\App\Http\Controllers\Api\TemplateMappingController::class, 'getCanonicalFields'])->name('canonical.fields');
 
-    // Import/Export Routes
-    Route::post('field-mappings/import', [\App\Http\Controllers\Api\TemplateMappingController::class, 'importMappings'])->name('mappings.import');
-    Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
+    // Import/Export Routes - COMMENTED OUT - TemplateMappingController doesn't exist
+    // Route::post('field-mappings/import', [\App\Http\Controllers\Api\TemplateMappingController::class, 'importMappings'])->name('mappings.import');
+    // Route::get('field-mappings/export/{templateId}', [\App\Http\Controllers\Api\TemplateMappingController::class, 'exportMappings'])->name('mappings.export');
 });
 
 // Docuseal Webhook with signature verification
@@ -748,6 +750,60 @@ Route::middleware(['web'])->group(function () {
         ->name('api.insurance-card.status');
     Route::post('/insurance-card/debug', [\App\Http\Controllers\QuickRequestController::class, 'debugInsuranceCard'])
         ->name('api.insurance-card.debug');
+});
+
+// Document Processing Routes (OCR and AI-assisted form filling)
+Route::middleware(['web'])->group(function () {
+    Route::post('/document/analyze', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'analyze'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.document.analyze');
+    
+    Route::post('/document/create-episode', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'createEpisodeFromDocument'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.document.create-episode');
+});
+
+// AI Chat Routes  
+Route::prefix('v1/ai')->middleware(['web'])->group(function () {
+    Route::post('/chat', [\App\Http\Controllers\Api\AiChatController::class, 'chat'])
+        ->name('api.ai.chat');
+    Route::post('/form-action', [\App\Http\Controllers\Api\AiChatController::class, 'handleFormAction'])
+        ->name('api.ai.form-action');
+    Route::post('/tool-result', [\App\Http\Controllers\Api\AiChatController::class, 'handleToolResult'])
+        ->name('api.ai.tool-result');
+    Route::post('/text-to-speech', [\App\Http\Controllers\Api\AiChatController::class, 'textToSpeech'])
+        ->name('api.ai.text-to-speech');
+    Route::get('/voices', [\App\Http\Controllers\Api\AiChatController::class, 'getVoices'])
+        ->name('api.ai.voices');
+    
+    // Hybrid Voice/Text Mode Routes
+    Route::post('/realtime/session', [\App\Http\Controllers\Api\AiChatController::class, 'createRealtimeSession'])
+        ->name('api.ai.realtime.session');
+    Route::get('/capabilities', [\App\Http\Controllers\Api\AiChatController::class, 'getCapabilities'])
+        ->name('api.ai.capabilities');
+    Route::post('/switch-mode', [\App\Http\Controllers\Api\AiChatController::class, 'switchMode'])
+        ->name('api.ai.switch-mode');
+    
+    Route::post('/agent/create-thread', [\App\Http\Controllers\Api\AiChatController::class, 'createThread'])
+        ->name('api.ai.agent.create-thread');
+    Route::post('/agent/{threadId}/message', [\App\Http\Controllers\Api\AiChatController::class, 'sendMessage'])
+        ->name('api.ai.agent.message');
+    Route::get('/agent/{threadId}/status', [\App\Http\Controllers\Api\AiChatController::class, 'getThreadStatus'])
+        ->name('api.ai.agent.status');
+});
+
+// QuickRequest AI Routes
+Route::group([], function () {
+    Route::post('/quick-request/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.quick-request.generate-ivr');
+    
+    Route::post('/quick-request/validate', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'validateFormData'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.quick-request.validate');
+    
+    Route::get('/quick-request/user-permissions', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'getUserPermissions'])
+        ->name('api.quick-request.user-permissions');
 });
 
 // Payer Search Routes

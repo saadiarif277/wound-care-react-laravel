@@ -31,7 +31,8 @@
       "mcp__mcp-sequentialthinking-tools__sequentialthinking_tools",
       "mcp__firecrawl-mcp__firecrawl_deep_research",
       "mcp__firecrawl-mcp__firecrawl_search",
-      "Bash(mysql:*)"
+      "Bash(mysql:*)",
+      "WebFetch(domain:superinterface.ai)"
     ],
     "deny": []
   }

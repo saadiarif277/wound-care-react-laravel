@@ -981,4 +981,345 @@ final class QuickRequestService
 
         return $firstName . $lastName . $randomNum;
     }
+
+    /**
+     * Generate pre-filled IVR form using Docuseal
+     */
+    public function generatePrefilledIVR(array $formData, $template): array
+    {
+        try {
+            Log::info('Generating pre-filled IVR with form data', [
+                'template_id' => $template->id,
+                'template_name' => $template->template_name,
+                'form_sections' => array_keys($formData)
+            ]);
+
+            // Map form data to Docuseal field format
+            $docusealFields = $this->mapFormDataToDocusealFields($formData, $template);
+
+            // Create Docuseal submission with pre-filled data
+            $submission = $this->docuSealService->createSubmissionForQuickRequest(
+                $template->docuseal_template_id,
+                config('docuseal.integration_email', 'limitless@mscwoundcare.com'),
+                'provider@example.com', // Default provider email
+                'Healthcare Provider', // Default provider name
+                $docusealFields
+            );
+
+            Log::info('IVR form generated successfully', [
+                'submission_id' => $submission['id'] ?? 'unknown',
+                'template_name' => $template->template_name
+            ]);
+
+            return [
+                'submission_url' => $submission['url'] ?? '',
+                'submission_id' => $submission['id'] ?? '',
+                'template_name' => $template->template_name,
+                'mapped_fields_count' => count($docusealFields)
+            ];
+
+        } catch (\Exception $e) {
+            Log::error('Failed to generate pre-filled IVR', [
+                'error' => $e->getMessage(),
+                'template_id' => $template->id ?? 'unknown',
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
+    }
+
+    /**
+     * Validate form data and return detailed validation results
+     */
+    public function validateFormData(array $formData, string $section = 'all'): array
+    {
+        $validation = [
+            'results' => [],
+            'errors' => [],
+            'warnings' => [],
+            'missing_required' => [],
+            'suggestions' => [],
+            'completeness_percentage' => 0
+        ];
+
+        try {
+            // Define required fields for each section
+            $requiredFields = $this->getRequiredFieldsBySection($section);
+            
+            // Validate each section
+            $sectionsToValidate = $section === 'all' 
+                ? ['patient', 'provider', 'insurance', 'clinical'] 
+                : [$section];
+
+            $totalFields = 0;
+            $completedFields = 0;
+
+            foreach ($sectionsToValidate as $sectionName) {
+                $sectionData = $formData[$sectionName] ?? [];
+                $sectionRequired = $requiredFields[$sectionName] ?? [];
+                
+                $sectionValidation = $this->validateSection($sectionName, $sectionData, $sectionRequired);
+                
+                $validation['results'][$sectionName] = $sectionValidation;
+                $validation['errors'] = array_merge($validation['errors'], $sectionValidation['errors']);
+                $validation['warnings'] = array_merge($validation['warnings'], $sectionValidation['warnings']);
+                $validation['missing_required'] = array_merge($validation['missing_required'], $sectionValidation['missing_required']);
+                
+                $totalFields += count($sectionRequired);
+                $completedFields += count(array_filter($sectionData, fn($value) => !empty($value)));
+            }
+
+            // Calculate completeness percentage
+            $validation['completeness_percentage'] = $totalFields > 0 
+                ? round(($completedFields / $totalFields) * 100, 2) 
+                : 0;
+
+            // Add suggestions for improvement
+            $validation['suggestions'] = $this->generateValidationSuggestions($formData, $validation);
+
+            Log::info('Form validation completed', [
+                'section' => $section,
+                'completeness' => $validation['completeness_percentage'],
+                'errors_count' => count($validation['errors']),
+                'warnings_count' => count($validation['warnings'])
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Form validation failed', [
+                'error' => $e->getMessage(),
+                'section' => $section,
+                'trace' => $e->getTraceAsString()
+            ]);
+            
+            $validation['errors'][] = 'Validation process failed: ' . $e->getMessage();
+        }
+
+        return $validation;
+    }
+
+    /**
+     * Map form data to Docuseal field format
+     */
+    private function mapFormDataToDocusealFields(array $formData, $template): array
+    {
+        $docusealFields = [];
+
+        // Patient information mapping
+        if (isset($formData['patient'])) {
+            $patient = $formData['patient'];
+            $docusealFields = array_merge($docusealFields, [
+                'patient_name' => ($patient['first_name'] ?? '') . ' ' . ($patient['last_name'] ?? ''),
+                'patient_first_name' => $patient['first_name'] ?? '',
+                'patient_last_name' => $patient['last_name'] ?? '',
+                'patient_dob' => $patient['date_of_birth'] ?? '',
+                'patient_phone' => $patient['phone'] ?? '',
+                'patient_address' => $patient['address'] ?? '',
+                'patient_city' => $patient['city'] ?? '',
+                'patient_state' => $patient['state'] ?? '',
+                'patient_zip' => $patient['zip_code'] ?? ''
+            ]);
+        }
+
+        // Provider information mapping
+        if (isset($formData['provider'])) {
+            $provider = $formData['provider'];
+            $docusealFields = array_merge($docusealFields, [
+                'provider_name' => $provider['name'] ?? '',
+                'provider_npi' => $provider['npi'] ?? '',
+                'provider_phone' => $provider['phone'] ?? '',
+                'provider_fax' => $provider['fax'] ?? '',
+                'provider_address' => $provider['address'] ?? ''
+            ]);
+        }
+
+        // Insurance information mapping
+        if (isset($formData['insurance'])) {
+            $insurance = $formData['insurance'];
+            $docusealFields = array_merge($docusealFields, [
+                'primary_insurance' => $insurance['primary_insurance_name'] ?? '',
+                'primary_member_id' => $insurance['primary_member_id'] ?? '',
+                'primary_group_number' => $insurance['primary_group_number'] ?? '',
+                'secondary_insurance' => $insurance['secondary_insurance_name'] ?? '',
+                'secondary_member_id' => $insurance['secondary_member_id'] ?? ''
+            ]);
+        }
+
+        // Clinical information mapping
+        if (isset($formData['clinical'])) {
+            $clinical = $formData['clinical'];
+            $docusealFields = array_merge($docusealFields, [
+                'primary_diagnosis' => $clinical['primary_diagnosis'] ?? '',
+                'diagnosis_description' => $clinical['diagnosis_description'] ?? '',
+                'wound_location' => $clinical['wound_location'] ?? '',
+                'wound_size' => $clinical['wound_size'] ?? '',
+                'wound_type' => $clinical['wound_type'] ?? '',
+                'products_requested' => $clinical['products_requested'] ?? ''
+            ]);
+        }
+
+        // Filter out empty values
+        return array_filter($docusealFields, fn($value) => !empty($value));
+    }
+
+    /**
+     * Get required fields by section
+     */
+    private function getRequiredFieldsBySection(string $section): array
+    {
+        $requiredFields = [
+            'patient' => [
+                'first_name', 'last_name', 'date_of_birth', 'phone'
+            ],
+            'provider' => [
+                'name', 'npi'
+            ],
+            'insurance' => [
+                'primary_insurance_name', 'primary_member_id'
+            ],
+            'clinical' => [
+                'primary_diagnosis', 'wound_location'
+            ]
+        ];
+
+        return $section === 'all' ? $requiredFields : [$section => $requiredFields[$section] ?? []];
+    }
+
+    /**
+     * Validate a specific section
+     */
+    private function validateSection(string $sectionName, array $sectionData, array $requiredFields): array
+    {
+        $result = [
+            'valid' => true,
+            'errors' => [],
+            'warnings' => [],
+            'missing_required' => []
+        ];
+
+        // Check required fields
+        foreach ($requiredFields as $field) {
+            if (empty($sectionData[$field])) {
+                $result['missing_required'][] = $field;
+                $result['valid'] = false;
+            }
+        }
+
+        // Section-specific validation
+        switch ($sectionName) {
+            case 'patient':
+                $result = $this->validatePatientSection($sectionData, $result);
+                break;
+            case 'provider':
+                $result = $this->validateProviderSection($sectionData, $result);
+                break;
+            case 'insurance':
+                $result = $this->validateInsuranceSection($sectionData, $result);
+                break;
+            case 'clinical':
+                $result = $this->validateClinicalSection($sectionData, $result);
+                break;
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate patient section
+     */
+    private function validatePatientSection(array $data, array $result): array
+    {
+        // Date of birth validation
+        if (!empty($data['date_of_birth'])) {
+            $dob = \DateTime::createFromFormat('Y-m-d', $data['date_of_birth']);
+            if (!$dob || $dob->format('Y-m-d') !== $data['date_of_birth']) {
+                $result['errors'][] = 'Invalid date of birth format';
+                $result['valid'] = false;
+            } elseif ($dob > new \DateTime()) {
+                $result['errors'][] = 'Date of birth cannot be in the future';
+                $result['valid'] = false;
+            }
+        }
+
+        // Phone validation
+        if (!empty($data['phone'])) {
+            $phone = preg_replace('/[^0-9]/', '', $data['phone']);
+            if (strlen($phone) !== 10) {
+                $result['warnings'][] = 'Phone number should be 10 digits';
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate provider section
+     */
+    private function validateProviderSection(array $data, array $result): array
+    {
+        // NPI validation
+        if (!empty($data['npi'])) {
+            $npi = preg_replace('/[^0-9]/', '', $data['npi']);
+            if (strlen($npi) !== 10) {
+                $result['errors'][] = 'NPI must be exactly 10 digits';
+                $result['valid'] = false;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate insurance section
+     */
+    private function validateInsuranceSection(array $data, array $result): array
+    {
+        // Check if secondary insurance is provided without member ID
+        if (!empty($data['secondary_insurance_name']) && empty($data['secondary_member_id'])) {
+            $result['warnings'][] = 'Secondary insurance name provided but member ID is missing';
+        }
+
+        return $result;
+    }
+
+    /**
+     * Validate clinical section
+     */
+    private function validateClinicalSection(array $data, array $result): array
+    {
+        // ICD-10 code validation (basic format check)
+        if (!empty($data['primary_diagnosis'])) {
+            if (!preg_match('/^[A-Z][0-9]{2}(\.[0-9A-Z]*)?$/', $data['primary_diagnosis'])) {
+                $result['warnings'][] = 'Primary diagnosis does not appear to be a valid ICD-10 code format';
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Generate validation suggestions
+     */
+    private function generateValidationSuggestions(array $formData, array $validation): array
+    {
+        $suggestions = [];
+
+        if ($validation['completeness_percentage'] < 50) {
+            $suggestions[] = 'Form is less than 50% complete. Consider filling in more required fields before submission.';
+        }
+
+        if (count($validation['missing_required']) > 0) {
+            $suggestions[] = 'Complete all required fields: ' . implode(', ', $validation['missing_required']);
+        }
+
+        if (count($validation['warnings']) > 0) {
+            $suggestions[] = 'Review and address the warnings to improve data quality.';
+        }
+
+        // Specific suggestions based on data quality
+        if (empty($formData['clinical']['products_requested'] ?? '')) {
+            $suggestions[] = 'Specify the wound care products being requested for faster processing.';
+        }
+
+        return $suggestions;
+    }
 }

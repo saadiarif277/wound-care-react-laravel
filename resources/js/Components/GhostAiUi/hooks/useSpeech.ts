@@ -64,10 +64,69 @@ export const useSpeech = () => {
     }
   };
 
-  const speak = (text: string) => {
+  const speak = async (text: string) => {
+    // Stop any current speech
+    if (synthesisRef.current) {
+      synthesisRef.current.cancel();
+    }
+
+    try {
+      // Try Azure Speech Services first for natural voice
+      const response = await fetch('/api/v1/ai/text-to-speech', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          text,
+          voice: 'en-US-JennyNeural', // Natural female voice
+          rate: '0%', // Normal speed
+          pitch: '0%', // Normal pitch
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.audio) {
+        // Play the audio using base64 data
+        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+        audio.volume = 0.8;
+        
+        const playPromise = new Promise<void>((resolve, reject) => {
+          audio.onloadeddata = () => {
+            setIsSpeaking(true);
+            audio.play()
+              .then(() => resolve())
+              .catch(reject);
+          };
+          
+          audio.onended = () => {
+            setIsSpeaking(false);
+            resolve();
+          };
+          
+          audio.onerror = (error) => {
+            setIsSpeaking(false);
+            reject(error);
+          };
+        });
+        
+        await playPromise;
+      } else {
+        // Fallback to browser TTS if Azure fails
+        fallbackToWebSpeech(text);
+      }
+    } catch (error) {
+      console.error('Azure TTS failed:', error);
+      // Fallback to browser TTS
+      fallbackToWebSpeech(text);
+    }
+  };
+
+  const fallbackToWebSpeech = (text: string) => {
     if (!synthesisRef.current) return;
 
-    // Stop any current speech
     synthesisRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(text);

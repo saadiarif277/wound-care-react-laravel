@@ -49,6 +49,15 @@ class IntelligentFieldMappingService
                 $additionalData
             );
 
+            // Log the standard result for debugging
+            Log::info('Standard mapping result', [
+                'manufacturer_name' => $manufacturerName,
+                'has_manufacturer' => isset($standardResult['manufacturer']),
+                'manufacturer_keys' => array_keys($standardResult['manufacturer'] ?? []),
+                'has_template_id' => isset($standardResult['manufacturer']['docuseal_template_id']),
+                'template_id' => $standardResult['manufacturer']['docuseal_template_id'] ?? null
+            ]);
+
             // If standard mapping is successful and complete, use it
             if ($standardResult['validation']['valid'] && 
                 ($standardResult['completeness']['percentage'] ?? 0) >= 90) {
@@ -114,12 +123,21 @@ class IntelligentFieldMappingService
                 $manufacturerName
             );
 
+            // Ensure we preserve the full manufacturer config from standard result
+            $manufacturerConfig = $standardResult['manufacturer'] ?? ['name' => $manufacturerName];
+            
+            // Log manufacturer config preservation
+            Log::info('Preserving manufacturer config in AI enhancement', [
+                'manufacturer_name' => $manufacturerName,
+                'has_template_id' => isset($manufacturerConfig['docuseal_template_id']),
+                'template_id' => $manufacturerConfig['docuseal_template_id'] ?? null,
+                'config_keys' => array_keys($manufacturerConfig)
+            ]);
+
             $result = [
                 'data' => $enhancedData,
                 'validation' => $adaptiveValidation,
-                'manufacturer' => array_merge($standardResult['manufacturer'], [
-                    'template_id' => $standardResult['manufacturer']['template_id'] ?? $templateSchema['template_id'] ?? null
-                ]),
+                'manufacturer' => $manufacturerConfig,
                 'completeness' => $this->calculateCompleteness($enhancedData, $templateSchema),
                 'ai_enhanced' => true,
                 'ai_suggestions' => $aiSuggestions,

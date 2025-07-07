@@ -150,5 +150,28 @@ return [
             'validation' => env('AZURE_AI_VALIDATION', true),
             'field_suggestions' => env('AZURE_AI_FIELD_SUGGESTIONS', true),
         ],
+        
+        /*
+        |--------------------------------------------------------------------------
+        | Realtime API Configuration
+        |--------------------------------------------------------------------------
+        */
+        'realtime_deployment' => env('AZURE_OPENAI_REALTIME_DEPLOYMENT', 'gpt-4o-mini-realtime-preview'),
+        'realtime_api_version' => env('AZURE_OPENAI_REALTIME_API_VERSION', '2024-10-01-preview'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Azure Speech Services Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for Azure Speech Services for natural voice synthesis
+    | and speech recognition capabilities.
+    |
+    */
+    'speech' => [
+        'key' => env('AZURE_SPEECH_KEY'),
+        'region' => env('AZURE_SPEECH_REGION', 'eastus'),
+        'endpoint' => env('AZURE_SPEECH_ENDPOINT'),
     ],
 ];

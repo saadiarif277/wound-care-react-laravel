@@ -1627,12 +1627,27 @@ class DocusealService
                 ]);
             }
 
-            // Extract template ID with fallback handling
-            $templateId = $mappingResult['manufacturer']['template_id'] ?? 
-                         $mappingResult['manufacturer']['docuseal_template_id'] ?? 
+            // Log the mapping result for debugging
+            Log::info('DocuSeal mapping result received', [
+                'has_manufacturer' => isset($mappingResult['manufacturer']),
+                'manufacturer_type' => gettype($mappingResult['manufacturer'] ?? null),
+                'mapping_result_keys' => array_keys($mappingResult),
+                'manufacturer_data' => $mappingResult['manufacturer'] ?? null
+            ]);
+
+            // Extract template ID with correct key from manufacturer config
+            $templateId = $mappingResult['manufacturer']['docuseal_template_id'] ?? 
+                         $mappingResult['manufacturer']['template_id'] ?? 
                          null;
             
             if (!$templateId) {
+                // Log the full manufacturer object for debugging
+                Log::error('Template ID not found in manufacturer config', [
+                    'manufacturer_config' => $mappingResult['manufacturer'],
+                    'available_keys' => array_keys($mappingResult['manufacturer'] ?? []),
+                    'full_mapping_result' => $mappingResult
+                ]);
+                
                 throw new \Exception('No template ID found in mapping result. Available keys: ' . 
                     implode(', ', array_keys($mappingResult['manufacturer'] ?? [])));
             }
