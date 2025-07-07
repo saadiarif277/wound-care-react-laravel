@@ -707,6 +707,7 @@ class DatabaseSeeder extends Seeder
             IVRFieldMappingSeeder::class,
             DiagnosisCodesFromCsvSeeder::class,
             RemoveHardcodedDataSeeder::class,
+            ExampleProviderSeeder::class,
             // PatientManufacturerIVREpisodeSeeder::class, // Removed - no mock episodes needed
         ]);
     }
