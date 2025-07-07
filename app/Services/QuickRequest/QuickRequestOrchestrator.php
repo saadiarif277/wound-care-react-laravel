@@ -4,6 +4,7 @@ namespace App\Services\QuickRequest;
 
 use App\Models\PatientManufacturerIVREpisode;
 use App\Models\Order\Order;
+use App\Models\Order\Manufacturer;
 use App\Services\QuickRequest\Handlers\PatientHandler;
 use App\Services\QuickRequest\Handlers\ProviderHandler;
 use App\Services\QuickRequest\Handlers\ClinicalHandler;
@@ -499,6 +500,64 @@ class QuickRequestOrchestrator
             // Aggregate data from all sources stored in episode metadata
             $aggregatedData = [];
             
+            // Get current user as sales rep/contact
+            $currentUser = Auth::user();
+            if ($currentUser) {
+                $aggregatedData['name'] = $currentUser->full_name ?? trim($currentUser->first_name . ' ' . $currentUser->last_name);
+                $aggregatedData['email'] = $currentUser->email ?? '';
+                
+                // Try to get phone from various sources
+                $userPhone = '';
+                if (isset($currentUser->phone)) {
+                    $userPhone = $currentUser->phone;
+                } elseif ($currentUser->currentOrganization && $currentUser->currentOrganization->phone) {
+                    $userPhone = $currentUser->currentOrganization->phone;
+                } elseif (isset($metadata['provider_data']['phone'])) {
+                    $userPhone = $metadata['provider_data']['phone'];
+                } elseif (isset($metadata['facility_data']['phone'])) {
+                    $userPhone = $metadata['facility_data']['phone'];
+                }
+                
+                $aggregatedData['phone'] = $userPhone;
+                $aggregatedData['contact_name'] = $currentUser->full_name ?? trim($currentUser->first_name . ' ' . $currentUser->last_name);
+                $aggregatedData['contact_email'] = $currentUser->email ?? '';
+                $aggregatedData['sales_rep'] = $currentUser->full_name ?? trim($currentUser->first_name . ' ' . $currentUser->last_name);
+                $aggregatedData['rep_email'] = $currentUser->email ?? '';
+                
+                // Get territory from user's organization if available
+                if ($currentUser->currentOrganization) {
+                    $aggregatedData['territory'] = $currentUser->currentOrganization->territory ?? 
+                                                   $currentUser->currentOrganization->region ?? 
+                                                   $currentUser->currentOrganization->state ?? '';
+                }
+            }
+            
+            // Request type (from form data if available)
+            $aggregatedData['new_request'] = false;
+            $aggregatedData['re_verification'] = false;
+            $aggregatedData['additional_applications'] = false;
+            $aggregatedData['new_insurance'] = false;
+            
+            if (isset($metadata['request_type'])) {
+                switch ($metadata['request_type']) {
+                    case 'new_request':
+                        $aggregatedData['new_request'] = true;
+                        break;
+                    case 'reverification':
+                        $aggregatedData['re_verification'] = true;
+                        break;
+                    case 'additional_applications':
+                        $aggregatedData['additional_applications'] = true;
+                        break;
+                    case 'new_insurance':
+                        $aggregatedData['new_insurance'] = true;
+                        break;
+                }
+            } else {
+                // Default to new request if not specified
+                $aggregatedData['new_request'] = true;
+            }
+            
             // Patient data (from form)
             if (isset($metadata['patient_data'])) {
                 $patientData = $metadata['patient_data'];
@@ -514,6 +573,26 @@ class QuickRequestOrchestrator
                 $firstName = $patientData['first_name'] ?? '';
                 $lastName = $patientData['last_name'] ?? '';
                 $aggregatedData['patient_name'] = trim($firstName . ' ' . $lastName);
+                
+                // Patient address
+                $aggregatedData['patient_address'] = trim(
+                    ($patientData['address_line1'] ?? '') . ' ' . 
+                    ($patientData['address_line2'] ?? '') . ', ' .
+                    ($patientData['city'] ?? '') . ', ' .
+                    ($patientData['state'] ?? '') . ' ' .
+                    ($patientData['zip'] ?? '')
+                );
+                
+                // SNF status - default to No
+                $aggregatedData['patient_snf_yes'] = false;
+                $aggregatedData['patient_snf_no'] = true;
+                $aggregatedData['snf_days'] = '';
+                
+                if (isset($patientData['is_in_snf']) && $patientData['is_in_snf']) {
+                    $aggregatedData['patient_snf_yes'] = true;
+                    $aggregatedData['patient_snf_no'] = false;
+                    $aggregatedData['snf_days'] = $patientData['snf_days'] ?? '';
+                }
             }
             
             // Provider data (from provider profile)
@@ -538,6 +617,8 @@ class QuickRequestOrchestrator
                 $aggregatedData['physician_name'] = $providerData['name'] ?? '';
                 $aggregatedData['physician_npi'] = $providerData['npi'] ?? '';
                 $aggregatedData['physician_ptan'] = $providerData['ptan'] ?? '';
+                $aggregatedData['physician_specialty'] = $providerData['specialty'] ?? '';
+                $aggregatedData['provider_medicaid'] = $providerData['medicaid_number'] ?? '';
             }
             
             // Facility data (from selected facility)
@@ -559,6 +640,26 @@ class QuickRequestOrchestrator
                 $aggregatedData['facility_tax_id'] = $facilityData['tax_id'] ?? '';
                 $aggregatedData['facility_type'] = $facilityData['facility_type'] ?? '';
                 $aggregatedData['place_of_service'] = $facilityData['place_of_service'] ?? '';
+                $aggregatedData['facility_medicaid'] = $facilityData['medicaid_number'] ?? '';
+                
+                // Add city_state_zip field for BioWound
+                $aggregatedData['city_state_zip'] = trim(
+                    ($facilityData['city'] ?? '') . ', ' .
+                    ($facilityData['state'] ?? '') . ' ' .
+                    ($facilityData['zip_code'] ?? '')
+                );
+                
+                // Map place_of_service to individual checkboxes
+                $pos = $facilityData['place_of_service'] ?? '';
+                $aggregatedData['pos_11'] = ($pos === '11'); // Office
+                $aggregatedData['pos_21'] = ($pos === '21'); // Inpatient Hospital
+                $aggregatedData['pos_24'] = ($pos === '24'); // Ambulatory Surgical Center
+                $aggregatedData['pos_22'] = ($pos === '22'); // Outpatient Hospital
+                $aggregatedData['pos_32'] = ($pos === '32'); // Nursing Facility
+                $aggregatedData['pos_13'] = ($pos === '13'); // Assisted Living
+                $aggregatedData['pos_12'] = ($pos === '12'); // Home
+                $aggregatedData['critical_access_hospital'] = ($pos === '85'); // Critical Access Hospital
+                $aggregatedData['other_pos'] = !in_array($pos, ['11', '21', '24', '22', '32', '13', '12', '85']);
             }
             
             // Organization data (from CurrentOrganization service)
@@ -583,6 +684,29 @@ class QuickRequestOrchestrator
                 $aggregatedData['wound_size_length'] = $clinicalData['wound_length'] ?? $clinicalData['wound_size_length'] ?? '';
                 $aggregatedData['wound_size_width'] = $clinicalData['wound_width'] ?? $clinicalData['wound_size_width'] ?? '';
                 $aggregatedData['wound_size_depth'] = $clinicalData['wound_depth'] ?? $clinicalData['wound_size_depth'] ?? '';
+                
+                // Map wound types to individual checkboxes
+                $woundType = strtolower($clinicalData['wound_type'] ?? '');
+                $woundTypes = $clinicalData['wound_types'] ?? [];
+                
+                // Check both single wound_type and wound_types array
+                $aggregatedData['wound_dfu'] = ($woundType === 'dfu' || in_array('DFU', $woundTypes));
+                $aggregatedData['wound_vlu'] = ($woundType === 'vlu' || in_array('VLU', $woundTypes));
+                $aggregatedData['wound_chronic_ulcer'] = ($woundType === 'chronic ulcer' || in_array('Chronic Ulcer', $woundTypes));
+                $aggregatedData['wound_dehisced_surgical'] = (
+                    str_contains($woundType, 'dehisced') || 
+                    str_contains($woundType, 'surgical') ||
+                    in_array('Dehisced Surgical', $woundTypes) ||
+                    in_array('Surgical', $woundTypes)
+                );
+                $aggregatedData['wound_mohs_surgical'] = (
+                    str_contains($woundType, 'mohs') ||
+                    in_array('Mohs Surgical', $woundTypes)
+                );
+                
+                // Global period status
+                $aggregatedData['patient_global_yes'] = $clinicalData['global_period_status'] ?? false;
+                $aggregatedData['patient_global_no'] = !($clinicalData['global_period_status'] ?? false);
                 
                 // Copy all clinical fields that might be needed
                 $aggregatedData['graft_size_requested'] = $clinicalData['graft_size_requested'] ?? '';
@@ -621,6 +745,19 @@ class QuickRequestOrchestrator
                 
                 // Add procedure_date (required field) - default to today if not provided
                 $aggregatedData['procedure_date'] = $clinicalData['procedure_date'] ?? now()->format('Y-m-d');
+                $aggregatedData['date'] = $aggregatedData['procedure_date']; // BioWound field alias
+                
+                // Add additional clinical fields for BioWound
+                $aggregatedData['wound_location'] = $clinicalData['wound_location'] ?? '';
+                $aggregatedData['location_of_wound'] = $clinicalData['wound_location'] ?? ''; // BioWound field alias
+                $aggregatedData['previously_used_therapies'] = $clinicalData['previous_treatments'] ?? '';
+                $aggregatedData['wound_duration'] = $clinicalData['wound_duration_weeks'] ?? '';
+                $aggregatedData['co_morbidities'] = $clinicalData['comorbidities'] ?? '';
+                $aggregatedData['post_debridement_size'] = $aggregatedData['wound_size_total'] ?? '';
+                
+                // Add primary and secondary ICD-10 codes for BioWound
+                $aggregatedData['primary_icd10'] = $clinicalData['primary_diagnosis_code'] ?? '';
+                $aggregatedData['secondary_icd10'] = $clinicalData['secondary_diagnosis_code'] ?? '';
             }
             
             // Insurance data (from form)
@@ -637,9 +774,15 @@ class QuickRequestOrchestrator
                             $aggregatedData['primary_member_id'] = $policy['member_id'] ?? '';
                             $aggregatedData['insurance_name'] = $policy['payer_name'] ?? ''; // Alias
                             $aggregatedData['insurance_member_id'] = $policy['member_id'] ?? ''; // Alias
+                            $aggregatedData['primary_name'] = $policy['payer_name'] ?? ''; // BioWound field name
+                            $aggregatedData['primary_policy'] = $policy['member_id'] ?? ''; // BioWound field name
+                            $aggregatedData['primary_phone'] = $policy['phone'] ?? ''; // BioWound field name
                         } elseif ($policyType === 'secondary') {
                             $aggregatedData['secondary_insurance_name'] = $policy['payer_name'] ?? '';
                             $aggregatedData['secondary_member_id'] = $policy['member_id'] ?? '';
+                            $aggregatedData['secondary_name'] = $policy['payer_name'] ?? ''; // BioWound field name
+                            $aggregatedData['secondary_policy'] = $policy['member_id'] ?? ''; // BioWound field name
+                            $aggregatedData['secondary_phone'] = $policy['phone'] ?? ''; // BioWound field name
                         }
                     }
                 } else {
@@ -648,12 +791,23 @@ class QuickRequestOrchestrator
                     $aggregatedData['primary_member_id'] = $insuranceData['primary_member_id'] ?? '';
                     $aggregatedData['insurance_name'] = $insuranceData['primary_name'] ?? ''; // Alias
                     $aggregatedData['insurance_member_id'] = $insuranceData['primary_member_id'] ?? ''; // Alias
+                    $aggregatedData['primary_name'] = $insuranceData['primary_name'] ?? ''; // BioWound field name
+                    $aggregatedData['primary_policy'] = $insuranceData['primary_member_id'] ?? ''; // BioWound field name
+                    $aggregatedData['primary_phone'] = $insuranceData['primary_payer_phone'] ?? ''; // BioWound field name
                     
                     if (!empty($insuranceData['has_secondary_insurance']) && !empty($insuranceData['secondary_insurance_name'])) {
                         $aggregatedData['secondary_insurance_name'] = $insuranceData['secondary_insurance_name'] ?? '';
                         $aggregatedData['secondary_member_id'] = $insuranceData['secondary_member_id'] ?? '';
+                        $aggregatedData['secondary_name'] = $insuranceData['secondary_insurance_name'] ?? ''; // BioWound field name
+                        $aggregatedData['secondary_policy'] = $insuranceData['secondary_member_id'] ?? ''; // BioWound field name
+                        $aggregatedData['secondary_phone'] = $insuranceData['secondary_payer_phone'] ?? ''; // BioWound field name
                     }
                 }
+                
+                // Prior authorization fields
+                $priorAuthPermission = $insuranceData['prior_auth_permission'] ?? false;
+                $aggregatedData['prior_auth_yes'] = $priorAuthPermission;
+                $aggregatedData['prior_auth_no'] = !$priorAuthPermission;
             }
             
             // Order details
@@ -672,22 +826,38 @@ class QuickRequestOrchestrator
             // Set distributor_company to always be "MSC Wound Care"
             $aggregatedData['distributor_company'] = 'MSC Wound Care';
             
-            // Extract HCPCS code from selected products
+            // Extract HCPCS code from selected products and map to checkboxes
             if (isset($metadata['order_details']['products']) && !empty($metadata['order_details']['products'])) {
-                $firstProduct = $metadata['order_details']['products'][0];
+                $productCodes = [];
                 
-                // Try to get product code (HCPCS/Q-code)
-                if (isset($firstProduct['product']['code'])) {
-                    $aggregatedData['hcpcs_codes'] = [$firstProduct['product']['code']];
-                    $aggregatedData['product_code'] = $firstProduct['product']['code'];
-                } elseif (isset($firstProduct['product_id'])) {
-                    // Load product from database to get code
-                    $product = \App\Models\Order\Product::find($firstProduct['product_id']);
-                    if ($product && $product->code) {
-                        $aggregatedData['hcpcs_codes'] = [$product->code];
-                        $aggregatedData['product_code'] = $product->code;
-                        $aggregatedData['selected_product_codes'] = [$product->code];
+                foreach ($metadata['order_details']['products'] as $selectedProduct) {
+                    // Try to get product code (HCPCS/Q-code)
+                    if (isset($selectedProduct['product']['code'])) {
+                        $productCodes[] = $selectedProduct['product']['code'];
+                    } elseif (isset($selectedProduct['product_id'])) {
+                        // Load product from database to get code
+                        $product = \App\Models\Order\Product::find($selectedProduct['product_id']);
+                        if ($product && $product->code) {
+                            $productCodes[] = $product->code;
+                        }
                     }
+                }
+                
+                // Store the codes
+                if (!empty($productCodes)) {
+                    $aggregatedData['hcpcs_codes'] = $productCodes;
+                    $aggregatedData['product_code'] = $productCodes[0]; // First code for compatibility
+                    $aggregatedData['selected_product_codes'] = $productCodes;
+                    
+                    // Map product codes to Q-code checkboxes for BioWound
+                    $aggregatedData['q4161'] = in_array('Q4161', $productCodes);
+                    $aggregatedData['q4205'] = in_array('Q4205', $productCodes);
+                    $aggregatedData['q4290'] = in_array('Q4290', $productCodes);
+                    $aggregatedData['q4238'] = in_array('Q4238', $productCodes);
+                    $aggregatedData['q4239'] = in_array('Q4239', $productCodes);
+                    $aggregatedData['q4266'] = in_array('Q4266', $productCodes);
+                    $aggregatedData['q4267'] = in_array('Q4267', $productCodes);
+                    $aggregatedData['q4265'] = in_array('Q4265', $productCodes);
                 }
             }
             
@@ -712,6 +882,149 @@ class QuickRequestOrchestrator
             ]);
             
             throw $e;
+        }
+    }
+
+    /**
+     * Prepare AI-enhanced Docuseal data using manufacturer-specific form mappings
+     */
+    public function prepareAIEnhancedDocusealData(PatientManufacturerIVREpisode $episode, string $manufacturerFormId, string $documentType = 'insurance'): array
+    {
+        try {
+            $this->logger->info('Preparing AI-enhanced Docuseal data', [
+                'episode_id' => $episode->id,
+                'manufacturer_form_id' => $manufacturerFormId,
+                'document_type' => $documentType
+            ]);
+
+            // Get base data from orchestrator
+            $baseData = $this->prepareDocusealData($episode);
+
+            // Use AI service for intelligent field mapping
+            $aiFormFillerService = app(\App\Services\AiFormFillerService::class);
+            
+            $enhancedData = $aiFormFillerService->fillFormFields([
+                'ocr_data' => $baseData,
+                'document_type' => $documentType,
+                'target_schema' => [
+                    'manufacturer_form_id' => $manufacturerFormId
+                ],
+                'include_confidence' => true
+            ]);
+
+            // Merge AI enhancements with base data
+            $finalData = array_merge($baseData, $enhancedData['mapped_fields'] ?? []);
+
+            // Add AI metadata
+            $finalData['_ai_metadata'] = [
+                'quality_grade' => $enhancedData['quality_grade'] ?? 'N/A',
+                'confidence_scores' => $enhancedData['confidence_scores'] ?? [],
+                'processing_notes' => $enhancedData['processing_notes'] ?? [],
+                'suggestions' => $enhancedData['suggestions'] ?? [],
+                'manufacturer_form_id' => $manufacturerFormId,
+                'enhanced_at' => now()->toISOString()
+            ];
+
+            $this->logger->info('AI-enhanced Docuseal data prepared successfully', [
+                'episode_id' => $episode->id,
+                'manufacturer_form_id' => $manufacturerFormId,
+                'base_fields' => count($baseData),
+                'enhanced_fields' => count($finalData),
+                'quality_grade' => $enhancedData['quality_grade'] ?? 'N/A'
+            ]);
+
+            return $finalData;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to prepare AI-enhanced Docuseal data', [
+                'episode_id' => $episode->id,
+                'manufacturer_form_id' => $manufacturerFormId,
+                'error' => $e->getMessage()
+            ]);
+
+            // Fall back to base data if AI enhancement fails
+            return $this->prepareDocusealData($episode);
+        }
+    }
+
+    /**
+     * Get manufacturer form ID based on episode data
+     */
+    public function getManufacturerFormId(PatientManufacturerIVREpisode $episode, string $documentType = 'insurance'): string
+    {
+        try {
+            // Load manufacturer and determine form ID
+            $manufacturer = \App\Models\Manufacturer::find($episode->manufacturer_id);
+            
+            if (!$manufacturer) {
+                throw new \Exception("Manufacturer not found for episode {$episode->id}");
+            }
+
+            // Map manufacturer names to form IDs based on our JSON mappings
+            $formMappings = [
+                'ACZ Associates' => 'form1_ACZ',
+                'BioWound Solutions' => 'form4_BioWound', 
+                'Advanced Solution Health' => 'form5_AdvancedSolution',
+                'MedLife Solutions' => 'form6_MedLife',
+                'Extremity Care' => 'form7_ExtremityCare_FT', // Default to FT, could be RO based on product
+                'ImbedBio' => 'form6_ImbedBio'
+            ];
+
+            // Get the form ID based on manufacturer name
+            $manufacturerName = $manufacturer->name;
+            $formId = $formMappings[$manufacturerName] ?? null;
+
+            if (!$formId) {
+                // Try partial name matching
+                foreach ($formMappings as $name => $id) {
+                    if (str_contains(strtolower($manufacturerName), strtolower($name))) {
+                        $formId = $id;
+                        break;
+                    }
+                }
+            }
+
+            if (!$formId) {
+                $this->logger->warning('No form mapping found for manufacturer', [
+                    'manufacturer_name' => $manufacturerName,
+                    'manufacturer_id' => $episode->manufacturer_id
+                ]);
+                
+                // Default to a generic form
+                $formId = 'form2_IVR';
+            }
+
+            // For Extremity Care, check if we should use Restorigin form based on product
+            if ($formId === 'form7_ExtremityCare_FT') {
+                $orderDetails = $episode->metadata['order_details'] ?? [];
+                $products = $orderDetails['products'] ?? [];
+                
+                foreach ($products as $product) {
+                    $productName = $product['product']['name'] ?? '';
+                    if (str_contains(strtolower($productName), 'restorigin')) {
+                        $formId = 'form8_ExtremityCare_RO';
+                        break;
+                    }
+                }
+            }
+
+            $this->logger->info('Determined manufacturer form ID', [
+                'episode_id' => $episode->id,
+                'manufacturer_name' => $manufacturerName,
+                'form_id' => $formId,
+                'document_type' => $documentType
+            ]);
+
+            return $formId;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to determine manufacturer form ID', [
+                'episode_id' => $episode->id,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return default form ID
+            return 'form2_IVR';
         }
     }
 }

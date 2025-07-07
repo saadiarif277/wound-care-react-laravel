@@ -6,6 +6,7 @@ import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
+import DocumentUploadCard from '@/Components/DocumentUploadCard';
 
 
 interface Step2Props {
@@ -246,137 +247,59 @@ function Step2PatientInsurance({
         </div>
       </div>
 
-      {/* Insurance Card Upload Section */}
-      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
-        <div className="flex items-start">
-          <FiInfo className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0 mr-3" />
-          <div className="flex-1">
-            <h3 className="text-sm font-medium text-blue-900 dark:text-blue-300 mb-1">
-              Quick Auto-Fill with Insurance Card
-            </h3>
-            <p className="text-sm text-blue-700 dark:text-blue-400">
-              Upload insurance card to automatically populate patient and insurance information
-            </p>
-          </div>
-        </div>
-
-        {/* Separate upload areas for front and back */}
-        <div className="mt-4 grid grid-cols-2 gap-4">
-          {/* Front Card Upload */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Front of Card</label>
-            {!formData.insurance_card_front ? (
-              <div
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*,application/pdf';
-                  input.onchange = (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) handleInsuranceCardUpload(file, 'front');
-                  };
-                  input.click();
-                }}
-                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <FiCreditCard className="mx-auto h-8 w-8 mb-2 text-gray-400" />
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Click to upload front
-                </p>
-              </div>
-            ) : (
-              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {formData.insurance_card_front.name || 'Front uploaded'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateFormData({ insurance_card_front: null });
-                      setCardFrontPreview(null);
-                    }}
-                    className="ml-2 text-red-500 hover:text-red-700"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Back Card Upload */}
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Back of Card</label>
-            {!formData.insurance_card_back ? (
-              <div
-                onClick={() => {
-                  const input = document.createElement('input');
-                  input.type = 'file';
-                  input.accept = 'image/*,application/pdf';
-                  input.onchange = (e) => {
-                    const file = (e.target as HTMLInputElement).files?.[0];
-                    if (file) handleInsuranceCardUpload(file, 'back');
-                  };
-                  input.click();
-                }}
-                className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-4 text-center cursor-pointer transition-all hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-800"
-              >
-                <FiCreditCard className="mx-auto h-8 w-8 mb-2 text-gray-400" />
-                <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
-                  Click to upload back
-                </p>
-              </div>
-            ) : (
-              <div className="border border-gray-300 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2 flex-1 min-w-0">
-                    <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
-                    <span className="text-sm text-gray-700 dark:text-gray-300 truncate">
-                      {formData.insurance_card_back.name || 'Back uploaded'}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      updateFormData({ insurance_card_back: null });
-                      setCardBackPreview(null);
-                    }}
-                    className="ml-2 text-red-500 hover:text-red-700"
-                  >
-                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-
-        {/* Processing status */}
-        {isProcessingCard && (
-          <div className="mt-4 flex items-center justify-center">
-            <FiRefreshCw className="animate-spin h-5 w-5 mr-2 text-blue-500" />
-            <span className="text-sm text-gray-600 dark:text-gray-400">Processing insurance card...</span>
-          </div>
-        )}
-
-        {autoFillSuccess && (
-          <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 rounded-lg flex items-center">
-            <FiCheck className="h-5 w-5 mr-2 text-green-500" />
-            <span className="text-sm text-green-700 dark:text-green-400">
-              Successfully extracted information from insurance card!
-            </span>
-          </div>
-        )}
-      </div>
+      {/* Document Upload Section */}
+      <DocumentUploadCard
+        title="Document Upload"
+        description="Upload insurance cards, clinical notes, demographics, and other supporting documents"
+        onDocumentsChange={async (documents) => {
+          // Handle document uploads
+          const updates: any = {};
+          
+          for (const doc of documents) {
+            if (doc.type === 'insurance_front' || doc.type === 'insurance_back') {
+              // Process insurance cards with OCR
+              const side = doc.type === 'insurance_front' ? 'front' : 'back';
+              if (doc.files.primary) {
+                await handleInsuranceCardUpload(doc.files.primary, side);
+              }
+            } else if (doc.type === 'demographics') {
+              updates.face_sheet = doc.files.primary;
+            } else if (doc.type === 'clinical_notes') {
+              updates.clinical_notes = doc.files.primary;
+            } else if (doc.type === 'other') {
+              updates.wound_photo = doc.files.primary;
+            }
+          }
+          
+          updateFormData(updates);
+        }}
+        onInsuranceDataExtracted={(data) => {
+          // Handle extracted insurance data
+          if (data) {
+            const updates: any = {};
+            
+            // Patient information
+            if (data.patient_first_name) updates.patient_first_name = data.patient_first_name;
+            if (data.patient_last_name) updates.patient_last_name = data.patient_last_name;
+            if (data.patient_dob) updates.patient_dob = data.patient_dob;
+            if (data.patient_member_id) updates.patient_member_id = data.patient_member_id;
+            
+            // Insurance information
+            if (data.payer_name) updates.primary_insurance_name = data.payer_name;
+            if (data.payer_id) updates.primary_member_id = data.payer_id;
+            if (data.insurance_type) updates.primary_plan_type = data.insurance_type;
+            
+            updates.insurance_card_auto_filled = true;
+            updateFormData(updates);
+            setAutoFillSuccess(true);
+            
+            setTimeout(() => {
+              setAutoFillSuccess(false);
+            }, 5000);
+          }
+        }}
+        className="mb-6"
+      />
 
       {/* Patient Information */}
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">

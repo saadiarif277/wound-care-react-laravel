@@ -8,20 +8,19 @@ use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
-use App\Services\AzureDocumentIntelligenceService;
+use App\Services\UnifiedFieldMappingService;
+use App\Services\DocumentIntelligenceService;
 use GuzzleHttp\Client as HttpClient;
 
-class DocusealTemplateController extends Controller
+class DocuSealTemplateController extends Controller
 {
-    protected ?AzureDocumentIntelligenceService $azureService = null;
-
-    public function __construct()
-    {
-        // Initialize Azure service only when needed to avoid dependency issues
-        try {
-            $this->azureService = app(AzureDocumentIntelligenceService::class);
-        } catch (\Exception $e) {
-            Log::warning('Azure Document Intelligence service not available', ['error' => $e->getMessage()]);
+    protected ?DocumentIntelligenceService $azureService = null;
+    
+    public function __construct(
+        protected UnifiedFieldMappingService $mappingService
+    ) {
+        if (config('services.azure_di.endpoint') && config('services.azure_di.key')) {
+            $this->azureService = app(DocumentIntelligenceService::class);
         }
     }
 
@@ -607,10 +606,7 @@ class DocusealTemplateController extends Controller
             ]);
 
             // Use Azure DI to analyze the PDF for form fields and text
-            $analysisResult = $this->azureService->analyzeDocument($pdfPath, [
-                'model_id' => 'prebuilt-document', // Use prebuilt document model
-                'features' => ['formFields', 'tables', 'paragraphs']
-            ]);
+            $analysisResult = $this->azureService->extractFilledFormData($pdfPath);
 
             // Extract relevant information for embedded tag enhancement
             $azureInsights = [
@@ -621,14 +617,14 @@ class DocusealTemplateController extends Controller
             ];
 
             // Process form fields detected by Azure
-            if (isset($analysisResult['analyzeResult']['documents'][0]['fields'])) {
-                foreach ($analysisResult['analyzeResult']['documents'][0]['fields'] as $fieldName => $fieldData) {
+            if (isset($analysisResult['data'])) {
+                foreach ($analysisResult['data'] as $fieldName => $fieldData) {
                     $azureInsights['form_fields'][] = [
                         'name' => $fieldName,
-                        'type' => $fieldData['type'] ?? 'string',
-                        'value' => $fieldData['valueString'] ?? $fieldData['content'] ?? '',
+                        'type' => 'string',
+                        'value' => $fieldData['value'] ?? '',
                         'confidence' => $fieldData['confidence'] ?? 0,
-                        'bounding_regions' => $fieldData['boundingRegions'] ?? []
+                        'bounding_regions' => []
                     ];
                 }
             }

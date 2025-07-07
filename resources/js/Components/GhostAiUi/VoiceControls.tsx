@@ -16,11 +16,16 @@ const VoiceControls: React.FC<VoiceControlsProps> = ({
   onToggleVoiceRecording,
   onStopSpeaking
 }) => {
+  const handleMicClick = () => {
+    console.log('VoiceControls: Microphone button clicked, isListening:', isListening);
+    onToggleVoiceRecording();
+  };
+  
   return (
     <>
       {/* Voice button */}
       <Button
-        onClick={onToggleVoiceRecording}
+        onClick={handleMicClick}
         variant="ghost"
         size="sm"
         className={`p-4 rounded-2xl transition-all duration-200 ${

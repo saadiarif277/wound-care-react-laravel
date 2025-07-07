@@ -761,6 +761,18 @@ Route::middleware(['web'])->group(function () {
     Route::post('/document/create-episode', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'createEpisodeFromDocument'])
         ->middleware('permission:create-product-requests')
         ->name('api.document.create-episode');
+
+    // AI-enhanced document processing routes
+    Route::post('/document/process-with-ai', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'processWithAi'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.document.process-with-ai');
+
+    Route::post('/document/enhance-quick-request', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'enhanceQuickRequest'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.document.enhance-quick-request');
+
+    Route::get('/document/ai-service-status', [\App\Http\Controllers\Api\DocumentProcessingController::class, 'aiServiceStatus'])
+        ->name('api.document.ai-service-status');
 });
 
 // AI Chat Routes  
@@ -779,6 +791,10 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
     // Hybrid Voice/Text Mode Routes
     Route::post('/realtime/session', [\App\Http\Controllers\Api\AiChatController::class, 'createRealtimeSession'])
         ->name('api.ai.realtime.session');
+    Route::get('/realtime/test', function() {
+        $service = new \App\Services\AI\AzureRealtimeService();
+        return response()->json($service->createSession(['voice' => 'alloy']));
+    })->name('api.ai.realtime.test');
     Route::get('/capabilities', [\App\Http\Controllers\Api\AiChatController::class, 'getCapabilities'])
         ->name('api.ai.capabilities');
     Route::post('/switch-mode', [\App\Http\Controllers\Api\AiChatController::class, 'switchMode'])

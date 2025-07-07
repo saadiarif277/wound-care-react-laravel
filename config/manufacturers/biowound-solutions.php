@@ -259,7 +259,7 @@ return [
             'source' => 'provider_tax_id || physician_tax_id || provider_tin || tax_id',
             'required' => false,
             'type' => 'string',
-            'transform' => 'tax_id'
+            // 'transform' => 'tax_id'
         ],
         'provider_ptan' => [
             'source' => 'provider_ptan || physician_ptan || ptan || medicare_ptan',
@@ -300,7 +300,7 @@ return [
             'source' => 'facility_tax_id || facility_tin || practice_tax_id || organization_tax_id',
             'required' => false,
             'type' => 'string',
-            'transform' => 'tax_id'
+            // 'transform' => 'tax_id'
         ],
         'facility_address' => [
             'source' => 'facility_address || practice_address || location_address || facility_street',
@@ -404,6 +404,16 @@ return [
         ],
         
         // Patient Information - Enhanced
+        'patient_first_name' => [
+            'source' => 'patient_first_name || patient.first_name || patient_firstName',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'patient_last_name' => [
+            'source' => 'patient_last_name || patient.last_name || patient_lastName',
+            'required' => false,
+            'type' => 'string'
+        ],
         'patient_name' => [
             'source' => 'computed',
             'computation' => 'patient_first_name + " " + patient_last_name || patient_name || patient_full_name',
@@ -739,14 +749,14 @@ return [
         'product_unit_price_1' => [
             'source' => 'computed',
             'computation' => 'getProductUnitPrice(0)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
         'product_total_1' => [
             'source' => 'computed',
             'computation' => 'getProductQuantity(0) * getProductUnitPrice(0)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
@@ -767,14 +777,14 @@ return [
         'product_unit_price_2' => [
             'source' => 'computed',
             'computation' => 'getProductUnitPrice(1)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
         'product_total_2' => [
             'source' => 'computed',
             'computation' => 'getProductQuantity(1) * getProductUnitPrice(1)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
@@ -794,14 +804,14 @@ return [
         'product_unit_price_3' => [
             'source' => 'computed',
             'computation' => 'getProductUnitPrice(2)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
         'product_total_3' => [
             'source' => 'computed',
             'computation' => 'getProductQuantity(2) * getProductUnitPrice(2)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
@@ -821,14 +831,14 @@ return [
         'product_unit_price_4' => [
             'source' => 'computed',
             'computation' => 'getProductUnitPrice(3)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
         'product_total_4' => [
             'source' => 'computed',
             'computation' => 'getProductQuantity(3) * getProductUnitPrice(3)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
@@ -848,14 +858,14 @@ return [
         'product_unit_price_5' => [
             'source' => 'computed',
             'computation' => 'getProductUnitPrice(4)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
         'product_total_5' => [
             'source' => 'computed',
             'computation' => 'getProductQuantity(4) * getProductUnitPrice(4)',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => false,
             'type' => 'number'
         ],
@@ -869,7 +879,7 @@ return [
         'order_total' => [
             'source' => 'computed',
             'computation' => 'calculateOrderTotal',
-            'transform' => 'currency',
+            // 'transform' => 'currency',
             'required' => true,
             'type' => 'number'
         ],

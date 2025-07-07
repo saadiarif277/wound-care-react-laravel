@@ -123,6 +123,15 @@ class DocusealService
      */
     private function createSubmission(string $templateId, array $fields, string $episodeId, array $manufacturerConfig = [], string $submitterEmail = 'provider@example.com', string $submitterName = 'Healthcare Provider'): array
     {
+        // Log the incoming fields for debugging
+        Log::info('Fields received in createSubmission', [
+            'field_count' => count($fields),
+            'has_patient_name' => isset($fields['patient_name']),
+            'has_patient_first_name' => isset($fields['patient_first_name']),
+            'has_patient_last_name' => isset($fields['patient_last_name']),
+            'sample_fields' => array_slice(array_keys($fields), 0, 10)
+        ]);
+
         // Use UnifiedFieldMappingService to convert fields to Docuseal format
         if (!empty($manufacturerConfig['docuseal_field_names'])) {
             $preparedFields = $this->fieldMappingService->convertToDocusealFields($fields, $manufacturerConfig);
@@ -140,6 +149,8 @@ class DocusealService
             'episode_id' => $episodeId,
             'field_count' => count($preparedFields),
             'submitter_email' => $providerEmail,
+            'prepared_field_names' => array_map(function($field) { return $field['name'] ?? 'unknown'; }, $preparedFields),
+            'sample_prepared_fields' => array_slice($preparedFields, 0, 5)
         ]);
 
         $response = Http::withHeaders([
@@ -395,7 +406,7 @@ class DocusealService
             }
 
             $response = Http::withHeaders([
-                'X-API-TOKEN' => $this->apiKey,
+                'X-Auth-Token' => $this->apiKey,
                 'Content-Type' => 'application/json',
             ])->get("{$this->apiUrl}/templates/{$templateId}");
 
@@ -593,6 +604,30 @@ class DocusealService
     }
 
     /**
+     * Get default safe fields to exclude when template fields can't be retrieved
+     */
+    private function getDefaultExcludedFields(): array
+    {
+        return [
+            'patient_first_name',
+            'patient_last_name',
+            'patient_middle_name',
+            'provider_first_name',
+            'provider_last_name',
+            'patientFirstName',
+            'patientLastName',
+            'providerFirstName',
+            'providerLastName',
+            'id',
+            'created_at',
+            'updated_at',
+            'deleted_at',
+            '_token',
+            '_method',
+        ];
+    }
+
+    /**
      * Prepare fields for Docuseal API format
      */
     private function prepareFieldsForDocuseal(array $fields, ?string $templateId = null): array
@@ -612,6 +647,15 @@ class DocusealService
             ]);
         }
 
+        // Handle special case: if we have patient_first_name and patient_last_name but template expects patient_name
+        if (isset($fields['patient_first_name']) && isset($fields['patient_last_name']) && 
+            !isset($fields['patient_name']) && isset($templateFields['patient_name'])) {
+            $fields['patient_name'] = trim($fields['patient_first_name'] . ' ' . $fields['patient_last_name']);
+            Log::info('Computed patient_name for DocuSeal template', [
+                'patient_name' => $fields['patient_name']
+            ]);
+        }
+
         foreach ($fields as $key => $value) {
             // Skip internal fields
             if (str_starts_with($key, '_')) {
@@ -625,6 +669,17 @@ class DocusealService
                     'field_name' => $key,
                     'value' => $value,
                     'template_id' => $templateId
+                ]);
+                continue;
+            }
+            
+            // If we don't have template fields (e.g., due to API error), skip fields that are known to cause issues
+            if (empty($templateFields) && in_array($key, $this->getDefaultExcludedFields())) {
+                $skippedFields[] = $key;
+                Log::debug('Skipping field from default exclusion list', [
+                    'field_name' => $key,
+                    'template_id' => $templateId,
+                    'reason' => 'no_template_fields_available'
                 ]);
                 continue;
             }
@@ -1134,7 +1189,7 @@ class DocusealService
                         'name' => $submitterName, // Use the provided submitter name
                         'email' => $submitterEmail, // Use the submitter email (person who will sign)
                         'role' => 'First Party', // Default role for the person signing
-                        'values' => $docusealFields
+                        'fields' => $this->convertToDocusealFieldFormat($docusealFields)
                     ]
                 ]
             ];
@@ -1217,6 +1272,30 @@ class DocusealService
                 'error' => $e->getMessage()
             ];
         }
+    }
+
+    /**
+     * Convert associative array fields to DocuSeal's expected format
+     */
+    private function convertToDocusealFieldFormat(array $associativeFields): array
+    {
+        $docusealFields = [];
+        foreach ($associativeFields as $fieldName => $fieldValue) {
+            // Convert value to string and handle special cases
+            if (is_bool($fieldValue)) {
+                $fieldValue = $fieldValue ? 'Yes' : 'No';
+            } elseif (is_array($fieldValue)) {
+                $fieldValue = implode(', ', $fieldValue);
+            } elseif ($fieldValue === null) {
+                $fieldValue = '';
+            }
+            
+            $docusealFields[] = [
+                'name' => $fieldName,
+                'default_value' => (string) $fieldValue
+            ];
+        }
+        return $docusealFields;
     }
 
     /**
@@ -1605,6 +1684,15 @@ class DocusealService
                     $comprehensiveData
                 );
             }
+            
+            // Log the mapping result for debugging
+            Log::info('Field mapping result', [
+                'has_mapped_data' => isset($mappingResult['data']),
+                'mapped_field_count' => isset($mappingResult['data']) ? count($mappingResult['data']) : 0,
+                'has_patient_name' => isset($mappingResult['data']['patient_name']),
+                'has_patient_first_name' => isset($mappingResult['data']['patient_first_name']),
+                'sample_mapped_fields' => isset($mappingResult['data']) ? array_slice(array_keys($mappingResult['data']), 0, 10) : []
+            ]);
 
             // Check validation - be more flexible with AI-enhanced mapping
             $canProceed = $mappingResult['validation']['valid'] || 
@@ -1635,21 +1723,58 @@ class DocusealService
                 'manufacturer_data' => $mappingResult['manufacturer'] ?? null
             ]);
 
-            // Extract template ID with correct key from manufacturer config
-            $templateId = $mappingResult['manufacturer']['docuseal_template_id'] ?? 
-                         $mappingResult['manufacturer']['template_id'] ?? 
-                         null;
+            // Extract template ID from mapping result or look it up from database
+            $templateId = null;
+            
+            // First try to get from mapping result
+            if (isset($mappingResult['manufacturer']['docuseal_template_id'])) {
+                $templateId = $mappingResult['manufacturer']['docuseal_template_id'];
+            } elseif (isset($mappingResult['manufacturer']['template_id'])) {
+                $templateId = $mappingResult['manufacturer']['template_id'];
+            }
+            
+            // If not found in mapping result, look up from database
+            if (!$templateId) {
+                // Try to find the manufacturer by name
+                $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerName)->first();
+                
+                if ($manufacturer) {
+                    // Get the default IVR template for this manufacturer
+                    $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                        ->where('document_type', 'IVR')
+                        ->where('is_active', true)
+                        ->where('is_default', true)
+                        ->first();
+                    
+                    if (!$template) {
+                        // Try without is_default constraint
+                        $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                            ->where('document_type', 'IVR')
+                            ->where('is_active', true)
+                            ->first();
+                    }
+                    
+                    if ($template) {
+                        $templateId = $template->docuseal_template_id;
+                        Log::info('Found template ID from database', [
+                            'manufacturer' => $manufacturerName,
+                            'manufacturer_id' => $manufacturer->id,
+                            'template_id' => $templateId
+                        ]);
+                    }
+                }
+            }
             
             if (!$templateId) {
                 // Log the full manufacturer object for debugging
-                Log::error('Template ID not found in manufacturer config', [
-                    'manufacturer_config' => $mappingResult['manufacturer'],
+                Log::error('Template ID not found for manufacturer', [
+                    'manufacturer_name' => $manufacturerName,
+                    'manufacturer_config' => $mappingResult['manufacturer'] ?? null,
                     'available_keys' => array_keys($mappingResult['manufacturer'] ?? []),
-                    'full_mapping_result' => $mappingResult
+                    'manufacturer_exists' => isset($manufacturer) ? 'yes' : 'no'
                 ]);
                 
-                throw new \Exception('No template ID found in mapping result. Available keys: ' . 
-                    implode(', ', array_keys($mappingResult['manufacturer'] ?? [])));
+                throw new \Exception("No DocuSeal template found for manufacturer: {$manufacturerName}. Please ensure the manufacturer has an active IVR template configured.");
             }
 
             // Check if we need to create a new submission or update existing

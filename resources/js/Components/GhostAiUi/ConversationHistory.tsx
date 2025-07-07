@@ -19,11 +19,11 @@ const ConversationHistory: React.FC<ConversationHistoryProps> = ({ conversation 
           key={index}
           className={`p-4 rounded-2xl ${
             msg.role === 'user'
-              ? 'bg-msc-blue-500 text-white ml-12 shadow-md'
-              : 'bg-gray-100 text-gray-800 mr-12'
+              ? 'bg-white/90 text-gray-800 ml-12 shadow-md border border-gray-200'
+              : 'bg-gray-100/90 text-gray-800 mr-12 shadow-md border border-gray-300'
           }`}
         >
-          <p className={`text-sm leading-relaxed ${msg.role === 'user' ? 'text-white font-medium' : 'text-gray-800'}`}>
+          <p className={`text-sm leading-relaxed ${msg.role === 'user' ? 'font-medium' : ''}`}>
             {msg.content}
           </p>
         </div>

@@ -705,15 +705,6 @@ const QuickRequestProductCard: React.FC<{
   const [selectedSize, setSelectedSize] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
 
-  // Debug logging
-  console.log('QuickRequestProductCard rendering:', {
-    productName: product.name,
-    available_sizes: product.available_sizes,
-    size_options: product.size_options,
-    size_unit: product.size_unit,
-    hasSizes: (product.size_options && product.size_options.length > 0) || (product.available_sizes && product.available_sizes.length > 0)
-  });
-
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
@@ -916,11 +907,13 @@ const QuickRequestProductCard: React.FC<{
       </div>
 
       {/* Total Price Display */}
-      <div className={`mb-3 p-2 ${t.glass.frost} rounded text-center`}>
-        <span className={`text-sm font-semibold ${t.text.primary}`}>
-          Total: {formatPrice(calculatePrice())}
-        </span>
-      </div>
+      {roleRestrictions.can_see_order_totals && (
+        <div className={`mb-3 p-2 ${t.glass.frost} rounded text-center`}>
+          <span className={`text-sm font-semibold ${t.text.primary}`}>
+            Total: {formatPrice(calculatePrice())}
+          </span>
+        </div>
+      )}
 
       <button
         onClick={handleAddProduct}

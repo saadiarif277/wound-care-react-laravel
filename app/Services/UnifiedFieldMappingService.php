@@ -536,11 +536,21 @@ class UnifiedFieldMappingService
         if ($config) {
             // Validate that IVR configs have template ID
             if ($documentType === 'IVR' && !isset($config['docuseal_template_id'])) {
-                Log::warning("Manufacturer IVR config missing docuseal_template_id", [
-                    'manufacturer' => $name,
-                    'document_type' => $documentType,
-                    'config_keys' => array_keys($config)
-                ]);
+                // Try to get template ID from database
+                $templateId = $this->getTemplateIdFromDatabase($name, $documentType);
+                if ($templateId) {
+                    $config['docuseal_template_id'] = $templateId;
+                    Log::info("Added template ID from database to manufacturer config", [
+                        'manufacturer' => $name,
+                        'template_id' => $templateId
+                    ]);
+                } else {
+                    Log::warning("Manufacturer IVR config missing docuseal_template_id", [
+                        'manufacturer' => $name,
+                        'document_type' => $documentType,
+                        'config_keys' => array_keys($config)
+                    ]);
+                }
             }
             return $config;
         }
@@ -551,13 +561,33 @@ class UnifiedFieldMappingService
         // First try exact match in main config
         if (isset($configSource['manufacturers'][$name])) {
             $config = $configSource['manufacturers'][$name];
-            return $this->resolveConfigReference($config, $configSource);
+            $config = $this->resolveConfigReference($config, $configSource);
+            
+            // Ensure template ID is set for IVR documents
+            if ($documentType === 'IVR' && !isset($config['docuseal_template_id'])) {
+                $templateId = $this->getTemplateIdFromDatabase($name, $documentType);
+                if ($templateId) {
+                    $config['docuseal_template_id'] = $templateId;
+                }
+            }
+            
+            return $config;
         }
 
         // Try case-insensitive match
         foreach ($configSource['manufacturers'] as $key => $config) {
             if (strtolower($key) === strtolower($name)) {
-                return $this->resolveConfigReference($config, $configSource);
+                $config = $this->resolveConfigReference($config, $configSource);
+                
+                // Ensure template ID is set for IVR documents
+                if ($documentType === 'IVR' && !isset($config['docuseal_template_id'])) {
+                    $templateId = $this->getTemplateIdFromDatabase($name, $documentType);
+                    if ($templateId) {
+                        $config['docuseal_template_id'] = $templateId;
+                    }
+                }
+                
+                return $config;
             }
         }
 
@@ -566,7 +596,17 @@ class UnifiedFieldMappingService
             if (isset($config['name']) && is_string($config['name']) &&
                 (strtolower($config['name']) === strtolower($name) || 
                  str_contains(strtolower($config['name']), strtolower($name)))) {
-                return $this->resolveConfigReference($config, $configSource);
+                $config = $this->resolveConfigReference($config, $configSource);
+                
+                // Ensure template ID is set for IVR documents
+                if ($documentType === 'IVR' && !isset($config['docuseal_template_id'])) {
+                    $templateId = $this->getTemplateIdFromDatabase($name, $documentType);
+                    if ($templateId) {
+                        $config['docuseal_template_id'] = $templateId;
+                    }
+                }
+                
+                return $config;
             }
         }
 
@@ -624,6 +664,46 @@ class UnifiedFieldMappingService
     }
 
     /**
+     * Get template ID from database for a manufacturer
+     */
+    private function getTemplateIdFromDatabase(string $manufacturerName, string $documentType): ?string
+    {
+        try {
+            // Find the manufacturer by name
+            $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerName)->first();
+            
+            if (!$manufacturer) {
+                return null;
+            }
+            
+            // Get the default template for this manufacturer and document type
+            $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                ->where('document_type', $documentType)
+                ->where('is_active', true)
+                ->where('is_default', true)
+                ->first();
+            
+            if (!$template) {
+                // Try without is_default constraint
+                $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
+                    ->where('document_type', $documentType)
+                    ->where('is_active', true)
+                    ->first();
+            }
+            
+            return $template ? $template->docuseal_template_id : null;
+            
+        } catch (\Exception $e) {
+            Log::error('Failed to get template ID from database', [
+                'manufacturer' => $manufacturerName,
+                'document_type' => $documentType,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
      * Resolve configuration reference if it exists
      */
     private function resolveConfigReference(array $config, array $configSource): array
@@ -669,6 +749,27 @@ class UnifiedFieldMappingService
             'mapped_data_keys' => array_keys($mappedData),
             'available_docuseal_fields' => array_keys($fieldNameMapping)
         ]);
+
+        // First, check if we're receiving raw data that needs mapping
+        // This can happen when the data hasn't been properly mapped through mapFields
+        if (isset($mappedData['patient_first_name']) && isset($mappedData['patient_last_name']) && 
+            !isset($mappedData['patient_name']) && isset($fieldNameMapping['patient_name'])) {
+            // Compute patient_name from first and last names
+            $mappedData['patient_name'] = trim($mappedData['patient_first_name'] . ' ' . $mappedData['patient_last_name']);
+            Log::info('Computed patient_name from first and last names', [
+                'patient_name' => $mappedData['patient_name']
+            ]);
+        }
+        
+        // Also handle camelCase versions of the fields
+        if (isset($mappedData['patientFirstName']) && isset($mappedData['patientLastName']) && 
+            !isset($mappedData['patient_name']) && isset($fieldNameMapping['patient_name'])) {
+            // Compute patient_name from camelCase first and last names
+            $mappedData['patient_name'] = trim($mappedData['patientFirstName'] . ' ' . $mappedData['patientLastName']);
+            Log::info('Computed patient_name from camelCase first and last names', [
+                'patient_name' => $mappedData['patient_name']
+            ]);
+        }
 
         foreach ($mappedData as $canonicalName => $value) {
             // Skip null or empty values unless it's a boolean false

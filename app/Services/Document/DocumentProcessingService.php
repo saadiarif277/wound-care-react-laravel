@@ -10,6 +10,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Exception;
+use Illuminate\Support\Facades\Log;
 
 class DocumentProcessingService
 {
@@ -20,72 +21,389 @@ class DocumentProcessingService
     ) {}
 
     /**
-     * Process an uploaded document with OCR and intelligent extraction
+     * Process document with 2025 healthcare OCR best practices
      */
-    public function processDocument(UploadedFile $file, ?string $documentType = null): array
+    public function processDocument($file, ?string $documentType = null): array
     {
-        $this->logger->info('Starting document processing', [
-            'filename' => $file->getClientOriginalName(),
-            'size' => $file->getSize(),
-            'type' => $documentType
-        ]);
-
         try {
             // Detect document type if not provided
             if (!$documentType) {
                 $documentType = $this->detectDocumentType($file);
             }
 
-            // Extract text using Azure Document Intelligence
+            // Use enhanced 2025 methods based on document type
+            switch ($documentType) {
+                case 'insurance_card':
+                    $extractedData = $this->documentIntelligence->analyzeInsuranceCard($file);
+                    break;
+                    
+                case 'clinical_note':
+                    $extractedData = $this->documentIntelligence->analyzeClinicalDocument($file, 'clinical_note');
+                    break;
+                    
+                case 'wound_photo':
+                    $extractedData = $this->documentIntelligence->analyzeClinicalDocument($file, 'wound_photo');
+                    break;
+                    
+                case 'prescription':
+                    $extractedData = $this->documentIntelligence->analyzeClinicalDocument($file, 'prescription');
+                    break;
+                    
+                default:
             $extractedData = $this->documentIntelligence->extractFilledFormData($file);
-
-            if (empty($extractedData)) {
-                throw new Exception('No data could be extracted from the document');
+                    break;
             }
 
-            // Convert structured data to text for AI processing
-            $extractedText = json_encode($extractedData, JSON_PRETTY_PRINT);
-
-            // Use AI to structure the extracted data
-            $structuredData = $this->structureExtractedData($extractedText, $documentType);
-
-            // Ensure confidence_score is always present
-            if (!isset($structuredData['confidence_score'])) {
-                $structuredData['confidence_score'] = 0.8;
+            if (!$extractedData['success']) {
+                throw new Exception($extractedData['error'] ?? 'Failed to extract data from document');
             }
 
-            // Store the document
-            $storedPath = $this->storeDocument($file);
+            // Enhanced AI structuring with medical context
+            $structuredData = $this->structureDataWithMedicalContext(
+                $extractedData['data'], 
+                $documentType,
+                $extractedData['quality_score'] ?? []
+            );
 
-            $result = [
+            return [
                 'success' => true,
+                'extracted_data' => $extractedData['data'],
+                'structured_data' => $structuredData,
                 'document_type' => $documentType,
-                'extracted_data' => $extractedData, // Original structured data from OCR
-                'extracted_text' => $extractedText, // JSON representation for AI
-                'structured_data' => $structuredData, // AI-enhanced structured data
-                'file_path' => $storedPath,
-                'confidence_score' => $structuredData['confidence_score']
+                'confidence' => $extractedData['confidence'] ?? 0,
+                'quality_score' => $extractedData['quality_score'] ?? [],
+                'validation_notes' => $extractedData['validation_notes'] ?? [],
+                'processing_method' => $extractedData['processing_method'] ?? 'enhanced_2025',
+                'metadata' => [
+                    'processing_date' => now()->toISOString(),
+                    'file_type' => $file instanceof \Illuminate\Http\UploadedFile ? 
+                        $file->getMimeType() : 'unknown'
+                ]
             ];
 
-            $this->logger->info('Document processing completed successfully', [
-                'document_type' => $documentType,
-                'confidence_score' => $result['confidence_score']
-            ]);
-
-            return $result;
-
         } catch (Exception $e) {
-            $this->logger->error('Document processing failed', [
+            Log::error('Document processing failed', [
                 'error' => $e->getMessage(),
-                'filename' => $file->getClientOriginalName()
+                'document_type' => $documentType,
+                'file' => $file instanceof \Illuminate\Http\UploadedFile ? 
+                    $file->getClientOriginalName() : 'unknown'
             ]);
 
             return [
                 'success' => false,
                 'error' => $e->getMessage(),
-                'document_type' => $documentType ?? 'unknown'
+                'document_type' => $documentType
             ];
         }
+    }
+
+    /**
+     * Enhanced AI structuring with medical context
+     */
+    private function structureDataWithMedicalContext(array $extractedData, string $documentType, array $qualityScore): array
+    {
+        // Use foundry service for medical-aware structuring
+        $prompt = $this->buildMedicalPrompt($extractedData, $documentType, $qualityScore);
+        
+        try {
+            $targetSchema = $this->getTargetSchema($documentType);
+            $response = $this->foundryService->extractStructuredData(
+                json_encode($extractedData),
+                $targetSchema,
+                $prompt
+            );
+            
+            if (is_array($response) && isset($response['extracted_data'])) {
+                return $response['extracted_data'];
+            }
+            
+            return is_array($response) ? $response : [];
+        } catch (Exception $e) {
+            Log::warning('AI structuring failed, using fallback', [
+                'error' => $e->getMessage(),
+                'document_type' => $documentType
+            ]);
+        }
+        
+        // Fallback to rule-based structuring
+        return $this->fallbackStructuring($extractedData, $documentType);
+    }
+
+    /**
+     * Build medical-aware prompt for AI structuring
+     */
+    private function buildMedicalPrompt(array $extractedData, string $documentType, array $qualityScore): string
+    {
+        $qualityContext = '';
+        if (!empty($qualityScore)) {
+            $qualityContext = "Quality Assessment: Overall Grade {$qualityScore['overall_grade']}, " .
+                            "Confidence: {$qualityScore['confidence_score']}%, " .
+                            "Terminology Accuracy: {$qualityScore['terminology_accuracy']}%";
+        }
+
+        return match($documentType) {
+            'insurance_card' => "You are a healthcare data extraction expert. Extract and structure insurance card information from this OCR data. Focus on: member ID, insurance company, group number, plan type, copays, deductibles, and prescription benefits. Validate medical terminology and ensure HIPAA compliance. {$qualityContext}",
+            
+            'clinical_note' => "You are a clinical documentation expert. Extract and structure clinical note information focusing on: patient demographics, chief complaint, history of present illness, physical examination findings, assessment, and plan. Pay special attention to wound care terminology, measurements, and clinical assessments. {$qualityContext}",
+            
+            'wound_photo' => "You are a wound care specialist. Extract and structure wound assessment information focusing on: wound location, size measurements (length, width, depth), wound characteristics (color, drainage, edges), staging if applicable, and any visible complications. {$qualityContext}",
+            
+            'prescription' => "You are a pharmaceutical data expert. Extract and structure prescription information focusing on: patient name, prescriber, medication name, strength, dosage form, quantity, directions for use, refills, and any special instructions. Validate drug names and dosages. {$qualityContext}",
+            
+            default => "You are a healthcare data extraction expert. Extract and structure the form data with attention to medical terminology, patient information, and clinical context. Ensure all PHI is properly categorized. {$qualityContext}"
+        };
+    }
+
+    /**
+     * Fallback rule-based structuring
+     */
+    private function fallbackStructuring(array $extractedData, string $documentType): array
+    {
+        $structured = [];
+        
+        // Extract fields based on document type
+        switch ($documentType) {
+            case 'insurance_card':
+                $structured = $this->structureInsuranceCard($extractedData);
+                break;
+                
+            case 'clinical_note':
+                $structured = $this->structureClinicalNote($extractedData);
+                break;
+                
+            case 'wound_photo':
+                $structured = $this->structureWoundPhoto($extractedData);
+                break;
+                
+            default:
+                $structured = $this->structureGenericForm($extractedData);
+                break;
+        }
+        
+        return $structured;
+    }
+
+    /**
+     * Structure insurance card data
+     */
+    private function structureInsuranceCard(array $data): array
+    {
+        $structured = [
+            'member_id' => '',
+            'member_name' => '',
+            'insurance_company' => '',
+            'group_number' => '',
+            'plan_type' => '',
+            'effective_date' => '',
+            'copays' => [],
+            'deductibles' => [],
+            'rx_info' => []
+        ];
+
+        // Map common insurance fields
+        foreach ($data as $key => $value) {
+            $normalizedKey = strtolower(str_replace([' ', '-'], '_', $key));
+            $fieldValue = is_array($value) ? ($value['value'] ?? '') : $value;
+            
+            switch ($normalizedKey) {
+                case 'member_id':
+                case 'memberid':
+                case 'id':
+                    $structured['member_id'] = $fieldValue;
+                    break;
+                case 'member_name':
+                case 'member':
+                case 'name':
+                    $structured['member_name'] = $fieldValue;
+                    break;
+                case 'insurance_company':
+                case 'insurer':
+                case 'company':
+                    $structured['insurance_company'] = $fieldValue;
+                    break;
+                case 'group_number':
+                case 'group':
+                case 'grp':
+                    $structured['group_number'] = $fieldValue;
+                    break;
+                case 'plan_type':
+                case 'plan':
+                    $structured['plan_type'] = $fieldValue;
+                    break;
+            }
+        }
+
+        return $structured;
+    }
+
+    /**
+     * Structure clinical note data
+     */
+    private function structureClinicalNote(array $data): array
+    {
+        return [
+            'patient_name' => $this->extractField($data, ['patient_name', 'name', 'patient']),
+            'date_of_service' => $this->extractField($data, ['date', 'service_date', 'visit_date']),
+            'chief_complaint' => $this->extractField($data, ['chief_complaint', 'cc', 'complaint']),
+            'diagnosis' => $this->extractField($data, ['diagnosis', 'assessment', 'dx']),
+            'treatment_plan' => $this->extractField($data, ['plan', 'treatment', 'recommendations']),
+            'medications' => $this->extractField($data, ['medications', 'meds', 'prescriptions']),
+            'vital_signs' => $this->extractVitalSigns($data),
+            'wound_assessment' => $this->extractWoundAssessment($data)
+        ];
+    }
+
+    /**
+     * Structure wound photo data
+     */
+    private function structureWoundPhoto(array $data): array
+    {
+        return [
+            'wound_location' => $this->extractField($data, ['location', 'site', 'anatomical_location']),
+            'measurements' => $this->extractMeasurements($data),
+            'wound_characteristics' => $this->extractWoundCharacteristics($data),
+            'staging' => $this->extractField($data, ['stage', 'staging', 'grade']),
+            'drainage' => $this->extractField($data, ['drainage', 'exudate', 'discharge']),
+            'tissue_type' => $this->extractField($data, ['tissue', 'tissue_type', 'wound_bed'])
+        ];
+    }
+
+    /**
+     * Extract field value from data
+     */
+    private function extractField(array $data, array $possibleKeys): string
+    {
+        foreach ($possibleKeys as $key) {
+            if (isset($data[$key])) {
+                return is_array($data[$key]) ? ($data[$key]['value'] ?? '') : $data[$key];
+            }
+        }
+        return '';
+    }
+
+    /**
+     * Extract vital signs from clinical data
+     */
+    private function extractVitalSigns(array $data): array
+    {
+        $vitals = [];
+        
+        foreach ($data as $key => $value) {
+            $normalizedKey = strtolower($key);
+            $fieldValue = is_array($value) ? ($value['value'] ?? '') : $value;
+            
+            if (strpos($normalizedKey, 'blood_pressure') !== false || 
+                strpos($normalizedKey, 'bp') !== false) {
+                $vitals['blood_pressure'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'temperature') !== false || 
+                     strpos($normalizedKey, 'temp') !== false) {
+                $vitals['temperature'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'pulse') !== false || 
+                     strpos($normalizedKey, 'heart_rate') !== false) {
+                $vitals['pulse'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'respiratory') !== false || 
+                     strpos($normalizedKey, 'resp') !== false) {
+                $vitals['respiratory_rate'] = $fieldValue;
+            }
+        }
+        
+        return $vitals;
+    }
+
+    /**
+     * Extract measurements from data
+     */
+    private function extractMeasurements(array $data): array
+    {
+        $measurements = [];
+        
+        foreach ($data as $key => $value) {
+            $normalizedKey = strtolower($key);
+            $fieldValue = is_array($value) ? ($value['value'] ?? '') : $value;
+            
+            if (strpos($normalizedKey, 'length') !== false) {
+                $measurements['length'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'width') !== false) {
+                $measurements['width'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'depth') !== false) {
+                $measurements['depth'] = $fieldValue;
+            } elseif (preg_match('/\d+\s*(cm|mm|inch|in)/i', $fieldValue)) {
+                $measurements['additional'][] = $fieldValue;
+            }
+        }
+        
+        return $measurements;
+    }
+
+    /**
+     * Extract wound characteristics
+     */
+    private function extractWoundCharacteristics(array $data): array
+    {
+        $characteristics = [];
+        
+        $woundTerms = [
+            'red', 'pink', 'yellow', 'black', 'necrotic', 'slough', 'eschar',
+            'granulation', 'epithelialization', 'clean', 'infected', 'inflamed'
+        ];
+        
+        foreach ($data as $key => $value) {
+            $fieldValue = is_array($value) ? ($value['value'] ?? '') : $value;
+            $normalizedValue = strtolower($fieldValue);
+            
+            foreach ($woundTerms as $term) {
+                if (strpos($normalizedValue, $term) !== false) {
+                    $characteristics[] = $term;
+                }
+            }
+        }
+        
+        return array_unique($characteristics);
+    }
+
+    /**
+     * Extract wound assessment from clinical data
+     */
+    private function extractWoundAssessment(array $data): array
+    {
+        $assessment = [];
+        
+        foreach ($data as $key => $value) {
+            $normalizedKey = strtolower($key);
+            $fieldValue = is_array($value) ? ($value['value'] ?? '') : $value;
+            
+            if (strpos($normalizedKey, 'wound') !== false) {
+                $assessment['wound_type'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'stage') !== false || 
+                     strpos($normalizedKey, 'staging') !== false) {
+                $assessment['staging'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'drainage') !== false || 
+                     strpos($normalizedKey, 'exudate') !== false) {
+                $assessment['drainage'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'size') !== false || 
+                     strpos($normalizedKey, 'measurement') !== false) {
+                $assessment['measurements'] = $fieldValue;
+            } elseif (strpos($normalizedKey, 'color') !== false || 
+                     strpos($normalizedKey, 'appearance') !== false) {
+                $assessment['appearance'] = $fieldValue;
+            }
+        }
+        
+        return $assessment;
+    }
+
+    /**
+     * Structure generic form data
+     */
+    private function structureGenericForm(array $data): array
+    {
+        $structured = [];
+        
+        foreach ($data as $key => $value) {
+            $structured[$key] = is_array($value) ? ($value['value'] ?? '') : $value;
+        }
+        
+        return $structured;
     }
 
     /**
@@ -120,64 +438,6 @@ class DocumentProcessingService
 
         // Default fallback
         return 'general_document';
-    }
-
-    /**
-     * Use AI to structure extracted text based on document type
-     */
-    protected function structureExtractedData(string $extractedText, string $documentType): array
-    {
-        try {
-            // Use the correct AzureFoundryService method for data extraction
-            $targetSchema = $this->getTargetSchema($documentType);
-            $context = $this->getContextForDocumentType($documentType);
-
-            $response = $this->foundryService->extractStructuredData(
-                $extractedText,
-                $targetSchema,
-                $context
-            );
-
-            // If the response is an array and contains 'extracted_data', return it
-            if (is_array($response) && isset($response['extracted_data'])) {
-                return $response['extracted_data'];
-            }
-
-            // Otherwise, return the response as-is or an error
-            return is_array($response) ? $response : ['error' => 'Failed to structure data'];
-
-        } catch (Exception $e) {
-            $this->logger->warning('AI structuring failed, using basic extraction', [
-                'error' => $e->getMessage()
-            ]);
-
-            // Fallback to basic extraction
-            return $this->basicDataExtraction($extractedText, $documentType);
-        }
-    }
-
-    /**
-     * Basic data extraction fallback when AI fails
-     */
-    protected function basicDataExtraction(string $text, string $documentType): array
-    {
-        $data = ['confidence_score' => 0.5];
-
-        // Basic regex patterns for common fields
-        $patterns = [
-            'member_id' => '/(?:member|id|policy)[\s#:]*([A-Z0-9]{6,20})/i',
-            'phone' => '/(\d{3}[-.\s]?\d{3}[-.\s]?\d{4})/',
-            'date' => '/(\d{1,2}\/\d{1,2}\/\d{2,4})/',
-            'name' => '/(?:name|patient)[\s:]*([A-Z][a-z]+\s+[A-Z][a-z]+)/i'
-        ];
-
-        foreach ($patterns as $field => $pattern) {
-            if (preg_match($pattern, $text, $matches)) {
-                $data[$field] = trim($matches[1]);
-            }
-        }
-
-        return $data;
     }
 
     /**
@@ -222,75 +482,50 @@ class DocumentProcessingService
     }
 
     /**
-     * Get target schema for structured data extraction based on document type
+     * Get target schema for document type
      */
-    protected function getTargetSchema(string $documentType): array
+    private function getTargetSchema(string $documentType): array
     {
         switch ($documentType) {
             case 'insurance_card':
                 return [
-                    'payer_name' => ['type' => 'string', 'description' => 'Insurance company name'],
-                    'member_id' => ['type' => 'string', 'description' => 'Policy/member ID number'],
-                    'group_number' => ['type' => 'string', 'description' => 'Group number'],
-                    'plan_type' => ['type' => 'string', 'description' => 'HMO, PPO, Medicare, etc.'],
-                    'patient_first_name' => ['type' => 'string', 'description' => 'Patient first name'],
-                    'patient_last_name' => ['type' => 'string', 'description' => 'Patient last name'],
-                    'patient_dob' => ['type' => 'string', 'description' => 'Date of birth'],
-                    'effective_date' => ['type' => 'string', 'description' => 'Policy effective date'],
-                    'copay_amount' => ['type' => 'string', 'description' => 'Copay amount'],
-                    'confidence_score' => ['type' => 'number', 'description' => 'Confidence in extraction (0-1)']
+                    'member_id' => 'string',
+                    'member_name' => 'string',
+                    'insurance_company' => 'string',
+                    'group_number' => 'string',
+                    'plan_type' => 'string',
+                    'effective_date' => 'string',
+                    'copays' => 'array',
+                    'deductibles' => 'array',
+                    'rx_info' => 'array'
                 ];
 
             case 'clinical_note':
                 return [
-                    'primary_diagnosis' => ['type' => 'string', 'description' => 'ICD-10 code if available'],
-                    'diagnosis_description' => ['type' => 'string', 'description' => 'Detailed diagnosis description'],
-                    'wound_location' => ['type' => 'string', 'description' => 'Anatomical location of wound'],
-                    'wound_size' => ['type' => 'string', 'description' => 'Measurements in cm'],
-                    'wound_type' => ['type' => 'string', 'description' => 'Pressure ulcer, diabetic foot ulcer, etc.'],
-                    'duration_weeks' => ['type' => 'string', 'description' => 'How long the wound has existed'],
-                    'previous_treatments' => ['type' => 'string', 'description' => 'Treatments tried'],
-                    'provider_name' => ['type' => 'string', 'description' => 'Physician name'],
-                    'provider_npi' => ['type' => 'string', 'description' => 'NPI number if available'],
-                    'date_of_service' => ['type' => 'string', 'description' => 'Date of service'],
-                    'confidence_score' => ['type' => 'number', 'description' => 'Confidence in extraction (0-1)']
+                    'patient_name' => 'string',
+                    'date_of_service' => 'string',
+                    'chief_complaint' => 'string',
+                    'diagnosis' => 'string',
+                    'treatment_plan' => 'string',
+                    'medications' => 'array',
+                    'vital_signs' => 'array',
+                    'wound_assessment' => 'array'
                 ];
 
             case 'wound_photo':
                 return [
-                    'length' => ['type' => 'string', 'description' => 'Length in cm'],
-                    'width' => ['type' => 'string', 'description' => 'Width in cm'],
-                    'depth' => ['type' => 'string', 'description' => 'Depth in cm if visible'],
-                    'wound_type' => ['type' => 'string', 'description' => 'Pressure ulcer, diabetic foot ulcer, venous ulcer, etc.'],
-                    'stage' => ['type' => 'string', 'description' => 'If pressure ulcer: Stage 1-4'],
-                    'wound_bed_color' => ['type' => 'string', 'description' => 'Red, yellow, black, mixed'],
-                    'drainage_amount' => ['type' => 'string', 'description' => 'None, minimal, moderate, heavy'],
-                    'surrounding_skin_condition' => ['type' => 'string', 'description' => 'Description of surrounding skin'],
-                    'measurement_tool_visible' => ['type' => 'boolean', 'description' => 'Whether ruler or measuring device is visible'],
-                    'confidence_score' => ['type' => 'number', 'description' => 'Confidence in extraction (0-1)']
-                ];
-
-            case 'referral':
-                return [
-                    'referring_provider' => ['type' => 'string', 'description' => 'Name of referring provider'],
-                    'receiving_provider' => ['type' => 'string', 'description' => 'Name of receiving provider'],
-                    'patient_name' => ['type' => 'string', 'description' => 'Patient full name'],
-                    'patient_dob' => ['type' => 'string', 'description' => 'Patient date of birth'],
-                    'diagnosis' => ['type' => 'string', 'description' => 'Primary diagnosis'],
-                    'reason_for_referral' => ['type' => 'string', 'description' => 'Reason for referral'],
-                    'urgency_level' => ['type' => 'string', 'description' => 'Urgency level'],
-                    'requested_services' => ['type' => 'string', 'description' => 'Requested services'],
-                    'confidence_score' => ['type' => 'number', 'description' => 'Confidence in extraction (0-1)']
+                    'wound_location' => 'string',
+                    'measurements' => 'array',
+                    'wound_characteristics' => 'array',
+                    'staging' => 'string',
+                    'drainage' => 'string',
+                    'tissue_type' => 'string'
                 ];
 
             default:
                 return [
-                    'patient_name' => ['type' => 'string', 'description' => 'Patient name if present'],
-                    'provider_name' => ['type' => 'string', 'description' => 'Provider name if present'],
-                    'date' => ['type' => 'string', 'description' => 'Any date found'],
-                    'phone' => ['type' => 'string', 'description' => 'Phone number if present'],
-                    'member_id' => ['type' => 'string', 'description' => 'Member or ID number if present'],
-                    'confidence_score' => ['type' => 'number', 'description' => 'Confidence in extraction (0-1)']
+                    'extracted_fields' => 'array',
+                    'confidence_score' => 'number'
                 ];
         }
     }

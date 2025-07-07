@@ -3,7 +3,6 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import DiagnosisCodeSelector from '@/Components/DiagnosisCode/DiagnosisCodeSelector';
 import Select from '@/Components/ui/Select';
-import DocumentUploadCard from '@/Components/DocumentUploadCard';
 
 interface FormData {
   // Clinical Information
@@ -794,38 +793,6 @@ export default function Step4ClinicalBilling({
             )}
           </div>
         </div>
-      </div>
-
-      {/* Document Upload Section */}
-      <div className="mt-6">
-        <DocumentUploadCard
-          title="Clinical Documentation"
-          description="Upload supporting clinical documents for this order"
-          onDocumentsChange={(documents) => {
-            // Handle document uploads
-            const updates: any = {};
-            documents.forEach(doc => {
-              if (doc.type === 'demographics') {
-                updates.face_sheet = doc.files.primary;
-              } else if (doc.type === 'clinical_notes') {
-                updates.clinical_notes = doc.files.primary;
-              } else if (doc.type === 'other') {
-                updates.wound_photo = doc.files.primary;
-              }
-            });
-            updateFormData(updates);
-          }}
-          onInsuranceDataExtracted={(data) => {
-            // Handle extracted insurance data if needed
-            if (data) {
-              updateFormData({
-                primary_insurance_name: data.payer_name,
-                primary_member_id: data.payer_id
-              });
-            }
-          }}
-          className="mb-6"
-        />
       </div>
     </div>
   );

@@ -54,7 +54,7 @@ export const useSpeech = () => {
     } else {
       recognitionRef.current.onresult = (event) => {
         const transcript = Array.from(event.results)
-          .map(result => result[0].transcript)
+          .map(result => result[0]?.transcript || '')
           .join('');
         onResult(transcript);
       };
@@ -88,7 +88,7 @@ export const useSpeech = () => {
 
       const data = await response.json();
 
-      if (data.success && data.audio) {
+      if (data.success && data.audio && !data.fallback) {
         // Play the audio using base64 data
         const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
         audio.volume = 0.8;

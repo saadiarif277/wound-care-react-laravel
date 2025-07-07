@@ -15,6 +15,7 @@
     "test:php:coverage": "php artisan test --coverage",
     "test:all": "npm run test:coverage && npm run test:php:coverage",
     "test:report": "node scripts/test-report.js",
+    "test:order-workflow": "php artisan test:order-workflow",
     "lint": "eslint resources/js --ext .ts,.tsx",
     "lint:fix": "eslint resources/js --ext .ts,.tsx --fix",
     "type-check": "tsc --noEmit"

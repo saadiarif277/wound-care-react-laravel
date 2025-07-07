@@ -3,56 +3,56 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\AzureDocumentIntelligenceService;
+use App\Services\DocumentIntelligenceService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
 class InsuranceCardController extends Controller
 {
-    private AzureDocumentIntelligenceService $azureService;
+    private DocumentIntelligenceService $azureService;
 
-    public function __construct(AzureDocumentIntelligenceService $azureService)
+    public function __construct(DocumentIntelligenceService $azureService)
     {
         $this->azureService = $azureService;
     }
 
     /**
      * Analyze insurance card images and extract data
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function analyze(Request $request)
     {
         $request->validate([
-            'insurance_card_front' => 'required|file|mimes:jpg,jpeg,png,pdf|max:10240',
-            'insurance_card_back' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:10240',
+            'front' => 'required|file|mimes:jpg,jpeg,png|max:10240',
+            'back' => 'nullable|file|mimes:jpg,jpeg,png|max:10240',
         ]);
 
         try {
-            // Analyze insurance card
-            $extractedData = $this->azureService->analyzeInsuranceCard(
-                $request->file('insurance_card_front'),
-                $request->file('insurance_card_back')
-            );
+            $frontImage = $request->file('front');
+            $backImage = $request->file('back');
 
-            // Map to form fields
-            $formData = $this->azureService->mapToPatientForm($extractedData);
-
-            return response()->json([
-                'success' => true,
-                'data' => $formData,
-                'extracted_data' => $extractedData,
-                'message' => 'Insurance card analyzed successfully',
+            Log::info('Processing insurance card', [
+                'has_front' => true,
+                'has_back' => $backImage !== null
             ]);
 
+            $result = $this->azureService->analyzeInsuranceCard($frontImage, $backImage);
+
+            Log::info('Insurance card analysis completed', [
+                'success' => $result['success'] ?? false,
+                'has_form_fields' => !empty($result['form_fields'])
+            ]);
+
+            return response()->json($result);
+
         } catch (\Exception $e) {
-            Log::error('Insurance card analysis failed: ' . $e->getMessage());
+            Log::error('Insurance card analysis failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             return response()->json([
                 'success' => false,
-                'message' => 'Failed to analyze insurance card. Please try again or enter information manually.',
-                'error' => config('app.debug') ? $e->getMessage() : null,
+                'error' => $e->getMessage(),
             ], 500);
         }
     }

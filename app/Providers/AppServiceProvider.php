@@ -113,11 +113,27 @@ class AppServiceProvider extends ServiceProvider
         });
 
         // Register Azure Document Intelligence Service
-        $this->app->singleton(\App\Services\AzureDocumentIntelligenceService::class, function ($app) {
-            if ($app->environment('testing')) {
-                return \Mockery::mock(\App\Services\AzureDocumentIntelligenceService::class);
+        $this->app->singleton(\App\Services\DocumentIntelligenceService::class, function ($app) {
+            if (app()->runningUnitTests()) {
+                return \Mockery::mock(\App\Services\DocumentIntelligenceService::class);
             }
-            return new \App\Services\AzureDocumentIntelligenceService();
+            return new \App\Services\DocumentIntelligenceService();
+        });
+        
+        // Medical Terminology Service
+        $this->app->singleton(\App\Services\MedicalTerminologyService::class, function ($app) {
+            if (app()->runningUnitTests()) {
+                return \Mockery::mock(\App\Services\MedicalTerminologyService::class);
+            }
+            return new \App\Services\MedicalTerminologyService();
+        });
+
+        // AI Form Filler Service
+        $this->app->singleton(\App\Services\AiFormFillerService::class, function ($app) {
+            if (app()->runningUnitTests()) {
+                return \Mockery::mock(\App\Services\AiFormFillerService::class);
+            }
+            return new \App\Services\AiFormFillerService();
         });
     }
 

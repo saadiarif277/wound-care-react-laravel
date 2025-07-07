@@ -123,3 +123,4 @@ test-*.log
 .idea/
 *.swp
 *.swo
+/scripts/ai_service_env/*

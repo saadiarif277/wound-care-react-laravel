@@ -23,7 +23,7 @@ return [
         // Patient Information
         'patient_name' => [
             'source' => 'computed',
-            'computation' => 'patient_first_name + patient_last_name',
+            'computation' => 'patient_first_name + " " + patient_last_name',
             'required' => true,
             'type' => 'string'
         ],

@@ -96,4 +96,28 @@ return [
         'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
     ],
 
+    'umls' => [
+        'api_key' => env('UMLS_API_KEY'),
+        'base_url' => env('UMLS_BASE_URL', 'https://uts-ws.nlm.nih.gov/rest'),
+        'timeout' => env('UMLS_API_TIMEOUT', 30),
+        'cache_ttl' => env('UMLS_CACHE_TTL', 86400), // 24 hours
+        'max_retries' => env('UMLS_MAX_RETRIES', 3),
+        'retry_delay' => env('UMLS_RETRY_DELAY', 1000), // milliseconds
+    ],
+
+    'health_vocab' => [
+        'api_url' => env('HEALTH_VOCAB_API_URL'),
+        'timeout' => env('HEALTH_VOCAB_API_TIMEOUT', 30),
+        'cache_ttl' => env('HEALTH_VOCAB_CACHE_TTL', 86400), // 24 hours
+        'max_retries' => env('HEALTH_VOCAB_MAX_RETRIES', 3),
+        'retry_delay' => env('HEALTH_VOCAB_RETRY_DELAY', 1000), // milliseconds
+    ],
+
+    'ai_form_filler' => [
+        'url' => env('AI_FORM_FILLER_URL', 'http://localhost:8080'),
+        'timeout' => env('AI_FORM_FILLER_TIMEOUT', 30),
+        'enable_cache' => env('AI_FORM_FILLER_CACHE', true),
+        'enabled' => env('AI_FORM_FILLER_ENABLED', true),
+    ],
+
 ];

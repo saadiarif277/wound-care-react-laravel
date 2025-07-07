@@ -777,6 +777,7 @@ class QuickRequestController extends Controller
                 'insurance' => $this->extractInsuranceData($formData),
                 'order_details' => $this->extractOrderData($formData),
                 'manufacturer_id' => $manufacturerId,
+                'request_type' => $formData['request_type'] ?? 'new_request', // Add request_type
             ];
 
             // Create draft episode (no FHIR resources created yet)

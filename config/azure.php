@@ -157,7 +157,7 @@ return [
         |--------------------------------------------------------------------------
         */
         'realtime_deployment' => env('AZURE_OPENAI_REALTIME_DEPLOYMENT', 'gpt-4o-mini-realtime-preview'),
-        'realtime_api_version' => env('AZURE_OPENAI_REALTIME_API_VERSION', '2024-10-01-preview'),
+        'realtime_api_version' => env('AZURE_OPENAI_REALTIME_API_VERSION', '2025-04-01-preview'),
     ],
 
     /*

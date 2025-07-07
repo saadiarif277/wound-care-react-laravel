@@ -116,15 +116,22 @@ class ProductDataService
      */
     private function addPricingData(array &$data, Product $product, User $user): void
     {
+        // Providers should always see MSC pricing
+        if ($user->hasRole('provider')) {
+            $data['msc_price'] = $product->price_per_sq_cm * 0.6;
+            $data['display_price'] = $product->price_per_sq_cm * 0.6;
+            $data['price_label'] = 'MSC Price';
+            $data['national_asp'] = $product->price_per_sq_cm;
+        }
         // Add MSC pricing only if user has permission
-        if ($user->hasPermission('view-msc-pricing')) {
+        elseif ($user->hasPermission('view-msc-pricing')) {
             $data['msc_price'] = $product->price_per_sq_cm * 0.6;
             $data['display_price'] = $product->price_per_sq_cm * 0.6;
             $data['price_label'] = 'MSC Price';
         }
 
         // Add CMS ASP only for users with financial permissions (NOT office managers)
-        if ($user->hasAnyPermission(['view-national-asp', 'view-financials', 'manage-financials'])) {
+        if (!$user->hasRole('provider') && $user->hasAnyPermission(['view-national-asp', 'view-financials', 'manage-financials'])) {
             $data['national_asp'] = $product->price_per_sq_cm;
             // Only set as display price if no MSC price was set
             if (!isset($data['display_price'])) {

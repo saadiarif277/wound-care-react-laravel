@@ -30,24 +30,21 @@ class AzureRealtimeService
             $sessionId = uniqid('realtime_');
             
             // Store session configuration that frontend will use
+            // Match Azure's expected format exactly
             $sessionConfig = [
                 'type' => 'session.update',
                 'session' => [
                     'modalities' => ['text', 'audio'],
                     'instructions' => $this->getSystemInstructions(),
                     'voice' => $options['voice'] ?? 'alloy',
-                    'input_audio_format' => 'webm-opus',
-                    'output_audio_format' => 'mp3',
-                    'input_audio_transcription' => [
-                        'model' => 'whisper-1'
-                    ],
+                    'input_audio_format' => 'pcm16',
+                    'output_audio_format' => 'pcm16',
                     'turn_detection' => [
                         'type' => 'server_vad',
                         'threshold' => 0.5,
                         'prefix_padding_ms' => 300,
-                        'silence_duration_ms' => 200,
-                    ],
-                    'tools' => $this->getAvailableTools(),
+                        'silence_duration_ms' => 200
+                    ]
                 ]
             ];
 
@@ -168,21 +165,29 @@ Voice-specific instructions:
                                 'type' => 'string',
                                 'description' => 'Why switching to text mode'
                             ]
-                        ]
+                        ],
+                        'required' => []
                     ]
                 ]
             ],
             [
-                'type' => 'function', 
+                'type' => 'function',
                 'function' => [
                     'name' => 'create_product_request',
                     'description' => 'Start a new product request form',
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'patient_name' => ['type' => 'string'],
-                            'product_type' => ['type' => 'string']
-                        ]
+                            'patient_name' => [
+                                'type' => 'string',
+                                'description' => 'Name of the patient'
+                            ],
+                            'product_type' => [
+                                'type' => 'string',
+                                'description' => 'Type of wound care product needed'
+                            ]
+                        ],
+                        'required' => []
                     ]
                 ]
             ],
@@ -194,8 +199,14 @@ Voice-specific instructions:
                     'parameters' => [
                         'type' => 'object',
                         'properties' => [
-                            'query' => ['type' => 'string'],
-                            'category' => ['type' => 'string']
+                            'query' => [
+                                'type' => 'string',
+                                'description' => 'Search query for products'
+                            ],
+                            'category' => [
+                                'type' => 'string',
+                                'description' => 'Product category to filter by'
+                            ]
                         ],
                         'required' => ['query']
                     ]

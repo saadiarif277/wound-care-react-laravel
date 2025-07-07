@@ -262,6 +262,16 @@ return [
         ],
         
         // Patient Information
+        'patient_first_name' => [
+            'source' => 'patient_first_name || patient.first_name || patient_firstName',
+            'required' => false,
+            'type' => 'string'
+        ],
+        'patient_last_name' => [
+            'source' => 'patient_last_name || patient.last_name || patient_lastName',
+            'required' => false,
+            'type' => 'string'
+        ],
         'patient_name' => [
             'source' => 'computed',
             'computation' => 'patient_first_name + " " + patient_last_name || patient_name',

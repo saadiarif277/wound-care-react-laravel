@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -137,23 +137,14 @@ export default function Step7DocusealIVR({
   // Use the manufacturers hook
   const { manufacturers, loading: manufacturersLoading, getManufacturerByName } = useManufacturers();
 
-  // Get the selected product
-  const getSelectedProduct = () => {
-    console.log('=== IVR Step getSelectedProduct Debug ===');
-    console.log('formData.selected_products:', formData.selected_products);
-    console.log('formData.selected_products length:', formData.selected_products?.length);
-    console.log('products array length:', products.length);
-
+  // Get the selected product - memoized to prevent excessive recalculation
+  const selectedProduct = useMemo(() => {
     if (!formData.selected_products || formData.selected_products.length === 0) {
-      console.log('❌ No selected products found in IVR step');
       return null;
     }
 
     const firstProduct = formData.selected_products[0];
-    console.log('First selected product:', firstProduct);
-
     if (!firstProduct?.product_id) {
-      console.log('❌ First product missing product_id');
       return null;
     }
 
@@ -162,57 +153,33 @@ export default function Step7DocusealIVR({
 
     // If not found in products array, use the product data from selected_products
     if (!foundProduct && firstProduct.product) {
-      console.log('✅ Using product data from selected_products[0].product');
       foundProduct = firstProduct.product;
-    } else if (foundProduct) {
-      console.log('✅ Product found in products array');
-    } else {
-      console.log('❌ Product not found in products array and no product data in selected_products');
-      console.log('Available product IDs:', products.map(p => p.id));
     }
 
     return foundProduct;
-  };
+  }, [formData.selected_products, products]);
 
-  const selectedProduct = getSelectedProduct();
-
-  // Get Docuseal template ID from manufacturer configuration
-  const getTemplateId = (): string | undefined => {
+  // Get Docuseal template ID from manufacturer configuration - memoized
+  const templateId = useMemo(() => {
     if (!selectedProduct || manufacturersLoading) return undefined;
 
     // Use manufacturer config to get the template ID
     const config = selectedProduct.manufacturer ? getManufacturerByName(selectedProduct.manufacturer) : null;
     if (config?.docuseal_template_id) {
-      console.log('Using manufacturer template mapping:', config.docuseal_template_id);
       return config.docuseal_template_id;
     }
 
-    console.log('No template ID found for manufacturer:', selectedProduct.manufacturer);
     return undefined;
-  };
+  }, [selectedProduct, manufacturersLoading, getManufacturerByName]);
 
-  const templateId = getTemplateId();
-  const manufacturerConfig = (!manufacturersLoading && selectedProduct?.manufacturer)
-    ? getManufacturerByName(selectedProduct.manufacturer)
-    : null;
+  const manufacturerConfig = useMemo(() => {
+    return (!manufacturersLoading && selectedProduct?.manufacturer)
+      ? getManufacturerByName(selectedProduct.manufacturer)
+      : null;
+  }, [manufacturersLoading, selectedProduct?.manufacturer, getManufacturerByName]);
 
   // Check if manufacturer supports insurance upload in IVR
   const supportsInsuranceUpload = manufacturerConfig?.supports_insurance_upload_in_ivr === true;
-
-  // Debug logging
-  console.log('Selected Product:', {
-    name: selectedProduct?.name,
-    id: selectedProduct?.id,
-    manufacturer: selectedProduct?.manufacturer,
-    templateId: templateId,
-    manufacturer_id: selectedProduct?.manufacturer_id,
-    code: selectedProduct?.code
-  });
-  console.log('All Manufacturers loaded:', manufacturers.map(m => ({ id: m.id, name: m.name, docuseal_template_id: m.docuseal_template_id })));
-  console.log('Manufacturers loading:', manufacturersLoading);
-  console.log('Looking for manufacturer:', selectedProduct?.manufacturer);
-  console.log('Manufacturer Config found:', manufacturerConfig);
-  console.log('Signature Required:', manufacturerConfig?.signature_required);
 
   // The backend orchestrator now handles all provider, facility, and organization data
   // This component only needs to handle patient/clinical/insurance data from the form
@@ -330,29 +297,10 @@ export default function Step7DocusealIVR({
 
   // Load DocuSeal embed URL when component mounts and has required data
   useEffect(() => {
-    console.log('🔍 useEffect for fetchDocusealSlug triggered');
-    console.log('Debug conditions:', {
-      manufacturersLoading,
-      'formData.episode_id': formData.episode_id,
-      'selectedProduct?.manufacturer': selectedProduct?.manufacturer,
-      templateId,
-      docusealSlug,
-      'formData.docuseal_submission_id': formData.docuseal_submission_id,
-    });
-
     if (!manufacturersLoading && formData.episode_id && selectedProduct?.manufacturer && templateId && !docusealSlug && !formData.docuseal_submission_id) {
-      console.log('✅ All conditions met, calling fetchDocusealSlug');
       fetchDocusealSlug();
-    } else {
-      console.log('❌ Not all conditions met for fetchDocusealSlug');
-      if (manufacturersLoading) console.log('   - Manufacturers still loading');
-      if (!formData.episode_id) console.log('   - Missing episode_id');
-      if (!selectedProduct?.manufacturer) console.log('   - Missing manufacturer');
-      if (!templateId) console.log('   - Missing templateId');
-      if (docusealSlug) console.log('   - DocuSeal slug already exists');
-      if (formData.docuseal_submission_id) console.log('   - Submission ID already exists');
     }
-  }, [manufacturersLoading, formData.episode_id, selectedProduct?.manufacturer, templateId]);
+  }, [manufacturersLoading, formData.episode_id, selectedProduct?.manufacturer, templateId, docusealSlug, formData.docuseal_submission_id, fetchDocusealSlug]);
 
   // Enhanced completion handler for DocuSeal form
   const handleDocusealFormComplete = (event: any) => {

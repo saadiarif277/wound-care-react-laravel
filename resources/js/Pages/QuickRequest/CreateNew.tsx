@@ -508,11 +508,6 @@ function QuickRequestCreateNew({
         break;
 
       case 2: // Product Selection
-        console.log('=== Product Selection Validation Debug ===');
-        console.log('formData.selected_products:', formData.selected_products);
-        console.log('formData.selected_products length:', formData.selected_products?.length);
-        console.log('formData.selected_products type:', typeof formData.selected_products);
-
         // More robust validation
         const hasValidProducts = formData.selected_products &&
           Array.isArray(formData.selected_products) &&
@@ -526,22 +521,7 @@ function QuickRequestCreateNew({
           );
 
         if (!hasValidProducts) {
-          console.log('❌ Product validation failed - no valid products selected');
-          console.log('Validation details:', {
-            exists: !!formData.selected_products,
-            isArray: Array.isArray(formData.selected_products),
-            length: formData.selected_products?.length,
-            validProducts: formData.selected_products?.filter(product =>
-              product &&
-              typeof product === 'object' &&
-              product.product_id &&
-              product.quantity &&
-              product.quantity > 0
-            ).length
-          });
           errors.products = 'Please select at least one product with valid quantity';
-        } else {
-          console.log('✅ Product validation passed - valid products found:', formData.selected_products);
         }
         break;
 

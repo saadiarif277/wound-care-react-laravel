@@ -2,24 +2,28 @@
 
 namespace App\Services;
 
-use App\Services\AzureDocumentIntelligenceService;
+use App\Services\DocumentIntelligenceService;
+use App\Models\CanonicalFieldMapping;
+use App\Models\DocusealTemplate;
+use App\Models\ManufacturerDocusealMapping;
 use App\Models\Order\Manufacturer;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Str;
 
 /**
- * Intelligent Template Analysis Service
+ * TemplateIntelligenceService
  * 
- * Uses Azure Document Intelligence and advanced pattern matching
- * to automatically detect manufacturers, document types, and field mappings
- * from Docuseal template content.
+ * This service bridges the gap between Docuseal templates and our canonical field system
+ * using Azure Document Intelligence for automatic field detection and mapping suggestions.
  */
 class TemplateIntelligenceService
 {
-    private AzureDocumentIntelligenceService $documentIntelligence;
+    private DocumentIntelligenceService $documentIntelligence;
 
-    public function __construct(AzureDocumentIntelligenceService $documentIntelligence)
+    public function __construct(DocumentIntelligenceService $documentIntelligence)
     {
         $this->documentIntelligence = $documentIntelligence;
     }
@@ -253,14 +257,21 @@ class TemplateIntelligenceService
             }
 
             // Use Document Intelligence to analyze the PDF
-            $analysisResult = $this->documentIntelligence->analyzeDocument($pdfUrl);
+            $analysisResult = $this->documentIntelligence->extractFilledFormData($pdfUrl);
 
             if ($analysisResult['success']) {
-                $extractedText = $analysisResult['content']['pages'][0]['lines'] ?? [];
-                $headerText = $this->extractHeaderText($extractedText);
+                $extractedData = $analysisResult['data'] ?? [];
+                $headerText = '';
+                
+                // Extract text from the structured data
+                foreach ($extractedData as $key => $value) {
+                    if (is_array($value) && isset($value['value'])) {
+                        $headerText .= $value['value'] . ' ';
+                    }
+                }
 
                 // Analyze header for manufacturer and document type
-                $contentAnalysis = $this->analyzeExtractedContent($headerText, $extractedText);
+                $contentAnalysis = $this->analyzeExtractedContent($headerText, $extractedData);
                 
                 if ($contentAnalysis['manufacturer']) {
                     $result['manufacturer'] = $this->getOrCreateManufacturer($contentAnalysis['manufacturer']);
@@ -329,7 +340,7 @@ class TemplateIntelligenceService
     /**
      * Analyze extracted content for manufacturer and document type
      */
-    private function analyzeExtractedContent(string $headerText, array $allLines): array
+    private function analyzeExtractedContent(string $headerText, array $extractedData): array
     {
         $result = [
             'manufacturer' => null,
@@ -364,14 +375,65 @@ class TemplateIntelligenceService
             }
         }
 
+        // Extract all text from the extracted data
+        $fullText = $headerText;
+        foreach ($extractedData as $key => $value) {
+            if (is_array($value) && isset($value['value'])) {
+                $fullText .= ' ' . $value['value'];
+            }
+        }
+
         // Determine document type from content
-        $fullText = $headerText . ' ' . implode(' ', array_map(fn($line) => $line['content'] ?? '', $allLines));
         $result['document_type'] = $this->determineDocumentTypeFromContent($fullText);
 
         // Detect form fields for additional context
-        $result['detected_fields'] = $this->detectFormFields($allLines);
+        $result['detected_fields'] = $this->detectFormFieldsFromData($extractedData);
 
         return $result;
+    }
+
+    /**
+     * Detect form fields from extracted data
+     */
+    private function detectFormFieldsFromData(array $extractedData): array
+    {
+        $detectedFields = [];
+        
+        foreach ($extractedData as $fieldName => $fieldData) {
+            if (is_array($fieldData) && isset($fieldData['value'])) {
+                $detectedFields[] = [
+                    'name' => $fieldName,
+                    'type' => $this->guessFieldTypeFromName($fieldName),
+                    'value' => $fieldData['value'],
+                    'confidence' => $fieldData['confidence'] ?? 80
+                ];
+            }
+        }
+
+        return $detectedFields;
+    }
+
+    /**
+     * Guess field type from field name
+     */
+    private function guessFieldTypeFromName(string $fieldName): string
+    {
+        $lowerName = strtolower($fieldName);
+        
+        if (strpos($lowerName, 'date') !== false || strpos($lowerName, 'dob') !== false) {
+            return 'date';
+        }
+        if (strpos($lowerName, 'email') !== false) {
+            return 'email';
+        }
+        if (strpos($lowerName, 'phone') !== false || strpos($lowerName, 'tel') !== false) {
+            return 'phone';
+        }
+        if (strpos($lowerName, 'check') !== false || strpos($lowerName, 'agree') !== false) {
+            return 'checkbox';
+        }
+        
+        return 'text';
     }
 
     /**
