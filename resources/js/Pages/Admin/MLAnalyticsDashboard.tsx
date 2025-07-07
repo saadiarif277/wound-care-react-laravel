@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Inertia } from '@inertiajs/inertia';
-import { Head, usePage } from '@inertiajs/inertia-react';
+import { router } from '@inertiajs/react';
+import { Head, usePage } from '@inertiajs/react';
 import { 
-  FiBrain, 
+  FiInfo, 
   FiTrendingUp, 
   FiTrendingDown, 
   FiTarget, 
@@ -14,15 +14,14 @@ import {
   FiCheckCircle,
   FiXCircle,
   FiSettings,
-  FiInfo,
   FiDatabase,
   FiClock,
-  FiBarChart3,
+  FiBarChart,
   FiPieChart
 } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import AdminLayout from '@/layouts/AdminLayout';
+import MainLayout from '@/Layouts/MainLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 
@@ -183,7 +182,7 @@ const MLAnalyticsDashboard: React.FC<Props> = ({
 
   if (!analyticsData.system_status.ml_available) {
     return (
-      <AdminLayout>
+      <MainLayout>
         <Head title="ML Analytics Dashboard" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <Card className={cn(t.glass.card, "p-8 text-center")}>
@@ -215,12 +214,12 @@ const MLAnalyticsDashboard: React.FC<Props> = ({
             </div>
           </Card>
         </div>
-      </AdminLayout>
+      </MainLayout>
     );
   }
 
   return (
-    <AdminLayout>
+    <MainLayout>
       <Head title="ML Analytics Dashboard" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
@@ -372,7 +371,7 @@ const MLAnalyticsDashboard: React.FC<Props> = ({
           <Card className={cn(t.glass.card)}>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <FiBarChart3 className="w-5 h-5 mr-2" />
+                <FiBarChart className="w-5 h-5 mr-2" />
                 Performance Trend
               </CardTitle>
             </CardHeader>
@@ -604,7 +603,7 @@ const MLAnalyticsDashboard: React.FC<Props> = ({
           </CardContent>
         </Card>
       </div>
-    </AdminLayout>
+    </MainLayout>
   );
 };
 

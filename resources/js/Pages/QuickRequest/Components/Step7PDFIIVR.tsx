@@ -1,10 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
-import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload, FiBrain, FiMail, FiSend, FiFileText } from 'react-icons/fi';
+import { FiCheckCircle, FiAlertCircle, FiCheck, FiInfo, FiRefreshCw, FiUpload, FiMail, FiSend, FiFileText } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
-import { getIVRFormByManufacturer } from '@/config/localIVRFormMapping';
 import FieldMappingConfidence from '@/Components/ML/FieldMappingConfidence';
 
 // NEW: Manufacturer IVR System - No DocuSeal dependency
@@ -213,9 +212,9 @@ export default function Step7PDFIIVR({
           if (result.success && result.data) {
             // Update form data with extracted information
             updateFormData({
-              primary_insurance_name: result.data.primary_insurance_name || formData.primary_insurance_name,
-              primary_member_id: result.data.primary_member_id || formData.primary_member_id,
-              primary_plan_type: result.data.primary_plan_type || formData.primary_plan_type,
+              primary_insurance_name: result.data.primary_insurance_name || (formData as any).primary_insurance_name,
+              primary_member_id: result.data.primary_member_id || (formData as any).primary_member_id,
+              primary_plan_type: result.data.primary_plan_type || (formData as any).primary_plan_type,
               insurance_extraction_confidence: result.data.confidence || 0,
               insurance_extraction_processed: true,
             });
@@ -717,7 +716,7 @@ export default function Step7PDFIIVR({
       <div className={cn("p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
         <div className="flex items-center justify-between mb-3">
           <h3 className={cn("text-lg font-semibold", t.text.primary)}>
-            <FiBrain className="inline mr-2" />
+            <FiInfo className="inline mr-2" />
             AI Field Mapping
           </h3>
           {isProcessingML && (
@@ -745,7 +744,6 @@ export default function Step7PDFIIVR({
             <FieldMappingConfidence
               mlResults={mlResults}
               onFeedback={handleMLFeedback}
-              isReadOnly={false}
             />
           </div>
         ) : mlError ? (
@@ -805,7 +803,7 @@ export default function Step7PDFIIVR({
                     : 'bg-blue-600 hover:bg-blue-700 text-white'
                 )}
               >
-                <FiEye className="mr-1 h-4 w-4" />
+                <FiFileText className="mr-1 h-4 w-4" />
                 View PDF
               </a>
               

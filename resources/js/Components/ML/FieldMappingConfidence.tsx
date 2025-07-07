@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FiBrain, 
+import {
   FiCheck, 
   FiX, 
   FiAlertTriangle, 
@@ -119,7 +118,7 @@ export const FieldMappingConfidence: React.FC<Props> = ({
     return (
       <div className={cn(t.glass.card, "p-4 rounded-lg", className)}>
         <div className="flex items-center text-center">
-          <FiBrain className={cn("w-5 h-5 mr-2", t.text.muted)} />
+          <FiInfo className={cn("w-5 h-5 mr-2", t.text.muted)} />
           <span className={cn("text-sm", t.text.secondary)}>
             ML field mapping not available
           </span>
@@ -134,7 +133,7 @@ export const FieldMappingConfidence: React.FC<Props> = ({
       <div className={cn(t.glass.card, "p-4 rounded-lg")}>
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
-            <FiBrain className={cn("w-5 h-5 mr-2", t.text.primary)} />
+            <FiTrendingUp className={cn("w-5 h-5 mr-2", t.text.primary)} />
             <h3 className={cn("text-lg font-semibold", t.text.primary)}>
               ML Field Mapping Analysis
             </h3>
