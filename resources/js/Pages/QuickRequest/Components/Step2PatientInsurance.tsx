@@ -6,7 +6,6 @@ import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
-import DocumentUploadCard from '@/Components/DocumentUploadCard';
 
 
 interface Step2Props {
