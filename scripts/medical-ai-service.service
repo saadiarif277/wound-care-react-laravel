@@ -1,0 +1,27 @@
+[Unit]
+Description=Medical AI Service
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/wound-care-react-laravel/scripts
+Environment=AZURE_OPENAI_ENDPOINT=https://msc-ai-services.openai.azure.com/
+Environment=AZURE_OPENAI_API_KEY=CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P
+Environment=AZURE_OPENAI_DEPLOYMENT=gpt-4o
+Environment=AZURE_OPENAI_API_VERSION=2024-02-15-preview
+Environment=ENABLE_LOCAL_FALLBACK=true
+Environment=API_HOST=0.0.0.0
+Environment=API_PORT=8080
+Environment=CACHE_TTL=3600
+ExecStartPre=/bin/bash -c 'cd /var/www/wound-care-react-laravel/scripts && source ai_service_env/bin/activate'
+ExecStart=/var/www/wound-care-react-laravel/scripts/ai_service_env/bin/python -m uvicorn medical_ai_service:app --host 0.0.0.0 --port 8080
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target 

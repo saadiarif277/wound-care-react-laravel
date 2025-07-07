@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any
 from dataclasses import dataclass, asdict
 from enum import Enum
 from pathlib import Path
+from contextlib import asynccontextmanager
 import re # Added for PHP config parsing
 
 import uvicorn
@@ -508,20 +509,64 @@ manufacturer_knowledge_base = ManufacturerMappingKnowledgeBase()
 # Azure OpenAI Client
 class AzureAIAgent:
     def __init__(self):
-        if not Config.AZURE_OPENAI_ENDPOINT or not Config.AZURE_OPENAI_API_KEY:
-            raise ValueError("Azure OpenAI configuration is required")
-        
-        self.client = AzureOpenAI(
-            azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
-            api_key=Config.AZURE_OPENAI_API_KEY,
-            api_version=Config.AZURE_OPENAI_API_VERSION
-        )
-        
-        # Cache for responses
+        self.client = None
         self.cache = TTLCache(maxsize=1000, ttl=Config.CACHE_TTL)
+        self.is_available = False
+        
+        # Validate Azure OpenAI configuration
+        missing_vars = []
+        if not Config.AZURE_OPENAI_ENDPOINT:
+            missing_vars.append("AZURE_OPENAI_ENDPOINT")
+        if not Config.AZURE_OPENAI_API_KEY:
+            missing_vars.append("AZURE_OPENAI_API_KEY")
+        
+        if missing_vars:
+            logger.warning(f"Azure OpenAI configuration incomplete. Missing: {', '.join(missing_vars)}")
+            if not Config.ENABLE_LOCAL_FALLBACK:
+                raise ValueError(f"Azure OpenAI configuration is required. Missing environment variables: {', '.join(missing_vars)}")
+            logger.info("Continuing with local fallback mode enabled")
+            return
+        
+        try:
+            # Initialize Azure OpenAI client
+            self.client = AzureOpenAI(
+                azure_endpoint=Config.AZURE_OPENAI_ENDPOINT,
+                api_key=Config.AZURE_OPENAI_API_KEY,
+                api_version=Config.AZURE_OPENAI_API_VERSION
+            )
+            
+            # Test the connection
+            self._test_connection()
+            self.is_available = True
+            logger.info("✅ Azure OpenAI client initialized successfully")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize Azure OpenAI client: {e}")
+            if not Config.ENABLE_LOCAL_FALLBACK:
+                raise
+            logger.info("Continuing with local fallback mode")
+    
+    def _test_connection(self):
+        """Test Azure OpenAI connection with a simple request"""
+        try:
+            response = self.client.chat.completions.create(
+                model=Config.AZURE_OPENAI_DEPLOYMENT,
+                messages=[{"role": "user", "content": "Test connection"}],
+                max_tokens=1,
+                temperature=0
+            )
+            logger.info("Azure OpenAI connection test successful")
+        except Exception as e:
+            logger.warning(f"Azure OpenAI connection test failed: {e}")
+            raise
     
     async def validate_medical_terms(self, terms: List[str], context: DocumentType) -> Dict:
         """Validate medical terms using Azure OpenAI with medical knowledge"""
+        # Use local fallback if Azure AI is not available
+        if not self.is_available or not self.client:
+            logger.info("Azure AI not available, using local fallback for validation")
+            return self._fallback_validation(terms, context)
+        
         cache_key = f"validate_{hash(str(terms))}_{context}"
         
         if cache_key in self.cache:
@@ -560,6 +605,11 @@ class AzureAIAgent:
     
     async def map_fields(self, ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None, manufacturer_name: Optional[str] = None) -> Dict:
         """Map OCR fields to target schema using Azure OpenAI with manufacturer-specific mappings"""
+        # Use local fallback if Azure AI is not available
+        if not self.is_available or not self.client:
+            logger.info("Azure AI not available, using local fallback for field mapping")
+            return self._fallback_mapping(ocr_data, document_type, manufacturer_name)
+        
         cache_key = f"map_{hash(str(ocr_data))}_{document_type}_{manufacturer_name or 'generic'}"
         
         if cache_key in self.cache:
@@ -569,6 +619,7 @@ class AzureAIAgent:
         # Get manufacturer-specific mappings if available
         manufacturer_config = None
         if manufacturer_name:
+            global manufacturer_knowledge_base
             manufacturer_config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
         
         prompt = self._build_mapping_prompt(ocr_data, document_type, target_schema, manufacturer_config)
@@ -791,26 +842,26 @@ Return JSON format:
             "processing_method": "local_fallback"
         }
 
-    def _fallback_mapping(self, ocr_data: Dict, document_type: DocumentType) -> Dict:
+    def _fallback_mapping(self, ocr_data: Dict, document_type: DocumentType, manufacturer_name: Optional[str] = None) -> Dict:
         """Local fallback mapping when Azure AI is unavailable"""
         logger.warning("Using local fallback mapping")
         
-        mapped_fields = {}
-        confidence_scores = {}
+        # Use enhanced local mapping instead of simple mapping
+        result = _local_map_fields(ocr_data, document_type)
         
-        # Simple rule-based mapping
-        for key, value in ocr_data.items():
-            mapped_key = key.lower().replace(' ', '_')
-            mapped_fields[mapped_key] = value
-            confidence_scores[mapped_key] = 0.6
+        # Add manufacturer-specific mappings if available
+        if manufacturer_name:
+            global manufacturer_knowledge_base
+            manufacturer_config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
+            if manufacturer_config and manufacturer_config.get('docuseal_field_names'):
+                result = self._apply_manufacturer_field_mappings(result, manufacturer_config)
         
-        return {
-            "mapped_fields": mapped_fields,
-            "confidence_scores": confidence_scores,
-            "quality_grade": "C",
-            "suggestions": ["Consider using Azure AI for better accuracy"],
-            "processing_notes": ["Local fallback mapping used"]
-        }
+        # Update processing notes to indicate fallback mode
+        if 'processing_notes' not in result:
+            result['processing_notes'] = []
+        result['processing_notes'].append("Azure AI unavailable - used enhanced local fallback")
+        
+        return result
 
     def _get_relevant_terms(self, context: DocumentType) -> Dict:
         """Get relevant terminology based on context"""
@@ -899,7 +950,7 @@ def _local_validate_terms(terms: List[str], context: DocumentType) -> Dict:
     }
 
 def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None) -> Dict:
-    """Enhanced local field mapping with intelligent matching"""
+    """Enhanced local field mapping with intelligent matching and OCR error correction"""
     logger.info(f"Using enhanced local mapping for {document_type}")
     
     mapped_fields = {}
@@ -910,76 +961,90 @@ def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema
     # Get appropriate schema
     schema = target_schema or _get_default_schema_dict(document_type)
     
-    # Enhanced field mapping logic
+    # Enhanced field mapping logic with multiple passes
     for ocr_key, ocr_value in ocr_data.items():
         best_match = None
         best_confidence = 0.0
+        mapping_method = "unknown"
         
-        ocr_key_normalized = ocr_key.lower().replace(' ', '_').replace('-', '_')
+        # Preprocess OCR key
+        ocr_key_clean = _clean_ocr_text(ocr_key)
+        ocr_key_normalized = ocr_key_clean.lower().replace(' ', '_').replace('-', '_')
         
-        # Try exact matches first
+        # Pass 1: Exact matches
         for schema_key in schema.keys():
             schema_key_normalized = schema_key.lower().replace(' ', '_').replace('-', '_')
             
             if ocr_key_normalized == schema_key_normalized:
                 best_match = schema_key
                 best_confidence = 0.95
+                mapping_method = "exact_match"
                 break
             elif ocr_key_normalized in schema_key_normalized or schema_key_normalized in ocr_key_normalized:
-                if best_confidence < 0.8:
+                if best_confidence < 0.85:
                     best_match = schema_key
-                    best_confidence = 0.8
+                    best_confidence = 0.85
+                    mapping_method = "substring_match"
         
-        # Semantic matching for common fields
-        if not best_match:
-            field_mappings = {
-                'member': ['member_id', 'member_name', 'member_number'],
-                'insurance': ['insurance_company', 'insurance_plan', 'plan_type'],
-                'group': ['group_number', 'group_id'],
-                'effective': ['effective_date', 'start_date'],
-                'copay': ['copay', 'copayment', 'primary_care_copay', 'specialist_copay'],
-                'name': ['patient_name', 'member_name', 'first_name', 'last_name'],
-                'date': ['date_of_birth', 'dob', 'effective_date', 'date_of_service'],
-                'wound': ['wound_location', 'wound_type', 'wound_size'],
-                'diagnosis': ['primary_diagnosis', 'diagnosis']
-            }
-            
-            for keyword, possible_fields in field_mappings.items():
-                if keyword in ocr_key_normalized:
-                    for field in possible_fields:
-                        if field in schema:
-                            best_match = field
-                            best_confidence = 0.7
-                            break
-                    if best_match:
-                        break
+        # Pass 2: Fuzzy string matching for OCR errors
+        if not best_match or best_confidence < 0.8:
+            for schema_key in schema.keys():
+                similarity = _calculate_string_similarity(ocr_key_normalized, schema_key.lower().replace(' ', '_').replace('-', '_'))
+                if similarity > 0.8 and similarity > best_confidence:
+                    best_match = schema_key
+                    best_confidence = similarity
+                    mapping_method = "fuzzy_match"
+        
+        # Pass 3: Medical context-aware semantic matching
+        if not best_match or best_confidence < 0.75:
+            semantic_match, semantic_confidence = _semantic_field_matching(ocr_key_normalized, schema, document_type)
+            if semantic_confidence > best_confidence:
+                best_match = semantic_match
+                best_confidence = semantic_confidence
+                mapping_method = "semantic_match"
+        
+        # Pass 4: Pattern-based matching for specific document types
+        if not best_match or best_confidence < 0.7:
+            pattern_match, pattern_confidence = _pattern_based_matching(ocr_key, ocr_value, schema, document_type)
+            if pattern_confidence > best_confidence:
+                best_match = pattern_match
+                best_confidence = pattern_confidence
+                mapping_method = "pattern_match"
+        
+        # Pass 5: Medical terminology validation
+        if best_match and ocr_value:
+            # Validate medical content and adjust confidence
+            medical_confidence = _validate_medical_content(best_match, ocr_value, document_type)
+            best_confidence = (best_confidence + medical_confidence) / 2
         
         # Use the OCR key if no good match found
         if not best_match:
             best_match = ocr_key_normalized
-            best_confidence = 0.5
-            
-        mapped_fields[best_match] = ocr_value
+            best_confidence = 0.4
+            mapping_method = "fallback"
+        
+        # Apply OCR error correction to the value
+        corrected_value = _correct_ocr_errors(ocr_value, best_match, document_type)
+        
+        mapped_fields[best_match] = corrected_value
         confidence_scores[best_match] = best_confidence
+        
+        # Add debug info for low confidence mappings
+        if best_confidence < 0.6:
+            processing_notes.append(f"Low confidence mapping: '{ocr_key}' → '{best_match}' ({mapping_method})")
     
-    # Calculate quality grade
-    avg_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0
-    if avg_confidence >= 0.9:
-        quality_grade = "A"
-    elif avg_confidence >= 0.8:
-        quality_grade = "B" 
-    elif avg_confidence >= 0.7:
-        quality_grade = "B-"
-    elif avg_confidence >= 0.6:
-        quality_grade = "C"
-    else:
-        quality_grade = "D"
+    # Post-processing: Apply medical domain logic
+    mapped_fields, confidence_scores = _apply_medical_domain_logic(mapped_fields, confidence_scores, document_type)
+    
+    # Quality scoring with enhanced criteria
+    avg_confidence, quality_grade = _calculate_enhanced_quality_score(confidence_scores, mapped_fields, schema)
     
     processing_notes.append(f"Enhanced local mapping completed with {len(mapped_fields)} fields")
     processing_notes.append(f"Average confidence: {avg_confidence:.2f}")
+    processing_notes.append(f"Field coverage: {len(mapped_fields)}/{len(schema)} schema fields")
     
-    if avg_confidence < 0.8:
-        suggestions.append("Consider enabling Azure AI for higher accuracy mapping")
+    # Generate intelligent suggestions
+    suggestions = _generate_mapping_suggestions(mapped_fields, confidence_scores, schema, avg_confidence)
     
     return {
         "mapped_fields": mapped_fields,
@@ -988,6 +1053,369 @@ def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema
         "suggestions": suggestions,
         "processing_notes": processing_notes
     }
+
+# Enhanced mapping helper functions
+def _clean_ocr_text(text: str) -> str:
+    """Clean and normalize OCR text for better matching"""
+    if not text:
+        return ""
+    
+    # Common OCR error corrections
+    ocr_corrections = {
+        'O': '0',  # Letter O to number 0
+        'I': '1',  # Letter I to number 1
+        'S': '5',  # Letter S to number 5 in numeric contexts
+        'l': '1',  # Lowercase l to number 1
+        '|': 'I',  # Pipe to letter I
+        'rn': 'm', # Common OCR error
+        'cl': 'd', # Common OCR error
+    }
+    
+    # Remove extra whitespace
+    cleaned = ' '.join(text.split())
+    
+    # Remove special characters that are likely OCR artifacts
+    cleaned = cleaned.replace('°', '').replace('~', '').replace('`', "'")
+    
+    # Apply common corrections in non-alphabetic contexts
+    if any(char.isdigit() for char in cleaned):
+        for wrong, correct in ocr_corrections.items():
+            if wrong in ['O', 'I', 'S', 'l']:
+                cleaned = cleaned.replace(wrong, correct)
+    
+    return cleaned
+
+def _calculate_string_similarity(str1: str, str2: str) -> float:
+    """Calculate string similarity using a combination of metrics"""
+    if not str1 or not str2:
+        return 0.0
+    
+    # Exact match
+    if str1 == str2:
+        return 1.0
+    
+    # Levenshtein distance similarity
+    def levenshtein_similarity(s1, s2):
+        if len(s1) == 0 or len(s2) == 0:
+            return 0.0
+        
+        matrix = [[0] * (len(s2) + 1) for _ in range(len(s1) + 1)]
+        
+        for i in range(len(s1) + 1):
+            matrix[i][0] = i
+        for j in range(len(s2) + 1):
+            matrix[0][j] = j
+        
+        for i in range(1, len(s1) + 1):
+            for j in range(1, len(s2) + 1):
+                if s1[i-1] == s2[j-1]:
+                    matrix[i][j] = matrix[i-1][j-1]
+                else:
+                    matrix[i][j] = min(
+                        matrix[i-1][j] + 1,    # deletion
+                        matrix[i][j-1] + 1,    # insertion
+                        matrix[i-1][j-1] + 1   # substitution
+                    )
+        
+        distance = matrix[len(s1)][len(s2)]
+        max_len = max(len(s1), len(s2))
+        return 1 - (distance / max_len)
+    
+    # Jaccard similarity for sets of characters
+    def jaccard_similarity(s1, s2):
+        set1, set2 = set(s1), set(s2)
+        intersection = len(set1 & set2)
+        union = len(set1 | set2)
+        return intersection / union if union > 0 else 0
+    
+    # Combine metrics
+    levenshtein_sim = levenshtein_similarity(str1, str2)
+    jaccard_sim = jaccard_similarity(str1, str2)
+    
+    # Weighted average (Levenshtein is more important for field names)
+    return 0.7 * levenshtein_sim + 0.3 * jaccard_sim
+
+def _semantic_field_matching(ocr_key: str, schema: Dict, document_type: DocumentType) -> tuple:
+    """Perform semantic field matching based on medical context"""
+    best_match = None
+    best_confidence = 0.0
+    
+    # Medical field semantic mappings
+    field_mappings = {
+        DocumentType.INSURANCE_CARD: {
+            'member': ['member_id', 'member_name', 'member_number', 'subscriber_id'],
+            'insurance': ['insurance_company', 'insurance_plan', 'plan_type', 'payer_name'],
+            'group': ['group_number', 'group_id', 'employer_group'],
+            'effective': ['effective_date', 'start_date', 'coverage_start'],
+            'copay': ['copay', 'copayment', 'primary_care_copay', 'specialist_copay'],
+            'deductible': ['deductible', 'annual_deductible', 'family_deductible'],
+            'plan': ['plan_type', 'plan_name', 'benefit_plan'],
+            'id': ['member_id', 'policy_id', 'subscriber_id'],
+            'phone': ['phone', 'phone_number', 'contact_phone'],
+            'address': ['address', 'member_address', 'billing_address']
+        },
+        DocumentType.CLINICAL_NOTE: {
+            'patient': ['patient_name', 'patient_first_name', 'patient_last_name'],
+            'name': ['patient_name', 'member_name', 'first_name', 'last_name'],
+            'date': ['date_of_service', 'visit_date', 'appointment_date'],
+            'diagnosis': ['primary_diagnosis', 'diagnosis', 'icd10_code'],
+            'wound': ['wound_location', 'wound_type', 'wound_size', 'wound_description'],
+            'treatment': ['treatment_plan', 'treatment', 'intervention'],
+            'medication': ['medications', 'prescribed_medications', 'current_medications'],
+            'physician': ['physician_name', 'provider_name', 'attending_physician']
+        },
+        DocumentType.WOUND_PHOTO: {
+            'location': ['wound_location', 'anatomical_location', 'body_site'],
+            'size': ['wound_size', 'dimensions', 'measurements'],
+            'length': ['length', 'wound_length', 'longest_dimension'],
+            'width': ['width', 'wound_width', 'widest_dimension'],
+            'depth': ['depth', 'wound_depth', 'deepest_measurement'],
+            'stage': ['staging', 'wound_stage', 'pressure_ulcer_stage'],
+            'characteristics': ['wound_characteristics', 'appearance', 'description']
+        }
+    }
+    
+    # Get mappings for document type
+    type_mappings = field_mappings.get(document_type, {})
+    
+    # Check semantic matches
+    for keyword, possible_fields in type_mappings.items():
+        if keyword in ocr_key:
+            for field in possible_fields:
+                if field in schema:
+                    confidence = 0.8 - (0.1 * len(keyword))  # Longer keywords get higher confidence
+                    if confidence > best_confidence:
+                        best_match = field
+                        best_confidence = min(confidence, 0.9)  # Cap at 90%
+                        break
+    
+    return best_match, best_confidence
+
+def _pattern_based_matching(ocr_key: str, ocr_value: str, schema: Dict, document_type: DocumentType) -> tuple:
+    """Pattern-based field matching using value patterns"""
+    best_match = None
+    best_confidence = 0.0
+    
+    # Analyze the value to infer field type
+    if ocr_value:
+        # Date patterns
+        date_patterns = [
+            r'\d{1,2}[/-]\d{1,2}[/-]\d{2,4}',
+            r'\d{4}[/-]\d{1,2}[/-]\d{1,2}',
+            r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}'
+        ]
+        
+        # Currency patterns
+        currency_patterns = [
+            r'\$\d+\.?\d*',
+            r'\d+\.\d{2}\s*\$?'
+        ]
+        
+        # Phone patterns
+        phone_patterns = [
+            r'\(\d{3}\)\s*\d{3}-\d{4}',
+            r'\d{3}-\d{3}-\d{4}',
+            r'\d{10}'
+        ]
+        
+        # ID patterns
+        id_patterns = [
+            r'[A-Z]{2,3}\d{6,}',
+            r'\d{8,12}',
+            r'[A-Z]\d{7,}'
+        ]
+        
+        import re
+        
+        # Check patterns and suggest fields
+        if any(re.search(pattern, ocr_value) for pattern in date_patterns):
+            date_fields = [k for k in schema.keys() if 'date' in k.lower() or 'dob' in k.lower()]
+            if date_fields:
+                best_match = date_fields[0]
+                best_confidence = 0.8
+        
+        elif any(re.search(pattern, ocr_value) for pattern in currency_patterns):
+            currency_fields = [k for k in schema.keys() if 'copay' in k.lower() or 'deductible' in k.lower() or 'cost' in k.lower()]
+            if currency_fields:
+                best_match = currency_fields[0]
+                best_confidence = 0.75
+        
+        elif any(re.search(pattern, ocr_value) for pattern in phone_patterns):
+            phone_fields = [k for k in schema.keys() if 'phone' in k.lower()]
+            if phone_fields:
+                best_match = phone_fields[0]
+                best_confidence = 0.85
+        
+        elif any(re.search(pattern, ocr_value) for pattern in id_patterns):
+            id_fields = [k for k in schema.keys() if 'id' in k.lower() or 'number' in k.lower()]
+            if id_fields:
+                best_match = id_fields[0]
+                best_confidence = 0.7
+    
+    return best_match, best_confidence
+
+def _validate_medical_content(field_name: str, field_value: str, document_type: DocumentType) -> float:
+    """Validate medical content and return confidence adjustment"""
+    if not field_value:
+        return 0.5
+    
+    confidence = 0.5  # Base confidence
+    
+    # Get relevant medical terms for validation
+    relevant_terms = _get_relevant_terms_dict(document_type)
+    all_terms = set()
+    for category_terms in relevant_terms.values():
+        all_terms.update(category_terms)
+    
+    # Check if field value contains medical terms
+    value_lower = field_value.lower().replace(' ', '_').replace('-', '_')
+    
+    # Higher confidence for recognized medical terms
+    if any(term in value_lower or value_lower in term for term in all_terms):
+        confidence = 0.9
+    
+    # Field-specific validation
+    if 'name' in field_name.lower() and len(field_value.split()) >= 2:
+        confidence = 0.8  # Names should have multiple parts
+    elif 'date' in field_name.lower():
+        # Basic date validation
+        if any(char.isdigit() for char in field_value) and ('/' in field_value or '-' in field_value):
+            confidence = 0.9
+    elif 'id' in field_name.lower() or 'number' in field_name.lower():
+        # IDs should contain alphanumeric characters
+        if field_value.replace('-', '').replace(' ', '').isalnum():
+            confidence = 0.8
+    
+    return confidence
+
+def _correct_ocr_errors(text: str, field_name: str, document_type: DocumentType) -> str:
+    """Apply OCR error corrections based on field context"""
+    if not text:
+        return text
+    
+    corrected = text
+    
+    # Field-specific corrections
+    if 'date' in field_name.lower():
+        # Common date OCR errors
+        corrected = corrected.replace('O', '0').replace('l', '1').replace('I', '1')
+        
+    elif 'phone' in field_name.lower():
+        # Phone number corrections
+        corrected = ''.join(c if c.isdigit() or c in '()-. ' else '' for c in corrected)
+        
+    elif 'id' in field_name.lower() or 'number' in field_name.lower():
+        # ID/Number corrections
+        corrected = corrected.replace('O', '0').replace('l', '1').replace('I', '1')
+        
+    elif 'name' in field_name.lower():
+        # Name corrections - capitalize properly
+        words = corrected.split()
+        corrected = ' '.join(word.capitalize() for word in words if word.isalpha())
+    
+    return corrected
+
+def _apply_medical_domain_logic(mapped_fields: Dict, confidence_scores: Dict, document_type: DocumentType) -> tuple:
+    """Apply medical domain-specific logic and validation"""
+    
+    # Domain-specific field validation
+    if document_type == DocumentType.INSURANCE_CARD:
+        # Ensure member ID exists and is reasonable
+        if 'member_id' in mapped_fields:
+            member_id = mapped_fields['member_id']
+            if len(str(member_id)) < 3:  # Too short for a member ID
+                confidence_scores['member_id'] *= 0.5
+        
+        # Cross-validate dates
+        if 'effective_date' in mapped_fields and 'date_of_birth' in mapped_fields:
+            # Effective date should be after DOB (basic sanity check)
+            pass  # Could implement actual date comparison
+    
+    elif document_type == DocumentType.WOUND_PHOTO:
+        # Validate wound measurements
+        measurement_fields = ['length', 'width', 'depth']
+        for field in measurement_fields:
+            if field in mapped_fields:
+                value = str(mapped_fields[field])
+                # Should contain numbers and possibly units
+                if not any(c.isdigit() for c in value):
+                    confidence_scores[field] *= 0.3
+    
+    return mapped_fields, confidence_scores
+
+def _calculate_enhanced_quality_score(confidence_scores: Dict, mapped_fields: Dict, schema: Dict) -> tuple:
+    """Calculate enhanced quality score with multiple criteria"""
+    if not confidence_scores:
+        return 0.0, "F"
+    
+    # Calculate average confidence
+    avg_confidence = sum(confidence_scores.values()) / len(confidence_scores)
+    
+    # Calculate field coverage (how many schema fields were mapped)
+    coverage_ratio = len(mapped_fields) / len(schema) if schema else 0
+    
+    # Calculate quality adjustments
+    high_confidence_fields = sum(1 for conf in confidence_scores.values() if conf >= 0.8)
+    high_confidence_ratio = high_confidence_fields / len(confidence_scores)
+    
+    # Composite score
+    composite_score = (
+        0.5 * avg_confidence +
+        0.3 * coverage_ratio +
+        0.2 * high_confidence_ratio
+    )
+    
+    # Letter grade assignment
+    if composite_score >= 0.9:
+        grade = "A+"
+    elif composite_score >= 0.85:
+        grade = "A"
+    elif composite_score >= 0.8:
+        grade = "A-"
+    elif composite_score >= 0.75:
+        grade = "B+"
+    elif composite_score >= 0.7:
+        grade = "B"
+    elif composite_score >= 0.65:
+        grade = "B-"
+    elif composite_score >= 0.6:
+        grade = "C+"
+    elif composite_score >= 0.55:
+        grade = "C"
+    elif composite_score >= 0.5:
+        grade = "C-"
+    elif composite_score >= 0.4:
+        grade = "D"
+    else:
+        grade = "F"
+    
+    return composite_score, grade
+
+def _generate_mapping_suggestions(mapped_fields: Dict, confidence_scores: Dict, schema: Dict, avg_confidence: float) -> List[str]:
+    """Generate intelligent suggestions for improving mapping quality"""
+    suggestions = []
+    
+    # Overall quality suggestions
+    if avg_confidence < 0.6:
+        suggestions.append("⚠️  Low overall confidence - consider manual review of field mappings")
+    elif avg_confidence < 0.8:
+        suggestions.append("Consider enabling Azure AI for higher accuracy mapping")
+    
+    # Missing field suggestions
+    unmapped_fields = set(schema.keys()) - set(mapped_fields.keys())
+    if unmapped_fields:
+        suggestions.append(f"📋 Missing {len(unmapped_fields)} schema fields: {', '.join(list(unmapped_fields)[:3])}")
+    
+    # Low confidence field suggestions
+    low_confidence_fields = [field for field, conf in confidence_scores.items() if conf < 0.5]
+    if low_confidence_fields:
+        suggestions.append(f"🔍 Review low confidence fields: {', '.join(low_confidence_fields[:3])}")
+    
+    # Document-specific suggestions
+    if len(mapped_fields) < 3:
+        suggestions.append("📄 Very few fields detected - check document quality and OCR accuracy")
+    
+    return suggestions
 
 def _get_relevant_terms_dict(context: DocumentType) -> Dict:
     """Get relevant terminology based on context"""
@@ -1030,11 +1458,34 @@ def _get_default_schema_dict(document_type: DocumentType) -> Dict:
     }
     return schemas.get(document_type, {})
 
+# Global instances
+ai_agent = None
+form_mapping_knowledge_base = FormMappingKnowledgeBase()
+manufacturer_knowledge_base = ManufacturerMappingKnowledgeBase()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    global ai_agent
+    try:
+        ai_agent = AzureAIAgent()
+        logger.info("Medical AI Service started successfully")
+    except Exception as e:
+        logger.error(f"Failed to initialize Azure AI Agent: {e}")
+        if not Config.ENABLE_LOCAL_FALLBACK:
+            raise
+    
+    yield
+    
+    # Shutdown
+    logger.info("Medical AI Service shutting down")
+
 # FastAPI Application
 app = FastAPI(
     title="Medical AI Service",
     description="AI-powered medical terminology validation and field mapping",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS middleware
@@ -1046,28 +1497,29 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Global AI agent instance
-ai_agent = None
-
-@app.on_event("startup")
-async def startup_event():
-    global ai_agent
-    try:
-        ai_agent = AzureAIAgent()
-        logger.info("Medical AI Service started successfully")
-    except Exception as e:
-        logger.error(f"Failed to initialize Azure AI Agent: {e}")
-        if not Config.ENABLE_LOCAL_FALLBACK:
-            raise
+# Global instances are now managed by lifespan
 
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
+    azure_ai_status = "unavailable"
+    if ai_agent:
+        if ai_agent.is_available:
+            azure_ai_status = "available"
+        else:
+            azure_ai_status = "configured_but_failed"
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "azure_ai_available": ai_agent is not None,
-        "local_fallback_enabled": Config.ENABLE_LOCAL_FALLBACK
+        "azure_ai_status": azure_ai_status,
+        "azure_ai_available": ai_agent is not None and ai_agent.is_available,
+        "local_fallback_enabled": Config.ENABLE_LOCAL_FALLBACK,
+        "services": {
+            "ai_agent": "running" if ai_agent else "not_initialized",
+            "knowledge_base": "loaded",
+            "manufacturer_configs": len(manufacturer_knowledge_base.list_manufacturers()) if manufacturer_knowledge_base else 0
+        }
     }
 
 @app.post("/validate-terms", response_model=ValidationResponse)
@@ -1143,6 +1595,7 @@ async def get_terminology_stats():
         total_terms += domain_total
     
     # Get manufacturer knowledge base stats
+    global manufacturer_knowledge_base
     manufacturer_stats = manufacturer_knowledge_base.get_manufacturer_stats()
     
     return {
@@ -1156,6 +1609,7 @@ async def get_terminology_stats():
 async def get_manufacturers():
     """Get list of available manufacturers and their configurations"""
     try:
+        global manufacturer_knowledge_base
         manufacturers = manufacturer_knowledge_base.list_manufacturers()
         manufacturer_details = {}
         
@@ -1183,6 +1637,7 @@ async def get_manufacturers():
 async def get_manufacturer_config(manufacturer_name: str):
     """Get detailed configuration for a specific manufacturer"""
     try:
+        global manufacturer_knowledge_base
         config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
         if not config:
             raise HTTPException(status_code=404, detail=f"Manufacturer '{manufacturer_name}' not found")

@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  medical-ai-service:
+    build: .
+    container_name: medical-ai-service
+    ports:
+      - "8080:8080"
+    environment:
+      - AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT:-https://msc-ai-services.openai.azure.com/}
+      - AZURE_OPENAI_API_KEY=${AZURE_OPENAI_API_KEY}
+      - AZURE_OPENAI_DEPLOYMENT=${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}
+      - AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}
+      - ENABLE_LOCAL_FALLBACK=${ENABLE_LOCAL_FALLBACK:-true}
+      - API_HOST=0.0.0.0
+      - API_PORT=8080
+      - CACHE_TTL=${CACHE_TTL:-3600}
+    volumes:
+      - ../config:/app/config:ro
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - medical-ai-network
+
+  # Optional: Redis for caching (if needed)
+  redis:
+    image: redis:7-alpine
+    container_name: medical-ai-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - medical-ai-network
+
+networks:
+  medical-ai-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local 
