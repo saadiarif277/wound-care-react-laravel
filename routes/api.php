@@ -28,6 +28,8 @@ use App\Http\Controllers\Api\OrderReviewController;
 use App\Http\Controllers\Api\DocumentIntelligenceController;
 use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
+use App\Http\Controllers\Api\V1\SalesRepController;
+use App\Http\Controllers\Api\V1\SalesRepCommissionController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {
@@ -450,6 +452,39 @@ Route::middleware(['auth:sanctum', 'permission:approve-commissions'])->group(fun
 
 Route::middleware(['auth:sanctum', 'permission:process-commissions'])->group(function () {
     Route::post('/commissions/{commission}/process', [CommissionController::class, 'process']);
+});
+
+// Sales Rep Management Routes
+Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
+    // Sales Rep Management (Admin)
+    Route::prefix('sales-reps')->middleware(['permission:sales_reps.view'])->group(function () {
+        Route::get('/', [SalesRepController::class, 'index'])->name('api.sales-reps.index');
+        Route::get('/{id}', [SalesRepController::class, 'show'])->name('api.sales-reps.show');
+        Route::get('/{id}/provider-assignments', [SalesRepController::class, 'providerAssignments'])->name('api.sales-reps.provider-assignments');
+        Route::get('/{id}/facility-assignments', [SalesRepController::class, 'facilityAssignments'])->name('api.sales-reps.facility-assignments');
+        Route::get('/{id}/performance', [SalesRepController::class, 'performance'])->name('api.sales-reps.performance');
+    });
+
+    Route::prefix('sales-reps')->middleware(['permission:sales_reps.create'])->group(function () {
+        Route::post('/', [SalesRepController::class, 'store'])->name('api.sales-reps.store');
+    });
+
+    Route::prefix('sales-reps')->middleware(['permission:sales_reps.edit'])->group(function () {
+        Route::put('/{id}', [SalesRepController::class, 'update'])->name('api.sales-reps.update');
+    });
+
+    Route::prefix('sales-reps')->middleware(['permission:sales_reps.delete'])->group(function () {
+        Route::delete('/{id}', [SalesRepController::class, 'destroy'])->name('api.sales-reps.destroy');
+    });
+
+    // Sales Rep Commission Routes (Own data access)
+    Route::prefix('commissions/sales-rep')->middleware(['permission:commissions.view_own'])->group(function () {
+        Route::get('/summary', [SalesRepCommissionController::class, 'summary'])->name('api.commissions.sales-rep.summary');
+        Route::get('/details', [SalesRepCommissionController::class, 'details'])->name('api.commissions.sales-rep.details');
+        Route::get('/analytics', [SalesRepCommissionController::class, 'analytics'])->name('api.commissions.sales-rep.analytics');
+        Route::get('/payouts', [SalesRepCommissionController::class, 'payouts'])->name('api.commissions.sales-rep.payouts');
+        Route::get('/payouts/{payoutId}/statement', [SalesRepCommissionController::class, 'downloadStatement'])->name('api.commissions.sales-rep.statement');
+    });
 });
 
 // Health check route (secured)

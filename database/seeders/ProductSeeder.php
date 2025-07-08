@@ -299,6 +299,18 @@ class ProductSeeder extends Seeder
             $productData['manufacturer_id'] = $manufacturer->id;
             unset($productData['manufacturer']); // Remove the string field
 
+            // Ensure category exists in categories table
+            $categoryName = $productData['category'];
+            $category = \App\Models\Order\Category::firstOrCreate(
+                ['name' => $categoryName],
+                [
+                    'name' => $categoryName,
+                    'slug' => \Illuminate\Support\Str::slug($categoryName),
+                    'description' => "Auto-created category for {$categoryName} products",
+                    'is_active' => true,
+                ]
+            );
+
             // Create or update the product
             $product = Product::firstOrCreate(
                 ['q_code' => $productData['q_code']],
@@ -309,7 +321,7 @@ class ProductSeeder extends Seeder
             );
 
             if ($product->wasRecentlyCreated) {
-                $this->command->info("✅ Created product: {$product->name} ({$product->q_code}) - Manufacturer: {$manufacturer->name}");
+                $this->command->info("✅ Created product: {$product->name} ({$product->q_code}) - Manufacturer: {$manufacturer->name} - Category: {$category->name}");
 
                 // Create sizes if provided
                 if ($sizeLabels && is_array($sizeLabels)) {
