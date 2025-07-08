@@ -156,7 +156,13 @@ Route::prefix('v1/order-form')->middleware(['auth:sanctum'])->group(function () 
         ->name('api.order_form.status');
 });
 
-// Quick Request Order Summary routes moved to web.php
+// Quick Request Order Summary routes - using Sanctum for SPA authentication
+Route::prefix('v1/quick-request')->middleware(['auth:sanctum'])->group(function () {
+    Route::get('order-summary/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'showOrderSummary']);
+    Route::get('order-status/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'getOrderStatus']);
+    Route::post('create-draft-episode', [App\Http\Controllers\QuickRequestController::class, 'createDraftEpisode']);
+    Route::post('create-ivr-submission', [App\Http\Controllers\QuickRequestController::class, 'createIvrSubmission']);
+});
 
 // Order Review API routes
 Route::prefix('v1')->middleware(['auth:sanctum'])->group(function () {
@@ -802,7 +808,19 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
         ->name('api.ai.agent.status');
 });
 
-// QuickRequest AI Routes moved to web.php
+// QuickRequest AI Routes - using Sanctum for SPA authentication
+Route::prefix('quick-request')->middleware(['auth:sanctum'])->group(function () {
+    Route::post('/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.quick-request.generate-ivr');
+    
+    Route::post('/validate', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'validateFormData'])
+        ->middleware('permission:create-product-requests')
+        ->name('api.quick-request.validate');
+    
+    Route::get('/user-permissions', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'getUserPermissions'])
+        ->name('api.quick-request.user-permissions');
+});
 
 // Payer Search Routes
 Route::middleware(['web'])->group(function () {

@@ -378,24 +378,62 @@ class QuickRequestController extends Controller
 
         // If facility_id is provided, try to load from database
         if ($facilityId) {
-            // First try the regular Facility model (used in QuickRequestService)
-            $facility = \App\Models\Fhir\Facility::find($facilityId);
+            try {
+                $facility = \App\Models\Fhir\Facility::with('organization')->find($facilityId);
 
-            if ($facility) {
-                return [
-                    'id' => $facility->id,
-                    'name' => $facility->name,
-                    'address' => $facility->address ?? '',
-                    'address_line1' => $facility->address ?? '',
-                    'address_line2' => $facility->address_line2 ?? '',
-                    'city' => $facility->city ?? '',
-                    'state' => $facility->state ?? '',
-                    'zip' => $facility->zip_code ?? '',
-                    'phone' => $facility->phone ?? '',
-                    'npi' => $facility->npi ?? '',
-                ];
+                if ($facility) {
+                    Log::info('Successfully loaded facility data for QuickRequest', [
+                        'facility_id' => $facilityId,
+                        'facility_name' => $facility->name,
+                        'has_address' => !empty($facility->address),
+                        'has_organization' => !empty($facility->organization)
+                    ]);
+
+                    return [
+                        'id' => $facility->id,
+                        'name' => $facility->name,
+                        'address' => $facility->address ?? '',
+                        'address_line1' => $facility->address ?? '',
+                        'address_line2' => $facility->address_line2 ?? '',
+                        'city' => $facility->city ?? '',
+                        'state' => $facility->state ?? '',
+                        'zip' => $facility->zip_code ?? '',
+                        'zip_code' => $facility->zip_code ?? '', // Alias
+                        'phone' => $facility->phone ?? '',
+                        'fax' => $facility->fax ?? '',
+                        'email' => $facility->email ?? '',
+                        'npi' => $facility->npi ?? '',
+                        'group_npi' => $facility->group_npi ?? '',
+                        'tax_id' => $facility->tax_id ?? '',
+                        'tin' => $facility->tax_id ?? '', // Alias for DocuSeal templates
+                        'ptan' => $facility->ptan ?? '',
+                        'medicaid_number' => $facility->medicaid_number ?? '',
+                        'medicare_admin_contractor' => $facility->medicare_admin_contractor ?? '',
+                        'place_of_service' => $facility->default_place_of_service ?? '',
+                        'facility_type' => $facility->facility_type ?? '',
+                        'contact_name' => $facility->contact_name ?? '',
+                        'contact_phone' => $facility->contact_phone ?? '',
+                        'contact_email' => $facility->contact_email ?? '',
+                        'contact_fax' => $facility->contact_fax ?? '',
+                        'business_hours' => $facility->business_hours ?? '',
+                        'organization_id' => $facility->organization_id ?? null,
+                        'organization_name' => $facility->organization?->name ?? '',
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to load facility data from database', [
+                    'facility_id' => $facilityId,
+                    'error' => $e->getMessage()
+                ]);
             }
         }
+
+        // Log fallback usage for debugging
+        Log::warning('QuickRequest facility data falling back to defaults', [
+            'facility_id_provided' => $facilityId,
+            'form_data_keys' => array_keys($formData),
+            'has_facility_name_in_form' => isset($formData['facility_name'])
+        ]);
 
         // Fallback: use form data or defaults
         return [
@@ -407,8 +445,25 @@ class QuickRequestController extends Controller
             'city' => $formData['facility_city'] ?? '',
             'state' => $formData['facility_state'] ?? '',
             'zip' => $formData['facility_zip'] ?? '',
+            'zip_code' => $formData['facility_zip'] ?? '',
             'phone' => $formData['facility_phone'] ?? '',
+            'fax' => $formData['facility_fax'] ?? '',
+            'email' => $formData['facility_email'] ?? '',
             'npi' => $formData['facility_npi'] ?? '',
+            'group_npi' => $formData['facility_group_npi'] ?? '',
+            'tax_id' => $formData['facility_tax_id'] ?? '',
+            'tin' => $formData['facility_tax_id'] ?? '',
+            'ptan' => $formData['facility_ptan'] ?? '',
+            'medicaid_number' => $formData['facility_medicaid_number'] ?? '',
+            'medicare_admin_contractor' => $formData['facility_medicare_admin_contractor'] ?? '',
+            'place_of_service' => $formData['place_of_service'] ?? '',
+            'facility_type' => $formData['facility_type'] ?? '',
+            'contact_name' => $formData['facility_contact_name'] ?? '',
+            'contact_phone' => $formData['facility_contact_phone'] ?? '',
+            'contact_email' => $formData['facility_contact_email'] ?? '',
+            'contact_fax' => $formData['facility_contact_fax'] ?? '',
+            'organization_id' => $formData['organization_id'] ?? null,
+            'organization_name' => $formData['organization_name'] ?? '',
         ];
     }
 

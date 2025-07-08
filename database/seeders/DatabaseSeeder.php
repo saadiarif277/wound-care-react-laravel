@@ -66,6 +66,8 @@ class DatabaseSeeder extends Seeder
             'patient_manufacturer_ivr_episodes',
 
             // Core entity tables
+            'product_sizes',
+            'products',
             'diagnosis_codes',
             'wound_types',
             'insurance_product_rules',

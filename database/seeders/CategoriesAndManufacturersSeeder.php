@@ -86,17 +86,17 @@ class CategoriesAndManufacturersSeeder extends Seeder
 
         // Create Manufacturers based on Wound Care Products Catalog and CMS Data
         $manufacturers = [
-            // From CMS Data - Current Distributors
+            // From CMS Data - Current Distributors (names match ProductSeeder exactly)
             [
-                'name' => 'ACZ & ASSOCIATES',
+                'name' => 'ACZ & Associates',
                 'notes' => 'Distributor of Ensano ACA, Revoshield+ Amnio, and Dermabind FM products',
             ],
             [
-                'name' => 'ADVANCED SOLUTION',
+                'name' => 'Advanced Solution',
                 'notes' => 'Distributor of Complete FT, Membrane Wrap, and Complete AA products',
             ],
             [
-                'name' => 'BIOWOUND SOLUTIONS',
+                'name' => 'BioWound Solutions',
                 'notes' => 'Distributor of Membrane Wrap Hydro, NeoStim product line (TL, DL, SL), Amnio-Maxx, and Derm-maxx products',
             ],
             [
@@ -104,11 +104,11 @@ class CategoriesAndManufacturersSeeder extends Seeder
                 'notes' => 'Distributor of Restorigin and Coll-e-derm products',
             ],
             [
-                'name' => 'MEDLIFE SOLUTIONS',
+                'name' => 'MedLife Solutions',
                 'notes' => 'Distributor of Amnio AMP products',
             ],
             [
-                'name' => 'IMBED',
+                'name' => 'Imbed',
                 'notes' => 'Distributor of Microlyte products',
             ],
             // Legacy Manufacturers for backward compatibility
@@ -132,11 +132,11 @@ class CategoriesAndManufacturersSeeder extends Seeder
                 'notes' => 'Leading manufacturer of EpiFix and EpiCord amniotic membrane products',
             ],
             [
-                'name' => 'CENTURION THERAPEUTICS',
+                'name' => 'Centurion Therapeutics',
                 'notes' => 'Distributor of Amnio AMP products',
             ],
             [
-                'name' => 'STABILITY BIOLOGICS, LLC',
+                'name' => 'Stability Biologics, LLC',
                 'notes' => 'Manufacturer of AmnioCore product line (Pro, Pro+, Quad-Core, Tri-Core, AmnioCore)',
             ],
         ];
