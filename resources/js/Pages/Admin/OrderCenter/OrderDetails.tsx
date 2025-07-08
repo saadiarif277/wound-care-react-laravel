@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Head, router } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { Button } from '@/Components/Button';
@@ -8,7 +8,6 @@ import IVRDocumentSection from './IVRDocumentSection';
 import ClinicalSection from './ClinicalSection';
 import ProviderSection from './ProviderSection';
 import AdditionalDocumentsSection from './AdditionalDocumentsSection';
-import { OrderModals } from '@/Pages/QuickRequest/Orders/order/OrderModals';
 import ManufacturerSubmissionModal from './ManufacturerSubmissionModal';
 import { ArrowLeft } from 'lucide-react';
 
@@ -29,11 +28,117 @@ interface Order {
   action_required: boolean;
   episode_id?: string;
   docuseal_submission_id?: string;
+  place_of_service?: string;
+  place_of_service_display?: string;
+  wound_type?: string;
+  wound_type_display?: string;
+  expected_service_date?: string;
+}
+
+interface OrderData {
+  patient: {
+    name: string;
+    firstName?: string;
+    lastName?: string;
+    dob?: string;
+    gender?: string;
+    phone?: string;
+    email?: string;
+    address?: string;
+    memberId?: string;
+    displayId?: string;
+    isSubscriber?: boolean;
+  };
+  insurance: {
+    primary: {
+      name: string;
+      memberId?: string;
+      planType?: string;
+    };
+    secondary: {
+      name?: string;
+      memberId?: string;
+      planType?: string;
+    };
+    hasSecondary?: boolean;
+  };
+  product: {
+    name: string;
+    code: string;
+    quantity: number;
+    size: string;
+    category: string;
+    manufacturer: string;
+    manufacturerId?: number;
+    selectedProducts?: Array<{
+      product_id: number;
+      quantity: number;
+    }>;
+    shippingInfo: {
+      speed: string;
+      instructions?: string;
+    };
+  };
+  clinical: {
+    woundType: string;
+    woundLocation?: string;
+    size: string;
+    depth?: string;
+    diagnosisCodes?: string[];
+    primaryDiagnosis?: string;
+    clinicalNotes?: string;
+    failedConservativeTreatment?: boolean;
+  };
+  provider: {
+    id?: number;
+    name: string;
+    npi?: string;
+    email?: string;
+  };
+  facility: {
+    id?: number;
+    name?: string;
+    address?: string;
+    phone?: string;
+  };
+  forms: {
+    ivrStatus: string;
+    docusealStatus: string;
+    consent: boolean;
+    assignmentOfBenefits: boolean;
+    medicalNecessity: boolean;
+    authorizePriorAuth?: boolean;
+  };
+  orderPreferences?: {
+    expectedServiceDate?: string;
+    shippingSpeed?: string;
+    placeOfService?: string;
+    deliveryInstructions?: string;
+  };
+  attestations?: {
+    failedConservativeTreatment?: boolean;
+    informationAccurate?: boolean;
+    medicalNecessityEstablished?: boolean;
+    maintainDocumentation?: boolean;
+    authorizePriorAuth?: boolean;
+  };
+  adminNotes?: {
+    note?: string;
+    addedAt?: string;
+  };
+  manufacturerFields?: any[];
+  documents?: any[];
+  preAuth?: {
+    required?: boolean;
+    status?: string;
+    submittedAt?: string;
+    approvedAt?: string;
+    deniedAt?: string;
+  };
 }
 
 interface OrderDetailsProps {
-  order: Order;
-  orderData?: any; // The detailed order data from backend
+  order: Order & OrderData;
   can_update_status: boolean;
   can_view_ivr: boolean;
   userRole?: 'Provider' | 'OM' | 'Admin';
@@ -49,17 +154,45 @@ interface OrderDetailsProps {
   navigationRoute?: string;
 }
 
-const OrderDetails: React.FC<OrderDetailsProps> = ({ 
-  order, 
-  orderData: propOrderData,
-  can_update_status, 
+const OrderDetails: React.FC<OrderDetailsProps> = ({
+  order,
+  can_update_status,
   can_view_ivr,
-  userRole: propUserRole,
+  userRole = 'Admin',
   roleRestrictions,
-  navigationRoute 
+  navigationRoute
 }) => {
-  const [userRole, setUserRole] = useState<'Provider' | 'OM' | 'Admin'>(propUserRole || 'Admin');
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
+  // Debug: Check if order has the required data
+  console.log('OrderDetails Debug:', {
+    order,
+    hasPatient: !!order.patient,
+    patientName: order.patient?.name,
+    hasInsurance: !!order.insurance,
+    hasClinical: !!order.clinical,
+    hasProduct: !!order.product,
+  });
+
+  // Add error handling for missing order data
+  if (!order.patient || !order.insurance || !order.clinical || !order.product) {
+    return (
+      <MainLayout>
+        <Head title="Order Details - Error" />
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-xl font-semibold text-red-800 mb-2">Error Loading Order Details</h2>
+            <p className="text-red-700">The order data could not be loaded. Please try refreshing the page or contact support.</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            >
+              Refresh Page
+            </button>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+  const [openSections, setOpenSections] = useState({
     patient: true,
     product: true,
     ivrDocument: true,
@@ -67,302 +200,14 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
     provider: true,
     documents: true,
   });
-  const [showSubmitModal, setShowSubmitModal] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showNoteModal, setShowNoteModal] = useState(false);
   const [showManufacturerSubmissionModal, setShowManufacturerSubmissionModal] = useState(false);
-  const [confirmationChecked, setConfirmationChecked] = useState(false);
-  const [adminNote, setAdminNote] = useState('');
-  const [orderSubmitted, setOrderSubmitted] = useState(false);
-  const [notificationMessage, setNotificationMessage] = useState<{ type: 'success' | 'error', message: string } | null>(null);
-  const enhancedOrderData = propOrderData || {};
+  const [notificationMessage, setNotificationMessage] = useState<{
+    type: 'success' | 'error',
+    message: string
+  } | null>(null);
 
-  // IVR and Order Form data based on real data or defaults
-  const [ivrData, setIVRData] = useState<{
-    status: string;
-    sentDate: string;
-    resultsReceivedDate: string;
-    verifiedDate: string;
-    notes: string;
-    resultsFileUrl: string;
-    rejectionReason: string;
-    files: Array<{
-      id: string;
-      name: string;
-      type: string;
-      uploadedAt: string;
-      uploadedBy: string;
-      fileSize: string;
-      url: string;
-    }>;
-  }>({
-    status: order.ivr_status || 'Pending',
-    sentDate: '',
-    resultsReceivedDate: '',
-    verifiedDate: '',
-    notes: '',
-    resultsFileUrl: '',
-    rejectionReason: '',
-    files: [],
-  });
-  const [orderFormData, setOrderFormData] = useState<{
-    status: string;
-    submissionDate: string;
-    reviewDate: string;
-    approvalDate: string;
-    notes: string;
-    fileUrl: string;
-    rejectionReason: string;
-    cancellationReason: string;
-    packingSlipUrl: string;
-    trackingNumber: string;
-    carrier: string;
-    files: Array<{
-      id: string;
-      name: string;
-      type: string;
-      uploadedAt: string;
-      uploadedBy: string;
-      fileSize: string;
-      url: string;
-    }>;
-  }>({
-    status: order.order_form_status || 'Draft',
-    submissionDate: '',
-    reviewDate: '',
-    approvalDate: '',
-    notes: '',
-    fileUrl: '',
-    rejectionReason: '',
-    cancellationReason: '',
-    packingSlipUrl: '',
-    trackingNumber: '',
-    carrier: '',
-    files: [],
-  });
-
-    // Handlers for IVR and Order Form status updates
-  const handleUpdateIVRStatus = async (data: any) => {
-    const { status, comments, rejectionReason, sendNotification } = data;
-
-    try {
-      // Map frontend status values to backend expected values
-      const statusMapping: Record<string, string> = {
-        'Sent': 'sent',
-        'Verified': 'verified',
-        'Rejected': 'rejected',
-        'Pending': 'pending',
-        'N/A': 'n/a',
-      };
-
-      const backendStatus = statusMapping[status] || status.toLowerCase().replace(/ /g, '_');
-
-      // Call backend API to update order status
-      console.log('Updating IVR status for order:', order.id, 'with data:', { status, backendStatus, comments, rejectionReason, sendNotification });
-      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: backendStatus,
-          status_type: 'ivr',
-          notes: comments,
-          rejection_reason: rejectionReason,
-          send_notification: sendNotification,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-
-        // Update local state
-        setIVRData((prev) => ({
-          ...prev,
-          status,
-          notes: comments || '',
-          rejectionReason: rejectionReason || '',
-          ...(status === 'Sent' && { sentDate: new Date().toLocaleDateString() }),
-          ...(status === 'Verified' && { verifiedDate: new Date().toLocaleDateString() }),
-        }));
-
-        // Show success notification
-        setNotificationMessage({
-          type: 'success',
-          message: result.message || 'IVR status updated successfully!'
-        });
-        setTimeout(() => setNotificationMessage(null), 5000);
-      } else {
-        console.error('Response not OK:', response.status, response.statusText);
-        const responseText = await response.text();
-        console.error('Response body:', responseText);
-
-        try {
-          const error = JSON.parse(responseText);
-          setNotificationMessage({
-            type: 'error',
-            message: error.error || 'Failed to update IVR status'
-          });
-        } catch (parseError) {
-          setNotificationMessage({
-            type: 'error',
-            message: `Failed to update IVR status (${response.status}): ${responseText.substring(0, 100)}`
-          });
-        }
-        setTimeout(() => setNotificationMessage(null), 5000);
-      }
-
-    } catch (error) {
-      console.error('Error updating IVR status:', error);
-      setNotificationMessage({
-        type: 'error',
-        message: 'Failed to update IVR status. Please try again.'
-      });
-      setTimeout(() => setNotificationMessage(null), 5000);
-    }
-  };
-
-  const handleUploadIVRResults = (file: File) => {
-    const newFile = {
-      id: Date.now().toString(),
-      name: file.name,
-      type: file.type,
-      uploadedAt: new Date().toISOString(),
-      uploadedBy: 'Admin',
-      fileSize: `${(file.size / 1024).toFixed(1)} KB`,
-      url: URL.createObjectURL(file),
-    };
-
-    setIVRData((prev) => ({
-      ...prev,
-      resultsFileUrl: file.name,
-      resultsReceivedDate: new Date().toLocaleDateString(),
-      files: [...prev.files, newFile],
-    }));
-  };
-
-    const handleUpdateOrderFormStatus = async (data: any) => {
-    const { status, comments, rejectionReason, cancellationReason, sendNotification, carrier, trackingNumber } = data;
-
-    try {
-      // Map frontend status values to backend expected values
-      const statusMapping: Record<string, string> = {
-        'Submitted to Manufacturer': 'submitted_to_manufacturer',
-        'Confirmed by Manufacturer': 'confirmed_by_manufacturer',
-        'Rejected': 'rejected',
-        'Canceled': 'canceled',
-        'Pending': 'pending',
-      };
-
-      const backendStatus = statusMapping[status] || status.toLowerCase().replace(/ /g, '_');
-
-      // Call backend API to update order status
-      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: backendStatus,
-          status_type: 'order',
-          notes: comments,
-          rejection_reason: rejectionReason,
-          cancellation_reason: cancellationReason,
-          send_notification: sendNotification,
-          carrier,
-          tracking_number: trackingNumber,
-        }),
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-
-        // Update local state
-        setOrderFormData((prev) => ({
-          ...prev,
-          status,
-          notes: comments || '',
-          rejectionReason: rejectionReason || '',
-          cancellationReason: cancellationReason || '',
-          carrier: carrier || '',
-          trackingNumber: trackingNumber || '',
-          ...(status === 'Submitted to Manufacturer' && { submissionDate: new Date().toLocaleDateString() }),
-          ...(status === 'Confirmed by Manufacturer' && { approvalDate: new Date().toLocaleDateString() }),
-        }));
-
-        // Show success notification
-        setNotificationMessage({
-          type: 'success',
-          message: result.message || 'Order form status updated successfully!'
-        });
-        setTimeout(() => setNotificationMessage(null), 5000);
-      } else {
-        const error = await response.json();
-        setNotificationMessage({
-          type: 'error',
-          message: error.error || 'Failed to update order form status'
-        });
-        setTimeout(() => setNotificationMessage(null), 5000);
-      }
-
-    } catch (error) {
-      console.error('Error updating order form status:', error);
-      setNotificationMessage({
-        type: 'error',
-        message: 'Failed to update order form status. Please try again.'
-      });
-      setTimeout(() => setNotificationMessage(null), 5000);
-    }
-  };
-
-  const handleSendNotification = async (type: 'ivr' | 'order', status: string, comments: string) => {
-    try {
-      // Send email notification via Mailtrap
-      const response = await fetch('/api/admin/send-notification', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          type,
-          orderId: order.order_number,
-          status,
-          comments,
-          recipientEmail: 'provider@example.com', // This would come from the order data
-          recipientName: order.provider_name,
-        }),
-      });
-
-      if (response.ok) {
-        console.log('Notification sent successfully');
-        setNotificationMessage({
-          type: 'success',
-          message: `Status updated and notification sent successfully!`
-        });
-        // Clear notification after 3 seconds
-        setTimeout(() => setNotificationMessage(null), 3000);
-      } else {
-        console.error('Failed to send notification');
-        setNotificationMessage({
-          type: 'error',
-          message: 'Status updated but notification failed to send. Please try again.'
-        });
-        setTimeout(() => setNotificationMessage(null), 5000);
-      }
-    } catch (error) {
-      console.error('Error sending notification:', error);
-      setNotificationMessage({
-        type: 'error',
-        message: 'Status updated but notification failed to send. Please try again.'
-      });
-      setTimeout(() => setNotificationMessage(null), 5000);
-    }
-  };
-
-  const formatDate = (dateString: string): string => {
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
       month: 'short',
@@ -370,20 +215,92 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
     });
   };
 
-  const toggleSection = (section: string) => {
+  const toggleSection = (section: keyof typeof openSections) => {
     setOpenSections(prev => ({
       ...prev,
       [section]: !prev[section]
     }));
   };
 
-  const isOrderComplete = () => {
-    // Add your order completion logic here
-    return true;
+  const handleUpdateIVRStatus = async (data: any) => {
+    try {
+      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          status: data.status,
+          status_type: 'ivr',
+          notes: data.comments,
+          rejection_reason: data.rejectionReason,
+          send_notification: data.sendNotification,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setNotificationMessage({
+          type: 'success',
+          message: result.message || 'IVR status updated successfully!'
+        });
+      } else {
+        const error = await response.json();
+        setNotificationMessage({
+          type: 'error',
+          message: error.error || 'Failed to update IVR status'
+        });
+      }
+    } catch (error) {
+      setNotificationMessage({
+        type: 'error',
+        message: 'Failed to update IVR status. Please try again.'
+      });
+    }
+    setTimeout(() => setNotificationMessage(null), 5000);
   };
 
-  const handleSubmitOrder = () => {
-    setShowSubmitModal(true);
+  const handleUpdateOrderFormStatus = async (data: any) => {
+    try {
+      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+        body: JSON.stringify({
+          status: data.status,
+          status_type: 'order',
+          notes: data.comments,
+          rejection_reason: data.rejectionReason,
+          cancellation_reason: data.cancellationReason,
+          send_notification: data.sendNotification,
+          carrier: data.carrier,
+          tracking_number: data.trackingNumber,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        setNotificationMessage({
+          type: 'success',
+          message: result.message || 'Order form status updated successfully!'
+        });
+      } else {
+        const error = await response.json();
+        setNotificationMessage({
+          type: 'error',
+          message: error.error || 'Failed to update order form status'
+        });
+      }
+    } catch (error) {
+      setNotificationMessage({
+        type: 'error',
+        message: 'Failed to update order form status. Please try again.'
+      });
+    }
+    setTimeout(() => setNotificationMessage(null), 5000);
   };
 
   const handleManufacturerSubmission = async (data: any) => {
@@ -409,285 +326,293 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             shipping_phone: data.shippingPhone,
             shipping_email: data.shippingEmail,
             special_instructions: data.specialInstructions,
-            submitted_at: new Date().toISOString(),
-            submitted_by: 'Admin',
           },
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
-
-        // Show success notification with email status
-        const message = data.sendNotification && result.notification_sent
-          ? 'Order submitted to manufacturer successfully! Email notification sent.'
-          : 'Order submitted to manufacturer successfully!';
-
         setNotificationMessage({
           type: 'success',
-          message: message
+          message: data.sendNotification && result.notification_sent
+            ? 'Order submitted to manufacturer successfully! Email notification sent.'
+            : 'Order submitted to manufacturer successfully!'
         });
-        setTimeout(() => setNotificationMessage(null), 5000);
-
-        // Update order form status
-        setOrderFormData((prev) => ({
-          ...prev,
-          status: 'Submitted to Manufacturer',
-          carrier: data.carrier,
-          trackingNumber: data.trackingNumber,
-          submissionDate: new Date().toLocaleDateString(),
-        }));
       } else {
         const error = await response.json();
         setNotificationMessage({
           type: 'error',
           message: error.error || 'Failed to submit to manufacturer'
         });
-        setTimeout(() => setNotificationMessage(null), 5000);
       }
     } catch (error) {
-      console.error('Error submitting to manufacturer:', error);
       setNotificationMessage({
         type: 'error',
         message: 'Failed to submit to manufacturer. Please try again.'
       });
-      setTimeout(() => setNotificationMessage(null), 5000);
     }
+    setTimeout(() => setNotificationMessage(null), 5000);
   };
-
-  const confirmSubmission = () => {
-    setShowSubmitModal(false);
-    setOrderSubmitted(true);
-    setShowSuccessModal(true);
-  };
-
-  const handleAddNote = () => {
-    setShowNoteModal(false);
-    // Handle adding note logic
-  };
-
-  const finishSubmission = () => {
-    setShowSuccessModal(false);
-    window.history.back();
-  };
-
-  // Create order data structure with real data
-  const orderData = {
-    orderNumber: order.order_number,
-    createdDate: formatDate(order.created_at),
-    createdBy: order.provider_name,
-    patient: {
-      name: propOrderData?.patient?.name || order.patient_name,
-      dob: propOrderData?.patient?.dob || 'N/A',
-      gender: propOrderData?.patient?.gender || 'N/A',
-      phone: propOrderData?.patient?.phone || 'N/A',
-      address: propOrderData?.patient?.address || 'N/A',
-      insurance: {
-        primary: propOrderData?.patient?.insurance?.primary || 'N/A',
-        secondary: propOrderData?.patient?.insurance?.secondary || 'N/A',
-      },
-    },
-    product: {
-      name: propOrderData?.product?.name || order.product_name,
-      code: propOrderData?.product?.code || 'N/A',
-      quantity: propOrderData?.product?.quantity || 1,
-      size: propOrderData?.product?.size || 'N/A',
-      category: propOrderData?.product?.category || 'N/A',
-      manufacturer: propOrderData?.product?.manufacturer || order.manufacturer_name,
-      shippingInfo: {
-        speed: propOrderData?.product?.shippingInfo?.speed || 'Standard',
-        address: propOrderData?.product?.shippingInfo?.address || 'N/A',
-      },
-    },
-    forms: {
-      consent: propOrderData?.forms?.consent || false,
-      assignmentOfBenefits: propOrderData?.forms?.assignmentOfBenefits || false,
-      medicalNecessity: propOrderData?.forms?.medicalNecessity || false,
-    },
-    clinical: {
-      woundType: propOrderData?.clinical?.woundType || 'N/A',
-      location: propOrderData?.clinical?.location || 'N/A',
-      size: propOrderData?.clinical?.size || 'N/A',
-      cptCodes: propOrderData?.clinical?.cptCodes || 'N/A',
-      placeOfService: propOrderData?.clinical?.placeOfService || 'N/A',
-      failedConservativeTreatment: propOrderData?.clinical?.failedConservativeTreatment || false,
-    },
-    provider: {
-      name: propOrderData?.provider?.name || order.provider_name,
-      npi: propOrderData?.provider?.npi || 'N/A',
-      facility: propOrderData?.provider?.facility || propOrderData?.facility?.name || order.facility_name,
-    },
-    submission: {
-      informationAccurate: propOrderData?.submission?.informationAccurate || false,
-      documentationMaintained: propOrderData?.submission?.documentationMaintained || false,
-      authorizePriorAuth: propOrderData?.submission?.authorizePriorAuth || false,
-    },
-  };
-
-  // No loading state needed since data is passed from backend
 
   return (
     <MainLayout>
       <Head title={`Order Details - ${order.order_number}`} />
       <div className="container mx-auto px-4 py-8 max-w-6xl">
-          {/* Header */}
-          <div className="flex items-center gap-4 mb-8">
-            <button
-              onClick={() => {
-                if (navigationRoute) {
-                  router.get(route(navigationRoute));
-                } else if (userRole === 'Admin') {
-                  router.get(route('admin.orders.index'));
-                } else {
-                  router.get(route('dashboard'));
-                }
-              }}
-              className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-            <div className="flex-1">
-              <div className="flex items-center gap-4 mb-2">
-                <h1 className="text-3xl font-bold text-slate-900">
-                  Order Details
-                </h1>
-                <div className="flex items-center gap-2">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
-                    order.ivr_status === 'verified' ? 'text-green-600 bg-green-100' :
-                    order.ivr_status === 'sent' ? 'text-blue-600 bg-blue-100' :
-                    order.ivr_status === 'rejected' ? 'text-red-600 bg-red-100' :
-                    'text-yellow-600 bg-yellow-100'
+        {/* Header */}
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            onClick={() => {
+              if (navigationRoute) {
+                router.get(route(navigationRoute));
+              } else if (userRole === 'Admin') {
+                router.get(route('admin.orders.index'));
+              } else {
+                router.get(route('dashboard'));
+              }
+            }}
+            className="p-2 rounded-lg bg-gray-200 hover:bg-gray-300"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <div className="flex-1">
+            <div className="flex items-center gap-4 mb-2">
+              <h1 className="text-3xl font-bold text-slate-900">
+                Order Details
+              </h1>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                  order.ivr_status === 'verified' ? 'text-green-600 bg-green-100' :
+                  order.ivr_status === 'sent' ? 'text-blue-600 bg-blue-100' :
+                  order.ivr_status === 'rejected' ? 'text-red-600 bg-red-100' :
+                  'text-yellow-600 bg-yellow-100'
+                }`}>
+                  IVR: {order.ivr_status || 'Pending'}
+                </span>
+                <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
+                  order.order_form_status === 'confirmed_by_manufacturer' ? 'text-green-600 bg-green-100' :
+                  order.order_form_status === 'submitted_to_manufacturer' ? 'text-blue-600 bg-blue-100' :
+                  order.order_form_status === 'rejected' ? 'text-red-600 bg-red-100' :
+                  'text-yellow-600 bg-yellow-100'
+                }`}>
+                  Order: {order.order_form_status || 'Pending'}
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>Order #{order.order_number}</span>
+              <span>•</span>
+              <span>Created {formatDate(order.created_at)}</span>
+              <span>•</span>
+              <span>By {order.provider_name}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Order Sections */}
+        <PatientInsuranceSection
+          orderData={{
+            orderNumber: order.order_number,
+            createdDate: order.created_at,
+            createdBy: order.provider_name,
+            patient: {
+              ...order.patient,
+              dob: order.patient?.dob || 'N/A',
+              gender: order.patient?.gender || 'N/A',
+              phone: order.patient?.phone || 'N/A',
+              address: order.patient?.address || 'N/A',
+              insurance: {
+                primary: order.insurance?.primary?.name || 'N/A',
+                secondary: order.insurance?.secondary?.name || 'N/A'
+              }
+            },
+            insurance: {
+              primary: order.insurance?.primary?.name || 'N/A',
+              secondary: order.insurance?.secondary?.name || 'N/A',
+              primaryPlanType: order.insurance?.primary?.planType,
+              secondaryPlanType: order.insurance?.secondary?.planType
+            },
+            product: order.product,
+            forms: { ivrStatus: order.ivr_status, orderFormStatus: order.order_form_status },
+            clinical: order.clinical,
+            provider: order.provider,
+            submission: { documents: order.documents }
+          }}
+          isOpen={openSections.patient}
+          onToggle={() => toggleSection('patient')}
+        />
+
+        <ProductSection
+          orderData={{
+            orderNumber: order.order_number,
+            createdDate: order.created_at,
+            createdBy: order.provider_name,
+            patient: order.patient,
+            product: {
+              ...order.product,
+              shippingInfo: {
+                speed: order.product?.shippingInfo?.speed || 'standard',
+                address: order.facility?.address || 'N/A'
+              }
+            },
+            orderPreferences: {
+              expectedServiceDate: order.expected_service_date,
+              shippingSpeed: order.product?.shippingInfo?.speed,
+              placeOfService: order.place_of_service_display,
+              deliveryInstructions: order.product?.shippingInfo?.instructions
+            },
+            forms: { ivrStatus: order.ivr_status, orderFormStatus: order.order_form_status },
+            clinical: order.clinical,
+            provider: order.provider,
+            submission: { documents: order.documents },
+            total_amount: order.total_order_value
+          }}
+          userRole={userRole}
+          isOpen={openSections.product}
+          onToggle={() => toggleSection('product')}
+        />
+
+        <IVRDocumentSection
+          ivrData={{
+            status: order.ivr_status || 'N/A',
+            sentDate: order.created_at,
+            resultsReceivedDate: '',
+            verifiedDate: '',
+            notes: '',
+            resultsFileUrl: '',
+            files: order.documents || []
+          }}
+          orderFormData={{
+            status: order.order_form_status || 'N/A',
+            submissionDate: order.created_at,
+            reviewDate: '',
+            approvalDate: '',
+            notes: '',
+            fileUrl: '',
+            files: order.documents || []
+          }}
+          orderId={order.id}
+          onUpdateIVRStatus={handleUpdateIVRStatus}
+          onUploadIVRResults={() => {}}
+          onUpdateOrderFormStatus={handleUpdateOrderFormStatus}
+          onManufacturerSubmission={() => setShowManufacturerSubmissionModal(true)}
+          isOpen={openSections.ivrDocument}
+          onToggle={() => toggleSection('ivrDocument')}
+          userRole={userRole}
+        />
+
+        <ClinicalSection
+          orderData={{
+            orderNumber: order.order_number,
+            createdDate: order.created_at,
+            createdBy: order.provider_name,
+            patient: order.patient,
+            product: order.product,
+            forms: { ivrStatus: order.ivr_status, orderFormStatus: order.order_form_status },
+            clinical: {
+              ...order.clinical,
+              location: order.clinical?.woundLocation || 'N/A',
+              cptCodes: 'N/A',
+              placeOfService: order.place_of_service_display || 'N/A',
+              serviceDate: order.expected_service_date,
+              failedConservativeTreatment: order.clinical?.failedConservativeTreatment || false
+            },
+            provider: order.provider,
+            submission: { documents: order.documents }
+          }}
+          isOpen={openSections.clinical}
+          onToggle={() => toggleSection('clinical')}
+        />
+
+        <ProviderSection
+          orderData={{
+            orderNumber: order.order_number,
+            createdDate: order.created_at,
+            createdBy: order.provider_name,
+            patient: order.patient,
+            product: order.product,
+            forms: { ivrStatus: order.ivr_status, orderFormStatus: order.order_form_status },
+            clinical: order.clinical,
+            provider: order.provider,
+            facility: order.facility,
+            submission: { documents: order.documents }
+          }}
+          isOpen={openSections.provider}
+          onToggle={() => toggleSection('provider')}
+        />
+
+        <AdditionalDocumentsSection
+          documents={order.documents || []}
+          isOpen={openSections.documents}
+          onToggle={() => toggleSection('documents')}
+        />
+
+        {/* Modals */}
+        <ManufacturerSubmissionModal
+          isOpen={showManufacturerSubmissionModal}
+          onClose={() => setShowManufacturerSubmissionModal(false)}
+          onConfirm={handleManufacturerSubmission}
+          orderId={order.id.toString()}
+          orderNumber={order.order_number}
+          manufacturerName={order.manufacturer_name}
+        />
+
+        {/* Notification Toast */}
+        {notificationMessage && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+            <div className={`max-w-md w-full mx-4 p-6 rounded-lg shadow-xl ${
+              notificationMessage.type === 'success'
+                ? 'bg-green-50 border border-green-200'
+                : 'bg-red-50 border border-red-200'
+            }`}>
+              <div className="flex items-center gap-3 mb-4">
+                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                  notificationMessage.type === 'success'
+                    ? 'bg-green-100 text-green-600'
+                    : 'bg-red-100 text-red-600'
+                }`}>
+                  {notificationMessage.type === 'success' ? (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3 className={`text-lg font-semibold ${
+                    notificationMessage.type === 'success'
+                      ? 'text-green-800'
+                      : 'text-red-800'
                   }`}>
-                    IVR: {order.ivr_status || 'Pending'}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1 ${
-                    order.order_form_status === 'confirmed_by_manufacturer' ? 'text-green-600 bg-green-100' :
-                    order.order_form_status === 'submitted_to_manufacturer' ? 'text-blue-600 bg-blue-100' :
-                    order.order_form_status === 'rejected' ? 'text-red-600 bg-red-100' :
-                    'text-yellow-600 bg-yellow-100'
+                    {notificationMessage.type === 'success' ? 'Success!' : 'Error!'}
+                  </h3>
+                  <p className={`text-sm ${
+                    notificationMessage.type === 'success'
+                      ? 'text-green-700'
+                      : 'text-red-700'
                   }`}>
-                    Order: {order.order_form_status || 'Pending'}
-                  </span>
+                    {notificationMessage.message}
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>Order #{orderData.orderNumber}</span>
-                <span>•</span>
-                <span>Created {orderData.createdDate}</span>
-                <span>•</span>
-                <span>By {orderData.createdBy}</span>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setNotificationMessage(null)}
+                  className={`px-4 py-2 rounded-md text-sm font-medium ${
+                    notificationMessage.type === 'success'
+                      ? 'bg-green-600 text-white hover:bg-green-700'
+                      : 'bg-red-600 text-white hover:bg-red-700'
+                  }`}
+                >
+                  OK
+                </button>
               </div>
             </div>
           </div>
-
-          {/* Order Sections */}
-          <PatientInsuranceSection
-            orderData={orderData}
-            isOpen={!!openSections.patient}
-            onToggle={toggleSection}
-          />
-          <ProductSection
-            orderData={orderData}
-            userRole={userRole}
-            isOpen={!!openSections.product}
-            onToggle={toggleSection}
-            roleRestrictions={roleRestrictions}
-          />
-          <IVRDocumentSection
-            ivrData={ivrData}
-            orderFormData={orderFormData}
-            orderId={order.id}
-            onUpdateIVRStatus={handleUpdateIVRStatus}
-            onUploadIVRResults={handleUploadIVRResults}
-            onUpdateOrderFormStatus={handleUpdateOrderFormStatus}
-            onManufacturerSubmission={() => setShowManufacturerSubmissionModal(true)}
-            isOpen={!!openSections.ivrDocument}
-            onToggle={() => toggleSection('ivrDocument')}
-            userRole={userRole}
-          />
-          <ClinicalSection
-            orderData={orderData}
-            isOpen={!!openSections.clinical}
-            onToggle={toggleSection}
-          />
-          <ProviderSection
-            orderData={orderData}
-            isOpen={!!openSections.provider}
-            onToggle={toggleSection}
-          />
-          <AdditionalDocumentsSection
-            documents={propOrderData?.documents || []}
-            isOpen={!!openSections.documents}
-            onToggle={() => toggleSection('documents')}
-          />
-
-          {/* Modals */}
-          <ManufacturerSubmissionModal
-            isOpen={showManufacturerSubmissionModal}
-            onClose={() => setShowManufacturerSubmissionModal(false)}
-            onConfirm={handleManufacturerSubmission}
-            orderId={order.id.toString()}
-            orderNumber={order.order_number}
-            manufacturerName={order.manufacturer_name}
-          />
-
-          {/* Enhanced Notification Toast */}
-          {notificationMessage && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-              <div className={`max-w-md w-full mx-4 p-6 rounded-lg shadow-xl transform transition-all ${
-                notificationMessage.type === 'success'
-                  ? 'bg-green-50 border border-green-200'
-                  : 'bg-red-50 border border-red-200'
-              }`}>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                    notificationMessage.type === 'success'
-                      ? 'bg-green-100 text-green-600'
-                      : 'bg-red-100 text-red-600'
-                  }`}>
-                    {notificationMessage.type === 'success' ? (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                      </svg>
-                    ) : (
-                      <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                      </svg>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className={`text-lg font-semibold ${
-                      notificationMessage.type === 'success'
-                        ? 'text-green-800'
-                        : 'text-red-800'
-                    }`}>
-                      {notificationMessage.type === 'success' ? 'Success!' : 'Error!'}
-                    </h3>
-                    <p className={`text-sm ${
-                      notificationMessage.type === 'success'
-                        ? 'text-green-700'
-                        : 'text-red-700'
-                    }`}>
-                      {notificationMessage.message}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex justify-end">
-                  <button
-                    onClick={() => setNotificationMessage(null)}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      notificationMessage.type === 'success'
-                        ? 'bg-green-600 text-white hover:bg-green-700'
-                        : 'bg-red-600 text-white hover:bg-red-700'
-                    }`}
-                  >
-                    OK
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
+        )}
+      </div>
     </MainLayout>
   );
 };
