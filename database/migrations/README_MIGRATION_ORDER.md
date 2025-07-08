@@ -89,8 +89,7 @@ The DatabaseSeeder has been updated to:
 3. **Handle missing tables gracefully** with try-catch
 4. **Call seeders in correct order**:
    - CategoriesAndManufacturersSeeder (creates reference data first)
-   - DocusealFolderSeeder (creates folders before templates)
-   - DocusealTemplateSeeder (creates templates that reference folders)
+   - ManufacturerDocuSealTemplateSeeder (creates manufacturers, folders, and templates)
 
 ## Testing
 

@@ -5,8 +5,8 @@ namespace App\Services;
 use App\Services\FieldMapping\DataExtractor;
 use App\Services\FieldMapping\FieldTransformer;
 use App\Services\FieldMapping\FieldMatcher;
-use App\Models\CanonicalField;
-use App\Models\TemplateFieldMapping;
+use App\Services\DocuSeal\DynamicFieldMappingService;
+use App\Services\DocuSeal\TemplateFieldValidationService;
 use App\Models\Docuseal\DocusealTemplate;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
@@ -20,14 +20,79 @@ class UnifiedFieldMappingService
     public function __construct(
         private DataExtractor $dataExtractor,
         private FieldTransformer $fieldTransformer,
-        private FieldMatcher $fieldMatcher
+        private FieldMatcher $fieldMatcher,
+        private ?TemplateFieldValidationService $fieldValidator = null
     ) {
         $this->config = config('field-mapping');
         $this->orderFormConfig = config('order-form-mapping');
+        
+        // Initialize field validator if not provided (for dependency injection)
+        if (!$this->fieldValidator) {
+            try {
+                $this->fieldValidator = app(TemplateFieldValidationService::class);
+            } catch (\Exception $e) {
+                Log::warning('Could not initialize TemplateFieldValidationService', [
+                    'error' => $e->getMessage()
+                ]);
+                $this->fieldValidator = null;
+            }
+        }
     }
 
     /**
-     * Main entry point for all field mapping needs
+     * Enhanced entry point that can use dynamic AI mapping or fall back to static
+     */
+    public function mapEpisodeToDocuSeal(
+        ?string $episodeId,
+        string $manufacturerName,
+        string $templateId,
+        array $additionalData = [],
+        ?string $submitterEmail = null,
+        bool $useDynamicMapping = true
+    ): array {
+        // Try dynamic mapping first if enabled
+        if ($useDynamicMapping && config('docuseal-dynamic.mapping.enable_caching')) {
+            try {
+                $dynamicService = app(DynamicFieldMappingService::class);
+                $result = $dynamicService->mapEpisodeToDocuSealForm(
+                    $episodeId,
+                    $manufacturerName,
+                    $templateId,
+                    $additionalData,
+                    $submitterEmail
+                );
+                
+                Log::info('Dynamic mapping completed successfully', [
+                    'episode_id' => $episodeId,
+                    'manufacturer' => $manufacturerName,
+                    'template_id' => $templateId,
+                    'quality_grade' => $result['validation']['quality_grade'] ?? 'Unknown'
+                ]);
+                
+                return $result;
+                
+            } catch (\Exception $e) {
+                Log::warning('Dynamic mapping failed, falling back to static', [
+                    'episode_id' => $episodeId,
+                    'manufacturer' => $manufacturerName,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue to static mapping below
+            }
+        }
+        
+        // Fall back to static mapping
+        Log::info('Using static field mapping', [
+            'episode_id' => $episodeId,
+            'manufacturer' => $manufacturerName,
+            'dynamic_attempted' => $useDynamicMapping
+        ]);
+        
+        return $this->mapEpisodeToTemplate($episodeId, $manufacturerName, $additionalData, 'IVR');
+    }
+
+    /**
+     * Main entry point for all field mapping needs (original static method)
      */
     public function mapEpisodeToTemplate(
         ?string $episodeId, 
@@ -552,6 +617,30 @@ class UnifiedFieldMappingService
                     ]);
                 }
             }
+            
+            // LIFE FIX: Validate and filter fields against actual DocuSeal template
+            if ($this->fieldValidator && isset($config['docuseal_template_id']) && $config['docuseal_template_id']) {
+                try {
+                    $validatedConfig = $this->fieldValidator->filterValidFields($config);
+                    
+                    if ($validatedConfig !== $config) {
+                        Log::info("Applied field validation filter to manufacturer config", [
+                            'manufacturer' => $name,
+                            'template_id' => $config['docuseal_template_id'],
+                            'original_field_count' => count($config['docuseal_field_names'] ?? []),
+                            'filtered_field_count' => count($validatedConfig['docuseal_field_names'] ?? [])
+                        ]);
+                    }
+                    
+                    return $validatedConfig;
+                } catch (\Exception $e) {
+                    Log::warning("Field validation failed, using original config", [
+                        'manufacturer' => $name,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+            
             return $config;
         }
 
@@ -739,6 +828,36 @@ class UnifiedFieldMappingService
             $fieldNameMapping = $manufacturerConfig['order_form_field_names'];
         } else {
             $fieldNameMapping = $manufacturerConfig['docuseal_field_names'] ?? [];
+        }
+        
+        // LIFE FIX: Runtime validation to prevent invalid fields from reaching DocuSeal
+        if ($this->fieldValidator && isset($manufacturerConfig['docuseal_template_id']) && $manufacturerConfig['docuseal_template_id']) {
+            try {
+                $templateFields = $this->fieldValidator->getTemplateFields($manufacturerConfig['docuseal_template_id']);
+                
+                if (!empty($templateFields)) {
+                    // Filter out field mappings that don't exist in the actual template
+                    $originalMappingCount = count($fieldNameMapping);
+                    $fieldNameMapping = array_filter($fieldNameMapping, function($docuSealFieldName) use ($templateFields) {
+                        return in_array($docuSealFieldName, $templateFields);
+                    });
+                    
+                    $filteredCount = $originalMappingCount - count($fieldNameMapping);
+                    if ($filteredCount > 0) {
+                        Log::warning('Runtime field validation filtered out invalid mappings', [
+                            'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
+                            'template_id' => $manufacturerConfig['docuseal_template_id'],
+                            'filtered_count' => $filteredCount,
+                            'remaining_count' => count($fieldNameMapping)
+                        ]);
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning('Runtime field validation failed, proceeding with original mappings', [
+                    'manufacturer' => $manufacturerConfig['name'] ?? 'unknown',
+                    'error' => $e->getMessage()
+                ]);
+            }
         }
         
         Log::info('Starting Docuseal field conversion', [

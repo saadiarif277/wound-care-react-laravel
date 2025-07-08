@@ -30,8 +30,11 @@ class DataExtractor
                               ->orderBy('created_at', 'desc');
                     },
                     'productRequests.product',
-                    'productRequests.provider',
-                    'productRequests.facility',
+                    'productRequests.provider', // Keep basic provider
+                    'productRequests.provider.profile', // Load provider profile
+                    'productRequests.provider.providerCredentials', // Load provider credentials
+                    'productRequests.facility', // Keep basic facility
+                    'productRequests.facility.organization', // Load organization through facility
                     'productRequests.referralSource',
                 ])->findOrFail($episodeId);
 
@@ -147,7 +150,7 @@ class DataExtractor
     }
 
     /**
-     * Extract provider fields
+     * Extract provider fields - enhanced with comprehensive profile data
      */
     private function extractProviderFields($provider): array
     {
@@ -155,21 +158,71 @@ class DataExtractor
             return [];
         }
 
-        return [
+        $fields = [
+            // Basic provider info from User model
             'provider_id' => $provider->id,
             'provider_name' => trim($provider->first_name . ' ' . $provider->last_name),
             'provider_first_name' => $provider->first_name,
             'provider_last_name' => $provider->last_name,
-            'provider_npi' => $provider->npi,
             'provider_email' => $provider->email,
-            'provider_phone' => $provider->phone,
-            'provider_credentials' => $provider->credentials,
+            'provider_phone' => $provider->phone, // From User model
             'fhir_practitioner_id' => $provider->fhir_practitioner_id,
         ];
+
+        // Add provider profile data (collected during onboarding)
+        if ($provider->profile) {
+            $profile = $provider->profile;
+            $fields = array_merge($fields, [
+                'provider_npi' => $profile->npi,
+                'provider_tax_id' => $profile->tax_id,
+                'provider_tin' => $profile->tax_id, // Alias for tax_id
+                'provider_ptan' => $profile->ptan,
+                'provider_specialty' => $profile->specialty,
+                'provider_phone' => $profile->phone ?: $provider->phone, // Profile phone overrides user phone
+                'provider_fax' => $profile->fax,
+                'provider_medicaid_number' => $profile->medicaid_number,
+                'provider_medicaid' => $profile->medicaid_number, // Alias
+                'provider_verification_status' => $profile->verification_status,
+                'provider_specializations' => $profile->specializations,
+                'provider_languages_spoken' => $profile->languages_spoken,
+                'provider_professional_bio' => $profile->professional_bio,
+            ]);
+        }
+
+        // Add provider credentials (licenses, certifications, etc.)
+        if ($provider->providerCredentials && $provider->providerCredentials->count() > 0) {
+            foreach ($provider->providerCredentials as $credential) {
+                // Map different credential types to specific fields
+                switch ($credential->credential_type) {
+                    case 'npi_number':
+                        $fields['provider_npi'] = $credential->credential_number;
+                        break;
+                    case 'medical_license':
+                        $fields['provider_license_number'] = $credential->credential_number;
+                        $fields['provider_license_state'] = $credential->issuing_state;
+                        $fields['provider_license_expiration'] = $credential->expiration_date;
+                        break;
+                    case 'dea_registration':
+                        $fields['provider_dea_number'] = $credential->credential_number;
+                        $fields['provider_dea_expiration'] = $credential->expiration_date;
+                        break;
+                    case 'state_license':
+                        $fields['provider_state_license'] = $credential->credential_number;
+                        $fields['provider_state_license_state'] = $credential->issuing_state;
+                        break;
+                    default:
+                        // Store other credentials in a generic format
+                        $fields["provider_{$credential->credential_type}"] = $credential->credential_number;
+                        break;
+                }
+            }
+        }
+
+        return $fields;
     }
 
     /**
-     * Extract facility fields
+     * Extract facility fields - enhanced with comprehensive facility and organization data
      */
     private function extractFacilityFields($facility): array
     {
@@ -177,17 +230,104 @@ class DataExtractor
             return [];
         }
 
-        return [
+        $fields = [
+            // Basic facility info
             'facility_id' => $facility->id,
             'facility_name' => $facility->name,
+            'facility_type' => $facility->facility_type,
+            'facility_status' => $facility->status,
+            'facility_active' => $facility->active,
+            
+            // Address information - enhanced with line1/line2 support
             'facility_address' => $facility->address,
+            'facility_address_line1' => $facility->address_line1 ?: $facility->address,
+            'facility_address_line2' => $facility->address_line2,
             'facility_city' => $facility->city,
             'facility_state' => $facility->state,
             'facility_zip' => $facility->zip_code,
+            'facility_zip_code' => $facility->zip_code, // Alias
+            
+            // Contact information - comprehensive
             'facility_phone' => $facility->phone,
             'facility_fax' => $facility->fax,
+            'facility_email' => $facility->email,
+            
+            // Contact person details (from onboarding)
+            'facility_contact_name' => $facility->contact_name,
+            'facility_contact_phone' => $facility->contact_phone,
+            'facility_contact_email' => $facility->contact_email,
+            'facility_contact_fax' => $facility->contact_fax,
+            
+            // Practice/Business identifiers (from onboarding)
+            'facility_npi' => $facility->npi,
+            'facility_group_npi' => $facility->group_npi,
+            'facility_tax_id' => $facility->tax_id,
+            'facility_tin' => $facility->tax_id, // Alias for tax_id
+            'facility_ptan' => $facility->ptan,
+            'facility_medicaid_number' => $facility->medicaid_number,
+            'facility_medicaid' => $facility->medicaid_number, // Alias
+            'facility_medicare_admin_contractor' => $facility->medicare_admin_contractor,
+            'medicare_admin_contractor' => $facility->medicare_admin_contractor, // Alias
+            'mac' => $facility->medicare_admin_contractor, // Short alias
+            
+            // Place of service
+            'facility_default_place_of_service' => $facility->default_place_of_service,
+            'place_of_service' => $facility->default_place_of_service, // Alias
+            
+            // Business operations
+            'facility_business_hours' => $facility->business_hours,
+            'facility_npi_verified_at' => $facility->npi_verified_at,
+            
+            // FHIR integration
             'fhir_organization_id' => $facility->fhir_organization_id,
         ];
+
+        // Add organization data (billing, AP contacts, etc.)
+        if ($facility->organization) {
+            $org = $facility->organization;
+            $fields = array_merge($fields, [
+                // Organization basic info
+                'organization_id' => $org->id,
+                'organization_name' => $org->name,
+                'organization_type' => $org->type,
+                'organization_status' => $org->status,
+                'organization_tax_id' => $org->tax_id,
+                'organization_email' => $org->email,
+                'organization_phone' => $org->phone,
+                
+                // Organization address
+                'organization_address' => $org->address,
+                'organization_city' => $org->city,
+                'organization_state' => $org->region, // region is used as state
+                'organization_region' => $org->region,
+                'organization_country' => $org->country,
+                'organization_postal_code' => $org->postal_code,
+                'organization_zip' => $org->postal_code, // Alias
+                
+                // Billing information (from onboarding)
+                'billing_address' => $org->billing_address,
+                'billing_city' => $org->billing_city,
+                'billing_state' => $org->billing_state,
+                'billing_zip' => $org->billing_zip,
+                
+                // Accounts Payable contact information (from onboarding)
+                'ap_contact_name' => $org->ap_contact_name,
+                'ap_contact_phone' => $org->ap_contact_phone,
+                'ap_contact_email' => $org->ap_contact_email,
+                'accounts_payable_contact' => $org->ap_contact_name, // Alias
+                'accounts_payable_phone' => $org->ap_contact_phone, // Alias
+                'accounts_payable_email' => $org->ap_contact_email, // Alias
+                
+                // Sales rep relationship
+                'organization_sales_rep_id' => $org->sales_rep_id,
+                'primary_sales_rep_id' => $org->sales_rep_id, // Alias
+                
+                // FHIR integration
+                'organization_fhir_id' => $org->fhir_id,
+            ]);
+        }
+
+        return $fields;
     }
 
     /**

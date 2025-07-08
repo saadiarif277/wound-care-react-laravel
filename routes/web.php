@@ -1194,6 +1194,27 @@ Route::middleware(['auth', 'web'])->prefix('api')->group(function () {
     // Voice command processing
     Route::post('/voice/command', [ProviderDashboardController::class, 'processVoiceCommand'])
         ->name('api.voice.command');
+
+    // QuickRequest internal API routes (moved from api.php for proper session auth)
+    Route::prefix('v1/quick-request')->group(function () {
+        Route::get('order-summary/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'showOrderSummary']);
+        Route::get('order-status/{order_id}', [App\Http\Controllers\QuickRequestController::class, 'getOrderStatus']);
+        Route::post('create-draft-episode', [App\Http\Controllers\QuickRequestController::class, 'createDraftEpisode']);
+        Route::post('create-ivr-submission', [App\Http\Controllers\QuickRequestController::class, 'createIvrSubmission']);
+    });
+
+    Route::prefix('quick-request')->group(function () {
+        Route::post('/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])
+            ->middleware('permission:create-product-requests')
+            ->name('api.quick-request.generate-ivr');
+        
+        Route::post('/validate', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'validateFormData'])
+            ->middleware('permission:create-product-requests')
+            ->name('api.quick-request.validate');
+        
+        Route::get('/user-permissions', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'getUserPermissions'])
+            ->name('api.quick-request.user-permissions');
+    });
 });
 
 // Docuseal Webhook (outside auth middleware)

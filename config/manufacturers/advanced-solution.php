@@ -80,7 +80,7 @@ return [
         'wound_traumatic_burns' => 'Traumatic Burns',
         'wound_radiation_burns' => 'Radiation Burns',
         'wound_necrotizing_fasciitis' => 'Necrotizing Facilitis', // Note: typo in original
-        'wound_dehisced_surgical' => 'Dehisced Surigcal Wound', // Note: typo in original
+        'wound_dehisced_surgical' => 'Dehisced Surgical Wound', // Fixed typo
         'wound_other' => 'Other Wound',
         'wound_type_other' => 'Type of Wound Other',
         'wound_size' => 'Wound Size',
@@ -110,29 +110,33 @@ return [
         // Specialty Site
         'specialty_site_name' => 'Specialty Site Name',
         
-        // Contact Info
-        'name' => 'Name',
-        'email' => 'Email',
-        'phone' => 'Phone'
+        // Additional Missing Fields
+        'insurance_card_upload' => 'Insurance Card Upload',
+        'physician_authorized_signature' => 'Physician or Authorized Signature',
+        
+        // Contact Info - REMOVED: These fields don't exist in DocuSeal template
+        // 'name' => 'Name',  // REMOVED: Field doesn't exist in DocuSeal template
+        // 'email' => 'Email',  // REMOVED: Field doesn't exist in DocuSeal template
+        // 'phone' => 'Phone'  // REMOVED: Field doesn't exist in DocuSeal template
     ],
     'fields' => [
-        // Contact Information
-        'name' => [
-            'source' => 'contact_name || office_contact_name || sales_rep_name',
-            'required' => false,
-            'type' => 'string'
-        ],
-        'email' => [
-            'source' => 'contact_email || office_contact_email || sales_rep_email',
-            'required' => false,
-            'type' => 'email'
-        ],
-        'phone' => [
-            'source' => 'contact_phone || office_contact_phone || sales_rep_phone',
-            'transform' => 'phone:US',
-            'required' => false,
-            'type' => 'phone'
-        ],
+        // Contact Information - REMOVED: These fields don't exist in DocuSeal template
+        // 'name' => [
+        //     'source' => 'contact_name || office_contact_name || sales_rep_name',
+        //     'required' => false,
+        //     'type' => 'string'
+        // ],
+        // 'email' => [
+        //     'source' => 'contact_email || office_contact_email || sales_rep_email',
+        //     'required' => false,
+        //     'type' => 'email'
+        // ],
+        // 'phone' => [
+        //     'source' => 'contact_phone || office_contact_phone || sales_rep_phone',
+        //     'transform' => 'phone:US',
+        //     'required' => false,
+        //     'type' => 'phone'
+        // ],
         
         // Sales Information
         'sales_rep' => [
@@ -227,25 +231,26 @@ return [
             'type' => 'string'
         ],
         
-        // Physician Information
+        // Physician Information - Enhanced with comprehensive profile data
         'physician_name' => [
             'source' => 'provider_name || physician_name || doctor_name',
             'required' => true,
             'type' => 'string'
         ],
         'physician_address' => [
-            'source' => 'provider_address || physician_address || doctor_address',
+            'source' => 'computed',
+            'computation' => 'facility_address || organization_address || provider_address || physician_address',
             'required' => false,
             'type' => 'string'
         ],
         'physician_phone' => [
-            'source' => 'provider_phone || physician_phone || doctor_phone',
+            'source' => 'provider_phone || facility_phone || physician_phone || doctor_phone',
             'transform' => 'phone:US',
             'required' => false,
             'type' => 'phone'
         ],
         'physician_fax' => [
-            'source' => 'provider_fax || physician_fax || doctor_fax',
+            'source' => 'provider_fax || facility_fax || physician_fax || doctor_fax',
             'transform' => 'phone:US',
             'required' => false,
             'type' => 'phone'
@@ -256,7 +261,7 @@ return [
             'type' => 'string'
         ],
         'physician_tin' => [
-            'source' => 'provider_tin || physician_tin || doctor_tax_id',
+            'source' => 'provider_tax_id || provider_tin || facility_tax_id || facility_tin || physician_tin || doctor_tax_id',
             'required' => false,
             'type' => 'string'
         ],
@@ -610,6 +615,18 @@ return [
         // Specialty Site
         'specialty_site_name' => [
             'source' => 'specialty_site || treatment_site || specialty_location',
+            'required' => false,
+            'type' => 'string'
+        ],
+        
+        // Additional Missing Fields
+        'insurance_card_upload' => [
+            'source' => 'insurance_card_front || insurance_card_back || insurance_card_uploaded',
+            'required' => false,
+            'type' => 'boolean'
+        ],
+        'physician_authorized_signature' => [
+            'source' => 'physician_signature || authorized_signature || electronic_signature',
             'required' => false,
             'type' => 'string'
         ]

@@ -378,6 +378,7 @@ class QuickRequestController extends Controller
 
         // If facility_id is provided, try to load from database
         if ($facilityId) {
+            // First try the regular Facility model (used in QuickRequestService)
             $facility = \App\Models\Fhir\Facility::find($facilityId);
 
             if ($facility) {
@@ -389,7 +390,7 @@ class QuickRequestController extends Controller
                     'address_line2' => $facility->address_line2 ?? '',
                     'city' => $facility->city ?? '',
                     'state' => $facility->state ?? '',
-                    'zip' => $facility->zip ?? '',
+                    'zip' => $facility->zip_code ?? '',
                     'phone' => $facility->phone ?? '',
                     'npi' => $facility->npi ?? '',
                 ];

@@ -702,8 +702,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             CategoriesAndManufacturersSeeder::class,
             ProductSeeder::class,
-            DocusealFolderSeeder::class,
-            DocusealTemplateSeeder::class,
+            ManufacturerDocuSealTemplateSeeder::class,
             IVRFieldMappingSeeder::class,
             DiagnosisCodesFromCsvSeeder::class,
             RemoveHardcodedDataSeeder::class,
