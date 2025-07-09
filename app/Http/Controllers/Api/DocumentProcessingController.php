@@ -3,10 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Services\DocumentIntelligenceService;
 use App\Services\Document\DocumentProcessingService;
+use App\Services\DocumentIntelligenceService;
 use App\Services\AI\AzureFoundryService;
-use App\Services\AiFormFillerService;
+use App\Services\Medical\OptimizedMedicalAiService;
+use App\Models\PatientManufacturerIVREpisode;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Exception;
@@ -17,7 +18,7 @@ class DocumentProcessingController extends Controller
         private DocumentProcessingService $documentService,
         private DocumentIntelligenceService $azureService,
         private AzureFoundryService $foundryService,
-        private AiFormFillerService $aiFormFillerService
+        private OptimizedMedicalAiService $medicalAiService
     ) {}
 
     /**
@@ -121,8 +122,8 @@ class DocumentProcessingController extends Controller
 
             $ocrData = $ocrResult['structured_data'] ?? $ocrResult['extracted_data'] ?? [];
 
-            // Step 2: AI-enhanced form filling
-            $aiResult = $this->aiFormFillerService->fillFormFields($ocrData, $type, $targetFields);
+            // Step 2: AI-enhanced form filling using Azure Foundry Service
+            $aiResult = $this->fillFormFieldsWithAI($ocrData, $type, $targetFields);
             
             Log::info('AI form filling completed', [
                 'ai_enhanced' => $aiResult['ai_enhanced'],
@@ -135,7 +136,7 @@ class DocumentProcessingController extends Controller
             $medicalValidation = null;
             
             if (!empty($medicalTerms)) {
-                $medicalValidation = $this->aiFormFillerService->validateMedicalTerms($medicalTerms, $formContext);
+                $medicalValidation = $this->validateMedicalTermsWithAI($medicalTerms, $formContext);
             }
 
             return response()->json([
@@ -204,7 +205,7 @@ class DocumentProcessingController extends Controller
             }
 
             // Use AI to enhance form data
-            $enhancedResult = $this->aiFormFillerService->enhanceQuickRequestData($formData, $processedDocs);
+            $enhancedResult = $this->enhanceQuickRequestDataWithAI($formData, $processedDocs);
             
             Log::info('Quick Request AI enhancement completed', [
                 'success' => $enhancedResult['success'],
@@ -242,13 +243,16 @@ class DocumentProcessingController extends Controller
     public function aiServiceStatus()
     {
         try {
-            $health = $this->aiFormFillerService->getServiceHealth();
-            $stats = $this->aiFormFillerService->getTerminologyStats();
+            // Get status from Medical AI Service
+            $medicalAiHealth = $this->medicalAiService->healthCheck();
+            
+            // Get Azure Foundry service status
+            $azureFoundryStatus = $this->foundryService->testConnection();
             
             return response()->json([
                 'success' => true,
-                'ai_service_health' => $health,
-                'terminology_stats' => $stats,
+                'medical_ai_service' => $medicalAiHealth,
+                'azure_foundry_service' => $azureFoundryStatus,
                 'message' => 'AI service status retrieved successfully'
             ]);
 
@@ -546,5 +550,345 @@ class DocumentProcessingController extends Controller
         }
 
         return $quickRequestData;
+    }
+
+    /**
+     * Fill form fields using AI
+     */
+    private function fillFormFieldsWithAI(array $ocrData, string $formType, array $targetSchema = []): array
+    {
+        try {
+            // Use Azure Foundry Service to intelligently map OCR data to form fields
+            $sourceContext = "OCR extracted data from {$formType} document";
+            $targetContext = "Healthcare form fields for {$formType}";
+            
+            $result = $this->foundryService->translateFormData(
+                $ocrData,
+                $targetSchema ?: $this->getDefaultSchema($formType),
+                $sourceContext,
+                $targetContext,
+                ['use_cache' => true]
+            );
+
+            if ($result['success']) {
+                return [
+                    'success' => true,
+                    'filled_fields' => $result['mappings'] ?? [],
+                    'confidence_scores' => array_map(fn($m) => $m['confidence'] ?? 0.5, $result['mappings'] ?? []),
+                    'quality_grade' => $this->calculateQualityGrade($result['overall_confidence'] ?? 0),
+                    'suggestions' => $result['suggestions'] ?? [],
+                    'processing_notes' => $result['reasoning'] ?? [],
+                    'ai_enhanced' => true
+                ];
+            }
+
+            // Fallback if AI fails
+            return $this->fallbackFormFilling($ocrData, $formType);
+
+        } catch (Exception $e) {
+            Log::error('AI form filling failed', [
+                'error' => $e->getMessage(),
+                'form_type' => $formType
+            ]);
+
+            return $this->fallbackFormFilling($ocrData, $formType);
+        }
+    }
+
+    /**
+     * Validate medical terms using AI
+     */
+    private function validateMedicalTermsWithAI(array $terms, string $context): array
+    {
+        try {
+            // Use Azure Foundry Service for medical term validation
+            $prompt = "As a medical AI assistant, please validate the following medical terms in the context of {$context}. " .
+                     "For each term, indicate if it's valid medical terminology and provide any corrections or suggestions. " .
+                     "Terms to validate: " . implode(', ', $terms) . "\n\n" .
+                     "Please respond with: total_terms (count), valid_terms (count), invalid_terms (array), " .
+                     "suggestions (array), and overall_confidence (0-1 float).";
+            
+            $response = $this->foundryService->generateChatResponse($prompt);
+            
+            if ($response['success'] && !empty($response['content'])) {
+                // Try to parse structured data from the response
+                $content = $response['content'];
+                
+                // Simple parsing of the response
+                $validCount = 0;
+                $invalidTerms = [];
+                $suggestions = [];
+                
+                // Count valid terms (this is a simplified approach)
+                foreach ($terms as $term) {
+                    if (stripos($content, $term . ' is valid') !== false || 
+                        stripos($content, $term . ' - valid') !== false) {
+                        $validCount++;
+                    } else {
+                        $invalidTerms[] = $term;
+                    }
+                }
+                
+                return [
+                    'total_terms' => count($terms),
+                    'valid_terms' => $validCount,
+                    'invalid_terms' => $invalidTerms,
+                    'suggestions' => $suggestions,
+                    'overall_confidence' => $validCount / max(count($terms), 1),
+                    'validation_method' => 'ai',
+                    'raw_response' => $content
+                ];
+            }
+
+            // Fallback response
+            return [
+                'total_terms' => count($terms),
+                'valid_terms' => 0,
+                'overall_confidence' => 0.0,
+                'validation_method' => 'fallback'
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Medical term validation failed', [
+                'error' => $e->getMessage(),
+                'terms_count' => count($terms)
+            ]);
+
+            return [
+                'total_terms' => count($terms),
+                'valid_terms' => 0,
+                'overall_confidence' => 0.0,
+                'validation_method' => 'fallback',
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Enhance Quick Request data with AI
+     */
+    private function enhanceQuickRequestDataWithAI(array $formData, array $uploadedDocuments = []): array
+    {
+        $enhancedData = $formData;
+        $processingNotes = [];
+
+        try {
+            // Process each uploaded document and enhance form data
+            foreach ($uploadedDocuments as $docType => $docData) {
+                Log::info("Processing {$docType} for Quick Request enhancement");
+
+                $aiResult = $this->fillFormFieldsWithAI(
+                    $docData, 
+                    $docType, 
+                    $this->getQuickRequestSchema($docType)
+                );
+
+                if ($aiResult['success']) {
+                    $enhancedData = $this->mergeFormData(
+                        $enhancedData, 
+                        $aiResult['filled_fields'], 
+                        $docType
+                    );
+                    
+                    $processingNotes[] = [
+                        'document' => $docType,
+                        'grade' => $aiResult['quality_grade'],
+                        'fields_filled' => count($aiResult['filled_fields']),
+                        'suggestions' => $aiResult['suggestions']
+                    ];
+                }
+            }
+
+            // If we have an episode ID, use Medical AI Service for additional enhancement
+            if (isset($formData['episode_id'])) {
+                try {
+                    $episode = PatientManufacturerIVREpisode::find($formData['episode_id']);
+                    if ($episode && isset($formData['template_id'])) {
+                        $medicalEnhanced = $this->medicalAiService->enhanceDocusealFieldMapping(
+                            $episode,
+                            $enhancedData,
+                            $formData['template_id']
+                        );
+                        
+                        if (!empty($medicalEnhanced) && ($medicalEnhanced['_ai_confidence'] ?? 0) > 0.7) {
+                            $enhancedData = array_merge($enhancedData, $medicalEnhanced);
+                            $processingNotes[] = [
+                                'medical_ai_enhancement' => [
+                                    'confidence' => $medicalEnhanced['_ai_confidence'] ?? 0,
+                                    'method' => $medicalEnhanced['_ai_method'] ?? 'unknown'
+                                ]
+                            ];
+                        }
+                    }
+                } catch (Exception $e) {
+                    Log::warning('Medical AI enhancement failed', ['error' => $e->getMessage()]);
+                }
+            }
+
+            return [
+                'success' => true,
+                'enhanced_data' => $enhancedData,
+                'original_data' => $formData,
+                'processing_notes' => $processingNotes,
+                'ai_enhanced' => true,
+                'enhancement_timestamp' => now()->toISOString()
+            ];
+
+        } catch (Exception $e) {
+            Log::error('Quick Request enhancement failed', [
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'success' => false,
+                'enhanced_data' => $formData,
+                'error' => $e->getMessage(),
+                'ai_enhanced' => false
+            ];
+        }
+    }
+
+    /**
+     * Calculate quality grade based on confidence
+     */
+    private function calculateQualityGrade(float $confidence): string
+    {
+        if ($confidence >= 0.9) return 'A';
+        if ($confidence >= 0.8) return 'B';
+        if ($confidence >= 0.7) return 'C';
+        if ($confidence >= 0.6) return 'D';
+        return 'F';
+    }
+
+    /**
+     * Get default schema for form type
+     */
+    private function getDefaultSchema(string $formType): array
+    {
+        $schemas = [
+            'insurance_card' => [
+                'member_id' => ['type' => 'string', 'description' => 'Member ID'],
+                'member_name' => ['type' => 'string', 'description' => 'Member name'],
+                'insurance_company' => ['type' => 'string', 'description' => 'Insurance company name'],
+                'group_number' => ['type' => 'string', 'description' => 'Group number'],
+                'plan_type' => ['type' => 'string', 'description' => 'Plan type'],
+                'effective_date' => ['type' => 'date', 'description' => 'Effective date'],
+                'copay_primary_care' => ['type' => 'currency', 'description' => 'Primary care copay'],
+                'copay_specialist' => ['type' => 'currency', 'description' => 'Specialist copay']
+            ],
+            'clinical_note' => [
+                'patient_name' => ['type' => 'string', 'description' => 'Patient name'],
+                'date_of_service' => ['type' => 'date', 'description' => 'Date of service'],
+                'chief_complaint' => ['type' => 'text', 'description' => 'Chief complaint'],
+                'diagnosis' => ['type' => 'string', 'description' => 'Diagnosis'],
+                'wound_location' => ['type' => 'string', 'description' => 'Wound location'],
+                'wound_size_length' => ['type' => 'measurement', 'description' => 'Wound length'],
+                'wound_size_width' => ['type' => 'measurement', 'description' => 'Wound width'],
+                'wound_size_depth' => ['type' => 'measurement', 'description' => 'Wound depth'],
+                'treatment_plan' => ['type' => 'text', 'description' => 'Treatment plan']
+            ],
+            'wound_photo' => [
+                'wound_location' => ['type' => 'string', 'description' => 'Wound location'],
+                'length_cm' => ['type' => 'measurement', 'description' => 'Length in cm'],
+                'width_cm' => ['type' => 'measurement', 'description' => 'Width in cm'],
+                'depth_cm' => ['type' => 'measurement', 'description' => 'Depth in cm'],
+                'wound_stage' => ['type' => 'string', 'description' => 'Wound stage'],
+                'tissue_type' => ['type' => 'string', 'description' => 'Tissue type']
+            ]
+        ];
+
+        return $schemas[$formType] ?? [];
+    }
+
+    /**
+     * Get Quick Request specific schema
+     */
+    private function getQuickRequestSchema(string $docType): array
+    {
+        $schemas = [
+            'insurance_card' => [
+                'patient_first_name' => ['type' => 'string', 'description' => 'Patient first name'],
+                'patient_last_name' => ['type' => 'string', 'description' => 'Patient last name'],
+                'patient_dob' => ['type' => 'date', 'description' => 'Patient date of birth'],
+                'patient_phone' => ['type' => 'phone', 'description' => 'Patient phone'],
+                'member_id' => ['type' => 'string', 'description' => 'Member ID'],
+                'insurance_company' => ['type' => 'string', 'description' => 'Insurance company'],
+                'group_number' => ['type' => 'string', 'description' => 'Group number'],
+                'plan_type' => ['type' => 'string', 'description' => 'Plan type']
+            ],
+            'clinical_note' => [
+                'primary_diagnosis' => ['type' => 'string', 'description' => 'Primary diagnosis'],
+                'wound_location' => ['type' => 'string', 'description' => 'Wound location'],
+                'wound_type' => ['type' => 'string', 'description' => 'Wound type'],
+                'wound_size_length' => ['type' => 'measurement', 'description' => 'Wound length'],
+                'wound_size_width' => ['type' => 'measurement', 'description' => 'Wound width'],
+                'wound_size_depth' => ['type' => 'measurement', 'description' => 'Wound depth']
+            ]
+        ];
+
+        return $schemas[$docType] ?? $this->getDefaultSchema($docType);
+    }
+
+    /**
+     * Merge AI-filled data with existing form data
+     */
+    private function mergeFormData(array $formData, array $aiFilledData, string $docType): array
+    {
+        $merged = $formData;
+
+        foreach ($aiFilledData as $field => $value) {
+            // Only fill empty fields or enhance existing ones
+            if (empty($merged[$field]) || $this->shouldOverwrite($field, $merged[$field], $value)) {
+                $merged[$field] = $value;
+                Log::debug("Filled field '{$field}' from {$docType}");
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Determine if AI value should overwrite existing value
+     */
+    private function shouldOverwrite(string $field, $existingValue, $aiValue): bool
+    {
+        // Overwrite if existing value seems like placeholder
+        $placeholders = ['n/a', 'unknown', 'tbd', 'pending', ''];
+        if (in_array(strtolower(trim($existingValue)), $placeholders)) {
+            return true;
+        }
+
+        // Overwrite if AI value is more complete
+        if (is_string($existingValue) && is_string($aiValue)) {
+            return strlen($aiValue) > strlen($existingValue) * 1.5;
+        }
+
+        return false;
+    }
+
+    /**
+     * Fallback form filling when AI service is unavailable
+     */
+    private function fallbackFormFilling(array $ocrData, string $formType): array
+    {
+        Log::warning('Using fallback form filling');
+
+        $basicMapping = [];
+        
+        // Simple rule-based mapping as fallback
+        foreach ($ocrData as $key => $value) {
+            $normalizedKey = strtolower(str_replace([' ', '-'], '_', $key));
+            $basicMapping[$normalizedKey] = $value;
+        }
+
+        return [
+            'success' => true,
+            'filled_fields' => $basicMapping,
+            'confidence_scores' => array_fill_keys(array_keys($basicMapping), 0.5),
+            'quality_grade' => 'D',
+            'suggestions' => ['AI service unavailable - using fallback mapping'],
+            'processing_notes' => ['Fallback rule-based mapping used'],
+            'ai_enhanced' => false
+        ];
     }
 }

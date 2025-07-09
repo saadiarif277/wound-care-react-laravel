@@ -11,7 +11,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 SERVICE_NAME="medical-ai-service"
-API_PORT=8080
+API_PORT=8081
 
 # Functions
 log_info() {

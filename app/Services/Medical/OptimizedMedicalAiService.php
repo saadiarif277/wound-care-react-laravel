@@ -3,8 +3,8 @@
 namespace App\Services\Medical;
 
 use App\Models\PatientManufacturerIVREpisode;
-use App\Services\Docuseal\DocusealService;
-use App\Services\Fhir\FhirService;
+use App\Services\DocusealService;
+use App\Services\FhirService;
 use App\Services\Azure\AzureHealthDataService;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Facades\Http;
@@ -18,6 +18,9 @@ class OptimizedMedicalAiService
     protected string $aiServiceKey;
     protected int $timeout = 30;
     protected int $retryAttempts = 3;
+    protected bool $enabled;
+    protected bool $debugMode;
+    protected bool $fallbackEnabled;
 
     public function __construct(
         protected DocusealService $docusealService,
@@ -25,8 +28,147 @@ class OptimizedMedicalAiService
         protected AzureHealthDataService $azureHealthService,
         protected PhiSafeLogger $logger
     ) {
-        $this->aiServiceUrl = Config::get('services.medical_ai.url', 'http://localhost:8001');
+        $this->aiServiceUrl = Config::get('services.medical_ai.url', 'http://localhost:8081');
         $this->aiServiceKey = Config::get('services.medical_ai.key', '');
+        $this->enabled = Config::get('services.medical_ai.enabled', true);
+        $this->debugMode = Config::get('services.medical_ai.debug', false);
+        $this->fallbackEnabled = Config::get('services.medical_ai.fallback_enabled', true);
+        $this->timeout = Config::get('services.medical_ai.timeout', 30);
+    }
+
+    /**
+     * Check if AI service is healthy and properly configured
+     */
+    public function healthCheck(): array
+    {
+        try {
+            $response = Http::timeout($this->timeout)->get("{$this->aiServiceUrl}/health");
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                
+                $this->logger->info('Medical AI Service health check passed', [
+                    'status' => $data['status'] ?? 'unknown',
+                    'azure_configured' => $data['azure_configured'] ?? false,
+                    'knowledge_base_loaded' => $data['knowledge_base_loaded'] ?? false
+                ]);
+
+                return [
+                    'healthy' => true,
+                    'status' => $data['status'] ?? 'unknown',
+                    'azure_configured' => $data['azure_configured'] ?? false,
+                    'knowledge_base_loaded' => $data['knowledge_base_loaded'] ?? false,
+                    'response_time' => $response->handlerStats()['total_time'] ?? 0
+                ];
+            }
+
+            throw new Exception("Health check failed with status: {$response->status()}");
+
+        } catch (Exception $e) {
+            $this->logger->warning('Medical AI Service health check failed', [
+                'error' => $e->getMessage(),
+                'service_url' => $this->aiServiceUrl
+            ]);
+
+            return [
+                'healthy' => false,
+                'error' => $e->getMessage(),
+                'service_url' => $this->aiServiceUrl,
+                'fallback_available' => $this->fallbackEnabled
+            ];
+        }
+    }
+
+    /**
+     * Get service configuration and status
+     */
+    public function getStatus(): array
+    {
+        return [
+            'enabled' => $this->enabled,
+            'service_url' => $this->aiServiceUrl,
+            'timeout' => $this->timeout,
+            'debug_mode' => $this->debugMode,
+            'fallback_enabled' => $this->fallbackEnabled,
+            'health_check' => $this->healthCheck(),
+            'connection_test' => $this->testConnection()
+        ];
+    }
+
+    /**
+     * Test AI service connectivity and configuration
+     */
+    public function testConnection(): array
+    {
+        try {
+            $response = Http::timeout(10)->get("{$this->aiServiceUrl}/api/v1/test");
+            
+            if ($response->successful()) {
+                $data = $response->json();
+                return [
+                    'connected' => true,
+                    'status' => $data['status'] ?? 'unknown',
+                    'version' => $data['version'] ?? 'unknown',
+                    'features' => $data['features'] ?? [],
+                    'azure_openai_configured' => $data['azure_configured'] ?? false
+                ];
+            }
+
+            return [
+                'connected' => false,
+                'error' => "Test failed with status: {$response->status()}"
+            ];
+
+        } catch (Exception $e) {
+            return [
+                'connected' => false,
+                'error' => $e->getMessage()
+            ];
+        }
+    }
+
+    /**
+     * Start the AI service if it's not running (for development)
+     */
+    public function startService(): bool
+    {
+        try {
+            // First check if already running
+            $healthCheck = $this->healthCheck();
+            if ($healthCheck['healthy']) {
+                $this->logger->info('Medical AI Service already running');
+                return true;
+            }
+
+            // Try to start the service
+            $this->logger->info('Attempting to start Medical AI Service');
+            
+            $scriptPath = base_path('scripts/medical_ai_service.py');
+            if (!file_exists($scriptPath)) {
+                $this->logger->error('Medical AI Service script not found', ['path' => $scriptPath]);
+                return false;
+            }
+
+            // Start the service in background
+            $command = "cd " . base_path('scripts') . " && python3 medical_ai_service.py > /dev/null 2>&1 &";
+            exec($command);
+
+            // Wait a moment and check if it started
+            sleep(3);
+            $healthCheck = $this->healthCheck();
+            
+            if ($healthCheck['healthy']) {
+                $this->logger->info('Medical AI Service started successfully');
+                return true;
+            }
+
+            $this->logger->error('Failed to start Medical AI Service');
+            return false;
+
+        } catch (Exception $e) {
+            $this->logger->error('Error starting Medical AI Service', ['error' => $e->getMessage()]);
+            return false;
+        }
     }
 
     /**
@@ -35,6 +177,12 @@ class OptimizedMedicalAiService
     public function enhanceDocusealFieldMapping(PatientManufacturerIVREpisode $episode, array $baseData, string $templateId): array
     {
         try {
+            // Check if service is enabled
+            if (!$this->enabled) {
+                $this->logger->info('Medical AI Service disabled, using fallback');
+                return $this->getFallbackMapping($baseData);
+            }
+
             $this->logger->info('Starting AI-enhanced DocuSeal field mapping', [
                 'episode_id' => $episode->id,
                 'template_id' => $templateId
@@ -44,13 +192,18 @@ class OptimizedMedicalAiService
             $fhirContext = $this->buildFhirContext($episode);
             
             // Get template structure from DocuSeal
-            $templateStructure = $this->docusealService->getTemplateStructure($templateId);
+            $templateStructure = $this->docusealService->getTemplateFieldsFromAPI($templateId);
             
             // Create enriched context for AI processing
             $enrichedContext = $this->buildEnrichedContext($episode, $baseData, $fhirContext, $templateStructure);
             
             // Call AI service for enhanced mapping
             $aiResponse = $this->callMedicalAiService($enrichedContext);
+            
+            // Check if we got a fallback response
+            if (($aiResponse['method'] ?? '') === 'fallback' && $this->fallbackEnabled) {
+                return $this->getFallbackMapping($baseData);
+            }
             
             // Merge AI recommendations with base data
             $enhancedData = $this->mergeAiRecommendations($baseData, $aiResponse);
@@ -73,9 +226,68 @@ class OptimizedMedicalAiService
                 'error' => $e->getMessage()
             ]);
 
-            // Fallback to base data if AI fails
+            // Fallback to base data or basic mapping if AI fails
+            if ($this->fallbackEnabled) {
+                return $this->getFallbackMapping($baseData);
+            }
+            
             return $baseData;
         }
+    }
+
+    /**
+     * Get fallback mapping when AI service is unavailable
+     */
+    protected function getFallbackMapping(array $sourceData): array
+    {
+        $this->logger->info('Using fallback field mapping');
+        
+        // Perform basic field mapping
+        $mappedFields = $this->performBasicFieldMapping($sourceData);
+        
+        // Add metadata about fallback usage
+        $mappedFields['_ai_method'] = 'fallback';
+        $mappedFields['_ai_confidence'] = 0.5;
+        $mappedFields['_ai_recommendations'] = ['AI service unavailable - using basic field mapping'];
+        
+        return $mappedFields;
+    }
+
+    /**
+     * Perform basic field mapping without AI
+     */
+    protected function performBasicFieldMapping(array $sourceData): array
+    {
+        $basicMapping = [
+            // Patient information
+            'patient_first_name' => $sourceData['first_name'] ?? $sourceData['patient_first_name'] ?? null,
+            'patient_last_name' => $sourceData['last_name'] ?? $sourceData['patient_last_name'] ?? null,
+            'patient_dob' => $sourceData['dob'] ?? $sourceData['date_of_birth'] ?? $sourceData['patient_dob'] ?? null,
+            'patient_phone' => $sourceData['phone'] ?? $sourceData['patient_phone'] ?? null,
+            'patient_email' => $sourceData['email'] ?? $sourceData['patient_email'] ?? null,
+            
+            // Address
+            'patient_address_line1' => $sourceData['address'] ?? $sourceData['address_line1'] ?? null,
+            'patient_city' => $sourceData['city'] ?? null,
+            'patient_state' => $sourceData['state'] ?? null,
+            'patient_zip' => $sourceData['zip'] ?? $sourceData['postal_code'] ?? null,
+            
+            // Insurance
+            'primary_insurance_name' => $sourceData['insurance_name'] ?? $sourceData['primary_insurance'] ?? null,
+            'primary_member_id' => $sourceData['member_id'] ?? $sourceData['policy_number'] ?? null,
+            
+            // Provider
+            'provider_name' => $sourceData['doctor_name'] ?? $sourceData['provider_name'] ?? null,
+            'provider_npi' => $sourceData['npi'] ?? $sourceData['provider_npi'] ?? null,
+        ];
+
+        // Remove null values and keep original data that wasn't mapped
+        $result = array_filter($basicMapping, function($value) {
+            return $value !== null && $value !== '';
+        });
+        
+        // Merge with original data to preserve unmapped fields
+        return array_merge($sourceData, $result);
     }
 
     /**
@@ -204,42 +416,51 @@ class OptimizedMedicalAiService
                 $response = Http::timeout($this->timeout)
                     ->withHeaders([
                         'Authorization' => 'Bearer ' . $this->aiServiceKey,
-                        'Content-Type' => 'application/json',
-                        'X-Service-Version' => '2.0'
+                        'Content-Type' => 'application/json'
                     ])
-                    ->post($this->aiServiceUrl . '/api/v2/enhance-docuseal-mapping', $context);
+                    ->post($this->aiServiceUrl . '/api/v1/enhance-mapping', [
+                        'context' => $context,
+                        'optimization_level' => 'high',
+                        'confidence_threshold' => 0.7
+                    ]);
 
                 if ($response->successful()) {
                     $result = $response->json();
                     
                     // Cache successful response
                     if (Config::get('services.medical_ai.cache_enabled', true)) {
-                        Cache::put($cacheKey, $result, now()->addMinutes(5));
+                        Cache::put($cacheKey, $result, 300); // 5 minutes
                     }
                     
                     return $result;
                 }
 
-                $this->logger->warning('AI service HTTP error', [
-                    'status' => $response->status(),
-                    'response' => $response->body(),
-                    'attempt' => $attempt + 1
-                ]);
-
+                throw new Exception("AI service returned status: " . $response->status());
+                
             } catch (Exception $e) {
+                $attempt++;
                 $this->logger->warning('AI service call failed', [
+                    'attempt' => $attempt,
                     'error' => $e->getMessage(),
-                    'attempt' => $attempt + 1
+                    'service_url' => $this->aiServiceUrl
                 ]);
-            }
 
-            $attempt++;
-            if ($attempt < $this->retryAttempts) {
-                sleep(pow(2, $attempt)); // Exponential backoff
+                if ($attempt >= $this->retryAttempts) {
+                    // Return fallback response
+                    return [
+                        'enhanced_fields' => [],
+                        'confidence' => 0,
+                        'method' => 'fallback',
+                        'recommendations' => []
+                    ];
+                }
+
+                // Wait before retry (exponential backoff)
+                sleep(pow(2, $attempt));
             }
         }
 
-        throw new Exception('Medical AI service unavailable after ' . $this->retryAttempts . ' attempts');
+        return [];
     }
 
     /**
@@ -248,25 +469,22 @@ class OptimizedMedicalAiService
     protected function mergeAiRecommendations(array $baseData, array $aiResponse): array
     {
         $enhancedData = $baseData;
-        $aiSuggestions = $aiResponse['field_mappings'] ?? [];
-        $confidence = $aiResponse['confidence'] ?? 0;
-
-        foreach ($aiSuggestions as $field => $aiValue) {
-            $shouldUseAi = $this->shouldUseAiValue($field, $baseData[$field] ?? null, $aiValue, $aiResponse);
-            
-            if ($shouldUseAi) {
+        $aiFields = $aiResponse['enhanced_fields'] ?? [];
+        
+        foreach ($aiFields as $field => $aiValue) {
+            if ($this->shouldUseAiValue($field, $baseData[$field] ?? null, $aiValue, $aiResponse)) {
                 $enhancedData[$field] = $aiValue;
-                $enhancedData['_ai_enhanced_fields'][] = $field;
             }
         }
 
-        // Add AI metadata
-        $enhancedData['_ai_metadata'] = [
-            'confidence' => $confidence,
-            'enhanced_fields' => $enhancedData['_ai_enhanced_fields'] ?? [],
-            'ai_version' => $aiResponse['ai_version'] ?? 'unknown',
-            'processed_at' => now()->toISOString()
-        ];
+        // Add AI-generated recommendations
+        if (!empty($aiResponse['recommendations'])) {
+            $enhancedData['_ai_recommendations'] = $aiResponse['recommendations'];
+        }
+
+        // Add confidence score
+        $enhancedData['_ai_confidence'] = $aiResponse['confidence'] ?? 0;
+        $enhancedData['_ai_method'] = $aiResponse['method'] ?? 'unknown';
 
         return $enhancedData;
     }
@@ -277,32 +495,31 @@ class OptimizedMedicalAiService
     protected function validateAndOptimizeFieldMappings(array $data, array $templateStructure): array
     {
         $validatedData = [];
-        $templateFields = $templateStructure['fields'] ?? [];
-
-        foreach ($templateFields as $field) {
-            $fieldName = $field['name'] ?? $field['id'] ?? null;
-            if (!$fieldName) continue;
-
-            $value = $data[$fieldName] ?? null;
-            
-            // Validate field type and format
-            $validatedValue = $this->validateFieldValue($value, $field);
-            
-            if ($validatedValue !== null) {
-                $validatedData[$fieldName] = $validatedValue;
+        
+        foreach ($data as $field => $value) {
+            // Skip AI metadata fields
+            if (str_starts_with($field, '_ai_')) {
+                $validatedData[$field] = $value;
+                continue;
             }
-        }
 
-        // Preserve AI metadata
-        if (isset($data['_ai_metadata'])) {
-            $validatedData['_ai_metadata'] = $data['_ai_metadata'];
+            $fieldStructure = $templateStructure[$field] ?? null;
+            if ($fieldStructure) {
+                $validatedValue = $this->validateFieldValue($value, $fieldStructure);
+                if ($validatedValue !== null) {
+                    $validatedData[$field] = $validatedValue;
+                }
+            } else {
+                // Keep fields that don't have template structure (dynamic fields)
+                $validatedData[$field] = $value;
+            }
         }
 
         return $validatedData;
     }
 
     /**
-     * Validate individual field value
+     * Validate individual field value based on field structure
      */
     protected function validateFieldValue($value, array $fieldStructure): mixed
     {
@@ -315,14 +532,21 @@ class OptimizedMedicalAiService
         switch ($fieldType) {
             case 'date':
                 return $this->validateDateValue($value);
-            case 'email':
-                return filter_var($value, FILTER_VALIDATE_EMAIL) ? $value : null;
+            
             case 'phone':
                 return $this->validatePhoneValue($value);
+            
+            case 'email':
+                return filter_var($value, FILTER_VALIDATE_EMAIL) ?: null;
+            
             case 'checkbox':
                 return $this->validateCheckboxValue($value);
+            
             case 'number':
-                return is_numeric($value) ? $value : null;
+                return is_numeric($value) ? (float)$value : null;
+            
+            case 'text':
+            case 'textarea':
             default:
                 return $this->sanitizeTextValue($value);
         }
@@ -333,6 +557,8 @@ class OptimizedMedicalAiService
      */
     protected function validateDateValue($value): ?string
     {
+        if (empty($value)) return null;
+        
         try {
             $date = new \DateTime($value);
             return $date->format('Y-m-d');
@@ -346,10 +572,25 @@ class OptimizedMedicalAiService
      */
     protected function validatePhoneValue($value): ?string
     {
-        $cleaned = preg_replace('/[^\d]/', '', $value);
+        if (empty($value)) return null;
+        
+        // Remove all non-numeric characters
+        $cleaned = preg_replace('/\D/', '', $value);
+        
+        // Must be at least 10 digits
         if (strlen($cleaned) >= 10) {
+            // Format as (XXX) XXX-XXXX if 10 digits
+            if (strlen($cleaned) === 10) {
+                return sprintf('(%s) %s-%s', 
+                    substr($cleaned, 0, 3),
+                    substr($cleaned, 3, 3),
+                    substr($cleaned, 6, 4)
+                );
+            }
+            // Return as-is if longer (international, etc.)
             return $cleaned;
         }
+        
         return null;
     }
 
@@ -358,7 +599,12 @@ class OptimizedMedicalAiService
      */
     protected function validateCheckboxValue($value): bool
     {
-        return in_array(strtolower($value), ['true', '1', 'yes', 'on', 'checked']);
+        if (is_bool($value)) return $value;
+        if (is_string($value)) {
+            $lower = strtolower($value);
+            return in_array($lower, ['true', '1', 'yes', 'on', 'checked']);
+        }
+        return (bool)$value;
     }
 
     /**
@@ -366,36 +612,56 @@ class OptimizedMedicalAiService
      */
     protected function sanitizeTextValue($value): string
     {
-        return strip_tags(trim($value));
+        if (!is_string($value)) {
+            $value = (string)$value;
+        }
+        
+        // Remove potentially harmful content but preserve medical text
+        $value = strip_tags($value);
+        $value = trim($value);
+        
+        return $value;
     }
 
     /**
-     * Determine if AI value should be used
+     * Determine if AI value should be used over existing value
      */
     protected function shouldUseAiValue(string $field, $existingValue, $aiValue, array $aiResponse): bool
     {
-        // Don't override existing values unless AI confidence is high
-        if ($existingValue && !empty($existingValue)) {
-            $confidence = $aiResponse['field_confidence'][$field] ?? $aiResponse['confidence'] ?? 0;
-            return $confidence > 0.8;
+        // Never replace if AI value is empty
+        if (empty($aiValue)) return false;
+        
+        // Always use AI value if no existing value
+        if (empty($existingValue)) return true;
+        
+        // Check AI confidence for this field
+        $fieldConfidence = $aiResponse['field_confidence'][$field] ?? $aiResponse['confidence'] ?? 0;
+        
+        // Only replace if AI is confident (>0.8) and existing value seems incomplete
+        if ($fieldConfidence > 0.8) {
+            // Replace if existing value is clearly incomplete
+            if (is_string($existingValue) && strlen($existingValue) < 3) return true;
+            if (is_string($existingValue) && str_contains(strtolower($existingValue), 'unknown')) return true;
         }
-
-        // Use AI value if no existing value
-        return true;
+        
+        // Don't replace otherwise
+        return false;
     }
 
     /**
-     * Get manufacturer requirements
+     * Get manufacturer-specific requirements
      */
     protected function getManufacturerRequirements(int $manufacturerId): array
     {
-        // This would typically come from a database or configuration
         return Cache::remember("manufacturer_requirements_{$manufacturerId}", 3600, function() use ($manufacturerId) {
-            // Fetch from database or API
+            // Get from config or database
+            $config = Config::get("manufacturers.{$manufacturerId}.requirements", []);
+            
             return [
-                'required_fields' => [],
-                'preferred_formats' => [],
-                'validation_rules' => []
+                'required_fields' => $config['required_fields'] ?? [],
+                'preferred_formats' => $config['preferred_formats'] ?? [],
+                'validation_rules' => $config['validation_rules'] ?? [],
+                'clinical_requirements' => $config['clinical_requirements'] ?? []
             ];
         });
     }
@@ -405,43 +671,60 @@ class OptimizedMedicalAiService
      */
     protected function getManufacturerFieldPreferences(int $manufacturerId): array
     {
-        return Cache::remember("manufacturer_field_preferences_{$manufacturerId}", 3600, function() use ($manufacturerId) {
+        return Cache::remember("manufacturer_field_prefs_{$manufacturerId}", 3600, function() use ($manufacturerId) {
+            $config = Config::get("manufacturers.{$manufacturerId}.field_preferences", []);
+            
             return [
-                'field_mappings' => [],
-                'format_preferences' => [],
-                'validation_overrides' => []
+                'priority_fields' => $config['priority_fields'] ?? [],
+                'field_mappings' => $config['field_mappings'] ?? [],
+                'default_values' => $config['default_values'] ?? [],
+                'formatting_rules' => $config['formatting_rules'] ?? []
             ];
         });
     }
 
     /**
-     * Build FHIR context from episode metadata (fallback)
+     * Build FHIR context from episode metadata when direct FHIR access fails
      */
     protected function buildFhirContextFromMetadata(PatientManufacturerIVREpisode $episode): array
     {
         $metadata = $episode->metadata ?? [];
         
         return [
-            'patient' => $metadata['patient_data'] ?? [],
-            'practitioner' => $metadata['provider_data'] ?? [],
-            'organization' => $metadata['organization_data'] ?? $metadata['facility_data'] ?? [],
-            'condition' => $metadata['clinical_data'] ?? [],
-            'coverage' => $metadata['insurance_data'] ?? []
+            'patient' => $this->normalizeFhirPatientData($metadata['patient_data'] ?? []),
+            'practitioner' => $this->normalizeFhirPractitionerData($metadata['practitioner_data'] ?? []),
+            'organization' => $this->normalizeFhirOrganizationData($metadata['organization_data'] ?? []),
+            'condition' => $this->normalizeFhirConditionData($metadata['clinical_data'] ?? []),
+            'coverage' => $this->normalizeFhirCoverageData($metadata['insurance_data'] ?? []),
+            'episode_of_care' => [
+                'id' => $episode->id,
+                'status' => $episode->status,
+                'period' => [
+                    'start' => $episode->created_at->toISOString()
+                ]
+            ]
         ];
     }
 
     /**
-     * Normalize FHIR patient data
+     * Normalize FHIR patient data to standard format
      */
     protected function normalizeFhirPatientData(array $patientData): array
     {
+        if (empty($patientData)) return [];
+
+        $names = $patientData['name'] ?? [];
+        $addresses = $patientData['address'] ?? [];
+        $telecom = $patientData['telecom'] ?? [];
+
         return [
             'id' => $patientData['id'] ?? null,
-            'name' => $this->extractHumanName($patientData['name'] ?? []),
+            'name' => $this->extractHumanName($names),
             'gender' => $patientData['gender'] ?? null,
             'birthDate' => $patientData['birthDate'] ?? null,
-            'address' => $this->extractAddress($patientData['address'] ?? []),
-            'telecom' => $this->extractTelecom($patientData['telecom'] ?? [])
+            'address' => $this->extractAddress($addresses),
+            'telecom' => $this->extractTelecom($telecom),
+            'identifier' => $patientData['identifier'] ?? []
         ];
     }
 
@@ -450,11 +733,14 @@ class OptimizedMedicalAiService
      */
     protected function normalizeFhirPractitionerData(array $practitionerData): array
     {
+        if (empty($practitionerData)) return [];
+
         return [
             'id' => $practitionerData['id'] ?? null,
             'name' => $this->extractHumanName($practitionerData['name'] ?? []),
+            'telecom' => $this->extractTelecom($practitionerData['telecom'] ?? []),
             'identifier' => $practitionerData['identifier'] ?? [],
-            'telecom' => $this->extractTelecom($practitionerData['telecom'] ?? [])
+            'qualification' => $practitionerData['qualification'] ?? []
         ];
     }
 
@@ -463,12 +749,14 @@ class OptimizedMedicalAiService
      */
     protected function normalizeFhirOrganizationData(array $organizationData): array
     {
+        if (empty($organizationData)) return [];
+
         return [
             'id' => $organizationData['id'] ?? null,
             'name' => $organizationData['name'] ?? null,
-            'identifier' => $organizationData['identifier'] ?? [],
             'address' => $this->extractAddress($organizationData['address'] ?? []),
-            'telecom' => $this->extractTelecom($organizationData['telecom'] ?? [])
+            'telecom' => $this->extractTelecom($organizationData['telecom'] ?? []),
+            'identifier' => $organizationData['identifier'] ?? []
         ];
     }
 
@@ -477,13 +765,16 @@ class OptimizedMedicalAiService
      */
     protected function normalizeFhirConditionData(array $conditionData): array
     {
+        if (empty($conditionData)) return [];
+
         return [
             'id' => $conditionData['id'] ?? null,
             'code' => $conditionData['code'] ?? null,
-            'display' => $conditionData['code']['text'] ?? null,
+            'category' => $conditionData['category'] ?? null,
             'clinicalStatus' => $conditionData['clinicalStatus'] ?? null,
             'verificationStatus' => $conditionData['verificationStatus'] ?? null,
-            'onset' => $conditionData['onsetDateTime'] ?? null
+            'onset' => $conditionData['onset'] ?? null,
+            'bodySite' => $conditionData['bodySite'] ?? null
         ];
     }
 
@@ -492,44 +783,45 @@ class OptimizedMedicalAiService
      */
     protected function normalizeFhirCoverageData(array $coverageData): array
     {
-        $normalized = [];
-        
-        foreach ($coverageData as $coverage) {
-            $normalized[] = [
-                'id' => $coverage['id'] ?? null,
-                'status' => $coverage['status'] ?? null,
-                'type' => $coverage['type'] ?? null,
-                'subscriber' => $coverage['subscriber'] ?? null,
-                'payor' => $coverage['payor'] ?? null,
-                'period' => $coverage['period'] ?? null
-            ];
-        }
-        
-        return $normalized;
-    }
+        if (empty($coverageData)) return [];
 
-    /**
-     * Extract human name from FHIR format
-     */
-    protected function extractHumanName(array $names): array
-    {
-        $name = $names[0] ?? [];
-        
         return [
-            'family' => $name['family'] ?? null,
-            'given' => $name['given'] ?? [],
-            'full' => $name['text'] ?? null
+            'id' => $coverageData['id'] ?? null,
+            'status' => $coverageData['status'] ?? null,
+            'type' => $coverageData['type'] ?? null,
+            'policyHolder' => $coverageData['policyHolder'] ?? null,
+            'beneficiary' => $coverageData['beneficiary'] ?? null,
+            'payor' => $coverageData['payor'] ?? null,
+            'period' => $coverageData['period'] ?? null
         ];
     }
 
     /**
-     * Extract address from FHIR format
+     * Extract human name from FHIR name array
+     */
+    protected function extractHumanName(array $names): array
+    {
+        if (empty($names)) return [];
+
+        $name = $names[0] ?? [];
+        return [
+            'use' => $name['use'] ?? 'official',
+            'family' => $name['family'] ?? null,
+            'given' => $name['given'] ?? [],
+            'text' => $name['text'] ?? null
+        ];
+    }
+
+    /**
+     * Extract address from FHIR address array
      */
     protected function extractAddress(array $addresses): array
     {
+        if (empty($addresses)) return [];
+
         $address = $addresses[0] ?? [];
-        
         return [
+            'use' => $address['use'] ?? 'home',
             'line' => $address['line'] ?? [],
             'city' => $address['city'] ?? null,
             'state' => $address['state'] ?? null,
@@ -539,20 +831,21 @@ class OptimizedMedicalAiService
     }
 
     /**
-     * Extract telecom from FHIR format
+     * Extract telecom from FHIR telecom array
      */
     protected function extractTelecom(array $telecom): array
     {
-        $normalized = [];
+        $result = [];
         
         foreach ($telecom as $contact) {
-            $normalized[] = [
-                'system' => $contact['system'] ?? null,
-                'value' => $contact['value'] ?? null,
-                'use' => $contact['use'] ?? null
-            ];
+            $system = $contact['system'] ?? 'unknown';
+            $value = $contact['value'] ?? null;
+            
+            if ($value) {
+                $result[$system] = $value;
+            }
         }
         
-        return $normalized;
+        return $result;
     }
-} 
+}

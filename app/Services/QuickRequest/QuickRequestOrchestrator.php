@@ -13,6 +13,8 @@ use App\Services\QuickRequest\Handlers\OrderHandler;
 use App\Services\QuickRequest\Handlers\NotificationHandler;
 use App\Services\FhirToIvrFieldMapper;
 use App\Jobs\CreateEpisodeFhirResourcesJob;
+use App\Services\Medical\OptimizedMedicalAiService;
+use App\Services\AI\FieldMappingMetricsService;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -28,8 +30,13 @@ class QuickRequestOrchestrator
         protected OrderHandler $orderHandler,
         protected NotificationHandler $notificationHandler,
         protected FhirToIvrFieldMapper $fhirMapper,
-        protected PhiSafeLogger $logger
-    ) {}
+        protected OptimizedMedicalAiService $optimizedMedicalAi,
+        protected PhiSafeLogger $logger,
+        protected ?FieldMappingMetricsService $metricsService = null
+    ) {
+        // Initialize metrics service if not provided
+        $this->metricsService = $metricsService ?? app(FieldMappingMetricsService::class);
+    }
 
         /**
      * Start a new episode with initial order
@@ -935,24 +942,25 @@ class QuickRequestOrchestrator
             // Get base data from orchestrator
             $baseData = $this->prepareDocusealData($episode);
 
-            // Use AI service for intelligent field mapping
-            $aiFormFillerService = app(\App\Services\AiFormFillerService::class);
+            // Track start time for metrics
+            $startTime = microtime(true);
             
-            $enhancedData = $aiFormFillerService->fillFormFields(
+            // Use the new OptimizedMedicalAiService for enhanced field mapping
+            $enhancedData = $this->optimizedMedicalAi->enhanceDocusealFieldMapping(
+                $episode,
                 $baseData,
-                $documentType,
-                ['manufacturer_form_id' => $manufacturerFormId]
+                $manufacturerFormId
             );
-
-            // Merge AI enhancements with base data
-            $finalData = array_merge($baseData, $enhancedData['mapped_fields'] ?? []);
+            
+            // Calculate response time
+            $responseTime = (microtime(true) - $startTime) * 1000; // Convert to milliseconds
 
             // Add AI metadata
-            $finalData['_ai_metadata'] = [
-                'quality_grade' => $enhancedData['quality_grade'] ?? 'N/A',
-                'confidence_scores' => $enhancedData['confidence_scores'] ?? [],
-                'processing_notes' => $enhancedData['processing_notes'] ?? [],
-                'suggestions' => $enhancedData['suggestions'] ?? [],
+            $enhancedData['_ai_metadata'] = [
+                'quality_grade' => $enhancedData['_ai_confidence'] > 0.8 ? 'A' : ($enhancedData['_ai_confidence'] > 0.6 ? 'B' : 'C'),
+                'confidence_score' => $enhancedData['_ai_confidence'] ?? 0,
+                'method' => $enhancedData['_ai_method'] ?? 'unknown',
+                'recommendations' => $enhancedData['_ai_recommendations'] ?? [],
                 'manufacturer_form_id' => $manufacturerFormId,
                 'enhanced_at' => now()->toISOString()
             ];
@@ -961,16 +969,36 @@ class QuickRequestOrchestrator
                 'episode_id' => $episode->id,
                 'manufacturer_form_id' => $manufacturerFormId,
                 'base_fields' => count($baseData),
-                'enhanced_fields' => count($finalData),
-                'quality_grade' => $enhancedData['quality_grade'] ?? 'N/A'
+                'enhanced_fields' => count($enhancedData),
+                'confidence_score' => $enhancedData['_ai_confidence'] ?? 0,
+                'method' => $enhancedData['_ai_method'] ?? 'unknown'
+            ]);
+            
+            // Record success metrics
+            $this->metricsService->recordSuccess([
+                'episode_id' => $episode->id,
+                'manufacturer' => $episode->manufacturer_name,
+                'template_id' => $manufacturerFormId,
+                'confidence' => $enhancedData['_ai_confidence'] ?? 0,
+                'response_time' => $responseTime,
+                'fields_mapped' => count($enhancedData),
+                'total_fields' => count($baseData),
+                'method' => $enhancedData['_ai_method'] ?? 'ai'
             ]);
 
-            return $finalData;
+            return $enhancedData;
 
         } catch (\Exception $e) {
             $this->logger->error('Failed to prepare AI-enhanced Docuseal data', [
                 'episode_id' => $episode->id,
                 'manufacturer_form_id' => $manufacturerFormId,
+                'error' => $e->getMessage()
+            ]);
+            
+            // Record failure metrics
+            $this->metricsService->recordFailure([
+                'episode_id' => $episode->id,
+                'manufacturer' => $episode->manufacturer_name,
                 'error' => $e->getMessage()
             ]);
 
@@ -1165,52 +1193,157 @@ class QuickRequestOrchestrator
     private function callAIServiceForMapping(array $baseData, string $formId, PatientManufacturerIVREpisode $episode): array
     {
         try {
-            $client = new \GuzzleHttp\Client();
-            
-            $aiServiceUrl = config('services.medical_ai.url', 'http://localhost:8081');
-            
-            $response = $client->post("{$aiServiceUrl}/map-fields", [
-                'json' => [
-                    'ocr_data' => $baseData,
-                    'document_type' => 'insurance',
-                    'manufacturer_name' => $this->getManufacturerName($episode),
-                    'target_schema' => [
-                        'manufacturer_form_id' => $formId
-                    ],
-                    'include_confidence' => true
-                ],
-                'timeout' => 30
+            $this->logger->info('Calling AI service for field mapping', [
+                'episode_id' => $episode->id,
+                'form_id' => $formId,
+                'data_fields' => count($baseData),
+                'manufacturer' => $this->getManufacturerName($episode)
             ]);
 
-            if ($response->getStatusCode() === 200) {
-                $result = json_decode($response->getBody(), true);
-                
-                $this->logger->info('AI service mapping successful', [
-                    'episode_id' => $episode->id,
-                    'form_id' => $formId,
-                    'quality_grade' => $result['quality_grade'] ?? 'N/A',
-                    'mapped_fields' => count($result['mapped_fields'] ?? [])
-                ]);
+            // Use OptimizedMedicalAiService which is already injected
+            $result = $this->optimizedMedicalAi->enhanceDocusealFieldMapping(
+                $episode,
+                $baseData,
+                $formId
+            );
+            
+            $this->logger->info('AI service mapping completed', [
+                'episode_id' => $episode->id,
+                'form_id' => $formId,
+                'enhanced_fields' => count($result),
+                'original_fields' => count($baseData)
+            ]);
 
-                return $result;
-            }
-
-            throw new \Exception('AI service returned status: ' . $response->getStatusCode());
+            // Return in the expected format
+            return [
+                'mapped_fields' => $result,
+                'quality_grade' => 'A',
+                'processing_time_ms' => 0,
+                'ai_model_used' => 'azure-openai',
+                'cache_hit' => false
+            ];
 
         } catch (\Exception $e) {
-            $this->logger->warning('AI service mapping failed, using fallback', [
+            $this->logger->error('AI service mapping failed', [
+                'episode_id' => $episode->id,
+                'form_id' => $formId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return $this->getFallbackMappingResult($baseData, $formId);
+        }
+    }
+
+    /**
+     * Extract FHIR data for AI processing
+     */
+    private function extractFHIRDataForAI(PatientManufacturerIVREpisode $episode): array
+    {
+        try {
+            $fhirData = [];
+
+            // Extract patient data from FHIR
+            if ($episode->patient_fhir_id) {
+                $fhirData['patient'] = [
+                    'fhir_id' => $episode->patient_fhir_id,
+                    'resource_type' => 'Patient'
+                ];
+            }
+
+            // Extract provider data from FHIR
+            if ($episode->provider_fhir_id) {
+                $fhirData['provider'] = [
+                    'fhir_id' => $episode->provider_fhir_id,
+                    'resource_type' => 'Practitioner'
+                ];
+            }
+
+            // Extract organization data from FHIR
+            if ($episode->organization_fhir_id) {
+                $fhirData['organization'] = [
+                    'fhir_id' => $episode->organization_fhir_id,
+                    'resource_type' => 'Organization'
+                ];
+            }
+
+            // Extract coverage data from FHIR
+            if ($episode->primary_coverage_fhir_id) {
+                $fhirData['coverage'] = [
+                    'primary_fhir_id' => $episode->primary_coverage_fhir_id,
+                    'resource_type' => 'Coverage'
+                ];
+            }
+
+            return $fhirData;
+
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to extract FHIR data for AI', [
                 'episode_id' => $episode->id,
                 'error' => $e->getMessage()
             ]);
 
-            // Return basic mapping result
-            return [
-                'mapped_fields' => [],
-                'quality_grade' => 'C',
-                'suggestions' => ['AI service unavailable'],
-                'processing_notes' => ['Fallback mapping used']
-            ];
+            return [];
         }
+    }
+
+    /**
+     * Get fallback mapping result when AI service fails
+     */
+    private function getFallbackMappingResult(array $baseData, string $formId): array
+    {
+        return [
+            'mapped_fields' => $this->performBasicFieldMapping($baseData),
+            'confidence_scores' => array_fill_keys(array_keys($baseData), 0.5),
+            'quality_grade' => 'C',
+            'suggestions' => ['AI service unavailable - using basic mapping'],
+            'processing_notes' => ['Fallback mapping used', 'Check AI service health'],
+            'processing_method' => 'fallback',
+            'service_available' => false,
+            'processing_time_ms' => 0
+        ];
+    }
+
+    /**
+     * Perform basic field mapping as fallback
+     */
+    private function performBasicFieldMapping(array $sourceData): array
+    {
+        $mapped = [];
+        
+        // Basic field mapping patterns
+        $mappings = [
+            'patient_first_name' => ['first_name', 'fname', 'patient_fname'],
+            'patient_last_name' => ['last_name', 'lname', 'patient_lname'],
+            'patient_dob' => ['date_of_birth', 'dob', 'birth_date'],
+            'primary_insurance_name' => ['insurance_company', 'insurance_name'],
+            'primary_member_id' => ['member_id', 'policy_number'],
+            'provider_name' => ['doctor_name', 'physician_name'],
+            'diagnosis_code' => ['icd10', 'diagnosis']
+        ];
+
+        foreach ($sourceData as $key => $value) {
+            if (empty($value)) continue;
+            
+            // Direct mapping first
+            if (array_key_exists($key, $mappings)) {
+                $mapped[$key] = $value;
+                continue;
+            }
+            
+            // Pattern matching
+            $lowerKey = strtolower($key);
+            foreach ($mappings as $targetField => $patterns) {
+                foreach ($patterns as $pattern) {
+                    if (str_contains($lowerKey, $pattern)) {
+                        $mapped[$targetField] = $value;
+                        break 2;
+                    }
+                }
+            }
+        }
+
+        return $mapped;
     }
 
     /**

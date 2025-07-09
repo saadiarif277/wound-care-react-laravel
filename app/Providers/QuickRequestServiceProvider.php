@@ -12,6 +12,8 @@ use App\Services\QuickRequest\Handlers\InsuranceHandler;
 use App\Services\QuickRequest\Handlers\OrderHandler;
 use App\Services\QuickRequest\Handlers\NotificationHandler;
 use App\Services\FhirToIvrFieldMapper;
+use App\Services\Medical\OptimizedMedicalAiService;
+use App\Services\AI\FieldMappingMetricsService;
 
 class QuickRequestServiceProvider extends ServiceProvider
 {
@@ -27,6 +29,7 @@ class QuickRequestServiceProvider extends ServiceProvider
         $this->app->singleton(InsuranceHandler::class);
         $this->app->singleton(OrderHandler::class);
         $this->app->singleton(NotificationHandler::class);
+        $this->app->singleton(FieldMappingMetricsService::class);
         // Register the orchestrator
         $this->app->singleton(QuickRequestOrchestrator::class, function ($app) {
             return new QuickRequestOrchestrator(
@@ -37,6 +40,7 @@ class QuickRequestServiceProvider extends ServiceProvider
                 $app->make(OrderHandler::class),
                 $app->make(NotificationHandler::class),
                 $app->make(FhirToIvrFieldMapper::class),
+                $app->make(OptimizedMedicalAiService::class),
                 $app->make(\App\Logging\PhiSafeLogger::class)
             );
         });

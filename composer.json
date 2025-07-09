@@ -19,7 +19,6 @@
         "doctrine/dbal": "*",
         "docuseal/docuseal-laravel": "dev-main",
         "docusealco/docuseal-php": "^1.0",
-        "fakerphp/faker": "^1.23",
         "firebase/php-jwt": "^6.11",
         "guzzlehttp/guzzle": "^7.2",
         "inertiajs/inertia-laravel": "^1.0",
@@ -32,7 +31,7 @@
         "tightenco/ziggy": "^2.2"
     },
     "require-dev": {
-        "brianium/paratest": "^7.4",
+        "fakerphp/faker": "*",
         "laravel/pint": "^1.15",
         "mockery/mockery": "^1.6",
         "nunomaduro/collision": "^8.0",

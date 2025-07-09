@@ -6,6 +6,7 @@ import { useManufacturers } from '@/Hooks/useManufacturers';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useCallback } from 'react';
 import { AuthButton } from '@/Components/ui/auth-button';
+import api from '@/lib/api';
 // Removed useAuthState import - Inertia handles authentication automatically
 
 // This component now relies on the backend orchestrator for all data aggregation

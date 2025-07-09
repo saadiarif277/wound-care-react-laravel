@@ -130,13 +130,7 @@ class AppServiceProvider extends ServiceProvider
             return new \App\Services\MedicalTerminologyService();
         });
 
-        // AI Form Filler Service
-        $this->app->singleton(\App\Services\AiFormFillerService::class, function ($app) {
-            if (app()->runningUnitTests()) {
-                return \Mockery::mock(\App\Services\AiFormFillerService::class);
-            }
-            return new \App\Services\AiFormFillerService();
-        });
+
     }
 
     /**

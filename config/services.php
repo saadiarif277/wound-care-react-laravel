@@ -109,4 +109,16 @@ return [
         'enabled' => env('AI_FORM_FILLER_ENABLED', true),
     ],
 
+    'medical_ai' => [
+        'url' => env('MEDICAL_AI_SERVICE_URL', 'http://localhost:8081'),
+        'timeout' => env('MEDICAL_AI_SERVICE_TIMEOUT', 30),
+        'key' => env('MEDICAL_AI_SERVICE_API_KEY', ''),
+        'enabled' => env('MEDICAL_AI_SERVICE_ENABLED', true),
+        'cache_enabled' => env('MEDICAL_AI_CACHE_ENABLED', true),
+        'cache_ttl' => env('MEDICAL_AI_CACHE_TTL', 300),
+        'debug' => env('MEDICAL_AI_DEBUG', false),
+        'fallback_enabled' => env('MEDICAL_AI_FALLBACK_ENABLED', true),
+        'use_for_docuseal' => env('MEDICAL_AI_USE_FOR_DOCUSEAL', true),
+    ],
+
 ];
