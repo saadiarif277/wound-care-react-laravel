@@ -9,6 +9,8 @@ class ProviderData
         public readonly string $name = '',
         public readonly ?string $npi = null,
         public readonly ?string $email = null,
+        public readonly ?string $phone = null,
+        public readonly ?string $specialty = null,
     ) {}
 
     public function toArray(): array
@@ -18,6 +20,8 @@ class ProviderData
             'name' => $this->name,
             'npi' => $this->npi,
             'email' => $this->email,
+            'phone' => $this->phone,
+            'specialty' => $this->specialty,
         ];
     }
 
@@ -28,6 +32,8 @@ class ProviderData
             name: $data['name'] ?? '',
             npi: $data['npi'] ?? null,
             email: $data['email'] ?? null,
+            phone: $data['phone'] ?? null,
+            specialty: $data['specialty'] ?? null,
         );
     }
-} 
+}

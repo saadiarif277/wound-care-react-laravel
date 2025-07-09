@@ -23,14 +23,8 @@ class OrderPreferencesData
 
     public static function fromArray(array $data): self
     {
-        // Ensure expected_service_date has a default value if empty or null
-        $expectedServiceDate = $data['expected_service_date'] ?? '';
-        if (empty($expectedServiceDate)) {
-            $expectedServiceDate = date('Y-m-d', strtotime('+1 day')); // Default to tomorrow
-        }
-
         return new self(
-            expectedServiceDate: $expectedServiceDate,
+            expectedServiceDate: $data['expected_service_date'] ?? '',
             shippingSpeed: $data['shipping_speed'] ?? 'standard',
             placeOfService: $data['place_of_service'] ?? '',
             deliveryInstructions: $data['delivery_instructions'] ?? null,

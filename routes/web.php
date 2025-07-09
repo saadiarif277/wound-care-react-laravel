@@ -242,27 +242,27 @@ Route::middleware(['auth'])->group(function () {
     // Direct order access with unique link
     Route::get('/order/{order}/track/{token}', function ($orderId, $token) {
         $user = Auth::user();
-        
+
         // Verify user has permission to view this order
         if (!$user->hasAnyPermission(['view-orders', 'view-product-requests', 'view-provider-requests'])) {
             abort(403, 'Unauthorized access to order tracking');
         }
-        
+
         // Verify the token matches the order
         $order = \App\Models\Order\Order::findOrFail($orderId);
-        
+
         // Generate expected token based on order data
         $expectedToken = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
-        
+
         if ($token !== $expectedToken) {
             abort(404, 'Invalid order tracking link');
         }
-        
+
         // Check if user is provider or office manager who created the order
         $canView = false;
         if ($user->hasRole('provider') || $user->hasRole('office-manager')) {
             // Check if this user created the order or is associated with it
-            if ($order->created_by === $user->id || 
+            if ($order->created_by === $user->id ||
                 $order->provider_id === $user->id ||
                 ($user->facility_id && $order->facility_id === $user->facility_id)) {
                 $canView = true;
@@ -271,34 +271,34 @@ Route::middleware(['auth'])->group(function () {
             // Admins and reps can view all orders
             $canView = true;
         }
-        
+
         if (!$canView) {
             abort(403, 'You do not have permission to view this order');
         }
-        
+
         // Redirect to the order details page
         return redirect()->route('admin.orders.show', $order->id);
     })->name('order.track');
-    
+
     // Generate tracking link (API endpoint)
     Route::post('/api/orders/{order}/generate-tracking-link', function ($orderId) {
         $user = Auth::user();
         $order = \App\Models\Order\Order::findOrFail($orderId);
-        
+
         // Check permissions
         if (!$user->hasAnyPermission(['view-orders', 'manage-orders', 'create-product-requests'])) {
             return response()->json(['error' => 'Unauthorized'], 403);
         }
-        
+
         // Generate tracking token
         $token = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
-        
+
         // Generate the tracking URL
         $trackingUrl = route('order.track', [
             'order' => $order->id,
             'token' => $token
         ]);
-        
+
         return response()->json([
             'success' => true,
             'tracking_url' => $trackingUrl,
@@ -342,6 +342,7 @@ Route::middleware(['permission:manage-orders'])->prefix('admin')->group(function
     // IVR Viewing Routes
     Route::get('/ivr/view/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'viewIvrDocument'])->name('admin.ivr.view');
     Route::get('/ivr/download/{orderId}', [App\Http\Controllers\Admin\OrderCenterController::class, 'downloadIvrDocument'])->name('admin.ivr.download');
+    Route::get('/orders/{orderId}/docuseal-document', [App\Http\Controllers\Admin\OrderCenterController::class, 'getDocusealDocument'])->name('admin.orders.docuseal-document');
 
     // Enhanced Dashboard Routes - Now handled by OrderCenterController
     // Redirect old enhanced dashboard route to consolidated order center

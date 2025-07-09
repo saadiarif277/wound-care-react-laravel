@@ -543,7 +543,7 @@ function QuickRequestCreateNew({
 
   const handleNext = async () => {
     // Removed auth check - Inertia handles authentication automatically
-    
+
     const sectionErrors = validateSection(currentSection);
     if (Object.keys(sectionErrors).length > 0) {
       setErrors(sectionErrors);
@@ -587,7 +587,7 @@ function QuickRequestCreateNew({
 
   const handleSubmitOrder = async () => {
     // Removed auth check - Inertia handles authentication automatically
-    
+
     setIsSubmitting(true);
 
     // Retry mechanism for CSRF token issues
@@ -604,7 +604,7 @@ function QuickRequestCreateNew({
         ...formData,
         // manufacturer_fields are now directly from the form state, not a separate extraction.
         manufacturer_fields: formData.manufacturer_fields || {},
-        // Ensure docuseal_submission_id is a string or null
+        // Ensure docuseal_submission_id is a string or null and log it
         docuseal_submission_id: formData.docuseal_submission_id ? String(formData.docuseal_submission_id) : null,
         // Ensure selected_products have valid product_id values
         selected_products: formData.selected_products?.map(product => ({
@@ -629,6 +629,23 @@ function QuickRequestCreateNew({
         provider_id: Number(formData.provider_id),
         facility_id: Number(formData.facility_id)
       };
+
+      // Log the docuseal_submission_id specifically
+      console.log('🔍 Docuseal submission ID in final form data:', {
+        original: formData.docuseal_submission_id,
+        processed: finalFormData.docuseal_submission_id,
+        type: typeof finalFormData.docuseal_submission_id,
+        empty: !finalFormData.docuseal_submission_id,
+        length: finalFormData.docuseal_submission_id ? finalFormData.docuseal_submission_id.length : 0
+      });
+
+      // Log the entire form data being sent
+      console.log('🔍 Full form data being sent to backend:', {
+        formDataKeys: Object.keys(finalFormData),
+        docuseal_submission_id_in_form: finalFormData.docuseal_submission_id,
+        has_docuseal_submission_id: !!finalFormData.docuseal_submission_id,
+        sample_form_data: Object.keys(finalFormData).slice(0, 15) // First 15 keys
+      });
 
       console.log('🚀 Submitting order directly:', {
         formDataKeys: Object.keys(finalFormData),
@@ -664,6 +681,16 @@ function QuickRequestCreateNew({
 
       console.log('🔍 Selected products details:', finalFormData.selected_products);
       console.log('🔍 Docuseal submission ID:', finalFormData.docuseal_submission_id, 'Type:', typeof finalFormData.docuseal_submission_id);
+
+      // Debug: Check all form data being sent
+      console.log('🔍 Final form data being sent to backend:', {
+        hasDocusealSubmissionId: !!finalFormData.docuseal_submission_id,
+        docusealSubmissionId: finalFormData.docuseal_submission_id,
+        hasEpisodeId: !!finalFormData.episode_id,
+        episodeId: finalFormData.episode_id,
+        formDataKeys: Object.keys(finalFormData),
+        sampleFormData: Object.keys(finalFormData).slice(0, 10) // First 10 keys
+      });
 
       // Submit order directly
       const response = await axios.post('/quick-requests/submit-order', {
@@ -738,7 +765,7 @@ function QuickRequestCreateNew({
           console.log(`Retrying submission with fresh token (attempt ${currentRetry + 1})...`);
           continue; // Continue to the next iteration of the while loop
         }
-        
+
         // If we've exhausted retries, set an error message before falling through
         errorMessage = 'Session expired. Please refresh the page and try again.';
 

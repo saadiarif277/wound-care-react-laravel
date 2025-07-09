@@ -90,11 +90,32 @@ class QuickRequestController extends Controller
     {
         $validated = $request->validated();
 
+        // Add debugging to see what data is being received
+        Log::info('QuickRequest submitOrder - Received data', [
+            'formData_keys' => array_keys($validated['formData'] ?? []),
+            'has_docuseal_submission_id' => isset($validated['formData']['docuseal_submission_id']),
+            'docuseal_submission_id' => $validated['formData']['docuseal_submission_id'] ?? null,
+            'docuseal_submission_id_type' => gettype($validated['formData']['docuseal_submission_id'] ?? null),
+            'docuseal_submission_id_empty' => empty($validated['formData']['docuseal_submission_id'] ?? null),
+            'episodeData' => $validated['episodeData'] ?? null,
+            'adminNote' => $validated['adminNote'] ?? null,
+            'full_form_data_sample' => array_slice($validated['formData'] ?? [], 0, 10), // First 10 keys
+            'docuseal_submission_id_in_keys' => in_array('docuseal_submission_id', array_keys($validated['formData'] ?? [])),
+        ]);
+
         DB::beginTransaction();
 
         try {
             // Convert to structured DTO
             $quickRequestData = QuickRequestData::fromFormData($validated['formData']);
+
+            // Log the DTO data to see if docusealSubmissionId is extracted
+            Log::info('QuickRequest submitOrder - QuickRequestData created', [
+                'has_docusealSubmissionId' => !empty($quickRequestData->docusealSubmissionId),
+                'docusealSubmissionId' => $quickRequestData->docusealSubmissionId,
+                'formData_docuseal_submission_id' => $validated['formData']['docuseal_submission_id'] ?? null,
+            ]);
+
             $quickRequestData = new QuickRequestData(
                 patient: $quickRequestData->patient,
                 provider: $quickRequestData->provider,
@@ -165,6 +186,8 @@ class QuickRequestController extends Controller
                 'product_request_id' => $productRequest->id,
                 'total_amount' => $calculation['total'], // Now properly calculated
                 'user_id' => Auth::id(),
+                'docuseal_submission_id_saved' => $productRequest->docuseal_submission_id,
+                'clinical_summary_saved' => !empty($productRequest->clinical_summary),
             ]);
 
             return response()->json([
@@ -201,7 +224,7 @@ class QuickRequestController extends Controller
     }
 
     /**
-     * Create ProductRequest with proper total calculation
+     * Create product request with comprehensive clinical summary
      */
     private function createProductRequest(
         QuickRequestData $data,
@@ -220,6 +243,41 @@ class QuickRequestController extends Controller
             $placeOfService = null;
         }
 
+        // Get manufacturer information
+        $manufacturerId = $data->productSelection->manufacturerId ?? $this->getManufacturerIdFromProducts($data->productSelection->selectedProducts ?? []);
+        $manufacturerName = $data->productSelection->manufacturerName;
+
+        if (!$manufacturerName && $manufacturerId) {
+            $manufacturer = \App\Models\Order\Manufacturer::find($manufacturerId);
+            $manufacturerName = $manufacturer?->name ?? 'Unknown Manufacturer';
+        }
+
+        // Create comprehensive clinical summary with timestamps
+        $clinicalSummary = $data->toArray();
+
+        // Add additional metadata
+        $clinicalSummary['metadata'] = [
+            'created_at' => now()->toISOString(),
+            'created_by' => Auth::id(),
+            'episode_id' => $episode->id,
+            'calculation' => $calculation,
+            'manufacturer_id' => $manufacturerId,
+            'manufacturer_name' => $manufacturerName,
+        ];
+
+        // Ensure docuseal_submission_id is included
+        if ($data->docusealSubmissionId) {
+            $clinicalSummary['docuseal_submission_id'] = $data->docusealSubmissionId;
+        }
+
+        // Log the clinical summary creation
+        Log::info('QuickRequest createProductRequest - Creating clinical summary', [
+            'has_docusealSubmissionId' => !empty($data->docusealSubmissionId),
+            'docusealSubmissionId' => $data->docusealSubmissionId,
+            'clinical_summary_keys' => array_keys($clinicalSummary),
+            'clinical_summary_size' => strlen(json_encode($clinicalSummary)),
+        ]);
+
         $productRequest = ProductRequest::create([
             'request_number' => $this->generateRequestNumber(),
             'provider_id' => $data->provider->id,
@@ -235,14 +293,36 @@ class QuickRequestController extends Controller
             'submitted_at' => now(),
             'total_order_value' => $calculation['total'], // FIX: Set the calculated total
             'docuseal_submission_id' => $data->docusealSubmissionId, // Add docuseal submission ID
-            'clinical_summary' => array_merge($data->toArray(), [
-                'admin_note' => $data->adminNote,
-                'admin_note_added_at' => $data->adminNote ? now()->toIso8601String() : null,
-            ]),
+            'ivr_document_url' => $data->ivrDocumentUrl, // Add IVR document URL from DTO
+            'clinical_summary' => $clinicalSummary,
+        ]);
+
+        // Also update the episode with the docuseal_submission_id if it exists
+        if ($data->docusealSubmissionId) {
+            $episode->update([
+                'docuseal_submission_id' => $data->docusealSubmissionId,
+                'docuseal_status' => 'completed',
+                'docuseal_completed_at' => now(),
+                'ivr_document_url' => $data->ivrDocumentUrl, // Add IVR document URL
+            ]);
+
+            Log::info('Updated episode with docuseal submission ID', [
+                'episode_id' => $episode->id,
+                'docuseal_submission_id' => $data->docusealSubmissionId,
+                'ivr_document_url' => $data->ivrDocumentUrl,
+                'product_request_id' => $productRequest->id
+            ]);
+        }
+
+        // Log the product request creation
+        Log::info('QuickRequest createProductRequest - ProductRequest created', [
+            'product_request_id' => $productRequest->id,
+            'docuseal_submission_id_saved' => $productRequest->docuseal_submission_id,
+            'clinical_summary_saved' => !empty($productRequest->clinical_summary),
+            'clinical_summary_size' => $productRequest->clinical_summary ? strlen(json_encode($productRequest->clinical_summary)) : 0,
         ]);
 
         // Save DocuSeal template ID for IVR
-        $manufacturerId = $data->manufacturer->id ?? $this->getManufacturerIdFromProducts($data->orderPreferences->products ?? []);
         if ($manufacturerId) {
             $template = \App\Models\Docuseal\DocusealTemplate::getDefaultTemplateForManufacturer($manufacturerId, 'IVR');
             if ($template) {
@@ -253,6 +333,16 @@ class QuickRequestController extends Controller
 
         // Create product relationships with proper pricing
         $this->createProductRelationships($productRequest, $calculation['item_breakdown']);
+
+        // Log the comprehensive data saving
+        Log::info('Product request created with comprehensive clinical summary', [
+            'product_request_id' => $productRequest->id,
+            'episode_id' => $episode->id,
+            'docuseal_submission_id' => $data->docusealSubmissionId,
+            'clinical_summary_keys' => array_keys($clinicalSummary),
+            'manufacturer_id' => $manufacturerId,
+            'manufacturer_name' => $manufacturerName,
+        ]);
 
         return $productRequest;
     }
@@ -771,7 +861,7 @@ class QuickRequestController extends Controller
 
             // Determine manufacturer from products
             $manufacturerName = $this->getManufacturerNameFromProducts($formData['selected_products'] ?? []);
-            
+
             // Use DocuSeal service to create submission
             $result = $this->docusealService->createOrUpdateSubmission(
                 $episode->id,

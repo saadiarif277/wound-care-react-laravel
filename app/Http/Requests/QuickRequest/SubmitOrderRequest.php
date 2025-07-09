@@ -25,7 +25,7 @@ class SubmitOrderRequest extends FormRequest
                 function ($attribute, $value, $fail) {
                     $user = $this->user();
                     if (!$user) return;
-                    
+
                     // Providers can only create orders for themselves
                     if ($user->hasRole('provider') && $value != $user->id) {
                         $fail('Providers can only create orders for themselves.');
@@ -53,6 +53,8 @@ class SubmitOrderRequest extends FormRequest
             'formData.wound_location' => 'required|string',
             'formData.primary_insurance_name' => 'required|string',
             'formData.primary_member_id' => 'required|string',
+            'formData.docuseal_submission_id' => 'nullable|string',
+            'formData.ivr_document_url' => 'nullable|string',
             'episodeData' => 'sometimes|array',
             'adminNote' => 'sometimes|string|max:1000',
         ];
@@ -72,4 +74,4 @@ class SubmitOrderRequest extends FormRequest
             'formData.primary_member_id.required' => 'Primary insurance member ID is required',
         ];
     }
-} 
+}

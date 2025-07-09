@@ -7,6 +7,7 @@ class ProductSelectionData
     public function __construct(
         public readonly array $selectedProducts = [],
         public readonly ?int $manufacturerId = null,
+        public readonly ?string $manufacturerName = null,
     ) {}
 
     public function getProductIds(): array
@@ -29,6 +30,7 @@ class ProductSelectionData
         return [
             'selected_products' => $this->selectedProducts,
             'manufacturer_id' => $this->manufacturerId,
+            'manufacturer_name' => $this->manufacturerName,
         ];
     }
 
@@ -37,6 +39,7 @@ class ProductSelectionData
         return new self(
             selectedProducts: $data['selected_products'] ?? [],
             manufacturerId: $data['manufacturer_id'] ?? null,
+            manufacturerName: $data['manufacturer_name'] ?? null,
         );
     }
-} 
+}

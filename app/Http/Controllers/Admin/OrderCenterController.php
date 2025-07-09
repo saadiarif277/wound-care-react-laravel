@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Exception;
+use Carbon\Carbon;
 
 class OrderCenterController extends Controller
 {
@@ -133,363 +134,208 @@ class OrderCenterController extends Controller
     /**
      * Show individual order details
      */
-    // public function show($orderId)
-    // {
-    //     $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
-    //         ->findOrFail($orderId);
+    public function show($orderId)
+    {
+        // Create dedicated log file for debugging
+        $logFile = storage_path('logs/order-details-debug.log');
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - OrderCenterController::show called for order_id: {$orderId}\n", FILE_APPEND);
 
-    //     // Get clinical summary data which contains all submitted form data
-    //     $clinicalSummary = $order->clinical_summary ?? [];
-
-
-
-    //     // Get orchestrator data from episode metadata if available
-    //     $orchestratorData = [];
-    //     if ($order->episode && $order->episode->metadata) {
-    //         $orchestratorData = $this->extractOrchestratorData($order->episode);
-    //     }
-
-    //     // Get patient data from FHIR if available
-    //     $patientData = $this->getPatientDataFromFhir($order);
-
-    //     // Get product information from clinical summary
-    //     $productData = $this->getProductDataFromClinicalSummary($order, $clinicalSummary);
-
-    //     // Transform order data for display
-    //     $orderData = [
-    //         'id' => $order->id,
-    //         'order_number' => $order->request_number,
-    //         'patient_name' => $this->formatPatientName($clinicalSummary) ?: $order->patient_display_id ?? 'Unknown Patient',
-    //         'patient_display_id' => $order->patient_display_id,
-    //         'provider_name' => $clinicalSummary['provider']['name'] ?: ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
-    //         'facility_name' => $clinicalSummary['facility']['name'] ?: ($order->facility ? $order->facility->name : 'Unknown Facility'),
-    //         'manufacturer_name' => $order->manufacturer ?? 'Unknown Manufacturer',
-    //         'product_name' => $order->product_name ?? 'Unknown Product',
-    //         'order_status' => $order->order_status,
-    //         'ivr_status' => $order->ivr_status ?? 'N/A',
-    //         'order_form_status' => $order->order_form_status ?? 'Not Started',
-    //         'total_order_value' => (float) ($order->total_order_value ?? 0),
-    //         'created_at' => $order->created_at->toISOString(),
-    //         'action_required' => $order->order_status === 'pending',
-    //         'episode_id' => $order->ivr_episode_id,
-    //         'docuseal_submission_id' => $order->episode->docuseal_submission_id ?? null,
-    //     ];
-
-    //     // Extract detailed order data with enhanced mappings from clinical summary
-    //     $detailedOrderData = [
-    //         'patient' => [
-    //             'name' => $this->formatPatientName($clinicalSummary),
-    //             'firstName' => $clinicalSummary['patient']['first_name'] ?? null,
-    //             'lastName' => $clinicalSummary['patient']['last_name'] ?? null,
-    //             'dob' => $clinicalSummary['patient']['date_of_birth'] ?? null,
-    //             'gender' => $clinicalSummary['patient']['gender'] ?? null,
-    //             'phone' => $clinicalSummary['patient']['phone'] ?? null,
-    //             'email' => $clinicalSummary['patient']['email'] ?? null,
-    //             'address' => $this->formatPatientAddress($clinicalSummary),
-    //             'memberId' => $clinicalSummary['patient']['member_id'] ?? null,
-    //             'isSubscriber' => $clinicalSummary['patient']['is_subscriber'] ?? true,
-    //             'insurance' => [
-    //                 'primary' => $this->formatInsuranceInfo($clinicalSummary, 'primary'),
-    //                 'secondary' => $this->formatInsuranceInfo($clinicalSummary, 'secondary'),
-    //             ],
-    //         ],
-    //         'insurance' => [
-    //             'primary' => $this->formatInsuranceInfo($clinicalSummary, 'primary'),
-    //             'secondary' => $this->formatInsuranceInfo($clinicalSummary, 'secondary'),
-    //             'primaryPlanType' => $clinicalSummary['insurance']['primary_plan_type'] ?? null,
-    //             'secondaryPlanType' => $clinicalSummary['insurance']['secondary_plan_type'] ?? null,
-    //         ],
-    //         'product' => [
-    //             'name' => $productData['name'] ?? 'Unknown Product',
-    //             'code' => $productData['code'] ?? 'N/A',
-    //             'quantity' => $productData['quantity'] ?? 1,
-    //             'size' => $productData['size'] ?? 'N/A',
-    //             'category' => $productData['category'] ?? 'N/A',
-    //             'manufacturer' => $productData['manufacturer'] ?? 'Unknown Manufacturer',
-    //             'manufacturerId' => $clinicalSummary['product_selection']['manufacturer_id'] ?? null,
-    //             'shippingInfo' => [
-    //                 'speed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'Standard',
-    //                 'address' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? 'N/A',
-    //             ],
-    //         ],
-    //         'forms' => [
-    //             'ivrStatus' => $order->ivr_status ?? 'not_started',
-    //             'docusealStatus' => $order->episode?->docuseal_submission_id ? 'completed' : 'not_started',
-    //             'consent' => $clinicalSummary['attestations']['information_accurate'] ?? false,
-    //             'assignmentOfBenefits' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
-    //             'medicalNecessity' => $clinicalSummary['attestations']['medical_necessity_established'] ?? false,
-    //         ],
-    //         'clinical' => [
-    //             'woundType' => $clinicalSummary['clinical']['wound_type'] ?? 'N/A',
-    //             'woundLocation' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
-    //             'location' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
-    //             'size' => $this->formatWoundSize($clinicalSummary),
-    //             'depth' => $clinicalSummary['clinical']['wound_size_depth'] ?? null,
-    //             'cptCodes' => $this->formatCptCodes($clinicalSummary),
-    //             'diagnosisCodes' => $clinicalSummary['clinical']['diagnosis_codes'] ?? [],
-    //             'primaryDiagnosis' => isset($clinicalSummary['clinical']['diagnosis_codes'][0]) ? $clinicalSummary['clinical']['diagnosis_codes'][0] : 'N/A',
-    //             'clinicalNotes' => $clinicalSummary['clinical']['clinical_notes'] ?? null,
-    //             'placeOfService' => $clinicalSummary['order_preferences']['place_of_service'] ?? 'N/A',
-    //             'serviceDate' => $clinicalSummary['order_preferences']['expected_service_date'] ?? null,
-    //             'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
-    //         ],
-    //         'provider' => [
-    //             'name' => $clinicalSummary['provider']['name'] ?: ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
-    //             'npi' => $clinicalSummary['provider']['npi'] ?? ($order->provider ? $order->provider->npi_number : 'N/A'),
-    //             'email' => $clinicalSummary['provider']['email'] ?? ($order->provider ? $order->provider->email : null),
-    //             'facility' => $clinicalSummary['facility']['name'] ?: ($order->facility ? $order->facility->name : 'Unknown Facility'),
-    //         ],
-    //         'facility' => [
-    //             'name' => $clinicalSummary['facility']['name'] ?: ($order->facility ? $order->facility->name : null),
-    //             'address' => $this->formatFacilityAddress($clinicalSummary) ?: ($order->facility ? $this->formatFacilityAddressFromModel($order->facility) : null),
-    //             'phone' => $clinicalSummary['facility']['phone'] ?? ($order->facility ? $order->facility->phone : null),
-    //         ],
-    //         'submission' => [
-    //             'status' => $order->order_status,
-    //             'submittedAt' => $order->submitted_at?->format('Y-m-d H:i:s'),
-    //             'informationAccurate' => $clinicalSummary['attestations']['information_accurate'] ?? false,
-    //             'documentationMaintained' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
-    //             'authorizePriorAuth' => $clinicalSummary['attestations']['authorize_prior_auth'] ?? false,
-    //         ],
-    //         'orderPreferences' => [
-    //             'expectedServiceDate' => $clinicalSummary['order_preferences']['expected_service_date'] ?? null,
-    //             'shippingSpeed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'standard',
-    //             'placeOfService' => $clinicalSummary['order_preferences']['place_of_service'] ?? null,
-    //             'deliveryInstructions' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? null,
-    //         ],
-    //         'adminNote' => $clinicalSummary['admin_note'] ?? null,
-    //         'adminNoteAddedAt' => $clinicalSummary['admin_note_added_at'] ?? null,
-    //         'total_amount' => $order->total_order_value ?? 0,
-    //         'documents' => $this->getOrderDocuments($order),
-    //     ];
-
-    //     // Get role restrictions and apply financial data filtering
-    //     $user = Auth::user();
-    //     $userRole = $user->getPrimaryRole()?->slug ?? 'admin';
-
-    //     // Apply role-based financial data restrictions
-    //     if ($userRole === 'office-manager') {
-    //         // Hide financial data from Office Managers
-    //         unset($orderData['total_order_value']);
-    //         if (isset($detailedOrderData['product']['pricing'])) {
-    //             unset($detailedOrderData['product']['pricing']);
-    //         }
-    //     }
-
-    //     $roleRestrictions = [
-    //         'can_view_financials' => $user->can('view-financials') && $userRole !== 'office-manager',
-    //         'can_see_discounts' => $user->can('view-discounts') && $userRole !== 'office-manager',
-    //         'can_see_msc_pricing' => $user->can('view-msc-pricing') && $userRole !== 'office-manager',
-    //         'can_see_order_totals' => $user->can('view-order-totals') && $userRole !== 'office-manager',
-    //         'can_see_commission' => $user->can('view-commission') && $userRole !== 'office-manager',
-    //         'pricing_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
-    //         'commission_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
-    //     ];
-
-
-
-    //     // Debug: Log what we're sending to frontend
-    //     \Log::info('Backend Debug - Sending to Frontend', [
-    //         'order_id' => $orderId,
-    //         'orderData_keys' => array_keys($orderData),
-    //         'detailedOrderData_keys' => array_keys($detailedOrderData),
-    //         'patient_name' => $detailedOrderData['patient']['name'] ?? 'NOT SET',
-    //         'provider_name' => $detailedOrderData['provider']['name'] ?? 'NOT SET',
-    //         'product_name' => $detailedOrderData['product']['name'] ?? 'NOT SET',
-    //     ]);
-
-    //     return Inertia::render('Admin/OrderCenter/OrderDetails', [
-    //         'order' => $orderData,
-    //         'orderData' => $detailedOrderData,
-    //         'can_update_status' => $user->can('update-order-status'),
-    //         'can_view_ivr' => $user->can('view-ivr-documents'),
-    //         'userRole' => $userRole === 'provider' ? 'Provider' :
-    //                     ($userRole === 'office-manager' ? 'OM' : 'Admin'),
-    //         'roleRestrictions' => $roleRestrictions,
-    //     ]);
-    // }
-
-            public function show($orderId)
-{
-    // Create dedicated log file for debugging
-    $logFile = storage_path('logs/order-details-debug.log');
-    file_put_contents($logFile, date('Y-m-d H:i:s') . " - OrderCenterController::show called for order_id: {$orderId}\n", FILE_APPEND);
-
-    try {
-        $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
-            ->findOrFail($orderId);
-
-        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Order found: {$order->request_number}\n", FILE_APPEND);
-
-        // Get clinical summary data which contains all submitted form data
-        $clinicalSummary = $order->clinical_summary ?? [];
-
-        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Clinical summary: " . json_encode($clinicalSummary) . "\n", FILE_APPEND);
-
-        // Log the clinical summary structure
-        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Clinical summary keys: " . implode(', ', array_keys($clinicalSummary)) . "\n", FILE_APPEND);
-
-        // Get product information from clinical summary
         try {
-            $productData = $this->getProductDataFromClinicalSummary($order, $clinicalSummary);
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Product data retrieved: " . json_encode($productData) . "\n", FILE_APPEND);
-        } catch (Exception $e) {
-            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Error getting product data: " . $e->getMessage() . "\n", FILE_APPEND);
-            $productData = ['name' => 'Unknown Product', 'code' => 'N/A', 'quantity' => 1, 'size' => 'N/A', 'category' => 'N/A', 'manufacturer' => 'Unknown Manufacturer'];
-        }
+            $order = ProductRequest::with(['provider', 'facility', 'products', 'episode'])
+                ->findOrFail($orderId);
 
-    // Transform order data for display with all details included
-    $orderData = [
-        'id' => $order->id,
-        'order_number' => $order->request_number,
-        'patient_name' => $this->formatPatientName($clinicalSummary) ?: $order->patient_display_id ?? 'Unknown Patient',
-        'patient_display_id' => $order->patient_display_id,
-        'provider_name' => $clinicalSummary['provider']['name'] ?? ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
-        'facility_name' => $clinicalSummary['facility']['name'] ?? ($order->facility ? $order->facility->name : 'Unknown Facility'),
-        'manufacturer_name' => $order->getManufacturer() ?? 'Unknown Manufacturer',
-        'product_name' => $productData['name'] ?? 'Unknown Product',
-        'order_status' => $order->order_status,
-        'ivr_status' => $order->ivr_status ?? 'N/A',
-        'order_form_status' => $order->order_form_status ?? 'Not Started',
-        'total_order_value' => (float) ($order->total_order_value ?? 0),
-        'created_at' => $order->created_at->toISOString(),
-        'action_required' => $order->order_status === 'pending',
-        'episode_id' => $order->ivr_episode_id,
-        'docuseal_submission_id' => $order->episode->docuseal_submission_id ?? null,
-        'place_of_service' => $order->place_of_service,
-        'place_of_service_display' => $order->place_of_service_description,
-        'wound_type' => $order->wound_type,
-        'wound_type_display' => $order->getWoundTypeDescriptions()[$order->wound_type] ?? $order->wound_type,
-        'expected_service_date' => $order->expected_service_date?->toISOString(),
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Order found: {$order->request_number}\n", FILE_APPEND);
 
-        // Add all detailed data directly to order
-        'patient' => [
-            'name' => $this->formatPatientName($clinicalSummary),
-            'firstName' => $clinicalSummary['patient']['first_name'] ?? null,
-            'lastName' => $clinicalSummary['patient']['last_name'] ?? null,
-            'dob' => $clinicalSummary['patient']['date_of_birth'] ?? null,
-            'gender' => $clinicalSummary['patient']['gender'] ?? null,
-            'phone' => $clinicalSummary['patient']['phone'] ?? null,
-            'email' => $clinicalSummary['patient']['email'] ?? null,
-            'address' => $this->formatPatientAddress($clinicalSummary),
-            'memberId' => $clinicalSummary['patient']['member_id'] ?? null,
-            'displayId' => $clinicalSummary['patient']['display_id'] ?? null,
-            'isSubscriber' => $clinicalSummary['patient']['is_subscriber'] ?? true,
-        ],
-        'insurance' => [
-            'primary' => [
-                'name' => $clinicalSummary['insurance']['primary_name'] ?? $order->payer_name_submitted,
-                'memberId' => $clinicalSummary['insurance']['primary_member_id'] ?? null,
-                'planType' => $clinicalSummary['insurance']['primary_plan_type'] ?? null,
-            ],
-            'secondary' => [
-                'name' => $clinicalSummary['insurance']['secondary_name'] ?? null,
-                'memberId' => $clinicalSummary['insurance']['secondary_member_id'] ?? null,
-                'planType' => $clinicalSummary['insurance']['secondary_plan_type'] ?? null,
-            ],
-            'hasSecondary' => $clinicalSummary['insurance']['has_secondary'] ?? false,
-        ],
-        'product' => [
-            'name' => $productData['name'] ?? 'Unknown Product',
-            'code' => $productData['code'] ?? 'N/A',
-            'quantity' => $productData['quantity'] ?? 1,
-            'size' => $productData['size'] ?? 'N/A',
-            'category' => $productData['category'] ?? 'N/A',
-            'manufacturer' => $productData['manufacturer'] ?? $order->getManufacturer() ?? 'Unknown Manufacturer',
-            'manufacturerId' => $clinicalSummary['product_selection']['manufacturer_id'] ?? null,
-            'selectedProducts' => $clinicalSummary['product_selection']['selected_products'] ?? [],
-            'shippingInfo' => [
-                'speed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'Standard',
-                'instructions' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? null,
-            ],
-        ],
-        'clinical' => [
-            'woundType' => $clinicalSummary['clinical']['wound_type'] ?? $order->wound_type,
-            'woundLocation' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
-            'size' => $this->formatWoundSize($clinicalSummary),
-            'depth' => $clinicalSummary['clinical']['wound_size_depth'] ?? null,
-            'diagnosisCodes' => $clinicalSummary['clinical']['diagnosis_codes'] ?? [],
-            'primaryDiagnosis' => $clinicalSummary['clinical']['diagnosis_codes'][0] ?? 'N/A',
-            'clinicalNotes' => $clinicalSummary['clinical']['clinical_notes'] ?? null,
-            'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
-        ],
-        'provider' => [
-            'id' => $clinicalSummary['provider']['id'] ?? ($order->provider ? $order->provider->id : null),
-            'name' => $clinicalSummary['provider']['name'] ?? ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
-            'npi' => $clinicalSummary['provider']['npi'] ?? ($order->provider ? $order->provider->npi_number : 'N/A'),
-            'email' => $clinicalSummary['provider']['email'] ?? ($order->provider ? $order->provider->email : null),
-        ],
-        'facility' => [
-            'id' => $clinicalSummary['facility']['id'] ?? ($order->facility ? $order->facility->id : null),
-            'name' => $clinicalSummary['facility']['name'] ?? ($order->facility ? $order->facility->name : null),
-            'address' => $this->formatFacilityAddress($clinicalSummary) ?: ($order->facility ? $this->formatFacilityAddressFromModel($order->facility) : null),
-            'phone' => $clinicalSummary['facility']['phone'] ?? ($order->facility ? $order->facility->phone : null),
-        ],
-        'attestations' => [
-            'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
-            'informationAccurate' => $clinicalSummary['attestations']['information_accurate'] ?? false,
-            'medicalNecessityEstablished' => $clinicalSummary['attestations']['medical_necessity_established'] ?? false,
-            'maintainDocumentation' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
-            'authorizePriorAuth' => $clinicalSummary['attestations']['authorize_prior_auth'] ?? false,
-        ],
-        'documents' => $this->getOrderDocuments($order),
-    ];
+            // Get clinical summary data which contains all submitted form data
+            $clinicalSummary = $order->clinical_summary ?? [];
 
-                    // Log the order data structure
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Clinical summary: " . json_encode($clinicalSummary) . "\n", FILE_APPEND);
+
+            // Log the clinical summary structure
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - Clinical summary keys: " . implode(', ', array_keys($clinicalSummary)) . "\n", FILE_APPEND);
+
+            // Get comprehensive FHIR data
+            $fhirData = $this->getComprehensiveFhirData($order);
+            file_put_contents($logFile, date('Y-m-d H:i:s') . " - FHIR data retrieved: " . json_encode($fhirData) . "\n", FILE_APPEND);
+
+            // Get product information from clinical summary
+            try {
+                $productData = $this->getProductDataFromClinicalSummary($order, $clinicalSummary);
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Product data retrieved: " . json_encode($productData) . "\n", FILE_APPEND);
+            } catch (Exception $e) {
+                file_put_contents($logFile, date('Y-m-d H:i:s') . " - Error getting product data: " . $e->getMessage() . "\n", FILE_APPEND);
+                $productData = ['name' => 'Unknown Product', 'code' => 'N/A', 'quantity' => 1, 'size' => 'N/A', 'category' => 'N/A', 'manufacturer' => 'Unknown Manufacturer'];
+            }
+
+        // Transform order data for display with all details included
+        $orderData = [
+            'id' => $order->id,
+            'order_number' => $order->request_number,
+            'patient_name' => $this->formatPatientName($clinicalSummary) ?: $order->patient_display_id ?? 'Unknown Patient',
+            'patient_display_id' => $order->patient_display_id,
+            'provider_name' => $clinicalSummary['provider']['name'] ?? ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
+            'facility_name' => $clinicalSummary['facility']['name'] ?? ($order->facility ? $order->facility->name : 'Unknown Facility'),
+            'manufacturer_name' => $order->getManufacturer() ?? 'Unknown Manufacturer',
+            'product_name' => $productData['name'] ?? 'Unknown Product',
+            'order_status' => $order->order_status,
+            'ivr_status' => $order->ivr_status ?? 'N/A',
+            'order_form_status' => $order->order_form_status ?? 'Not Started',
+            'total_order_value' => (float) ($order->total_order_value ?? 0),
+            'created_at' => $this->formatDateForISO($order->created_at),
+            'submitted_at' => $this->formatDateForISO($order->submitted_at),
+            'action_required' => $order->order_status === 'pending',
+            'episode_id' => $order->ivr_episode_id,
+            'docuseal_submission_id' => $order->docuseal_submission_id ?? $order->episode->docuseal_submission_id ?? null,
+            'ivr_document_url' => $order->ivr_document_url ?? $order->episode->ivr_document_url ?? null,
+            'place_of_service' => $order->place_of_service,
+            'place_of_service_display' => $order->place_of_service_description,
+            'wound_type' => $order->wound_type,
+            'wound_type_display' => $order->getWoundTypeDescriptions()[$order->wound_type] ?? $order->wound_type,
+            'expected_service_date' => $this->formatDateForISO($order->expected_service_date),
+
+            // Add all detailed data directly to order
+            'patient' => [
+                'name' => $this->formatPatientName($clinicalSummary),
+                'firstName' => $clinicalSummary['patient']['first_name'] ?? null,
+                'lastName' => $clinicalSummary['patient']['last_name'] ?? null,
+                'dob' => $this->formatDateForDisplay($clinicalSummary['patient']['date_of_birth'] ?? null, 'Y-m-d'),
+                'gender' => $clinicalSummary['patient']['gender'] ?? null,
+                'phone' => $clinicalSummary['patient']['phone'] ?? null,
+                'email' => $clinicalSummary['patient']['email'] ?? null,
+                'address' => $this->formatPatientAddress($clinicalSummary),
+                'memberId' => $clinicalSummary['patient']['member_id'] ?? null,
+                'displayId' => $clinicalSummary['patient']['display_id'] ?? null,
+                'isSubscriber' => $clinicalSummary['patient']['is_subscriber'] ?? true,
+                'savedAt' => $this->formatDateForDisplay($clinicalSummary['patient']['saved_at'] ?? null),
+            ],
+            'insurance' => [
+                'primary' => [
+                    'name' => $clinicalSummary['insurance']['primary_name'] ?? $order->payer_name_submitted,
+                    'memberId' => $clinicalSummary['insurance']['primary_member_id'] ?? null,
+                    'planType' => $clinicalSummary['insurance']['primary_plan_type'] ?? null,
+                ],
+                'secondary' => [
+                    'name' => $clinicalSummary['insurance']['secondary_name'] ?? null,
+                    'memberId' => $clinicalSummary['insurance']['secondary_member_id'] ?? null,
+                    'planType' => $clinicalSummary['insurance']['secondary_plan_type'] ?? null,
+                ],
+                'hasSecondary' => $clinicalSummary['insurance']['has_secondary'] ?? false,
+            ],
+            'product' => [
+                'name' => $productData['name'] ?? 'Unknown Product',
+                'code' => $productData['code'] ?? 'N/A',
+                'quantity' => $productData['quantity'] ?? 1,
+                'size' => $productData['size'] ?? 'N/A',
+                'category' => $productData['category'] ?? 'N/A',
+                'manufacturer' => $productData['manufacturer'] ?? $order->getManufacturer() ?? 'Unknown Manufacturer',
+                'manufacturerId' => $clinicalSummary['product_selection']['manufacturer_id'] ?? null,
+                'selectedProducts' => $clinicalSummary['product_selection']['selected_products'] ?? [],
+                'shippingInfo' => [
+                    'speed' => $clinicalSummary['order_preferences']['shipping_speed'] ?? 'Standard',
+                    'instructions' => $clinicalSummary['order_preferences']['delivery_instructions'] ?? null,
+                ],
+            ],
+            'clinical' => [
+                'woundType' => $clinicalSummary['clinical']['wound_type'] ?? $order->wound_type,
+                'woundLocation' => $clinicalSummary['clinical']['wound_location'] ?? 'N/A',
+                'size' => $this->formatWoundSize($clinicalSummary),
+                'depth' => $clinicalSummary['clinical']['wound_size_depth'] ?? null,
+                'diagnosisCodes' => $clinicalSummary['clinical']['diagnosis_codes'] ?? [],
+                'primaryDiagnosis' => $clinicalSummary['clinical']['primary_diagnosis_code'] ?? $clinicalSummary['clinical']['diagnosis_codes'][0] ?? 'N/A',
+                'secondaryDiagnosis' => $clinicalSummary['clinical']['secondary_diagnosis_code'] ?? 'N/A',
+                'cptCodes' => $clinicalSummary['clinical']['application_cpt_codes'] ?? [],
+                'clinicalNotes' => $clinicalSummary['clinical']['clinical_notes'] ?? null,
+                'woundDurationWeeks' => $clinicalSummary['clinical']['wound_duration_weeks'] ?? null,
+                'failedConservativeTreatment' => $clinicalSummary['clinical']['failed_conservative_treatment'] ?? $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
+                'savedAt' => $this->formatDateForDisplay($clinicalSummary['clinical']['saved_at'] ?? null),
+            ],
+            'provider' => [
+                'id' => $clinicalSummary['provider']['id'] ?? ($order->provider ? $order->provider->id : null),
+                'name' => $clinicalSummary['provider']['name'] ?? ($order->provider ? $order->provider->first_name . ' ' . $order->provider->last_name : 'Unknown Provider'),
+                'npi' => $clinicalSummary['provider']['npi'] ?? ($order->provider ? $order->provider->npi_number : 'N/A'),
+                'email' => $clinicalSummary['provider']['email'] ?? ($order->provider ? $order->provider->email : null),
+                'phone' => $clinicalSummary['provider']['phone'] ?? ($order->provider ? $order->provider->phone : null),
+                'specialty' => $clinicalSummary['provider']['specialty'] ?? null,
+                'savedAt' => $this->formatDateForDisplay($clinicalSummary['provider']['saved_at'] ?? null),
+            ],
+            'facility' => [
+                'id' => $clinicalSummary['facility']['id'] ?? ($order->facility ? $order->facility->id : null),
+                'name' => $clinicalSummary['facility']['name'] ?? ($order->facility ? $order->facility->name : null),
+                'address' => $this->formatFacilityAddress($clinicalSummary) ?: ($order->facility ? $this->formatFacilityAddressFromModel($order->facility) : null),
+                'phone' => $clinicalSummary['facility']['phone'] ?? ($order->facility ? $order->facility->phone : null),
+                'fax' => $clinicalSummary['facility']['fax'] ?? ($order->facility ? $order->facility->fax : null),
+                'email' => $clinicalSummary['facility']['email'] ?? ($order->facility ? $order->facility->email : null),
+                'npi' => $clinicalSummary['facility']['npi'] ?? ($order->facility ? $order->facility->npi : null),
+                'taxId' => $clinicalSummary['facility']['tax_id'] ?? ($order->facility ? $order->facility->tax_id : null),
+                'savedAt' => $this->formatDateForDisplay($clinicalSummary['facility']['saved_at'] ?? null),
+            ],
+            'attestations' => [
+                'failedConservativeTreatment' => $clinicalSummary['attestations']['failed_conservative_treatment'] ?? false,
+                'informationAccurate' => $clinicalSummary['attestations']['information_accurate'] ?? false,
+                'medicalNecessityEstablished' => $clinicalSummary['attestations']['medical_necessity_established'] ?? false,
+                'maintainDocumentation' => $clinicalSummary['attestations']['maintain_documentation'] ?? false,
+                'authorizePriorAuth' => $clinicalSummary['attestations']['authorize_prior_auth'] ?? false,
+                'savedAt' => $this->formatDateForDisplay($clinicalSummary['attestations']['saved_at'] ?? null),
+            ],
+            'documents' => $this->getOrderDocuments($order),
+            'fhir' => $fhirData,
+        ];
+
+                        // Log the order data structure
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Order data keys: " . implode(', ', array_keys($orderData)) . "\n", FILE_APPEND);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
         file_put_contents($logFile, date('Y-m-d H:i:s') . " - Product name: " . ($orderData['product']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
 
-    // Get role restrictions and apply financial data filtering
-    $user = Auth::user();
-    $userRole = $user->getPrimaryRole()?->slug ?? 'admin';
+        // Get role restrictions and apply financial data filtering
+        $user = Auth::user();
+        $userRole = $user->getPrimaryRole()?->slug ?? 'admin';
 
-    // Apply role-based financial data restrictions
-    if ($userRole === 'office-manager') {
-        // Hide financial data from Office Managers
-        unset($orderData['total_order_value']);
-    }
+        // Apply role-based financial data restrictions
+        if ($userRole === 'office-manager') {
+            // Hide financial data from Office Managers
+            unset($orderData['total_order_value']);
+        }
 
-    $roleRestrictions = [
-        'can_view_financials' => $user->can('view-financials') && $userRole !== 'office-manager',
-        'can_see_discounts' => $user->can('view-discounts') && $userRole !== 'office-manager',
-        'can_see_msc_pricing' => $user->can('view-msc-pricing') && $userRole !== 'office-manager',
-        'can_see_order_totals' => $user->can('view-order-totals') && $userRole !== 'office-manager',
-        'can_see_commission' => $user->can('view-commission') && $userRole !== 'office-manager',
-        'pricing_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
-        'commission_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
-    ];
+        $roleRestrictions = [
+            'can_view_financials' => $user->can('view-financials') && $userRole !== 'office-manager',
+            'can_see_discounts' => $user->can('view-discounts') && $userRole !== 'office-manager',
+            'can_see_msc_pricing' => $user->can('view-msc-pricing') && $userRole !== 'office-manager',
+            'can_see_order_totals' => $user->can('view-order-totals') && $userRole !== 'office-manager',
+            'can_see_commission' => $user->can('view-commission') && $userRole !== 'office-manager',
+            'pricing_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
+            'commission_access_level' => $userRole !== 'office-manager' ? 'full' : 'none',
+        ];
 
-    // Log what we're sending to frontend
-    file_put_contents($logFile, date('Y-m-d H:i:s') . " - Sending to frontend - order keys: " . implode(', ', array_keys($orderData)) . "\n", FILE_APPEND);
-    file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name being sent: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
-
-    return Inertia::render('Admin/OrderCenter/OrderDetails', [
-        'order' => $orderData,
-        'can_update_status' => $user->can('update-order-status'),
-        'can_view_ivr' => $user->can('view-ivr-documents'),
-        'userRole' => $userRole === 'provider' ? 'Provider' :
-                    ($userRole === 'office-manager' ? 'OM' : 'Admin'),
-        'roleRestrictions' => $roleRestrictions,
-    ]);
-    } catch (Exception $e) {
-        \Log::error('Error in OrderCenterController::show', [
-            'order_id' => $orderId,
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString()
-        ]);
+        // Log what we're sending to frontend
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Sending to frontend - order keys: " . implode(', ', array_keys($orderData)) . "\n", FILE_APPEND);
+        file_put_contents($logFile, date('Y-m-d H:i:s') . " - Patient name being sent: " . ($orderData['patient']['name'] ?? 'NOT SET') . "\n", FILE_APPEND);
 
         return Inertia::render('Admin/OrderCenter/OrderDetails', [
-            'order' => ['id' => $orderId, 'order_number' => 'Error'],
-            'orderData' => null,
-            'can_update_status' => false,
-            'can_view_ivr' => false,
-            'userRole' => 'Admin',
-            'roleRestrictions' => [],
-            'error' => 'Failed to load order details: ' . $e->getMessage()
+            'order' => $orderData,
+            'can_update_status' => $user->can('update-order-status'),
+            'can_view_ivr' => $user->can('view-ivr-documents'),
+            'userRole' => $userRole === 'provider' ? 'Provider' :
+                        ($userRole === 'office-manager' ? 'OM' : 'Admin'),
+            'roleRestrictions' => $roleRestrictions,
         ]);
+        } catch (Exception $e) {
+            \Log::error('Error in OrderCenterController::show', [
+                'order_id' => $orderId,
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            return Inertia::render('Admin/OrderCenter/OrderDetails', [
+                'order' => ['id' => $orderId, 'order_number' => 'Error'],
+                'orderData' => null,
+                'can_update_status' => false,
+                'can_view_ivr' => false,
+                'userRole' => 'Admin',
+                'roleRestrictions' => [],
+                'error' => 'Failed to load order details: ' . $e->getMessage()
+            ]);
+        }
     }
-}
 
     /**
      * Show episode details
@@ -1414,7 +1260,7 @@ class OrderCenterController extends Controller
     }
 
     /**
-     * Get patient data from FHIR or fallback sources
+     * Get comprehensive patient data from FHIR or fallback sources
      */
     private function getPatientDataFromFhir($order): array
     {
@@ -1424,23 +1270,106 @@ class OrderCenterController extends Controller
 
         try {
             $fhirService = app(\App\Services\FhirService::class);
-            $patient = $fhirService->getPatientById($order->patient_fhir_id);
+            $azureHealthService = app(\App\Services\Azure\AzureHealthDataService::class);
 
-            if ($patient) {
-                return [
-                    'dob' => $patient['birthDate'] ?? null,
-                    'gender' => $patient['gender'] ?? null,
-                    'phone' => isset($patient['telecom']) ?
-                        collect($patient['telecom'])->where('system', 'phone')->first()['value'] ?? null : null,
-                    'address' => isset($patient['address'][0]) ?
-                        implode(', ', array_filter([
-                            $patient['address'][0]['line'][0] ?? '',
-                            $patient['address'][0]['city'] ?? '',
-                            $patient['address'][0]['state'] ?? '',
-                            $patient['address'][0]['postalCode'] ?? ''
-                        ])) : null,
-                ];
+            // Extract just the ID part from "Patient/uuid" format if needed
+            $fhirId = $order->patient_fhir_id;
+            if (str_starts_with($fhirId, 'Patient/')) {
+                $fhirId = substr($fhirId, 8);
             }
+
+            // Get basic patient data
+            $patient = $fhirService->getPatientById($fhirId);
+
+            if (!$patient) {
+                Log::warning('Patient not found in FHIR', [
+                    'order_id' => $order->id,
+                    'patient_fhir_id' => $order->patient_fhir_id
+                ]);
+                return [];
+            }
+
+            $patientData = [
+                'dob' => $patient['birthDate'] ?? null,
+                'gender' => $patient['gender'] ?? null,
+                'phone' => isset($patient['telecom']) ?
+                    collect($patient['telecom'])->where('system', 'phone')->first()['value'] ?? null : null,
+                'email' => isset($patient['telecom']) ?
+                    collect($patient['telecom'])->where('system', 'email')->first()['value'] ?? null : null,
+                'address' => isset($patient['address'][0]) ?
+                    implode(', ', array_filter([
+                        $patient['address'][0]['line'][0] ?? '',
+                        $patient['address'][0]['city'] ?? '',
+                        $patient['address'][0]['state'] ?? '',
+                        $patient['address'][0]['postalCode'] ?? ''
+                    ])) : null,
+                'marital_status' => $patient['maritalStatus']['text'] ?? null,
+                'language' => isset($patient['communication']) ?
+                    collect($patient['communication'])->pluck('language.text')->implode(', ') : null,
+                'identifiers' => isset($patient['identifier']) ?
+                    collect($patient['identifier'])->map(function($id) {
+                        return [
+                            'system' => $id['system'] ?? '',
+                            'value' => $id['value'] ?? '',
+                            'type' => $id['type']['text'] ?? ''
+                        ];
+                    })->toArray() : [],
+            ];
+
+            // Get comprehensive patient context if Azure Health Data Service is available
+            try {
+                $patientContext = $azureHealthService->getPatientContext($fhirId);
+
+                // Add clinical data
+                if (!empty($patientContext['conditions'])) {
+                    $patientData['conditions'] = collect($patientContext['conditions'])->map(function($condition) {
+                        return [
+                            'code' => $condition['resource']['code']['text'] ?? 'Unknown',
+                            'status' => $condition['resource']['clinicalStatus']['text'] ?? 'Unknown',
+                            'onset' => $condition['resource']['onsetDateTime'] ?? null,
+                            'severity' => $condition['resource']['severity']['text'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+                // Add coverage data
+                if (!empty($patientContext['coverage'])) {
+                    $patientData['coverage'] = collect($patientContext['coverage'])->map(function($coverage) {
+                        return [
+                            'type' => $coverage['resource']['type']['text'] ?? 'Unknown',
+                            'subscriber' => $coverage['resource']['subscriber']['display'] ?? 'Unknown',
+                            'beneficiary' => $coverage['resource']['beneficiary']['display'] ?? 'Unknown',
+                            'status' => $coverage['resource']['status'] ?? 'Unknown',
+                            'period_start' => $coverage['resource']['period']['start'] ?? null,
+                            'period_end' => $coverage['resource']['period']['end'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+                // Add episode data
+                if (!empty($patientContext['episodes'])) {
+                    $patientData['episodes'] = collect($patientContext['episodes'])->map(function($episode) {
+                        return [
+                            'status' => $episode['resource']['status'] ?? 'Unknown',
+                            'type' => $episode['resource']['type'][0]['text'] ?? 'Unknown',
+                            'period_start' => $episode['resource']['period']['start'] ?? null,
+                            'period_end' => $episode['resource']['period']['end'] ?? null,
+                            'care_manager' => $episode['resource']['careManager']['display'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+            } catch (\Exception $e) {
+                Log::warning('Failed to get comprehensive patient context from Azure FHIR', [
+                    'order_id' => $order->id,
+                    'patient_fhir_id' => $order->patient_fhir_id,
+                    'error' => $e->getMessage()
+                ]);
+                // Continue with basic patient data only
+            }
+
+            return $patientData;
+
         } catch (\Exception $e) {
             Log::warning('Failed to get patient FHIR data', [
                 'order_id' => $order->id,
@@ -1856,5 +1785,212 @@ class OrderCenterController extends Controller
         }
 
         return array_unique(array_filter($codes));
+    }
+
+    /**
+     * Get comprehensive FHIR data for admin order details
+     */
+    private function getComprehensiveFhirData($order): array
+    {
+        $fhirData = [
+            'patient' => [],
+            'clinical' => [],
+            'coverage' => [],
+            'episodes' => [],
+            'practitioner' => [],
+            'organization' => []
+        ];
+
+        if (!$order->patient_fhir_id) {
+            return $fhirData;
+        }
+
+        try {
+            $fhirService = app(\App\Services\FhirService::class);
+            $azureHealthService = app(\App\Services\Azure\AzureHealthDataService::class);
+
+            // Extract just the ID part from "Patient/uuid" format if needed
+            $fhirId = $order->patient_fhir_id;
+            if (str_starts_with($fhirId, 'Patient/')) {
+                $fhirId = substr($fhirId, 8);
+            }
+
+            // Get comprehensive patient context
+            try {
+                $patientContext = $azureHealthService->getPatientContext($fhirId);
+
+                // Patient data
+                if (!empty($patientContext['patient'])) {
+                    $fhirData['patient'] = $patientContext['patient'];
+                }
+
+                // Clinical data (conditions)
+                if (!empty($patientContext['conditions'])) {
+                    $fhirData['clinical']['conditions'] = collect($patientContext['conditions'])->map(function($condition) {
+                        return [
+                            'code' => $condition['resource']['code']['text'] ?? 'Unknown',
+                            'status' => $condition['resource']['clinicalStatus']['text'] ?? 'Unknown',
+                            'onset' => $condition['resource']['onsetDateTime'] ?? null,
+                            'severity' => $condition['resource']['severity']['text'] ?? null,
+                            'category' => $condition['resource']['category'][0]['text'] ?? null,
+                            'body_site' => $condition['resource']['bodySite'][0]['text'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+                // Coverage data (insurance)
+                if (!empty($patientContext['coverage'])) {
+                    $fhirData['coverage'] = collect($patientContext['coverage'])->map(function($coverage) {
+                        return [
+                            'type' => $coverage['resource']['type']['text'] ?? 'Unknown',
+                            'subscriber' => $coverage['resource']['subscriber']['display'] ?? 'Unknown',
+                            'beneficiary' => $coverage['resource']['beneficiary']['display'] ?? 'Unknown',
+                            'status' => $coverage['resource']['status'] ?? 'Unknown',
+                            'period_start' => $coverage['resource']['period']['start'] ?? null,
+                            'period_end' => $coverage['resource']['period']['end'] ?? null,
+                            'payor' => $coverage['resource']['payor'][0]['display'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+                // Episode data
+                if (!empty($patientContext['episodes'])) {
+                    $fhirData['episodes'] = collect($patientContext['episodes'])->map(function($episode) {
+                        return [
+                            'status' => $episode['resource']['status'] ?? 'Unknown',
+                            'type' => $episode['resource']['type'][0]['text'] ?? 'Unknown',
+                            'period_start' => $episode['resource']['period']['start'] ?? null,
+                            'period_end' => $episode['resource']['period']['end'] ?? null,
+                            'care_manager' => $episode['resource']['careManager']['display'] ?? null,
+                            'reason' => $episode['resource']['reasonCode'][0]['text'] ?? null,
+                        ];
+                    })->toArray();
+                }
+
+            } catch (\Exception $e) {
+                Log::warning('Failed to get comprehensive patient context from Azure FHIR', [
+                    'order_id' => $order->id,
+                    'patient_fhir_id' => $order->patient_fhir_id,
+                    'error' => $e->getMessage()
+                ]);
+            }
+
+            // Try to get practitioner data if we have a reference
+            if ($order->provider && $order->provider->azure_fhir_id) {
+                try {
+                    $practitionerData = $azureHealthService->getPractitionerData($order->provider->azure_fhir_id);
+                    $fhirData['practitioner'] = $practitionerData;
+                } catch (\Exception $e) {
+                    Log::warning('Failed to get practitioner data from FHIR', [
+                        'order_id' => $order->id,
+                        'practitioner_id' => $order->provider->azure_fhir_id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Try to get organization data if we have a reference
+            if ($order->facility && $order->facility->azure_fhir_id) {
+                try {
+                    $organizationData = $azureHealthService->getOrganizationData($order->facility->azure_fhir_id);
+                    $fhirData['organization'] = $organizationData;
+                } catch (\Exception $e) {
+                    Log::warning('Failed to get organization data from FHIR', [
+                        'order_id' => $order->id,
+                        'organization_id' => $order->facility->azure_fhir_id,
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+        } catch (\Exception $e) {
+            Log::error('Failed to get comprehensive FHIR data', [
+                'order_id' => $order->id,
+                'patient_fhir_id' => $order->patient_fhir_id,
+                'error' => $e->getMessage()
+            ]);
+        }
+
+        return $fhirData;
+    }
+
+    /**
+     * Format date consistently for admin display
+     */
+    private function formatDateForDisplay($date, $format = 'Y-m-d H:i:s'): string
+    {
+        if (!$date) {
+            return 'N/A';
+        }
+
+        try {
+            if (is_string($date)) {
+                $date = Carbon::parse($date);
+            }
+
+            return $date->format($format);
+        } catch (\Exception $e) {
+            Log::warning('Failed to format date', [
+                'date' => $date,
+                'error' => $e->getMessage()
+            ]);
+            return 'Invalid Date';
+        }
+    }
+
+    /**
+     * Format date for ISO string (for frontend)
+     */
+    private function formatDateForISO($date): ?string
+    {
+        if (!$date) {
+            return null;
+        }
+
+        try {
+            if (is_string($date)) {
+                $date = Carbon::parse($date);
+            }
+
+            return $date->toISOString();
+        } catch (\Exception $e) {
+            Log::warning('Failed to format date for ISO', [
+                'date' => $date,
+                'error' => $e->getMessage()
+            ]);
+            return null;
+        }
+    }
+
+    /**
+     * Get Docuseal document URL for a submission
+     */
+    public function getDocusealDocument($orderId)
+    {
+        $order = ProductRequest::findOrFail($orderId);
+        $submissionId = $order->docuseal_submission_id ?? $order->episode->docuseal_submission_id ?? null;
+
+        if (!$submissionId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'No Docuseal submission ID found for this order'
+            ], 404);
+        }
+
+        try {
+            // Use the DocusealService to get the document URL
+            $docusealService = app(\App\Services\DocusealService::class);
+            $documentUrl = $docusealService->getSubmissionDocumentUrl($submissionId);
+
+            return response()->json([
+                'success' => true,
+                'document_url' => $documentUrl
+            ]);
+        } catch (\Exception $e) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to fetch document URL: ' . $e->getMessage()
+            ], 500);
+        }
     }
 }

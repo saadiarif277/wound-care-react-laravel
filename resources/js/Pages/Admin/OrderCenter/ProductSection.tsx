@@ -2,6 +2,7 @@ import React from 'react';
 import { SectionCard } from '@/Pages/QuickRequest/Orders/order/SectionCard';
 import { InfoRow } from '@/Pages/QuickRequest/Orders/order/InfoRow';
 import { Package, Calendar, Truck } from 'lucide-react';
+import { formatHumanReadableDate } from '@/utils/dateUtils';
 
 interface OrderData {
   orderNumber: string;
@@ -83,7 +84,7 @@ const ProductSection: React.FC<ProductSectionProps> = ({
           <h4 className="font-medium text-gray-900 mb-3">Order Details</h4>
           <InfoRow label="Total Order Value" value={formatCurrency(orderData.total_amount)} />
           {orderData.orderPreferences?.expectedServiceDate && (
-            <InfoRow label="Expected Service Date" value={orderData.orderPreferences.expectedServiceDate} icon={Calendar} />
+            <InfoRow label="Expected Service Date" value={formatHumanReadableDate(orderData.orderPreferences.expectedServiceDate)} icon={Calendar} />
           )}
           <InfoRow label="Shipping Speed" value={orderData.orderPreferences?.shippingSpeed || orderData.product?.shippingInfo?.speed || 'Standard'} icon={Truck} />
           {orderData.orderPreferences?.placeOfService && (

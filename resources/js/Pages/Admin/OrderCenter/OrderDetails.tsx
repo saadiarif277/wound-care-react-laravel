@@ -29,6 +29,7 @@ interface Order {
   action_required: boolean;
   episode_id?: string;
   docuseal_submission_id?: string;
+  ivr_document_url?: string;
   place_of_service?: string;
   place_of_service_display?: string;
   wound_type?: string;
@@ -238,6 +239,10 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
           type: 'success',
           message: 'IVR status updated successfully!'
         });
+        // Refresh the page after successful update
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
         const error = response.data;
         setNotificationMessage({
@@ -272,6 +277,10 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
           type: 'success',
           message: 'Order form status updated successfully!'
         });
+        // Refresh the page after successful update
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
         const error = response.data;
         setNotificationMessage({
@@ -313,6 +322,10 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
           type: 'success',
           message: 'Order submitted to manufacturer successfully!'
         });
+        // Refresh the page after successful update
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000);
       } else {
         const error = response.data;
         setNotificationMessage({
@@ -454,7 +467,9 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
             verifiedDate: '',
             notes: '',
             resultsFileUrl: '',
-            files: order.documents || []
+            files: order.documents || [],
+            ivrDocumentUrl: order.ivr_document_url,
+            docusealSubmissionId: order.docuseal_submission_id
           }}
           orderFormData={{
             status: order.order_form_status || 'N/A',

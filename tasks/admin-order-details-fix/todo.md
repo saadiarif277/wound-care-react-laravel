@@ -19,6 +19,7 @@ The admin order details page was showing "N/A" for most fields even though the c
 - ✅ **FIXED**: Updated view button to navigate to backend route instead of local state
 - ✅ **FIXED**: Product data loading with proper manufacturer relationship
 - ✅ **FIXED**: Manufacturer relationship conflict (string field vs relationship method)
+- ✅ **FIXED**: Admin orders index page product name display
 - ✅ **FIXED**: All frontend component prop structures and TypeScript errors
 - 🔄 **READY FOR TESTING**: Complete data flow from database to frontend
 
@@ -31,6 +32,7 @@ The admin order details page was showing "N/A" for most fields even though the c
    - Fixed facility name to use database relationship
    - Fixed product model reference from `MscProduct` to `Product`
    - **FIXED**: Manufacturer relationship conflict by using explicit relationship method calls
+   - **FIXED**: Admin orders index page to properly load product names from clinical summary or products relationship
    - Added comprehensive error handling with try-catch blocks
    - Added detailed logging to `storage/logs/order-details-debug.log`
    - Put all detailed data in the `order` prop instead of separate `orderData`

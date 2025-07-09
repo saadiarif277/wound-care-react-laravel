@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCircle, X, Download, Eye, Upload, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCircle, X, Download, Eye, Upload, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
 import axios from 'axios';
-import { toast } from 'react-toastify';
 
 interface IVRData {
   status: string;
@@ -15,6 +14,8 @@ interface IVRData {
   resultsFileUrl: string;
   rejectionReason?: string;
   files: DocumentFile[];
+  ivrDocumentUrl?: string;
+  docusealSubmissionId?: string;
 }
 
 interface OrderFormData {
@@ -73,7 +74,8 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   const [modalNewStatus, setModalNewStatus] = useState('');
   const [showDocumentPanel, setShowDocumentPanel] = useState(false);
   const [documentPanelType, setDocumentPanelType] = useState<'ivr' | 'order-form'>('ivr');
-  // Remove local notification state - let parent handle notifications
+  const [isLoadingIVR, setIsLoadingIVR] = useState(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
   const getStatusColor = (status: string | null | undefined) => {
     if (!status || typeof status !== 'string') {
@@ -135,10 +137,10 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
   };
 
   const handleStatusUpdate = async (data: any) => {
+    setIsUpdatingStatus(true);
     try {
       const statusType = modalType === 'ivr' ? 'ivr' : 'order';
 
-      // Map frontend status values to backend expected values
       const statusMapping: Record<string, string> = {
         'Sent': 'sent',
         'Verified': 'verified',
@@ -152,7 +154,6 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
 
       const status = statusMapping[data.status] || data.status.toLowerCase().replace(/ /g, '_');
 
-      // Call backend API to update status
       const response = await axios.post(`/admin/orders/${orderId}/change-status`, {
         status: status,
         status_type: statusType,
@@ -164,13 +165,10 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
       });
 
       if (response.status === 200) {
-        const result = response.data;
-
-        // Update local state with the processed data
         const processedData = {
           ...data,
-          status: data.status, // Keep the display status
-          backendStatus: status, // Add the backend status for reference
+          status: data.status,
+          backendStatus: status,
         };
 
         if (modalType === 'ivr') {
@@ -178,16 +176,14 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         } else {
           onUpdateOrderFormStatus(processedData);
         }
-
-        // Success - parent will handle notification via onUpdateIVRStatus/onUpdateOrderFormStatus
       } else {
         const errorData = response.data;
         console.error('Status update failed:', errorData.error || `Failed to update ${statusType} status`);
-        // Parent will handle error notification
       }
     } catch (error) {
       console.error('Status update error:', error);
-      // Parent will handle error notification
+    } finally {
+      setIsUpdatingStatus(false);
     }
   };
 
@@ -197,18 +193,47 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
       if (type === 'ivr') {
         onUploadIVRResults(file);
       }
-      // Handle order form file upload
     }
   };
 
   const removeFile = (fileId: string, type: 'ivr' | 'order') => {
-    // Handle file removal
     console.log(`Removing file ${fileId} from ${type}`);
   };
 
   const handleViewDocument = (type: 'ivr' | 'order-form') => {
     setDocumentPanelType(type);
     setShowDocumentPanel(true);
+  };
+
+  const handleViewIVR = async () => {
+    if (ivrData.docusealSubmissionId) {
+      setIsLoadingIVR(true);
+      try {
+        const response = await fetch(`/admin/orders/${orderId}/docuseal-document`);
+        const data = await response.json();
+
+        if (data.success && data.document_url) {
+          console.log('🔍 Opening Docuseal document URL:', data.document_url);
+          window.open(data.document_url, '_blank');
+        } else {
+          console.error('❌ Failed to get document URL:', data.message);
+          const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
+          console.log('🔍 Using fallback URL:', fallbackUrl);
+          window.open(fallbackUrl, '_blank');
+        }
+      } catch (error) {
+        console.error('❌ Error fetching document URL:', error);
+        const fallbackUrl = `https://docuseal.com/e/${ivrData.docusealSubmissionId}`;
+        console.log('🔍 Using fallback URL:', fallbackUrl);
+        window.open(fallbackUrl, '_blank');
+      } finally {
+        setIsLoadingIVR(false);
+      }
+    } else if (ivrData.ivrDocumentUrl) {
+      window.open(ivrData.ivrDocumentUrl, '_blank');
+    } else {
+      handleViewDocument('ivr');
+    }
   };
 
   return (
@@ -250,34 +275,20 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Sent Date:</span>
-                    <span className="font-medium">{ivrData.sentDate || 'Not sent'}</span>
-                  </div>
-                  {ivrData.resultsReceivedDate && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Results Received:</span>
-                      <span className="font-medium">{ivrData.resultsReceivedDate}</span>
-                    </div>
-                  )}
-                  {ivrData.verifiedDate && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Verified Date:</span>
-                      <span className="font-medium">{ivrData.verifiedDate}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-3">
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => handleViewDocument('ivr')}
+                      onClick={handleViewIVR}
                       className="flex-1"
                       variant="ghost"
                       size="sm"
+                      disabled={isLoadingIVR}
                     >
-                      <Eye className="h-4 w-4 mr-2" />
-                      View IVR
+                      {isLoadingIVR ? (
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      ) : (
+                        <Eye className="h-4 w-4 mr-2" />
+                      )}
+                      {isLoadingIVR ? 'Loading...' : 'View IVR Form'}
                     </Button>
                   </div>
 
@@ -288,6 +299,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         value={ivrData.status}
                         onChange={(e) => handleStatusChange('ivr', ivrData.status, e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isUpdatingStatus}
                       >
                         <option value="n/a">N/A</option>
                         <option value="pending">Pending</option>
@@ -388,23 +400,22 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Submission Date:</span>
-                    <span className="font-medium">{orderFormData.submissionDate || 'Not submitted'}</span>
+                {/* Disabled Order Status Message */}
+                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <div className="flex-shrink-0">
+                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-gray-500" />
+                      </div>
+                    </div>
+                    <div className="flex-1">
+                      <h5 className="text-sm font-medium text-gray-900 mb-1">Order Status Feature Coming Soon</h5>
+                      <p className="text-sm text-gray-600">
+                        The order status management feature is currently under development.
+                        This section will be enabled once the feature is available.
+                      </p>
+                    </div>
                   </div>
-                  {orderFormData.reviewDate && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Review Date:</span>
-                      <span className="font-medium">{orderFormData.reviewDate}</span>
-                    </div>
-                  )}
-                  {orderFormData.approvalDate && (
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Approval Date:</span>
-                      <span className="font-medium">{orderFormData.approvalDate}</span>
-                    </div>
-                  )}
                 </div>
 
                 <div className="space-y-3">
@@ -427,6 +438,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         value={orderFormData.status}
                         onChange={(e) => handleStatusChange('order', orderFormData.status, e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isUpdatingStatus}
                       >
                         <option value="pending">Pending</option>
                         <option value="submitted_to_manufacturer">Submitted to Manufacturer</option>
@@ -445,9 +457,14 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
                         className="w-full"
                         variant="primary"
                         size="sm"
+                        disabled={isUpdatingStatus}
                       >
-                        <Send className="h-4 w-4 mr-2" />
-                        Submit to Manufacturer
+                        {isUpdatingStatus ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <Send className="h-4 w-4 mr-2" />
+                        )}
+                        {isUpdatingStatus ? 'Updating...' : 'Submit to Manufacturer'}
                       </Button>
                     </div>
                   )}
@@ -591,8 +608,6 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
         orderId={orderId.toString()}
         title={documentPanelType === 'ivr' ? 'IVR Document' : 'Order Form Document'}
       />
-
-      {/* Notifications handled by parent component */}
     </>
   );
 };
