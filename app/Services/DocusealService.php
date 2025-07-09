@@ -26,15 +26,15 @@ class DocusealService
         $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
 
         // Initialize intelligent mapping service if available
-        if (!$this->intelligentMapping) {
-            try {
-                $this->aiService = app(OptimizedMedicalAiService::class);
-            } catch (\Exception $e) {
-                Log::warning('Medical AI service not available, using standard mapping', [
-                    'error' => $e->getMessage()
-                ]);
-            }
-        }
+        // if (!$this->intelligentMapping) {
+        //     try {
+        //         $this->aiService = app(OptimizedMedicalAiService::class);
+        //     } catch (\Exception $e) {
+        //         Log::warning('Medical AI service not available, using standard mapping', [
+        //             'error' => $e->getMessage()
+        //         ]);
+        //     }
+        // }
     }
 
     /**
