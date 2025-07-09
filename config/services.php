@@ -83,12 +83,8 @@ return [
 
     'docuseal' => [
         'api_key' => env('DOCUSEAL_API_KEY'),
-        'api_url' => env('DOCUSEAL_API_URL', 'https://api.docuseal.com'),
-        'webhook_url' => env('DOCUSEAL_WEBHOOK_URL'),
         'webhook_secret' => env('DOCUSEAL_WEBHOOK_SECRET'),
-        'timeout' => env('DOCUSEAL_TIMEOUT', 30),
-        'max_retries' => env('DOCUSEAL_MAX_RETRIES', 3),
-        'retry_delay' => env('DOCUSEAL_RETRY_DELAY', 1000),
+        'base_url' => env('DOCUSEAL_BASE_URL', 'https://api.docuseal.co'),
     ],
 
 
@@ -98,19 +94,12 @@ return [
 
     'umls' => [
         'api_key' => env('UMLS_API_KEY'),
-        'base_url' => env('UMLS_BASE_URL', 'https://uts-ws.nlm.nih.gov/rest'),
-        'timeout' => env('UMLS_API_TIMEOUT', 30),
         'cache_ttl' => env('UMLS_CACHE_TTL', 86400), // 24 hours
-        'max_retries' => env('UMLS_MAX_RETRIES', 3),
-        'retry_delay' => env('UMLS_RETRY_DELAY', 1000), // milliseconds
+        'timeout' => env('UMLS_TIMEOUT', 30), // seconds
     ],
 
     'health_vocab' => [
         'api_url' => env('HEALTH_VOCAB_API_URL'),
-        'timeout' => env('HEALTH_VOCAB_API_TIMEOUT', 30),
-        'cache_ttl' => env('HEALTH_VOCAB_CACHE_TTL', 86400), // 24 hours
-        'max_retries' => env('HEALTH_VOCAB_MAX_RETRIES', 3),
-        'retry_delay' => env('HEALTH_VOCAB_RETRY_DELAY', 1000), // milliseconds
     ],
 
     'ai_form_filler' => [

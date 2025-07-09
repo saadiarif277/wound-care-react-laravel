@@ -8,23 +8,65 @@ use App\Services\FieldMapping\FieldMatcher;
 use App\Services\DocuSeal\DynamicFieldMappingService;
 use App\Services\DocuSeal\TemplateFieldValidationService;
 use App\Models\Docuseal\DocusealTemplate;
+use App\Models\CanonicalField;
+// use App\Models\TemplateFieldMapping; // Model doesn't exist - commenting out
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Auth;
+use App\Models\QuickRequest;
+use App\Models\Patient;
+use App\Models\ProviderDetail;
+use App\Models\Order;
+use App\Services\FhirService;
+use App\Services\MedicalTerminologyService;
+// use App\Services\EpisodeService; // Service doesn't exist - commenting out
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Collection;
 
 class UnifiedFieldMappingService
 {
     private array $config;
     private array $orderFormConfig;
 
+    protected FhirService $fhirService;
+    protected MedicalTerminologyService $medicalTerminologyService;
+    protected ?string $aiServiceUrl;
+    protected bool $aiServiceEnabled;
+
     public function __construct(
         private DataExtractor $dataExtractor,
         private FieldTransformer $fieldTransformer,
         private FieldMatcher $fieldMatcher,
+        // protected EpisodeService $episodeService, // Service doesn't exist - removing
+        // protected DocusealService $docusealService, // Circular dependency - removing
+        FhirService $fhirService,
+        MedicalTerminologyService $medicalTerminologyService,
         private ?TemplateFieldValidationService $fieldValidator = null
     ) {
+        $this->fhirService = $fhirService;
+        $this->medicalTerminologyService = $medicalTerminologyService;
+        $this->aiServiceUrl = config('services.medical_ai.base_url');
+        $this->aiServiceEnabled = !empty($this->aiServiceUrl);
+        
         $this->config = config('field-mapping');
         $this->orderFormConfig = config('order-form-mapping');
+        
+        if (!$this->config) {
+            Log::warning('Field mapping configuration not found, using defaults');
+            $this->config = [
+                'transformations' => [],
+                'validation' => [],
+                'defaults' => []
+            ];
+        }
+        
+        if (!$this->orderFormConfig) {
+            Log::warning('Order form mapping configuration not found, using defaults');
+            $this->orderFormConfig = [
+                'templates' => [],
+                'field_mapping' => []
+            ];
+        }
         
         // Initialize field validator if not provided (for dependency injection)
         if (!$this->fieldValidator) {
@@ -1165,7 +1207,9 @@ class UnifiedFieldMappingService
 
     /**
      * Update field mapping for a template
+     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
      */
+    /*
     public function updateFieldMapping(
         string $templateId, 
         string $fieldName, 
@@ -1191,10 +1235,13 @@ class UnifiedFieldMappingService
 
         return $mapping;
     }
+    */
 
     /**
      * Validate a field mapping
+     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
      */
+    /*
     public function validateFieldMapping(TemplateFieldMapping $mapping): array
     {
         $status = 'valid';
@@ -1247,6 +1294,7 @@ class UnifiedFieldMappingService
 
         return compact('status', 'messages');
     }
+    */
 
     /**
      * Calculate mapping statistics for a template
@@ -1264,15 +1312,17 @@ class UnifiedFieldMappingService
         }
 
         $totalFields = count($template->field_mappings ?? []);
-        $mappedFields = $template->fieldMappings->whereNotNull('canonical_field_id')->count();
+        // NOTE: fieldMappings relationship might not exist since TemplateFieldMapping model doesn't exist
+        // $mappedFields = $template->fieldMappings->whereNotNull('canonical_field_id')->count();
+        $mappedFields = 0; // Default to 0 since we can't access the relationship
         
         return [
             'total_fields' => $totalFields,
             'mapped_fields' => $mappedFields,
-            'unmapped_fields' => $totalFields - $template->fieldMappings->count(),
-            'coverage_percentage' => $totalFields > 0 ? round(($mappedFields / $totalFields) * 100, 2) : 0,
-            'validation_errors' => $template->fieldMappings->where('validation_status', 'error')->count(),
-            'validation_warnings' => $template->fieldMappings->where('validation_status', 'warning')->count(),
+            'unmapped_fields' => $totalFields, // Since we can't count mapped fields
+            'coverage_percentage' => 0, // Can't calculate without fieldMappings
+            'validation_errors' => 0, // Can't count without fieldMappings
+            'validation_warnings' => 0, // Can't count without fieldMappings
         ];
     }
 
@@ -1325,7 +1375,9 @@ class UnifiedFieldMappingService
 
     /**
      * Apply mapping configuration to data
+     * NOTE: Commented out as TemplateFieldMapping model doesn't exist
      */
+    /*
     public function applyMappingConfiguration(array $data, string $templateId): array
     {
         $mappings = TemplateFieldMapping::where('template_id', $templateId)
@@ -1360,6 +1412,7 @@ class UnifiedFieldMappingService
 
         return $mappedData;
     }
+    */
 
     /**
      * Set nested value in array using dot notation
@@ -1379,5 +1432,169 @@ class UnifiedFieldMappingService
                 $current = &$current[$key];
             }
         }
+    }
+
+    /**
+     * Enrich data with UMLS medical terminology information
+     */
+    protected function enrichDataWithMedicalTerminology(array $data): array
+    {
+        // Extract diagnosis codes if present
+        if (!empty($data['diagnosis'])) {
+            $icd10Codes = $this->extractICD10Codes($data['diagnosis']);
+            
+            // Get CPT mappings for each ICD-10 code
+            $cptMappings = [];
+            foreach ($icd10Codes as $code) {
+                $mapping = $this->medicalTerminologyService->mapICD10ToCPT($code);
+                if ($mapping['success'] && !empty($mapping['cpt_codes'])) {
+                    $cptMappings[$code] = $mapping['cpt_codes'];
+                }
+            }
+            
+            if (!empty($cptMappings)) {
+                $data['diagnosis_cpt_mappings'] = $cptMappings;
+            }
+        }
+        
+        // Validate and enrich wound type information
+        if (!empty($data['wound_type'])) {
+            $validation = $this->medicalTerminologyService->validateMedicalTerms(
+                [$data['wound_type']], 
+                'wound_care'
+            );
+            
+            if (!empty($validation['validation_results'][0])) {
+                $result = $validation['validation_results'][0];
+                
+                if ($result['is_valid'] && !empty($result['umls_validation'])) {
+                    $cui = $result['umls_validation']['umls_cui'];
+                    
+                    // Get detailed concept information
+                    $conceptDetails = $this->medicalTerminologyService->getConceptDetails($cui);
+                    if ($conceptDetails['success']) {
+                        $data['wound_type_umls'] = [
+                            'cui' => $cui,
+                            'preferred_name' => $conceptDetails['name'],
+                            'semantic_types' => $conceptDetails['semantic_types']
+                        ];
+                        
+                        // Get definitions if available
+                        $definitions = $this->medicalTerminologyService->getConceptDefinitions($cui);
+                        if ($definitions['success'] && !empty($definitions['definitions'])) {
+                            $data['wound_type_umls']['definition'] = $definitions['definitions'][0]['value'];
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Get code suggestions for procedures mentioned
+        if (!empty($data['clinical_notes']) || !empty($data['treatment_plan'])) {
+            $procedureText = implode(' ', array_filter([
+                $data['clinical_notes'] ?? '',
+                $data['treatment_plan'] ?? ''
+            ]));
+            
+            if (!empty(trim($procedureText))) {
+                $suggestions = $this->medicalTerminologyService->suggestMedicalCodes(
+                    $procedureText,
+                    'cpt'
+                );
+                
+                if (!empty($suggestions)) {
+                    $data['suggested_cpt_codes'] = array_slice($suggestions, 0, 5);
+                }
+            }
+        }
+        
+        return $data;
+    }
+
+    /**
+     * Extract ICD-10 codes from diagnosis text
+     */
+    protected function extractICD10Codes(string $diagnosis): array
+    {
+        // Pattern to match ICD-10 codes (basic pattern)
+        preg_match_all('/\b[A-TV-Z]\d{2}(?:\.\d{1,4})?\b/', $diagnosis, $matches);
+        
+        $codes = [];
+        foreach ($matches[0] as $code) {
+            // Validate the code
+            $validation = $this->medicalTerminologyService->validateICD10Code($code);
+            if ($validation['valid']) {
+                $codes[] = $code;
+            }
+        }
+        
+        return array_unique($codes);
+    }
+
+    /**
+     * Map data to DocuSeal fields using AI service or fallback mapping
+     */
+    public function mapFieldsForDocuseal(array $sourceData, string $templateName): array
+    {
+        // Enrich data with medical terminology information
+        $enrichedData = $this->enrichDataWithMedicalTerminology($sourceData);
+        
+        if ($this->aiServiceEnabled) {
+            try {
+                Log::info('Using AI service for field mapping', [
+                    'template' => $templateName,
+                    'ai_service_url' => $this->aiServiceUrl,
+                    'data_keys' => array_keys($enrichedData)
+                ]);
+                
+                $response = Http::timeout(60)
+                    ->post($this->aiServiceUrl . '/map-for-docuseal', [
+                        'template_name' => $templateName,
+                        'source_data' => $enrichedData,
+                        'include_medical_context' => true,
+                        'umls_enriched' => true
+                    ]);
+                
+                if ($response->successful()) {
+                    $result = $response->json();
+                    Log::info('AI mapping successful', [
+                        'template' => $templateName,
+                        'mapped_fields_count' => count($result['fields'] ?? [])
+                    ]);
+                    
+                    return $result['fields'] ?? [];
+                }
+                
+                Log::warning('AI service returned non-successful response', [
+                    'status' => $response->status(),
+                    'body' => $response->body()
+                ]);
+                
+            } catch (\Exception $e) {
+                Log::error('AI service mapping failed', [
+                    'error' => $e->getMessage(),
+                    'template' => $templateName
+                ]);
+            }
+        }
+        
+        Log::info('Using fallback field mapping');
+        return $this->performFallbackMapping($enrichedData, $templateName);
+    }
+
+    /**
+     * Perform fallback field mapping (if AI service is not available or fails)
+     */
+    protected function performFallbackMapping(array $enrichedData, string $templateName): array
+    {
+        Log::warning('AI service not available or failed, falling back to static field mapping', [
+            'template' => $templateName,
+            'data_keys' => array_keys($enrichedData)
+        ]);
+
+        // This is a placeholder for the fallback logic.
+        // In a real scenario, you would load a static config or use a different mapping service.
+        // For now, we'll just return the enriched data as is, which might not be fully mapped.
+        return $enrichedData;
     }
 }

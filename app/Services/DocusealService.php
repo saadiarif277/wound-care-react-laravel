@@ -1150,7 +1150,7 @@ class DocusealService
         array $prefillData = [],
         ?int $episodeId = null
     ): array {
-        Log::info('Creating DocuSeal submission for Quick Request', [
+        Log::info('Creating DocuSeal submission for Quick Request with AI mapping', [
             'template_id' => $templateId,
             'integration_email' => $integrationEmail,
             'submitter_email' => $submitterEmail,
@@ -1167,97 +1167,60 @@ class DocusealService
                 Log::warning('No manufacturer found for template ID, using fallback mapping', [
                     'template_id' => $templateId
                 ]);
+                
+                // Use old static mapping as fallback
+                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
+                
+                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
             }
 
-            // Transform prefill data to DocuSeal format using manufacturer config
-            $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
-
-            // Prepare submission data
-            $submissionData = [
-                'template_id' => $templateId,
-                'send_email' => false, // Don't send email automatically
-                'metadata' => [
-                    'source' => 'quick_request',
-                    'episode_id' => $episodeId,
-                    'created_at' => now()->toIso8601String(),
-                    'submitter_email' => $submitterEmail,
-                    'integration_email' => $integrationEmail,
-                    'manufacturer' => $manufacturerName,
-                ],
-                'submitters' => [
-                    [
-                        'name' => $submitterName, // Use the provided submitter name
-                        'email' => $submitterEmail, // Use the submitter email (person who will sign)
-                        'role' => 'First Party', // Default role for the person signing
-                        'fields' => $this->convertToDocusealFieldFormat($docusealFields)
-                    ]
-                ]
-            ];
-
-            // Make API call to DocuSeal
-            $response = Http::withHeaders([
-                'X-Auth-Token' => $this->apiKey,
-                'Content-Type' => 'application/json',
-            ])->post("{$this->apiUrl}/submissions", $submissionData);
-
-            if (!$response->successful()) {
-                $errorBody = $response->json();
-                $errorMessage = 'Failed to create DocuSeal submission';
-
-                if (isset($errorBody['error'])) {
-                    $errorMessage .= ': ' . $errorBody['error'];
-                } elseif (isset($errorBody['message'])) {
-                    $errorMessage .= ': ' . $errorBody['message'];
-                } else {
-                    $errorMessage .= ': HTTP ' . $response->status();
-                }
-
-                Log::error('DocuSeal API error', [
-                    'template_id' => $templateId,
-                    'manufacturer' => $manufacturerName,
-                    'status' => $response->status(),
-                    'error' => $errorBody,
-                    'fields_count' => count($docusealFields)
-                ]);
-
-                throw new \Exception($errorMessage);
-            }
-
-            $result = $response->json();
-
-            // Extract submission info from response
-            $submissionData = $result[0] ?? $result; // Handle array or single object response
-            $submissionId = $submissionData['submission_id'] ?? null;
-            $slug = $submissionData['slug'] ?? null;
-
-            if (!$slug) {
-                throw new \Exception('No slug returned from DocuSeal API');
-            }
-
-            Log::info('DocuSeal submission created successfully', [
+            // Use AI service for intelligent field mapping
+            Log::info('Using AI service for field mapping', [
                 'template_id' => $templateId,
                 'manufacturer' => $manufacturerName,
-                'submission_id' => $submissionId,
-                'slug' => $slug,
-                'fields_mapped' => count($docusealFields),
-                'actual_fields_sent' => $docusealFields, // Log all the fields we sent
-                'sample_prefill_data' => array_slice($prefillData, 0, 10, true) // Log sample input data
+                'prefill_data_count' => count($prefillData)
             ]);
 
-            return [
-                'success' => true,
-                'data' => [
-                    'slug' => $slug,
-                    'submission_id' => $submissionId,
-                    'embed_url' => "https://docuseal.com/s/{$slug}",
+            // Call the AI service via DynamicFieldMappingService
+            $dynamicMappingService = app(\App\Services\DocuSeal\DynamicFieldMappingService::class);
+            $aiMappingResult = $dynamicMappingService->mapForDocuseal($templateId, $manufacturerName, $prefillData);
+
+            if ($aiMappingResult['success'] && !empty($aiMappingResult['field_mappings'])) {
+                // AI mapping successful - use the AI-mapped fields
+                $docusealFields = $aiMappingResult['field_mappings'];
+                
+                Log::info('AI mapping successful', [
                     'template_id' => $templateId,
-                    'manufacturer' => $manufacturerName
-                ],
-                'ai_mapping_used' => false, // Could be enhanced later
-                'ai_confidence' => 0.0,
-                'mapping_method' => 'manufacturer_config',
-                'fields_mapped' => count($docusealFields)
-            ];
+                    'manufacturer' => $manufacturerName,
+                    'ai_fields_mapped' => count($docusealFields),
+                    'ai_confidence' => $aiMappingResult['confidence'] ?? 0.0,
+                    'ai_quality_grade' => $aiMappingResult['quality_grade'] ?? 'unknown'
+                ]);
+                
+                return $this->createDocusealSubmission(
+                    $templateId, 
+                    $docusealFields, 
+                    $integrationEmail, 
+                    $submitterEmail, 
+                    $submitterName, 
+                    $episodeId, 
+                    $manufacturerName, 
+                    true, 
+                    $aiMappingResult['confidence'] ?? 0.95,
+                    'azure_ai'
+                );
+            } else {
+                // AI mapping failed - fall back to static mapping
+                Log::warning('AI mapping failed, using static fallback', [
+                    'template_id' => $templateId,
+                    'manufacturer' => $manufacturerName,
+                    'ai_error' => $aiMappingResult['error'] ?? 'unknown error'
+                ]);
+                
+                $docusealFields = $this->transformQuickRequestData($prefillData, $templateId, $manufacturerName);
+                
+                return $this->createDocusealSubmission($templateId, $docusealFields, $integrationEmail, $submitterEmail, $submitterName, $episodeId, $manufacturerName, false, 0.0, 'static_fallback');
+            }
 
         } catch (\Exception $e) {
             Log::error('Failed to create DocuSeal submission for Quick Request', [
@@ -1275,27 +1238,173 @@ class DocusealService
     }
 
     /**
-     * Convert associative array fields to DocuSeal's expected format
+     * Helper method to create DocuSeal submission with unified response format
      */
-    private function convertToDocusealFieldFormat(array $associativeFields): array
-    {
-        $docusealFields = [];
-        foreach ($associativeFields as $fieldName => $fieldValue) {
-            // Convert value to string and handle special cases
-            if (is_bool($fieldValue)) {
-                $fieldValue = $fieldValue ? 'Yes' : 'No';
-            } elseif (is_array($fieldValue)) {
-                $fieldValue = implode(', ', $fieldValue);
-            } elseif ($fieldValue === null) {
-                $fieldValue = '';
+    private function createDocusealSubmission(
+        string $templateId,
+        array $docusealFields,
+        string $integrationEmail,
+        string $submitterEmail,
+        string $submitterName,
+        ?int $episodeId,
+        ?string $manufacturerName,
+        bool $aiMappingUsed,
+        float $aiConfidence,
+        string $mappingMethod
+    ): array {
+        // Convert fields to DocuSeal values format
+        $docusealValues = $this->convertFieldsToDocusealValues($docusealFields);
+        
+        Log::info('Preparing DocuSeal submission data', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'raw_fields_count' => count($docusealFields),
+            'converted_values_count' => count($docusealValues),
+            'sample_raw_fields' => array_slice($docusealFields, 0, 3),
+            'sample_converted_values' => array_slice($docusealValues, 0, 3),
+            'mapping_method' => $mappingMethod,
+            'ai_used' => $aiMappingUsed
+        ]);
+        
+        // Prepare submission data according to DocuSeal API format
+        $submissionData = [
+            'template_id' => $templateId,
+            'send_email' => false, // Don't send email automatically
+            'metadata' => [
+                'source' => 'quick_request',
+                'episode_id' => $episodeId,
+                'created_at' => now()->toIso8601String(),
+                'submitter_email' => $submitterEmail,
+                'integration_email' => $integrationEmail,
+                'manufacturer' => $manufacturerName,
+                'mapping_method' => $mappingMethod,
+                'ai_mapping_used' => $aiMappingUsed,
+                'ai_confidence' => $aiConfidence,
+            ],
+            'submitters' => [
+                [
+                    'name' => $submitterName,
+                    'email' => $submitterEmail,
+                    'role' => 'First Party',
+                    'values' => $docusealValues
+                ]
+            ]
+        ];
+
+        // Make API call to DocuSeal
+        $response = Http::withHeaders([
+            'X-Auth-Token' => $this->apiKey,
+            'Content-Type' => 'application/json',
+        ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+        if (!$response->successful()) {
+            $errorBody = $response->json();
+            $errorMessage = 'Failed to create DocuSeal submission';
+
+            if (isset($errorBody['error'])) {
+                $errorMessage .= ': ' . $errorBody['error'];
+            } elseif (isset($errorBody['message'])) {
+                $errorMessage .= ': ' . $errorBody['message'];
+            } else {
+                $errorMessage .= ': HTTP ' . $response->status();
             }
-            
-            $docusealFields[] = [
-                'name' => $fieldName,
-                'default_value' => (string) $fieldValue
-            ];
+
+            Log::error('DocuSeal API error', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'status' => $response->status(),
+                'error' => $errorBody,
+                'fields_count' => count($docusealFields),
+                'mapping_method' => $mappingMethod,
+                'sample_values' => array_slice($this->convertFieldsToDocusealValues($docusealFields), 0, 5) // Log sample converted values
+            ]);
+
+            throw new \Exception($errorMessage);
         }
-        return $docusealFields;
+
+        $result = $response->json();
+
+        // Extract submission info from response (DocuSeal returns array of submitters)
+        $submissionData = $result[0] ?? $result;
+        $submissionId = $submissionData['submission_id'] ?? null;
+        $slug = $submissionData['slug'] ?? null;
+
+        if (!$slug) {
+            throw new \Exception('No slug returned from DocuSeal API');
+        }
+
+        Log::info('DocuSeal submission created successfully', [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'submission_id' => $submissionId,
+            'slug' => $slug,
+            'fields_mapped' => count($docusealFields),
+            'mapping_method' => $mappingMethod,
+            'ai_mapping_used' => $aiMappingUsed,
+            'ai_confidence' => $aiConfidence
+        ]);
+
+        return [
+            'success' => true,
+            'data' => [
+                'slug' => $slug,
+                'submission_id' => $submissionId,
+                'embed_url' => "https://docuseal.com/s/{$slug}",
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ],
+            'ai_mapping_used' => $aiMappingUsed,
+            'ai_confidence' => $aiConfidence,
+            'mapping_method' => $mappingMethod,
+            'fields_mapped' => count($docusealFields)
+        ];
+    }
+
+    /**
+     * Convert field mappings to DocuSeal values format
+     * DocuSeal expects values as key-value pairs, not the field format
+     */
+    private function convertFieldsToDocusealValues(array $docusealFields): array
+    {
+        $values = [];
+        
+        foreach ($docusealFields as $fieldName => $fieldValue) {
+            // Handle different field formats
+            if (is_array($fieldValue)) {
+                // If it's an array with 'name' and 'default_value', use that (old format)
+                if (isset($fieldValue['name']) && isset($fieldValue['default_value'])) {
+                    $values[$fieldValue['name']] = $fieldValue['default_value'];
+                } else {
+                    // Otherwise convert array to comma-separated string
+                    $values[$fieldName] = $this->formatFieldValue($fieldValue);
+                }
+            } else {
+                // Simple key-value pair
+                $values[$fieldName] = $this->formatFieldValue($fieldValue);
+            }
+        }
+        
+        return $values;
+    }
+
+    /**
+     * Format field value for DocuSeal
+     */
+    private function formatFieldValue($value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'Yes' : 'No';
+        } elseif (is_array($value)) {
+            // Handle nested arrays by converting to comma-separated string
+            $flattenedValues = array_map(function($item) {
+                return is_array($item) ? json_encode($item) : (string)$item;
+            }, $value);
+            return implode(', ', $flattenedValues);
+        } elseif ($value === null) {
+            return '';
+        }
+        
+        return (string) $value;
     }
 
     /**

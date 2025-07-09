@@ -91,6 +91,14 @@ class FieldMappingResult(BaseModel):
     suggestions: List[str]
     processing_notes: List[str]
 
+class DocusealMappingRequest(BaseModel):
+    template_id: str
+    manufacturer_name: str
+    manufacturer_data: dict
+    submitter_email: Optional[str] = None
+    available_fields: Optional[List[str]] = None  # Actual field names from DocuSeal API
+    template_field_details: Optional[dict] = None  # Full field details from DocuSeal API
+
 # Medical terminology dictionaries (comprehensive)
 MEDICAL_TERMINOLOGIES = {
     'wound_care': {
@@ -520,9 +528,9 @@ class AzureAIAgent:
         # Cache for responses
         self.cache = TTLCache(maxsize=1000, ttl=Config.CACHE_TTL)
     
-    async def validate_medical_terms(self, terms: List[str], context: DocumentType) -> Dict:
-        """Validate medical terms using Azure OpenAI with medical knowledge"""
-        cache_key = f"validate_{hash(str(terms))}_{context}"
+    def validate_medical_terms(self, terms: List[str], context: DocumentType) -> Dict:
+        """Validate medical terminology using Azure OpenAI"""
+        cache_key = f"validate_{hash('_'.join(terms))}_{context}"
         
         if cache_key in self.cache:
             logger.info(f"Cache hit for terms validation: {len(terms)} terms")
@@ -558,28 +566,23 @@ class AzureAIAgent:
             logger.error(f"Azure AI validation failed: {e}")
             return self._fallback_validation(terms, context)
     
-    async def map_fields(self, ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None, manufacturer_name: Optional[str] = None) -> Dict:
-        """Map OCR fields to target schema using Azure OpenAI with manufacturer-specific mappings"""
-        cache_key = f"map_{hash(str(ocr_data))}_{document_type}_{manufacturer_name or 'generic'}"
-        
-        if cache_key in self.cache:
-            logger.info(f"Cache hit for field mapping: {document_type} ({manufacturer_name})")
-            return self.cache[cache_key]
-        
-        # Get manufacturer-specific mappings if available
-        manufacturer_config = None
-        if manufacturer_name:
-            manufacturer_config = manufacturer_knowledge_base.get_manufacturer_config(manufacturer_name)
-        
-        prompt = self._build_mapping_prompt(ocr_data, document_type, target_schema, manufacturer_config)
-        
+    def map_fields(self, ocr_data: Dict, manufacturer_config: Dict = None, document_type: DocumentType = DocumentType.GENERAL, target_schema: Optional[Dict] = None) -> Dict:
+        """Map OCR/form data to target schema with manufacturer-specific field mapping"""
         try:
+            cache_key = f"map_{hash(str(ocr_data))}_{document_type}_{manufacturer_config.get('name', 'generic') if manufacturer_config else 'generic'}"
+            
+            if cache_key in self.cache:
+                logger.info(f"Cache hit for field mapping: {document_type} ({manufacturer_config.get('name', 'generic') if manufacturer_config else 'generic'})")
+                return self.cache[cache_key]
+            
+            prompt = self._build_mapping_prompt(ocr_data, document_type, target_schema, manufacturer_config)
+            
             response = self.client.chat.completions.create(
                 model=Config.AZURE_OPENAI_DEPLOYMENT,
                 messages=[
                     {
                         "role": "system",
-                        "content": self._get_field_mapping_system_prompt(manufacturer_config)
+                        "content": self._get_field_mapping_system_prompt()
                     },
                     {
                         "role": "user",
@@ -599,12 +602,12 @@ class AzureAIAgent:
             
             self.cache[cache_key] = result
             
-            logger.info(f"Azure AI mapped fields for {document_type} ({manufacturer_name or 'generic'}) with grade {result.get('quality_grade', 'N/A')}")
+            logger.info(f"Azure AI mapped fields for {document_type} ({manufacturer_config.get('name', 'generic') if manufacturer_config else 'generic'}) with grade {result.get('quality_grade', 'N/A')}")
             return result
-            
+        
         except Exception as e:
             logger.error(f"Azure AI field mapping failed: {e}")
-            return self._fallback_mapping(ocr_data, document_type, manufacturer_name)
+            return self._fallback_mapping(ocr_data, document_type, manufacturer_config.get('name') if manufacturer_config else None)
     
     def _build_validation_prompt(self, terms: List[str], context: DocumentType) -> str:
         context_info = {
@@ -634,7 +637,26 @@ Consider common abbreviations, synonyms, and medical variations.
         
         manufacturer_context = ""
         if manufacturer_config:
-            manufacturer_context = f"""
+            # Check if we have actual DocuSeal field names
+            docuseal_field_names = manufacturer_config.get('docuseal_field_names', {})
+            
+            # If field names are provided as a simple list (from actual API), show them
+            if isinstance(docuseal_field_names, dict) and all(k == v for k, v in docuseal_field_names.items()):
+                field_list = list(docuseal_field_names.keys())
+                manufacturer_context = f"""
+            
+IMPORTANT - USE THESE EXACT FIELD NAMES FROM DOCUSEAL TEMPLATE:
+Available Template Fields ({len(field_list)} fields):
+{json.dumps(field_list, indent=2)}
+
+You MUST map the source data to these exact field names. Do not create new field names.
+Map each piece of source data to the most appropriate field from this list.
+
+Manufacturer: {manufacturer_config.get('name', 'Unknown')}
+"""
+            else:
+                # Traditional config with field mappings
+                manufacturer_context = f"""
             
 MANUFACTURER-SPECIFIC CONTEXT:
 Manufacturer: {manufacturer_config.get('name', 'Unknown')}
@@ -643,28 +665,45 @@ Signature Required: {manufacturer_config.get('signature_required', False)}
 Has Order Form: {manufacturer_config.get('has_order_form', False)}
 
 Field Mappings Available: {len(manufacturer_config.get('field_mappings', {}))} custom mappings
-DocuSeal Field Names: {len(manufacturer_config.get('docuseal_field_names', {}))} field name mappings
+DocuSeal Field Names: {len(docuseal_field_names)} field name mappings
 
 Use these manufacturer-specific mappings to ensure accurate field naming and processing.
 """
         
         return f"""
-Map the following OCR data to the target schema for document type: {document_type}
+Map the following source data to the target schema for document type: {document_type}
 {manufacturer_context}
 
-OCR Data: {json.dumps(ocr_data, indent=2)}
+Source Data: {json.dumps(ocr_data, indent=2)}
 
 Target Schema: {json.dumps(schema_info, indent=2)}
 
-Requirements:
-1. Map each OCR field to the most appropriate target field
-2. Provide confidence scores for each mapping
-3. Validate medical terminology
-4. Suggest corrections for unclear or invalid data
-5. Calculate overall quality grade (A-F)
-6. Identify missing required fields
-7. Apply manufacturer-specific field naming conventions if provided
-8. Handle computed fields and transformations as specified
+CRITICAL REQUIREMENTS:
+1. If exact DocuSeal field names are provided above, you MUST use those exact names
+2. Map source fields like "patient_name" to template fields like "Patient Name" (with exact spacing and capitalization)
+3. For example:
+   - patient_name → "Patient Name"
+   - patient_dob → "DOB"
+   - patient_city → "City"
+   - provider_npi → "Provider NPI"
+4. Provide confidence scores for each mapping
+5. Validate medical terminology
+6. Suggest corrections for unclear or invalid data
+7. Calculate overall quality grade (A-F)
+8. Identify missing required fields
+
+Return your response as a JSON object with this structure:
+{
+    "mapped_fields": {
+        "Exact Template Field Name": "value from source data"
+    },
+    "confidence_scores": {
+        "Exact Template Field Name": 0.95
+    },
+    "quality_grade": "A",
+    "suggestions": ["any suggestions"],
+    "processing_notes": ["Applied exact DocuSeal field names", "other notes"]
+}
 
 Consider medical context, common abbreviations, field relationships, and manufacturer-specific requirements.
 """
@@ -989,55 +1028,135 @@ def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema
         "processing_notes": processing_notes
     }
 
-def _get_relevant_terms_dict(context: DocumentType) -> Dict:
-    """Get relevant terminology based on context"""
-    if context == DocumentType.WOUND_PHOTO:
-        return MEDICAL_TERMINOLOGIES['wound_care']
-    elif context == DocumentType.INSURANCE_CARD:
-        return MEDICAL_TERMINOLOGIES['insurance']
-    elif context == DocumentType.CLINICAL_NOTE:
-        return {**MEDICAL_TERMINOLOGIES['clinical'], **MEDICAL_TERMINOLOGIES['wound_care']}
+def perform_local_mapping(source_data: dict, manufacturer_config: dict = None, available_fields: List[str] = None) -> dict:
+    """
+    Perform local field mapping when AI is not available
+    Uses actual DocuSeal field names if provided, otherwise falls back to configuration
+    """
+    mapped_fields = {}
+    confidence_scores = {}
+    processing_notes = []
+    
+    # If we have actual field names from DocuSeal, use smart matching
+    if available_fields:
+        processing_notes.append(f"Using {len(available_fields)} actual template fields from DocuSeal")
+        
+        # Create a mapping of normalized names for fuzzy matching
+        normalized_template_fields = {}
+        for field in available_fields:
+            normalized = field.lower().replace(' ', '_').replace('-', '_')
+            normalized_template_fields[normalized] = field
+        
+        # Map source fields to template fields
+        for source_key, source_value in source_data.items():
+            if source_value is None or source_value == '':
+                continue
+                
+            # Try exact match first
+            if source_key in available_fields:
+                mapped_fields[source_key] = source_value
+                confidence_scores[source_key] = 1.0
+                continue
+            
+            # Try normalized matching
+            normalized_source = source_key.lower().replace('_', ' ').replace('-', ' ')
+            
+            # Check for common field mappings
+            field_mappings = {
+                'patient name': ['patient_name', 'patient_full_name', 'patientname'],
+                'dob': ['patient_dob', 'date_of_birth', 'patient_date_of_birth', 'birth_date'],
+                'gender': ['patient_gender', 'sex', 'patient_sex'],
+                'provider name': ['provider_name', 'physician_name', 'doctor_name', 'prescriber_name'],
+                'provider npi': ['provider_npi', 'physician_npi', 'prescriber_npi', 'npi'],
+                'facility name': ['facility_name', 'practice_name', 'clinic_name', 'organization_name'],
+                'primary insurance': ['primary_insurance_name', 'insurance_name', 'payer_name'],
+                'member id': ['primary_member_id', 'insurance_member_id', 'policy_number'],
+                'address': ['patient_address', 'patient_address_line1', 'street_address'],
+                'city': ['patient_city', 'city'],
+                'state': ['patient_state', 'state'],
+                'zip': ['patient_zip', 'zip_code', 'postal_code'],
+            }
+            
+            # Find matching template field
+            for template_field in available_fields:
+                template_normalized = template_field.lower()
+                
+                # Check if source field matches any known mapping for this template field
+                for template_key, source_keys in field_mappings.items():
+                    if template_key in template_normalized and source_key.lower() in source_keys:
+                        mapped_fields[template_field] = source_value
+                        confidence_scores[template_field] = 0.9
+                        break
+                
+                # Fuzzy match as fallback
+                if template_field not in mapped_fields:
+                    if normalized_source in template_normalized or template_normalized in normalized_source:
+                        mapped_fields[template_field] = source_value
+                        confidence_scores[template_field] = 0.7
+        
+        processing_notes.append(f"Mapped {len(mapped_fields)} fields using template-aware matching")
+        
+    # Fall back to configuration-based mapping
+    elif manufacturer_config and 'docuseal_field_names' in manufacturer_config:
+        processing_notes.append("Using manufacturer configuration for field mapping")
+        field_mappings = manufacturer_config['docuseal_field_names']
+        
+        for source_key, template_key in field_mappings.items():
+            if source_key in source_data and source_data[source_key]:
+                mapped_fields[template_key] = source_data[source_key]
+                confidence_scores[template_key] = 0.8
+        
+        processing_notes.append(f"Mapped {len(mapped_fields)} fields using manufacturer config")
+        
     else:
-        return MEDICAL_TERMINOLOGIES['clinical']
-
-def _get_default_schema_dict(document_type: DocumentType) -> Dict:
-    """Get default schema for document type"""
-    schemas = {
-        DocumentType.INSURANCE_CARD: {
-            "member_id": "string",
-            "member_name": "string", 
-            "insurance_company": "string",
-            "group_number": "string",
-            "plan_type": "string",
-            "effective_date": "date",
-            "primary_care_copay": "currency",
-            "specialist_copay": "currency"
+        # Basic fallback mapping
+        processing_notes.append("Using basic field mapping without configuration")
+        mapped_fields = source_data.copy()
+        confidence_scores = {k: 0.5 for k in mapped_fields.keys()}
+    
+    # Calculate overall confidence
+    overall_confidence = sum(confidence_scores.values()) / len(confidence_scores) if confidence_scores else 0.0
+    
+    # Determine quality grade
+    if overall_confidence >= 0.9:
+        quality_grade = 'A'
+    elif overall_confidence >= 0.8:
+        quality_grade = 'B'
+    elif overall_confidence >= 0.7:
+        quality_grade = 'C'
+    elif overall_confidence >= 0.6:
+        quality_grade = 'D'
+    else:
+        quality_grade = 'F'
+    
+    return {
+        'success': True,
+        'mapped_fields': mapped_fields,
+        'confidence_scores': {
+            'overall': overall_confidence,
+            'field_scores': confidence_scores
         },
-        DocumentType.CLINICAL_NOTE: {
-            "patient_name": "string",
-            "date_of_service": "date",
-            "primary_diagnosis": "string",
-            "wound_location": "string",
-            "wound_type": "string"
-        },
-        DocumentType.WOUND_PHOTO: {
-            "wound_location": "string",
-            "length": "measurement",
-            "width": "measurement", 
-            "depth": "measurement",
-            "wound_characteristics": "array"
-        }
+        'quality_grade': quality_grade,
+        'processing_notes': processing_notes,
+        'missing_required_fields': [],
+        'suggestions': [
+            'Consider using Azure AI for better accuracy',
+            'Verify field mappings are correct for this template'
+        ] if quality_grade not in ['A', 'B'] else []
     }
-    return schemas.get(document_type, {})
 
-# FastAPI Application
+
+# Global AI agent instance
+ai_agent = None
+
+# Initialize FastAPI application
 app = FastAPI(
     title="Medical AI Service",
-    description="AI-powered medical terminology validation and field mapping",
-    version="1.0.0"
+    description="AI-powered medical terminology validation and field mapping for DocuSeal integration",
+    version="2.0.0"
 )
 
-# CORS middleware
+# CORS middleware for web browser compatibility
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -1045,9 +1164,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Global AI agent instance
-ai_agent = None
 
 @app.on_event("startup")
 async def startup_event():
@@ -1076,7 +1192,7 @@ async def validate_medical_terms(request: ValidationRequest):
     try:
         if ai_agent:
             # Use Azure AI if available
-            result = await ai_agent.validate_medical_terms(
+            result = ai_agent.validate_medical_terms(
                 request.terms, 
                 request.context
             )
@@ -1102,19 +1218,25 @@ async def map_document_fields(request: FieldMappingRequest):
     """Map OCR data to target schema with manufacturer-specific mappings"""
     try:
         if ai_agent:
+            # Get manufacturer config if available
+            manufacturer_config = None
+            if request.manufacturer_name:
+                manufacturer_config = manufacturer_knowledge_base.get_manufacturer_config(request.manufacturer_name)
+                
             # Use Azure AI if available
-            result = await ai_agent.map_fields(
+            result = ai_agent.map_fields(
                 request.ocr_data,
+                manufacturer_config,
                 request.document_type,
-                request.target_schema,
-                request.manufacturer_name
+                request.target_schema
             )
         else:
             # Use local fallback processing
             result = _local_map_fields(
                 request.ocr_data,
                 request.document_type,
-                request.target_schema
+                request.target_schema,
+                request.manufacturer_name
             )
         
         return FieldMappingResult(**result)
@@ -1124,64 +1246,109 @@ async def map_document_fields(request: FieldMappingRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/map-for-docuseal")
-async def map_for_docuseal(request: dict):
-    """Map manufacturer data to DocuSeal form fields - endpoint for DynamicFieldMappingService"""
+async def map_for_docuseal(request: DocusealMappingRequest):
+    """Map data for DocuSeal submission with manufacturer-specific field mapping"""
     try:
-        # Extract parameters from request
-        template_id = request.get('template_id')
-        manufacturer_data = request.get('manufacturer_data', {})
-        manufacturer_name = request.get('manufacturer_name')
-        submitter_email = request.get('submitter_email')
+        logger.info(f"DocuSeal mapping request: template_id={request.template_id}, manufacturer={request.manufacturer_name}, fields={len(request.manufacturer_data)}")
         
-        logger.info(f"DocuSeal mapping request: template_id={template_id}, manufacturer={manufacturer_name}, fields={len(manufacturer_data)}")
+        # Get manufacturer configuration if available
+        manufacturer_config = None
+        manufacturer_name_lower = request.manufacturer_name.lower() if request.manufacturer_name else ""
         
+        for name, config in manufacturer_knowledge_base.manufacturer_configs.items(): # Changed to use manufacturer_knowledge_base
+            if name.lower() == manufacturer_name_lower:
+                manufacturer_config = config
+                break
+        
+        # Use actual field names from DocuSeal if provided
+        available_fields = request.available_fields if hasattr(request, 'available_fields') else None
+        template_field_details = request.template_field_details if hasattr(request, 'template_field_details') else None
+        
+        if available_fields:
+            logger.info(f"Using actual DocuSeal template fields: {len(available_fields)} fields")
+            logger.debug(f"Template field names: {available_fields[:10]}...")  # Log first 10 fields
+        
+        # Initialize mapping result
+        mapping_result = None
+        
+        # Try AI mapping first
         if ai_agent:
-            # Use Azure AI if available
-            result = await ai_agent.map_fields(
-                manufacturer_data,
-                DocumentType.GENERAL,  # Use general type for DocuSeal forms
-                None,  # No target schema provided
-                manufacturer_name
-            )
-        else:
-            # Use local fallback processing
-            result = _local_map_fields(
-                manufacturer_data,
-                DocumentType.GENERAL,
-                None
+            try:
+                # Prepare field mapping request with actual DocuSeal fields if available
+                if available_fields:
+                    # Create a temporary manufacturer config with actual field names
+                    temp_config = {
+                        'name': request.manufacturer_name,
+                        'docuseal_field_names': {field: field for field in available_fields}
+                    }
+                    mapping_result = ai_agent.map_fields(
+                        request.manufacturer_data,
+                        temp_config,
+                        DocumentType.GENERAL
+                    )
+                else:
+                    # Fall back to static config if no DocuSeal fields provided
+                    mapping_result = ai_agent.map_fields(
+                        request.manufacturer_data,
+                        manufacturer_config,
+                        DocumentType.GENERAL
+                    )
+                    
+                if mapping_result['success']:
+                    logger.info(f"Azure AI mapped fields for {DocumentType.GENERAL.value} ({request.manufacturer_name}) with grade {mapping_result.get('quality_grade', 'Unknown')}")
+                else:
+                    logger.warning(f"Azure AI mapping returned failure: {mapping_result.get('error', 'Unknown error')}")
+                    mapping_result = None
+                    
+            except Exception as e:
+                logger.error(f"Azure AI field mapping failed: {e}")
+                mapping_result = None
+        
+        # Fall back to local mapping if AI failed
+        if not mapping_result or not mapping_result['success']:
+            logger.warning("Using local fallback mapping")
+            mapping_result = perform_local_mapping(
+                request.manufacturer_data,
+                manufacturer_config,
+                available_fields  # Pass actual fields to local mapping too
             )
         
-        # Format response according to DynamicFieldMappingService expectations
+        # Ensure we always have a valid result structure
+        if not mapping_result:
+            mapping_result = {
+                'success': False,
+                'mapped_fields': {},
+                'confidence_scores': {'overall': 0.0},
+                'quality_grade': 'F',
+                'processing_notes': ['No mapping could be performed'],
+                'missing_required_fields': [],
+                'suggestions': ['Check manufacturer configuration and data format']
+            }
+        
+        # Determine processing method for metadata
+        processing_method = "azure_ai" if (ai_agent and mapping_result.get('success')) else "local_fallback"
+        
         return {
             "success": True,
-            "template_info": {
-                "template_id": template_id,
-                "manufacturer_name": manufacturer_name
-            },
-            "mapping_result": {
-                "mapped_fields": result.get('mapped_fields', {}),
-                "confidence_scores": result.get('confidence_scores', {}),
-                "quality_grade": result.get('quality_grade', 'B'),
-                "suggestions": result.get('suggestions', []),
-                "processing_notes": result.get('processing_notes', [])
-            },
-            "submission_result": None,  # No direct submission in this endpoint
+            "template_id": request.template_id,
+            "manufacturer_name": request.manufacturer_name,
+            "mapping_result": mapping_result,
             "metadata": {
-                "processed_at": datetime.now().isoformat(),
-                "ai_enhanced": ai_agent is not None,
-                "processing_method": "azure_ai" if ai_agent else "local_fallback"
+                "processing_method": processing_method,
+                "has_manufacturer_config": manufacturer_config is not None,
+                "used_docuseal_fields": available_fields is not None,
+                "docuseal_field_count": len(available_fields) if available_fields else 0,
+                "submitter_email": request.submitter_email
             }
         }
-    
+        
     except Exception as e:
-        logger.error(f"DocuSeal field mapping failed: {e}")
+        logger.error(f"Error in DocuSeal mapping endpoint: {str(e)}", exc_info=True)
         return {
             "success": False,
             "error": str(e),
-            "template_info": {
-                "template_id": request.get('template_id'),
-                "manufacturer_name": request.get('manufacturer_name')
-            }
+            "template_id": request.template_id,
+            "manufacturer_name": request.manufacturer_name
         }
 
 @app.get("/terminology-stats")

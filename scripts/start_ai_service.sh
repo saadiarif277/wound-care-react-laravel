@@ -1,21 +1,36 @@
 #!/bin/bash
 
 # AI Service Startup Script
-# This script sets up Azure OpenAI environment variables and starts the Python AI service
+# This script loads environment variables from Laravel .env and starts the Python AI service
 
 echo "🚀 Starting Medical AI Service..."
 
-# Export Azure OpenAI environment variables
-export AZURE_OPENAI_ENDPOINT="https://msc-ai-services.openai.azure.com/"
-export AZURE_OPENAI_API_KEY="CPBG2LnTpdGKMKrONcWPWkD97e5ceXskv2eH4a2gzfeh39t0lqPcJQQJ99BFACYeBjFXJ3w3AAAAACOGeD0P"
-export AZURE_OPENAI_DEPLOYMENT="gpt-4o"
-export AZURE_OPENAI_API_VERSION="2024-02-15-preview"
+# Load environment variables from Laravel .env file
+if [ -f "../.env" ]; then
+    echo "📄 Loading environment variables from .env file..."
+    set -a  # Export all variables
+    source "../.env"
+    set +a  # Stop exporting
+else
+    echo "⚠️  Warning: .env file not found, using system environment variables"
+fi
+
+# Verify required Azure OpenAI environment variables are set
+if [ -z "$AZURE_OPENAI_ENDPOINT" ] || [ -z "$AZURE_OPENAI_API_KEY" ]; then
+    echo "❌ Error: Azure OpenAI environment variables not set!"
+    echo "   Please ensure AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY are in your .env file"
+    exit 1
+fi
+
+# Set defaults for optional variables
+export AZURE_OPENAI_DEPLOYMENT="${AZURE_OPENAI_DEPLOYMENT:-gpt-4o}"
+export AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2024-02-15-preview}"
 
 # Other service configuration
-export ENABLE_LOCAL_FALLBACK="true"
-export API_HOST="0.0.0.0"
-export API_PORT="8081"
-export CACHE_TTL="3600"
+export ENABLE_LOCAL_FALLBACK="${ENABLE_LOCAL_FALLBACK:-true}"
+export API_HOST="${API_HOST:-0.0.0.0}"
+export API_PORT="${API_PORT:-8081}"
+export CACHE_TTL="${CACHE_TTL:-3600}"
 
 echo "✅ Azure OpenAI Configuration:"
 echo "   Endpoint: $AZURE_OPENAI_ENDPOINT"

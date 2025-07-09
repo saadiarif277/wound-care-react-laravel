@@ -96,7 +96,9 @@ class AppServiceProvider extends ServiceProvider
             return new \App\Services\UnifiedFieldMappingService(
                 $app->make(\App\Services\FieldMapping\DataExtractor::class),
                 $app->make(\App\Services\FieldMapping\FieldTransformer::class),
-                $app->make(\App\Services\FieldMapping\FieldMatcher::class)
+                $app->make(\App\Services\FieldMapping\FieldMatcher::class),
+                $app->make(FhirService::class),
+                $app->make(\App\Services\MedicalTerminologyService::class)
             );
         });
 
