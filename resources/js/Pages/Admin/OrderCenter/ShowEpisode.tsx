@@ -23,7 +23,7 @@ import {
   Plus,
 } from 'lucide-react';
 import axios from 'axios';
-import { toast } from 'react-toastify';
+import { toast } from '@/Components/ui/toast';
 
 interface Order {
   id: string;
