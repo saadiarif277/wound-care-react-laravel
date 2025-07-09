@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '@/Pages/QuickRequest/Orders/order/SectionCard';
 import { InfoRow } from '@/Pages/QuickRequest/Orders/order/InfoRow';
-import { Package } from 'lucide-react';
+import { Package, Calendar, Truck } from 'lucide-react';
 
 interface OrderData {
   orderNumber: string;
@@ -15,15 +15,23 @@ interface OrderData {
     size: string;
     category: string;
     manufacturer: string;
+    manufacturerId?: number;
     shippingInfo: {
       speed: string;
       address: string;
     };
   };
+  orderPreferences?: {
+    expectedServiceDate?: string;
+    shippingSpeed?: string;
+    placeOfService?: string;
+    deliveryInstructions?: string;
+  };
   forms: any;
   clinical: any;
   provider: any;
   submission: any;
+  total_amount?: number;
 }
 
 interface ProductSectionProps {
@@ -31,56 +39,63 @@ interface ProductSectionProps {
   userRole: 'Provider' | 'OM' | 'Admin';
   isOpen: boolean;
   onToggle: (section: string) => void;
-  roleRestrictions?: {
-    can_view_financials: boolean;
-    can_see_discounts: boolean;
-    can_see_msc_pricing: boolean;
-    can_see_order_totals: boolean;
-    can_see_commission: boolean;
-    pricing_access_level: string;
-    commission_access_level: string;
-  };
 }
 
 const ProductSection: React.FC<ProductSectionProps> = ({
   orderData,
   userRole,
   isOpen,
-  onToggle,
-  roleRestrictions
+  onToggle
 }) => {
-  // Determine if user can see financial data
-  const canSeeFinancials = roleRestrictions?.can_view_financials ?? (userRole !== 'OM');
-  
+  const formatCurrency = (amount: number | undefined) => {
+    if (amount === undefined || amount === null) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+    }).format(amount);
+  };
+
   return (
-  <SectionCard
-    title="Product Information"
-    icon={Package}
-    sectionKey="product"
-    isOpen={isOpen}
-    onToggle={onToggle}
-  >
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="space-y-1">
-        <InfoRow label="Product Name" value={orderData.product?.name || 'N/A'} />
-        <InfoRow label="Product Code" value={orderData.product?.code || 'N/A'} />
-        <InfoRow label="Size" value={orderData.product?.size || 'N/A'} />
-        <InfoRow label="Quantity" value={orderData.product?.quantity?.toString() || 'N/A'} />
-        <InfoRow label="Category" value={orderData.product?.category || 'N/A'} />
+    <SectionCard
+      title="Product Information"
+      icon={Package}
+      sectionKey="product"
+      isOpen={isOpen}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Product Details */}
+        <div className="space-y-1">
+          <h4 className="font-medium text-gray-900 mb-3">Product Details</h4>
+          <InfoRow label="Product Name" value={orderData.product?.name || 'N/A'} />
+          <InfoRow label="Product Code" value={orderData.product?.code || 'N/A'} />
+          <InfoRow label="Category" value={orderData.product?.category || 'N/A'} />
+          <InfoRow label="Manufacturer" value={orderData.product?.manufacturer || 'N/A'} />
+          {orderData.product?.manufacturerId && (
+            <InfoRow label="Manufacturer ID" value={orderData.product.manufacturerId.toString()} />
+          )}
+          <InfoRow label="Quantity" value={orderData.product?.quantity?.toString() || 'N/A'} />
+          <InfoRow label="Size" value={orderData.product?.size || 'N/A'} />
+        </div>
+
+        {/* Order Details */}
+        <div className="space-y-1">
+          <h4 className="font-medium text-gray-900 mb-3">Order Details</h4>
+          <InfoRow label="Total Order Value" value={formatCurrency(orderData.total_amount)} />
+          {orderData.orderPreferences?.expectedServiceDate && (
+            <InfoRow label="Expected Service Date" value={orderData.orderPreferences.expectedServiceDate} icon={Calendar} />
+          )}
+          <InfoRow label="Shipping Speed" value={orderData.orderPreferences?.shippingSpeed || orderData.product?.shippingInfo?.speed || 'Standard'} icon={Truck} />
+          {orderData.orderPreferences?.placeOfService && (
+            <InfoRow label="Place of Service" value={orderData.orderPreferences.placeOfService} />
+          )}
+          {orderData.orderPreferences?.deliveryInstructions && (
+            <InfoRow label="Delivery Instructions" value={orderData.orderPreferences.deliveryInstructions} />
+          )}
+          <InfoRow label="Shipping Address" value={orderData.product?.shippingInfo?.address || 'N/A'} />
+        </div>
       </div>
-      <div className="space-y-1">
-        <InfoRow label="Manufacturer" value={orderData.product?.manufacturer || 'N/A'} />
-        <InfoRow label="Shipping Speed" value={orderData.product?.shippingInfo?.speed || 'N/A'} />
-        <InfoRow label="Shipping Address" value={orderData.product?.shippingInfo?.address || 'N/A'} />
-        {canSeeFinancials && (
-          <InfoRow
-            label="Estimated Cost"
-            value="$1,200.00"
-          />
-        )}
-      </div>
-    </div>
-  </SectionCard>
+    </SectionCard>
   );
 };
 

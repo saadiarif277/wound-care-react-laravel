@@ -14,9 +14,9 @@ class AzureSpeechService
 
     public function __construct()
     {
-        $this->speechKey = config('azure.speech.key', '');
+        $this->speechKey = config('azure.speech.key') ?? '';
         $this->speechRegion = config('azure.speech.region', 'eastus');
-        $this->speechEndpoint = config('azure.speech.endpoint') ?: 
+        $this->speechEndpoint = config('azure.speech.endpoint') ?:
             "https://{$this->speechRegion}.tts.speech.microsoft.com/cognitiveservices/v1";
     }
 
@@ -107,7 +107,7 @@ SSML;
     {
         // Split text into sentences for streaming
         $sentences = preg_split('/(?<=[.!?])\s+/', $text);
-        
+
         foreach ($sentences as $sentence) {
             if (trim($sentence)) {
                 $result = $this->textToSpeech($sentence, $options);
@@ -117,4 +117,4 @@ SSML;
             }
         }
     }
-} 
+}

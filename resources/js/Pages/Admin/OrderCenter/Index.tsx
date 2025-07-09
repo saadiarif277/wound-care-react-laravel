@@ -148,7 +148,8 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
   };
 
   const handleViewOrderDetails = (order: Order) => {
-    setSelectedOrder(order);
+    // Navigate to the backend show route instead of using local state
+    router.get(route('admin.orders.show', order.id));
   };
 
   const handleBackToList = () => {
@@ -187,10 +188,7 @@ const OrderCenterIndex: React.FC<OrderCenterIndexProps> = ({
     handleBackToList();
   };
 
-  // If viewing order details, use the new OrderDetails component
-  if (selectedOrder) {
-    return <OrderDetails order={selectedOrder} can_update_status={true} can_view_ivr={true} />;
-  }
+  // Remove the local state approach since we're using backend routes
 
   // Main orders table view
   return (

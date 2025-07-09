@@ -1,7 +1,7 @@
 import React from 'react';
 import { SectionCard } from '@/Pages/QuickRequest/Orders/order/SectionCard';
 import { InfoRow } from '@/Pages/QuickRequest/Orders/order/InfoRow';
-import { User, Calendar, Phone, Mail, MapPin } from 'lucide-react';
+import { User, Calendar, Phone, Mail, MapPin, CreditCard } from 'lucide-react';
 
 interface OrderData {
   orderNumber: string;
@@ -9,14 +9,25 @@ interface OrderData {
   createdBy: string;
   patient: {
     name: string;
+    firstName?: string;
+    lastName?: string;
     dob: string;
     gender: string;
     phone: string;
+    email?: string;
     address: string;
+    memberId?: string;
+    isSubscriber?: boolean;
     insurance: {
       primary: string;
       secondary: string;
     };
+  };
+  insurance?: {
+    primary: string;
+    secondary: string;
+    primaryPlanType?: string;
+    secondaryPlanType?: string;
   };
   product: any;
   forms: any;
@@ -35,28 +46,64 @@ const PatientInsuranceSection: React.FC<PatientInsuranceSectionProps> = ({
   orderData,
   isOpen,
   onToggle
-}) => (
-  <SectionCard
-    title="Patient & Insurance Information"
-    icon={User}
-    sectionKey="patient"
-    isOpen={isOpen}
-    onToggle={onToggle}
-  >
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-      <div className="space-y-1">
-        <InfoRow label="Full Name" value={orderData.patient?.name || 'N/A'} />
-        <InfoRow label="Date of Birth" value={orderData.patient?.dob || 'N/A'} icon={Calendar} />
-        <InfoRow label="Gender" value={orderData.patient?.gender || 'N/A'} />
-        <InfoRow label="Phone" value={orderData.patient?.phone || 'N/A'} icon={Phone} />
-        <InfoRow label="Address" value={orderData.patient?.address || 'N/A'} icon={MapPin} />
+}) => {
+  // Format patient name from first and last name if available
+  const getPatientName = () => {
+    if (orderData.patient.firstName && orderData.patient.lastName) {
+      return `${orderData.patient.firstName} ${orderData.patient.lastName}`;
+    }
+    return orderData.patient.name || 'N/A';
+  };
+
+  // Format gender for display
+  const formatGender = (gender: string) => {
+    if (!gender || gender === 'unknown') return 'N/A';
+    return gender.charAt(0).toUpperCase() + gender.slice(1);
+  };
+
+  return (
+    <SectionCard
+      title="Patient & Insurance Information"
+      icon={User}
+      sectionKey="patient"
+      isOpen={isOpen}
+      onToggle={onToggle}
+    >
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Patient Information */}
+        <div className="space-y-1">
+          <h4 className="font-medium text-gray-900 mb-3">Patient Details</h4>
+          <InfoRow label="Full Name" value={getPatientName()} />
+          <InfoRow label="Date of Birth" value={orderData.patient?.dob || 'N/A'} icon={Calendar} />
+          <InfoRow label="Gender" value={formatGender(orderData.patient?.gender || '')} />
+          <InfoRow label="Phone" value={orderData.patient?.phone || 'N/A'} icon={Phone} />
+          <InfoRow label="Email" value={orderData.patient?.email || 'N/A'} icon={Mail} />
+          <InfoRow label="Address" value={orderData.patient?.address || 'N/A'} icon={MapPin} />
+          {orderData.patient?.memberId && (
+            <InfoRow label="Member ID" value={orderData.patient.memberId} icon={CreditCard} />
+          )}
+        </div>
+
+        {/* Primary Insurance */}
+        <div className="space-y-1">
+          <h4 className="font-medium text-gray-900 mb-3">Primary Insurance</h4>
+          <InfoRow label="Payer Name" value={orderData.insurance?.primary || orderData.patient?.insurance?.primary || 'N/A'} />
+          {orderData.insurance?.primaryPlanType && (
+            <InfoRow label="Plan Type" value={orderData.insurance.primaryPlanType} />
+          )}
+        </div>
+
+        {/* Secondary Insurance */}
+        <div className="space-y-1">
+          <h4 className="font-medium text-gray-900 mb-3">Secondary Insurance</h4>
+          <InfoRow label="Payer Name" value={orderData.insurance?.secondary || orderData.patient?.insurance?.secondary || 'N/A'} />
+          {orderData.insurance?.secondaryPlanType && (
+            <InfoRow label="Plan Type" value={orderData.insurance.secondaryPlanType} />
+          )}
+        </div>
       </div>
-      <div className="space-y-1">
-        <InfoRow label="Primary Insurance" value={orderData.patient?.insurance?.primary || 'N/A'} />
-        <InfoRow label="Secondary Insurance" value={orderData.patient?.insurance?.secondary || 'N/A'} />
-      </div>
-    </div>
-  </SectionCard>
-);
+    </SectionCard>
+  );
+};
 
 export default PatientInsuranceSection;
