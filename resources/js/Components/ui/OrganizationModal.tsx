@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Building2, Mail, Phone, MapPin, User, Save, Loader2 } from 'lucide-react';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 

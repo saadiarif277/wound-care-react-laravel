@@ -8,7 +8,7 @@ import ValidationEligibilityStep from './Components/ValidationEligibilityStep';
 import ClinicalOpportunitiesStep from './Components/ClinicalOpportunitiesStep';
 import PatientInformationStep from './Components/PatientInformationStep';
 import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 import { Progress } from '@/Components/ui/progress';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';

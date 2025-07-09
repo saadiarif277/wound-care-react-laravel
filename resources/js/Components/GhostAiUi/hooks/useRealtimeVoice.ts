@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useToast } from './use-toast';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 
 interface RealtimeSession {
   sessionId: string;

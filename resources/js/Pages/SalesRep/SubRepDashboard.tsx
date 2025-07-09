@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn, themes } from '@/theme/glass-theme';
 import MetricCard from '@/Components/ui/MetricCard';
-import { api } from '@/lib/api';
+import api from '@/lib/api';
 import {
   FiDollarSign,
   FiUsers,
