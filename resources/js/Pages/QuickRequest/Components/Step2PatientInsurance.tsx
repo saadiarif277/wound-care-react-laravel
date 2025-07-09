@@ -5,7 +5,8 @@ import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAut
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
-import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
+import api from '@/lib/api';
+import { themes } from '@/theme/glass-theme';
 
 
 interface Step2Props {
@@ -115,42 +116,36 @@ function Step2PatientInsurance({
           apiFormData.append('insurance_card_back', backCard);
         }
 
-        // Use the enhanced fetch function with automatic CSRF token handling
-        const response = await fetchWithCSRF('/api/insurance-card/analyze', {
-          method: 'POST',
-          body: apiFormData,
+        const response = await api.post('/api/insurance-card/analyze', apiFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
 
-        if (response.ok) {
-          const result = await response.json();
+        const data = response.data;
+        
+        if (data.success) {
+          const updates: any = {};
 
-          if (result.success && result.data) {
-            const updates: any = {};
+          // Patient information
+          if (data.data.patient_first_name) updates.patient_first_name = data.data.patient_first_name;
+          if (data.data.patient_last_name) updates.patient_last_name = data.data.patient_last_name;
+          if (data.data.patient_dob) updates.patient_dob = data.data.patient_dob;
+          if (data.data.patient_member_id) updates.patient_member_id = data.data.patient_member_id;
 
-            // Patient information
-            if (result.data.patient_first_name) updates.patient_first_name = result.data.patient_first_name;
-            if (result.data.patient_last_name) updates.patient_last_name = result.data.patient_last_name;
-            if (result.data.patient_dob) updates.patient_dob = result.data.patient_dob;
-            if (result.data.patient_member_id) updates.patient_member_id = result.data.patient_member_id;
+          // Insurance information
+          if (data.data.payer_name) updates.primary_insurance_name = data.data.payer_name;
+          if (data.data.payer_id) updates.primary_member_id = data.data.payer_id;
+          if (data.data.insurance_type) updates.primary_plan_type = data.data.insurance_type;
 
-            // Insurance information
-            if (result.data.payer_name) updates.primary_insurance_name = result.data.payer_name;
-            if (result.data.payer_id) updates.primary_member_id = result.data.payer_id;
-            if (result.data.insurance_type) updates.primary_plan_type = result.data.insurance_type;
+          updates.insurance_card_auto_filled = true;
 
-            updates.insurance_card_auto_filled = true;
+          updateFormData(updates);
+          setAutoFillSuccess(true);
 
-            updateFormData(updates);
-            setAutoFillSuccess(true);
-
-            setTimeout(() => {
-              setAutoFillSuccess(false);
-            }, 5000);
-          }
-        } else {
-          const errorMessage = handleAPIError(response, 'Insurance card upload');
-          console.error('Insurance card analysis failed:', response.status, response.statusText, errorMessage);
-          alert(errorMessage);
+          setTimeout(() => {
+            setAutoFillSuccess(false);
+          }, 5000);
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);

@@ -2,7 +2,7 @@ import React, { useMemo, useCallback } from 'react';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { fetchWithCSRF } from '@/utils/csrf';
+import api from '@/lib/api';
 
 interface MarkdownFormRendererProps {
   content: string;
@@ -23,27 +23,17 @@ const MarkdownFormRenderer: React.FC<MarkdownFormRendererProps> = ({
     
     if (formSubmissionActions.includes(action)) {
       try {
-        const response = await fetchWithCSRF('/api/ai/form-action', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            action,
-            form_data: values
-          }),
+        const response = await api.post('/api/ai/form-action', {
+          action: action,
+          formData: values,
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          // Call the original onAction with success info
-          onAction(action + '_success');
-          
-          // You could also trigger a conversation update here if needed
-          console.log('Form submitted successfully:', result.reply);
-        } else {
-          throw new Error('Form submission failed');
-        }
+        const data = response.data;
+        // Call the original onAction with success info
+        onAction(action + '_success');
+        
+        // You could also trigger a conversation update here if needed
+        console.log('Form submitted successfully:', data.reply);
       } catch (error) {
         console.error('Form submission error:', error);
         onAction(action + '_error');

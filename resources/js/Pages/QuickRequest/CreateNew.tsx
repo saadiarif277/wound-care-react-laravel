@@ -4,7 +4,8 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText, FiZap } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { ensureValidCSRFToken } from '@/lib/csrf';
+import { useManufacturers } from '@/Hooks/useManufacturers';
+import Step1ProviderFacility from './Components/Step1ProviderFacility';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
@@ -549,7 +550,7 @@ function QuickRequestCreateNew({
 
     // Refresh CSRF token before proceeding to next section
     try {
-      await ensureValidCSRFToken();
+      // axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content;
     } catch (error) {
       console.error('Failed to refresh CSRF token:', error);
       setErrors({ csrf: 'Unable to refresh security token. Please refresh the page.' });
@@ -656,13 +657,7 @@ function QuickRequestCreateNew({
     while (currentRetry <= maxRetries) {
       try {
         // Always refresh the CSRF token before submission
-        const csrfToken = await ensureValidCSRFToken();
-        if (!csrfToken) {
-          setErrors({ submit: 'Unable to obtain security token. Please refresh the page.' });
-          return;
-        }
-
-        // The extractIvrFields function has been removed. This is now a backend responsibility.
+        // axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content;
 
       // Clean and prepare the form data for submission
       const finalFormData = {
@@ -790,9 +785,9 @@ function QuickRequestCreateNew({
         console.log('CSRF token expired, attempting to refresh...');
 
         // Force refresh the token
-        const newToken = await ensureValidCSRFToken();
-        if (!newToken) {
-          console.error('Failed to refresh CSRF token');
+        // axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content;
+        if (!error.response.headers['x-csrf-token']) {
+          console.error('Failed to refresh CSRF token: No CSRF token in response headers');
           setErrors({ submit: 'Session expired. Please refresh the page and try again.' });
           return; // Exit if token refresh fails
         }
@@ -869,7 +864,7 @@ function QuickRequestCreateNew({
   useEffect(() => {
     const refreshInterval = setInterval(async () => {
       try {
-        await ensureValidCSRFToken();
+        // axios.defaults.headers.common['X-CSRF-TOKEN'] = document.querySelector('meta[name="csrf-token"]')?.content;
         console.log('CSRF token refreshed automatically');
       } catch (error) {
         console.error('Failed to refresh CSRF token automatically:', error);

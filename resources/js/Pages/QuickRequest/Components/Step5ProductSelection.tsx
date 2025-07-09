@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
-import { fetchWithCSRF } from '@/utils/csrf';
+import { toast } from '@/Components/ui/toast';
+import api from '@/lib/api';
+import { Button } from '@/Components/ui/button';
 
 interface Product {
   id: number;
@@ -98,8 +100,8 @@ export default function Step5ProductSelection({
   useEffect(() => {
     const fetchUserPermissions = async () => {
       try {
-        const response = await fetchWithCSRF('/api/quick-request/user-permissions');
-        const data = await response.json();
+        const response = await api.get('/api/quick-request/user-permissions');
+        const data = response.data || response;
         
         if (data.success && data.permissions) {
           setUserPermissions(data.permissions);
@@ -148,8 +150,8 @@ export default function Step5ProductSelection({
       if (providerId) {
         setLoading(true);
         try {
-          const response = await fetchWithCSRF(`/api/v1/providers/${providerId}/onboarded-products`);
-          const data = await response.json();
+          const response = await api.get(`/api/v1/providers/${providerId}/onboarded-products`);
+          const data = response.data || response;
           if (data.success) {
             setProviderOnboardedProducts(data.q_codes || []);
           }
@@ -184,37 +186,23 @@ export default function Step5ProductSelection({
         const firstProduct = updatedProducts[0]?.product;
         const manufacturerName = firstProduct?.manufacturer || 'Unknown';
 
-        const response = await fetchWithCSRF('/api/v1/quick-request/create-draft-episode', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            form_data: formData,
-            manufacturer_name: manufacturerName
-          })
+        const response = await api.post('/api/v1/quick-request/create-draft-episode', {
+          form_data: formData,
+          manufacturer_name: manufacturerName
         });
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success && result.episode_id) {
-            // Update form data with the episode ID
-            updateFormData({
-              episode_id: result.episode_id.toString()
-            });
-            console.log('✅ Draft episode created:', result.episode_id);
-          }
+        if (response.data.success && response.data.episode_id) {
+          // Update form data with the episode ID
+          updateFormData({
+            episode_id: response.data.episode_id.toString()
+          });
+          console.log('✅ Draft episode created:', response.data.episode_id);
         } else {
-          const errorData = await response.json();
-          if (response.status === 401 && errorData.requires_auth) {
-            console.warn('Authentication required for draft episode creation - will create during final submission');
-          } else {
-            console.warn('Failed to create draft episode, will create during final submission');
-          }
+          console.warn('Failed to create draft episode, will create during final submission');
         }
       } catch (error) {
-        console.warn('Error creating draft episode:', error);
-        // Don't throw - this is not critical, episode will be created during final submission
+        console.error('Failed to create draft episode:', error);
+        toast.error('Failed to create draft episode. Please try again.');
       }
     }
   };

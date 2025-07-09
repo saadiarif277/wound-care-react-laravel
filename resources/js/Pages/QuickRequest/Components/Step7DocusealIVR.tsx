@@ -3,9 +3,9 @@ import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCa
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
-import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
 import { DocusealForm } from '@docuseal/react';
 import { useCallback } from 'react';
+import api from '@/lib/api';
 
 // This component now relies on the backend orchestrator for all data aggregation
 // No frontend data preparation is needed - the backend is the single source of truth
@@ -199,12 +199,6 @@ export default function Step7DocusealIVR({
 
   // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
-    // Check permissions first
-    if (!hasPermission('create-product-requests')) {
-      setSubmissionError('You do not have permission to upload insurance cards. Please contact your administrator.');
-      return;
-    }
-
     // Store file in form data
     updateFormData({ [`insurance_card_${side}`]: file });
 
@@ -225,30 +219,26 @@ export default function Step7DocusealIVR({
         }
 
         // Use the enhanced fetch function with automatic CSRF token handling
-        const response = await fetchWithCSRF('/api/insurance-card/analyze', {
-          method: 'POST',
-          body: apiFormData,
+        const response = await api.post('/api/insurance-card/analyze', apiFormData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
         });
 
-        if (response.ok) {
-          const result = await response.json();
+        const data = response.data;
+        
+        if (data.success && data.data) {
+          const updates: any = {};
 
-          if (result.success && result.data) {
-            const updates: any = {};
+          // Update insurance information
+          if (data.data.payer_name) updates.primary_insurance_name = data.data.payer_name;
+          if (data.data.payer_id) updates.primary_member_id = data.data.payer_id;
 
-            // Update insurance information
-            if (result.data.payer_name) updates.primary_insurance_name = result.data.payer_name;
-            if (result.data.payer_id) updates.primary_member_id = result.data.payer_id;
-
-            updates.insurance_card_auto_filled = true;
-            updateFormData(updates);
-            setInsuranceCardSuccess(true);
-          } else {
-            setSubmissionError('Insurance card uploaded but could not extract data. Please enter information manually.');
-          }
+          updates.insurance_card_auto_filled = true;
+          updateFormData(updates);
+          setInsuranceCardSuccess(true);
         } else {
-          const errorMessage = handleAPIError(response, 'Insurance card upload');
-          setSubmissionError(errorMessage);
+          setSubmissionError('Insurance card uploaded but could not extract data. Please enter information manually.');
         }
       } catch (error) {
         console.error('Error processing insurance card:', error);
@@ -270,29 +260,21 @@ export default function Step7DocusealIVR({
 
     try {
       // Use the centralized fetch function for automatic CSRF handling
-      const response = await fetchWithCSRF('/api/v1/quick-request/create-ivr-submission', {
-        method: 'POST',
-        body: JSON.stringify({
-          form_data: formData,
-          template_id: templateId,
-        }),
+      const response = await api.post('/api/v1/quick-request/create-ivr-submission', {
+        form_data: formData,
+        template_id: templateId,
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        if (result.slug) {
-          setDocusealSlug(result.slug);
-          // Store the episode_id returned from the backend
-          if (result.episode_id) {
-            updateFormData({ episode_id: result.episode_id });
-          }
-        } else {
-          setSubmissionError('Failed to retrieve the secure form link. Please try again.');
+      const data = response.data;
+      
+      if (data.success && data.slug) {
+        setDocusealSlug(data.slug);
+        // Store the episode_id returned from the backend
+        if (data.episode_id) {
+          updateFormData({ episode_id: data.episode_id });
         }
       } else {
-        // Use the centralized error handler
-        const errorMessage = await handleAPIError(response, 'creating the secure form');
-        setSubmissionError(errorMessage);
+        setSubmissionError('Failed to retrieve the secure form link. Please try again.');
       }
     } catch (error) {
       console.error('Error fetching DocuSeal slug:', error);

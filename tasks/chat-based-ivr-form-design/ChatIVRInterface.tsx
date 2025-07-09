@@ -3,7 +3,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { FiSend, FiPaperclip, FiCheck, FiAlertCircle } from 'react-icons/fi';
 import ReactMarkdown from 'react-markdown';
-import { fetchWithCSRF } from '@/utils/csrf';
+import api from '@/lib/api';
 
 interface Message {
   id: string;
@@ -236,13 +236,11 @@ export default function ChatIVRInterface({ onComplete, currentUser, manufacturer
   
   const initializeChat = async () => {
     try {
-      const response = await fetchWithCSRF('/api/v1/chat-ivr/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: currentUser.id })
+      const response = await api.post('/api/v1/chat-ivr/start', {
+        user_id: currentUser.id,
       });
       
-      const data = await response.json();
+      const data = response.data;
       setSessionId(data.session_id);
       
       // Add initial message
@@ -326,12 +324,13 @@ export default function ChatIVRInterface({ onComplete, currentUser, manufacturer
       const formData = new FormData();
       formData.append('insurance_card_front', file);
       
-      const response = await fetchWithCSRF('/api/insurance-card/analyze', {
-        method: 'POST',
-        body: formData
+      const response = await api.post('/api/insurance-card/analyze', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
       
-      const result = await response.json();
+      const result = response.data;
       
       if (result.success && result.data) {
         // Update form data with extracted information
@@ -374,16 +373,12 @@ Let's continue with the insurance details.`);
     addSystemMessage('Creating your IVR form...');
     
     try {
-      const response = await fetchWithCSRF('/api/v1/chat-ivr/generate-form', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          session_id: sessionId,
-          form_data: formData
-        })
+      const response = await api.post('/api/v1/chat-ivr/generate-form', {
+        session_id: sessionId,
+        form_data: formData,
       });
       
-      const result = await response.json();
+      const result = response.data;
       
       if (result.success) {
         setDocusealUrl(result.submission_url);

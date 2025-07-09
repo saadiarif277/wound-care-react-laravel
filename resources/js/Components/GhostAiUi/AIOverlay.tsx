@@ -8,7 +8,7 @@ import VoiceControls from './VoiceControls';
 import ActionButtons from './ActionButtons';
 import DocumentUploadZone from './DocumentUploadZone';
 import MarkdownFormRenderer from './MarkdownFormRenderer';
-import { fetchWithCSRF } from '@/utils/csrf';
+import api from '@/lib/api';
 import { MarkdownProvider } from '@superinterface/react';
 import './client-tools'; // Initialize Superinterface client tools
 
@@ -72,36 +72,28 @@ const AIOverlay: React.FC<AIOverlayProps> = ({ isVisible, onClose }) => {
       setConversation(newConversation);
 
       try {
-        const response = await fetchWithCSRF('/api/v1/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            message: userMessage,
+        const response = await api.post('/api/v1/ai/chat', {
+          message: userMessage,
           conversation_history: newConversation,
           current_form: currentMarkdownForm ? {
             markdown: currentMarkdownForm,
             values: formValues
           } : null
-          }),
         });
 
-        if (!response.ok) {
-          throw new Error('AI response error');
-        }
-
-        const result = await response.json();
-        const aiResponse = result.reply;
+        const data = response.data;
+        const aiResponse = data.reply;
 
         // Check if AI wants to use a client tool
-        if (result.tool_call) {
-          await executeClientTool(result.tool_call, newConversation);
+        if (data.tool_call) {
+          await executeClientTool(data.tool_call, newConversation);
         } else {
           // Regular response
           const updatedConversation = [...newConversation, { role: 'assistant' as const, content: aiResponse }];
           setConversation(updatedConversation);
 
-          if (result.markdown) {
-            setCurrentMarkdownForm(result.markdown);
+          if (data.markdown) {
+            setCurrentMarkdownForm(data.markdown);
           }
         }
 
@@ -146,28 +138,25 @@ const AIOverlay: React.FC<AIOverlayProps> = ({ isVisible, onClose }) => {
       formData.append('document', document.file);
       formData.append('type', document.type);
 
-      const response = await fetchWithCSRF('/api/document/analyze', {
-        method: 'POST',
-        body: formData,
+      const response = await api.post('/api/document/analyze', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      const data = response.data;
         
-        const markdown = generateMarkdownForm(document.type, result.data);
-        setCurrentMarkdownForm(markdown);
-        
-        if (result.data) {
-          setFormValues(prev => ({ ...prev, ...result.data }));
-        }
-
-        toast({
-          title: "Document Processed",
-          description: `Successfully extracted data from ${document.file.name}`,
-        });
-      } else {
-        throw new Error('Failed to process document');
+      const markdown = generateMarkdownForm(document.type, data);
+      setCurrentMarkdownForm(markdown);
+      
+      if (data) {
+        setFormValues(prev => ({ ...prev, ...data }));
       }
+
+      toast({
+        title: "Document Processed",
+        description: `Successfully extracted data from ${document.file.name}`,
+      });
     } catch (error) {
       console.error('Document processing error:', error);
       toast({
@@ -238,30 +227,21 @@ Document: ${extractedData.filename || 'Document'}
 
       const result = await tool.handler(toolCall.parameters);
 
-      const toolResultResponse = await fetchWithCSRF('/api/v1/ai/tool-result', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tool: toolCall.tool,
-          result: result,
-          conversation_history: conversationHistory
-        }),
+      const toolResultResponse = await api.post('/api/v1/ai/tool-result', {
+        tool_call_id: toolCall.id,
+        result: result,
       });
 
-      if (!toolResultResponse.ok) {
-        throw new Error('Failed to process tool result');
-      }
-
-      const toolResult = await toolResultResponse.json();
+      const toolResultData = toolResultResponse.data;
       
       const updatedConversation = [
         ...conversationHistory,
-        { role: 'assistant' as const, content: toolResult.reply }
+        { role: 'assistant' as const, content: toolResultData.reply }
       ];
       setConversation(updatedConversation);
 
-      if (toolResult.markdown || result.markdown) {
-        setCurrentMarkdownForm(toolResult.markdown || result.markdown);
+      if (toolResultData.markdown || result.markdown) {
+        setCurrentMarkdownForm(toolResultData.markdown || result.markdown);
       }
 
     } catch (error) {
