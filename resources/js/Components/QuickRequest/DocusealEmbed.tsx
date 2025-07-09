@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import api from '@/lib/api';
+import axios from 'axios';
 import { AlertCircle, Bug, CheckCircle2, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
 import { DocusealForm } from '@docuseal/react';
 
@@ -195,9 +195,16 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         setMappingProgress('Mapping form fields with AI...');
       }
 
-      const response = await api.post<DocusealResponse>(
+      const response = await axios.post<DocusealResponse>(
         '/quick-requests/docuseal/generate-submission-slug',
-        requestData
+        requestData,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          timeout: 30000
+        }
       );
 
       const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response.data;
@@ -285,12 +292,38 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
   // Event handlers for the React component
   const handleCompleted = useCallback((event: any) => {
-    console.log('Docuseal form completed:', event);
+    console.log('🔍 Docuseal form completed event:', event);
+    console.log('🔍 Event structure:', {
+      hasSlug: !!event.slug,
+      hasSubmissionId: !!event.submission_id,
+      hasId: !!event.id,
+      slug: event.slug,
+      submission_id: event.submission_id,
+      id: event.id,
+      fullEvent: event
+    });
+
+    // Determine the submission ID to use - try multiple possible sources
+    const submissionId = event.slug || event.submission_id || event.id;
+    console.log('🔍 Using submission ID:', submissionId);
+
+    // Create enhanced event data with submission ID
+    const enhancedEvent = {
+      ...event,
+      submission_id: submissionId,
+      slug: submissionId,
+      completed_at: new Date().toISOString()
+    };
+
+    console.log('🔍 Enhanced event data:', enhancedEvent);
+
     if (onComplete) {
-      onComplete(event);
+      console.log('🔍 Calling onComplete with enhanced event');
+      onComplete(enhancedEvent);
     }
     if (onSave) {
-      onSave(event);
+      console.log('🔍 Calling onSave with enhanced event');
+      onSave(enhancedEvent);
     }
   }, [onComplete, onSave]);
 
@@ -475,7 +508,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
         {/* DocuSeal React Component */}
         <div className="relative">
-          <DocusealForm 
+          <DocusealForm
             src={`https://docuseal.com/s/${token}`}
             onComplete={handleCompleted}
             style={{
