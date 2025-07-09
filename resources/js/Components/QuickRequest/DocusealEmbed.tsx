@@ -12,6 +12,7 @@ interface FormData {
   [key: string]: any;
 }
 
+
 interface IntegrationInfo {
   type: 'fhir_enhanced' | 'standard';
   fhirDataUsed: number;
