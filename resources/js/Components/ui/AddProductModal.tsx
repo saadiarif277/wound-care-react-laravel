@@ -66,7 +66,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
       const filtered = allProducts.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         product.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.manufacturer && product.manufacturer.toLowerCase().includes(searchTerm.toLowerCase())) ||
         (product.q_code && product.q_code.toLowerCase().includes(searchTerm.toLowerCase()))
       );
       setFilteredProducts(filtered);
@@ -200,7 +200,7 @@ export default function AddProductModal({ isOpen, onClose, providerId }: AddProd
                     color: theme === 'dark' ? 'white' : 'black'
                   }}
                 >
-                  {`${product.name} - ${product.sku} (${product.manufacturer})`}
+                  {`${product.name} - ${product.sku}${product.manufacturer ? ` (${product.manufacturer})` : ''}`}
                 </option>
               ))}
             </select>

@@ -31,33 +31,6 @@ async function refreshCSRFToken(): Promise<string | null> {
     return null;
 }
 
-// --- Authentication Token Helpers ---
-function getAuthToken(): string | null {
-    return localStorage.getItem('auth_token');
-}
-
-async function fetchAuthToken(): Promise<string | null> {
-    try {
-        const resp = await fetch('/auth/token', {
-            method: 'GET',
-            credentials: 'same-origin',
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'Content-Type': 'application/json'
-            }
-        });
-        if (resp.ok) {
-            const data = await resp.json();
-            localStorage.setItem('auth_token', data.token);
-            return data.token as string;
-        }
-    } catch (e) {
-        console.error('Failed to fetch auth token', e);
-    }
-    return null;
-}
-
 // --- Docuseal JWT Token Helpers ---
 function getDocusealToken(): string | null {
     return sessionStorage.getItem('docuseal_jwt');
@@ -93,12 +66,6 @@ export function setupAxios() {
 
     // Always send cookies with requests
     axios.defaults.withCredentials = true;
-
-    // Attempt to ensure we have an auth token available (fire and forget)
-    if (!getAuthToken()) {
-        // silent fetch – errors already logged inside helper
-        fetchAuthToken();
-    }
 
     // Set default headers
     axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
@@ -153,15 +120,6 @@ export function setupAxios() {
                 if (dsToken) {
                     config.headers['Authorization'] = `Bearer ${dsToken}`;
                 }
-            } else {
-                // Attach Authorization header if we have a Sanctum token (our own API)
-                let authToken = getAuthToken();
-                if (!authToken) {
-                    authToken = await fetchAuthToken();
-                }
-                if (authToken) {
-                    config.headers['Authorization'] = `Bearer ${authToken}`;
-                }
             }
             return config;
         },
@@ -173,15 +131,6 @@ export function setupAxios() {
         response => response,
         async error => {
             if (error.response?.status === 401) {
-                // Try refreshing auth token once
-                if (!error.config?._authRetry) {
-                    const newToken = await fetchAuthToken();
-                    if (newToken) {
-                        error.config._authRetry = true;
-                        error.config.headers['Authorization'] = `Bearer ${newToken}`;
-                        return axios.request(error.config);
-                    }
-                }
                 // Session expired, redirect to login
                 console.log('Session expired, redirecting to login...');
                 window.location.href = '/login';
