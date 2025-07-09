@@ -6,7 +6,6 @@ import { useManufacturers } from '@/Hooks/useManufacturers';
 import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useCallback } from 'react';
 import { AuthButton } from '@/Components/ui/auth-button';
-import api from '@/lib/api';
 // Removed useAuthState import - Inertia handles authentication automatically
 
 // This component now relies on the backend orchestrator for all data aggregation
@@ -240,7 +239,7 @@ export default function Step7DocusealIVR({
         });
 
         const data = response.data;
-        
+
         if (data.success && data.data) {
           const updates: any = {};
 
@@ -266,29 +265,46 @@ export default function Step7DocusealIVR({
   // Enhanced completion handler for DocuSeal form
   const handleDocusealFormComplete = (event: any) => {
     try {
-      console.log('Docuseal form completed:', event);
-      
+      console.log('🔍 Docuseal form completed:', event);
+      console.log('🔍 Event structure:', {
+        hasSlug: !!event.slug,
+        hasSubmissionId: !!event.submission_id,
+        slug: event.slug,
+        submission_id: event.submission_id,
+        episode_id: event.episode_id,
+        fullEvent: event
+      });
+
+      // Determine the submission ID to use
+      const submissionId = event.slug || event.submission_id;
+      console.log('🔍 Using submission ID:', submissionId);
+
       // Update form data with completion status and submission data
       updateFormData({
         final_submission_completed: true,
         final_submission_data: event,
-        docuseal_submission_id: event.slug || event.submission_id,
+        docuseal_submission_id: submissionId,
         episode_id: event.episode_id,
         ivr_completed: true,
-        docuseal_completed_at: new Date().toISOString()
+        docuseal_completed_at: new Date().toISOString(),
+        ivr_document_url: event.submission_url || null, // Add submission URL
       });
-      
-      console.log('✅ IVR form completed successfully');
-      
-      // Automatically proceed to next step after a short delay
-      setTimeout(() => {
-        if (onNext) {
-          onNext();
-        }
-      }, 1500);
-      
+
+      // Log the submission URL for debugging
+      console.log('🔍 IVR Document URL captured:', {
+        submission_url: event.submission_url,
+        submission_id: submissionId,
+        episode_id: event.episode_id
+      });
+
+      console.log('✅ IVR form completed successfully with submission ID:', submissionId);
+      console.log('✅ Updated form data with docuseal_submission_id:', submissionId);
+
+      // Set completion state but DON'T auto-proceed - let user click continue
+      setSubmissionData(event);
+
     } catch (error) {
-      console.error('Error processing DocuSeal completion:', error);
+      console.error('❌ Error processing DocuSeal completion:', error);
       setSubmissionError('Form completed but there was an error processing the result.');
     }
   };
@@ -450,7 +466,7 @@ export default function Step7DocusealIVR({
                     <h3 className={cn("font-medium", theme === 'dark' ? 'text-green-300' : 'text-green-800')}>
                       IVR Form Available
                       {formData.fhir_data_used && (
-                        <span className={cn("ml-2 text-xs px-2 py-1 rounded", 
+                        <span className={cn("ml-2 text-xs px-2 py-1 rounded",
                           theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')}>
                           FHIR Enhanced
                         </span>
@@ -486,10 +502,13 @@ export default function Step7DocusealIVR({
                   )} />
                   <div>
                     <h3 className={cn("font-medium", theme === 'dark' ? 'text-green-300' : 'text-green-800')}>
-                      IVR Form Completed
+                      IVR Form Completed Successfully
                     </h3>
                     <p className={cn("text-sm mt-1", theme === 'dark' ? 'text-green-400' : 'text-green-700')}>
-                      Ready for Final Review
+                      Submission ID: {formData.docuseal_submission_id}
+                    </p>
+                    <p className={cn("text-xs mt-1", theme === 'dark' ? 'text-green-500' : 'text-green-600')}>
+                      The IVR form has been completed and saved. You can now proceed to the final review.
                     </p>
                   </div>
                 </div>
@@ -570,7 +589,7 @@ export default function Step7DocusealIVR({
               <p className={cn("text-sm mb-4", theme === 'dark' ? 'text-gray-400' : 'text-gray-600')}>
                 No IVR form is required for this product, or you can skip this optional step.
               </p>
-              
+
               <div className="flex gap-3">
                 <AuthButton
                   onClick={handleSkip}
@@ -781,7 +800,7 @@ export default function Step7DocusealIVR({
                         "text-sm font-medium",
                         theme === 'dark' ? 'text-red-300' : 'text-red-900'
                       )}>
-                        {submissionError.includes('permission') ? 'Permission Error' : 
+                        {submissionError.includes('permission') ? 'Permission Error' :
                          submissionError.includes('session') || submissionError.includes('expired') ? 'Session Error' :
                          submissionError.includes('server') ? 'Server Error' : 'Error Loading IVR Form'}
                       </h4>
@@ -807,7 +826,7 @@ export default function Step7DocusealIVR({
                           <FiRefreshCw className="mr-1 h-4 w-4" />
                           Try Again
                         </AuthButton>
-                        
+
                         {submissionError.includes('permission') && (
                           <div className={cn(
                             "mt-3 p-3 rounded-md",
@@ -817,12 +836,12 @@ export default function Step7DocusealIVR({
                               "text-sm",
                               theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
                             )}>
-                              <strong>Need Help?</strong> Contact your administrator to request the 
+                              <strong>Need Help?</strong> Contact your administrator to request the
                               "create-product-requests" permission to access this feature.
                             </p>
                           </div>
                         )}
-                        
+
                         {(submissionError.includes('session') || submissionError.includes('expired')) && (
                           <div className={cn(
                             "mt-3 p-3 rounded-md",
@@ -864,13 +883,13 @@ export default function Step7DocusealIVR({
                 )}
               </div>
             )}
-            
+
             {/* Documents Section for IVR */}
             <div className={cn("mt-6 p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-gray-700' : 'border-gray-200')}>
               <h3 className={cn("text-lg font-semibold mb-4", t.text.primary)}>
                 Documents for IVR
               </h3>
-              
+
               {/* Auto-attached Insurance Cards */}
               {(formData.insurance_card_front || formData.insurance_card_back) && (
                 <div className="mb-4">
@@ -909,7 +928,7 @@ export default function Step7DocusealIVR({
                   </div>
                 </div>
               )}
-              
+
             </div>
           </div>
 
