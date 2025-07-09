@@ -246,7 +246,24 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
   };
 
   const handleAddFacility = () => {
-    // ... existing code ...
+    setShowAddFacilityModal(true);
+  };
+
+  const handleRemoveProduct = (productId: number) => {
+    if (confirm('Are you sure you want to remove this product from the provider?')) {
+      router.delete(route('admin.providers.products.remove', { 
+        provider: provider.id, 
+        product: productId 
+      }), {
+        preserveScroll: true,
+        onSuccess: () => {
+          // Product removal will refresh the page data
+        },
+        onError: (errors) => {
+          console.error('Error removing product:', errors);
+        }
+      });
+    }
   };
 
   return (
@@ -780,8 +797,12 @@ export default function ProviderShow({ provider, stats, availableFacilities, fla
                               {format(new Date(product.onboarded_at), 'MMM d, yyyy')}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <button className="text-red-600 hover:text-red-900">
-                                <MoreVertical className="w-4 h-4" />
+                              <button 
+                                onClick={() => handleRemoveProduct(product.id)}
+                                className="text-red-600 hover:text-red-900"
+                                title="Remove product from provider"
+                              >
+                                <X className="w-4 h-4" />
                               </button>
                             </td>
                           </tr>

@@ -702,13 +702,14 @@ class DatabaseSeeder extends Seeder
     private function callOtherSeeders(): void
     {
         $this->call([
-            CategoriesAndManufacturersSeeder::class,
-            ProductSeeder::class,
-            ManufacturerDocuSealTemplateSeeder::class,
+            MasterDataSeeder::class,  // Single comprehensive seeder for all manufacturer/product data
             IVRFieldMappingSeeder::class,
             DiagnosisCodesFromCsvSeeder::class,
             RemoveHardcodedDataSeeder::class,
-            ExampleProviderSeeder::class,
+            // CategoriesAndManufacturersSeeder::class, // REMOVED - now handled by MasterDataSeeder
+            // ManufacturerDocuSealTemplateSeeder::class, // REMOVED - now handled by MasterDataSeeder
+            // ProductSeeder::class, // REMOVED - creates duplicate products
+            // ExampleProviderSeeder::class, // REMOVED - creates "Example Products"
             // PatientManufacturerIVREpisodeSeeder::class, // Removed - no mock episodes needed
         ]);
     }
