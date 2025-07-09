@@ -4,6 +4,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
 import { toast } from '@/Components/ui/toast';
 import api from '@/lib/api';
+import { initializeSanctum } from '@/lib/sanctum';
 import { Button } from '@/Components/ui/button';
 
 interface Product {
@@ -85,6 +86,7 @@ export default function Step5ProductSelection({
     commission_access_level: string;
   } | null>(null);
   const [permissionsLoading, setPermissionsLoading] = useState(true);
+  const [sanctumInitialized, setSanctumInitialized] = useState(false);
 
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -96,8 +98,26 @@ export default function Step5ProductSelection({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Fetch user permissions on mount
+  // Initialize Sanctum before making any API calls
   useEffect(() => {
+    const initAuth = async () => {
+      try {
+        await initializeSanctum();
+        setSanctumInitialized(true);
+      } catch (error) {
+        console.error('Failed to initialize Sanctum:', error);
+        // Continue anyway, but API calls might fail
+        setSanctumInitialized(true);
+      }
+    };
+
+    initAuth();
+  }, []);
+
+  // Fetch user permissions on mount - but only after Sanctum is initialized
+  useEffect(() => {
+    if (!sanctumInitialized) return;
+
     const fetchUserPermissions = async () => {
       try {
         const response = await api.get('/api/quick-request/user-permissions');
@@ -131,10 +151,12 @@ export default function Step5ProductSelection({
     };
 
     fetchUserPermissions();
-  }, []);
+  }, [sanctumInitialized]);
 
   // Fetch provider's onboarded products when provider_id changes or if current user is a provider
   useEffect(() => {
+    if (!sanctumInitialized) return;
+
     // Only show products for selected provider
     // providerOnboardedProducts is an array of product codes or IDs
 
@@ -164,7 +186,7 @@ export default function Step5ProductSelection({
     };
 
     fetchProviderProducts();
-  }, [formData.provider_id, currentUser?.id, currentUser?.role]);
+  }, [sanctumInitialized, formData.provider_id, currentUser?.id, currentUser?.role]);
 
   const handleProductsChange = async (selectedProducts: SelectedProduct[]) => {
     // Store provider-product mapping in formData, format size as '2 x 2'
@@ -180,7 +202,7 @@ export default function Step5ProductSelection({
     });
 
     // Create draft episode if products are selected and we don't have an episode_id yet
-    if (updatedProducts.length > 0 && !formData.episode_id) {
+    if (updatedProducts.length > 0 && !formData.episode_id && sanctumInitialized) {
       try {
         // Get manufacturer name from the first selected product
         const firstProduct = updatedProducts[0]?.product;
@@ -219,7 +241,7 @@ export default function Step5ProductSelection({
 
   return (
     <div className="space-y-6">
-      {(loading && formData.provider_id) || permissionsLoading ? (
+      {(loading && formData.provider_id) || permissionsLoading || !sanctumInitialized ? (
         <div className={cn(
           "p-8 text-center rounded-lg",
           theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
@@ -228,7 +250,8 @@ export default function Step5ProductSelection({
             "text-sm",
             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
           )}>
-            {permissionsLoading ? 'Loading permissions...' : 'Loading provider products...'}
+            {!sanctumInitialized ? 'Initializing authentication...' : 
+             permissionsLoading ? 'Loading permissions...' : 'Loading provider products...'}
           </p>
         </div>
       ) : (
