@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Services\FieldMapping\DataExtractor;
 use App\Services\FieldMapping\FieldTransformer;
 use App\Services\FieldMapping\FieldMatcher;
-use App\Services\DocuSeal\DynamicFieldMappingService;
+
 use App\Services\DocuSeal\TemplateFieldValidationService;
 use App\Models\Docuseal\DocusealTemplate;
 use App\Models\CanonicalField;
@@ -92,29 +92,41 @@ class UnifiedFieldMappingService
         ?string $submitterEmail = null,
         bool $useDynamicMapping = true
     ): array {
-        // Try dynamic mapping first if enabled
+        // Try AI-enhanced mapping first if enabled
         if ($useDynamicMapping && config('docuseal-dynamic.mapping.enable_caching')) {
             try {
-                $dynamicService = app(DynamicFieldMappingService::class);
-                $result = $dynamicService->mapEpisodeToDocuSealForm(
-                    $episodeId,
-                    $manufacturerName,
-                    $templateId,
-                    $additionalData,
-                    $submitterEmail
-                );
-                
-                Log::info('Dynamic mapping completed successfully', [
-                    'episode_id' => $episodeId,
-                    'manufacturer' => $manufacturerName,
-                    'template_id' => $templateId,
-                    'quality_grade' => $result['validation']['quality_grade'] ?? 'Unknown'
-                ]);
-                
-                return $result;
+                // Use OptimizedMedicalAiService for AI-enhanced mapping
+                if (class_exists('\App\Services\Medical\OptimizedMedicalAiService') && $episodeId) {
+                    $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
+                    if ($episode) {
+                        $aiService = app(\App\Services\Medical\OptimizedMedicalAiService::class);
+                        $result = $aiService->enhanceDocusealFieldMapping($episode, $additionalData, $templateId);
+                    
+                        Log::info('AI mapping completed successfully', [
+                            'episode_id' => $episodeId,
+                            'manufacturer' => $manufacturerName,
+                            'template_id' => $templateId,
+                            'ai_confidence' => $result['_ai_confidence'] ?? 0
+                        ]);
+                        
+                        // Convert to expected format
+                        return [
+                            'data' => $result,
+                            'validation' => ['quality_grade' => 'ai_enhanced'],
+                            'manufacturer' => ['name' => $manufacturerName],
+                            'completeness' => ['percentage' => 100],
+                            'metadata' => [
+                                'episode_id' => $episodeId,
+                                'manufacturer' => $manufacturerName,
+                                'mapped_at' => now()->toIso8601String(),
+                                'source' => 'ai_enhanced'
+                            ]
+                        ];
+                    }
+                }
                 
             } catch (\Exception $e) {
-                Log::warning('Dynamic mapping failed, falling back to static', [
+                Log::warning('AI mapping failed, falling back to static', [
                     'episode_id' => $episodeId,
                     'manufacturer' => $manufacturerName,
                     'error' => $e->getMessage()
@@ -521,7 +533,7 @@ class UnifiedFieldMappingService
         $isValid = empty($criticalErrors);
         
         // If we have too many warnings, suggest using AI enhancement
-        if (count($warnings) > 5 && class_exists('\App\Services\AI\IntelligentFieldMappingService')) {
+        if (count($warnings) > 5 && class_exists('\App\Services\Medical\OptimizedMedicalAiService')) {
             $warnings[] = "Consider using AI-enhanced field mapping for better results";
         }
 

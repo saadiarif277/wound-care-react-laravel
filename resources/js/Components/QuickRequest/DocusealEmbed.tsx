@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { AlertCircle, Bug, CheckCircle2, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
 import { DocusealForm } from '@docuseal/react';
 
@@ -195,16 +195,9 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         setMappingProgress('Mapping form fields with AI...');
       }
 
-      const response = await axios.post<DocusealResponse>(
+      const response = await api.post<DocusealResponse>(
         '/quick-requests/docuseal/generate-submission-slug',
-        requestData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 30000
-        }
+        requestData
       );
 
       const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response.data;

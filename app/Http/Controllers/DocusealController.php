@@ -316,7 +316,39 @@ class DocusealController extends Controller
                 $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
                 if ($episode) {
                     $orchestrator = app(\App\Services\QuickRequest\QuickRequestOrchestrator::class);
-                    $comprehensiveData = $orchestrator->prepareDocusealData($episode);
+                    
+                    // Check if AI enhancement is enabled
+                    $useAI = config('services.medical_ai.enabled', true) && 
+                             config('services.medical_ai.use_for_docuseal', true);
+                    
+                    if ($useAI) {
+                        // Try AI-enhanced preparation first
+                        try {
+                            $comprehensiveData = $orchestrator->prepareAIEnhancedDocusealData(
+                                $episode,
+                                $templateId,
+                                'insurance'
+                            );
+                            Log::info('Using AI-enhanced DocuSeal data preparation', [
+                                'episode_id' => $episodeId,
+                                'template_id' => $templateId,
+                                'ai_used' => true
+                            ]);
+                        } catch (\Exception $e) {
+                            Log::warning('AI enhancement failed, falling back to standard preparation', [
+                                'episode_id' => $episodeId,
+                                'error' => $e->getMessage()
+                            ]);
+                            // Fallback to standard preparation
+                            $comprehensiveData = $orchestrator->prepareDocusealData($episode);
+                        }
+                    } else {
+                        // Use standard preparation when AI is disabled
+                        Log::info('AI enhancement disabled, using standard preparation', [
+                            'episode_id' => $episodeId
+                        ]);
+                        $comprehensiveData = $orchestrator->prepareDocusealData($episode);
+                    }
                     
                     Log::info('Using orchestrator comprehensive data', [
                         'episode_id' => $episodeId,

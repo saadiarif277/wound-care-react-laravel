@@ -47,13 +47,34 @@ return [
         'validate_field_names' => true,
     ],
 
-    'error_handling' => [
-        'retry_on_llm_failure' => true,
-        'retry_on_api_failure' => true,
-        'max_api_retries' => 3,
-        'max_llm_retries' => 2,
-        'exponential_backoff' => true,
-        'base_delay_ms' => 1000,
+    'quality' => [
+        'min_field_coverage' => 0.7, // 70% of fields should be mapped
+        'required_fields' => [
+            'patient_name',
+            'patient_dob',
+            'physician_npi',
+            'diagnosis_code'
+        ],
+        'field_validation_rules' => [
+            'npi' => '/^\d{10}$/',
+            'phone' => '/^\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}$/',
+            'email' => '/^[^\s@]+@[^\s@]+\.[^\s@]+$/',
+            'date' => '/^\d{4}-\d{2}-\d{2}$/'
+        ]
+    ],
+
+    'manufacturers' => [
+        'default_timeout' => 30,
+        'specific_configs' => [
+            'MedLife Solutions' => [
+                'extra_processing_time' => 5,
+                'required_fields' => ['patient_name', 'diagnosis_code', 'wound_type']
+            ],
+            'Centurion' => [
+                'extra_processing_time' => 3,
+                'required_fields' => ['patient_name', 'physician_npi']
+            ]
+        ]
     ],
 
     'logging' => [

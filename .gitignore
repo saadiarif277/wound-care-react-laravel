@@ -87,6 +87,10 @@ test-*.log
   env/
   ENV/
   .venv/
+  .venv/*
+  scripts/.venv/
+  scripts/.venv
+  scripts/startup/
   scripts/ai_service_env/
   __pycache__/
   *.py[cod]

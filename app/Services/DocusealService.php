@@ -4,14 +4,14 @@ namespace App\Services;
 
 use App\Models\Episode;
 use App\Models\PatientManufacturerIVREpisode;
-use App\Services\UnifiedFieldMappingService;
+use App\Models\ProductRequest;
+use App\Services\Medical\OptimizedMedicalAiService;
 use App\Services\AI\AzureFoundryService;
-use App\Services\AI\IntelligentFieldMappingService;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 
 class DocusealService
 {
@@ -20,17 +20,17 @@ class DocusealService
 
     public function __construct(
         private UnifiedFieldMappingService $fieldMappingService,
-        private ?IntelligentFieldMappingService $intelligentMapping = null
+        private ?OptimizedMedicalAiService $aiService = null
     ) {
         $this->apiKey = config('services.docuseal.api_key');
         $this->apiUrl = config('services.docuseal.api_url', 'https://api.docuseal.com');
         
-        // Initialize intelligent mapping service if available
-        if (!$this->intelligentMapping) {
+        // Initialize AI service if available
+        if (!$this->aiService) {
             try {
-                $this->intelligentMapping = app(IntelligentFieldMappingService::class);
+                $this->aiService = app(OptimizedMedicalAiService::class);
             } catch (\Exception $e) {
-                Log::warning('Intelligent mapping service not available, using standard mapping', [
+                Log::warning('Medical AI service not available, using standard mapping', [
                     'error' => $e->getMessage()
                 ]);
             }
@@ -1181,9 +1181,18 @@ class DocusealService
                 'prefill_data_count' => count($prefillData)
             ]);
 
-            // Call the AI service via DynamicFieldMappingService
-            $dynamicMappingService = app(\App\Services\DocuSeal\DynamicFieldMappingService::class);
-            $aiMappingResult = $dynamicMappingService->mapForDocuseal($templateId, $manufacturerName, $prefillData);
+            // Call the AI service via OptimizedMedicalAiService
+            // Skip AI enhancement if no episode available (fallback to static mapping)
+            if ($episodeId) {
+                $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
+                if ($episode) {
+                    $aiMappingResult = $this->aiService->enhanceDocusealFieldMapping($episode, $prefillData, $templateId);
+                } else {
+                    $aiMappingResult = ['success' => false, 'error' => 'Episode not found'];
+                }
+            } else {
+                $aiMappingResult = ['success' => false, 'error' => 'No episode ID provided'];
+            }
 
             if ($aiMappingResult['success'] && !empty($aiMappingResult['field_mappings'])) {
                 // AI mapping successful - use the AI-mapped fields
@@ -1776,182 +1785,120 @@ class DocusealService
         string $manufacturerName
     ): array {
         try {
-            // Use intelligent mapping if available, otherwise fallback to standard
-            if ($this->intelligentMapping) {
-                Log::info('Using AI-enhanced field mapping for Docuseal submission');
-                $mappingResult = $this->intelligentMapping->mapEpisodeWithAI(
-                    null, // No episode ID since we're providing data directly
-                    $manufacturerName,
-                    $comprehensiveData,
-                    ['use_cache' => true, 'adaptive_validation' => true]
-                );
-            } else {
-                Log::info('Using standard field mapping for Docuseal submission');
-                $mappingResult = $this->fieldMappingService->mapEpisodeToTemplate(
-                    null,
-                    $manufacturerName,
-                    $comprehensiveData
-                );
-            }
-            
-            // Log the mapping result for debugging
-            Log::info('Field mapping result', [
-                'has_mapped_data' => isset($mappingResult['data']),
-                'mapped_field_count' => isset($mappingResult['data']) ? count($mappingResult['data']) : 0,
-                'has_patient_name' => isset($mappingResult['data']['patient_name']),
-                'has_patient_first_name' => isset($mappingResult['data']['patient_first_name']),
-                'sample_mapped_fields' => isset($mappingResult['data']) ? array_slice(array_keys($mappingResult['data']), 0, 10) : []
-            ]);
-
-            // Check validation - be more flexible with AI-enhanced mapping
-            $canProceed = $mappingResult['validation']['valid'] || 
-                         ($mappingResult['validation']['can_proceed'] ?? false);
-
-            if (!$canProceed) {
-                $criticalErrors = array_filter($mappingResult['validation']['errors'] ?? [], function($error) {
-                    return strpos($error, 'Critical field') !== false;
-                });
-
-                if (!empty($criticalErrors)) {
-                    throw new \Exception('Critical field mapping validation failed: ' .
-                        implode(', ', $criticalErrors));
-                }
-
-                // If only non-critical errors, log warnings but proceed
-                Log::warning('Non-critical field mapping issues, proceeding with submission', [
-                    'warnings' => $mappingResult['validation']['warnings'] ?? [],
-                    'errors' => $mappingResult['validation']['errors'] ?? []
-                ]);
-            }
-
-            // Log the mapping result for debugging
-            Log::info('DocuSeal mapping result received', [
-                'has_manufacturer' => isset($mappingResult['manufacturer']),
-                'manufacturer_type' => gettype($mappingResult['manufacturer'] ?? null),
-                'mapping_result_keys' => array_keys($mappingResult),
-                'manufacturer_data' => $mappingResult['manufacturer'] ?? null
-            ]);
-
-            // Extract template ID from mapping result or look it up from database
-            $templateId = null;
-            
-            // First try to get from mapping result
-            if (isset($mappingResult['manufacturer']['docuseal_template_id'])) {
-                $templateId = $mappingResult['manufacturer']['docuseal_template_id'];
-            } elseif (isset($mappingResult['manufacturer']['template_id'])) {
-                $templateId = $mappingResult['manufacturer']['template_id'];
-            }
-            
-            // If not found in mapping result, look up from database
-            if (!$templateId) {
-                // Try to find the manufacturer by name
-                $manufacturer = \App\Models\Order\Manufacturer::where('name', $manufacturerName)->first();
-                
-                if ($manufacturer) {
-                    // Get the default IVR template for this manufacturer
-                    $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
-                        ->where('document_type', 'IVR')
-                        ->where('is_active', true)
-                        ->where('is_default', true)
-                        ->first();
-                    
-                    if (!$template) {
-                        // Try without is_default constraint
-                        $template = \App\Models\Docuseal\DocusealTemplate::where('manufacturer_id', $manufacturer->id)
-                            ->where('document_type', 'IVR')
-                            ->where('is_active', true)
-                            ->first();
-                    }
-                    
-                    if ($template) {
-                        $templateId = $template->docuseal_template_id;
-                        Log::info('Found template ID from database', [
-                            'manufacturer' => $manufacturerName,
-                            'manufacturer_id' => $manufacturer->id,
-                            'template_id' => $templateId
-                        ]);
-                    }
-                }
-            }
-            
-            if (!$templateId) {
-                // Log the full manufacturer object for debugging
-                Log::error('Template ID not found for manufacturer', [
-                    'manufacturer_name' => $manufacturerName,
-                    'manufacturer_config' => $mappingResult['manufacturer'] ?? null,
-                    'available_keys' => array_keys($mappingResult['manufacturer'] ?? []),
-                    'manufacturer_exists' => isset($manufacturer) ? 'yes' : 'no'
-                ]);
-                
-                throw new \Exception("No DocuSeal template found for manufacturer: {$manufacturerName}. Please ensure the manufacturer has an active IVR template configured.");
-            }
-
-            // Check if we need to create a new submission or update existing
-            if ($episode->docuseal_submission_id) {
-                // Update existing submission
-                $response = $this->updateSubmission(
-                    $episode->docuseal_submission_id,
-                    $mappingResult['data'],
-                    $templateId
-                );
-            } else {
-                // Create new submission
-                $response = $this->createSubmission(
-                    $templateId,
-                    $mappingResult['data'],
-                    $episode->id,
-                    $mappingResult['manufacturer']
-                );
-
-                // Update episode with submission ID
-                $episode->update([
-                    'docuseal_submission_id' => $response['id'],
-                    'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_PENDING,
-                ]);
-            }
-
-            Log::info('Docuseal submission created successfully from orchestrator data', [
+            Log::info('Creating Docuseal submission from orchestrator data', [
                 'episode_id' => $episode->id,
-                'submission_id' => $response['id'],
                 'manufacturer' => $manufacturerName,
-                'template_id' => $templateId,
-                'mapped_fields_count' => count($mappingResult['data']),
-                'ai_enhanced' => $mappingResult['ai_enhanced'] ?? false
+                'data_fields' => count($comprehensiveData)
             ]);
 
-            // Learn from successful mapping for future AI improvements
-            if ($this->intelligentMapping && ($mappingResult['ai_enhanced'] ?? false)) {
-                $this->intelligentMapping->learnFromSuccess(
-                    $manufacturerName,
-                    $mappingResult['data'],
-                    ['success' => true, 'submission_id' => $response['id']]
-                );
+            // Get manufacturer configuration
+            $manufacturer = $this->fieldMappingService->getManufacturerConfig($manufacturerName);
+            if (!$manufacturer || !$manufacturer['template_id']) {
+                throw new \Exception("No DocuSeal template configured for manufacturer: {$manufacturerName}");
             }
+
+            $templateId = $manufacturer['template_id'];
+
+            // Use AI service if available for enhanced mapping
+            if ($this->aiService) {
+                Log::info('Using AI-enhanced field mapping for Docuseal submission');
+                try {
+                    $enhancedData = $this->aiService->enhanceDocusealFieldMapping(
+                        $episode,
+                        $comprehensiveData,
+                        $templateId
+                    );
+                    
+                    // Use enhanced data if AI was successful
+                    if (!empty($enhancedData) && ($enhancedData['_ai_confidence'] ?? 0) > 0.7) {
+                        Log::info('AI enhancement successful', [
+                            'confidence' => $enhancedData['_ai_confidence'] ?? 0,
+                            'method' => $enhancedData['_ai_method'] ?? 'unknown'
+                        ]);
+                        $comprehensiveData = $enhancedData;
+                    }
+                } catch (\Exception $e) {
+                    Log::warning('AI enhancement failed, using standard mapping', [
+                        'error' => $e->getMessage()
+                    ]);
+                }
+            }
+
+            // Convert fields to Docuseal format
+            $docusealFields = $this->fieldMappingService->convertToDocusealFields(
+                $comprehensiveData,
+                $manufacturer
+            );
+
+            // Create the submission
+            $submissionData = [
+                'template_id' => $templateId,
+                'send_email' => false,
+                'submitters' => [
+                    [
+                        'email' => $comprehensiveData['provider_email'] ?? 'provider@example.com',
+                        'role' => 'First Party',
+                        'name' => $comprehensiveData['provider_name'] ?? 'Healthcare Provider',
+                        'fields' => $docusealFields
+                    ]
+                ],
+                'metadata' => [
+                    'episode_id' => $episode->id,
+                    'manufacturer' => $manufacturerName,
+                    'created_at' => now()->toIso8601String(),
+                    'ai_enhanced' => isset($enhancedData['_ai_confidence'])
+                ]
+            ];
+
+            $response = Http::withHeaders([
+                'X-Auth-Token' => $this->apiKey,
+                'Content-Type' => 'application/json',
+            ])->post("{$this->apiUrl}/submissions", $submissionData);
+
+            if (!$response->successful()) {
+                throw new \Exception('Failed to create Docuseal submission: ' . $response->body());
+            }
+
+            $responseData = $response->json();
+            
+            // Extract submission ID from response
+            $submissionId = null;
+            if (is_array($responseData) && !empty($responseData)) {
+                $submitter = $responseData[0];
+                $submissionId = $submitter['submission_id'] ?? null;
+            }
+
+            // Update episode with submission ID
+            if ($submissionId) {
+                $episode->update([
+                    'docuseal_submission_id' => $submissionId,
+                    'docuseal_status' => 'pending',
+                    'field_mapping_completeness' => 100,
+                    'mapped_fields' => $comprehensiveData,
+                    'ai_enhanced' => isset($enhancedData['_ai_confidence'])
+                ]);
+            }
+
+            Log::info('Docuseal submission created successfully', [
+                'episode_id' => $episode->id,
+                'submission_id' => $submissionId,
+                'manufacturer' => $manufacturerName
+            ]);
 
             return [
                 'success' => true,
-                'submission' => $response,
-                'manufacturer' => $mappingResult['manufacturer'],
-                'mapped_data' => $mappingResult['data'],
-                'validation' => $mappingResult['validation'],
-                'completeness' => $mappingResult['completeness'] ?? [],
-                'ai_enhanced' => $mappingResult['ai_enhanced'] ?? false
+                'submission_id' => $submissionId,
+                'response' => $responseData
             ];
 
         } catch (\Exception $e) {
             Log::error('Failed to create Docuseal submission from orchestrator data', [
                 'episode_id' => $episode->id,
                 'manufacturer' => $manufacturerName,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'error' => $e->getMessage()
             ]);
 
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-                'submission' => null,
-                'manufacturer' => null
-            ];
+            throw $e;
         }
     }
 }

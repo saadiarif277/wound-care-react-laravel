@@ -99,6 +99,14 @@ return [
             'replace_placeholders' => true,
         ],
 
+        'ai_metrics' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ai-metrics.log'),
+            'level' => 'info',
+            'days' => 30,
+            'replace_placeholders' => true,
+        ],
+
         'fhir' => [
             'driver' => 'daily',
             'path' => storage_path('logs/fhir.log'),
