@@ -1,6 +1,6 @@
 import React, { useState, useEffect, ReactElement } from 'react';
 import { AlertTriangle, CheckCircle, Clock, Shield, Info, Loader2, ExternalLink, FileText, XCircle, AlertCircle, AlertOctagon, Info as InfoIcon } from 'lucide-react';
-import { apiPost, apiGet, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 import { usePage, router } from '@inertiajs/react';
 import { toast } from 'react-hot-toast';
 
@@ -901,11 +901,11 @@ const ValidationEligibilityStep = ({ formData, updateFormData, userSpecialty = '
         urgency: 'routine'
       };
 
-      const response = await apiPost(`/api/product-requests/${formData.id}/submit-prior-auth`, {
+                  const response = await api.post(`/api/product-requests/${formData.id}/submit-prior-auth`, {
         clinical_data: clinicalData
       });
 
-      const result = await handleApiResponse(response);
+      const result = response;
 
       if (result.success) {
         setPreAuthResult((prev: any) => ({
@@ -943,8 +943,8 @@ const ValidationEligibilityStep = ({ formData, updateFormData, userSpecialty = '
     if (!formData.id) return;
 
     try {
-      const response = await apiPost(`/api/product-requests/${formData.id}/check-prior-auth-status`, {});
-      const result = await handleApiResponse(response);
+                  const response = await api.post(`/api/product-requests/${formData.id}/check-prior-auth-status`, {});
+      const result = response;
 
       if (result.success) {
         setPreAuthResult((prev: any) => ({

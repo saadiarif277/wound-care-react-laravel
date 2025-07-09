@@ -8,7 +8,7 @@ import {
   FiDownload, FiSearch, FiFilter, FiBarChart,
   FiUserCheck, FiCreditCard, FiTarget, FiActivity
 } from 'react-icons/fi';
-import { api, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 
 interface CommissionRecord {
   id: string;

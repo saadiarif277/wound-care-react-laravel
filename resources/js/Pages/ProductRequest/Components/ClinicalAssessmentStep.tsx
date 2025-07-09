@@ -3,7 +3,7 @@ import { AlertCircle, ChevronRight, Info, Loader2 } from 'lucide-react';
 import WoundCareAssessmentForm from './ClinicalAssessment/WoundCareAssessmentForm';
 import PulmonaryWoundAssessmentForm from './ClinicalAssessment/PulmonaryWoundAssessmentForm';
 import VascularAssessmentForm from './ClinicalAssessment/VascularAssessmentForm';
-import { apiPost, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 import { SkinSubstituteChecklistInput } from '@/services/fhir/SkinSubstituteChecklistMapper';
 
 // Define UI Section Keys for the SSP Checklist
@@ -115,13 +115,13 @@ const ClinicalAssessmentStep: React.FC<ClinicalAssessmentStepProps> = ({
         dataToValidate = (formData as any)[`legacy_${uiSectionKey as string}`] || {};
       }
 
-      const response = await apiPost('/api/v1/validation-builder/validate-section', {
+              const response = await api.post('/api/v1/validation-builder/validate-section', {
         section: sectionKeyForApi,
         data: dataToValidate,
         wound_type: formData.wound_type,
         assessment_type: assessmentType,
       });
-      const result = await handleApiResponse(response);
+              const result = response;
       if (result.errors) {
         setValidationErrors(prev => ({ ...prev, [sectionKeyForApi]: result.errors }));
       } else {

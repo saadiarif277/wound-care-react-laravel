@@ -4,7 +4,7 @@ import MainLayout from '@/Layouts/MainLayout';
 import Alert from '@/Components/Alert/Alert';
 import AsyncSelect from 'react-select/async';
 import { FiCheck, FiAlertTriangle, FiX, FiLoader, FiDownload, FiClock } from 'react-icons/fi';
-import { api, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 
 interface Provider {
     value: string;

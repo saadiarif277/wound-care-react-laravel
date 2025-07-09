@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Head, Link } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiPlus, FiFileText, FiCheckCircle, FiClock, FiDollarSign, FiSearch, FiFilter, FiDownload, FiEye, FiEdit, FiTrash2 } from 'react-icons/fi';
-import { api, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 
 // Dummy data types
 interface Order {

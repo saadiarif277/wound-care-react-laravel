@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Head } from '@inertiajs/react';
 import MainLayout from '@/Layouts/MainLayout';
 import { FiFileText, FiCheckCircle, FiClock, FiAlertCircle, FiDownload, FiEye } from 'react-icons/fi';
-import { api, handleApiResponse } from '@/lib/api';
+import api from '@/lib/api';
 
 interface DocusealSubmission {
   id: string;
@@ -40,7 +40,7 @@ export default function DocusealSubmissions({ auth }: DocusealSubmissionsProps) 
     setError(null);
 
     try {
-      const response = await api.docuseal.getSubmissions();
+      const response = await api.get<any>('/api/docuseal/submissions');
 
       // Transform the data to match our interface
       const transformedSubmissions: DocusealSubmission[] = response.data.map((submission: any) => ({
@@ -123,7 +123,7 @@ export default function DocusealSubmissions({ auth }: DocusealSubmissionsProps) 
 
   const handleDownload = async (submissionId: string) => {
     try {
-      await api.docuseal.downloadDocument(submissionId);
+      window.open(`/api/docuseal/submissions/${submissionId}/download`, '_blank');
     } catch (err) {
       console.error('Error downloading document:', err);
       alert('Failed to download document. Please try again.');
