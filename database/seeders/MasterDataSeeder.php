@@ -8,6 +8,7 @@ use App\Models\Order\Product;
 use App\Models\Order\Category;
 use App\Models\ProductSize;
 use App\Models\Docuseal\DocusealTemplate;
+use App\Models\ReferenceData;
 use Illuminate\Support\Facades\DB;
 
 class MasterDataSeeder extends Seeder
@@ -23,7 +24,10 @@ class MasterDataSeeder extends Seeder
             // 1. Create categories first
             $this->createCategories();
             
-            // 2. Create all manufacturers, products, sizes, and templates together
+            // 2. Create reference data
+            $this->createReferenceData();
+
+            // 3. Create all manufacturers, products, sizes, and templates together
             $this->createMasterData();
         });
 
@@ -35,24 +39,14 @@ class MasterDataSeeder extends Seeder
     {
         $categories = [
             [
-                'name' => 'SkinSubstitute',
-                'description' => 'Skin substitute products for wound healing including decellularized matrices and synthetic alternatives',
+                'name' => 'CTP_SkinSubstitute',
+                'description' => 'Cellular and/or tissue-based products (CTPs) including all Q-code skin substitutes for wound healing: amniotic, dermal, synthetic, and hybrid matrices.',
                 'sort_order' => 1,
             ],
             [
-                'name' => 'Biologic',
-                'description' => 'Biologic products including amniotic membranes, collagen matrices, and growth factor products',
+                'name' => 'AdvancedDressing',
+                'description' => 'Advanced wound dressings, including antimicrobial and bioactive dressings not classified as skin substitutes.',
                 'sort_order' => 2,
-            ],
-            [
-                'name' => 'CollageMatrix',
-                'description' => 'Collagen-based matrices and scaffolds for tissue regeneration',
-                'sort_order' => 3,
-            ],
-            [
-                'name' => 'Dressing',
-                'description' => 'Advanced wound dressings and topical treatments',
-                'sort_order' => 4,
             ],
         ];
 
@@ -61,6 +55,116 @@ class MasterDataSeeder extends Seeder
                 ['name' => $categoryData['name']],
                 $categoryData + ['is_active' => true]
             );
+        }
+    }
+
+    private function createReferenceData(): void
+    {
+        $this->command->info('🧬 Seeding Reference Data...');
+
+        $referenceData = [
+            'carriers' => [
+                ['key' => 'ups', 'label' => 'UPS', 'metadata' => ['trackingUrl' => 'https://www.ups.com/track?tracknum=']],
+                ['key' => 'fedex', 'label' => 'FedEx', 'metadata' => ['trackingUrl' => 'https://www.fedex.com/fedextrack/?tracknumbers=']],
+                ['key' => 'usps', 'label' => 'USPS', 'metadata' => ['trackingUrl' => 'https://tools.usps.com/go/TrackConfirmAction?qtc_tLabels1=']],
+                ['key' => 'dhl', 'label' => 'DHL', 'metadata' => ['trackingUrl' => 'https://www.dhl.com/en/express/tracking.html?AWB=']],
+                ['key' => 'ontrac', 'label' => 'OnTrac', 'metadata' => ['trackingUrl' => 'https://www.ontrac.com/tracking?number=']],
+                ['key' => 'other', 'label' => 'Other', 'metadata' => ['trackingUrl' => null]],
+            ],
+            'facility_types' => [
+                ['key' => 'private_practice', 'label' => 'Private Practice'],
+                ['key' => 'clinic', 'label' => 'Clinic'],
+                ['key' => 'hospital', 'label' => 'Hospital'],
+                ['key' => 'surgery_center', 'label' => 'Surgery Center'],
+                ['key' => 'wound_care_center', 'label' => 'Wound Care Center'],
+                ['key' => 'emergency_department', 'label' => 'Emergency Department'],
+                ['key' => 'urgent_care', 'label' => 'Urgent Care'],
+                ['key' => 'specialty_clinic', 'label' => 'Specialty Clinic'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+            'specialties' => [
+                ['key' => 'wound_care', 'label' => 'Wound Care'],
+                ['key' => 'family_medicine', 'label' => 'Family Medicine'],
+                ['key' => 'internal_medicine', 'label' => 'Internal Medicine'],
+                ['key' => 'emergency_medicine', 'label' => 'Emergency Medicine'],
+                ['key' => 'surgery', 'label' => 'Surgery'],
+                ['key' => 'dermatology', 'label' => 'Dermatology'],
+                ['key' => 'podiatry', 'label' => 'Podiatry'],
+                ['key' => 'nursing', 'label' => 'Nursing'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+            'place_of_service_codes' => [
+                ['key' => '11', 'label' => '11 - Office'],
+                ['key' => '12', 'label' => '12 - Home'],
+                ['key' => '31', 'label' => '31 - Skilled Nursing Facility'],
+                ['key' => '32', 'label' => '32 - Nursing Facility'],
+            ],
+            'user_roles' => [
+                ['key' => 'provider', 'label' => 'Provider'],
+                ['key' => 'office_manager', 'label' => 'Office Manager'],
+                ['key' => 'msc_rep', 'label' => 'MSC Rep'],
+                ['key' => 'msc_subrep', 'label' => 'MSC Sub-Rep'],
+                ['key' => 'msc_admin', 'label' => 'MSC Admin'],
+            ],
+            'provider_titles' => [
+                ['key' => 'md', 'label' => 'MD'],
+                ['key' => 'do', 'label' => 'DO'],
+                ['key' => 'np', 'label' => 'NP'],
+                ['key' => 'pa', 'label' => 'PA'],
+                ['key' => 'dpm', 'label' => 'DPM'],
+                ['key' => 'rn', 'label' => 'RN'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+            'wound_locations' => [
+                ['key' => 'abdomen', 'label' => 'Abdomen'],
+                ['key' => 'back', 'label' => 'Back'],
+                ['key' => 'buttock', 'label' => 'Buttock'],
+                ['key' => 'chest', 'label' => 'Chest'],
+                ['key' => 'foot', 'label' => 'Foot'],
+                ['key' => 'hand', 'label' => 'Hand'],
+                ['key' => 'head', 'label' => 'Head'],
+                ['key' => 'lower_leg', 'label' => 'Lower Leg'],
+                ['key' => 'neck', 'label' => 'Neck'],
+                ['key' => 'thigh', 'label' => 'Thigh'],
+                ['key' => 'upper_arm', 'label' => 'Upper Arm'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+            'organization_types' => [
+                ['key' => 'solo_practice', 'label' => 'Solo Practice'],
+                ['key' => 'group_practice', 'label' => 'Group Practice'],
+                ['key' => 'hospital_system', 'label' => 'Hospital System'],
+                ['key' => 'wound_care_center', 'label' => 'Wound Care Center'],
+                ['key' => 'home_health_agency', 'label' => 'Home Health Agency'],
+                ['key' => 'dme_company', 'label' => 'DME Company'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+            'wound_types' => [
+                ['key' => 'pressure_ulcer', 'label' => 'Pressure Ulcer'],
+                ['key' => 'diabetic_foot_ulcer', 'label' => 'Diabetic Foot Ulcer'],
+                ['key' => 'venous_ulcer', 'label' => 'Venous Ulcer'],
+                ['key' => 'surgical_wound', 'label' => 'Surgical Wound'],
+                ['key' => 'chronic_ulcer', 'label' => 'Chronic Ulcer'],
+                ['key' => 'arterial_ulcer', 'label' => 'Arterial Ulcer'],
+                ['key' => 'traumatic_wound', 'label' => 'Traumatic Wound'],
+                ['key' => 'other', 'label' => 'Other'],
+            ],
+        ];
+
+        foreach ($referenceData as $type => $data) {
+            foreach ($data as $index => $item) {
+                ReferenceData::updateOrCreate(
+                    [
+                        'type' => $type,
+                        'key' => $item['key'],
+                    ],
+                    [
+                        'label' => $item['label'],
+                        'metadata' => $item['metadata'] ?? null,
+                        'sort_order' => $index + 1,
+                        'is_active' => true,
+                    ]
+                );
+            }
         }
     }
 
@@ -86,7 +190,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 1832.31,
                         'price_per_sq_cm' => 114.52,
                         'description' => 'Advanced cellular allograft for complex wound management',
-                        'category' => 'Biologic',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '1×1 cm', 'area_cm2' => 1, 'length_mm' => 10, 'width_mm' => 10],
                             ['size_label' => '1×2 cm', 'area_cm2' => 2, 'length_mm' => 10, 'width_mm' => 20],
@@ -105,7 +209,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 3520.68,
                         'price_per_sq_cm' => 220.04,
                         'description' => 'Advanced dermal matrix with enhanced binding properties',
-                        'category' => 'SkinSubstitute',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
                             ['size_label' => '3×3 cm', 'area_cm2' => 9, 'length_mm' => 30, 'width_mm' => 30],
@@ -134,7 +238,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 2901.65,
                         'price_per_sq_cm' => 145.08,
                         'description' => 'Amniotic membrane product for advanced wound care',
-                        'category' => 'Biologic',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×3 cm', 'area_cm2' => 6, 'length_mm' => 20, 'width_mm' => 30],
                             ['size_label' => '2×4 cm', 'area_cm2' => 8, 'length_mm' => 20, 'width_mm' => 40],
@@ -165,7 +269,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 137.19,
                         'price_per_sq_cm' => 8.57,
                         'description' => 'Amniotic membrane band for wound healing',
-                        'category' => 'Biologic',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '10mm Disk', 'area_cm2' => 0.785, 'length_mm' => 10, 'width_mm' => 10],
                             ['size_label' => '14mm Disk', 'area_cm2' => 1.539, 'length_mm' => 14, 'width_mm' => 14],
@@ -203,7 +307,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 2038.50,
                         'price_per_sq_cm' => 127.41,
                         'description' => 'Maximum strength amniotic membrane for challenging wounds',
-                        'category' => 'Biologic',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
                             ['size_label' => '2×4 cm', 'area_cm2' => 8, 'length_mm' => 20, 'width_mm' => 40],
@@ -218,7 +322,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 1725.04,
                         'price_per_sq_cm' => 107.82,
                         'description' => 'Maximum strength dermal matrix for advanced wound care',
-                        'category' => 'SkinSubstitute',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
                             ['size_label' => '2×4 cm', 'area_cm2' => 8, 'length_mm' => 20, 'width_mm' => 40],
@@ -251,7 +355,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 1713.18,
                         'price_per_sq_cm' => 107.07,
                         'description' => 'Collagen-based dermal matrix for enhanced wound healing',
-                        'category' => 'CollageMatrix',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '1×1 cm', 'area_cm2' => 1, 'length_mm' => 10, 'width_mm' => 10],
                             ['size_label' => '1×2 cm', 'area_cm2' => 2, 'length_mm' => 10, 'width_mm' => 20],
@@ -289,7 +393,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 3368.00,
                         'price_per_sq_cm' => 210.50,
                         'description' => 'Advanced amniotic allograft for complex wound care',
-                        'category' => 'Biologic',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
                             ['size_label' => '2×4 cm', 'area_cm2' => 8, 'length_mm' => 20, 'width_mm' => 40],
@@ -305,7 +409,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 1210.48,
                         'price_per_sq_cm' => 75.66,
                         'description' => 'Full-thickness skin substitute designed for deep wounds',
-                        'category' => 'SkinSubstitute',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
                             ['size_label' => '2×3 cm', 'area_cm2' => 6, 'length_mm' => 20, 'width_mm' => 30],
@@ -336,7 +440,7 @@ class MasterDataSeeder extends Seeder
                         'national_asp' => 142.86,
                         'price_per_sq_cm' => 8.93,
                         'description' => 'Decellularized, dehydrated human amniotic membrane',
-                        'category' => 'SkinSubstitute',
+                        'category' => 'CTP_SkinSubstitute',
                         'sizes' => [
                             ['size_label' => '1×2 cm', 'area_cm2' => 2, 'length_mm' => 10, 'width_mm' => 20],
                             ['size_label' => '2×2 cm', 'area_cm2' => 4, 'length_mm' => 20, 'width_mm' => 20],
@@ -477,5 +581,6 @@ class MasterDataSeeder extends Seeder
         $this->command->info("   Products: " . Product::count());
         $this->command->info("   Product Sizes: " . ProductSize::count());
         $this->command->info("   DocuSeal Templates: " . DocusealTemplate::count());
+        $this->command->info("   Reference Data Entries: " . ReferenceData::count());
     }
 } 

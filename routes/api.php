@@ -28,6 +28,7 @@ use App\Http\Controllers\Api\OrderReviewController;
 use App\Http\Controllers\Api\DocumentIntelligenceController;
 use App\Http\Controllers\Api\AiChatController;
 use App\Http\Controllers\Api\ManufacturerController;
+use App\Http\Controllers\Api\V1\ReferenceDataController;
 
 // Medicare MAC Validation Routes - Organized by Specialty
 Route::prefix('v1')->group(function () {

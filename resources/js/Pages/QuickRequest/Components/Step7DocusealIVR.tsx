@@ -5,6 +5,7 @@ import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
 import { fetchWithCSRF, hasPermission, handleAPIError } from '@/utils/csrf';
 import { DocusealForm } from '@docuseal/react';
+import { useCallback } from 'react';
 
 // This component now relies on the backend orchestrator for all data aggregation
 // No frontend data preparation is needed - the backend is the single source of truth
@@ -250,9 +251,9 @@ export default function Step7DocusealIVR({
     }
   };
 
-  // Fetch DocuSeal slug when component loads
-  const fetchDocusealSlug = async () => {
-    if (!formData.episode_id || !selectedProduct?.manufacturer) {
+  const fetchDocusealSlug = useCallback(async () => {
+    if (!templateId) {
+      setSubmissionError('Manufacturer configuration not found. Cannot create IVR form.');
       return;
     }
 
@@ -260,47 +261,50 @@ export default function Step7DocusealIVR({
     setSubmissionError('');
 
     try {
+      // Use the centralized fetch function for automatic CSRF handling
       const response = await fetchWithCSRF('/api/v1/quick-request/create-ivr-submission', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
-          episode_id: formData.episode_id,
-          manufacturer_name: selectedProduct.manufacturer,
+          form_data: formData,
+          template_id: templateId,
         }),
       });
 
       if (response.ok) {
         const result = await response.json();
-        console.log('✅ DocuSeal submission created:', result);
-
         if (result.slug) {
           setDocusealSlug(result.slug);
-          updateFormData({
-            docuseal_submission_id: result.submission_id,
-          });
+          // Store the episode_id returned from the backend
+          if (result.episode_id) {
+            updateFormData({ episode_id: result.episode_id });
+          }
         } else {
-          throw new Error('No slug received from API');
+          setSubmissionError('Failed to retrieve the secure form link. Please try again.');
         }
       } else {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to create DocuSeal submission');
+        // Use the centralized error handler
+        const errorMessage = await handleAPIError(response, 'creating the secure form');
+        setSubmissionError(errorMessage);
       }
     } catch (error) {
       console.error('Error fetching DocuSeal slug:', error);
-      setSubmissionError(`Failed to initialize form: ${error instanceof Error ? error.message : String(error)}`);
+      if (error instanceof Error) {
+        setSubmissionError(`An unexpected error occurred: ${error.message}. Please refresh and try again.`);
+      } else {
+        setSubmissionError('An unexpected error occurred. Please refresh and try again.');
+      }
     } finally {
       setIsLoadingSlug(false);
     }
-  };
+  }, [formData, templateId, updateFormData]);
 
-  // Load DocuSeal embed URL when component mounts and has required data
+  // Effect to fetch the Docuseal slug when the template is ready
   useEffect(() => {
-    if (!manufacturersLoading && formData.episode_id && selectedProduct?.manufacturer && templateId && !docusealSlug && !formData.docuseal_submission_id) {
+    // Only fetch if we have a template and no slug yet
+    if (templateId && !docusealSlug) {
       fetchDocusealSlug();
     }
-  }, [manufacturersLoading, formData.episode_id, selectedProduct?.manufacturer, templateId, docusealSlug, formData.docuseal_submission_id, fetchDocusealSlug]);
+  }, [templateId, docusealSlug, fetchDocusealSlug]);
 
   // Enhanced completion handler for DocuSeal form
   const handleDocusealFormComplete = (event: any) => {
