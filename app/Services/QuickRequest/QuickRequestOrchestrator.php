@@ -1167,7 +1167,7 @@ class QuickRequestOrchestrator
         try {
             $client = new \GuzzleHttp\Client();
             
-            $aiServiceUrl = config('services.medical_ai.url', 'http://localhost:8080');
+            $aiServiceUrl = config('services.medical_ai.url', 'http://localhost:8081');
             
             $response = $client->post("{$aiServiceUrl}/map-fields", [
                 'json' => [

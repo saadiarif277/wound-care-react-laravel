@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Order\Order;
 use App\Models\Docuseal\DocusealSubmission;
+use App\Models\User;
 use GetSubmissionStatusResponse;
 use App\Services\DocusealService;
 use Illuminate\Http\Request;
@@ -308,6 +309,23 @@ class DocusealController extends Controller
             $templateId = $request->templateId;
             $prefillData = $request->prefill_data ?? [];
             $episodeId = $request->episode_id;
+            
+            // Use orchestrator's comprehensive data preparation instead of just frontend data
+            $comprehensiveData = $prefillData;
+            if ($episodeId) {
+                $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
+                if ($episode) {
+                    $orchestrator = app(\App\Services\QuickRequest\QuickRequestOrchestrator::class);
+                    $comprehensiveData = $orchestrator->prepareDocusealData($episode);
+                    
+                    Log::info('Using orchestrator comprehensive data', [
+                        'episode_id' => $episodeId,
+                        'comprehensive_fields' => count($comprehensiveData),
+                        'frontend_fields' => count($prefillData),
+                        'sample_comprehensive_data' => array_slice($comprehensiveData, 0, 10, true)
+                    ]);
+                }
+            }
 
             // Enhanced response data for frontend
             $responseData = [
@@ -315,8 +333,8 @@ class DocusealController extends Controller
                 'submission_id' => null,
                 'template_id' => $templateId,
                 'integration_type' => $episodeId ? 'fhir_enhanced' : 'standard',
-                'fhir_data_used' => $episodeId ? count($prefillData) : 0,
-                'fields_mapped' => count($prefillData),
+                'fhir_data_used' => $episodeId ? count($comprehensiveData) : 0,
+                'fields_mapped' => count($comprehensiveData),
                 'template_name' => 'Insurance Verification Request',
                 'manufacturer' => 'Standard',
                 'ai_mapping_used' => false,
@@ -336,13 +354,13 @@ class DocusealController extends Controller
                 ]), 400);
             }
 
-            // Call DocuSeal API to create submission
+            // Call DocuSeal API to create submission using comprehensive data
             $result = $this->docusealService->createSubmissionForQuickRequest(
                 $templateId,
                 $request->integration_email,  // Our DocuSeal account email (limitless@mscwoundcare.com)
                 $request->submitter_email,    // The person who will sign (provider@example.com)
                 $request->submitter_name,     // The person's name
-                $prefillData,
+                $comprehensiveData,          // Use orchestrator's comprehensive data
                 $episodeId
             );
 
@@ -697,6 +715,338 @@ class DocusealController extends Controller
                 'message' => $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Create episode using orchestrator's comprehensive data preparation
+     * This ensures all provider/facility metadata is populated from the database
+     */
+    public function createEpisodeWithComprehensiveData(Request $request): JsonResponse
+    {
+        Log::info('Creating episode with comprehensive data', [
+            'user' => Auth::user()?->email,
+            'data_keys' => array_keys($request->all())
+        ]);
+
+        $validated = $request->validate([
+            'formData' => 'required|array',
+            'manufacturerId' => 'required|string',
+            'productCode' => 'nullable|string',
+            'selected_products' => 'nullable|array',
+        ]);
+
+        try {
+            // Use QuickRequestOrchestrator to create episode with comprehensive data
+            $orchestrator = app(\App\Services\QuickRequest\QuickRequestOrchestrator::class);
+            
+            // Extract comprehensive data like the main QuickRequestController does
+            $formData = $validated['formData'];
+            
+            $episodeData = [
+                'patient' => $this->extractPatientData($formData),
+                'provider' => $this->extractProviderData($formData),
+                'facility' => $this->extractFacilityData($formData),
+                'organization' => $this->extractOrganizationData(),
+                'clinical' => $this->extractClinicalData($formData),
+                'insurance' => $this->extractInsuranceData($formData),
+                'order_details' => $this->extractOrderData($formData),
+                'manufacturer_id' => $validated['manufacturerId'],
+            ];
+
+            // Create episode using orchestrator's comprehensive method
+            $episode = $orchestrator->startEpisode($episodeData);
+
+            Log::info('Episode created with comprehensive data', [
+                'episode_id' => $episode->id,
+                'manufacturer_id' => $validated['manufacturerId'],
+                'user_id' => Auth::id(),
+                'has_provider_data' => !empty($episode->metadata['provider_data']),
+                'has_facility_data' => !empty($episode->metadata['facility_data']),
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'episode_id' => $episode->id,
+                'manufacturer_id' => $validated['manufacturerId'],
+                'comprehensive_data_populated' => true,
+                'metadata_keys' => array_keys($episode->metadata ?? [])
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('Failed to create episode with comprehensive data', [
+                'error' => $e->getMessage(),
+                'manufacturer_id' => $validated['manufacturerId'],
+                'user_id' => Auth::id(),
+            ]);
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Failed to create episode: ' . $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    /**
+     * Extract patient data from form (same as QuickRequestController)
+     */
+    private function extractPatientData(array $formData): array
+    {
+        $displayId = $formData['patient_display_id'] ?? $this->generateRandomPatientDisplayId($formData);
+
+        return [
+            'id' => $formData['patient_id'] ?? uniqid('patient-'),
+            'first_name' => $formData['patient_first_name'] ?? '',
+            'last_name' => $formData['patient_last_name'] ?? '',
+            'dob' => $formData['patient_dob'] ?? '',
+            'gender' => $formData['patient_gender'] ?? 'unknown',
+            'display_id' => $displayId,
+            'phone' => $formData['patient_phone'] ?? '',
+            'email' => $formData['patient_email'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract provider data from form (same as QuickRequestController)
+     */
+    private function extractProviderData(array $formData): array
+    {
+        $providerId = $formData['provider_id'];
+
+        // Load provider with full profile information
+        $provider = User::with(['providerProfile', 'providerCredentials'])->find($providerId);
+
+        if (!$provider) {
+            throw new \Exception("Provider not found with ID: {$providerId}");
+        }
+
+        $providerData = [
+            'id' => $provider->id,
+            'name' => $provider->first_name . ' ' . $provider->last_name,
+            'first_name' => $provider->first_name,
+            'last_name' => $provider->last_name,
+            'email' => $provider->email,
+            'phone' => $provider->phone ?? '',
+            'npi' => $provider->npi_number ?? '',
+        ];
+
+        // Add provider profile data if available
+        if ($provider->providerProfile) {
+            $profile = $provider->providerProfile;
+            $providerData = array_merge($providerData, [
+                'specialty' => $profile->primary_specialty ?? '',
+                'credentials' => $profile->credentials ?? '',
+                'license_number' => $profile->state_license_number ?? '',
+                'license_state' => $profile->license_state ?? '',
+                'dea_number' => $profile->dea_number ?? '',
+                'ptan' => $profile->ptan ?? '',
+                'tax_id' => $profile->tax_id ?? '',
+                'practice_name' => $profile->practice_name ?? '',
+            ]);
+        }
+
+        // Add credential data if available
+        if ($provider->providerCredentials) {
+            foreach ($provider->providerCredentials as $credential) {
+                if ($credential->credential_type === 'npi_number' && empty($providerData['npi'])) {
+                    $providerData['npi'] = $credential->credential_number;
+                }
+            }
+        }
+
+        return $providerData;
+    }
+
+    /**
+     * Extract facility data from form (same as QuickRequestController)
+     */
+    private function extractFacilityData(array $formData): array
+    {
+        $facilityId = $formData['facility_id'] ?? null;
+
+        // If facility_id is provided, try to load from database
+        if ($facilityId) {
+            try {
+                $facility = \App\Models\Fhir\Facility::with('organization')->find($facilityId);
+
+                if ($facility) {
+                    Log::info('Successfully loaded facility data for DocuSeal', [
+                        'facility_id' => $facilityId,
+                        'facility_name' => $facility->name,
+                        'has_address' => !empty($facility->address),
+                        'has_organization' => !empty($facility->organization)
+                    ]);
+
+                    return [
+                        'id' => $facility->id,
+                        'name' => $facility->name,
+                        'address' => $facility->address ?? '',
+                        'address_line1' => $facility->address ?? '',
+                        'address_line2' => $facility->address_line2 ?? '',
+                        'city' => $facility->city ?? '',
+                        'state' => $facility->state ?? '',
+                        'zip' => $facility->zip_code ?? '',
+                        'zip_code' => $facility->zip_code ?? '', // Alias
+                        'phone' => $facility->phone ?? '',
+                        'fax' => $facility->fax ?? '',
+                        'email' => $facility->email ?? '',
+                        'npi' => $facility->npi ?? '',
+                        'group_npi' => $facility->group_npi ?? '',
+                        'tax_id' => $facility->tax_id ?? '',
+                        'tin' => $facility->tax_id ?? '', // Alias for DocuSeal templates
+                        'ptan' => $facility->ptan ?? '',
+                        'medicaid_number' => $facility->medicaid_number ?? '',
+                        'medicare_admin_contractor' => $facility->medicare_admin_contractor ?? '',
+                        'place_of_service' => $facility->default_place_of_service ?? '',
+                        'facility_type' => $facility->facility_type ?? '',
+                        'contact_name' => $facility->contact_name ?? '',
+                        'contact_phone' => $facility->contact_phone ?? '',
+                        'contact_email' => $facility->contact_email ?? '',
+                        'contact_fax' => $facility->contact_fax ?? '',
+                        'business_hours' => $facility->business_hours ?? '',
+                        'organization_id' => $facility->organization_id ?? null,
+                        'organization_name' => $facility->organization?->name ?? '',
+                    ];
+                }
+            } catch (\Exception $e) {
+                Log::warning('Failed to load facility data from database', [
+                    'facility_id' => $facilityId,
+                    'error' => $e->getMessage()
+                ]);
+            }
+        }
+
+        // Log fallback usage for debugging
+        Log::warning('DocuSeal facility data falling back to defaults', [
+            'facility_id_provided' => $facilityId,
+            'form_data_keys' => array_keys($formData),
+            'has_facility_name_in_form' => isset($formData['facility_name'])
+        ]);
+
+        // Fallback: use form data or defaults
+        return [
+            'id' => $facilityId ?? 'default',
+            'name' => $formData['facility_name'] ?? 'Default Facility',
+            'address' => $formData['facility_address'] ?? '',
+            'address_line1' => $formData['facility_address'] ?? '',
+            'address_line2' => $formData['facility_address_line2'] ?? '',
+            'city' => $formData['facility_city'] ?? '',
+            'state' => $formData['facility_state'] ?? '',
+            'zip' => $formData['facility_zip'] ?? '',
+            'zip_code' => $formData['facility_zip'] ?? '',
+            'phone' => $formData['facility_phone'] ?? '',
+            'fax' => $formData['facility_fax'] ?? '',
+            'email' => $formData['facility_email'] ?? '',
+            'npi' => $formData['facility_npi'] ?? '',
+            'group_npi' => $formData['facility_group_npi'] ?? '',
+            'tax_id' => $formData['facility_tax_id'] ?? '',
+            'tin' => $formData['facility_tax_id'] ?? '',
+            'ptan' => $formData['facility_ptan'] ?? '',
+            'medicaid_number' => $formData['facility_medicaid_number'] ?? '',
+            'medicare_admin_contractor' => $formData['facility_medicare_admin_contractor'] ?? '',
+            'place_of_service' => $formData['place_of_service'] ?? '',
+            'facility_type' => $formData['facility_type'] ?? '',
+            'contact_name' => $formData['facility_contact_name'] ?? '',
+            'contact_phone' => $formData['facility_contact_phone'] ?? '',
+            'contact_email' => $formData['facility_contact_email'] ?? '',
+            'contact_fax' => $formData['facility_contact_fax'] ?? '',
+            'organization_id' => $formData['organization_id'] ?? null,
+            'organization_name' => $formData['organization_name'] ?? '',
+        ];
+    }
+
+    /**
+     * Extract organization data (same as QuickRequestController)
+     */
+    private function extractOrganizationData(array $formData = []): array
+    {
+        $user = Auth::user();
+        $currentOrganization = $user?->currentOrganization ?? null;
+
+        if (!$currentOrganization) {
+            return [];
+        }
+
+        return [
+            'id' => $currentOrganization->id,
+            'name' => $currentOrganization->name,
+            'type' => $currentOrganization->type,
+            'address' => $currentOrganization->address,
+            'city' => $currentOrganization->city,
+            'state' => $currentOrganization->state,
+            'zip_code' => $currentOrganization->zip_code,
+            'phone' => $currentOrganization->phone,
+            'email' => $currentOrganization->email,
+            'npi' => $currentOrganization->npi,
+            'tax_id' => $currentOrganization->tax_id,
+        ];
+    }
+
+    /**
+     * Extract clinical data from form (same as QuickRequestController)
+     */
+    private function extractClinicalData(array $formData): array
+    {
+        return [
+            'wound_type' => $formData['wound_type'] ?? null,
+            'wound_location' => $formData['wound_location'] ?? null,
+            'wound_size_length' => $formData['wound_size_length'] ?? null,
+            'wound_size_width' => $formData['wound_size_width'] ?? null,
+            'wound_size_depth' => $formData['wound_size_depth'] ?? null,
+            'primary_diagnosis_code' => $formData['primary_diagnosis_code'] ?? null,
+            'secondary_diagnosis_code' => $formData['secondary_diagnosis_code'] ?? null,
+            'diagnosis_code' => $formData['diagnosis_code'] ?? null,
+            'wound_duration_days' => $formData['wound_duration_days'] ?? null,
+            'wound_duration_weeks' => $formData['wound_duration_weeks'] ?? null,
+            'wound_duration_months' => $formData['wound_duration_months'] ?? null,
+            'wound_duration_years' => $formData['wound_duration_years'] ?? null,
+            'prior_applications' => $formData['prior_applications'] ?? null,
+            'prior_application_product' => $formData['prior_application_product'] ?? null,
+            'prior_application_within_12_months' => $formData['prior_application_within_12_months'] ?? false,
+            'hospice_status' => $formData['hospice_status'] ?? false,
+            'hospice_family_consent' => $formData['hospice_family_consent'] ?? false,
+            'hospice_clinically_necessary' => $formData['hospice_clinically_necessary'] ?? false,
+        ];
+    }
+
+    /**
+     * Extract insurance data from form (same as QuickRequestController)
+     */
+    private function extractInsuranceData(array $formData): array
+    {
+        return [
+            'primary_insurance_name' => $formData['primary_insurance_name'] ?? null,
+            'primary_member_id' => $formData['primary_member_id'] ?? $formData['patient_member_id'] ?? null,
+            'primary_plan_type' => $formData['primary_plan_type'] ?? null,
+        ];
+    }
+
+    /**
+     * Extract order data from form (same as QuickRequestController)
+     */
+    private function extractOrderData(array $formData): array
+    {
+        return [
+            'products' => $formData['selected_products'] ?? [],
+            'expected_service_date' => $formData['expected_service_date'] ?? null,
+            'place_of_service' => $formData['place_of_service'] ?? null,
+            'special_instructions' => $formData['special_instructions'] ?? null,
+        ];
+    }
+
+    /**
+     * Generate random patient display ID (same as QuickRequestController)
+     */
+    private function generateRandomPatientDisplayId(array $formData): string
+    {
+        $firstName = $formData['patient_first_name'] ?? 'Unknown';
+        $lastName = $formData['patient_last_name'] ?? 'Patient';
+        $dob = $formData['patient_dob'] ?? date('Y-m-d');
+
+        $initials = strtoupper(substr($firstName, 0, 1) . substr($lastName, 0, 1));
+        $dobDigits = str_replace('-', '', $dob);
+        $random = str_pad(rand(0, 9999), 4, '0', STR_PAD_LEFT);
+
+        return $initials . $dobDigits . $random;
     }
 
     /**

@@ -41,7 +41,7 @@ class Config:
     CACHE_TTL = int(os.getenv('CACHE_TTL', 3600))  # 1 hour
     
     API_HOST = os.getenv('API_HOST', '0.0.0.0')
-    API_PORT = int(os.getenv('API_PORT', 8080))
+    API_PORT = int(os.getenv('API_PORT', 8081))
     
     # Medical terminology sources
     ENABLE_LOCAL_FALLBACK = os.getenv('ENABLE_LOCAL_FALLBACK', 'true').lower() == 'true'
@@ -791,7 +791,7 @@ Return JSON format:
             "processing_method": "local_fallback"
         }
 
-    def _fallback_mapping(self, ocr_data: Dict, document_type: DocumentType) -> Dict:
+    def _fallback_mapping(self, ocr_data: Dict, document_type: DocumentType, manufacturer_name: Optional[str] = None) -> Dict:
         """Local fallback mapping when Azure AI is unavailable"""
         logger.warning("Using local fallback mapping")
         
@@ -898,7 +898,7 @@ def _local_validate_terms(terms: List[str], context: DocumentType) -> Dict:
         "processing_method": "enhanced_local_fallback"
     }
 
-def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None) -> Dict:
+def _local_map_fields(ocr_data: Dict, document_type: DocumentType, target_schema: Optional[Dict] = None, manufacturer_name: Optional[str] = None) -> Dict:
     """Enhanced local field mapping with intelligent matching"""
     logger.info(f"Using enhanced local mapping for {document_type}")
     
@@ -1122,6 +1122,67 @@ async def map_document_fields(request: FieldMappingRequest):
     except Exception as e:
         logger.error(f"Field mapping failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/map-for-docuseal")
+async def map_for_docuseal(request: dict):
+    """Map manufacturer data to DocuSeal form fields - endpoint for DynamicFieldMappingService"""
+    try:
+        # Extract parameters from request
+        template_id = request.get('template_id')
+        manufacturer_data = request.get('manufacturer_data', {})
+        manufacturer_name = request.get('manufacturer_name')
+        submitter_email = request.get('submitter_email')
+        
+        logger.info(f"DocuSeal mapping request: template_id={template_id}, manufacturer={manufacturer_name}, fields={len(manufacturer_data)}")
+        
+        if ai_agent:
+            # Use Azure AI if available
+            result = await ai_agent.map_fields(
+                manufacturer_data,
+                DocumentType.GENERAL,  # Use general type for DocuSeal forms
+                None,  # No target schema provided
+                manufacturer_name
+            )
+        else:
+            # Use local fallback processing
+            result = _local_map_fields(
+                manufacturer_data,
+                DocumentType.GENERAL,
+                None
+            )
+        
+        # Format response according to DynamicFieldMappingService expectations
+        return {
+            "success": True,
+            "template_info": {
+                "template_id": template_id,
+                "manufacturer_name": manufacturer_name
+            },
+            "mapping_result": {
+                "mapped_fields": result.get('mapped_fields', {}),
+                "confidence_scores": result.get('confidence_scores', {}),
+                "quality_grade": result.get('quality_grade', 'B'),
+                "suggestions": result.get('suggestions', []),
+                "processing_notes": result.get('processing_notes', [])
+            },
+            "submission_result": None,  # No direct submission in this endpoint
+            "metadata": {
+                "processed_at": datetime.now().isoformat(),
+                "ai_enhanced": ai_agent is not None,
+                "processing_method": "azure_ai" if ai_agent else "local_fallback"
+            }
+        }
+    
+    except Exception as e:
+        logger.error(f"DocuSeal field mapping failed: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "template_info": {
+                "template_id": request.get('template_id'),
+                "manufacturer_name": request.get('manufacturer_name')
+            }
+        }
 
 @app.get("/terminology-stats")
 async def get_terminology_stats():

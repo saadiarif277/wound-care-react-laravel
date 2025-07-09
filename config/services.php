@@ -114,7 +114,7 @@ return [
     ],
 
     'ai_form_filler' => [
-        'url' => env('AI_FORM_FILLER_URL', 'http://localhost:8080'),
+        'url' => env('AI_FORM_FILLER_URL', 'http://localhost:8081'),
         'timeout' => env('AI_FORM_FILLER_TIMEOUT', 30),
         'enable_cache' => env('AI_FORM_FILLER_CACHE', true),
         'enabled' => env('AI_FORM_FILLER_ENABLED', true),

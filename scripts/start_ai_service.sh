@@ -14,7 +14,7 @@ export AZURE_OPENAI_API_VERSION="2024-02-15-preview"
 # Other service configuration
 export ENABLE_LOCAL_FALLBACK="true"
 export API_HOST="0.0.0.0"
-export API_PORT="8080"
+export API_PORT="8081"
 export CACHE_TTL="3600"
 
 echo "✅ Azure OpenAI Configuration:"

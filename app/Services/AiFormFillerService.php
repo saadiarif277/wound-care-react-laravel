@@ -21,7 +21,7 @@ class AiFormFillerService
 
     public function __construct()
     {
-        $this->aiServiceUrl = config('services.ai_form_filler.url', 'http://localhost:8080');
+        $this->aiServiceUrl = config('services.ai_form_filler.url', 'http://localhost:8081');
         $this->timeout = config('services.ai_form_filler.timeout', 30);
         $this->enableCache = config('services.ai_form_filler.enable_cache', true);
     }

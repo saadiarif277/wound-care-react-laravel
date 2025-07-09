@@ -38,7 +38,7 @@ return [
         'performance_threshold_seconds' => env('PERFORMANCE_THRESHOLD', 5),
     ],
 
-    'ai_service_url' => env('AI_SERVICE_URL', 'http://localhost:8080'),
+    'ai_service_url' => env('AI_SERVICE_URL', 'http://localhost:8081'),
 
     'validation' => [
         'required_response_keys' => ['mapped_fields', 'confidence_score'],

@@ -16,7 +16,7 @@ class DynamicFieldMappingService
 
     public function __construct(UnifiedFieldMappingService $unifiedMappingService)
     {
-        $this->aiServiceUrl = config('docuseal-dynamic.ai_service_url', 'http://localhost:8080');
+        $this->aiServiceUrl = config('docuseal-dynamic.ai_service_url', 'http://localhost:8081');
         $this->timeout = config('docuseal-dynamic.llm.timeout', 30);
         $this->unifiedMappingService = $unifiedMappingService;
         $this->enableFallback = config('docuseal-dynamic.mapping.enable_fallback_to_static', true);
