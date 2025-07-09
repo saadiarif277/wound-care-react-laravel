@@ -60,6 +60,7 @@ use App\Services\DocusealService;
 use App\Services\FhirService;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\OrderReviewPageController;
+use App\Models\Order\Order;
 
 Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
     $service = app(DocusealService::class);
@@ -96,9 +97,9 @@ Route::get('/test-fhir-docuseal/{episodeId}', function($episodeId) {
 Route::get('/auth/token', AuthTokenController::class)->middleware('auth')->name('auth.token');
 
 // CSRF Token Refresh Route
-Route::get('/csrf-token', function () {
-    return response()->json(['token' => csrf_token()]);
-})->name('csrf.refresh');
+// Route::get('/csrf-token', function () {
+//     return response()->json(['token' => csrf_token()]);
+// })->name('csrf.refresh');
 
 Route::post('/api/support/escalate', function (Request $request) {
     // Validate the request
@@ -248,7 +249,7 @@ Route::middleware(['auth'])->group(function () {
         }
         
         // Verify the token matches the order
-        $order = \App\Models\Order::findOrFail($orderId);
+        $order = \App\Models\Order\Order::findOrFail($orderId);
         
         // Generate expected token based on order data
         $expectedToken = substr(hash('sha256', $order->id . $order->created_at . config('app.key')), 0, 16);
@@ -282,7 +283,7 @@ Route::middleware(['auth'])->group(function () {
     // Generate tracking link (API endpoint)
     Route::post('/api/orders/{order}/generate-tracking-link', function ($orderId) {
         $user = Auth::user();
-        $order = \App\Models\Order::findOrFail($orderId);
+        $order = \App\Models\Order\Order::findOrFail($orderId);
         
         // Check permissions
         if (!$user->hasAnyPermission(['view-orders', 'manage-orders', 'create-product-requests'])) {

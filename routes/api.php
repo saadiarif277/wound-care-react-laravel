@@ -733,14 +733,14 @@ Route::prefix('sales-reps')->middleware(['auth:sanctum', 'role:msc-rep,msc-subre
 
 
 // CSRF Token endpoint for automatic refresh
-Route::middleware(['web'])->group(function () {
-    Route::get('/csrf-token', function () {
-        return response()->json([
-            'token' => csrf_token(),
-            'csrf_token' => csrf_token(),
-        ]);
-    })->name('api.csrf-token');
-});
+// Route::middleware(['web'])->group(function () {
+//     Route::get('/csrf-token', function () {
+//         return response()->json([
+//             'token' => csrf_token(),
+//             'csrf_token' => csrf_token(),
+//         ]);
+//     })->name('api.csrf-token');
+// });
 
 // Insurance Card Processing Routes
 Route::middleware(['web'])->group(function () {

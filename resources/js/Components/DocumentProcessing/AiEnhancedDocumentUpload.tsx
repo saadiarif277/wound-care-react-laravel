@@ -8,6 +8,7 @@ import { Badge } from '@/Components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/Components/ui/tabs';
 import { Alert, AlertDescription } from '@/Components/ui/alert';
 import { Loader2, Upload, Brain, CheckCircle, AlertCircle } from 'lucide-react';
+import axios from 'axios'; // Added axios import
 
 interface DocumentData {
     [key: string]: any;
@@ -58,6 +59,7 @@ export default function AiEnhancedDocumentUpload() {
     const [activeTab, setActiveTab] = useState<string>('upload');
     const [targetFields, setTargetFields] = useState<string>('');
     const [formContext, setFormContext] = useState<string>('general');
+    const [progress, setProgress] = useState<number>(0); // Added progress state
 
     // Check AI service health on component mount
     React.useEffect(() => {
@@ -115,15 +117,17 @@ export default function AiEnhancedDocumentUpload() {
                 });
             }
 
-            const response = await fetch('/api/document/process-with-ai', {
-                method: 'POST',
-                body: formData,
+            const response = await axios.post('/api/document/process-with-ai', formData, {
                 headers: {
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+                    'Content-Type': 'multipart/form-data',
                 },
+                onUploadProgress: (progressEvent) => {
+                    const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                    setProgress(percentCompleted);
+                }
             });
 
-            const data = await response.json();
+            const data = response.data;
             setResult(data);
             
             if (data.success) {

@@ -1,6 +1,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertCircle, RefreshCw, Home, ArrowLeft } from 'lucide-react';
 import { Link } from '@inertiajs/react';
+import axios from 'axios';
 
 interface Props {
   children: ReactNode;
@@ -65,24 +66,16 @@ class QuickRequestErrorBoundary extends Component<Props, State> {
 
   logErrorToServer = async (error: Error, errorInfo: ErrorInfo) => {
     try {
-      await fetch('/api/v1/errors/log', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
+      await axios.post('/api/v1/log-error', {
+        error: {
           message: error.message,
           stack: error.stack,
-          componentStack: errorInfo.componentStack,
-          step: this.props.stepName,
-          url: window.location.href,
-          userAgent: navigator.userAgent,
-          timestamp: new Date().toISOString(),
-        }),
+        },
+        info: errorInfo,
+        context: this.props.stepName,
       });
-    } catch (logError) {
-      console.error('Failed to log error to server:', logError);
+    } catch (loggingError) {
+      console.error('Failed to log error to server:', loggingError);
     }
   };
 

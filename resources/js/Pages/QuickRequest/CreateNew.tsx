@@ -608,7 +608,6 @@ function QuickRequestCreateNew({
           payload,
           {
             headers: {
-              'X-CSRF-TOKEN': await ensureValidCSRFToken(),
               'Content-Type': 'application/json'
             }
           }
@@ -745,7 +744,6 @@ function QuickRequestCreateNew({
         adminNote: 'Order submitted directly from Quick Request form'
       }, {
         headers: {
-          'X-CSRF-TOKEN': csrfToken,
           'Content-Type': 'application/json'
         }
       });

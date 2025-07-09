@@ -3,6 +3,8 @@ import { ChevronDown, ChevronRight, FileText, Send, CheckCircle, Clock, AlertCir
 import { Button } from '@/Components/Button';
 import StatusUpdateModal from './StatusUpdateModal';
 import DocumentViewerPanel from '@/Components/DocumentViewerPanel';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 interface IVRData {
   status: string;
@@ -151,25 +153,18 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
       const status = statusMapping[data.status] || data.status.toLowerCase().replace(/ /g, '_');
 
       // Call backend API to update status
-      const response = await fetch(`/admin/orders/${orderId}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: status,
-          status_type: statusType,
-          notes: data.comments,
-          rejection_reason: data.rejectionReason,
-          send_notification: data.sendNotification,
-          carrier: data.carrier,
-          tracking_number: data.trackingNumber,
-        }),
+      const response = await axios.post(`/admin/orders/${orderId}/change-status`, {
+        status: status,
+        status_type: statusType,
+        notes: data.comments,
+        rejection_reason: data.rejectionReason,
+        send_notification: data.sendNotification,
+        carrier: data.carrier,
+        tracking_number: data.trackingNumber,
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status === 200) {
+        const result = response.data;
 
         // Update local state with the processed data
         const processedData = {
@@ -186,7 +181,7 @@ const IVRDocumentSection: React.FC<IVRDocumentSectionProps> = ({
 
         // Success - parent will handle notification via onUpdateIVRStatus/onUpdateOrderFormStatus
       } else {
-        const errorData = await response.json();
+        const errorData = response.data;
         console.error('Status update failed:', errorData.error || `Failed to update ${statusType} status`);
         // Parent will handle error notification
       }

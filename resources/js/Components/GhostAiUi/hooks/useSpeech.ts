@@ -1,6 +1,7 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { useToast } from './use-toast';
+import axios from 'axios';
 
 export const useSpeech = () => {
   const [isListening, setIsListening] = useState(false);
@@ -71,26 +72,13 @@ export const useSpeech = () => {
     }
 
     try {
-      // Try Azure Speech Services first for natural voice
-      const response = await fetch('/api/v1/ai/text-to-speech', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          text,
-          voice: 'en-US-JennyNeural', // Natural female voice
-          rate: '0%', // Normal speed
-          pitch: '0%', // Normal pitch
-        }),
+      const response = await axios.post('/api/v1/ai/text-to-speech', {
+        text: text,
+        voice: 'en-US-JennyNeural', // Natural female voice
       });
 
-      const data = await response.json();
-
-      if (data.success && data.audio && !data.fallback) {
-        // Play the audio using base64 data
-        const audio = new Audio(`data:audio/mp3;base64,${data.audio}`);
+      if (response.data.audioUrl) {
+        const audio = new Audio(response.data.audioUrl);
         audio.volume = 0.8;
         
         const playPromise = new Promise<void>((resolve, reject) => {

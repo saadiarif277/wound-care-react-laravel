@@ -8,6 +8,7 @@ import {
 } from '@superinterface/react';
 import { useToast } from './hooks/use-toast';
 import type { Message } from '@superinterface/react';
+import axios from 'axios';
 
 interface SuperinterfaceWrapperProps {
   isVisible: boolean;
@@ -46,18 +47,11 @@ const SuperinterfaceWrapper: React.FC<SuperinterfaceWrapperProps> = ({ isVisible
       },
       handler: async (args: any) => {
         try {
-          const response = await fetch('/api/v1/quick-request/episodes', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            body: JSON.stringify(args),
-          });
+          const response = await axios.post('/api/v1/quick-request/episodes', args);
 
-          if (!response.ok) throw new Error('Failed to create product request');
+          if (response.status !== 200) throw new Error('Failed to create product request');
           
-          const result = await response.json();
+          const result = response.data;
           toast({
             title: "Product Request Created",
             description: `Request created with ID: ${result.episode_id}`,
@@ -96,16 +90,9 @@ const SuperinterfaceWrapper: React.FC<SuperinterfaceWrapperProps> = ({ isVisible
       },
       handler: async (args: any) => {
         try {
-          const response = await fetch('/api/v1/eligibility/check', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            body: JSON.stringify(args),
-          });
+          const response = await axios.post('/api/v1/eligibility/check', args);
 
-          const result = await response.json();
+          const result = response.data;
           return {
             success: true,
             eligible: result.eligible,
@@ -134,13 +121,9 @@ const SuperinterfaceWrapper: React.FC<SuperinterfaceWrapperProps> = ({ isVisible
       handler: async (args: any) => {
         try {
           const params = new URLSearchParams(args);
-          const response = await fetch(`/api/v1/products/with-sizes?${params}`, {
-            headers: {
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-          });
+          const response = await axios.get(`/api/v1/products/with-sizes?${params}`);
 
-          const result = await response.json();
+          const result = response.data;
           return {
             success: true,
             products: result.data || []
@@ -167,16 +150,9 @@ const SuperinterfaceWrapper: React.FC<SuperinterfaceWrapperProps> = ({ isVisible
       },
       handler: async (args: any) => {
         try {
-          const response = await fetch('/api/v1/medicare-validation/quick-check', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-            },
-            body: JSON.stringify(args),
-          });
+          const response = await axios.post('/api/v1/medicare-validation/quick-check', args);
 
-          const result = await response.json();
+          const result = response.data;
           return {
             success: true,
             covered: result.is_valid,

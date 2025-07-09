@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 import { useToast } from './use-toast';
+import axios from 'axios';
 
 export const useWhisperTranscription = () => {
   const [isRecording, setIsRecording] = useState(false);
@@ -61,22 +62,14 @@ export const useWhisperTranscription = () => {
           formData.append('model', 'whisper-1');
           formData.append('language', 'en');
 
-          const response = await fetch('/api/v1/ai/transcribe', {
-            method: 'POST',
+          const response = await axios.post('/api/v1/ai/transcribe', formData, {
             headers: {
-              'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+              'Content-Type': 'multipart/form-data',
             },
-            body: formData
           });
 
-          if (!response.ok) {
-            throw new Error('Transcription failed');
-          }
-
-          const data = await response.json();
-          
-          if (data.text) {
-            onTranscription(data.text);
+          if (response.data.transcription) {
+            onTranscription(response.data.transcription);
             toast({
               title: "Transcribed",
               description: "Your speech has been converted to text.",

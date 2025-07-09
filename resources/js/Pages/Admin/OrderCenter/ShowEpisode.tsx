@@ -22,6 +22,8 @@ import {
   Trash2,
   Plus,
 } from 'lucide-react';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 interface Order {
   id: string;
@@ -174,6 +176,7 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
 
   const { post, delete: destroy } = useForm();
 
@@ -308,6 +311,38 @@ const ShowEpisode: React.FC<ShowEpisodeProps> = ({
         router.reload({ only: ['episode'] });
       }
     });
+  };
+
+  const handleSendAppLink = async (phoneNumber: string) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`/api/v1/episodes/${episode.id}/send-app-link`, {
+        phone_number: phoneNumber,
+      });
+
+      if (response.status === 200) {
+        toast({
+          title: "Success",
+          description: "Application link sent successfully!",
+        });
+        router.reload({ only: ['episode'] });
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to send application link.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send application link', error);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const currentStatusConfig = statusConfig[episode.status as keyof typeof statusConfig];

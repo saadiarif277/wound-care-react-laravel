@@ -10,6 +10,7 @@ import ProviderSection from './ProviderSection';
 import AdditionalDocumentsSection from './AdditionalDocumentsSection';
 import ManufacturerSubmissionModal from './ManufacturerSubmissionModal';
 import { ArrowLeft } from 'lucide-react';
+import axios from 'axios';
 
 interface Order {
   id: number;
@@ -224,35 +225,27 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
 
   const handleUpdateIVRStatus = async (data: any) => {
     try {
-      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: data.status,
-          status_type: 'ivr',
-          notes: data.comments,
-          rejection_reason: data.rejectionReason,
-          send_notification: data.sendNotification,
-        }),
+      const response = await axios.post(`/admin/orders/${order.id}/change-status`, {
+        status: data.status,
+        status_type: 'ivr',
+        notes: data.comments,
+        rejection_reason: data.rejectionReason,
+        send_notification: data.sendNotification,
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status === 200) {
         setNotificationMessage({
           type: 'success',
-          message: result.message || 'IVR status updated successfully!'
+          message: 'IVR status updated successfully!'
         });
       } else {
-        const error = await response.json();
+        const error = response.data;
         setNotificationMessage({
           type: 'error',
           message: error.error || 'Failed to update IVR status'
         });
       }
-    } catch (error) {
+    } catch (err) {
       setNotificationMessage({
         type: 'error',
         message: 'Failed to update IVR status. Please try again.'
@@ -263,38 +256,30 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
 
   const handleUpdateOrderFormStatus = async (data: any) => {
     try {
-      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: data.status,
-          status_type: 'order',
-          notes: data.comments,
-          rejection_reason: data.rejectionReason,
-          cancellation_reason: data.cancellationReason,
-          send_notification: data.sendNotification,
-          carrier: data.carrier,
-          tracking_number: data.trackingNumber,
-        }),
+      const response = await axios.post(`/admin/orders/${order.id}/change-status`, {
+        status: data.status,
+        status_type: 'order',
+        notes: data.comments,
+        rejection_reason: data.rejectionReason,
+        cancellation_reason: data.cancellationReason,
+        send_notification: data.sendNotification,
+        carrier: data.carrier,
+        tracking_number: data.trackingNumber,
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status === 200) {
         setNotificationMessage({
           type: 'success',
-          message: result.message || 'Order form status updated successfully!'
+          message: 'Order form status updated successfully!'
         });
       } else {
-        const error = await response.json();
+        const error = response.data;
         setNotificationMessage({
           type: 'error',
           message: error.error || 'Failed to update order form status'
         });
       }
-    } catch (error) {
+    } catch (err) {
       setNotificationMessage({
         type: 'error',
         message: 'Failed to update order form status. Please try again.'
@@ -305,47 +290,37 @@ const OrderDetails: React.FC<OrderDetailsProps> = ({
 
   const handleManufacturerSubmission = async (data: any) => {
     try {
-      const response = await fetch(`/admin/orders/${order.id}/change-status`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({
-          status: 'submitted_to_manufacturer',
-          status_type: 'order',
-          notes: data.specialInstructions,
-          send_notification: data.sendNotification,
+      const response = await axios.post(`/admin/orders/${order.id}/change-status`, {
+        status: 'submitted_to_manufacturer',
+        status_type: 'order',
+        notes: data.specialInstructions,
+        send_notification: data.sendNotification,
+        carrier: data.carrier,
+        tracking_number: data.trackingNumber,
+        shipping_info: {
           carrier: data.carrier,
           tracking_number: data.trackingNumber,
-          shipping_info: {
-            carrier: data.carrier,
-            tracking_number: data.trackingNumber,
-            shipping_address: data.shippingAddress,
-            shipping_contact: data.shippingContact,
-            shipping_phone: data.shippingPhone,
-            shipping_email: data.shippingEmail,
-            special_instructions: data.specialInstructions,
-          },
-        }),
+          shipping_address: data.shippingAddress,
+          shipping_contact: data.shippingContact,
+          shipping_phone: data.shippingPhone,
+          shipping_email: data.shippingEmail,
+          special_instructions: data.specialInstructions,
+        },
       });
 
-      if (response.ok) {
-        const result = await response.json();
+      if (response.status === 200) {
         setNotificationMessage({
           type: 'success',
-          message: data.sendNotification && result.notification_sent
-            ? 'Order submitted to manufacturer successfully! Email notification sent.'
-            : 'Order submitted to manufacturer successfully!'
+          message: 'Order submitted to manufacturer successfully!'
         });
       } else {
-        const error = await response.json();
+        const error = response.data;
         setNotificationMessage({
           type: 'error',
           message: error.error || 'Failed to submit to manufacturer'
         });
       }
-    } catch (error) {
+    } catch (err) {
       setNotificationMessage({
         type: 'error',
         message: 'Failed to submit to manufacturer. Please try again.'

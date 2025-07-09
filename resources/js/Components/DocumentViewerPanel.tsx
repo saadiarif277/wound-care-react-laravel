@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Eye, FileText, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/Components/Button';
+import axios from 'axios';
 
 interface DocumentViewerPanelProps {
   isOpen: boolean;
@@ -43,17 +44,17 @@ const DocumentViewerPanel: React.FC<DocumentViewerPanelProps> = ({
         ? `/admin/orders/${orderId}/ivr-document`
         : `/admin/orders/${orderId}/order-form-document`;
 
-      const response = await fetch(endpoint, {
+      const response = await axios.get(endpoint, {
         headers: {
           'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
         },
       });
 
-      if (!response.ok) {
+      if (response.status !== 200) {
         throw new Error(`Failed to fetch ${documentType} document`);
       }
 
-      const data = await response.json();
+      const data = response.data;
       setDocumentData(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load document');

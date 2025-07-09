@@ -1,5 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { useToast } from './use-toast';
+import { api } from '@/lib/api';
 
 interface RealtimeSession {
   sessionId: string;
@@ -40,53 +41,28 @@ export const useRealtimeVoice = () => {
 
     setIsConnecting(true);
     try {
-      // Get session configuration from backend
-      const response = await fetch('/api/v1/ai/realtime/session', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
-        },
-        body: JSON.stringify({ voice: 'alloy' })
+      const data = await api.post<RealtimeConfig>('/api/v1/ai/realtime/session', {
+        voice: 'alloy',
       });
 
-      if (!response.ok) {
-        throw new Error('Failed to create realtime session');
-      }
-
-      const data = await response.json();
+      const websocket = new WebSocket(data.websocket_url);
+      setSession({ ...data, websocket });
       
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to create realtime session');
-      }
-      
-      const config: RealtimeConfig = data;
-      
-      console.log('Realtime session config:', config);
-      console.log('Session config details:', {
-        has_session_config: 'session_config' in config,
-        session_config_value: config.session_config,
-        all_keys: Object.keys(config)
-      });
-      
-      // Create WebSocket connection  
-      const ws = new WebSocket(config.websocket_url);
-      
-      ws.onopen = () => {
+      websocket.onopen = () => {
         console.log('Realtime WebSocket connected');
         
         // Debug: Log the session config being sent
-        console.log('Sending session config:', JSON.stringify(config.session_config, null, 2));
+        console.log('Sending session config:', JSON.stringify(data.session_config, null, 2));
         
         try {
           // Send session configuration
-          const configString = JSON.stringify(config.session_config);
+          const configString = JSON.stringify(data.session_config);
           console.log('Stringified config length:', configString.length);
-          ws.send(configString);
+          websocket.send(configString);
           
           const newSession = {
-            sessionId: config.session_id,
-            websocket: ws,
+            sessionId: data.session_id,
+            websocket: websocket,
             isConnected: true
           };
           
@@ -104,11 +80,11 @@ export const useRealtimeVoice = () => {
             description: "Failed to configure voice session.",
             variant: "destructive"
           });
-          ws.close();
+          websocket.close();
         }
       };
 
-      ws.onmessage = (event) => {
+      websocket.onmessage = (event) => {
         try {
           console.log('Raw message received:', event.data);
           const message = JSON.parse(event.data);
@@ -120,10 +96,10 @@ export const useRealtimeVoice = () => {
         }
       };
 
-      ws.onerror = (error) => {
+      websocket.onerror = (error) => {
         console.error('WebSocket error:', error);
-        console.error('WebSocket readyState:', ws.readyState);
-        console.error('WebSocket URL:', ws.url);
+        console.error('WebSocket readyState:', websocket.readyState);
+        console.error('WebSocket URL:', websocket.url);
         toast({
           title: "Connection Error",
           description: "Failed to connect to voice service. Switching to text mode.",
@@ -131,7 +107,7 @@ export const useRealtimeVoice = () => {
         });
       };
 
-      ws.onclose = () => {
+      websocket.onclose = () => {
         console.log('WebSocket closed');
         setSession(null);
       };
@@ -432,6 +408,26 @@ export const useRealtimeVoice = () => {
     }
     
     return buf;
+  };
+
+  const fetchTtsAudio = async (text: string): Promise<string | null> => {
+    try {
+      const response = await api.post('/api/v1/tts', {
+        text,
+        language: 'en-US',
+        voice: 'en-US-JennyNeural' 
+      });
+
+      if (!response.ok) {
+        throw new Error('Server responded with an error');
+      }
+
+      const data = await response.json();
+      return data.audioContent; // Assuming server returns { audioContent: 'base64...' }
+    } catch (error) {
+      console.error('Error fetching TTS audio:', error);
+      return null;
+    }
   };
 
   return {
