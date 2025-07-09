@@ -185,6 +185,18 @@ export default function Step7DocusealIVR({
   // The backend orchestrator now handles all provider, facility, and organization data
   // This component only needs to handle patient/clinical/insurance data from the form
 
+  // Effect to auto-hide the insurance card success message
+  useEffect(() => {
+    if (insuranceCardSuccess) {
+      const timer = setTimeout(() => {
+        setInsuranceCardSuccess(false);
+      }, 5000);
+
+      // This cleanup function will run if the component unmounts before the timer fires
+      return () => clearTimeout(timer);
+    }
+  }, [insuranceCardSuccess]);
+
   // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
     // Check permissions first
@@ -231,10 +243,6 @@ export default function Step7DocusealIVR({
             updates.insurance_card_auto_filled = true;
             updateFormData(updates);
             setInsuranceCardSuccess(true);
-
-            setTimeout(() => {
-              setInsuranceCardSuccess(false);
-            }, 5000);
           } else {
             setSubmissionError('Insurance card uploaded but could not extract data. Please enter information manually.');
           }
