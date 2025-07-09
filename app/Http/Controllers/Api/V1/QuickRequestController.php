@@ -169,12 +169,45 @@ class QuickRequestController extends Controller
      */
     public function getUserPermissions(Request $request)
     {
+        // Ultra-debug: Log everything about this request
+        Log::info('getUserPermissions called', [
+            'request_path' => $request->path(),
+            'request_method' => $request->method(),
+            'has_session' => $request->hasSession(),
+            'session_id' => $request->session()->getId(),
+            'auth_check' => Auth::check(),
+            'auth_guard' => Auth::getDefaultDriver(),
+            'user_id' => Auth::id(),
+            'headers' => [
+                'X-Requested-With' => $request->header('X-Requested-With'),
+                'X-XSRF-TOKEN' => $request->header('X-XSRF-TOKEN') ? 'present' : 'missing',
+                'Cookie' => $request->header('Cookie') ? 'present' : 'missing',
+            ],
+            'session_data' => [
+                'token' => $request->session()->token(),
+                'has_token' => $request->session()->has('_token'),
+            ]
+        ]);
+
         $user = Auth::user();
         
         if (!$user) {
+            Log::warning('getUserPermissions: User not authenticated', [
+                'auth_check' => Auth::check(),
+                'session_exists' => $request->hasSession(),
+                'session_started' => $request->session()->isStarted(),
+                'guard' => Auth::getDefaultDriver(),
+            ]);
+            
             return response()->json([
                 'success' => false,
-                'message' => 'User not authenticated'
+                'message' => 'User not authenticated',
+                'debug' => [
+                    'auth_check' => Auth::check(),
+                    'session_exists' => $request->hasSession(),
+                    'session_started' => $request->session()->isStarted(),
+                    'guard' => Auth::getDefaultDriver(),
+                ]
             ], 401);
         }
 

@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/Components/GhostAiUi/ui/dialog';
-import { Button } from '@/Components/GhostAiUi/ui/button';
-import { Textarea } from '@/Components/GhostAiUi/ui/textarea';
-import { RadioGroup, RadioGroupItem } from '@/Components/GhostAiUi/ui/radio-group';
-import { Label } from '@/Components/GhostAiUi/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/Components/GhostAiUi/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Textarea } from '../ui/textarea';
+import { RadioGroup, RadioGroupItem } from '../ui/radio-group';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { AdminOrderData } from '../types/adminTypes';
 
 interface AdminActionModalsProps {

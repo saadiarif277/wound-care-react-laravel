@@ -1,20 +1,20 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  CheckCircleIcon,
-  ClockIcon,
-  ExclamationTriangleIcon,
-  XCircleIcon,
-  ArrowPathIcon,
-  BellAlertIcon,
-  ChartBarIcon,
-  SparklesIcon,
-  MicrophoneIcon,
-  DocumentIcon,
-  ArrowDownTrayIcon
-} from '@heroicons/react/24/outline';
 import { themes } from '@/theme/glass-theme';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useIsClient, useBrowserAPI, useClientTime } from '@/hooks/useHydrationSafe';
+import {
+  BellAlertIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+  ClockIcon,
+  XCircleIcon,
+  SparklesIcon,
+  DocumentIcon,
+  ArrowDownTrayIcon,
+  MicrophoneIcon,
+  EyeIcon,
+} from '@heroicons/react/24/outline';
 
 interface IVREpisodeStatusProps {
   ivrEpisode: any;
@@ -77,11 +77,18 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
   const [showPredictiveAlert, setShowPredictiveAlert] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(false);
 
-  const isExpired = ivrEpisode.verification_status === 'expired' ||
-    (ivrEpisode.expiration_date && new Date(ivrEpisode.expiration_date) < new Date());
+  // Use hydration-safe hooks
+  const isClient = useIsClient();
+  const currentTime = useClientTime();
+  const speechSynthesis = useBrowserAPI(() => window.speechSynthesis);
 
-  const isExpiringSoon = !isExpired && ivrEpisode.expiration_date &&
-    (new Date(ivrEpisode.expiration_date) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000));
+  // Safe date calculations - only run on client to avoid hydration mismatches
+  const isExpired = isClient && ivrEpisode.verification_status === 'expired' ||
+    (isClient && currentTime && ivrEpisode.expiration_date && 
+     new Date(ivrEpisode.expiration_date) < currentTime);
+
+  const isExpiringSoon = isClient && !isExpired && currentTime && ivrEpisode.expiration_date &&
+    (new Date(ivrEpisode.expiration_date) < new Date(currentTime.getTime() + 7 * 24 * 60 * 60 * 1000));
 
   const docuseal = ivrEpisode.docuseal || {};
 
@@ -91,15 +98,15 @@ const IVREpisodeStatus = ({ ivrEpisode, readOnly = false }: IVREpisodeStatusProp
   const config = statusConfig[currentStatus as keyof typeof statusConfig] || statusConfig.pending;
   const Icon = config.icon;
 
-  // AI-powered predictive alerts
+  // AI-powered predictive alerts - only run on client
   useEffect(() => {
-    if (isExpiringSoon && !isExpired) {
+    if (isClient && isExpiringSoon && !isExpired) {
       setShowPredictiveAlert(true);
     }
-  }, [isExpiringSoon, isExpired]);
+  }, [isClient, isExpiringSoon, isExpired]);
 
   const handleVoiceCommand = () => {
-    if ('speechSynthesis' in window) {
+    if (speechSynthesis && isClient) {
       const statusText = isExpired ? 'expired' : isExpiringSoon ? 'expiring soon' : 'active';
       const utterance = new SpeechSynthesisUtterance(
         `IVR Episode status is ${statusText}. ${

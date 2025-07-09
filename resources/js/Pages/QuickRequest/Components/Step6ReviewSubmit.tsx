@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { router } from '@inertiajs/react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
@@ -14,6 +14,7 @@ import {
   FiCreditCard
 } from 'react-icons/fi';
 import OrderReviewSummary from './OrderReviewSummary';
+import { AuthButton } from '@/Components/ui/auth-button';
 
 interface Step6Props {
   formData: any;
@@ -214,13 +215,12 @@ export default function Step6ReviewSubmit({
     }
   };
 
-  const handleSubmit = async (): Promise<void> => {
-    try {
-      // Call the parent's onSubmit function which will handle the submission
-      await Promise.resolve(onSubmit());
-    } catch (error) {
-      // You might want to surface error handling here
-      throw error;
+  const handleSubmit = async () => {
+    if (!confirmChecked) return;
+    
+    setShowConfirmModal(false);
+    if (onSubmit) {
+      await onSubmit();
     }
   };
 
@@ -249,18 +249,18 @@ export default function Step6ReviewSubmit({
         </div>
 
         <div className="flex items-center space-x-3">
-          <button
+          <AuthButton
             onClick={() => setShowConfirmModal(true)}
-            disabled={!isOrderComplete() || isSubmitting}
+            disabled={!isOrderComplete()}
             className={cn(
               "px-6 py-2 rounded-lg font-medium transition-all",
               isOrderComplete() && !isSubmitting
-                ? `${t.button.primary.base} ${t.button.primary.hover}`
+                ? "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
                 : "bg-gray-300 text-gray-500 cursor-not-allowed"
             )}
           >
             {isSubmitting ? 'Submitting...' : 'Submit Order'}
-          </button>
+          </AuthButton>
         </div>
       </div>
 
@@ -645,20 +645,20 @@ export default function Step6ReviewSubmit({
         )}
       </div>
 
-      {/* Submit Button */}
+      {/* Submit Button at Bottom */}
       <div className="flex justify-center">
-        <button
+        <AuthButton
           onClick={() => setShowConfirmModal(true)}
-          disabled={!isOrderComplete() || isSubmitting}
+          disabled={!isOrderComplete()}
           className={cn(
             "px-8 py-3 rounded-lg font-medium transition-all",
             isOrderComplete() && !isSubmitting
-              ? `${t.button.primary.base} ${t.button.primary.hover}`
+              ? "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
               : "bg-gray-300 text-gray-500 cursor-not-allowed"
           )}
         >
           {isSubmitting ? 'Submitting...' : 'Submit Order'}
-        </button>
+        </AuthButton>
       </div>
 
       {/* Confirmation Modal */}
@@ -682,24 +682,25 @@ export default function Step6ReviewSubmit({
               </label>
             </div>
             <div className="flex justify-end space-x-3">
-              <button
+              <AuthButton
                 onClick={() => setShowConfirmModal(false)}
-                className={cn("px-4 py-2 rounded-lg", t.button.secondary.base, t.button.secondary.hover)}
+                variant="outline"
+                className={cn("px-4 py-2 rounded-lg")}
               >
                 Cancel
-              </button>
-              <button
+              </AuthButton>
+              <AuthButton
                 onClick={handleSubmit}
-                disabled={!confirmChecked || isSubmitting}
+                disabled={!confirmChecked}
                 className={cn(
                   "px-4 py-2 rounded-lg font-medium",
                   confirmChecked && !isSubmitting
-                    ? `${t.button.primary.base} ${t.button.primary.hover}`
+                    ? "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
                     : "bg-gray-300 text-gray-500 cursor-not-allowed"
                 )}
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Order'}
-              </button>
+              </AuthButton>
             </div>
           </div>
         </div>

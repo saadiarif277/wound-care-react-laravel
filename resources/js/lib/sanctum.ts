@@ -1,10 +1,13 @@
 /**
- * Sanctum authentication helper
+ * Sanctum authentication helper - Simplified for Inertia.js
+ * 
+ * Note: Inertia.js handles sessions automatically, so most of these 
+ * functions are not needed in a typical Inertia application.
  */
 
 /**
- * Get CSRF cookie from Sanctum
- * This must be called before making any authenticated requests
+ * Get CSRF cookie from Sanctum (only needed for direct API calls)
+ * This must be called before making any authenticated requests outside of Inertia
  */
 export async function getCsrfCookie(): Promise<void> {
   try {
@@ -24,31 +27,5 @@ export async function getCsrfCookie(): Promise<void> {
   } catch (error) {
     console.error('Failed to get CSRF cookie:', error);
     throw new Error('Failed to initialize authentication');
-  }
-}
-
-/**
- * Initialize Sanctum authentication
- * Call this when the app loads or before making authenticated requests
- */
-export async function initializeSanctum(): Promise<void> {
-  await getCsrfCookie();
-}
-
-/**
- * Check if user is authenticated by making a test request
- */
-export async function checkAuth(): Promise<boolean> {
-  try {
-    const response = await fetch('/api/user', {
-      credentials: 'include',
-      headers: {
-        'Accept': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
-    return response.ok;
-  } catch (error) {
-    return false;
   }
 }

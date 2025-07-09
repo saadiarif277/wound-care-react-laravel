@@ -1,11 +1,12 @@
-import { useState, useEffect, useMemo } from 'react';
-import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload } from 'react-icons/fi';
+import React, { useState, useEffect, useMemo } from 'react';
+import { FiCheckCircle, FiAlertCircle, FiArrowRight, FiCheck, FiInfo, FiCreditCard, FiRefreshCw, FiUpload, FiFile, FiFileText, FiSkipForward } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
 import { useManufacturers } from '@/Hooks/useManufacturers';
-import { DocusealForm } from '@docuseal/react';
+import { DocusealEmbed } from '@/Components/QuickRequest/DocusealEmbed';
 import { useCallback } from 'react';
-import api from '@/lib/api';
+import { AuthButton } from '@/Components/ui/auth-button';
+// Removed useAuthState import - Inertia handles authentication automatically
 
 // This component now relies on the backend orchestrator for all data aggregation
 // No frontend data preparation is needed - the backend is the single source of truth
@@ -111,6 +112,16 @@ export default function Step7DocusealIVR({
   errors,
   onNext
 }: Step7Props) {
+  const [submissionData, setSubmissionData] = useState<any>(null);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [pollInterval, setPollInterval] = useState<NodeJS.Timeout | null>(null);
+  const [additionalDocuments, setAdditionalDocuments] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+
+  // Use global auth state
+  // Removed useAuthState - Inertia handles authentication automatically
+
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
   let t = themes.dark;
@@ -122,13 +133,6 @@ export default function Step7DocusealIVR({
   } catch (e) {
     // Fallback to dark theme if outside ThemeProvider
   }
-
-  const [isCompleted, setIsCompleted] = useState(false);
-  const [submissionError, setSubmissionError] = useState<string>('');
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [enhancedSubmission] = useState<any>(null);
-  const [docusealSlug, setDocusealSlug] = useState<string>('');
-  const [isLoadingSlug, setIsLoadingSlug] = useState(false);
 
   // Insurance card re-upload states
   const [showInsuranceUpload, setShowInsuranceUpload] = useState(false);
@@ -197,6 +201,15 @@ export default function Step7DocusealIVR({
     }
   }, [insuranceCardSuccess]);
 
+  // Clean up any intervals on unmount
+  useEffect(() => {
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [pollInterval]);
+
   // Insurance card upload handler
   const handleInsuranceCardUpload = async (file: File, side: 'front' | 'back') => {
     // Store file in form data
@@ -249,74 +262,33 @@ export default function Step7DocusealIVR({
     }
   };
 
-  const fetchDocusealSlug = useCallback(async () => {
-    if (!templateId) {
-      setSubmissionError('Manufacturer configuration not found. Cannot create IVR form.');
-      return;
-    }
-
-    setIsLoadingSlug(true);
-    setSubmissionError('');
-
-    try {
-      // Use the centralized fetch function for automatic CSRF handling
-      const response = await api.post('/api/v1/quick-request/create-ivr-submission', {
-        form_data: formData,
-        template_id: templateId,
-      });
-
-      const data = response.data;
-      
-      if (data.success && data.slug) {
-        setDocusealSlug(data.slug);
-        // Store the episode_id returned from the backend
-        if (data.episode_id) {
-          updateFormData({ episode_id: data.episode_id });
-        }
-      } else {
-        setSubmissionError('Failed to retrieve the secure form link. Please try again.');
-      }
-    } catch (error) {
-      console.error('Error fetching DocuSeal slug:', error);
-      if (error instanceof Error) {
-        setSubmissionError(`An unexpected error occurred: ${error.message}. Please refresh and try again.`);
-      } else {
-        setSubmissionError('An unexpected error occurred. Please refresh and try again.');
-      }
-    } finally {
-      setIsLoadingSlug(false);
-    }
-  }, [formData, templateId, updateFormData]);
-
-  // Effect to fetch the Docuseal slug when the template is ready
-  useEffect(() => {
-    // Only fetch if we have a template and no slug yet
-    if (templateId && !docusealSlug) {
-      fetchDocusealSlug();
-    }
-  }, [templateId, docusealSlug, fetchDocusealSlug]);
-
   // Enhanced completion handler for DocuSeal form
   const handleDocusealFormComplete = (event: any) => {
-    setIsProcessing(true);
-
     try {
-      console.log('🎉 DocuSeal form completed:', event);
-
-      // Update form data with completion
+      console.log('Docuseal form completed:', event);
+      
+      // Update form data with completion status and submission data
       updateFormData({
-        ivr_completed_at: new Date().toISOString(),
-        docuseal_completed: true,
+        final_submission_completed: true,
+        final_submission_data: event,
+        docuseal_submission_id: event.slug || event.submission_id,
+        episode_id: event.episode_id,
+        ivr_completed: true,
+        docuseal_completed_at: new Date().toISOString()
       });
-
-      setIsCompleted(true);
-      setSubmissionError('');
-
+      
+      console.log('✅ IVR form completed successfully');
+      
+      // Automatically proceed to next step after a short delay
+      setTimeout(() => {
+        if (onNext) {
+          onNext();
+        }
+      }, 1500);
+      
     } catch (error) {
       console.error('Error processing DocuSeal completion:', error);
       setSubmissionError('Form completed but there was an error processing the result.');
-    } finally {
-      setIsProcessing(false);
     }
   };
 
@@ -389,388 +361,506 @@ export default function Step7DocusealIVR({
     );
   }
 
+  // Auto-show DocusealEmbed when all conditions are met
+  const shouldShowEmbed = !manufacturersLoading && selectedProduct && templateId && !formData.docuseal_submission_id;
+
+  const handleSkip = () => {
+    if (onNext) {
+      onNext();
+    }
+  };
+
+  const handleShowOrderForm = () => {
+    setShowOrderForm(true);
+  };
+
   return (
     <div className="space-y-6">
-      {/* Simple Title */}
-      <div className="mb-6">
-        <h2 className={cn("text-xl font-semibold", t.text.primary)}>
-          Complete IVR Form
-        </h2>
-        {formData.episode_id && (
-          <p className={cn("text-sm mt-1", t.text.secondary)}>
-            Your information has been pre-filled for your convenience
-          </p>
-        )}
-      </div>
+      {/* Main content - Inertia handles authentication automatically */}
+          {/* Header */}
+          <div className="mb-6">
+            <h2 className={cn("text-xl font-semibold", theme === 'dark' ? 'text-white' : 'text-gray-900')}>
+              Insurance Verification Request (IVR)
+            </h2>
+            <p className={cn("text-sm mt-1", theme === 'dark' ? 'text-gray-400' : 'text-gray-600')}>
+              Generate and complete the manufacturer's insurance verification form
+            </p>
+          </div>
 
-      {/* Insurance Card Re-upload Option */}
-      {supportsInsuranceUpload && !formData.insurance_card_front && !isCompleted && (
-        <div className={cn("p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-blue-800' : 'border-blue-200')}>
-          <div className="flex items-start">
-            <FiInfo className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')} />
-            <div className="flex-1">
-              <h3 className={cn("text-sm font-medium mb-1", t.text.primary)}>
-                Insurance Card Upload
-              </h3>
-              <p className={cn("text-sm mb-3", t.text.secondary)}>
-                Upload your insurance card now to have it attached to the IVR form
+          {/* FHIR Data Enhancement Info - shown only when DocusealEmbed is loading */}
+          {shouldShowEmbed && (
+            <div className={cn(
+              "p-4 rounded-lg border mb-4",
+              theme === 'dark'
+                ? 'bg-blue-900/20 border-blue-700'
+                : 'bg-blue-50 border-blue-200'
+            )}>
+              <div className="flex items-center mb-2">
+                <FiInfo className={cn(
+                  "w-4 h-4 mr-2",
+                  theme === 'dark' ? 'text-blue-400' : 'text-blue-600'
+                )} />
+                <h4 className={cn("font-medium", theme === 'dark' ? 'text-blue-300' : 'text-blue-800')}>
+                  FHIR-Enhanced IVR Form Loading
+                </h4>
+              </div>
+              <p className={cn("text-sm", theme === 'dark' ? 'text-blue-400' : 'text-blue-700')}>
+                The system is automatically pre-filling the IVR form using comprehensive FHIR data including patient demographics, provider credentials, clinical diagnosis, and insurance coverage.
               </p>
+            </div>
+          )}
 
-              {!showInsuranceUpload ? (
-                <button
-                  type="button"
-                  onClick={() => setShowInsuranceUpload(true)}
+          {/* Auto-show DocusealEmbed when ready */}
+          {shouldShowEmbed && (
+            <div className="w-full">
+              <DocusealEmbed
+                manufacturerId={String(manufacturerConfig?.id || selectedProduct?.manufacturer_id || '')}
+                templateId={templateId}
+                productCode={selectedProduct?.q_code || selectedProduct?.code || ''}
+                documentType="IVR"
+                formData={formData}
+                episodeId={formData.episode_id ? parseInt(formData.episode_id) : undefined}
+                onComplete={handleDocusealFormComplete}
+                onError={(error) => setSubmissionError(error)}
+                className="w-full"
+                debug={true}
+                submissionUrl=""
+                builderToken=""
+                builderProps={null}
+              />
+            </div>
+          )}
+
+          {/* Completion Status */}
+          {formData.docuseal_submission_id && (
+            <div className={cn(
+              "p-6 rounded-lg border-l-4",
+              theme === 'dark'
+                ? 'bg-green-900/20 border-green-700'
+                : 'bg-green-50 border-green-500'
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiCheck className={cn(
+                    "w-5 h-5 mr-3",
+                    theme === 'dark' ? 'text-green-400' : 'text-green-600'
+                  )} />
+                  <div>
+                    <h3 className={cn("font-medium", theme === 'dark' ? 'text-green-300' : 'text-green-800')}>
+                      IVR Form Available
+                      {formData.fhir_data_used && (
+                        <span className={cn("ml-2 text-xs px-2 py-1 rounded", 
+                          theme === 'dark' ? 'bg-blue-900/50 text-blue-300' : 'bg-blue-100 text-blue-800')}>
+                          FHIR Enhanced
+                        </span>
+                      )}
+                    </h3>
+                    <p className={cn("text-sm mt-1", theme === 'dark' ? 'text-green-400' : 'text-green-700')}>
+                      Please complete the form below
+                      {formData.completeness_percentage && (
+                        <span className="ml-2 font-medium">
+                          ({formData.completeness_percentage}% pre-filled)
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Show completion status when form is completed */}
+          {formData.docuseal_submission_id && formData.docuseal_submission_id !== 'NO_IVR_REQUIRED' && (
+            <div className={cn(
+              "p-6 rounded-lg border-l-4",
+              theme === 'dark'
+                ? 'bg-green-900/20 border-green-700'
+                : 'bg-green-50 border-green-500'
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiCheck className={cn(
+                    "w-5 h-5 mr-3",
+                    theme === 'dark' ? 'text-green-400' : 'text-green-600'
+                  )} />
+                  <div>
+                    <h3 className={cn("font-medium", theme === 'dark' ? 'text-green-300' : 'text-green-800')}>
+                      IVR Form Completed
+                    </h3>
+                    <p className={cn("text-sm mt-1", theme === 'dark' ? 'text-green-400' : 'text-green-700')}>
+                      Ready for Final Review
+                    </p>
+                  </div>
+                </div>
+                <AuthButton
+                  onClick={handleSkip}
                   className={cn(
-                    "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
+                    "px-4 py-2 rounded-lg font-medium flex items-center gap-2",
                     theme === 'dark'
-                      ? 'bg-blue-700 hover:bg-blue-600 text-white'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
                   )}
                 >
-                  <FiCreditCard className="mr-2 h-4 w-4" />
-                  Upload Insurance Card
-                </button>
-              ) : (
-                <div className="space-y-4">
-                  {/* Insurance Upload UI */}
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Front Card Upload */}
-                    <div className="space-y-2">
-                      <label className={cn("text-sm font-medium", t.text.primary)}>Front of Card</label>
-                      {!formData.insurance_card_front ? (
-                        <div
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*,application/pdf';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleInsuranceCardUpload(file, 'front');
-                            };
-                            input.click();
-                          }}
-                          className={cn(
-                            "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
-                            theme === 'dark'
-                              ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
-                              : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
-                          )}
-                        >
-                          <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
-                          <p className={cn("text-xs font-medium", t.text.secondary)}>
-                            Click to upload
-                          </p>
-                        </div>
-                      ) : (
-                        <div className={cn(
-                          "border rounded-lg p-3",
-                          theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
-                        )}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
-                              <span className={cn("text-sm truncate", t.text.primary)}>
-                                {formData.insurance_card_front.name || 'Front uploaded'}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => updateFormData({ insurance_card_front: null })}
-                              className="ml-2 text-red-500 hover:text-red-700"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Back Card Upload */}
-                    <div className="space-y-2">
-                      <label className={cn("text-sm font-medium", t.text.primary)}>Back of Card</label>
-                      {!formData.insurance_card_back ? (
-                        <div
-                          onClick={() => {
-                            const input = document.createElement('input');
-                            input.type = 'file';
-                            input.accept = 'image/*,application/pdf';
-                            input.onchange = (e) => {
-                              const file = (e.target as HTMLInputElement).files?.[0];
-                              if (file) handleInsuranceCardUpload(file, 'back');
-                            };
-                            input.click();
-                          }}
-                          className={cn(
-                            "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
-                            theme === 'dark'
-                              ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
-                              : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
-                          )}
-                        >
-                          <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
-                          <p className={cn("text-xs font-medium", t.text.secondary)}>
-                            Click to upload
-                          </p>
-                        </div>
-                      ) : (
-                        <div className={cn(
-                          "border rounded-lg p-3",
-                          theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
-                        )}>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center space-x-2 flex-1 min-w-0">
-                              <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
-                              <span className={cn("text-sm truncate", t.text.primary)}>
-                                {formData.insurance_card_back.name || 'Back uploaded'}
-                              </span>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => updateFormData({ insurance_card_back: null })}
-                              className="ml-2 text-red-500 hover:text-red-700"
-                            >
-                              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Processing status */}
-                  {isProcessingInsuranceCard && (
-                    <div className="flex items-center justify-center">
-                      <FiRefreshCw className="animate-spin h-5 w-5 mr-2 text-blue-500" />
-                      <span className={cn("text-sm", t.text.secondary)}>Processing insurance card...</span>
-                    </div>
-                  )}
-
-                  {insuranceCardSuccess && (
-                    <div className={cn(
-                      "p-3 rounded-lg flex items-center",
-                      theme === 'dark' ? 'bg-green-900/20' : 'bg-green-50'
-                    )}>
-                      <FiCheck className="h-5 w-5 mr-2 text-green-500" />
-                      <span className={cn("text-sm", theme === 'dark' ? 'text-green-400' : 'text-green-700')}>
-                        Insurance information updated successfully!
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+                  Continue to Final Review
+                  <FiArrowRight className="w-4 h-4" />
+                </AuthButton>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          )}
 
-      {/* Simple Instructions */}
-      {!isCompleted && !submissionError && (
-        <div className={cn("mb-4 text-sm", t.text.secondary)}>
-          <p>Please review the pre-filled information and sign where indicated.</p>
-        </div>
-      )}
-
-
-
-      {/* Docuseal Form or Completion Status */}
-      <div className={cn("rounded-lg", t.glass.card, "w-full max-w-full")}>
-        {isCompleted ? (
-          <div className="p-8 text-center">
-            <FiCheckCircle className={cn("h-16 w-16 mx-auto mb-4 text-green-500")} />
-            <h3 className={cn("text-xl font-medium mb-2", t.text.primary)}>
-              IVR Form Completed Successfully
-            </h3>
-            <p className={cn("text-sm", t.text.secondary)}>
-              The IVR form has been signed and submitted.
-            </p>
-
-            {/* Enhanced submission info */}
-            {enhancedSubmission && (
-              <div className={cn("mt-4 p-3 rounded-lg",
-                theme === 'dark' ? 'bg-green-900/20 border border-green-800' : 'bg-green-50 border border-green-200'
-              )}>
-                <div className="text-sm space-y-1">
-                  <p className={cn("font-medium", t.text.primary)}>
-                    Order #{enhancedSubmission.order_id || 'N/A'}
-                  </p>
-                  <p className={t.text.secondary}>
-                    FHIR Integration: {enhancedSubmission.fhir_data_used || 0} fields mapped
-                  </p>
-                  <p className={t.text.secondary}>
-                    Template: {enhancedSubmission.template_name || 'Standard IVR'}
-                  </p>
+          {/* Error State */}
+          {submissionError && (
+            <div className={cn(
+              "p-6 rounded-lg border-l-4",
+              theme === 'dark'
+                ? 'bg-red-900/20 border-red-700'
+                : 'bg-red-50 border-red-500'
+            )}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center">
+                  <FiAlertCircle className={cn(
+                    "w-5 h-5 mr-3",
+                    theme === 'dark' ? 'text-red-400' : 'text-red-600'
+                  )} />
+                  <div>
+                    <h3 className={cn("font-medium", theme === 'dark' ? 'text-red-300' : 'text-red-800')}>
+                      Error Generating IVR
+                    </h3>
+                    <p className={cn("text-sm mt-1", theme === 'dark' ? 'text-red-400' : 'text-red-700')}>
+                      {submissionError}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <AuthButton
+                    onClick={() => {
+                      setSubmissionError(null);
+                      window.location.reload();
+                    }}
+                    className={cn(
+                      "px-4 py-2 rounded-lg font-medium",
+                      theme === 'dark'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                    )}
+                  >
+                    Try Again
+                  </AuthButton>
+                  <AuthButton
+                    onClick={handleSkip}
+                    variant="secondary"
+                    className={cn(
+                      "px-4 py-2 rounded-lg font-medium",
+                      theme === 'dark'
+                        ? 'text-gray-300 border-gray-600'
+                        : 'text-gray-700 border-gray-300'
+                    )}
+                  >
+                    Skip This Step
+                  </AuthButton>
                 </div>
               </div>
-            )}
-
-            <p className={cn("text-sm mt-3", t.text.secondary)}>
-              Submission ID: <span className="font-mono">{formData.docuseal_submission_id}</span>
-            </p>
-
-            {/* Manual next button */}
-            <div className={cn("mt-6 p-4 rounded-lg border",
-              theme === 'dark' ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'
-            )}>
-              <p className={cn("text-sm font-medium mb-2",
-                theme === 'dark' ? 'text-blue-300' : 'text-blue-900'
-              )}>
-                Ready for Final Review
-              </p>
-              <p className={cn("text-xs",
-                theme === 'dark' ? 'text-blue-400' : 'text-blue-700'
-              )}>
-                Click the button below to proceed to the final review step and complete your order.
-              </p>
-
-              <button
-                onClick={() => onNext && onNext()}
-                className={cn(
-                  "mt-3 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                  theme === 'dark'
-                    ? 'bg-blue-700 hover:bg-blue-600 text-white'
-                    : 'bg-blue-600 hover:bg-blue-700 text-white'
-                )}
-              >
-                Continue to Final Review
-                <FiArrowRight className="ml-2 h-4 w-4" />
-              </button>
             </div>
-          </div>
-        ) : submissionError ? (
-          <div className="p-8">
-            <div className={cn(
-              "p-4 rounded-lg border",
-              theme === 'dark'
-                ? 'bg-red-900/20 border-red-800'
-                : 'bg-red-50 border-red-200'
-            )}>
+          )}
+
+          {/* Skip option when no form is needed */}
+          {!showOrderForm && !submissionError && !formData.docuseal_submission_id && !shouldShowEmbed && (
+            <div className={cn("p-4 rounded-lg", theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100')}>
+              <p className={cn("text-sm mb-4", theme === 'dark' ? 'text-gray-400' : 'text-gray-600')}>
+                No IVR form is required for this product, or you can skip this optional step.
+              </p>
+              
+              <div className="flex gap-3">
+                <AuthButton
+                  onClick={handleSkip}
+                  className={cn(
+                    "px-4 py-2 rounded-lg font-medium flex items-center gap-2",
+                    theme === 'dark'
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
+                  )}
+                >
+                  <FiSkipForward className="w-4 h-4" />
+                  Continue to Final Review
+                </AuthButton>
+              </div>
+            </div>
+          )}
+
+          {/* Insurance Card Re-upload Option */}
+          {supportsInsuranceUpload && !formData.insurance_card_front && !formData.docuseal_submission_id && (
+            <div className={cn("p-4 rounded-lg", t.glass.card, "border", theme === 'dark' ? 'border-blue-800' : 'border-blue-200')}>
               <div className="flex items-start">
-                <FiAlertCircle className={cn(
-                  "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
-                  theme === 'dark' ? 'text-red-400' : 'text-red-600'
-                )} />
+                <FiInfo className={cn("h-5 w-5 mt-0.5 flex-shrink-0 mr-3", theme === 'dark' ? 'text-blue-400' : 'text-blue-600')} />
                 <div className="flex-1">
-                  <h4 className={cn(
-                    "text-sm font-medium",
-                    theme === 'dark' ? 'text-red-300' : 'text-red-900'
-                  )}>
-                    {submissionError.includes('permission') ? 'Permission Error' : 
-                     submissionError.includes('session') || submissionError.includes('expired') ? 'Session Error' :
-                     submissionError.includes('server') ? 'Server Error' : 'Error Loading IVR Form'}
-                  </h4>
-                  <p className={cn(
-                    "text-sm mt-1",
-                    theme === 'dark' ? 'text-red-400' : 'text-red-700'
-                  )}>
-                    {submissionError}
+                  <h3 className={cn("text-sm font-medium mb-1", t.text.primary)}>
+                    Insurance Card Upload
+                  </h3>
+                  <p className={cn("text-sm mb-3", t.text.secondary)}>
+                    Upload your insurance card now to have it attached to the IVR form
                   </p>
-                  <div className="mt-4 space-y-2">
+
+                  {!showInsuranceUpload ? (
                     <button
-                      onClick={() => {
-                        setSubmissionError('');
-                        setIsCompleted(false);
-                      }}
+                      type="button"
+                      onClick={() => setShowInsuranceUpload(true)}
                       className={cn(
-                        "inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors mr-3",
+                        "inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
                         theme === 'dark'
-                          ? 'bg-red-700 hover:bg-red-600 text-white'
-                          : 'bg-red-600 hover:bg-red-700 text-white'
+                          ? 'bg-blue-700 hover:bg-blue-600 text-white'
+                          : 'bg-blue-600 hover:bg-blue-700 text-white'
                       )}
                     >
-                      <FiRefreshCw className="mr-1 h-4 w-4" />
-                      Try Again
+                      <FiCreditCard className="mr-2 h-4 w-4" />
+                      Upload Insurance Card
                     </button>
-                    
-                    {submissionError.includes('permission') && (
-                      <div className={cn(
-                        "mt-3 p-3 rounded-md",
-                        theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
-                      )}>
-                        <p className={cn(
-                          "text-sm",
-                          theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
-                        )}>
-                          <strong>Need Help?</strong> Contact your administrator to request the 
-                          "create-product-requests" permission to access this feature.
-                        </p>
-                      </div>
-                    )}
-                    
-                    {(submissionError.includes('session') || submissionError.includes('expired')) && (
-                      <div className={cn(
-                        "mt-3 p-3 rounded-md",
-                        theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
-                      )}>
-                        <p className={cn(
-                          "text-sm",
-                          theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
-                        )}>
-                          <strong>Session Expired:</strong> Please refresh the page and try again.
-                        </p>
-                        <button
-                          onClick={() => window.location.reload()}
-                          className={cn(
-                            "mt-2 text-sm underline",
-                            theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Insurance Upload UI */}
+                      <div className="grid grid-cols-2 gap-4">
+                        {/* Front Card Upload */}
+                        <div className="space-y-2">
+                          <label className={cn("text-sm font-medium", t.text.primary)}>Front of Card</label>
+                          {!formData.insurance_card_front ? (
+                            <div
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*,application/pdf';
+                                input.onchange = (e) => {
+                                  const file = (e.target as HTMLInputElement).files?.[0];
+                                  if (file) handleInsuranceCardUpload(file, 'front');
+                                };
+                                input.click();
+                              }}
+                              className={cn(
+                                "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                                theme === 'dark'
+                                  ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
+                                  : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+                              )}
+                            >
+                              <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
+                              <p className={cn("text-xs font-medium", t.text.secondary)}>
+                                Click to upload
+                              </p>
+                            </div>
+                          ) : (
+                            <div className={cn(
+                              "border rounded-lg p-3",
+                              theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
+                            )}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                  <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                  <span className={cn("text-sm truncate", t.text.primary)}>
+                                    {formData.insurance_card_front.name || 'Front uploaded'}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => updateFormData({ insurance_card_front: null })}
+                                  className="ml-2 text-red-500 hover:text-red-700"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
                           )}
-                        >
-                          Refresh Page
-                        </button>
+                        </div>
+
+                        {/* Back Card Upload */}
+                        <div className="space-y-2">
+                          <label className={cn("text-sm font-medium", t.text.primary)}>Back of Card</label>
+                          {!formData.insurance_card_back ? (
+                            <div
+                              onClick={() => {
+                                const input = document.createElement('input');
+                                input.type = 'file';
+                                input.accept = 'image/*,application/pdf';
+                                input.onchange = (e) => {
+                                  const file = (e.target as HTMLInputElement).files?.[0];
+                                  if (file) handleInsuranceCardUpload(file, 'back');
+                                };
+                                input.click();
+                              }}
+                              className={cn(
+                                "border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all",
+                                theme === 'dark'
+                                  ? 'border-gray-700 hover:border-blue-500 hover:bg-gray-800'
+                                  : 'border-gray-300 hover:border-blue-500 hover:bg-gray-50'
+                              )}
+                            >
+                              <FiUpload className="mx-auto h-6 w-6 mb-1 text-gray-400" />
+                              <p className={cn("text-xs font-medium", t.text.secondary)}>
+                                Click to upload
+                              </p>
+                            </div>
+                          ) : (
+                            <div className={cn(
+                              "border rounded-lg p-3",
+                              theme === 'dark' ? 'border-gray-700 bg-gray-800' : 'border-gray-300 bg-gray-50'
+                            )}>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center space-x-2 flex-1 min-w-0">
+                                  <FiCheck className="h-4 w-4 text-green-500 flex-shrink-0" />
+                                  <span className={cn("text-sm truncate", t.text.primary)}>
+                                    {formData.insurance_card_back.name || 'Back uploaded'}
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => updateFormData({ insurance_card_back: null })}
+                                  className="ml-2 text-red-500 hover:text-red-700"
+                                >
+                                  <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Processing status */}
+                      {isProcessingInsuranceCard && (
+                        <div className="flex items-center justify-center">
+                          <FiRefreshCw className="animate-spin h-5 w-5 mr-2 text-blue-500" />
+                          <span className={cn("text-sm", t.text.secondary)}>Processing insurance card...</span>
+                        </div>
+                      )}
+
+                      {insuranceCardSuccess && (
+                        <div className={cn(
+                          "p-3 rounded-lg flex items-center",
+                          theme === 'dark' ? 'bg-green-900/20' : 'bg-green-50'
+                        )}>
+                          <FiCheck className="h-5 w-5 mr-2 text-green-500" />
+                          <span className={cn("text-sm", theme === 'dark' ? 'text-green-400' : 'text-green-700')}>
+                            Insurance information updated successfully!
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
-          </div>
-        ) : (
-          <div className="relative">
-            {/* Processing overlay */}
-            {isProcessing && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10 rounded-lg">
-                <div className="bg-white p-6 rounded-lg text-center max-w-sm">
-                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-3" />
-                  <p className="text-gray-900 font-medium">Processing Submission...</p>
-                  <p className="text-gray-600 text-sm mt-1">Integrating with FHIR and creating your order</p>
+          )}
+
+          {/* Simple Instructions */}
+          {shouldShowEmbed && !submissionError && (
+            <div className={cn("mb-4 text-sm", t.text.secondary)}>
+              <p>Please review the pre-filled information and sign where indicated.</p>
+            </div>
+          )}
+
+
+
+          {/* Docuseal Form or Error Status */}
+          <div className={cn("rounded-lg", t.glass.card, "w-full max-w-full")}>
+            {submissionError ? (
+              <div className="p-8">
+                <div className={cn(
+                  "p-4 rounded-lg border",
+                  theme === 'dark'
+                    ? 'bg-red-900/20 border-red-800'
+                    : 'bg-red-50 border-red-200'
+                )}>
+                  <div className="flex items-start">
+                    <FiAlertCircle className={cn(
+                      "h-5 w-5 mt-0.5 flex-shrink-0 mr-3",
+                      theme === 'dark' ? 'text-red-400' : 'text-red-600'
+                    )} />
+                    <div className="flex-1">
+                      <h4 className={cn(
+                        "text-sm font-medium",
+                        theme === 'dark' ? 'text-red-300' : 'text-red-900'
+                      )}>
+                        {submissionError.includes('permission') ? 'Permission Error' : 
+                         submissionError.includes('session') || submissionError.includes('expired') ? 'Session Error' :
+                         submissionError.includes('server') ? 'Server Error' : 'Error Loading IVR Form'}
+                      </h4>
+                      <p className={cn(
+                        "text-sm mt-1",
+                        theme === 'dark' ? 'text-red-400' : 'text-red-700'
+                      )}>
+                        {submissionError}
+                      </p>
+                      <div className="mt-4 space-y-2">
+                        <AuthButton
+                          onClick={() => {
+                            setSubmissionError('');
+                            window.location.reload();
+                          }}
+                          className={cn(
+                            "inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-md transition-colors mr-3",
+                            theme === 'dark'
+                              ? 'bg-red-700 hover:bg-red-600 text-white'
+                              : 'bg-red-600 hover:bg-red-700 text-white'
+                          )}
+                        >
+                          <FiRefreshCw className="mr-1 h-4 w-4" />
+                          Try Again
+                        </AuthButton>
+                        
+                        {submissionError.includes('permission') && (
+                          <div className={cn(
+                            "mt-3 p-3 rounded-md",
+                            theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+                          )}>
+                            <p className={cn(
+                              "text-sm",
+                              theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                            )}>
+                              <strong>Need Help?</strong> Contact your administrator to request the 
+                              "create-product-requests" permission to access this feature.
+                            </p>
+                          </div>
+                        )}
+                        
+                        {(submissionError.includes('session') || submissionError.includes('expired')) && (
+                          <div className={cn(
+                            "mt-3 p-3 rounded-md",
+                            theme === 'dark' ? 'bg-blue-900/20' : 'bg-blue-50'
+                          )}>
+                            <p className={cn(
+                              "text-sm",
+                              theme === 'dark' ? 'text-blue-300' : 'text-blue-800'
+                            )}>
+                              <strong>Session Expired:</strong> Please refresh the page and try again.
+                            </p>
+                            <AuthButton
+                              onClick={() => window.location.reload()}
+                              className={cn(
+                                "mt-2 text-sm underline",
+                                theme === 'dark' ? 'text-blue-300' : 'text-blue-600'
+                              )}
+                            >
+                              Refresh Page
+                            </AuthButton>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Loading state while fetching slug */}
-            {isLoadingSlug ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600 mx-auto mb-4" />
-                <p className={cn("text-sm ml-3", t.text.secondary)}>
-                  Initializing form...
-                </p>
-              </div>
-            ) : docusealSlug ? (
-              /* DocuSeal Form Embed */
-              <div className="w-full">
-                <DocusealForm
-                  src={`https://docuseal.com/s/${docusealSlug}`}
-                  onComplete={handleDocusealFormComplete}
-                />
-              </div>
             ) : (
-              <div className={cn("text-center py-12", t.text.secondary)}>
-                <p>Form could not be loaded. Please try again.</p>
-                <button
-                  onClick={fetchDocusealSlug}
-                  className={cn(
-                    "mt-4 inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-colors",
-                    theme === 'dark'
-                      ? 'bg-blue-700 hover:bg-blue-600 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white'
-                  )}
-                >
-                  <FiRefreshCw className="mr-2 h-4 w-4" />
-                  Retry
-                </button>
+              <div className="relative">
+                {/* This section is now handled by the auto-show logic above */}
+                {formData.docuseal_submission_id && (
+                  <div className="text-center py-8">
+                    <FiCheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+                    <h3 className="text-lg font-medium mb-2">IVR Form Completed</h3>
+                    <p className="text-sm text-gray-600">
+                      Your insurance verification request has been submitted successfully.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
             
@@ -821,8 +911,6 @@ export default function Step7DocusealIVR({
               
             </div>
           </div>
-        )}
-      </div>
 
       {/* Validation Errors */}
       {errors.docuseal && (

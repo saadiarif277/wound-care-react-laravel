@@ -4,14 +4,14 @@ import MainLayout from '@/Layouts/MainLayout';
 import { FiArrowRight, FiCheck, FiAlertCircle, FiUser, FiActivity, FiShoppingCart, FiFileText, FiZap } from 'react-icons/fi';
 import { useTheme } from '@/contexts/ThemeContext';
 import { themes, cn } from '@/theme/glass-theme';
-import { useManufacturers } from '@/Hooks/useManufacturers';
-import Step1ProviderFacility from './Components/Step1ProviderFacility';
 import Step2PatientInsurance from './Components/Step2PatientInsurance';
 import Step4ClinicalBilling from './Components/Step4ClinicalBilling';
 import Step5ProductSelection from './Components/Step5ProductSelection';
 import Step6ReviewSubmit from './Components/Step6ReviewSubmit';
 import Step7DocusealIVR from './Components/Step7DocusealIVR';
 import axios from 'axios';
+import { AuthButton } from '@/Components/ui/auth-button';
+// Removed useAuthState import - Inertia handles authentication automatically
 
 interface QuickRequestFormData {
   // Context & Request Type
@@ -246,7 +246,7 @@ function QuickRequestCreateNew({
 
   const [currentSection, setCurrentSection] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCreatingDraft, setIsCreatingDraft] = useState(false);
+  // Removed isCreatingDraft state - episode creation now handled during final submission
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Get tomorrow's date as default for service date
@@ -307,7 +307,10 @@ function QuickRequestCreateNew({
   // Check organization on mount
   useEffect(() => {
     if (!currentUser.organization || !currentUser.organization.id) {
-      console.warn('⚠️ Current user has no organization in frontend data, but backend may still find it');
+      // Only show this in development mode, and make it less alarming
+      if (process.env.NODE_ENV === 'development') {
+        console.info('ℹ️ Organization data not found in frontend props, backend will auto-assign based on user account');
+      }
       // Don't show error immediately - backend has fallback logic
     } else {
       console.log('✅ Organization found:', currentUser.organization.name);
@@ -539,7 +542,8 @@ function QuickRequestCreateNew({
   };
 
   const handleNext = async () => {
-    // Validate current section
+    // Removed auth check - Inertia handles authentication automatically
+    
     const sectionErrors = validateSection(currentSection);
     if (Object.keys(sectionErrors).length > 0) {
       setErrors(sectionErrors);
@@ -565,75 +569,9 @@ function QuickRequestCreateNew({
       return;
     }
 
-    // All frontend FHIR creation logic has been removed.
-    // The backend orchestrator is now the single source of truth.
-
-    // Create draft episode when moving from Product Selection (step 2) to IVR Form (step 3)
-    if (currentSection === 2 && !formData.episode_id) {
-      setIsCreatingDraft(true);
-      try {
-        console.log('🔄 Creating draft episode before IVR step...');
-        
-        // Get manufacturer name from the selected product
-        const selectedProduct = formData.selected_products?.[0];
-        const product = products.find(p => p.id === selectedProduct?.product_id);
-        const manufacturerName = product?.manufacturer;
-
-        if (!manufacturerName) {
-          setErrors({ episode: 'Unable to determine manufacturer from selected products. Please select a product first.' });
-          return;
-        }
-        
-        // Try to include organization_id if available, but don't block if missing
-        // Backend has fallback logic to find organization
-        const updatedFormData = {
-          ...formData,
-          organization_id: formData.organization_id || currentUser.organization?.id || null,
-          organization_name: formData.organization_name || currentUser.organization?.name || '',
-        };
-        
-        console.log('📋 Submitting draft episode with organization data:', {
-          organization_id: updatedFormData.organization_id,
-          organization_name: updatedFormData.organization_name,
-          has_current_org: !!currentUser.organization,
-          current_user_id: currentUser.id
-        });
-        
-        const payload = {
-          form_data: updatedFormData,
-          manufacturer_name: manufacturerName,
-        };
-
-        const response = await axios.post(
-          "/api/v1/quick-request/create-draft-episode",
-          payload,
-          {
-            headers: {
-              'Content-Type': 'application/json'
-            }
-          }
-        );
-
-        if (response.data.success && response.data.episode_id) {
-          console.log('✅ Draft episode created:', response.data.episode_id);
-          
-          // Update form data with the draft episode ID
-          updateFormData({
-            episode_id: response.data.episode_id
-          });
-        } else {
-          console.error('❌ Failed to create draft episode:', response.data);
-          setErrors({ episode: 'Failed to create draft episode. Please try again.' });
-          return;
-        }
-      } catch (error: any) {
-        console.error('❌ Error creating draft episode:', error);
-        setErrors({ episode: 'Error creating draft episode. Please try again.' });
-        return;
-      } finally {
-        setIsCreatingDraft(false);
-      }
-    }
+    // Following Inertia.js best practices: No API calls during form navigation
+    // The episode will be created during final submission when all data is complete
+    console.log('✅ Moving to next section, episode will be created during final submission');
 
     // Move to the next section
     setCurrentSection(currentSection + 1);
@@ -648,6 +586,8 @@ function QuickRequestCreateNew({
   };
 
   const handleSubmitOrder = async () => {
+    // Removed auth check - Inertia handles authentication automatically
+    
     setIsSubmitting(true);
 
     // Retry mechanism for CSRF token issues
@@ -895,8 +835,9 @@ function QuickRequestCreateNew({
             </p>
 
             {/* Pre-fill Test Data Button */}
-            <button
+            <AuthButton
               onClick={prefillTestData}
+              variant="secondary"
               className={cn(
                 "mt-4 px-4 py-2 rounded-lg font-medium flex items-center gap-2 transition-all duration-200",
                 "bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30",
@@ -905,7 +846,7 @@ function QuickRequestCreateNew({
             >
               <FiZap className="h-4 w-4" />
               Pre-fill Test Data
-            </button>
+            </AuthButton>
           </div>
 
           {/* Progress Bar */}
@@ -967,13 +908,14 @@ function QuickRequestCreateNew({
             </div>
           )}
 
-          {/* Section Content */}
+          {/* Step Content */}
           <div className={cn("rounded-2xl p-8 mb-6", t.glass.card, t.shadows.glass)}>
             <h2 className={cn("text-2xl font-semibold mb-6 flex items-center", t.text.primary)}>
               {React.createElement(sections[currentSection]?.icon as any, { className: "h-6 w-6 mr-3 text-blue-500" })}
               {sections[currentSection]?.title}
             </h2>
 
+            {/* Step content - Inertia handles auth automatically */}
             {currentSection === 0 && (
               <Step2PatientInsurance
                 formData={formData as any}
@@ -1030,32 +972,32 @@ function QuickRequestCreateNew({
 
           {/* Navigation Buttons */}
           <div className="flex justify-between">
-            <button
+            <AuthButton
               onClick={handleBack}
               disabled={currentSection === 0}
+              variant="secondary"
+
               className={cn(
                 "px-6 py-3 rounded-xl font-medium transition-all duration-200",
-                currentSection === 0
-                  ? cn("cursor-not-allowed opacity-50", t.glass.base, t.text.muted)
-                  : cn(t.button.secondary.base, t.button.secondary.hover)
+                currentSection === 0 && "cursor-not-allowed opacity-50"
               )}
             >
               Previous
-            </button>
+            </AuthButton>
 
-            {currentSection < sections.length - 1 ? (
-              <button
+            {currentSection < sections.length - 1 && (
+              <AuthButton
                 onClick={handleNext}
+
                 className={cn(
                   "px-6 py-3 rounded-xl font-medium flex items-center transition-all duration-200",
-                  t.button.primary.base,
-                  t.button.primary.hover
+                  "bg-gradient-to-r from-[#1925c3] to-[#c71719] text-white hover:shadow-lg"
                 )}
               >
                 Next
                 <FiArrowRight className="ml-2 h-5 w-5" />
-              </button>
-            ) : null /* Submit button is now inside Step6ReviewSubmit */}
+              </AuthButton>
+            )}
           </div>
 
           {/* Status Display */}

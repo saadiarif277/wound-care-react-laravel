@@ -20,6 +20,8 @@ return [
         'localhost:3000',
         'localhost:5173',
         '127.0.0.1:5173',
+        'localhost:8000', // Add this for Laravel dev server
+        '127.0.0.1:8000',  // Add this too for IP access
         'dev.mscwound.com', // Ensure your dev domain is listed
         env('APP_URL') ? parse_url(env('APP_URL'), PHP_URL_HOST) : null,
     ],

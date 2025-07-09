@@ -11,6 +11,8 @@ use App\Services\QuickRequest\Handlers\ClinicalHandler;
 use App\Services\QuickRequest\Handlers\InsuranceHandler;
 use App\Services\QuickRequest\Handlers\OrderHandler;
 use App\Services\QuickRequest\Handlers\NotificationHandler;
+use App\Services\FhirToIvrFieldMapper;
+use App\Jobs\CreateEpisodeFhirResourcesJob;
 use App\Logging\PhiSafeLogger;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
@@ -25,6 +27,7 @@ class QuickRequestOrchestrator
         protected InsuranceHandler $insuranceHandler,
         protected OrderHandler $orderHandler,
         protected NotificationHandler $notificationHandler,
+        protected FhirToIvrFieldMapper $fhirMapper,
         protected PhiSafeLogger $logger
     ) {}
 
@@ -497,8 +500,19 @@ class QuickRequestOrchestrator
         try {
             $metadata = $episode->metadata ?? [];
             
-            // Aggregate data from all sources stored in episode metadata
-            $aggregatedData = [];
+            // Extract FHIR IDs from metadata
+            $fhirIds = [
+                'patient_id' => $metadata['fhir_ids']['patient_id'] ?? null,
+                'practitioner_id' => $metadata['fhir_ids']['practitioner_id'] ?? null,
+                'organization_id' => $metadata['fhir_ids']['organization_id'] ?? null,
+                'condition_id' => $metadata['fhir_ids']['condition_id'] ?? null,
+                'coverage_id' => $metadata['fhir_ids']['coverage_id'] ?? null,
+                'encounter_id' => $metadata['fhir_ids']['encounter_id'] ?? null,
+                'episode_of_care_id' => $metadata['fhir_ids']['episode_of_care_id'] ?? null,
+            ];
+            
+            // Use FhirToIvrFieldMapper to extract comprehensive data
+            $aggregatedData = $this->fhirMapper->extractDataFromFhir($fhirIds, $metadata);
             
             // Get current user as sales rep/contact
             $currentUser = Auth::user();
@@ -574,14 +588,35 @@ class QuickRequestOrchestrator
                 $lastName = $patientData['last_name'] ?? '';
                 $aggregatedData['patient_name'] = trim($firstName . ' ' . $lastName);
                 
-                // Patient address
-                $aggregatedData['patient_address'] = trim(
-                    ($patientData['address_line1'] ?? '') . ' ' . 
-                    ($patientData['address_line2'] ?? '') . ', ' .
-                    ($patientData['city'] ?? '') . ', ' .
-                    ($patientData['state'] ?? '') . ' ' .
-                    ($patientData['zip'] ?? '')
-                );
+                // Handle FHIR-compliant address structure
+                if (isset($patientData['address'])) {
+                    $address = $patientData['address'];
+                    
+                    // Use FHIR text field for complete address
+                    $aggregatedData['patient_address'] = $address['text'] ?? '';
+                    
+                    // Also provide individual components for forms that need them
+                    $aggregatedData['patient_address_line1'] = $address['line'][0] ?? '';
+                    $aggregatedData['patient_city'] = $address['city'] ?? '';
+                    $aggregatedData['patient_state'] = $address['state'] ?? '';
+                    $aggregatedData['patient_zip'] = $address['postalCode'] ?? '';
+                    $aggregatedData['patient_country'] = $address['country'] ?? 'US';
+                } else {
+                    // Fallback to old structure for backwards compatibility
+                    $aggregatedData['patient_address'] = trim(
+                        ($patientData['address_line1'] ?? '') . ' ' . 
+                        ($patientData['address_line2'] ?? '') . ', ' .
+                        ($patientData['city'] ?? '') . ', ' .
+                        ($patientData['state'] ?? '') . ' ' .
+                        ($patientData['zip'] ?? '')
+                    );
+                    
+                    $aggregatedData['patient_address_line1'] = $patientData['address_line1'] ?? '';
+                    $aggregatedData['patient_city'] = $patientData['city'] ?? '';
+                    $aggregatedData['patient_state'] = $patientData['state'] ?? '';
+                    $aggregatedData['patient_zip'] = $patientData['zip'] ?? '';
+                    $aggregatedData['patient_country'] = $patientData['country'] ?? 'US';
+                }
                 
                 // SNF status - default to No
                 $aggregatedData['patient_snf_yes'] = false;
@@ -903,14 +938,11 @@ class QuickRequestOrchestrator
             // Use AI service for intelligent field mapping
             $aiFormFillerService = app(\App\Services\AiFormFillerService::class);
             
-            $enhancedData = $aiFormFillerService->fillFormFields([
-                'ocr_data' => $baseData,
-                'document_type' => $documentType,
-                'target_schema' => [
-                    'manufacturer_form_id' => $manufacturerFormId
-                ],
-                'include_confidence' => true
-            ]);
+            $enhancedData = $aiFormFillerService->fillFormFields(
+                $baseData,
+                $documentType,
+                ['manufacturer_form_id' => $manufacturerFormId]
+            );
 
             // Merge AI enhancements with base data
             $finalData = array_merge($baseData, $enhancedData['mapped_fields'] ?? []);
@@ -954,7 +986,7 @@ class QuickRequestOrchestrator
     {
         try {
             // Load manufacturer and determine form ID
-            $manufacturer = \App\Models\Manufacturer::find($episode->manufacturer_id);
+            $manufacturer = \App\Models\Order\Manufacturer::find($episode->manufacturer_id);
             
             if (!$manufacturer) {
                 throw new \Exception("Manufacturer not found for episode {$episode->id}");
@@ -1026,5 +1058,197 @@ class QuickRequestOrchestrator
             // Return default form ID
             return 'form2_IVR';
         }
+    }
+
+    /**
+     * Create episode with asynchronous FHIR processing for better performance
+     */
+    public function createEpisodeWithAsyncFhir(array $data): PatientManufacturerIVREpisode
+    {
+        try {
+            $this->logger->info('Creating episode with async FHIR processing');
+
+            DB::beginTransaction();
+
+            // Create episode immediately without waiting for FHIR
+            $episode = PatientManufacturerIVREpisode::create([
+                'patient_id' => $data['patient']['id'] ?? uniqid('patient-'),
+                'patient_fhir_id' => null, // Will be populated by async job
+                'patient_display_id' => $data['patient']['display_id'] ?? null,
+                'manufacturer_id' => $data['manufacturer_id'],
+                'status' => PatientManufacturerIVREpisode::STATUS_PROCESSING_FHIR,
+                'ivr_status' => PatientManufacturerIVREpisode::IVR_STATUS_PENDING,
+                'created_by' => Auth::id(),
+                'metadata' => [
+                    'is_async_fhir' => true,
+                    'patient_data' => $data['patient'] ?? [],
+                    'clinical_data' => $data['clinical'] ?? [],
+                    'provider_data' => $data['provider'] ?? [],
+                    'facility_data' => $data['facility'] ?? [],
+                    'organization_data' => $data['organization'] ?? [],
+                    'insurance_data' => $this->transformRequestDataForInsuranceHandler($data),
+                    'order_details' => $data['order_details'] ?? [],
+                    'created_by' => Auth::id(),
+                    'async_started_at' => now()->toISOString()
+                ]
+            ]);
+
+            // Create initial order immediately
+            $order = $this->orderHandler->createInitialOrder($episode, $data['order_details']);
+
+            DB::commit();
+
+            // Dispatch async job to create FHIR resources
+            dispatch(new CreateEpisodeFhirResourcesJob($episode->id, $data))
+                ->onQueue('fhir-processing');
+
+            $this->logger->info('Episode created with async FHIR processing queued', [
+                'episode_id' => $episode->id,
+                'status' => $episode->status
+            ]);
+
+            return $episode->load('orders');
+
+        } catch (Exception $e) {
+            DB::rollBack();
+            $this->logger->error('Failed to create episode with async FHIR', [
+                'error' => $e->getMessage()
+            ]);
+            throw new \Exception('Failed to create episode: ' . $e->getMessage());
+        }
+    }
+
+    /**
+     * Enhanced DocuSeal data preparation with AI optimization
+     */
+    public function prepareOptimizedDocusealData(PatientManufacturerIVREpisode $episode): array
+    {
+        try {
+            $this->logger->info('Preparing optimized DocuSeal data with AI enhancement');
+
+            // Get base data from orchestrator
+            $baseData = $this->prepareDocusealData($episode);
+
+            // Determine manufacturer form ID
+            $manufacturerFormId = $this->getManufacturerFormId($episode);
+
+            // Use AI service for enhanced field mapping
+            $aiEnhancedData = $this->callAIServiceForMapping($baseData, $manufacturerFormId, $episode);
+
+            // Merge AI enhancements with base data
+            $finalData = $this->mergeDataWithAIEnhancements($baseData, $aiEnhancedData);
+
+            // Add performance metrics
+            $finalData['_performance_metrics'] = [
+                'base_fields_count' => count($baseData),
+                'ai_enhanced_fields_count' => count($aiEnhancedData['mapped_fields'] ?? []),
+                'final_fields_count' => count($finalData),
+                'ai_quality_grade' => $aiEnhancedData['quality_grade'] ?? 'N/A',
+                'prepared_at' => now()->toISOString()
+            ];
+
+            return $finalData;
+
+        } catch (\Exception $e) {
+            $this->logger->error('Failed to prepare optimized DocuSeal data', [
+                'episode_id' => $episode->id,
+                'error' => $e->getMessage()
+            ]);
+            // Fallback to standard data preparation
+            return $this->prepareDocusealData($episode);
+        }
+    }
+
+    /**
+     * Call AI service for enhanced field mapping
+     */
+    private function callAIServiceForMapping(array $baseData, string $formId, PatientManufacturerIVREpisode $episode): array
+    {
+        try {
+            $client = new \GuzzleHttp\Client();
+            
+            $aiServiceUrl = config('services.medical_ai.url', 'http://localhost:8080');
+            
+            $response = $client->post("{$aiServiceUrl}/map-fields", [
+                'json' => [
+                    'ocr_data' => $baseData,
+                    'document_type' => 'insurance',
+                    'manufacturer_name' => $this->getManufacturerName($episode),
+                    'target_schema' => [
+                        'manufacturer_form_id' => $formId
+                    ],
+                    'include_confidence' => true
+                ],
+                'timeout' => 30
+            ]);
+
+            if ($response->getStatusCode() === 200) {
+                $result = json_decode($response->getBody(), true);
+                
+                $this->logger->info('AI service mapping successful', [
+                    'episode_id' => $episode->id,
+                    'form_id' => $formId,
+                    'quality_grade' => $result['quality_grade'] ?? 'N/A',
+                    'mapped_fields' => count($result['mapped_fields'] ?? [])
+                ]);
+
+                return $result;
+            }
+
+            throw new \Exception('AI service returned status: ' . $response->getStatusCode());
+
+        } catch (\Exception $e) {
+            $this->logger->warning('AI service mapping failed, using fallback', [
+                'episode_id' => $episode->id,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return basic mapping result
+            return [
+                'mapped_fields' => [],
+                'quality_grade' => 'C',
+                'suggestions' => ['AI service unavailable'],
+                'processing_notes' => ['Fallback mapping used']
+            ];
+        }
+    }
+
+    /**
+     * Merge AI enhancements with base data intelligently
+     */
+    private function mergeDataWithAIEnhancements(array $baseData, array $aiData): array
+    {
+        $merged = $baseData;
+        $aiMappedFields = $aiData['mapped_fields'] ?? [];
+
+        foreach ($aiMappedFields as $field => $value) {
+            // Only override if AI has higher confidence or field is empty
+            if (empty($merged[$field]) || $this->shouldUseAIValue($field, $merged[$field], $value, $aiData)) {
+                $merged[$field] = $value;
+            }
+        }
+
+        return $merged;
+    }
+
+    /**
+     * Determine if AI value should override existing value
+     */
+    private function shouldUseAIValue(string $field, $existingValue, $aiValue, array $aiData): bool
+    {
+        $confidenceScores = $aiData['confidence_scores'] ?? [];
+        $fieldConfidence = $confidenceScores[$field] ?? 0;
+
+        // Use AI value if confidence is high and values are significantly different
+        return $fieldConfidence > 0.8 && $existingValue !== $aiValue;
+    }
+
+    /**
+     * Get manufacturer name for episode
+     */
+    private function getManufacturerName(PatientManufacturerIVREpisode $episode): string
+    {
+        $manufacturer = \App\Models\Order\Manufacturer::find($episode->manufacturer_id);
+        return $manufacturer?->name ?? 'Unknown';
     }
 }

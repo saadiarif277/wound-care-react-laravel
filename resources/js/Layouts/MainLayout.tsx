@@ -3,9 +3,7 @@ import FlashMessages from '@/Components/Messages/FlashMessages';
 import RoleBasedNavigation from '@/Components/Navigation/RoleBasedNavigation';
 import { UserRole } from '@/types/roles';
 import { getRoleDisplayName } from '@/lib/roleUtils';
-import { AIOverlay, FloatingAIButton } from '@/Components/GhostAiUi';
-import { Toaster } from '@/Components/GhostAiUi/ui/toaster';
-import '@/Components/GhostAiUi/client-tools'; // Initialize Superinterface client tools
+// AI overlay imports removed to fix authentication conflicts
 import React from 'react';
 import {
   FiLogOut,
@@ -46,7 +44,7 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [currentUserRole, setCurrentUserRole] = React.useState<UserRole>(props.userRole || 'provider');
-  const [isAIOverlayVisible, setIsAIOverlayVisible] = React.useState(false);
+  // AI overlay state removed to fix authentication conflicts
 
   const currentPath = window.location.pathname;
   const user = props.auth?.user;
@@ -402,15 +400,7 @@ function ThemedLayout({ title, children }: MainLayoutProps) {
 
         <FlashMessages />
 
-        {/* AI Overlay System */}
-        <FloatingAIButton onClick={() => setIsAIOverlayVisible(true)} />
-        <AIOverlay
-          isVisible={isAIOverlayVisible}
-          onClose={() => setIsAIOverlayVisible(false)}
-        />
-
-        {/* Toast System */}
-        <Toaster />
+        {/* AI Overlay System removed to fix authentication conflicts */}
       </div>
     </>
   );

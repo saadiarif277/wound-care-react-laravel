@@ -12,15 +12,15 @@ class QuickFixFacilitySeeder extends Seeder
 {
     public function run()
     {
-        // Ensure we have an organization
-        $organization = Organization::first();
+        // Ensure we have customer organization for facilities
+        $customerOrganization = Organization::where('name', '!=', 'MSC Wound Care')->first();
 
-        if (!$organization) {
+        if (!$customerOrganization) {
             $account = \App\Models\Account::first() ?? \App\Models\Account::create([
                 'name' => 'Default Account',
             ]);
 
-            $organization = Organization::create([
+            $customerOrganization = Organization::create([
                 'account_id' => $account->id,
                 'name' => 'Test Healthcare Network',
                 'email' => 'admin@testhealthcare.com',
@@ -33,10 +33,26 @@ class QuickFixFacilitySeeder extends Seeder
             ]);
         }
 
-        // Create facilities if they don't exist
+        // Ensure we have MSC Wound Care organization for internal staff
+        $mscOrganization = Organization::firstOrCreate(
+            ['name' => 'MSC Wound Care'],
+            [
+                'account_id' => $customerOrganization->account_id,
+                'name' => 'MSC Wound Care',
+                'email' => 'admin@mscwoundcare.com',
+                'phone' => '(555) 123-4567',
+                'address' => '123 MSC Way',
+                'city' => 'MSC City',
+                'region' => 'MC',
+                'country' => 'US',
+                'postal_code' => '12346',
+            ]
+        );
+
+        // Create facilities if they don't exist (these belong to customer organizations)
         $facilities = [
             [
-                'organization_id' => $organization->id,
+                'organization_id' => $customerOrganization->id,
                 'name' => 'Main Medical Center',
                 'facility_type' => 'hospital',
                 'address' => '123 Healthcare Blvd',
@@ -50,7 +66,7 @@ class QuickFixFacilitySeeder extends Seeder
                 'facility_type' => 'hospital',
             ],
             [
-                'organization_id' => $organization->id,
+                'organization_id' => $customerOrganization->id,
                 'name' => 'Downtown Clinic',
                 'facility_type' => 'clinic',
                 'address' => '456 Downtown Ave',
@@ -63,7 +79,7 @@ class QuickFixFacilitySeeder extends Seeder
                 'active' => true,
             ],
             [
-                'organization_id' => $organization->id,
+                'organization_id' => $customerOrganization->id,
                 'name' => 'Suburban Health Center',
                 'facility_type' => 'clinic',
                 'address' => '789 Suburban Dr',
@@ -97,9 +113,28 @@ class QuickFixFacilitySeeder extends Seeder
         foreach ($providers as $provider) {
             // Set current organization if not set
             if (!$provider->current_organization_id) {
-                $provider->current_organization_id = $organization->id;
+                $provider->current_organization_id = $customerOrganization->id;
                 $provider->save();
                 $this->command->info("Set organization for user: {$provider->email}");
+            }
+
+            // Create organization_users relationship if it doesn't exist
+            $existingOrgUser = DB::table('organization_users')
+                ->where('user_id', $provider->id)
+                ->where('organization_id', $customerOrganization->id)
+                ->first();
+
+            if (!$existingOrgUser) {
+                DB::table('organization_users')->insert([
+                    'user_id' => $provider->id,
+                    'organization_id' => $customerOrganization->id,
+                    'role' => $provider->hasRole('office-manager') ? 'office-manager' : 'provider',
+                    'is_primary' => true,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("Created organization_users relationship for: {$provider->email}");
             }
 
             // Associate with facilities if not already associated
@@ -125,8 +160,27 @@ class QuickFixFacilitySeeder extends Seeder
         foreach ($admins as $admin) {
             // Set current organization if not set
             if (!$admin->current_organization_id) {
-                $admin->current_organization_id = $organization->id;
+                $admin->current_organization_id = $mscOrganization->id;
                 $admin->save();
+            }
+
+            // Create organization_users relationship if it doesn't exist
+            $existingOrgUser = DB::table('organization_users')
+                ->where('user_id', $admin->id)
+                ->where('organization_id', $mscOrganization->id)
+                ->first();
+
+            if (!$existingOrgUser) {
+                DB::table('organization_users')->insert([
+                    'user_id' => $admin->id,
+                    'organization_id' => $mscOrganization->id,
+                    'role' => $admin->hasRole('super-admin') ? 'super-admin' : 'msc-admin',
+                    'is_primary' => true,
+                    'is_active' => true,
+                    'created_at' => now(),
+                    'updated_at' => now(),
+                ]);
+                $this->command->info("Created organization_users relationship for admin: {$admin->email}");
             }
 
             // Associate with all facilities

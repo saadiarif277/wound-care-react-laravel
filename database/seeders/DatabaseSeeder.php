@@ -104,8 +104,11 @@ class DatabaseSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // Call OrganizationSeeder to create multiple organizations
+        // Call OrganizationSeeder to create multiple customer organizations
         $this->call(OrganizationSeeder::class);
+
+        // Create MSC Wound Care organization for internal staff
+        $mscOrganizationId = $this->createMscOrganization($accountId);
 
         // Create permissions
         $this->createPermissions();
@@ -119,11 +122,14 @@ class DatabaseSeeder extends Seeder
         // Assign roles to users
         $this->assignRolesToUsers($roleIds, $userIds);
 
-        // Create organization (legacy - kept for facilities association)
-        $organizationId = $this->createLegacyOrganization($accountId);
+        // Create customer organization (legacy - kept for customer users and facilities)
+        $customerOrganizationId = $this->createLegacyOrganization($accountId);
+
+        // Associate users with appropriate organizations based on their roles
+        $this->associateUsersWithOrganizations($userIds, $mscOrganizationId, $customerOrganizationId);
 
         // Create facilities
-        $facilityIds = $this->createFacilities($organizationId);
+        $facilityIds = $this->createFacilities($customerOrganizationId);
 
         // Associate users with facilities
         $this->associateUsersWithFacilities($userIds, $facilityIds);
@@ -577,6 +583,83 @@ class DatabaseSeeder extends Seeder
             'created_at'  => now(),
             'updated_at'  => now(),
         ]);
+    }
+
+    private function createMscOrganization($accountId): int
+    {
+        return DB::table('organizations')->insertGetId([
+            'account_id'  => $accountId,
+            'name'        => 'MSC Wound Care',
+            'email'       => 'admin@mscwoundcare.com',
+            'phone'       => '(555) 123-4567',
+            'address'     => '123 MSC Way',
+            'city'        => 'MSC City',
+            'region'      => 'MC',
+            'country'     => 'US',
+            'postal_code' => '12346',
+            'created_at'  => now(),
+            'updated_at'  => now(),
+        ]);
+    }
+
+    private function associateUsersWithOrganizations($userIds, $mscOrganizationId, $customerOrganizationId): void
+    {
+        // Associate users with the MSC organization
+        foreach ($userIds as $email => $userId) {
+            // Determine if the user is an MSC staff member
+            $isMscStaff = in_array($email, ['richard@mscwoundcare.com', 'admin@msc.com', 'rep@msc.com', 'subrep@msc.com']);
+
+            if ($isMscStaff) {
+                // Associate with MSC organization
+                DB::table('organization_users')->insert([
+                    'organization_id' => $mscOrganizationId,
+                    'user_id'         => $userId,
+                    'role'            => $this->getUserRoleByEmail($email),
+                    'is_primary'      => true,
+                    'is_active'       => true,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+                // Update user's current_organization_id
+                DB::table('users')->where('id', $userId)->update([
+                    'current_organization_id' => $mscOrganizationId,
+                ]);
+            } else {
+                // Associate with customer organization
+                DB::table('organization_users')->insert([
+                    'organization_id' => $customerOrganizationId,
+                    'user_id'         => $userId,
+                    'role'            => $this->getUserRoleByEmail($email),
+                    'is_primary'      => true,
+                    'is_active'       => true,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+                // Update user's current_organization_id
+                DB::table('users')->where('id', $userId)->update([
+                    'current_organization_id' => $customerOrganizationId,
+                ]);
+            }
+        }
+    }
+
+    private function getUserRoleByEmail($email): string
+    {
+        $roleMap = [
+            'richard@mscwoundcare.com' => 'super-admin',
+            'admin@msc.com'            => 'msc-admin',
+            'provider@example.com'     => 'provider',
+            'manager@example.com'      => 'office-manager',
+            'rep@msc.com'              => 'msc-rep',
+            'subrep@msc.com'           => 'msc-subrep',
+            'patient1@example.com'     => 'patient',
+            'patient2@example.com'     => 'patient',
+            'patient3@example.com'     => 'patient',
+            'patient4@example.com'     => 'patient',
+            'patient5@example.com'     => 'patient',
+        ];
+
+        return $roleMap[$email] ?? 'user';
     }
 
     private function createFacilities($organizationId): array

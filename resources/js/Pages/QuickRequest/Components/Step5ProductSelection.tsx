@@ -1,11 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import ProductSelectorQuickRequest from '@/Components/ProductCatalog/ProductSelectorQuickRequest';
 import { useTheme } from '@/contexts/ThemeContext';
 import { cn } from '@/theme/glass-theme';
 import { toast } from '@/Components/ui/toast';
 import api from '@/lib/api';
-import { initializeSanctum } from '@/lib/sanctum';
-import { Button } from '@/Components/ui/button';
 
 interface Product {
   id: number;
@@ -85,8 +83,7 @@ export default function Step5ProductSelection({
     pricing_access_level: string;
     commission_access_level: string;
   } | null>(null);
-  const [permissionsLoading, setPermissionsLoading] = useState(true);
-  const [sanctumInitialized, setSanctumInitialized] = useState(false);
+  // Removed permissionsLoading state - permissions now computed from props
 
   // Theme context with fallback
   let theme: 'dark' | 'light' = 'dark';
@@ -98,68 +95,31 @@ export default function Step5ProductSelection({
     // Fallback to dark theme if outside ThemeProvider
   }
 
-  // Initialize Sanctum before making any API calls
+  // Compute user permissions from currentUser prop (Inertia pattern)
   useEffect(() => {
-    const initAuth = async () => {
-      try {
-        await initializeSanctum();
-        setSanctumInitialized(true);
-      } catch (error) {
-        console.error('Failed to initialize Sanctum:', error);
-        // Continue anyway, but API calls might fail
-        setSanctumInitialized(true);
-      }
+    const role = currentUser?.role || 'unknown';
+    
+    // Define permissions based on user role
+    const permissions = {
+      can_view_financials: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
+      can_see_discounts: ['admin', 'super_admin', 'sales_rep'].includes(role),
+      can_see_msc_pricing: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
+      can_see_order_totals: ['admin', 'super_admin', 'sales_rep', 'provider'].includes(role),
+      pricing_access_level: ['admin', 'super_admin'].includes(role) ? 'full' : 
+                           ['sales_rep'].includes(role) ? 'limited' : 'none',
+      commission_access_level: ['admin', 'super_admin', 'sales_rep'].includes(role) ? 'full' : 'none'
     };
-
-    initAuth();
-  }, []);
-
-  // Fetch user permissions on mount - but only after Sanctum is initialized
-  useEffect(() => {
-    if (!sanctumInitialized) return;
-
-    const fetchUserPermissions = async () => {
-      try {
-        const response = await api.get('/api/quick-request/user-permissions');
-        const data = response.data || response;
-        
-        if (data.success && data.permissions) {
-          setUserPermissions(data.permissions);
-          
-          // Log permissions for debugging (especially for Office Manager role)
-          console.log('User permissions loaded:', {
-            role: data.permissions.user_role,
-            can_see_msc_pricing: data.permissions.can_see_msc_pricing,
-            can_see_order_totals: data.permissions.can_see_order_totals,
-            pricing_access_level: data.permissions.pricing_access_level
-          });
-        }
-      } catch (error) {
-        console.error('Error fetching user permissions:', error);
-        // Use default restrictive permissions on error
-        setUserPermissions({
-          can_view_financials: false,
-          can_see_discounts: false,
-          can_see_msc_pricing: false,
-          can_see_order_totals: false,
-          pricing_access_level: 'none',
-          commission_access_level: 'none'
-        });
-      } finally {
-        setPermissionsLoading(false);
-      }
-    };
-
-    fetchUserPermissions();
-  }, [sanctumInitialized]);
+    
+    setUserPermissions(permissions);
+    
+    console.log('✅ User permissions computed from props:', {
+      role,
+      permissions
+    });
+  }, [currentUser?.role]);
 
   // Fetch provider's onboarded products when provider_id changes or if current user is a provider
   useEffect(() => {
-    if (!sanctumInitialized) return;
-
-    // Only show products for selected provider
-    // providerOnboardedProducts is an array of product codes or IDs
-
     const fetchProviderProducts = async () => {
       // Determine which provider ID to use
       let providerId = formData.provider_id;
@@ -172,13 +132,13 @@ export default function Step5ProductSelection({
       if (providerId) {
         setLoading(true);
         try {
-          const response = await api.get(`/api/v1/providers/${providerId}/onboarded-products`);
-          const data = response.data || response;
-          if (data.success) {
-            setProviderOnboardedProducts(data.q_codes || []);
+          const response = await api.get<{ success: boolean; q_codes: string[] }>(`/api/v1/providers/${providerId}/onboarded-products`);
+          if (response.success) {
+            setProviderOnboardedProducts(response.q_codes || []);
           }
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error fetching provider products:', error);
+          // The axios interceptor will handle 401 errors and redirect to login
         } finally {
           setLoading(false);
         }
@@ -186,9 +146,10 @@ export default function Step5ProductSelection({
     };
 
     fetchProviderProducts();
-  }, [sanctumInitialized, formData.provider_id, currentUser?.id, currentUser?.role]);
+  }, [formData.provider_id, currentUser?.id, currentUser?.role]);
 
-  const handleProductsChange = async (selectedProducts: SelectedProduct[]) => {
+  // Memoized product change handler (2025 best practice: prevent unnecessary re-renders)
+  const handleProductsChange = useCallback(async (selectedProducts: SelectedProduct[]) => {
     // Store provider-product mapping in formData, format size as '2 x 2'
     const updatedProducts = selectedProducts.map((item) => ({
       ...item,
@@ -201,64 +162,59 @@ export default function Step5ProductSelection({
       selected_products: updatedProducts
     });
 
-    // Create draft episode if products are selected and we don't have an episode_id yet
-    if (updatedProducts.length > 0 && !formData.episode_id && sanctumInitialized) {
-      try {
-        // Get manufacturer name from the first selected product
-        const firstProduct = updatedProducts[0]?.product;
-        const manufacturerName = firstProduct?.manufacturer || 'Unknown';
+    // Following Inertia.js best practices: No API calls during form interactions
+    // The draft episode will be created during IVR generation or final submission when needed
+    console.log('✅ Products selected, episode will be created during submission:', updatedProducts.length);
+  }, [formData.provider_id, formData.episode_id, updateFormData]);
 
-        const response = await api.post('/api/v1/quick-request/create-draft-episode', {
-          form_data: formData,
-          manufacturer_name: manufacturerName
-        });
+  // Memoized role restrictions (2025 best practice: computed values)
+  const roleRestrictions = useMemo(() => {
+    return userPermissions || propRoleRestrictions || {
+      can_view_financials: false,
+      can_see_discounts: false,
+      can_see_msc_pricing: false,
+      can_see_order_totals: false,
+      pricing_access_level: 'none',
+      commission_access_level: 'none'
+    };
+  }, [userPermissions, propRoleRestrictions]);
 
-        if (response.data.success && response.data.episode_id) {
-          // Update form data with the episode ID
-          updateFormData({
-            episode_id: response.data.episode_id.toString()
-          });
-          console.log('✅ Draft episode created:', response.data.episode_id);
-        } else {
-          console.warn('Failed to create draft episode, will create during final submission');
-        }
-      } catch (error) {
-        console.error('Failed to create draft episode:', error);
-        toast.error('Failed to create draft episode. Please try again.');
-      }
-    }
-  };
+  // Memoized insurance type calculation (2025 best practice: avoid recalculation)
+  const insuranceType = useMemo(() => {
+    const primaryInsurance = formData.primary_insurance_name?.toLowerCase() || '';
+    const planType = formData.primary_plan_type?.toLowerCase() || '';
+    
+    if (primaryInsurance.includes('medicare')) return 'medicare';
+    if (primaryInsurance.includes('medicaid')) return 'medicaid';
+    if (planType === 'ppo' || planType === 'commercial') return 'ppo';
+    return 'commercial';
+  }, [formData.primary_insurance_name, formData.primary_plan_type]);
 
-  // Determine which role restrictions to use
-  const roleRestrictions = userPermissions || propRoleRestrictions || {
-    can_view_financials: false,
-    can_see_discounts: false,
-    can_see_msc_pricing: false,
-    can_see_order_totals: false,
-    pricing_access_level: 'none',
-    commission_access_level: 'none'
-  };
+  // Memoized wound size calculation (2025 best practice: avoid recalculation)
+  const woundSize = useMemo(() => {
+    return parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0');
+  }, [formData.wound_size_length, formData.wound_size_width]);
 
   return (
     <div className="space-y-6">
-      {(loading && formData.provider_id) || permissionsLoading || !sanctumInitialized ? (
+      {(loading && formData.provider_id) ? (
         <div className={cn(
           "p-8 text-center rounded-lg",
           theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'
         )}>
+          <div className="w-6 h-6 border-2 border-current border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           <p className={cn(
             "text-sm",
             theme === 'dark' ? 'text-gray-400' : 'text-gray-600'
           )}>
-            {!sanctumInitialized ? 'Initializing authentication...' : 
-             permissionsLoading ? 'Loading permissions...' : 'Loading provider products...'}
+            Loading provider products...
           </p>
         </div>
       ) : (
         <ProductSelectorQuickRequest
           providerOnboardedProducts={providerOnboardedProducts}
-          insuranceType={(formData.primary_insurance_name?.toLowerCase().includes('medicare')) ? 'medicare' : (formData.primary_insurance_name?.toLowerCase().includes('medicaid')) ? 'medicaid' : (formData.primary_plan_type?.toLowerCase() === 'ppo' || formData.primary_plan_type?.toLowerCase() === 'commercial') ? 'ppo' : 'commercial'}
-          woundSize={parseFloat(formData.wound_size_length || '0') * parseFloat(formData.wound_size_width || '0')}
+          insuranceType={insuranceType}
+          woundSize={woundSize}
           patientState={formData.patient_state}
           roleRestrictions={roleRestrictions}
           last24HourOrders={formData.last_24_hour_orders || []}

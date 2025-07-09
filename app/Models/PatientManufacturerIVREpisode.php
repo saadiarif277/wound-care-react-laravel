@@ -52,6 +52,7 @@ class PatientManufacturerIVREpisode extends Model
      * Status constants
      */
     const STATUS_DRAFT = 'draft';
+    const STATUS_PROCESSING_FHIR = 'processing_fhir';
     const STATUS_READY_FOR_REVIEW = 'ready_for_review';
     const STATUS_IVR_SENT = 'ivr_sent';
     const STATUS_IVR_VERIFIED = 'ivr_verified';

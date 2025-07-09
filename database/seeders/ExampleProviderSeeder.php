@@ -19,17 +19,24 @@ class ExampleProviderSeeder extends Seeder
             'updated_at' => now(),
         ]);
 
-        // 2. Create or get the organization with account_id
+        // 2. Create or get the customer organization with account_id
         $organization = DB::table('organizations')->updateOrInsert(
-            ['name' => 'Example Organization'],
+            ['name' => 'Example Healthcare Organization'],
             [
-                'name' => 'Example Organization',
+                'name' => 'Example Healthcare Organization',
                 'account_id' => $accountId,
+                'email' => 'admin@examplehealthcare.com',
+                'phone' => '(555) 000-1234',
+                'address' => '456 Healthcare Plaza',
+                'city' => 'Healthcare City',
+                'region' => 'HC',
+                'country' => 'US',
+                'postal_code' => '54321',
                 'created_at' => now(),
                 'updated_at' => now(),
             ]
         );
-        $organizationId = DB::table('organizations')->where('name', 'Example Organization')->value('id');
+        $organizationId = DB::table('organizations')->where('name', 'Example Healthcare Organization')->value('id');
 
         // 3. Create or get a manufacturer
         $manufacturerId = DB::table('manufacturers')->insertGetId([
@@ -85,6 +92,25 @@ class ExampleProviderSeeder extends Seeder
                 'created_at' => now(),
                 'updated_at' => now(),
             ]);
+        }
+
+        // 5.5. Create organization_users relationship if it doesn't exist
+        $existingOrgUser = DB::table('organization_users')
+            ->where('user_id', $providerId)
+            ->where('organization_id', $organizationId)
+            ->first();
+
+        if (!$existingOrgUser) {
+            DB::table('organization_users')->insert([
+                'user_id' => $providerId,
+                'organization_id' => $organizationId,
+                'role' => 'provider',
+                'is_primary' => true,
+                'is_active' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]);
+            $this->command->info('Created organization_users relationship for provider');
         }
 
         // 6. Create 5 products with proper manufacturer_id

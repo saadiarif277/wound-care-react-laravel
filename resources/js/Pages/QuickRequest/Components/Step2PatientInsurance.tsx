@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { FiCreditCard, FiRefreshCw, FiCheck, FiInfo, FiUpload } from 'react-icons/fi';
 import { cn } from '@/theme/glass-theme';
-import GoogleAddressAutocompleteWithFallback from '@/Components/GoogleAddressAutocompleteWithFallback';
+import GoogleAddressAutocompleteWithFallback, { ParsedAddressComponents } from '@/Components/GoogleAddressAutocompleteWithFallback';
 import PayerSearchInput from '@/Components/PayerSearchInput';
 import FormInputWithIndicator from '@/Components/ui/FormInputWithIndicator';
 import Select from '@/Components/ui/Select';
@@ -155,32 +155,33 @@ function Step2PatientInsurance({
     }
   };
 
-  const handleAddressSelect = (place: any) => {
-    const addressComponents = place.address_components || [];
-    const updates: any = {};
+  const handleAddressSelect = (place: any, parsedAddress?: ParsedAddressComponents) => {
+    if (!parsedAddress) return;
 
-    addressComponents.forEach((component: any) => {
-      const types = component.types;
-      if (types.includes('street_number')) {
-        updates.patient_address_line1 = component.long_name;
-      } else if (types.includes('route')) {
-        updates.patient_address_line1 = (updates.patient_address_line1 || '') + ' ' + component.long_name;
-      } else if (types.includes('locality')) {
-        updates.patient_city = component.long_name;
-      } else if (types.includes('administrative_area_level_1')) {
-        updates.patient_state = component.short_name;
-      } else if (types.includes('postal_code')) {
-        updates.patient_zip = component.long_name;
+    // Create FHIR-compliant address structure
+    const fhirAddress = {
+      text: place.formatted_address || '',
+      line: [],
+      city: parsedAddress.city || '',
+      state: parsedAddress.stateAbbreviation || '',
+      postalCode: parsedAddress.zipCode || '',
+      country: parsedAddress.countryCode || 'US'
+    };
+
+    // Build address line array
+    if (parsedAddress.streetAddress) {
+      fhirAddress.line.push(parsedAddress.streetAddress);
+    }
+
+    // Update form with FHIR-compliant structure
+    updateFormData({
+      patient: {
+        ...formData.patient,
+        address: fhirAddress
       }
     });
 
-    updateFormData(updates);
-
-    // TODO: Optional enhancement - Create FHIR patient record early if enough data is available
-    // This would provide patient_fhir_id sooner in the process
-    // if (hasMinimalPatientData(formData, updates)) {
-    //   createFhirPatientEarly(formData, updates);
-    // }
+    console.log('📝 Updated patient address in FHIR format:', fhirAddress);
   };
 
   // Auto-populate payer phone based on insurance selection
@@ -246,42 +247,55 @@ function Step2PatientInsurance({
       <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg">
         <h3 className="font-medium text-blue-900 dark:text-blue-300 mb-2">Patient Information</h3>
 
-        <div className="grid grid-cols-2 gap-4">
-          <FormInputWithIndicator
-            label="First Name"
-            value={formData.patient_first_name || ''}
-            onChange={(value) => updateFormData({ patient_first_name: value })}
-            required={true}
-            error={errors.patient_first_name}
-            isExtracted={formData.patient_first_name_extracted}
-            placeholder="Enter first name"
-          />
+        <div className="space-y-4">
+          {/* Name and Demographics */}
+          <div className="grid grid-cols-2 gap-4">
+            <FormInputWithIndicator
+              label="First Name"
+              value={formData.patient_first_name || ''}
+              onChange={(value) => updateFormData({ 
+                patient_first_name: value,
+                patient: { ...formData.patient, first_name: value }
+              })}
+              required={true}
+              error={errors.patient_first_name}
+              isExtracted={formData.patient_first_name_extracted}
+              placeholder="Enter first name"
+            />
 
-          <FormInputWithIndicator
-            label="Last Name"
-            value={formData.patient_last_name || ''}
-            onChange={(value) => updateFormData({ patient_last_name: value })}
-            required={true}
-            error={errors.patient_last_name}
-            isExtracted={formData.patient_last_name_extracted}
-            placeholder="Enter last name"
-          />
+            <FormInputWithIndicator
+              label="Last Name"
+              value={formData.patient_last_name || ''}
+              onChange={(value) => updateFormData({ 
+                patient_last_name: value,
+                patient: { ...formData.patient, last_name: value }
+              })}
+              required={true}
+              error={errors.patient_last_name}
+              isExtracted={formData.patient_last_name_extracted}
+              placeholder="Enter last name"
+            />
 
-          <FormInputWithIndicator
-            label="Date of Birth"
-            type="date"
-            value={formData.patient_dob || ''}
-            onChange={(value) => updateFormData({ patient_dob: value })}
-            required={true}
-            error={errors.patient_dob}
-            isExtracted={formData.patient_dob_extracted}
-          />
+            <FormInputWithIndicator
+              label="Date of Birth"
+              type="date"
+              value={formData.patient_dob || ''}
+              onChange={(value) => updateFormData({ 
+                patient_dob: value,
+                patient: { ...formData.patient, dob: value }
+              })}
+              required={true}
+              error={errors.patient_dob}
+              isExtracted={formData.patient_dob_extracted}
+            />
 
-          <div>
             <Select
               label="Gender"
               value={formData.patient_gender || ''}
-              onChange={(e) => updateFormData({ patient_gender: e.target.value })}
+              onChange={(e) => updateFormData({ 
+                patient_gender: e.target.value,
+                patient: { ...formData.patient, gender: e.target.value }
+              })}
               options={[
                 { value: 'male', label: 'Male' },
                 { value: 'female', label: 'Female' },
@@ -289,77 +303,38 @@ function Step2PatientInsurance({
                 { value: 'unknown', label: 'Prefer not to say' }
               ]}
               placeholder="Please Select"
+              error={errors.patient_gender}
             />
           </div>
-        </div>
 
-        {/* Address */}
-        <div className="mt-4 grid grid-cols-1 gap-4">
+          {/* Address - Single Google Autocomplete Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Address Line 1
+              Patient Address <span className="text-red-500">*</span>
             </label>
             <GoogleAddressAutocompleteWithFallback
               onPlaceSelect={handleAddressSelect}
-              value={formData.patient_address_line1}
-              onChange={(value) => updateFormData({ patient_address_line1: value })}
-              defaultValue={formData.patient_address_line1}
+              value={formData.patient?.address?.text || ''}
+              onChange={(value) => updateFormData({
+                patient: {
+                  ...formData.patient,
+                  address: {
+                    ...formData.patient?.address,
+                    text: value
+                  }
+                }
+              })}
+              defaultValue={formData.patient?.address?.text || ''}
               className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
               placeholder="Start typing address..."
+              required
             />
+            {errors.patient_address && (
+              <p className="mt-1 text-sm text-red-500">{errors.patient_address}</p>
+            )}
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Address Line 2
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-              value={formData.patient_address_line2 || ''}
-              onChange={(e) => updateFormData({ patient_address_line2: e.target.value })}
-              placeholder="Apartment, suite, etc. (optional)"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                City
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.patient_city || ''}
-                onChange={(e) => updateFormData({ patient_city: e.target.value })}
-              />
-            </div>
-
-            <div>
-              <Select
-                label="State"
-                value={formData.patient_state || ''}
-                onChange={(e) => updateFormData({ patient_state: e.target.value })}
-                options={states.map(state => ({ value: state, label: state }))}
-                placeholder="Please Select"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                ZIP Code
-              </label>
-              <input
-                type="text"
-                className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
-                value={formData.patient_zip || ''}
-                onChange={(e) => updateFormData({ patient_zip: e.target.value })}
-                placeholder="12345"
-                maxLength={10}
-              />
-            </div>
-          </div>
-
+          {/* Contact Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -369,7 +344,10 @@ function Step2PatientInsurance({
                 type="tel"
                 className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 value={formData.patient_phone || ''}
-                onChange={(e) => updateFormData({ patient_phone: e.target.value })}
+                onChange={(e) => updateFormData({ 
+                  patient_phone: e.target.value,
+                  patient: { ...formData.patient, phone: e.target.value }
+                })}
                 placeholder="(555) 123-4567"
               />
             </div>
@@ -382,13 +360,15 @@ function Step2PatientInsurance({
                 type="email"
                 className="w-full p-2 border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-2 focus:ring-blue-500"
                 value={formData.patient_email || ''}
-                onChange={(e) => updateFormData({ patient_email: e.target.value })}
+                onChange={(e) => updateFormData({ 
+                  patient_email: e.target.value,
+                  patient: { ...formData.patient, email: e.target.value }
+                })}
                 placeholder="patient@email.com"
               />
             </div>
           </div>
         </div>
-
       </div>
 
       {/* Service Date & Shipping */}

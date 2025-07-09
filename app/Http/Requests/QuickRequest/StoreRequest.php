@@ -34,11 +34,23 @@ class StoreRequest extends FormRequest
             'patient_dob' => 'required|date|before:today',
             'patient_gender' => 'nullable|in:male,female,other,unknown',
             'patient_member_id' => 'nullable|string|max:255',
+            
+            // FHIR-compliant address structure (new format)
+            'patient.address.text' => 'nullable|string|max:500',
+            'patient.address.line' => 'nullable|array|max:5',
+            'patient.address.line.*' => 'nullable|string|max:255',
+            'patient.address.city' => 'nullable|string|max:255',
+            'patient.address.state' => 'nullable|string|max:50',
+            'patient.address.postalCode' => 'nullable|string|max:10',
+            'patient.address.country' => 'nullable|string|max:50',
+            
+            // Legacy address fields (backwards compatibility)
             'patient_address_line1' => 'nullable|string|max:255',
             'patient_address_line2' => 'nullable|string|max:255',
             'patient_city' => 'nullable|string|max:255',
             'patient_state' => 'nullable|string|max:2',
             'patient_zip' => 'nullable|string|max:10',
+            
             'patient_phone' => 'nullable|string|max:20',
             'patient_email' => 'nullable|email|max:255',
             'patient_is_subscriber' => 'required|boolean',
@@ -72,7 +84,7 @@ class StoreRequest extends FormRequest
             'prior_auth_permission' => 'required|boolean',
 
             // Clinical Information
-            'wound_type' => 'required|string|wound_type',
+            'wound_type' => ['required', 'string', new \App\Rules\WoundTypeRule()],
             'wound_types' => 'nullable|array|min:1',
             'wound_other_specify' => 'nullable|string|max:255',
             'wound_location' => 'required|string|max:255',
@@ -178,36 +190,36 @@ class StoreRequest extends FormRequest
         });
     }
 
-
-
     /**
      * Validate wound duration fields
      */
     private function validateWoundDurationFields($validator): void
     {
+        $data = $validator->getData();
         $hasAnyDuration =
-            !empty($this->wound_duration_days) ||
-            !empty($this->wound_duration_weeks) ||
-            !empty($this->wound_duration_months) ||
-            !empty($this->wound_duration_years);
+            !empty($data['wound_duration_days']) ||
+            !empty($data['wound_duration_weeks']) ||
+            !empty($data['wound_duration_months']) ||
+            !empty($data['wound_duration_years']);
 
         if (!$hasAnyDuration) {
             $validator->errors()->add('wound_duration', 'At least one duration field (days, weeks, months, or years) is required.');
         }
     }
 
-        /**
+    /**
      * Validate diagnosis codes based on wound type
      */
     private function validateDiagnosisCodes($validator): void
     {
-        $woundType = \App\Services\WoundTypeService::normalizeToEnum($this->wound_type);
+        $data = $validator->getData();
+        $woundType = \App\Rules\WoundTypeRule::normalize($data['wound_type'] ?? '');
 
         if (in_array($woundType, ['DFU', 'VLU'])) {
-            if (empty($this->primary_diagnosis_code) || empty($this->secondary_diagnosis_code)) {
+            if (empty($data['primary_diagnosis_code']) || empty($data['secondary_diagnosis_code'])) {
                 $validator->errors()->add('diagnosis_code', 'This wound type requires both a primary and secondary diagnosis code.');
             }
-        } elseif (empty($this->diagnosis_code) && empty($this->primary_diagnosis_code)) {
+        } elseif (empty($data['diagnosis_code']) && empty($data['primary_diagnosis_code'])) {
             $validator->errors()->add('diagnosis_code', 'A diagnosis code is required.');
         }
     }

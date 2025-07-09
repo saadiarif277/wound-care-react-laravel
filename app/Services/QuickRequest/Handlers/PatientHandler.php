@@ -139,6 +139,74 @@ class PatientHandler extends BaseHandler
             'birthDate' => $data['dob']
         ];
 
+        // Add US Core 8.0.0 Extensions for enhanced compliance
+        $extensions = [];
+        
+        // US Core Race Extension
+        if (!empty($data['race'])) {
+            $extensions[] = [
+                'url' => 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-race',
+                'extension' => [
+                    [
+                        'url' => 'ombCategory',
+                        'valueCoding' => [
+                            'system' => 'urn:oid:2.16.840.1.113883.6.238',
+                            'code' => $this->mapRaceToOmbCode($data['race']),
+                            'display' => $data['race']
+                        ]
+                    ],
+                    [
+                        'url' => 'text',
+                        'valueString' => $data['race']
+                    ]
+                ]
+            ];
+        }
+        
+        // US Core Ethnicity Extension  
+        if (!empty($data['ethnicity'])) {
+            $extensions[] = [
+                'url' => 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-ethnicity',
+                'extension' => [
+                    [
+                        'url' => 'ombCategory',
+                        'valueCoding' => [
+                            'system' => 'urn:oid:2.16.840.1.113883.6.238',
+                            'code' => $this->mapEthnicityToOmbCode($data['ethnicity']),
+                            'display' => $data['ethnicity']
+                        ]
+                    ],
+                    [
+                        'url' => 'text',
+                        'valueString' => $data['ethnicity']
+                    ]
+                ]
+            ];
+        }
+        
+        // US Core Birth Sex Extension
+        if (!empty($data['birth_sex'])) {
+            $extensions[] = [
+                'url' => 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-birthsex',
+                'valueCode' => strtoupper($data['birth_sex'])
+            ];
+        }
+        
+        // US Core Sex Extension (for clinical use)
+        if (!empty($data['sex_for_clinical_use'])) {
+            $extensions[] = [
+                'url' => 'http://hl7.org/fhir/us/core/StructureDefinition/us-core-sex',
+                'valueCoding' => [
+                    'system' => 'http://terminology.hl7.org/CodeSystem/usage-context-type',
+                    'code' => $data['sex_for_clinical_use']
+                ]
+            ];
+        }
+        
+        if (!empty($extensions)) {
+            $resource['extension'] = $extensions;
+        }
+
         // Add contact information
         $telecom = [];
         if (!empty($data['phone'])) {
@@ -158,20 +226,51 @@ class PatientHandler extends BaseHandler
             $resource['telecom'] = $telecom;
         }
 
-        // Add address
-        if (!empty($data['address_line1'])) {
+        // Add address (FHIR R4 2025 compliant)
+        if (isset($data['address']) && is_array($data['address'])) {
+            // New FHIR-compliant address structure
+            $address = $data['address'];
             $resource['address'] = [
                 [
                     'use' => 'home',
                     'type' => 'physical',
-                    'line' => array_filter([
-                        $data['address_line1'],
-                        $data['address_line2'] ?? null
-                    ]),
+                    'text' => $address['text'] ?? null,
+                    'line' => array_filter($address['line'] ?? []),
+                    'city' => $address['city'] ?? null,
+                    'district' => $address['district'] ?? null, // Added for enhanced compliance
+                    'state' => $address['state'] ?? null,
+                    'postalCode' => $address['postalCode'] ?? null,
+                    'country' => $address['country'] ?? 'US',
+                    'period' => [
+                        'start' => date('Y-m-d')
+                    ]
+                ]
+            ];
+        } elseif (!empty($data['address_line1'])) {
+            // Legacy address structure (backwards compatibility)
+            $addressLines = array_filter([
+                $data['address_line1'],
+                $data['address_line2'] ?? null
+            ]);
+            
+            $resource['address'] = [
+                [
+                    'use' => 'home',
+                    'type' => 'physical',
+                    'text' => implode(', ', array_filter([
+                        implode(' ', $addressLines),
+                        $data['city'] ?? null,
+                        $data['state'] ?? null,
+                        $data['zip'] ?? null
+                    ])),
+                    'line' => $addressLines,
                     'city' => $data['city'] ?? null,
                     'state' => $data['state'] ?? null,
                     'postalCode' => $data['zip'] ?? null,
-                    'country' => 'USA'
+                    'country' => 'US',
+                    'period' => [
+                        'start' => date('Y-m-d')
+                    ]
                 ]
             ];
         }
@@ -220,5 +319,39 @@ class PatientHandler extends BaseHandler
         ];
 
         return $statusMap[strtolower($status)] ?? 'UNK';
+    }
+
+    /**
+     * Map race to OMB Category codes for US Core compliance
+     */
+    private function mapRaceToOmbCode(string $race): string
+    {
+        $raceMap = [
+            'american indian or alaska native' => '1002-5',
+            'asian' => '2028-9',
+            'black or african american' => '2054-5',
+            'native hawaiian or other pacific islander' => '2076-8',
+            'white' => '2106-3',
+            'other' => 'OTH',
+            'unknown' => 'UNK',
+            'asked but unknown' => 'ASKU'
+        ];
+
+        return $raceMap[strtolower($race)] ?? 'UNK';
+    }
+
+    /**
+     * Map ethnicity to OMB Category codes for US Core compliance  
+     */
+    private function mapEthnicityToOmbCode(string $ethnicity): string
+    {
+        $ethnicityMap = [
+            'hispanic or latino' => '2135-2',
+            'not hispanic or latino' => '2186-5',
+            'unknown' => 'UNK',
+            'asked but unknown' => 'ASKU'
+        ];
+
+        return $ethnicityMap[strtolower($ethnicity)] ?? 'UNK';
     }
 }

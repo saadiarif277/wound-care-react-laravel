@@ -729,13 +729,34 @@ class QuickRequestController extends Controller
     public function createIvrSubmission(Request $request): JsonResponse
     {
         $validated = $request->validate([
-            'episode_id' => 'required|string|exists:patient_manufacturer_ivr_episodes,id',
-            'manufacturer_name' => 'required|string',
+            'form_data' => 'required|array',
+            'template_id' => 'nullable|string',
         ]);
 
         try {
-            // Load the episode
-            $episode = PatientManufacturerIVREpisode::findOrFail($validated['episode_id']);
+            // Extract form data
+            $formData = $validated['form_data'];
+            $templateId = $validated['template_id'];
+
+            // Create or get draft episode from form data
+            $episode = null;
+            if (!empty($formData['episode_id'])) {
+                $episode = PatientManufacturerIVREpisode::find($formData['episode_id']);
+            }
+
+            // Create draft episode if not exists
+            if (!$episode) {
+                $episode = $this->orchestrator->createDraftEpisode([
+                    'patient' => $this->extractPatientData($formData),
+                    'provider' => $this->extractProviderData($formData),
+                    'facility' => $this->extractFacilityData($formData),
+                    'organization' => $this->extractOrganizationData(),
+                    'clinical' => $this->extractClinicalData($formData),
+                    'insurance' => $this->extractInsuranceData($formData),
+                    'order_details' => $this->extractOrderData($formData),
+                    'manufacturer_id' => $this->getManufacturerIdFromProducts($formData['selected_products'] ?? []),
+                ]);
+            }
 
             // Check if user has permission to access this episode
             if ((int)$episode->created_by !== Auth::id()) {
@@ -745,14 +766,18 @@ class QuickRequestController extends Controller
                 ], 403);
             }
 
-            // Get comprehensive data from orchestrator
+            // Get comprehensive data from orchestrator with FHIR integration
             $comprehensiveData = $this->orchestrator->prepareDocusealData($episode);
 
-            // Create Docuseal submission using comprehensive data
-            $result = $this->docusealService->createSubmissionFromOrchestratorData(
-                $episode,
+            // Determine manufacturer from products
+            $manufacturerName = $this->getManufacturerNameFromProducts($formData['selected_products'] ?? []);
+            
+            // Use DocuSeal service to create submission
+            $result = $this->docusealService->createOrUpdateSubmission(
+                $episode->id,
+                $manufacturerName,
                 $comprehensiveData,
-                $validated['manufacturer_name']
+                $templateId
             );
 
             if (!$result['success']) {
@@ -761,27 +786,30 @@ class QuickRequestController extends Controller
 
             Log::info('IVR submission created successfully using orchestrator data', [
                 'episode_id' => $episode->id,
-                'submission_id' => $result['submission']['id'],
+                'submission_id' => $result['submission']['id'] ?? null,
                 'user_id' => Auth::id(),
-                'manufacturer' => $validated['manufacturer_name']
+                'manufacturer' => $manufacturerName,
+                'data_fields_count' => count($comprehensiveData),
+                'fhir_integration' => !empty($episode->fhir_ids)
             ]);
 
             return response()->json([
                 'success' => true,
-                'submission_id' => $result['submission']['id'],
+                'episode_id' => $episode->id,
+                'submission_id' => $result['submission']['id'] ?? null,
                 'slug' => $result['submission']['slug'] ?? null,
                 'embed_url' => $result['submission']['embed_url'] ?? null,
                 'status' => $result['submission']['status'] ?? 'pending',
-                'manufacturer' => $result['manufacturer'],
-                'mapped_fields_count' => count($result['mapped_data']),
-                'completeness_percentage' => $result['completeness']['percentage'] ?? 0,
-                'message' => 'IVR submission created successfully with comprehensive data'
+                'manufacturer' => $manufacturerName,
+                'mapped_fields_count' => count($comprehensiveData),
+                'fhir_data_used' => !empty($episode->fhir_ids),
+                'completeness_percentage' => $this->calculateFieldCompleteness($comprehensiveData),
+                'message' => 'IVR submission created successfully with comprehensive FHIR data'
             ]);
 
         } catch (\Exception $e) {
             Log::error('Failed to create IVR submission using orchestrator data', [
-                'episode_id' => $validated['episode_id'],
-                'manufacturer' => $validated['manufacturer_name'],
+                'form_data_keys' => array_keys($formData ?? []),
                 'user_id' => Auth::id(),
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -865,5 +893,35 @@ class QuickRequestController extends Controller
                 'message' => 'Failed to create draft episode: ' . $e->getMessage()
             ], 500);
         }
+    }
+
+    /**
+     * Get manufacturer name from products
+     */
+    private function getManufacturerNameFromProducts(array $products): string
+    {
+        if (empty($products)) {
+            return 'Unknown';
+        }
+
+        $firstProduct = $products[0];
+        return $firstProduct['product']['manufacturer'] ?? 'Unknown';
+    }
+
+    /**
+     * Calculate field completeness percentage
+     */
+    private function calculateFieldCompleteness(array $data): int
+    {
+        $totalFields = count($data);
+        $completedFields = 0;
+
+        foreach ($data as $value) {
+            if (!empty($value) && $value !== '' && $value !== null) {
+                $completedFields++;
+            }
+        }
+
+        return $totalFields > 0 ? round(($completedFields / $totalFields) * 100) : 0;
     }
 }
