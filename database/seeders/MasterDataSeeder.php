@@ -534,6 +534,7 @@ class MasterDataSeeder extends Seeder
                 [
                     'name' => $productData['name'],
                     'manufacturer_id' => $manufacturer->id,
+                    'manufacturer' => $manufacturer->name, // Add manufacturer name
                     'category' => $productData['category'],
                     'q_code' => $productData['q_code'],
                     'national_asp' => $productData['national_asp'],
