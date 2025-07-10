@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import axios from 'axios';
+import api from '@/lib/api';
 import { AlertCircle, Bug, CheckCircle2, FileText, Shield, Clock, Heart, Zap, Award, Brain } from 'lucide-react';
 import { DocusealForm } from '@docuseal/react';
 
@@ -177,7 +177,7 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         ...(episodeId && { episode_id: episodeId })
       };
 
-      console.log('Sending enhanced Docuseal request with FHIR support:', {
+      console.log('🔄 Sending enhanced Docuseal request with FHIR support:', {
         manufacturerId,
         templateId,
         productCode,
@@ -195,25 +195,34 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
         setMappingProgress('Mapping form fields with AI...');
       }
 
-      const response = await axios.post<DocusealResponse>(
+      const response = await api.post<DocusealResponse>(
         '/quick-requests/docuseal/generate-submission-slug',
-        requestData,
-        {
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
-          },
-          timeout: 30000
-        }
+        requestData
       );
 
-      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response.data;
+      // Validate response structure
+      if (!response) {
+        throw new Error('No response received from server');
+      }
+
+      if (!response.slug) {
+        // Check if this is an error response with a message
+        if ((response as any).error) {
+          throw new Error((response as any).error);
+        }
+        if ((response as any).message) {
+          throw new Error((response as any).message);
+        }
+        throw new Error('No submission URL received from server');
+      }
+
+      const { slug, template_id, integration_type, fhir_data_used, fields_mapped, template_name, manufacturer, ai_mapping_used, ai_confidence } = response;
 
       if (!slug) {
         throw new Error('No slug received from server');
       }
 
-      console.log('Docuseal submission created successfully:', response.data);
+      console.log('Docuseal submission created successfully:', response);
 
       // Store integration info for display
       setIntegrationInfo({
@@ -236,37 +245,56 @@ export const DocusealEmbed: React.FC<DocusealEmbedProps> = ({
 
       if (debug) {
         console.group('🔍 DocusealEmbed Debug - API Response');
-        console.log('Response Status:', response.status);
-        console.log('Response Data:', response.data);
-        console.log('Slug:', response.data.slug);
-        console.log('Fields Mapped:', response.data.fields_mapped);
-        console.log('Mapping Method:', response.data.mapping_method);
-        console.log('Integration Type:', response.data.integration_type);
+        console.log('Response Data:', response);
+        console.log('Slug:', response.slug);
+        console.log('Fields Mapped:', response.fields_mapped);
+        console.log('Mapping Method:', response.mapping_method);
+        console.log('Integration Type:', response.integration_type);
         console.groupEnd();
       }
     } catch (err: any) {
       console.error('Docuseal token fetch error:', {
         error: err,
+        message: err.message,
         response: err.response?.data,
         status: err.response?.status
       });
 
       let msg = 'Failed to load document form';
 
-      if (err.response?.status === 401) {
-        msg = 'Authentication failed. Please check API configuration.';
-      } else if (err.response?.status === 403) {
-        msg = 'Permission denied. You may not have access to this feature.';
-      } else if (err.response?.status === 422) {
-        msg = err.response?.data?.message || 'Invalid request data';
-      } else if (err.response?.status === 500) {
-        msg = 'Server error occurred. Please try again or contact support.';
-      } else if (err.response?.data?.error) {
-        msg = err.response.data.error;
-      } else if (err.response?.data?.message) {
-        msg = err.response.data.message;
+      // Check for axios error response first
+      if (err.response?.status) {
+        const status = err.response.status;
+        const responseData = err.response.data;
+
+        if (status === 419) {
+          msg = 'Session expired. Please refresh the page and try again.';
+        } else if (status === 401) {
+          msg = 'Authentication failed. Please log in again.';
+        } else if (status === 403) {
+          msg = 'Permission denied. You may not have access to this feature.';
+        } else if (status === 422) {
+          msg = responseData?.message || 'Invalid request data. Please check the form fields.';
+        } else if (status === 500) {
+          msg = 'Server error occurred. Please try again or contact support.';
+        } else if (responseData?.error) {
+          msg = responseData.error;
+        } else if (responseData?.message) {
+          msg = responseData.message;
+        }
       } else if (err.message) {
-        msg = err.message;
+        // Fallback to error message
+        if (err.message.includes('401') || err.message.includes('Unauthorized')) {
+          msg = 'Authentication failed. Please check API configuration.';
+        } else if (err.message.includes('403') || err.message.includes('Forbidden')) {
+          msg = 'Permission denied. You may not have access to this feature.';
+        } else if (err.message.includes('422') || err.message.includes('validation')) {
+          msg = 'Invalid request data. Please check the form fields.';
+        } else if (err.message.includes('500') || err.message.includes('Server Error')) {
+          msg = 'Server error occurred. Please try again or contact support.';
+        } else {
+          msg = err.message;
+        }
       }
 
       setError(msg);

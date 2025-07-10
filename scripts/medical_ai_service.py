@@ -165,7 +165,7 @@ async def enhance_mapping(request: FieldMappingRequest):
         
         # Build AI prompt
         system_prompt = build_system_prompt(manufacturer_context, template_structure)
-        user_prompt = build_user_prompt(base_data, fhir_context, episode_data)
+        user_prompt = build_user_prompt(base_data, fhir_context, episode_data, template_structure)
         
         # Call Azure OpenAI
         response = azure_client.chat.completions.create(
@@ -202,38 +202,58 @@ async def enhance_mapping(request: FieldMappingRequest):
         return get_fallback_enhancement(request.context)
 
 def build_system_prompt(manufacturer_context: Dict, template_structure: Dict) -> str:
-    """Build system prompt for AI"""
+    """Build system prompt for AI with dynamic template support"""
     manufacturer_name = manufacturer_context.get('name', 'Unknown')
-    required_fields = manufacturer_context.get('requirements', {}).get('required_fields', [])
+    
+    # Check if we have dynamic template fields
+    template_fields = template_structure.get('template_fields', {})
+    if template_fields and 'field_names' in template_fields:
+        # Dynamic template mode
+        field_names = template_fields['field_names']
+        required_fields = template_fields.get('required_fields', [])
+        field_types = template_fields.get('field_types', {})
+        
+        template_info = f"""
+TEMPLATE FIELDS (Exact names from DocuSeal):
+{', '.join(field_names)}
+
+REQUIRED FIELDS: {', '.join(required_fields) if required_fields else 'None specified'}
+
+FIELD TYPES: {json.dumps(field_types, indent=2) if field_types else 'Not specified'}"""
+    else:
+        # Fallback to old mode
+        required_fields = manufacturer_context.get('requirements', {}).get('required_fields', [])
+        template_info = f"REQUIRED FIELDS: {', '.join(required_fields) if required_fields else 'None specified'}"
     
     return f"""You are an expert medical AI assistant specializing in insurance verification request (IVR) forms for wound care products.
 
 Your task is to intelligently map and enhance form fields using clinical data, patient information, and FHIR resources.
 
 MANUFACTURER: {manufacturer_name}
-REQUIRED FIELDS: {', '.join(required_fields) if required_fields else 'None specified'}
+{template_info}
 
 FIELD MAPPING RULES:
-1. Prioritize patient safety and clinical accuracy
-2. Use FHIR data when available and reliable
-3. Only fill fields you're confident about (>70% confidence)
-4. Preserve existing data unless clearly incorrect
-5. Use standard medical coding (ICD-10, CPT, HCPCS)
-6. Format dates as YYYY-MM-DD
-7. Format phone numbers as (XXX) XXX-XXXX
-8. Use proper case for names and addresses
+1. **USE EXACT FIELD NAMES**: Only use field names that exactly match the template field names provided above
+2. Prioritize patient safety and clinical accuracy
+3. Use FHIR data when available and reliable
+4. Only fill fields you're confident about (>70% confidence)
+5. Preserve existing data unless clearly incorrect
+6. Use standard medical coding (ICD-10, CPT, HCPCS)
+7. Format dates as YYYY-MM-DD
+8. Format phone numbers as (XXX) XXX-XXXX
+9. Use proper case for names and addresses
 
 RESPONSE FORMAT:
 Return a JSON object with:
-- "enhanced_fields": object with field mappings
+- "enhanced_fields": object with field mappings using EXACT template field names
 - "confidence": overall confidence score (0.0-1.0)
 - "field_confidence": object with per-field confidence scores
 - "recommendations": array of improvement suggestions
 
-Be conservative - only enhance fields where you have high confidence."""
+CRITICAL: Only use field names that exist in the template. Do not invent or modify field names."""
 
-def build_user_prompt(base_data: Dict, fhir_context: Dict, episode_data: Dict) -> str:
-    """Build user prompt with context data"""
+def build_user_prompt(base_data: Dict, fhir_context: Dict, episode_data: Dict, template_structure: Dict = None) -> str:
+    """Build user prompt with context data and template information"""
     
     prompt_parts = [
         "Please enhance the following medical form fields using the provided context:",
@@ -246,14 +266,31 @@ def build_user_prompt(base_data: Dict, fhir_context: Dict, episode_data: Dict) -
         "",
         "EPISODE INFORMATION:",
         json.dumps(episode_data, indent=2),
+    ]
+    
+    # Add template field information if available
+    template_fields = template_structure.get('template_fields', {}) if template_structure else {}
+    if template_fields and 'field_names' in template_fields:
+        prompt_parts.extend([
+            "",
+            "TEMPLATE FIELD MAPPING GUIDANCE:",
+            f"Available template fields: {', '.join(template_fields['field_names'])}",
+            f"Required fields: {', '.join(template_fields.get('required_fields', []))}",
+            "",
+            "IMPORTANT: Map data to the exact field names listed above. Do not create new field names."
+        ])
+    
+    prompt_parts.extend([
         "",
-        "Please provide enhanced field mappings with high confidence, focusing on:"
+        "Please provide enhanced field mappings with high confidence, focusing on:",
         "1. Patient demographics and contact information",
         "2. Provider and facility information", 
         "3. Clinical details and diagnosis codes",
         "4. Insurance and coverage information",
-        "5. Wound assessment and treatment details"
-    ]
+        "5. Wound assessment and treatment details",
+        "",
+        "Remember: Use only the exact template field names provided above."
+    ])
     
     return "\n".join(prompt_parts)
 
@@ -272,8 +309,8 @@ def parse_ai_response(ai_content: str, base_data: Dict, template_structure: Dict
             confidence = ai_data.get('confidence', 0.5)
             field_confidence = ai_data.get('field_confidence', {})
             
-            # Validate enhanced fields
-            validated_fields = validate_enhanced_fields(enhanced_fields, base_data)
+            # Validate enhanced fields with template support
+            validated_fields = validate_enhanced_fields(enhanced_fields, base_data, template_structure)
             
             return validated_fields, confidence, field_confidence
             
@@ -283,28 +320,57 @@ def parse_ai_response(ai_content: str, base_data: Dict, template_structure: Dict
     # Fallback to basic enhancement
     return perform_basic_enhancement(base_data), 0.3, {}
 
-def validate_enhanced_fields(enhanced_fields: Dict, base_data: Dict) -> Dict:
-    """Validate and sanitize enhanced fields"""
+def validate_enhanced_fields(enhanced_fields: Dict, base_data: Dict, template_structure: Dict = None) -> Dict:
+    """Validate and sanitize enhanced fields with template support"""
     validated = {}
+    
+    # Get template field names if available
+    template_fields = template_structure.get('template_fields', {}) if template_structure else {}
+    valid_field_names = template_fields.get('field_names', []) if template_fields else []
+    field_types = template_fields.get('field_types', {}) if template_fields else {}
     
     for field, value in enhanced_fields.items():
         if value is None or value == "":
             continue
-            
-        # Basic validation based on field type
-        if 'date' in field.lower() or 'dob' in field.lower():
-            validated_value = validate_date(value)
-        elif 'phone' in field.lower():
-            validated_value = validate_phone(value)
-        elif 'email' in field.lower():
-            validated_value = validate_email(value)
-        else:
-            validated_value = str(value).strip()
         
-        if validated_value:
+        # Check if field name is valid (if we have template info)
+        if valid_field_names and field not in valid_field_names:
+            logger.warning(f"Skipping invalid field name: {field} (not in template)")
+            continue
+            
+        # Get field type from template or infer from field name
+        field_type = field_types.get(field, 'text').lower()
+        
+        # Validate based on field type
+        if field_type in ['date'] or 'date' in field.lower() or 'dob' in field.lower():
+            validated_value = validate_date(value)
+        elif field_type in ['phone', 'tel'] or 'phone' in field.lower():
+            validated_value = validate_phone(value)
+        elif field_type in ['email'] or 'email' in field.lower():
+            validated_value = validate_email(value)
+        elif field_type in ['checkbox', 'radio']:
+            validated_value = validate_checkbox_value(value)
+        else:
+            validated_value = sanitize_text_value(value)
+        
+        if validated_value is not None:
             validated[field] = validated_value
     
     return validated
+
+def validate_checkbox_value(value) -> bool:
+    """Validate checkbox/radio button values"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.lower() in ['true', 'yes', '1', 'on', 'checked']
+    return bool(value)
+
+def sanitize_text_value(value) -> str:
+    """Sanitize text values"""
+    if value is None:
+        return ""
+    return str(value).strip()
 
 def validate_date(date_str: str) -> Optional[str]:
     """Validate and format date"""

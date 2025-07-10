@@ -121,6 +121,11 @@ class AppServiceProvider extends ServiceProvider
             }
             return new \App\Services\DocumentIntelligenceService();
         });
+
+        // Register DocuSeal Template Discovery Service
+        $this->app->singleton(\App\Services\DocuSeal\DocuSealTemplateDiscoveryService::class, function ($app) {
+            return new \App\Services\DocuSeal\DocuSealTemplateDiscoveryService();
+        });
         
         // Medical Terminology Service
         $this->app->singleton(\App\Services\MedicalTerminologyService::class, function ($app) {

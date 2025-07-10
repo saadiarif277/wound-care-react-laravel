@@ -2,7 +2,8 @@
   "compilerOptions": {
     "allowJs": true,
     "module": "ESNext",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
+    "types": [],
     "jsx": "react-jsx",
     "strict": true,
     "isolatedModules": true,

@@ -49,10 +49,16 @@ export function setupAxios() {
     axios.defaults.headers.common['Accept'] = 'application/json';
     axios.defaults.headers.common['Content-Type'] = 'application/json';
 
-    // Axios will automatically handle the XSRF-TOKEN cookie.
-    // No need to manually set X-CSRF-TOKEN or X-XSRF-TOKEN here.
+    // Set CSRF token from meta tag for Laravel
+    const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+    if (csrfToken) {
+        axios.defaults.headers.common['X-CSRF-TOKEN'] = csrfToken;
+        console.log('🔐 CSRF token set from meta tag:', csrfToken.substring(0, 10) + '...');
+    } else {
+        console.warn('⚠️ No CSRF token found in meta tag!');
+    }
 
-    // Add request interceptor to handle DocuSeal's specific auth
+    // Add request interceptor to handle DocuSeal's specific auth and CSRF tokens
     axios.interceptors.request.use(
         async config => {
             const docuSealRegex = /(?:^https?:\/\/)?(?:[^\/]*\.)?docuseal\.com/i;
@@ -61,6 +67,7 @@ export function setupAxios() {
             if (isDocusealRequest) {
                 // Remove Laravel-specific headers that Docuseal does not expect
                 delete config.headers['X-Requested-With'];
+                delete config.headers['X-CSRF-TOKEN'];
 
                 // Ensure JSON accept header
                 config.headers['Accept'] = 'application/json';
@@ -72,6 +79,15 @@ export function setupAxios() {
                 }
                 if (dsToken) {
                     config.headers['Authorization'] = `Bearer ${dsToken}`;
+                }
+            } else {
+                // For Laravel requests, ensure CSRF token is fresh
+                const csrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+                if (csrfToken) {
+                    config.headers['X-CSRF-TOKEN'] = csrfToken;
+                    console.log('🔄 Fresh CSRF token added to request:', csrfToken.substring(0, 10) + '...', 'for URL:', config.url);
+                } else {
+                    console.warn('⚠️ No fresh CSRF token available for request to:', config.url);
                 }
             }
             return config;
@@ -90,10 +106,16 @@ export function setupAxios() {
                 console.log('Session expired (401), redirecting to login...');
                 window.location.href = '/login';
             } else if (status === 419) {
-                // CSRF token mismatch, usually indicates an expired session state.
-                // The safest action is to reload the page to get a fresh session and token.
-                console.log('CSRF token mismatch (419), reloading page...');
-                window.location.reload();
+                // CSRF token mismatch, try to refresh the token first
+                console.warn('CSRF token mismatch (419), refreshing token...');
+                const newCsrfToken = (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content;
+                if (newCsrfToken) {
+                    axios.defaults.headers.common['X-CSRF-TOKEN'] = newCsrfToken;
+                    console.log('CSRF token refreshed, you can retry the request');
+                } else {
+                    console.error('Could not find fresh CSRF token, page reload may be needed');
+                }
+                // Don't auto-reload - let the application handle the error gracefully
             }
             return Promise.reject(error);
         }

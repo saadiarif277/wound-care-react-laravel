@@ -809,6 +809,32 @@ Route::prefix('v1/ai')->middleware(['web'])->group(function () {
         ->name('api.ai.agent.status');
 });
 
+// Insurance AI Assistant Routes
+Route::prefix('v1/insurance-ai')->middleware(['web'])->group(function () {
+    Route::post('/start', [\App\Http\Controllers\Api\InsuranceAIController::class, 'startConversation'])
+        ->name('api.insurance-ai.start')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/message', [\App\Http\Controllers\Api\InsuranceAIController::class, 'sendMessage'])
+        ->name('api.insurance-ai.message')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/form-assistance', [\App\Http\Controllers\Api\InsuranceAIController::class, 'getFormAssistance'])
+        ->name('api.insurance-ai.form-assistance')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/recommendations', [\App\Http\Controllers\Api\InsuranceAIController::class, 'getPersonalizedRecommendations'])
+        ->name('api.insurance-ai.recommendations')
+        ->middleware('permission:create-product-requests');
+    
+    Route::post('/voice-mode', [\App\Http\Controllers\Api\InsuranceAIController::class, 'enableVoiceMode'])
+        ->name('api.insurance-ai.voice-mode')
+        ->middleware('permission:create-product-requests');
+    
+    Route::get('/status', [\App\Http\Controllers\Api\InsuranceAIController::class, 'getStatus'])
+        ->name('api.insurance-ai.status');
+});
+
 // QuickRequest AI Routes - using Sanctum for SPA authentication
 Route::prefix('quick-request')->middleware(['auth:sanctum'])->group(function () {
     Route::post('/generate-ivr', [\App\Http\Controllers\Api\V1\QuickRequestController::class, 'generateIVR'])

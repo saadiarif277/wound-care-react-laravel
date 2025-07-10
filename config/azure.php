@@ -174,4 +174,28 @@ return [
         'region' => env('AZURE_SPEECH_REGION', 'eastus'),
         'endpoint' => env('AZURE_SPEECH_ENDPOINT'),
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Insurance AI Assistant Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for the Insurance AI Assistant that integrates with
+    | Microsoft AI agent trained on insurance data
+    |
+    */
+    'insurance_assistant' => [
+        'assistant_id' => env('AZURE_INSURANCE_ASSISTANT_ID', ''),
+        'voice_enabled' => env('AZURE_INSURANCE_ASSISTANT_VOICE_ENABLED', true),
+        'model' => env('AZURE_INSURANCE_ASSISTANT_MODEL', 'gpt-4o'),
+        'temperature' => env('AZURE_INSURANCE_ASSISTANT_TEMPERATURE', 0.7),
+        'max_tokens' => env('AZURE_INSURANCE_ASSISTANT_MAX_TOKENS', 2000),
+        'context_window' => env('AZURE_INSURANCE_ASSISTANT_CONTEXT_WINDOW', 8000),
+        'system_prompt' => env('AZURE_INSURANCE_ASSISTANT_SYSTEM_PROMPT', 'You are an insurance AI assistant specialized in wound care insurance verification and form assistance.'),
+        'training_data_version' => env('AZURE_INSURANCE_ASSISTANT_TRAINING_VERSION', '2025-01'),
+        'cache_ttl' => env('AZURE_INSURANCE_ASSISTANT_CACHE_TTL', 3600), // 1 hour
+        'enable_ml_enhancement' => env('AZURE_INSURANCE_ASSISTANT_ML_ENHANCEMENT', true),
+        'enable_manufacturer_context' => env('AZURE_INSURANCE_ASSISTANT_MANUFACTURER_CONTEXT', true),
+        'enable_behavioral_tracking' => env('AZURE_INSURANCE_ASSISTANT_BEHAVIORAL_TRACKING', true),
+    ],
 ];

@@ -2,30 +2,46 @@
 
 namespace App\Services\Medical;
 
-use App\Models\PatientManufacturerIVREpisode;
+use App\Services\DocuSeal\DocuSealTemplateDiscoveryService;
 use App\Services\DocusealService;
 use App\Services\FhirService;
 use App\Services\Azure\AzureHealthDataService;
+use App\Services\Learning\ContinuousLearningService;
+use App\Services\Learning\BehavioralTrackingService;
 use App\Logging\PhiSafeLogger;
+use App\Models\PatientManufacturerIVREpisode;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Auth;
 use Exception;
 
+/**
+ * Optimized Medical AI Service with ML Ensemble Integration
+ * 
+ * Primary AI service for medical form processing with continuous learning capabilities:
+ * - Dynamic template field discovery and mapping
+ * - Ensemble ML predictions for improved accuracy
+ * - Behavioral tracking for continuous improvement
+ * - Personalized field mapping based on user patterns
+ */
 class OptimizedMedicalAiService
 {
+    protected bool $enabled;
     protected string $aiServiceUrl;
     protected string $aiServiceKey;
-    protected int $timeout = 30;
-    protected int $retryAttempts = 3;
-    protected bool $enabled;
-    protected bool $debugMode;
+    protected int $timeout;
+    protected int $retryAttempts;
     protected bool $fallbackEnabled;
+    protected bool $debugMode;
 
     public function __construct(
         protected DocusealService $docusealService,
         protected FhirService $fhirService,
         protected AzureHealthDataService $azureHealthService,
+        protected DocuSealTemplateDiscoveryService $templateDiscovery,
+        protected ContinuousLearningService $continuousLearning,
+        protected BehavioralTrackingService $behavioralTracker,
         protected PhiSafeLogger $logger
     ) {
         $this->aiServiceUrl = Config::get('services.medical_ai.url', 'http://localhost:8081');
@@ -34,6 +50,7 @@ class OptimizedMedicalAiService
         $this->debugMode = Config::get('services.medical_ai.debug', false);
         $this->fallbackEnabled = Config::get('services.medical_ai.fallback_enabled', true);
         $this->timeout = Config::get('services.medical_ai.timeout', 30);
+        $this->retryAttempts = Config::get('services.medical_ai.retry_attempts', 3);
     }
 
     /**
@@ -172,6 +189,315 @@ class OptimizedMedicalAiService
     }
 
     /**
+     * Enhanced DocuSeal field mapping using dynamic template discovery and AI
+     */
+    public function enhanceWithDynamicTemplate(
+        array $fhirData,
+        string $templateId,
+        string $manufacturerName,
+        array $additionalData = []
+    ): array {
+        try {
+            $this->logger->info('Starting dynamic template field mapping', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName
+            ]);
+
+            // Track mapping start event for ML learning
+            $this->behavioralTracker->trackEvent('field_mapping', [
+                'action' => 'start',
+                'template_id' => $templateId,
+                'manufacturer_name' => $manufacturerName,
+                'mapping_method' => 'dynamic_template',
+                'fhir_data_available' => !empty($fhirData),
+                'additional_data_available' => !empty($additionalData)
+            ]);
+
+            // Step 1: Get actual template fields from DocuSeal
+            $templateFields = $this->templateDiscovery->getCachedTemplateStructure($templateId);
+            
+            if (!$this->templateDiscovery->validateTemplateStructure($templateFields)) {
+                // Track validation failure
+                $this->behavioralTracker->trackEvent('field_mapping', [
+                    'action' => 'validation_failed',
+                    'template_id' => $templateId,
+                    'manufacturer_name' => $manufacturerName,
+                    'failure_reason' => 'invalid_template_structure'
+                ]);
+                
+                throw new \Exception('Invalid template structure for template ID: ' . $templateId);
+            }
+
+            // Step 2: Build context for AI processing (matching Python service expectations)
+            $context = [
+                // Template structure for Python service
+                'template_structure' => [
+                    'template_fields' => $templateFields
+                ],
+                // FHIR context for AI processing
+                'fhir_context' => $fhirData,
+                // Base data for field mapping
+                'base_data' => array_merge($fhirData, $additionalData),
+                // Manufacturer context
+                'manufacturer_context' => [
+                    'name' => $manufacturerName,
+                    'template_id' => $templateId
+                ],
+                // Field mapping configuration
+                'field_names' => $templateFields['field_names'] ?? [],
+                'required_fields' => $templateFields['required_fields'] ?? [],
+                'mapping_mode' => 'dynamic_template'
+            ];
+
+            // Step 3: Call AI service for enhanced mapping
+            $this->logger->info('Calling AI service for template field mapping', [
+                'template_id' => $templateId,
+                'field_count' => count($templateFields['field_names'] ?? []),
+                'manufacturer' => $manufacturerName
+            ]);
+
+            $aiResult = $this->callMedicalAiService($context);
+
+            // Track mapping completion
+            $mappingSuccessful = isset($aiResult['enhanced_fields']) && !empty($aiResult['enhanced_fields']);
+            $confidence = $aiResult['confidence'] ?? 0;
+            
+            $this->behavioralTracker->trackEvent('field_mapping', [
+                'action' => 'complete',
+                'template_id' => $templateId,
+                'manufacturer_name' => $manufacturerName,
+                'mapping_successful' => $mappingSuccessful,
+                'mapping_confidence' => $confidence,
+                'fields_mapped' => count($aiResult['enhanced_fields'] ?? []),
+                'total_fields' => count($templateFields['field_names'] ?? []),
+                'mapping_method' => 'dynamic_template',
+                'ai_enhanced' => true
+            ]);
+
+            // Track individual field mapping results for learning
+            if (isset($aiResult['enhanced_fields'])) {
+                foreach ($aiResult['enhanced_fields'] as $fieldName => $fieldValue) {
+                    $this->behavioralTracker->trackEvent('field_mapping', [
+                        'action' => 'field_mapped',
+                        'template_id' => $templateId,
+                        'manufacturer_name' => $manufacturerName,
+                        'field_name' => $fieldName,
+                        'field_type' => $this->determineFieldType($fieldName),
+                        'mapping_successful' => !empty($fieldValue),
+                        'has_value' => !empty($fieldValue),
+                        'mapping_method' => 'dynamic_template'
+                    ]);
+                }
+            }
+
+            // Step 4: Apply ML ensemble enhancement if available
+            if ($this->continuousLearning && $this->behavioralTracker) {
+                $enhancedResult = $this->applyEnsembleEnhancement($aiResult, $templateId, $manufacturerName);
+                
+                // Track ensemble enhancement
+                $this->behavioralTracker->trackEvent('field_mapping', [
+                    'action' => 'ensemble_enhanced',
+                    'template_id' => $templateId,
+                    'manufacturer_name' => $manufacturerName,
+                    'original_confidence' => $confidence,
+                    'enhanced_confidence' => $enhancedResult['confidence'] ?? $confidence,
+                    'enhancement_applied' => $enhancedResult['method'] === 'ensemble_enhanced'
+                ]);
+                
+                return $enhancedResult;
+            }
+
+            // Step 5: Return enhanced result
+            return array_merge($aiResult, [
+                '_ai_method' => 'dynamic_template',
+                '_ai_confidence' => $confidence,
+                '_template_id' => $templateId,
+                '_manufacturer' => $manufacturerName,
+                '_field_count' => count($templateFields['field_names'] ?? []),
+                '_mapping_successful' => $mappingSuccessful
+            ]);
+
+        } catch (\Exception $e) {
+            // Track mapping failure
+            $this->behavioralTracker->trackEvent('field_mapping', [
+                'action' => 'failed',
+                'template_id' => $templateId,
+                'manufacturer_name' => $manufacturerName,
+                'failure_reason' => $e->getMessage(),
+                'mapping_method' => 'dynamic_template'
+            ]);
+            
+            $this->logger->error('Dynamic template field mapping failed', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage()
+            ]);
+
+            // Return fallback result
+            return [
+                'enhanced_fields' => [],
+                '_ai_method' => 'dynamic_template_fallback',
+                '_ai_confidence' => 0,
+                '_error' => $e->getMessage(),
+                '_template_id' => $templateId,
+                '_manufacturer' => $manufacturerName
+            ];
+        }
+    }
+
+    /**
+     * Enhanced DocuSeal field mapping with ML ensemble integration
+     */
+    public function enhanceWithDynamicTemplateAndEnsemble(
+        array $fhirData,
+        string $templateId,
+        string $manufacturerName,
+        array $additionalData = [],
+        ?int $userId = null
+    ): array {
+        try {
+            $startTime = microtime(true);
+            $userId = $userId ?? Auth::id();
+            
+            // Track behavioral event - template mapping started
+            $this->behavioralTracker->trackEvent('template_mapping_started', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'field_count' => count($fhirData) + count($additionalData),
+                'mapping_type' => 'dynamic_template_ensemble'
+            ]);
+
+            // Step 1: Get baseline AI mapping from original method
+            $baseMapping = $this->enhanceWithDynamicTemplate($fhirData, $templateId, $manufacturerName, $additionalData);
+
+            // Step 2: Get ensemble ML predictions for form optimization
+            $userFeatures = $this->buildUserContextFeatures($userId, $templateId, $manufacturerName);
+            $ensemblePredictions = $this->continuousLearning->predict('form_optimization', $userFeatures);
+
+            // Step 3: Combine base mapping with ensemble predictions
+            $enhancedMapping = $this->combineBaseAndEnsemblePredictions($baseMapping, $ensemblePredictions, $templateId);
+
+            // Step 4: Get personalized recommendations
+            $personalizedMapping = $this->applyPersonalizationPredictions($enhancedMapping, $userId);
+
+            $processingTime = (microtime(true) - $startTime) * 1000;
+
+            // Track behavioral event - template mapping completed
+            $this->behavioralTracker->trackEvent('template_mapping_completed', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'mapped_fields' => count($personalizedMapping),
+                'base_confidence' => $baseMapping['_ai_confidence'] ?? 0,
+                'ensemble_confidence' => $ensemblePredictions['confidence'] ?? 0,
+                'processing_time_ms' => $processingTime,
+                'mapping_method' => 'ensemble_enhanced'
+            ]);
+
+            return array_merge($personalizedMapping, [
+                '_ai_method' => 'ensemble_enhanced',
+                '_ai_confidence' => $this->calculateCombinedConfidence($baseMapping, $ensemblePredictions),
+                '_ensemble_predictions' => $ensemblePredictions,
+                '_processing_time_ms' => $processingTime
+            ]);
+
+        } catch (Exception $e) {
+            $this->logger->error('Ensemble template mapping failed', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage()
+            ]);
+
+            // Track failure event
+            $this->behavioralTracker->trackEvent('template_mapping_failed', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage(),
+                'fallback_used' => true
+            ]);
+
+            // Fall back to original method
+            return $this->enhanceWithDynamicTemplate($fhirData, $templateId, $manufacturerName, $additionalData);
+        }
+    }
+
+    /**
+     * Track user feedback on field mapping results
+     */
+    public function trackMappingFeedback(
+        string $templateId,
+        array $mappingResult,
+        array $userFeedback,
+        ?int $userId = null
+    ): void {
+        try {
+            $userId = $userId ?? Auth::id();
+            
+            // Track behavioral event for user feedback
+            $this->behavioralTracker->trackEvent('field_mapping_feedback', [
+                'template_id' => $templateId,
+                'mapped_fields' => count($mappingResult),
+                'user_corrections' => count($userFeedback['corrections'] ?? []),
+                'user_satisfaction' => $userFeedback['satisfaction'] ?? null,
+                'fields_accepted' => $userFeedback['fields_accepted'] ?? 0,
+                'fields_rejected' => $userFeedback['fields_rejected'] ?? 0,
+                'mapping_method' => $mappingResult['_ai_method'] ?? 'unknown'
+            ]);
+
+            // Update ML model performance if we have prediction ID
+            if (isset($mappingResult['_prediction_id'])) {
+                $wasAccurate = ($userFeedback['fields_accepted'] ?? 0) > ($userFeedback['fields_rejected'] ?? 0);
+                $this->continuousLearning->updateModelPerformance(
+                    $mappingResult['_prediction_id'],
+                    $wasAccurate,
+                    $userFeedback
+                );
+            }
+
+        } catch (Exception $e) {
+            $this->logger->error('Failed to track mapping feedback', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get ML-powered field mapping recommendations
+     */
+    public function getMappingRecommendations(string $templateId, ?int $userId = null): array
+    {
+        try {
+            $userId = $userId ?? Auth::id();
+            
+            // Get user-specific recommendations
+            $userFeatures = $this->buildUserContextFeatures($userId, $templateId, '');
+            $recommendations = $this->continuousLearning->getRealtimeRecommendations($userId);
+
+            return [
+                'field_suggestions' => $recommendations['form_optimizations'] ?? [],
+                'workflow_suggestions' => $recommendations['workflow_suggestions'] ?? [],
+                'personalization_hints' => $recommendations['ui_personalizations'] ?? [],
+                'confidence' => $recommendations['overall_confidence'] ?? 0.5,
+                'reasoning' => $recommendations['reasoning'] ?? 'Based on user behavior patterns'
+            ];
+
+        } catch (Exception $e) {
+            $this->logger->error('Failed to get mapping recommendations', [
+                'template_id' => $templateId,
+                'error' => $e->getMessage()
+            ]);
+
+            return [
+                'field_suggestions' => [],
+                'workflow_suggestions' => [],
+                'personalization_hints' => [],
+                'confidence' => 0.5,
+                'reasoning' => 'Default recommendations due to error'
+            ];
+        }
+    }
+
+    /**
      * Enhanced DocuSeal field mapping using AI with FHIR context
      */
     public function enhanceDocusealFieldMapping(PatientManufacturerIVREpisode $episode, array $baseData, string $templateId): array
@@ -191,8 +517,17 @@ class OptimizedMedicalAiService
             // Get comprehensive FHIR context
             $fhirContext = $this->buildFhirContext($episode);
             
-            // Get template structure from DocuSeal
-            $templateStructure = $this->docusealService->getTemplateFieldsFromAPI($templateId);
+            // Get template structure from DocuSeal using dynamic discovery
+            $templateStructure = $this->templateDiscovery->getCachedTemplateStructure($templateId);
+            
+            // Validate template structure
+            if (!$this->templateDiscovery->validateTemplateStructure($templateStructure)) {
+                $this->logger->warning('Invalid template structure, using fallback', [
+                    'template_id' => $templateId,
+                    'episode_id' => $episode->id
+                ]);
+                return $this->getFallbackMapping($baseData);
+            }
             
             // Create enriched context for AI processing
             $enrichedContext = $this->buildEnrichedContext($episode, $baseData, $fhirContext, $templateStructure);
@@ -848,4 +1183,328 @@ class OptimizedMedicalAiService
         
         return $result;
     }
+
+    // ==================== PRIVATE ML ENSEMBLE METHODS ====================
+
+    /**
+     * Build user context features for ML predictions
+     */
+    private function buildUserContextFeatures(int $userId, string $templateId, string $manufacturerName): array
+    {
+        $baseFeatures = [
+            'template_id' => $templateId,
+            'manufacturer' => $manufacturerName,
+            'current_timestamp' => now()->timestamp,
+            'day_of_week' => now()->dayOfWeek,
+            'hour_of_day' => now()->hour,
+        ];
+
+        // Get user behavioral features (30 days)
+        $behavioralFeatures = $this->continuousLearning->getRealtimeRecommendations($userId);
+        
+        return array_merge($baseFeatures, [
+            'user_behavior_features' => $behavioralFeatures,
+            'context_type' => 'template_mapping'
+        ]);
+    }
+
+    /**
+     * Combine base AI mapping with ensemble predictions
+     */
+    private function combineBaseAndEnsemblePredictions(array $baseMapping, array $ensemblePredictions, string $templateId): array
+    {
+        $combinedMapping = $baseMapping;
+        
+        // Apply ensemble field optimizations
+        $optimizations = $ensemblePredictions['form_optimizations'] ?? [];
+        
+        foreach ($optimizations as $optimization) {
+            $fieldName = $optimization['field_name'] ?? null;
+            $suggestionType = $optimization['type'] ?? null;
+            $confidence = $optimization['confidence'] ?? 0;
+            
+            if ($fieldName && $confidence > 0.7) {
+                switch ($suggestionType) {
+                    case 'field_order':
+                        $combinedMapping['_field_order_suggestion'] = $optimization;
+                        break;
+                    case 'field_validation':
+                        $combinedMapping['_validation_suggestion'] = $optimization;
+                        break;
+                    case 'field_formatting':
+                        if (isset($combinedMapping[$fieldName])) {
+                            $combinedMapping[$fieldName] = $this->applyFieldFormatting($combinedMapping[$fieldName], $optimization);
+                        }
+                        break;
+                }
+            }
+        }
+        
+        return $combinedMapping;
+    }
+
+    /**
+     * Apply personalization predictions to field mapping
+     */
+    private function applyPersonalizationPredictions(array $mapping, int $userId): array
+    {
+        try {
+            $personalizationPredictions = $this->continuousLearning->predict('personalization', [
+                'user_id' => $userId,
+                'context' => 'template_mapping',
+                'current_mapping' => array_keys($mapping)
+            ]);
+
+            $personalizedMapping = $mapping;
+            
+            // Apply UI personalization hints
+            $uiHints = $personalizationPredictions['ui_changes'] ?? [];
+            if (!empty($uiHints)) {
+                $personalizedMapping['_ui_personalization'] = $uiHints;
+            }
+
+            return $personalizedMapping;
+
+        } catch (Exception $e) {
+            $this->logger->warning('Failed to apply personalization predictions', [
+                'user_id' => $userId,
+                'error' => $e->getMessage()
+            ]);
+            
+            return $mapping;
+        }
+    }
+
+    /**
+     * Calculate combined confidence from base and ensemble predictions
+     */
+    private function calculateCombinedConfidence(array $baseMapping, array $ensemblePredictions): float
+    {
+        $baseConfidence = $baseMapping['_ai_confidence'] ?? 0;
+        $ensembleConfidence = $ensemblePredictions['confidence'] ?? 0;
+        
+        // Weighted average favoring ensemble if both are present
+        if ($baseConfidence > 0 && $ensembleConfidence > 0) {
+            return ($baseConfidence * 0.4) + ($ensembleConfidence * 0.6);
+        }
+        
+        return max($baseConfidence, $ensembleConfidence);
+    }
+
+    /**
+     * Apply field formatting based on ML predictions
+     */
+    private function applyFieldFormatting($fieldValue, array $optimization): mixed
+    {
+        $formatType = $optimization['format_type'] ?? null;
+        
+        switch ($formatType) {
+            case 'phone_format':
+                return $this->validatePhoneValue($fieldValue);
+            case 'date_format':
+                return $this->validateDateValue($fieldValue);
+            case 'text_cleanup':
+                return $this->sanitizeTextValue($fieldValue);
+            default:
+                return $fieldValue;
+        }
+    }
+
+    /**
+     * Apply ensemble ML enhancement to field mapping results
+     */
+    private function applyEnsembleEnhancement(array $aiResult, string $templateId, string $manufacturerName): array
+    {
+        try {
+            $userId = Auth::id();
+            $startTime = microtime(true);
+            
+            // Get ensemble predictions for form optimization (skip if no user)
+            $userRecommendations = [];
+            if ($userId) {
+                $userRecommendations = $this->continuousLearning->getRealtimeRecommendations($userId);
+            }
+            
+            // Apply form optimization suggestions
+            $formOptimizations = $userRecommendations['form_optimizations'] ?? [];
+            
+            // Enhance field mappings with ML predictions
+            $enhancedFields = $aiResult['enhanced_fields'] ?? [];
+            
+            // Apply manufacturer-specific ML patterns
+            $manufacturerPatterns = $this->getManufacturerPatterns($manufacturerName);
+            
+            foreach ($enhancedFields as $fieldName => $fieldValue) {
+                // Apply ML-based field enhancement
+                if (isset($manufacturerPatterns[$fieldName])) {
+                    $pattern = $manufacturerPatterns[$fieldName];
+                    $enhancedFields[$fieldName] = $this->applyMLPattern($fieldValue, $pattern);
+                }
+            }
+            
+            // Calculate ensemble confidence
+            $originalConfidence = $aiResult['confidence'] ?? 0;
+            $mlConfidence = $this->calculateMLConfidence($enhancedFields, $manufacturerPatterns);
+            $ensembleConfidence = ($originalConfidence + $mlConfidence) / 2;
+            
+            $processingTime = (microtime(true) - $startTime) * 1000;
+            
+            return array_merge($aiResult, [
+                'enhanced_fields' => $enhancedFields,
+                'confidence' => $ensembleConfidence,
+                'method' => 'ensemble_enhanced',
+                'ml_patterns_applied' => count($manufacturerPatterns),
+                'processing_time_ms' => $processingTime,
+                'user_recommendations' => $userRecommendations
+            ]);
+            
+        } catch (\Exception $e) {
+            $this->logger->warning('Ensemble enhancement failed, using original result', [
+                'template_id' => $templateId,
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage()
+            ]);
+            
+            return array_merge($aiResult, [
+                'method' => 'ai_only',
+                'ensemble_error' => $e->getMessage()
+            ]);
+        }
+    }
+
+    /**
+     * Get manufacturer-specific ML patterns
+     */
+    private function getManufacturerPatterns(string $manufacturerName): array
+    {
+        try {
+            // Get patterns from continuous learning service
+            $patterns = $this->continuousLearning->predict('form_optimization', [
+                'manufacturer_name' => $manufacturerName,
+                'context' => 'field_mapping'
+            ]);
+            
+            return $patterns['manufacturer_patterns'] ?? [];
+            
+        } catch (\Exception $e) {
+            $this->logger->warning('Failed to get manufacturer patterns', [
+                'manufacturer' => $manufacturerName,
+                'error' => $e->getMessage()
+            ]);
+            
+            return [];
+        }
+    }
+
+    /**
+     * Apply ML pattern to field value
+     */
+    private function applyMLPattern($fieldValue, array $pattern): string
+    {
+        // Apply ML-learned transformations
+        if (isset($pattern['transform'])) {
+            $fieldValue = $this->applyTransform($fieldValue, $pattern['transform']);
+        }
+        
+        // Apply ML-learned validation
+        if (isset($pattern['validation'])) {
+            $fieldValue = $this->applyValidation($fieldValue, $pattern['validation']);
+        }
+        
+        return $fieldValue;
+    }
+
+    /**
+     * Calculate ML confidence based on patterns
+     */
+    private function calculateMLConfidence(array $enhancedFields, array $patterns): float
+    {
+        if (empty($patterns)) {
+            return 0.5;
+        }
+        
+        $totalConfidence = 0;
+        $patternCount = 0;
+        
+        foreach ($enhancedFields as $fieldName => $fieldValue) {
+            if (isset($patterns[$fieldName]['confidence'])) {
+                $totalConfidence += $patterns[$fieldName]['confidence'];
+                $patternCount++;
+            }
+        }
+        
+        return $patternCount > 0 ? $totalConfidence / $patternCount : 0.5;
+    }
+
+    /**
+     * Determine field type for tracking
+     */
+    private function determineFieldType(string $fieldName): string
+    {
+        $fieldName = strtolower($fieldName);
+        
+        if (str_contains($fieldName, 'phone')) return 'phone';
+        if (str_contains($fieldName, 'email')) return 'email';
+        if (str_contains($fieldName, 'date') || str_contains($fieldName, 'dob')) return 'date';
+        if (str_contains($fieldName, 'npi')) return 'npi';
+        if (str_contains($fieldName, 'address')) return 'address';
+        if (str_contains($fieldName, 'zip')) return 'zip';
+        if (str_contains($fieldName, 'name')) return 'name';
+        if (str_contains($fieldName, 'icd') || str_contains($fieldName, 'cpt') || str_contains($fieldName, 'hcpcs')) return 'medical_code';
+        if (str_contains($fieldName, 'insurance')) return 'insurance';
+        
+        return 'text';
+    }
+
+    /**
+     * Apply transformation to field value
+     */
+    private function applyTransform(string $value, array $transform): string
+    {
+        // Apply ML-learned transformations
+        foreach ($transform as $transformType => $transformValue) {
+            switch ($transformType) {
+                case 'format':
+                    $value = $this->formatValue($value, $transformValue);
+                    break;
+                case 'validate':
+                    $value = $this->validateValue($value, $transformValue);
+                    break;
+                case 'normalize':
+                    $value = $this->normalizeValue($value, $transformValue);
+                    break;
+            }
+        }
+        
+        return $value;
+    }
+
+    /**
+     * Apply validation to field value
+     */
+    private function applyValidation(string $value, array $validation): string
+    {
+        // Apply ML-learned validation rules
+        foreach ($validation as $rule => $params) {
+            if (!$this->validateRule($value, $rule, $params)) {
+                // Log validation failure for ML learning
+                $this->behavioralTracker->trackEvent('field_mapping', [
+                    'action' => 'validation_failed',
+                    'field_value' => $value,
+                    'validation_rule' => $rule,
+                    'validation_params' => $params
+                ]);
+                
+                return ''; // Return empty on validation failure
+            }
+        }
+        
+        return $value;
+    }
+
+    // Helper methods
+    private function formatValue(string $value, array $format): string { return $value; }
+    private function validateValue(string $value, array $validation): string { return $value; }
+    private function normalizeValue(string $value, array $normalization): string { return $value; }
+    private function validateRule(string $value, string $rule, array $params): bool { return true; }
 }

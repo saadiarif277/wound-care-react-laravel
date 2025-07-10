@@ -100,26 +100,50 @@ class UnifiedFieldMappingService
                     $episode = \App\Models\PatientManufacturerIVREpisode::find($episodeId);
                     if ($episode) {
                         $aiService = app(\App\Services\Medical\OptimizedMedicalAiService::class);
-                        $result = $aiService->enhanceDocusealFieldMapping($episode, $additionalData, $templateId);
+                        
+                        // Get FHIR data from episode
+                        $fhirData = [];
+                        if ($episode->patient && $episode->patient->azure_fhir_id) {
+                            try {
+                                $fhirData = $this->fhirService->getPatientById($episode->patient->azure_fhir_id) ?? [];
+                            } catch (\Exception $e) {
+                                Log::warning('Failed to fetch FHIR patient data', [
+                                    'patient_fhir_id' => $episode->patient->azure_fhir_id,
+                                    'error' => $e->getMessage()
+                                ]);
+                                $fhirData = [];
+                            }
+                        }
+                        
+                        // Use dynamic template discovery instead of static mapping
+                        $result = $aiService->enhanceWithDynamicTemplate(
+                            $fhirData,
+                            $templateId,
+                            $manufacturerName,
+                            $additionalData
+                        );
                     
-                        Log::info('AI mapping completed successfully', [
+                        Log::info('Dynamic template mapping completed successfully', [
                             'episode_id' => $episodeId,
                             'manufacturer' => $manufacturerName,
                             'template_id' => $templateId,
-                            'ai_confidence' => $result['_ai_confidence'] ?? 0
+                            'mapped_fields' => count($result),
+                            'mapping_method' => 'dynamic_template'
                         ]);
                         
                         // Convert to expected format
                         return [
                             'data' => $result,
-                            'validation' => ['quality_grade' => 'ai_enhanced'],
+                            'validation' => ['quality_grade' => 'dynamic_template_enhanced'],
                             'manufacturer' => ['name' => $manufacturerName],
                             'completeness' => ['percentage' => 100],
                             'metadata' => [
                                 'episode_id' => $episodeId,
                                 'manufacturer' => $manufacturerName,
+                                'template_id' => $templateId,
                                 'mapped_at' => now()->toIso8601String(),
-                                'source' => 'ai_enhanced'
+                                'source' => 'dynamic_template',
+                                'mapping_method' => 'ai_with_template_discovery'
                             ]
                         ];
                     }
